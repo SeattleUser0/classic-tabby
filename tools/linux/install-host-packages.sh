@@ -14,9 +14,13 @@
 #   The JieLi toolchains and the WASI SDK are NOT installed here; see docs/BUILD.md
 #   (they are downloaded, hash-checked and extracted into the project's toolchains folder).
 #
-# Version: 0.1
+# Version: 0.2
 #
 # Revision log
+#   v0.2  2026-11-01  PowerShell made an optional step: if Microsoft's repo config for this
+#                     Ubuntu release is missing or the package is unavailable, print a
+#                     warning and carry on (v0.1 stopped there under set -e and never
+#                     reached Wine). Added the GitHub tar.gz alternative as a note.
 #   v0.1  2026-11-01  Initial version for Ubuntu 26.04 (resolute). Packages: git,
 #                     build-essential, python3, python3-venv, nodejs (Node LTS; nodesource
 #                     repo if already configured, otherwise the Ubuntu package), powershell
@@ -43,8 +47,15 @@ echo "== Node LTS"
 # shadows /usr/bin/node in PATH but is not required by the build.
 apt-get install -y nodejs
 
-echo "== PowerShell 7 (Microsoft apt repository)"
-if ! command -v pwsh >/dev/null 2>&1; then
+echo "== PowerShell 7 (Microsoft apt repository) — optional"
+# v0.2: optional. PowerShell is only needed for the Package.cs equivalence test
+# (tools/linux/package-pwsh.ps1); the firmware build itself uses the Python port.
+# Microsoft may not publish a repo config for a brand-new Ubuntu release. A failure here
+# must not stop the Wine step below, so this block runs in a subshell with its own set -e.
+if command -v pwsh >/dev/null 2>&1; then
+    echo "pwsh already installed: $(pwsh --version)"
+elif (
+    set -e
     tmp=$(mktemp -d)
     curl -fsSL -o "$tmp/packages-microsoft-prod.deb" \
         "https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/packages-microsoft-prod.deb"
@@ -52,6 +63,16 @@ if ! command -v pwsh >/dev/null 2>&1; then
     rm -rf "$tmp"
     apt-get update
     apt-get install -y powershell
+); then
+    echo "PowerShell installed."
+else
+    echo "WARNING: PowerShell 7 could not be installed from the Microsoft apt repository" >&2
+    echo "         (no repo config for Ubuntu ${VERSION_ID}, or no 'powershell' package yet)." >&2
+    echo "         Continuing without it. Alternative, not done here: Microsoft's tar.gz release" >&2
+    echo "         from https://github.com/PowerShell/PowerShell/releases (powershell-<ver>-linux-x64.tar.gz)," >&2
+    echo "         extracted to /opt/microsoft/powershell/7 with a symlink /usr/bin/pwsh; see docs/BUILD.md." >&2
+    # Do not leave a half-configured repo behind if the config .deb installed but the package did not.
+    rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/microsoft-prod.sources 2>/dev/null || true
 fi
 
 echo "== Wine (64-bit host + 32-bit support for the PE32 JieLi tools)"

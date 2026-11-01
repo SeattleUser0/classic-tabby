@@ -1,7 +1,11 @@
 # Classic Tabby — Specification
 
-Version: 0.1
+Version: 0.2
 Revision log:
+- v0.2, 2026-11-01: design decision recorded (section 1.1): external-synth orchestrator;
+  only the DX7 engine stays playable, from a LIVE track; on-device DX7 preset select plus
+  macro controls, voice editing moves to the workbench / SysEx import; factory DX7 bank kept
+  for now; removal candidates listed; USER region unchanged in Phase 1.
 - v0.1, 2026-11-01: created from PROJECT-BRIEF.md during Task 01 (Linux build environment).
   Scope, priorities and acceptance criteria copied from the brief. No functional firmware
   changes are specified yet; Task 01 covers the build environment only.
@@ -22,6 +26,25 @@ orchestrator for Wrong Room. It is a separate project from Orange Cat (FM-1 groo
 - Keep the firmware modular; keep the performance interface simple and fast; minimize
   dependence on computers on stage; support computer-based preparation and configuration.
 - Preserve the SMK-37's factory calibration and protected flash regions at all times.
+
+### 1.1 Design decision (2026-11-01): internal engines and on-device editing
+
+- Classic Tabby is primarily an orchestrator for external synthesizers. The internal
+  engines are not needed, **except the DX7 (6-operator FM) engine, which must stay
+  playable**.
+- The DX7 is played from a **LIVE track** (upstream track role `GROOVE_TRACK_PLAY`, shown
+  as "LIVE"), so it keeps sounding across scene and project changes.
+- On device: **DX7 preset select plus a few macro controls** (level, brightness, attack,
+  release or similar). Full voice editing moves to the workbench and to DX7 SysEx import.
+  The on-device operator editor pages (FM_EDIT / FM_ENV / FM_LFO) can go.
+- **Keep the factory DX7 bank for now.** It is the first candidate to cut if space runs
+  short.
+- Candidates for removal: the sequencer editing pages, the tone/editor pages for the other
+  five engines, and most effects pages. **Keep the sampler glue for now**; the internal
+  drum machine is still an open question.
+- **No change to the USER region in Phase 1.**
+
+The flash consequences of this decision are estimated in docs/FLASH-BUDGET.md section 4.
 
 ### Phase 1 — Minimum viable performance firmware
 

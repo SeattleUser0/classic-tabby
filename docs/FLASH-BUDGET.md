@@ -1,13 +1,19 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.1
+Version: 0.3
 Revision log:
-- v0.1, 2026-11-01: first analysis. Numbers are from the Python build port linked with the
-  native JieLi Linux toolchain in a scratch directory (Track B toolchain), because the
-  Track A (Wine) reference build is still blocked on host packages. They will be
-  regenerated from the Track A `sdk.elf` at Checkpoint A; the vendor SDK (81 % of the
-  image) is a prebuilt binary and identical in both, so only the app units (~90 KiB) can
-  move by a few hundred bytes. Read only: no source was changed for this analysis.
+- v0.3, 2026-11-01 (Checkpoint A): numbers confirmed from the Track A `sdk.elf` (Windows
+  JieLi 2.5.3 toolchain under Wine). The Track A ELF is byte-identical to the native
+  Linux toolchain build used for v0.1/v0.2, so every figure stands; Appendix A regenerated
+  with llvm-nm.exe (only difference: it prints SRAM functions as `n`, GNU nm as `t`).
+  "Preliminary" marks removed.
+- v0.2, 2026-11-01: section 4 added: Phase 1 re-estimate under the SPEC v0.2 decision
+  (DX7 stays, played from a LIVE track; operator editor UI goes; other engines' editor,
+  sequencer and most effects pages are candidates; factory bank and sampler glue kept).
+  Dependency list of app code the DX7 engine, LIVE mode and the remaining pages need.
+- v0.1, 2026-11-01: first analysis, from the Python build port linked with the native
+  JieLi Linux toolchain in a scratch directory (Track A was still blocked on host
+  packages). Read only: no source was changed for this analysis.
 
 Tools: `tools/linux/flash-budget.py` (parses `sdk.map` and `nm --print-size`; the
 generated tables in Appendix A are its output). Method notes are in the script header.
@@ -269,7 +275,77 @@ The smallest USER that keeps every current feature with an empty sample bank is
 Nothing above touches `key_mac` (0xFF000–0xFFFFF, factory calibration/MAC) or the boot
 area; neither Package.cs nor the loader ever writes them.
 
-## Appendix A — generated tables (tools/linux/flash-budget.py, native-toolchain scratch build)
+## 4. Phase 1 re-estimate under the SPEC v0.2 decision (Track A numbers, Checkpoint A)
+
+Decision (docs/SPEC.md 1.1): external-synth orchestrator; only the DX7 engine stays
+playable, from a LIVE track; on-device DX7 preset select plus a few macros; voice editing
+moves to the workbench and SysEx import; keep the factory DX7 bank and the sampler glue for
+now; no USER-region change in Phase 1. All sizes are post-link flash bytes of this image
+(screen.c functions are exact; "branch share" figures are estimates of the page-specific
+parts of the shared `apply_controls` / `draw_page_body` switches and the string table).
+
+### 4.1 What is kept, and why (do not cut)
+
+| Code | Bytes | Needed by |
+| --- | ---: | --- |
+| `app/fm_factory.c` (factory DX7 bank + decoder) | 10063 | Decision: kept for now; first cut candidate. `groove_fm_program` in fm_library.c falls back to it for programs without a user bank. |
+| `app/fm_library.c` (`groove_fm_program`, four user banks, pack/unpack, journaling) | 1618 | **DX7 preset select**: this is the program loader for voices 1–128 (user bank or factory). Bank read/write for the workbench (transfer kinds 4). |
+| `app/transfer.c`: Yamaha SysEx single-voice import (`message[1]==0x43` → `groove_fm_import`, L270-L290), transfer kinds 1 (patch) and 4 (bank), capability reply | part of 2780 | **DX7 SysEx import and workbench voice editing**. The capability reply must keep saying 128 programs and 446464 sample bytes or the stock workbench rejects the device. |
+| `app/project.c`: project records (`struct groove_preset` = patch + controls per track), session settings in the tuning sector (`session_settings_load/save`, L740-L805, track roles + input channels, restored *before* a project load), staging/journal recovery | 7934 (LTO) | **LIVE track mode persistence**: the LIVE role is stored in session settings, not in the project, and is re-applied before each load so the DX7 keeps sounding. Also scene/project loading itself. |
+| `app/midi_router.c`: input-channel → track routing honours `groove_track_role != OFF` (L330); LIVE_OUT/owner handling | 3835 | LIVE track receives keys/MIDI; external routing is Tabby's core feature. |
+| screen.c `preset_load` 372, `preset_draw` 316, `release_keys_except` 100, PRESET_BROWSER/PROJECT branches | ~1200 | Project/scene loading from the panel. `preset_load` deliberately keeps keys held on LIVE tracks across a load (L1783-L1818). |
+| screen.c SOURCE page branch (in `draw_page_body` L1302-L1319, `apply_controls` L2307-L2330), `track_modes` strings | ~900 (est.) | **This is where a track is set to LIVE** (K2: PROJECT / LIVE / OFF) and where the engine is chosen. Keep the track-mode part, or set roles programmatically from the scene config and drop the engine chooser. |
+| screen.c FM_QUICK page branches (`draw_page_body` L1286-L1290, L1457-L1459; `apply_controls` L2506-L2509; web targets L3033-L3035) | ~600 (est.) | **DX7 preset select + macros already exist here**: VOICE/BANK select, encoders → ALG (134), FEEDBACK (135), TRANSPOSE (144) and `groove_control_edit` (level). Attack/release macros can reuse `groove_adsr_edit` (SDK) that FM_ENV uses today; brightness would be new (operator output levels via `groove_fm_edit`). |
+| screen.c BLE page (`draw_ble` 1284, `ble_control` 400, `radio_line` 80) | 1764 | Bluetooth MIDI setup. |
+| screen.c shared primitives: `paint_*`, `text`, `font`, `knob`, `line`, `frame`, `header`, `leds`, `announce`, `groove_screen_init`, `groove_screen_control`, web target reporting | ~8000 | Any page. |
+| `app/samples.c` + sample transfer paths + `samples_*` in transfer.c | 1468 + part of transfer.c | Decision: sampler glue kept (drum machine undecided). |
+| `app/board/*`, `smk37_controls.c`, `audio_output.c` | ~11000 | Hardware: panel scan, LCD, audio path, control events. Test-Firmware requires the scan/wiring symbols in SRAM. |
+| SDK-required app callbacks: `fm1_app_sysex` (transfer.c), `fm1_io_trs_midi_enabled` (board), `groove_tuning_*`, `fm1_build_id`, `fm1_update_identity` | — | Build.ps1 Test-Firmware fails without them. |
+
+### 4.2 What the decision frees, page by page
+
+| Page / code | Exact page-only bytes | Branch share (est.) | Notes |
+| --- | ---: | ---: | --- |
+| **DX7 operator editor** FM_EDIT / FM_ENV / FM_LFO: `fm_draw` 2132 (algorithm diagram inlined), `fm_control` 440, `fm_parameter` 54, `fm_pages` table 308, `algorithms` table 384 | 3318 | 1000–1500 | `draw_page_body` columns for FM_EDIT/FM_ENV/FM_LFO (L1561-L1600), `apply_controls` FM branches (L2040-L2056, L2578-L2585), labels. Keep `fm_encoder_delta` (48, shared) and `groove_adsr_edit` calls if attack/release macros move to FM_QUICK. |
+| **NAME page** (on-device DX7 patch naming): `name_draw` 240 + NAME branch | 240 | ~200 | Naming moves to the workbench. `edit_character` (82) stays: the PROJECT page uses it for project names. |
+| **Other engines' editors**: TONE_EDIT (`tone_draw` 1016, `tone_control` 500, `tone_parameter` 218, `tone_label` 86, `tone_part`/`tone_slot` 74) and the non-DX7 LFO page (`track_lfo_draw` 524) | 2418 | 500–800 | Only reachable for 303/808/PSG/pluck/sampler tracks. The `GROOVE_TONE_PARAMS` API stays in the SDK. |
+| **Sequencer editing**: STEPS (`steps` 946), STEP_EDIT/RHYTHM (`edit_page_draw` 2290), step helpers (342), ACTIONS page (`actions` table 80 + branches), `seq_pages`/`seq_midi_*` tables | 3658 | 2500–3500 | The largest share of `apply_controls` (6884) and `draw_page_body` (3424) serves these pages, plus most of the 6480-byte string table. ARP_EDIT is listed under "sequencer" in the enum but the arpeggiator is a *live* feature (instrument.h L98); decide separately. |
+| **Effects pages** (`effects_draw` 676 + EFFECTS branch L2510-L2525) | 676 | 300–400 | "Most" effects pages: the shared FX / delay pages go; a track send/level control may survive as a macro. |
+| **MIX page** (`mix_draw` 424) | 424 | ~100 | Eight-track internal mixer; with one LIVE DX7 track it has nothing to mix. |
+| **OVERVIEW** (`overview` 1470, `header` 1062, hints 246) | 2778 | ~500 | Not freed: *replaced* by the scene page. Net effect depends on the new page. |
+| **SOURCE page engine chooser** (`source_names`, preview loop) | — | ~400 | Only if engines are fixed to DX7 in code; the LIVE/OFF track-mode control must stay (4.1). |
+
+Totals, excluding the OVERVIEW replacement:
+
+| | Bytes |
+| --- | ---: |
+| Exact page-only functions and tables removed (DX7 editor, NAME, other-engine editors, sequencer pages, effects, mix) | 10734 (10.5 KiB) |
+| Estimated branch share in `apply_controls` / `draw_page_body` / strings | 4.5–6.5 KiB |
+| **Freed by the decision** | **15–17 KiB** |
+| Cost of the new scene page, song/setlist page and DX7 macro page (estimate, OVERVIEW-sized UI with less text) | 5–9 KiB |
+| **Net Phase 1 headroom** | **≈ 7–12 KiB** on top of today's 29 bytes |
+| Reserve if space runs short: factory DX7 bank | +10.3 KiB (first cut per SPEC 1.1) |
+| Further reserve, not in the decision: factory demo projects (`presets.c` 1742 + `groove_factory_load` 2050) | +3.8 KiB (the PRESET_BROWSER "FACTORY" bank; unrelated to the DX7 voice bank) |
+
+The RAM side follows the same pattern: screen.c holds 10973 bytes of .bss, of which the
+7680-byte paint buffer and the band caches are needed by any page; the sequencer and
+editor state (operator/lfo/tone page arrays, clipboards) is roughly 1 KiB.
+
+### 4.3 Risks in cutting
+
+- `apply_controls` is one 6884-byte function with every page's key handling interleaved;
+  the savings there only materialise if the page branches are actually deleted, not just
+  made unreachable (the compiler cannot prove a page unreachable while `page` is a runtime
+  variable set from SysEx/web targets too: `groove_screen_open` L2926 and
+  `smk37_screen_page` L2884 accept page numbers from the workbench).
+- The workbench's simulator shares screen.c (`FM1_HOST_TEST` build). Removing pages on the
+  device removes them from the preview too, and the web-target table
+  (`groove_screen_web_*`) must stay consistent with the remaining pages.
+- Test-Firmware does not care about any of this UI code, so none of the official checks
+  constrain the cuts; the SRAM-placement rules only concern the board scan code and the
+  SDK's DSP callbacks.
+
+## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 
 ### Flash use by input (from sdk.map; .text includes rodata)
 
@@ -327,7 +403,7 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | 1470 | `overview` | app/screen.c | t |
 | 1414 | `smk37_control_event` | app/smk37_controls.c | T |
 | 1284 | `draw_ble` | app/screen.c | t |
-| 1280 | `pad_velocity` | app/board/scan.c | t |
+| 1280 | `pad_velocity` | app/board/scan.c | n |
 | 1016 | `tone_draw` | app/screen.c | t |
 | 946 | `steps` | app/screen.c | t |
 | 768 | `groove_project_poll` | app/project.c | T |

@@ -2,6 +2,10 @@
 
 Version: 0.1
 Revision log:
+- v0.2, 2026-11-01 (Checkpoint A): Wine installed, ~/.wine-jieli created, Track A build
+  done and deterministic; package versions updated; flash/RAM baseline now from Track A.
+- v0.1.2, 2026-11-01: PowerShell unavailable from Microsoft's repo for Ubuntu 26.04; pwsh
+  equivalence test deferred (left to test); tar.gz alternative noted; install script v0.2.
 - v0.1.1, 2026-11-01: added docs/FLASH-BUDGET.md reference and tools/linux/flash-budget.py.
 - v0.1, 2026-11-01: created during Task 01. Steps 1 (repo) and 2 (host packages, partly
   blocked on sudo) done; Track A port written and verified against the native toolchain in
@@ -24,13 +28,18 @@ are never written.
 - Step 2 (partial): versions recorded below. Packages that need root are not installed yet
   (sudo requires an interactive password); `tools/linux/install-host-packages.sh` is the
   reproducible installer for a clean host.
-- Step 3 (preparation): JieLi Windows toolchain 2.5.3 downloaded and unpacked with
-  innoextract (no Wine needed to extract). All 22 `external_toolchain` hashes match.
-  `tools/linux/build.py` (Python port of `sdk/Build.ps1`, option (b)) and
-  `tools/linux/package.py` (port of `sdk/Package.cs`) written. The port was exercised end
-  to end with the native Linux toolchain in a scratch directory: every Test-Firmware check
-  passes and the package writer produces a 492084-byte `.fwsc` (same size as the official
-  release). The Track A build itself waits for Wine.
+- Step 3 (Track A, **Checkpoint A reached**): JieLi Windows toolchain 2.5.3 unpacked with
+  innoextract (no Wine needed to extract); all 22 `external_toolchain` hashes match.
+  Wine 10.0 (wine64 + wine32:i386) with a dedicated prefix `~/.wine-jieli` runs
+  `clang.exe --version` (clang 4.0.1, target i686-pc-windows-msvc build), `pi32v2-ld.exe`
+  (GNU ld 2.26.51.20160621), `llvm-nm.exe` and `llvm-objcopy.exe` (LLVM 4.0.1), and accepts
+  Unix absolute paths as arguments (resolved through the `Z:` drive), so no path shim is
+  needed. Option (b) chosen: `tools/linux/build.py` is a faithful Python port of
+  `sdk/Build.ps1`; `tools/linux/package.py` ports `sdk/Package.cs`. Build time 12.6 s.
+  Every Test-Firmware check passes; outputs in `build/pro/` (log: `build/track-a.log`).
+  A second build in the same directory is bit-identical (sdk.elf e697dd67…, .fwsc b5bb4026…).
+  The Track A ELF is also byte-identical to the native Linux toolchain build (Track B
+  preview), which makes the A/B comparison in Step 5 trivial.
 - Step 4 (preparation): official V01 Pro release fetched from open.m-vave.com (metadata,
   `.fwsc`, simulator, official source kit). The official `build_id` is reproduced exactly
   from the official kit's `app/` files (see section 5).
@@ -40,10 +49,12 @@ are never written.
 
 ### Left to build
 
-- Track A reference build under Wine (needs `wine64` + `wine32:i386`; the JieLi tools are
-  32-bit PE). Then Checkpoint A.
-- Package equivalence proof (`package.py` vs `sdk/Package.cs` through `pwsh`); needs
-  PowerShell 7.
+- Package equivalence proof (`package.py` vs `sdk/Package.cs` through `pwsh`); deferred:
+  PowerShell 7 is not installable from Microsoft's apt repository on Ubuntu 26.04 yet (the
+  repo config .deb exists but carries no `powershell` package for this release). See
+  "PowerShell without the apt repo" below. The Python packager is validated meanwhile by
+  reproducing the official package byte for byte (Step 4), which exercises every code path
+  of Package.cs on the real image.
 - Determinism build in a second directory; official-kit build for byte comparison.
 - Track B build in its final location (`/opt/jieli`) and the A/B comparison.
 - Web workbench local preview with the Linux WASI SDK (`tools/linux/build-web.py`).
@@ -51,9 +62,11 @@ are never written.
 
 ### Left to test
 
-- Wine runs `clang.exe --version`, `pi32v2-ld.exe --version`, `llvm-nm.exe`, `llvm-objcopy.exe`.
-- Unix-style absolute paths passed to the Windows tools under Wine (expected to resolve
-  through the `Z:` drive; fall back to `winepath -w` if not).
+- **pwsh packaging equivalence** (`make package-equivalence`: `tools/linux/package-pwsh.ps1`
+  drives the original sdk/Package.cs via Add-Type on `build/pro/generated/app-image.bin`,
+  compared byte for byte with `tools/linux/package.py`). Skipped until PowerShell 7 is
+  available on this host.
+
 - Preview loads in Chrome and the simulator runs.
 - Hardware enumeration (read only).
 
@@ -65,10 +78,10 @@ are never written.
 | build-essential | 12.12ubuntu2.26.04.2 (gcc 15.2.0) | Ubuntu | installed |
 | python3 | 3.14.3-0ubuntu2 | Ubuntu | installed |
 | nodejs (Node LTS) | 22.23.3-1nodesource1 (`/usr/bin/node`) | nodesource repo (pre-existing) | installed; Homebrew node 25.6.1 shadows it in PATH |
-| powershell | — | Microsoft apt repo | **not installed (needs sudo)** |
-| wine64, wine32:i386 | candidate 10.0~repack-12ubuntu1 | Ubuntu | **not installed (needs sudo)** |
-| innoextract | 1.9_14 (Homebrew bottle, temporary) | Homebrew | installed via brew to unblock extraction; apt version to be installed |
-| p7zip-full | — | Ubuntu | **not installed (needs sudo)**; not needed so far |
+| powershell | — | Microsoft apt repo | **not available for Ubuntu 26.04** (repo config exists, no package); see below |
+| wine64, wine32:i386, libwine | 10.0~repack-12ubuntu1 | Ubuntu | installed; prefix `~/.wine-jieli` |
+| innoextract | 1.9-3 (apt); Homebrew 1.9_14 also present and first in PATH | Ubuntu / Homebrew | installed |
+| p7zip-full (7zip) | 26.00+dfsg-1 | Ubuntu | installed; not needed (innoextract handles 2.5.3.exe) |
 | alsa-utils | 1.2.15.2-1ubuntu1 | Ubuntu | installed |
 | google-chrome-stable | 156.0.8078.73-1 | Google apt repo (pre-existing) | installed (not snap) |
 | usbutils (lsusb) | 1:019-1 | Ubuntu | installed |
@@ -78,6 +91,24 @@ Install everything missing with:
 ```sh
 sudo bash tools/linux/install-host-packages.sh
 ```
+
+The PowerShell step is optional since script v0.2: a failure prints a warning and the
+script continues with Wine and Chrome.
+
+**PowerShell without the apt repo (not done yet).** Microsoft publishes a self-contained
+build per release on GitHub: `https://github.com/PowerShell/PowerShell/releases` →
+`powershell-<version>-linux-x64.tar.gz` (plus a `.sha256` file to verify). Install is:
+
+```sh
+sudo mkdir -p /opt/microsoft/powershell/7
+sudo tar -xzf powershell-<version>-linux-x64.tar.gz -C /opt/microsoft/powershell/7
+sudo chmod +x /opt/microsoft/powershell/7/pwsh
+sudo ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
+```
+
+It needs only libicu (already present on Ubuntu desktop) and runs Add-Type (Roslyn)
+normally, which is all `package-pwsh.ps1` requires. Record the version and SHA-256 here
+when it is installed.
 
 ## 3. Toolchains and downloads
 
@@ -146,6 +177,12 @@ linking `releases/smk37/V01-fa2b726-07f2269d67d5/`). Saved under
 | simulator wasm sha256 / bytes / source_sha256 | b8b4a463e3149f9ea46e8e460a211e391a9a14c668221903a8f510d3aca98743 / 315420 / 0f8ffc3a51a5b7477914296111f8a90db9be9a9721a1057ef61047a8df8a766a |
 | source kit | SMK37-Open-V01-Development-Kit-07f2269d67d5.zip, sha256 07f2269d67d5c4a5b130af72f4b7bc5308aa6fc7d7a75442618364f8107a4c3c |
 
+Checkpoint A result: Track A `.fwsc` is 492084 bytes (same as official), SHA-256
+b5bb4026b9c8f501cf97c6f7eea36925bb9220100295cfe06fe34b1d4f294afa, `cmp -l` against the
+official package reports 46 differing bytes (the 32-byte `fm1_build_id` plus the CRC /
+cipher bytes that depend on it). Formal Step 4 comparison (build from the official kit,
+second-directory determinism) follows Checkpoint A.
+
 Build identity finding: the identity is SHA-256 over `pro`, the manifest hash, and
 `path:sha256` of every file under `app/` (sorted). From the GitHub checkout it comes out as
 e3344029ab696c7395093fdddc5c3f949bbd47d8b605a78e6f691af664e0d12e, which does not match.
@@ -157,10 +194,10 @@ order. The kit differs from GitHub only in line endings: `app/fm_factory.c` and
 reproduction of the official package therefore needs the kit's CRLF versions of those two
 files; the GitHub tree gives the same machine code with a different identity.
 
-## 6. Flash / RAM baseline (preliminary, native toolchain scratch build)
+## 6. Flash / RAM baseline (Track A, Checkpoint A)
 
-Final numbers come from Track A at Checkpoint A. From the port's native-toolchain smoke
-build (`firmware-report.json`, `package-report.json`):
+From `build/pro/firmware-report.json` and `package-report.json` of the Track A build
+(identical to the native-toolchain build):
 
 | Quantity | Value |
 | --- | --- |
