@@ -2,6 +2,7 @@
 
 Version: 0.1
 Revision log:
+- v0.1.1, 2026-11-01: added docs/FLASH-BUDGET.md reference and tools/linux/flash-budget.py.
 - v0.1, 2026-11-01: created during Task 01. Steps 1 (repo) and 2 (host packages, partly
   blocked on sudo) done; Track A port written and verified against the native toolchain in
   a scratch build; official V01 release metadata captured; Track B toolchain pinned.
@@ -174,7 +175,9 @@ build (`firmware-report.json`, `package-report.json`):
 
 The V01 image sits at the very top of the flash layout: one more 4 KiB page of code would
 fail `Insufficient FM1 settings space` in Package.cs. This is the single most important
-constraint for Phase 1 work.
+constraint for Phase 1 work. The per-input breakdown, savings estimates and the USER-region
+layout are in [FLASH-BUDGET.md](FLASH-BUDGET.md) (generated tables:
+`tools/linux/flash-budget.py`).
 
 ## 7. Windows-specific items found in the upstream build and how they are handled
 
