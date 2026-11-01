@@ -1,0 +1,46 @@
+{
+    "schema": 1,
+    "name": "JieLi Linux toolchain jieli-linux-toolchains-20260730.1 (PI32v2 clang 4.0.1)",
+    "environment": "FM1_PI32_TOOLCHAIN",
+    "install_hint": "Extract so that <root>/common/bin/clang exists (JieLi documents /opt/jieli); raise ulimit -n to 8192 for linking.",
+    "archive": {
+        "url": "https://pkgman.jieliapp.com/s/linux-toolchain",
+        "name": "jieli-linux-toolchains-20260730.1.tar.xz",
+        "sha256": "a1545cddbc451a06bac43eb5cd96d831470c42a97c5c0b1f98879a20fc7647bd"
+    },
+    "clang_version": "clang version 4.0.1 () ()",
+    "ld_version": "GNU ld (GNU Binutils) 2.26.51.20160621",
+    "tools": {
+        "clang": "pi32v2/bin/clang",
+        "ld": "pi32v2/bin/ld",
+        "plugin": "pi32v2/bin/LLVMgold.so",
+        "nm": "pi32v2/bin/nm",
+        "objcopy": "pi32v2/bin/objcopy"
+    },
+    "files": {
+        "common/bin/LLVMgold.so": "2ca8dafde18070d6a42fc47fc2ec4723946cf3d2404ca25981de5070beb1aa12",
+        "common/bin/clang": "c45189ee624de0430deb0db02e6dce171fb5538e7fe323e3964dc8ac6236240f",
+        "common/bin/objcopy": "295151226e28891115c97262e6460a06fe67fc0753858e0df3234eb000ea6e66",
+        "common/lib/clang/4.0.1/include/__stddef_max_align_t.h": "5d26aeae66fc6f9cb969df50a2382536208f94dec476dd17239924e34550f33d",
+        "common/lib/clang/4.0.1/include/float.h": "7610148f83fac4430a3097c0471b741211d8ee3c2f0f860ea71e773f9d68c714",
+        "common/lib/clang/4.0.1/include/inttypes.h": "32b2086bc84c55b984d14bfa32e8e1c7e181541220697aa266e5e934f1ad0215",
+        "common/lib/clang/4.0.1/include/iso646.h": "938a87314be1c6c07afe46d8d4df38484c4f4c153e7d0a820ab10ecec880749a",
+        "common/lib/clang/4.0.1/include/limits.h": "bf25c7d82a41beee3f258c44664eeb179366222baa9dd2402d04b9d06620347f",
+        "common/lib/clang/4.0.1/include/stdalign.h": "9ec83bf3e2c0fb570496d782b78ae897e2044dcc93359315dadb9fd281d04e13",
+        "common/lib/clang/4.0.1/include/stdarg.h": "d259e763f1945f136c161ca033da9e2e75093f9f4d66a26f46e8ee5157dd5c62",
+        "common/lib/clang/4.0.1/include/stdatomic.h": "1597d271c409d9a8fb72585a93a53d306f4b5343251ac08f29a5d10b5ba7f325",
+        "common/lib/clang/4.0.1/include/stdbool.h": "a8b8b524c68f7241d2c3def2547a52dd0dd56dcbba33b2a1af0b70d75e2da8e3",
+        "common/lib/clang/4.0.1/include/stddef.h": "4fe29f8d1e821017f3cfc5dd56ba39160d7629a49f049e39aef8ffeeec008a60",
+        "common/lib/clang/4.0.1/include/stdint.h": "021dc659a6bfd1c0bcaa99549946e628b523847a680fd43e5804523c8f5a0103",
+        "common/lib/clang/4.0.1/include/stdnoreturn.h": "4919ed8a963bfe90fd830333718223bc3d30f24c370d70c10ef022832519f7a4",
+        "common/lib/clang/4.0.1/include/tgmath.h": "f77bb715ed59913571f681364c421b41daa85fbac4f3dee5ea7a0d8fcffae284",
+        "common/lib/clang/4.0.1/include/unwind.h": "6e7a7e97c0360486f8aab79142db44c6bbb173486778a7a60e9d64f90b1e784a",
+        "common/lib/clang/4.0.1/include/vadefs.h": "596e6acf7a19399e9a936003fd4d4bb4000f4be9afd79c1df982de2382586494",
+        "common/lib/clang/4.0.1/include/varargs.h": "0b0258d0553a64e8501c02aaf73685891784596e27f25c3a754333c28f83ff62",
+        "pi32v2/bin/LLVMgold.so": "2ca8dafde18070d6a42fc47fc2ec4723946cf3d2404ca25981de5070beb1aa12",
+        "pi32v2/bin/clang": "c45189ee624de0430deb0db02e6dce171fb5538e7fe323e3964dc8ac6236240f",
+        "pi32v2/bin/ld": "fd61aff15616bb6f6b58fd2e9ede7af741c7bf05facb3e0cb3d3c9817c268fd9",
+        "pi32v2/bin/nm": "32bee027a324bd4d561079c943d94c53fece2bfb7f1e12b5d7ce7cc7737c6ce4",
+        "pi32v2/bin/objcopy": "295151226e28891115c97262e6460a06fe67fc0753858e0df3234eb000ea6e66"
+    }
+}
