@@ -1,7 +1,11 @@
 # Classic Tabby — Specification
 
-Version: 0.2
+Version: 0.3
 Revision log:
+- v0.3, 2026-11-01: acceptance criteria 2, 5 and 8 updated to the plan change approved
+  after Checkpoint A: Track A and Track B are byte-identical, so Track B (native Linux
+  toolchain) is the default `make firmware` target and Track A stays available as
+  `make firmware-ref` (output in build/ref/) with `make crosscheck` comparing both.
 - v0.2, 2026-11-01: design decision recorded (section 1.1): external-synth orchestrator;
   only the DX7 engine stays playable, from a LIVE track; on-device DX7 preset select plus
   macro controls, voice editing moves to the workbench / SysEx import; factory DX7 bank kept
@@ -94,8 +98,9 @@ Task 01 changes no firmware behaviour. It is complete when all of the following 
    procedure (docs/BUILD.md), with every SDK manifest hash check and every synth.json check
    still enforced.
 2. Track A (reference): the exact JieLi Windows 2.5.3 toolchain, run under Wine, produces
-   `build/pro/sdk.elf`, `sdk.map`, `firmware-report.json`, `package-report.json`,
-   `build-identity.json` and `generated/SMK37_PRO_OPEN.fwsc`, and every Test-Firmware check
+   `sdk.elf`, `sdk.map`, `firmware-report.json`, `package-report.json`,
+   `build-identity.json` and `generated/SMK37_PRO_OPEN.fwsc` (in `build/ref/pro/` since
+   v0.3; `build/pro/` holds the default Track B build), and every Test-Firmware check
    passes.
 3. The Track A build identity (`build_id`) equals the official V01 release's build identity
    embedded in the hosted workbench, and the package SHA-256 / byte size either match or the
@@ -104,14 +109,16 @@ Task 01 changes no firmware behaviour. It is complete when all of the following 
    source of nondeterminism is identified.
 5. Track B (native Linux JieLi toolchain): the same source builds with a separate pinned
    toolchain manifest (tools/linux/toolchain-linux.json). Every Test-Firmware check passes,
-   SRAM placement rules hold, and code size is in the same range as Track A. Track A remains
-   the reference until the comparison is reviewed.
+   SRAM placement rules hold, and code size is in the same range as Track A. (v0.3: the two
+   tracks produce byte-identical `sdk.elf` and `.fwsc`; Track B is the default build and
+   Track A the reference that `make crosscheck` compares against.)
 6. The web workbench local preview builds with the Linux WASI SDK 27 (pinned SHA-256) and
    loads in Chrome with the simulator running.
 7. A native host test target compiles the app code with FM1_HOST_TEST and passes smoke
    tests (builds, simulator initializes, keyboard note produces the expected MIDI output on
    the expected channel).
-8. A top-level Makefile provides: verify, firmware-ref, firmware-native, web, test, clean.
+8. A top-level Makefile provides: verify, firmware (= firmware-native, Track B),
+   firmware-ref (Track A), crosscheck, web, test, clean.
 9. Hardware readiness is reported read-only (lsusb, amidi -l, aconnect -l, firmware version
    if visible). Nothing is flashed and no device data is written in Task 01.
 10. A flash/RAM baseline is recorded: app image bytes against the 0xff000 flash limit, the

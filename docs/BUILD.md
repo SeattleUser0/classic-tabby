@@ -1,7 +1,11 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.3
+Version: 0.4
 Revision log:
+- v0.4, 2026-11-01 (Step 5, Checkpoint C): Track B built from the toolchains folder (no
+  /opt/jieli); A/B comparison: byte-identical; Track B is the default `make firmware`;
+  top-level Makefile v0.1 (verify, firmware, firmware-native, firmware-ref, crosscheck,
+  flash-budget, package-equivalence, clean).
 - v0.3, 2026-11-01 (Step 4): official package reproduced byte for byte from the official
   source kit (`build.py --source-root`, v0.2); second-directory determinism result recorded;
   fork keeps LF line endings, so its build_id differs from official for that reason only.
@@ -49,8 +53,13 @@ are never written.
   `SMK37_PRO_OPEN.fwsc` **byte for byte** (SHA-256 09fc9346…, 492084 bytes, build_id
   4c9e0084…). A build of the fork in a second, different directory gives a byte-identical
   `.fwsc` and `app-image.bin`; only the ELF symbol-table strings differ (section 5).
-- Step 5 (preparation): JieLi Linux toolchain 20260730.1 downloaded, extracted and pinned in
-  `tools/linux/toolchain-linux.json` (24 files).
+- Step 5 (**done, Checkpoint C**): JieLi Linux toolchain 20260730.1 downloaded, extracted
+  and pinned in `tools/linux/toolchain-linux.json` (24 files). Used in place from
+  `~/Documents/Classic Tabby/toolchains/` (not `/opt/jieli`, which would need sudo). Track B
+  build: 4.0 s, every Test-Firmware check passes, and `sdk.elf`, `app-image.bin` and the
+  `.fwsc` are **byte-identical to Track A** (section 5a). Track B is therefore the default
+  `make firmware` target; Track A stays as `make firmware-ref` (output in `build/ref/`) and
+  `make crosscheck` builds both and compares SHA-256.
 - Step 6 (preparation): WASI SDK 27 (Linux x86_64) downloaded and extracted; SHA-256 below.
 
 ### Left to build
@@ -61,10 +70,8 @@ are never written.
   "PowerShell without the apt repo" below. The Python packager is validated meanwhile by
   reproducing the official package byte for byte (Step 4), which exercises every code path
   of Package.cs on the real image.
-- Track B build from `~/Documents/Classic Tabby/toolchains/` (not `/opt/jieli`: no sudo
-  needed) and the A/B comparison; Track B becomes the default `make firmware` target.
 - Web workbench local preview with the Linux WASI SDK (`tools/linux/build-web.py`).
-- Host test target and top-level Makefile.
+- Host test target (`make test`).
 
 ### Left to test
 
@@ -145,7 +152,20 @@ Layout after extraction:
 
 ## 4. Commands
 
-From the repository root (`~/Documents/Classic Tabby/firmware`):
+From the repository root (`~/Documents/Classic Tabby/firmware`). The Makefile (v0.1) wraps
+the commands below; every path variable can be overridden on the command line
+(`make firmware JIELI_LINUX=/opt/jieli`):
+
+```sh
+make verify           # manifest / synth.json / toolchain pin checks, both tracks
+make firmware         # default: Track B (native) -> build/pro/
+make firmware-ref     # Track A (Wine)            -> build/ref/pro/
+make crosscheck       # both, then compare SHA-256 of sdk.elf, .fwsc, app-image.bin
+make flash-budget     # build/pro/flash-budget.md (read only)
+make clean
+```
+
+The underlying commands:
 
 ```sh
 # Input checks only (SDK manifest, synth.json, toolchain pins)
@@ -249,7 +269,37 @@ order. The kit differs from GitHub only in line endings: `app/fm_factory.c` and
 reproduction of the official package therefore needs the kit's CRLF versions of those two
 files; the GitHub tree gives the same machine code with a different identity.
 
-## 6. Flash / RAM baseline (Track A, Checkpoint A)
+### 5a. Checkpoint C: Track B toolchain and the A/B comparison
+
+JieLi Linux toolchain `jieli-linux-toolchains-20260730.1` (archive SHA-256 a1545cdd…):
+
+| Tool | Path in the archive | Version |
+| --- | --- | --- |
+| clang | `common/bin/clang` (symlinked from `pi32v2/bin/clang`) | clang 4.0.1, host x86_64-linux; accepts `-target pi32v2 -mcpu=r3` (same PI32v2 clang 4.0.1 r3 target as the Windows 2.5.3 build) |
+| ld | `pi32v2/bin/ld` | GNU ld 2.26.51.20160621, targets elf32-pi32v2 / elf32-pi32v2fdpic (= pi32v2-ld.exe) |
+| LTO plugin | `common/bin/LLVMgold.so` | LLVM 4.0.1 gold plugin (= LLVMgold.dll) |
+| nm | `pi32v2/bin/nm` | GNU nm 2.26.51 (Track A uses llvm-nm 4.0.1; same symbol output for the checks) |
+| objcopy | `common/bin/objcopy` | LLVM objcopy 4.0.1 (= llvm-objcopy.exe) |
+
+File limit: JieLi's README asks for `ulimit -n 8192` or more for linking; build.py raises
+`RLIMIT_NOFILE` itself for native builds (the host default here is 524288 anyway).
+
+Comparison, same source, same flags (`make crosscheck`):
+
+| Output | Track A (Wine, reference) | Track B (native) |
+| --- | --- | --- |
+| `sdk.elf` | e697dd67a0e1bac86bc2256675bfe7c184f1a30853dd75a2c8fb8f8e07b6f697 | identical |
+| `generated/SMK37_PRO_OPEN.fwsc` | b5bb4026b9c8f501cf97c6f7eea36925bb9220100295cfe06fe34b1d4f294afa | identical |
+| `generated/app-image.bin` | 5a1a46825af608e352f30bd8ddba9c2c3d3bb09f3ef463d95fbbb44261af7301 | identical |
+| section sizes / symbol placement / Test-Firmware | .text 377920, .ram0_data 75940, .ram0_bss 191356, .boot_info 52, .cache_ram_data 32; all checks pass | identical (same ELF) |
+| build time | 12.6 s | 4.0 s |
+
+The two toolchains are the same LLVM 4.0.1 / binutils 2.26.51 sources built for Windows
+and Linux, so byte identity is plausible and was confirmed. Track B is the default
+`make firmware`; Track A remains the reference and `make crosscheck` re-verifies identity
+after any change to the build script or toolchain pins.
+
+## 6. Flash / RAM baseline (Track A and Track B, identical)
 
 From `build/pro/firmware-report.json` and `package-report.json` of the Track A build
 (identical to the native-toolchain build):
@@ -275,7 +325,8 @@ layout are in [FLASH-BUDGET.md](FLASH-BUDGET.md) (generated tables:
 
 | Item | Where | Handling |
 | --- | --- | --- |
-| PowerShell 5.1 host (`powershell` in build.bat) | build.bat, sdk/Build.ps1, tools/Build-Web.ps1 | Build.ps1 ported to `tools/linux/build.py`; Build-Web.ps1 port pending (Step 6) |
+| PowerShell 5.1 host (`powershell` in build.bat) | build.bat, sdk/Build.ps1, tools/Build-Web.ps1 | Build.ps1 ported to `tools/linux/build.py`; Build-Web.ps1 port pending (Step 6); top-level Makefile replaces build.bat |
+| `/opt/jieli` install location and `ulimit -n` | JieLi Linux toolchain README | used in place from the toolchains folder (`--toolchain`), RLIMIT_NOFILE raised by build.py |
 | C# packager loaded with Add-Type | sdk/Package.cs | Ported to `tools/linux/package.py`; `tools/linux/package-pwsh.ps1` runs the original under pwsh for the equivalence test |
 | `.exe` tool names and `LLVMgold.dll` plugin | Build.ps1 L36, L241, L307, L422, L436 | Track A keeps the names and runs them through Wine; Track B maps them in toolchain-linux.json |
 | `StartsWith($sdk + '\')` manifest path check | Build.ps1 L342 | `os.sep` prefix check |
