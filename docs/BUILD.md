@@ -1,7 +1,11 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.7
+Version: 0.8
 Revision log:
+- v0.8, 2026-11-02 (Task 02): publication. `build.py` v0.3 ports `-Package`; `make package`,
+  `hosted`, `release-assets`, `publish`, `release` (Makefile v0.4); `tools/linux/publish-pages.py`
+  v0.1 (Build-Hosted.cjs + gh-pages); section 9 with the published hashes, Pages URL and the
+  tag rule for the GPL source link. Section 7 rows for Build-Web.ps1 and Build-Hosted.cjs updated.
 - v0.7, 2026-11-01 (Step 8, end of Task 01): hardware readiness recorded read-only
   (section 8); no udev rule needed for Chrome WebMIDI/SysEx; the plugged-in device
   enumerates as "Orange Cat FM-1", not as an M-VAVE SMK-37 (open question).
@@ -51,7 +55,11 @@ are never written.
   firmware-ref, crosscheck, web, web-smoke, host-smoke, test, flash-budget,
   package-equivalence, clean.
 - Step 8 (**done, read only**): USB and ALSA enumeration recorded in section 8. Nothing
-  was sent to or written on any device.
+  was sent to or written on any device. Resolved 2026-11-02: the user confirmed the
+  plugged-in device is the Orange Cat FM-1; the SMK-37 Pro was not connected.
+- Task 02 (**done**, 2026-11-02): `make package` builds the distribution workbench with the
+  firmware and stock V16 embedded, `make publish` puts the static site on GitHub Pages, and
+  the tabby-v01.0 release carries the files. Section 9.
 - Step 2 (partial): versions recorded below. Packages that need root are not installed yet
   (sudo requires an interactive password); `tools/linux/install-host-packages.sh` is the
   reproducible installer for a clean host.
@@ -194,6 +202,11 @@ make web-smoke        # /usr/bin/node tests/simulator-wasm-smoke.mjs build/web/s
 make host-smoke       # gcc build of app + simulator sources with FM1_HOST_TEST, runs tests/host/smoke.c
 make test             # host-smoke + web-smoke
 make flash-budget     # build/pro/flash-budget.md (read only)
+make package          # Task 02: firmware + build/official-web/pro/SMK37-Open-Source.html (FM1_SOURCE_URL = archive of TAG)
+make hosted           # static site from it with tools/Build-Hosted.cjs -> build/hosted/pro/
+make release-assets   # build/release/<TAG>/: .fwsc, offline HTML, SHA256SUMS.txt
+make publish          # package + hosted + commit/push the site to gh-pages (HEAD must carry TAG)
+make release          # gh release create TAG with docs/releases/<TAG>.md and the release assets
 make clean
 ```
 
@@ -418,7 +431,7 @@ nothing was written to any device.
 
 | Item | Where | Handling |
 | --- | --- | --- |
-| PowerShell 5.1 host (`powershell` in build.bat) | build.bat, sdk/Build.ps1, tools/Build-Web.ps1 | Build.ps1 ported to `tools/linux/build.py`; Build-Web.ps1 port pending (Step 6); top-level Makefile replaces build.bat |
+| PowerShell 5.1 host (`powershell` in build.bat) | build.bat, sdk/Build.ps1, tools/Build-Web.ps1 | Build.ps1 ported to `tools/linux/build.py` (including `-Package` since v0.3); Build-Web.ps1 ported to `tools/linux/build-web.py`; top-level Makefile replaces build.bat |
 | `/opt/jieli` install location and `ulimit -n` | JieLi Linux toolchain README | used in place from the toolchains folder (`--toolchain`), RLIMIT_NOFILE raised by build.py |
 | C# packager loaded with Add-Type | sdk/Package.cs | Ported to `tools/linux/package.py`; `tools/linux/package-pwsh.ps1` runs the original under pwsh for the equivalence test |
 | `.exe` tool names and `LLVMgold.dll` plugin | Build.ps1 L36, L241, L307, L422, L436 | Track A keeps the names and runs them through Wine; Track B maps them in toolchain-linux.json |
@@ -430,6 +443,77 @@ nothing was written to any device.
 | `curl.exe`, `tar.exe`, Windows WASI SDK (`wasi-sdk-27.0-x86_64-windows.tar.gz`, `bin/clang.exe`) | Build-Web.ps1 L42-L62 | `tools/linux/build-web.py`: Linux archive pinned (b7d4d944…), `curl` / `tar` from the Ubuntu archive, `bin/clang`; set `FM1_WASI_SDK` to skip the download |
 | .NET `LastWriteTimeUtc.Ticks` in the wasm cache stamp; `\\?\` long-path prefix | Build-Web.ps1 L64-L68 | size + mtime_ns stamp; no prefix needed |
 | `[Net.WebUtility]::HtmlEncode` | Build-Web.ps1 L128, L141 | re-implemented with the same rules in build-web.py |
-| `tools/Build-Hosted.cjs` run by Node | hosting step | not needed for the preview; `/usr/bin/node` v22.23.3 recorded for the tests |
+| `tools/Build-Hosted.cjs` run by Node | hosting step (HOSTING.md) | unchanged; run by `tools/linux/publish-pages.py` with `/usr/bin/node` v22.23.3 (section 9) |
+| `ConvertTo-Json -Depth 4 -Compress` package metadata passed as a command-line argument | Build.ps1 L454-L458 | build.py writes the same compact JSON, same key order, to `build/<model>/web-package.json` and passes the path (1.6 MB of base64 would exceed a safe argv) |
 | CRLF in the official kit's app files | official source zip | Documented in section 5; the fork keeps LF and therefore a different build_id; no change to app/ |
 | Absolute source paths in the ELF symbol table | Build.ps1 L360-L370 (compile command) | Same behaviour on Linux; package unaffected (section 5, determinism) |
+
+## 9. Publication (Task 02, 2026-11-02)
+
+### 9.1 What is published
+
+| Item | Where | Value |
+| --- | --- | --- |
+| Repository | https://github.com/SeattleUser0/classic-tabby (public) | branch `classic-tabby/linux-build`, tags `upstream-v01` (= b2d6bcb, M-VAVE's V01) and `tabby-v01.0`; remote `upstream` stays m-vave/smk37_open |
+| Source archive (GPL offer) | https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v01.0.zip | the tree of the tagged commit; embedded in the workbench as the "Source and SDK" link |
+| Firmware package | `build/pro/generated/SMK37_PRO_OPEN.fwsc` | SHA-256 b5bb4026b9c8f501cf97c6f7eea36925bb9220100295cfe06fe34b1d4f294afa, 492084 bytes, build_id e3344029ab696c7395093fdddc5c3f949bbd47d8b605a78e6f691af664e0d12e (same as Task 01) |
+| Offline workbench | `build/official-web/pro/SMK37-Open-Source.html` | SHA-256 462de137213a338662bc1ef77a1c89e4eaee6350bbc050b7daf5f0ffcaa7ff36, 2628842 bytes; embeds the firmware above and the stock `SMK37-Pro-V16.fwsc` (2d98ce72…, 705252 bytes, loader ef1f2db8…); simulator b8b4a463… (official) |
+| Static site | `build/hosted/pro/` → branch `gh-pages` → https://seattleuser0.github.io/classic-tabby/ | `index.html` = `smk37-workbench.html` (291993 bytes), 9 assets under `assets/smk37/` named by SHA-256 (3 scripts with SRI, firmware .bin, stock .bin, simulator .wasm), `SMK37-Open-Source.html` as the offline download, `assets.json`, `.nojekyll`; initial load 928312 bytes |
+| GitHub release | https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v01.0 | `SMK37_PRO_OPEN.fwsc`, `SMK37-Open-Source.html`, `SHA256SUMS.txt`; notes in `docs/releases/tabby-v01.0.md` |
+
+The package build is deterministic in the same way as the firmware: the HTML embeds only
+the source URL, the compact package JSON, the simulator and the notice files, none of which
+depend on the commit id, so a rebuild from the tagged commit gives the same SHA-256.
+
+### 9.2 Procedure for a new version (`make publish`)
+
+1. Commit everything. Tag the commit that will be built: `git tag -a tabby-v01.1 -m ...`
+   and push the tag first (`git push origin tabby-v01.1`), so the archive URL exists.
+2. `make publish TAG=tabby-v01.1`. This runs, in order:
+   - `make package`: `build.py --package` (v0.3) compiles with Track B, packages the `.fwsc`,
+     checks the stock V16 image against its pinned SHA-256, writes
+     `build/pro/web-package.json` (the exact `const FM1_PACKAGE` text, same key order as
+     Build.ps1's `ConvertTo-Json -Compress`), runs `build-web.py --package-json` with
+     `FM1_SOURCE_URL = https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/<TAG>.zip`,
+     and writes `build/pro/web-package-report.json`. Build.ps1 L282-L288 and L439-L463.
+   - `make hosted`: `publish-pages.py` checks the page's source link, runs
+     `tools/Build-Hosted.cjs` into a fresh `build/hosted/pro/` and adds `.nojekyll`.
+   - `publish-pages.py --tag <TAG> --push`: refuses unless HEAD carries the tag, the tree is
+     clean and the tag is on origin with the same id; then checks out `gh-pages` in the
+     worktree `build/gh-pages/` (created as an orphan branch the first time), replaces the
+     site, commits ("Pages: <TAG> (build …)") and pushes with `gh auth git-credential` as a
+     one-command credential helper (no global git config is changed). Without a git
+     identity configured, the author of HEAD is used.
+3. `make release TAG=tabby-v01.1` after writing `docs/releases/tabby-v01.1.md`: gathers
+   `build/release/<TAG>/` (`.fwsc`, offline HTML, `SHA256SUMS.txt`) and runs
+   `gh release create --verify-tag`.
+4. GitHub Pages serves the `gh-pages` branch root (enabled once with
+   `gh api -X POST repos/SeattleUser0/classic-tabby/pages -f build_type=legacy -f source[branch]=gh-pages -f source[path]=/`).
+   Nothing is built on GitHub; the toolchains stay local.
+
+Only the Pro model is published, at the site root. An Elite site would go in a
+subdirectory (`--site-dir elite`), as HOSTING.md asks for separate directories.
+
+### 9.3 Checks made before publishing
+
+- Repository content: every path ever committed is under app/, docs/, sdk/, tests/,
+  third_party/, tools/, web/ or the top-level files; no toolchains/, official-release/ or
+  build/ entry in any commit (`git log --all --name-only`); every blob in the history
+  scanned for token/key patterns (GitHub, AWS, Slack, PEM) and secret-looking file names:
+  none.
+- Static site in headless Chrome 156 from a local HTTP server: no console errors, the
+  simulator placeholder hidden, scripts and wasm fetched from `assets/smk37/`, source link
+  `https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v01.0.zip`.
+- `file://` opening of `index.html` redirects to the offline `SMK37-Open-Source.html`
+  (Build-Hosted.cjs entry loader), as HOSTING.md describes.
+
+### 9.4 What the install screen shows for the SMK-37 Pro
+
+Device update tab, before connecting: Firmware **SMK37 Pro Open**, Version **V01**,
+Firmware details: size **480.6 KiB**, build number **e3344029ab696c73** (the full build_id
+is the tooltip). After "Connect device" the identity line shows the device's own name:
+`SMK-37 Pro_016` for factory V16 (status "Device and current firmware recognized. To
+migrate, click Enable force flash and reconnect."), or `SMK-37 Pro_8000001` for an
+installed Open V01 (status "SMK37 OPEN connected. Ready to update", or "This version is
+already installed" when the device reports the same build_id). An `Orange Cat FM-1` or any
+other identity is not the target device.

@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.3
+Version: 0.4
 Revision log:
+- v0.4, 2026-11-02: section 5 added: Task 02 (publication to GitHub, GitHub Pages and a
+  GitHub release) with its acceptance criteria. No firmware change.
 - v0.3, 2026-11-01: acceptance criteria 2, 5 and 8 updated to the plan change approved
   after Checkpoint A: Track A and Track B are byte-identical, so Track B (native Linux
   toolchain) is the default `make firmware` target and Track A stays available as
@@ -136,3 +138,26 @@ Task 01 changes no firmware behaviour. It is complete when all of the following 
 - Reuse of the M-VAVE web communication and project-transfer protocol.
 - Hardware reliability tests (stuck notes, rapid scene changes, clock sync, interrupted
   transfers).
+
+## 5. Task 02 — publication (acceptance criteria)
+
+Task 02 publishes the unmodified Task 01 build so the firmware can be installed from
+Chrome. It changes no firmware behaviour. It is complete when:
+
+1. The repository is public at github.com/SeattleUser0/classic-tabby with the
+   `classic-tabby/linux-build` branch and the `upstream-v01` tag pushed; `upstream` still
+   points at m-vave/smk37_open. No file from toolchains/, official-release/ or build/ and no
+   key or token is in the history.
+2. `make package` ports `build.bat pro --package`: `build/official-web/pro/
+   SMK37-Open-Source.html` with the firmware and the pinned stock V16 image embedded, and
+   its source link is the GitHub archive of a tag placed on the exact commit that was built.
+3. `make hosted` / `make publish` run tools/Build-Hosted.cjs and publish the static site to
+   GitHub Pages from the gh-pages branch; nothing is built in CI. The page opens at
+   https://seattleuser0.github.io/classic-tabby/, identifies the SMK-37 Pro, and its source
+   link downloads the tagged archive.
+4. A GitHub release for the tag carries SMK37_PRO_OPEN.fwsc, the offline
+   SMK37-Open-Source.html and SHA256SUMS.txt, with notes stating the build ID, the
+   build-identity-only difference from the official V01, and that the build is not
+   hardware-validated.
+5. `make publish` repeats package, hosted and the gh-pages update for future versions, and
+   docs/BUILD.md section 9 documents it. Nothing is flashed or sent to any device.

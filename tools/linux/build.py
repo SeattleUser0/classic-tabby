@@ -12,7 +12,10 @@ Purpose
       * the same input checks (sdk/manifest.json hashes, synth.json contract, SDK file
         set) and the same post-link Test-Firmware checks, ported function by function;
       * the same .fwsc packaging (sdk/Package.cs ported to tools/linux/package.py, with an
-        optional pwsh Add-Type path for equivalence testing).
+        optional pwsh Add-Type path for equivalence testing);
+      * the same -Package distribution path (v0.3): build/official-web/<model>/
+        SMK37-Open-Source.html with the firmware and the stock V16 restore image
+        embedded, assembled by tools/linux/build-web.py.
 
     Two toolchain "tracks" are supported:
 
@@ -36,10 +39,20 @@ Usage (from the repository root)
         --toolchain-kind wine --toolchain ~/Documents/Classic\\ Tabby/toolchains/jieli-2.5.3/C\\$/JL/pi32
     python3 tools/linux/build.py --model pro --firmware-only --toolchain-kind native --toolchain /opt/jieli
     python3 tools/linux/build.py --verify-only [--toolchain-kind ... --toolchain ...]
+    FM1_SOURCE_URL=https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip \
+        python3 tools/linux/build.py --model pro --package --toolchain-kind native --toolchain ...
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-02  --package ported (Build.ps1 -Package, L282-L288 and L439-L463, Task 02):
+                      the .fwsc is packaged, the pinned stock V16 restore image is embedded
+                      next to it in build/<model>/web-package.json (same key order as the
+                      upstream ConvertTo-Json -Compress output), tools/linux/build-web.py
+                      is run with --package-json and --source-url (FM1_SOURCE_URL), and
+                      build/<model>/web-package-report.json is written. The package JSON
+                      goes through a file instead of the command line because its base64
+                      payloads are about 1.5 MB, well past a safe argv size.
     v0.2  2026-11-01  --source-root: build a different checkout (e.g. the official source
                       kit tree) with this script, so the official package can be reproduced
                       byte for byte without copying tools/linux into that tree (Step 4).
@@ -79,6 +92,26 @@ def set_source_root(path):
 
 sys.path.insert(0, str(HERE))
 import package as fm1_package  # noqa: E402  (tools/linux/package.py, port of sdk/Package.cs)
+
+
+# Stock (factory) V16 restore images embedded by -Package (Build.ps1 L444-L453). The
+# SHA-256 doubles as the stock build_id in the workbench metadata. The loader hash is the
+# shared vendor loader (sdk/tools/pack/ota.bin) that both production boards use.
+STOCK_V16 = {
+    "pro": {"name": "Pro", "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"},
+    "elite": {"name": "Elite", "sha256": "b2ee38abfef3ae922e4eecdb8a551e14345300ae6f270265feacd33b6ef99cb6"},
+}
+STOCK_LOADER_SHA256 = "ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541"
+
+
+def validate_source_url(url):
+    """Build.ps1 L282-L288 / Build-Web.ps1 L105-L109: absolute https URL, no credentials,
+    no line breaks. Returns the URL unchanged or raises."""
+    if not url or not url.strip():
+        raise BuildError("Set FM1_SOURCE_URL or --source-url to the HTTPS URL of the matching source archive, without credentials.")
+    if re.search(r"[\r\n]", url) or not re.match(r"^https://([^/@\s]+)(/.*)?$", url):
+        raise BuildError("Set FM1_SOURCE_URL or --source-url to the HTTPS URL of the matching source archive, without credentials.")
+    return url
 
 
 class BuildError(Exception):
@@ -604,7 +637,7 @@ def build_firmware(args, log):
         if (build / "generated" / name).exists():
             (build / "generated" / name).unlink()
     if args.package:
-        raise BuildError("-Package (web integration) is not ported in build.py v0.1; build the workbench with tools/linux/build-web.py.")
+        validate_source_url(args.source_url)   # L282-L288: fail before compiling anything
 
     # Release identity from app/version.h (L290-L302).
     version_header = (ROOT / "app/version.h").read_text(encoding="utf-8")
@@ -735,15 +768,74 @@ def build_firmware(args, log):
     report = test_firmware(toolchain, build, variant, synth, extra, log)
     if args.firmware_only:
         package_firmware(toolchain, build, model, variant, firmware_product, args.packager, log)
+    if args.package:
+        package_firmware(toolchain, build, model, variant, firmware_product, args.packager, log)
+        package_web(build, model, variant, profile, release_version, firmware_product, build_identity, args, log)
     log("Firmware: %s" % (build / "sdk.elf"))
     return report
+
+
+# ---- -Package: workbench with embedded firmware (Build.ps1 L439-L463) ------------------------
+def package_web(build, model, variant, profile, release_version, firmware_product, build_identity, args, log):
+    """Embed the freshly packaged .fwsc and the pinned stock V16 image into the workbench.
+
+    Writes build/<model>/web-package.json (the exact text that becomes `const FM1_PACKAGE`
+    in the HTML), runs tools/linux/build-web.py --package-json, and writes
+    build/<model>/web-package-report.json like Build.ps1 L459-L463. Key order follows the
+    upstream [ordered] hashtables so the embedded JSON matches a Windows build apart from
+    the payload itself."""
+    import base64
+    package_file = build / "generated" / ("SMK37_%s_OPEN.fwsc" % model.upper())
+    package_bytes = package_file.read_bytes()
+    stock = STOCK_V16[model]
+    stock_file = SDK / "firmware" / ("SMK37-%s-V16.fwsc" % stock["name"])
+    if not stock_file.is_file() or sha256_file(stock_file) != stock["sha256"]:
+        raise BuildError("Factory V016 firmware differs from the official M-VAVE download.")
+    stock_bytes = stock_file.read_bytes()
+    stock_meta = {"schema": 1, "kind": "stock", "product": "SMK-37 %s_016" % stock["name"], "model": model,
+                  "profile": "SMK37 %s Original V16" % stock["name"], "family": variant["update_family"],
+                  "release_version": "V16", "build_id": stock["sha256"], "sha256": stock["sha256"],
+                  "bytes": len(stock_bytes), "loader_sha256": STOCK_LOADER_SHA256,
+                  "data": base64.b64encode(stock_bytes).decode("ascii")}
+    web_package = {"schema": 1, "product": firmware_product, "profile": profile, "family": variant["update_family"],
+                   "release_version": release_version, "build_id": build_identity, "sha256": sha256_file(package_file),
+                   "bytes": len(package_bytes), "loader_sha256": sha256_file(SDK / "tools/pack/ota.bin"),
+                   "hardware_validated": False, "data": base64.b64encode(package_bytes).decode("ascii"),
+                   "model": model, "stock": stock_meta}
+    package_json = build / "web-package.json"
+    package_json.write_bytes(json.dumps(web_package, separators=(",", ":")).encode("ascii"))
+    log("Package metadata: %s (firmware %d bytes, stock V16 %d bytes)" % (package_json, len(package_bytes), len(stock_bytes)))
+    # Build-Web.ps1 is invoked as a child script upstream (L458); same here, with -I so the
+    # interpreter ignores the environment and the current directory.
+    command = [sys.executable, "-I", str(HERE / "build-web.py"), "--package-json", str(package_json),
+               "--source-url", args.source_url]
+    if args.wasi_sdk:
+        command += ["--wasi-sdk", args.wasi_sdk]
+    log("Run build-web.py --package-json")
+    result = subprocess.run(command, cwd=str(ROOT))
+    if result.returncode != 0:
+        raise BuildError("tools/linux/build-web.py failed (exit %d)." % result.returncode)
+    web = load_json(ROOT / "build/web/web-report.json")
+    if "sha256" not in web:
+        raise BuildError("build-web.py did not report an integrated workbench.")
+    write_text(build / "web-package-report.json", to_json({
+        "integrated": True, "firmware_sha256": sha256_file(package_file), "web_sha256": web["sha256"],
+        "release_version": release_version, "build_id": build_identity, "simulator_sha256": web["simulator_sha256"],
+        "simulator_source_sha256": web["simulator_source_sha256"], "simulator_bytes": web["simulator_bytes"],
+        "hardware_validated": False, "board_access": False}))
+    log("Distribution: %s" % web["file"])
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Linux port of sdk/Build.ps1 (SMK37 Open firmware build).")
     parser.add_argument("--model", choices=("pro", "elite"), default="pro")
     parser.add_argument("--firmware-only", action="store_true", help="also write the .fwsc package (Build.ps1 -FirmwareOnly)")
-    parser.add_argument("--package", action="store_true", help="Build.ps1 -Package (not ported in v0.1)")
+    parser.add_argument("--package", action="store_true",
+                        help="Build.ps1 -Package: firmware + workbench with the firmware and stock V16 embedded (v0.3)")
+    parser.add_argument("--source-url", default=os.environ.get("FM1_SOURCE_URL"),
+                        help="--package: HTTPS URL of the matching source archive (FM1_SOURCE_URL)")
+    parser.add_argument("--wasi-sdk", default=os.environ.get("FM1_WASI_SDK") or None,
+                        help="--package: extracted WASI SDK 27 for the simulator (FM1_WASI_SDK; see build-web.py)")
     parser.add_argument("--toolchain-kind", choices=("wine", "native"), default=os.environ.get("FM1_TOOLCHAIN_KIND", "wine"))
     parser.add_argument("--toolchain", default=os.environ.get("FM1_PI32_TOOLCHAIN"),
                         help="Track A: pi32 directory with bin/clang.exe (FM1_PI32_TOOLCHAIN). Track B: JieLi Linux toolchain root, e.g. /opt/jieli")

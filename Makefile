@@ -21,7 +21,18 @@
 #     make flash-budget      docs tables from the current build/<MODEL>/ (read only)
 #     make package-equivalence  Package.cs (pwsh) vs package.py byte comparison; skipped
 #                            with a message when pwsh is not installed
-#     make clean             remove build/
+#     make package           distribution build (= build.bat pro --package): firmware plus
+#                            build/official-web/<MODEL>/SMK37-Open-Source.html with the
+#                            firmware and the stock V16 image embedded; the page links to
+#                            FM1_SOURCE_URL (the GitHub archive of TAG)           [Task 02]
+#     make hosted            static site from that HTML (tools/Build-Hosted.cjs) into
+#                            build/hosted/<MODEL>, not committed anywhere
+#     make release-assets    build/release/<TAG>/: .fwsc, offline HTML, SHA256SUMS.txt
+#     make publish           package + hosted + commit the site to gh-pages and push it to
+#                            origin (HEAD must carry TAG, tree clean, TAG already pushed)
+#     make release           GitHub release for TAG with the release assets attached
+#                            (needs docs/releases/<TAG>.md as the notes)
+#     make clean             remove build/ (also detaches the gh-pages worktree)
 #
 #   Nothing here touches device flash. Factory calibration and protected flash regions
 #   are never written. Flashing is done by the user through the workbench.
@@ -32,9 +43,12 @@
 #       make firmware JIELI_LINUX=/opt/jieli
 #       make firmware-ref WINEPREFIX=$HOME/.wine-jieli
 #
-# Version: 0.3
+# Version: 0.4
 #
 # Revision log
+#   v0.4  2026-11-02  Task 02: package, hosted, release-assets, publish and release targets;
+#                     GITHUB_REPO, TAG, FM1_SOURCE_URL, PAGES_URL variables. clean also
+#                     removes the gh-pages worktree registration.
 #   v0.3  2026-11-01  Step 7: host-smoke (native $(CC) build of the app + simulator sources
 #                     with FM1_HOST_TEST, tests/host/smoke.c) and test (= host-smoke +
 #                     web-smoke).
@@ -64,11 +78,22 @@ WINEPREFIX  ?= $(HOME)/.wine-jieli
 # Step 6: extracted Linux x86_64 WASI SDK 27 (bin/clang, share/wasi-sysroot).
 FM1_WASI_SDK ?= $(TOOLCHAINS)/wasi-sdk-27.0-x86_64-linux
 
+# Task 02: publication. The workbench's GPL source link must name the archive of the exact
+# tag that was built, so TAG is both the git tag and the archive name. Override for a new
+# version:  make publish TAG=tabby-v01.1   (after committing and tagging that commit).
+GITHUB_REPO    ?= SeattleUser0/classic-tabby
+TAG            ?= tabby-v01.0
+FM1_SOURCE_URL ?= https://github.com/$(GITHUB_REPO)/archive/refs/tags/$(TAG).zip
+PAGES_URL      ?= https://seattleuser0.github.io/classic-tabby/
+PACKAGE_HTML   := build/official-web/$(MODEL)/SMK37-Open-Source.html
+FWSC           := build/$(MODEL)/generated/SMK37_$(shell echo $(MODEL) | tr a-z A-Z)_OPEN.fwsc
+
 BUILD      := tools/linux/build.py
 NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"
 
-.PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence clean
+.PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
+        package hosted release-assets publish release clean
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -80,7 +105,7 @@ HOST_FLAGS := -std=c11 -O1 -g -fwrapv -fno-fast-math -ffp-contract=off -DFM1_HOS
               -Iweb/engine -Iweb/synth -Ithird_party/synth -Isdk/include -Iapp/synth -Iapp
 
 help:
-	@sed -n '7,30p' Makefile | sed 's/^#   //; s/^#//'
+	@sed -n '7,43p' Makefile | sed 's/^#   //; s/^#//'
 
 verify:
 	$(PYTHON) -I $(BUILD) --verify-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
@@ -139,5 +164,32 @@ package-equivalence:
 	    cmp build/$(MODEL)/generated/pwsh.fwsc build/$(MODEL)/generated/SMK37_$(shell echo $(MODEL) | tr a-z A-Z)_OPEN.fwsc && echo "package.py == Package.cs (byte identical)"; \
 	else echo "SKIPPED: pwsh not installed (see docs/BUILD.md, PowerShell without the apt repo)."; fi
 
+# ---- Task 02: distribution package, static site, GitHub Pages and release ----------------
+package:
+	FM1_WASI_SDK="$(FM1_WASI_SDK)" $(PYTHON) -I $(BUILD) --model $(MODEL) --package --toolchain-kind native \
+	    --toolchain "$(JIELI_LINUX)" --source-url "$(FM1_SOURCE_URL)"
+	@echo "Distribution: $(PACKAGE_HTML)  (source link: $(FM1_SOURCE_URL))"
+
+hosted:
+	NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --source-url "$(FM1_SOURCE_URL)"
+
+release-assets:
+	@test -f "$(FWSC)" -a -f "$(PACKAGE_HTML)" || { echo "run 'make package' first"; exit 1; }
+	rm -rf "build/release/$(TAG)"; mkdir -p "build/release/$(TAG)"
+	cp "$(FWSC)" "$(PACKAGE_HTML)" "build/release/$(TAG)/"
+	cd "build/release/$(TAG)" && sha256sum SMK37_*_OPEN.fwsc SMK37-Open-Source.html > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+publish: package hosted
+	NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --tag "$(TAG)" \
+	    --source-url "$(FM1_SOURCE_URL)" --push
+	@echo "Pages: $(PAGES_URL)  (GitHub deploys the gh-pages branch within a minute or two)"
+
+release: release-assets
+	@test -f "docs/releases/$(TAG).md" || { echo "write docs/releases/$(TAG).md first"; exit 1; }
+	gh release create "$(TAG)" --repo "$(GITHUB_REPO)" --verify-tag --title "$(TAG)" \
+	    --notes-file "docs/releases/$(TAG).md" "build/release/$(TAG)/"*
+
 clean:
+	git worktree remove --force build/gh-pages 2>/dev/null || true
 	rm -rf build
+	git worktree prune
