@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.4
+Version: 0.5
 Revision log:
+- v0.5, 2026-11-01 (Step 6): web workbench preview built with the Linux WASI SDK 27
+  (`tools/linux/build-web.py`); simulator wasm byte-identical to the official release;
+  preview verified in Chrome; Node check of the wasm; Makefile v0.2 (web, web-smoke).
 - v0.4, 2026-11-01 (Step 5, Checkpoint C): Track B built from the toolchains folder (no
   /opt/jieli); A/B comparison: byte-identical; Track B is the default `make firmware`;
   top-level Makefile v0.1 (verify, firmware, firmware-native, firmware-ref, crosscheck,
@@ -60,7 +63,16 @@ are never written.
   `.fwsc` are **byte-identical to Track A** (section 5a). Track B is therefore the default
   `make firmware` target; Track A stays as `make firmware-ref` (output in `build/ref/`) and
   `make crosscheck` builds both and compares SHA-256.
-- Step 6 (preparation): WASI SDK 27 (Linux x86_64) downloaded and extracted; SHA-256 below.
+- Step 6 (**done**): `tools/linux/build-web.py` ports `tools/Build-Web.ps1`; with the
+  pinned Linux WASI SDK 27 (`FM1_WASI_SDK`, SHA-256 below) it builds
+  `build/web/simulator.wasm` in 10 s and `build/preview/index.html` (1031406 bytes).
+  The wasm is **byte-identical to the official V01 simulator** (b8b4a463…, 315420
+  bytes). The preview loads in Google Chrome 156 (headless check: no console errors, the
+  loading placeholder is hidden, the simulator generated 149 LCD targets and shows
+  "Eight-track overview 01" with status "Browser preview · no device"; also opened in the
+  desktop Chrome). `tests/simulator-wasm-smoke.mjs` run by `/usr/bin/node` (v22.23.3)
+  boots the same wasm, presses key 12 and sees Note On 60 / Note Off 60 on MIDI channel 1
+  on all three ports (section 5b).
 
 ### Left to build
 
@@ -70,7 +82,6 @@ are never written.
   "PowerShell without the apt repo" below. The Python packager is validated meanwhile by
   reproducing the official package byte for byte (Step 4), which exercises every code path
   of Package.cs on the real image.
-- Web workbench local preview with the Linux WASI SDK (`tools/linux/build-web.py`).
 - Host test target (`make test`).
 
 ### Left to test
@@ -80,7 +91,6 @@ are never written.
   compared byte for byte with `tools/linux/package.py`). Skipped until PowerShell 7 is
   available on this host.
 
-- Preview loads in Chrome and the simulator runs.
 - Hardware enumeration (read only).
 
 ## 2. Host packages (Ubuntu 26.04.1 LTS "resolute", kernel 7.0.0-42-generic)
@@ -90,7 +100,7 @@ are never written.
 | git | 1:2.53.0-1ubuntu1.1 | Ubuntu | installed |
 | build-essential | 12.12ubuntu2.26.04.2 (gcc 15.2.0) | Ubuntu | installed |
 | python3 | 3.14.3-0ubuntu2 | Ubuntu | installed |
-| nodejs (Node LTS) | 22.23.3-1nodesource1 (`/usr/bin/node`) | nodesource repo (pre-existing) | installed; Homebrew node 25.6.1 shadows it in PATH |
+| nodejs (Node LTS) | 22.23.3-1nodesource1 (`/usr/bin/node`, v22.23.3) | nodesource repo (pre-existing) | installed; Homebrew node 25.6.1 shadows it in PATH, so the Makefile calls `/usr/bin/node` explicitly (`NODE=`) |
 | powershell | — | Microsoft apt repo | **not available for Ubuntu 26.04** (repo config exists, no package); see below |
 | wine64, wine32:i386, libwine | 10.0~repack-12ubuntu1 | Ubuntu | installed; prefix `~/.wine-jieli` |
 | innoextract | 1.9-3 (apt); Homebrew 1.9_14 also present and first in PATH | Ubuntu / Homebrew | installed |
@@ -161,6 +171,8 @@ make verify           # manifest / synth.json / toolchain pin checks, both track
 make firmware         # default: Track B (native) -> build/pro/
 make firmware-ref     # Track A (Wine)            -> build/ref/pro/
 make crosscheck       # both, then compare SHA-256 of sdk.elf, .fwsc, app-image.bin
+make web              # build/web/simulator.wasm + build/preview/index.html (Linux WASI SDK 27)
+make web-smoke        # /usr/bin/node tests/simulator-wasm-smoke.mjs build/web/simulator.wasm
 make flash-budget     # build/pro/flash-budget.md (read only)
 make clean
 ```
@@ -180,6 +192,11 @@ python3 tools/linux/build.py --model pro --firmware-only --toolchain-kind wine \
 # Track B: native Linux toolchain, pinned by tools/linux/toolchain-linux.json
 python3 tools/linux/build.py --model pro --firmware-only --toolchain-kind native \
     --toolchain "$HOME/Documents/Classic Tabby/toolchains/jieli-linux/jieli-linux-toolchains-20260730.1"
+
+# Step 6: web workbench local preview (= tools\Build-Web.ps1 -LocalPreview)
+FM1_WASI_SDK="$HOME/Documents/Classic Tabby/toolchains/wasi-sdk-27.0-x86_64-linux" \
+    python3 tools/linux/build-web.py --local-preview
+google-chrome "file://$PWD/build/preview/index.html"
 
 # Step 4: build another checkout (here: the official source kit, copied to a scratch dir)
 # with this script and its own build directory. build.py v0.2.
@@ -299,6 +316,22 @@ and Linux, so byte identity is plausible and was confirmed. Track B is the defau
 `make firmware`; Track A remains the reference and `make crosscheck` re-verifies identity
 after any change to the build script or toolchain pins.
 
+### 5b. Step 6: web workbench preview and the official simulator
+
+| Output | Value |
+| --- | --- |
+| `build/web/simulator.wasm` | SHA-256 **b8b4a463e3149f9ea46e8e460a211e391a9a14c668221903a8f510d3aca98743**, 315420 bytes: identical to the official V01 simulator (`official-metadata.json` and the extracted `simulator-official.wasm`) |
+| simulator `source_sha256` (fork, LF) | 78bda82981a96b36bb5de10a2c4febe6ffc5308e21fa827ebf10fef8e7589d9a |
+| simulator `source_sha256` (official kit) | 0f8ffc3a51a5b7477914296111f8a90db9be9a9721a1057ef61047a8df8a766a — reproduced from the kit tree; the difference to the fork is CRLF in 10 of the 84 hashed inputs (`app/fm_factory.c`, `app/fm_library.c`, `third_party/synth/pluck.c`, `third_party/synth/voices.h`, `web/engine/sound.c`, `web/synth/adsr.c`, …), the same cause as the firmware build_id |
+| `build/preview/index.html` | 1031406 bytes; source link replaced by "(local preview)" as upstream does |
+| Chrome 156 headless (`--dump-dom`, 8 s virtual time) | no console errors; `#sim-placeholder` hidden; 149 `.lcd-target` elements generated by the simulator; `.sim-details` = "Eight-track overview 01"; `.device-status` = "Browser preview · no device" |
+| Node 22.23.3 (`/usr/bin/node`) smoke | `_initialize`, `sim_boot(1)`, key 12 pressed: Note On 60 velocity 100 on channel 1, ports 0-2; release: Note Off 60; render output finite |
+
+The Linux WASI SDK produces the same wasm as the Windows one (both clang 20.1.8-wasi-sdk
+with the same sysroot), so the browser workbench is reproducible on Linux byte for byte.
+Node is not needed to build the preview; upstream uses it only in `tools/Build-Hosted.cjs`
+(static-site packaging of a distribution build, not part of Task 01).
+
 ## 6. Flash / RAM baseline (Track A and Track B, identical)
 
 From `build/pro/firmware-report.json` and `package-report.json` of the Track A build
@@ -334,6 +367,9 @@ layout are in [FLASH-BUDGET.md](FLASH-BUDGET.md) (generated tables:
 | `app/synth` exclusion with `'\'` suffix | Build.ps1 L357 | `os.sep` prefix check |
 | `Sort-Object FullName` (culture-sensitive) | Build.ps1 L357, L401 | ordinal sort; proven correct by reproducing the official build_id (`--identity-sort culture` kept for reference) |
 | 22 Windows toolchain hashes | sdk/manifest.json, sdk/synth.json | Track A: enforced unchanged. Track B: replaced by `tools/linux/toolchain-linux.json`; every SDK file check and every synth.json check except the installed-compiler hash remains |
-| `curl.exe`, `tar.exe`, Windows WASI SDK | Build-Web.ps1 L51-L55 | Linux WASI SDK 27 pinned (Step 6) |
+| `curl.exe`, `tar.exe`, Windows WASI SDK (`wasi-sdk-27.0-x86_64-windows.tar.gz`, `bin/clang.exe`) | Build-Web.ps1 L42-L62 | `tools/linux/build-web.py`: Linux archive pinned (b7d4d944…), `curl` / `tar` from the Ubuntu archive, `bin/clang`; set `FM1_WASI_SDK` to skip the download |
+| .NET `LastWriteTimeUtc.Ticks` in the wasm cache stamp; `\\?\` long-path prefix | Build-Web.ps1 L64-L68 | size + mtime_ns stamp; no prefix needed |
+| `[Net.WebUtility]::HtmlEncode` | Build-Web.ps1 L128, L141 | re-implemented with the same rules in build-web.py |
+| `tools/Build-Hosted.cjs` run by Node | hosting step | not needed for the preview; `/usr/bin/node` v22.23.3 recorded for the tests |
 | CRLF in the official kit's app files | official source zip | Documented in section 5; the fork keeps LF and therefore a different build_id; no change to app/ |
 | Absolute source paths in the ELF symbol table | Build.ps1 L360-L370 (compile command) | Same behaviour on Linux; package unaffected (section 5, determinism) |

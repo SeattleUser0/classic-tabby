@@ -32,9 +32,12 @@
 #       make firmware JIELI_LINUX=/opt/jieli
 #       make firmware-ref WINEPREFIX=$HOME/.wine-jieli
 #
-# Version: 0.1
+# Version: 0.2
 #
 # Revision log
+#   v0.2  2026-11-01  Step 6: web (tools/linux/build-web.py --local-preview with the pinned
+#                     Linux WASI SDK 27) and web-smoke (/usr/bin/node runs
+#                     tests/simulator-wasm-smoke.mjs against build/web/simulator.wasm).
 #   v0.1  2026-11-01  Initial version (Task 01 Step 5): verify, firmware (= Track B,
 #                     native, the default since Track A and Track B proved byte-identical),
 #                     firmware-native, firmware-ref, crosscheck, flash-budget,
@@ -62,7 +65,7 @@ BUILD      := tools/linux/build.py
 NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"
 
-.PHONY: help verify firmware firmware-native firmware-ref crosscheck flash-budget package-equivalence clean
+.PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke flash-budget package-equivalence clean
 
 help:
 	@sed -n '7,30p' Makefile | sed 's/^#   //; s/^#//'
@@ -87,6 +90,13 @@ crosscheck: firmware-native firmware-ref
 	    a=$$(sha256sum "build/ref/$(MODEL)/$$f" | cut -c1-64); b=$$(sha256sum "build/$(MODEL)/$$f" | cut -c1-64); \
 	    if [ "$$a" = "$$b" ]; then echo "IDENTICAL  $$f  $$a"; else echo "DIFFERS    $$f  A=$$a  B=$$b"; fail=1; fi; \
 	done; [ -z "$$fail" ] || { echo "crosscheck FAILED"; exit 1; }; echo "crosscheck passed"
+
+web:
+	FM1_WASI_SDK="$(FM1_WASI_SDK)" $(PYTHON) -I tools/linux/build-web.py --local-preview
+	@echo "Open with: google-chrome \"file://$(CURDIR)/build/preview/index.html\""
+
+web-smoke:
+	$(NODE) tests/simulator-wasm-smoke.mjs build/web/simulator.wasm
 
 flash-budget:
 	@# The analysis symbol map (per-file attribution of LTO-merged code) is built once per
