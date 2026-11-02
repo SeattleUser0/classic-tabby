@@ -2,9 +2,8 @@
 /* Browser platform adapter: in-memory display, storage and MIDI input. */
 #include "fm_patch.h"
 #include "internal.h"
-#include "sampledrum.h"
-#include "fm1_sea.h"
 #include "fm1_engine_control.h"
+#include "song_storage.h"
 #include "audio_output.h"
 #include "fm1_audio_io.h"
 #include "smk37_controls.h"
@@ -30,9 +29,6 @@ static uint8_t radio_features, radio_role;
 static struct { uint8_t data[3], count; } midi[MIDI_QUEUE];
 static int32_t previous[FM1_BLOCK_WORDS];
 static float output[FM1_BLOCK_WORDS];
-static int16_t *sample_input;
-static uint8_t *sample_encoded;
-static unsigned sample_frames, sample_bytes;
 extern void groove_screen_snapshot(uint8_t state[8]);
 extern int groove_screen_open(unsigned target);
 extern int groove_screen_preset(unsigned slot);
@@ -223,10 +219,8 @@ EXPORT("sim_boot") void sim_boot(unsigned clear)
 {
     /* Bit 0 clears storage; bit 1 previews the device startup animation. */
     if (clear & 1U) {
+        /* Task 03 a: no factory sample bank; the region boots erased (song storage). */
         memset(flash, 255, sizeof flash);
-        unsigned bytes;
-        const uint8_t *factory = sampledrum_factory(&bytes);
-        if (bytes <= GROOVE_SAMPLE_BYTES) memcpy(flash + GROOVE_SAMPLE_OFFSET, factory, bytes);
         ++flash_revision;
     }
     smk37_mode=0;
@@ -240,7 +234,17 @@ EXPORT("sim_boot") void sim_boot(unsigned clear)
     fm1_web_init();
     if (!(clear & 2U)) groove_screen_open(0);
     fm1_web_control();
-    while (groove_samples_status() == 1) groove_samples_poll();
+    /* Task 03 a: finish the song-region scan so the state is known after boot. */
+    while (song_storage_state() == SONG_STORAGE_SCANNING) groove_samples_poll();
+}
+/* Task 03 a: song storage region state for tests and the workbench. */
+EXPORT("sim_song_storage_state") unsigned sim_song_storage_state(void)
+{ return song_storage_state() | (song_storage_old_sectors() << 8); }
+EXPORT("sim_song_storage_initialize") int sim_song_storage_initialize(void)
+{
+    int r = song_storage_initialize();
+    while (!r && song_storage_state() == SONG_STORAGE_ERASING) groove_samples_poll();
+    return r;
 }
 EXPORT("sim_control") void sim_control(unsigned kind, unsigned index, int value)
 {
@@ -309,7 +313,7 @@ EXPORT("sim_smk37_pad_notes") unsigned sim_smk37_pad_notes(void)
 }
 EXPORT("sim_clear") void sim_clear(void)
 {
-    /* Clear project slots and their staging sector, not the sample bank.
+    /* Clear project slots and their staging sector, not the song region.
      * Keep the monitor setting when restarting the browser instruments. */
     unsigned level = smk37_mode?smk37_master_level():controls.knob;
     memset(flash, 255, GROOVE_SAMPLE_OFFSET); ++flash_revision;
@@ -443,40 +447,10 @@ EXPORT("sim_frame_changes") unsigned sim_frame_changes(void)
 EXPORT("sim_flash") uint8_t *sim_flash(void) { return flash; }
 EXPORT("sim_flash_revision") uint32_t sim_flash_revision(void) { return flash_revision; }
 EXPORT("sim_file") uint8_t *sim_file(void) { return file_buffer; }
-EXPORT("sim_factory") const uint8_t *sim_factory(void)
-{ return sampledrum_factory(NULL); }
-EXPORT("sim_factory_size") unsigned sim_factory_size(void)
-{ unsigned bytes; (void)sampledrum_factory(&bytes); return bytes; }
-EXPORT("sim_sample_alloc") int16_t *sim_sample_alloc(unsigned frames)
-{
-    free(sample_input); free(sample_encoded); sample_encoded = NULL; sample_input = NULL;
-    sample_bytes = sample_frames = 0;
-    if (!frames || frames > SAMPLE_DRUM_MAX_FRAMES) return NULL;
-    sample_input = malloc(((frames + 319U) / 320U) * 640U);
-    if (sample_input) sample_frames = frames;
-    return sample_input;
-}
-EXPORT("sim_sample_encode") const uint8_t *sim_sample_encode(void)
-{
-    free(sample_encoded);
-    sample_encoded = sampledrum_encode(sample_input, sample_frames, &sample_bytes);
-    return sample_encoded;
-}
-EXPORT("sim_sample_bytes") unsigned sim_sample_bytes(void) { return sample_bytes; }
-EXPORT("sim_sample_bank") int sim_sample_bank(unsigned bytes)
-{
-    /* Browser worker writes only the sample portion of its private Flash array. */
-    if (bytes < 512 || bytes > GROOVE_SAMPLE_BYTES) return -1;
-    ++flash_revision;
-    groove_fm_library_init();
-    groove_samples_init();
-    while (groove_samples_status() == 1) groove_samples_poll();
-    return groove_samples_status() == 2 ? 0 : -1;
-}
+/* Task 03 a: sim_factory*, sim_sample_* and sim_library_* are gone with the sampler and
+ * the DX7 user library. */
 EXPORT("sim_export") int sim_export(void) { return groove_project_export(file_buffer, sizeof file_buffer); }
 EXPORT("sim_import") int sim_import(unsigned bytes) { return groove_project_import(file_buffer, bytes); }
-EXPORT("sim_library_read") int sim_library_read(unsigned bank) { return groove_fm_library_read(bank,file_buffer); }
-EXPORT("sim_library_write") int sim_library_write(unsigned bank) { return groove_fm_library_write(bank,file_buffer); }
 EXPORT("sim_factory_name") const char *sim_factory_name(unsigned index) { return groove_factory_name(index); }
 EXPORT("sim_factory_project") int sim_factory_project(unsigned index)
 {

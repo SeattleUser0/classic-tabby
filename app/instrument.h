@@ -339,16 +339,14 @@ enum { GROOVE_TUNING_OFFSET = GROOVE_FLASH_BYTES - 4096,
        GROOVE_SAMPLE_LIMIT = GROOVE_LIBRARY_OFFSET - GROOVE_SAMPLE_OFFSET };
 /* Finish any committed shared journal before starting a new transaction. */
 int groove_storage_prepare(void);
+/* Classic Tabby (Task 03 a): the sample bank is gone; the region is song storage
+ * (app/song_storage.h). init/poll stay as SDK entry points, status always reports 0. */
 void groove_samples_init(void);
 void groove_samples_poll(void);
-void groove_samples_stop(void); /* gate already held */
-unsigned groove_samples_status(void); /* 0 empty, 1 validating, 2 ready, 3 receiving, 4 error */
-unsigned groove_samples_size(void);
-int groove_samples_begin(unsigned bytes);
-int groove_samples_write(unsigned offset, const uint8_t *data, unsigned bytes);
-int groove_samples_finish(void);
-void groove_samples_cancel(void);
-int groove_samples_read(unsigned offset, uint8_t *data, unsigned bytes);
+void groove_samples_stop(void); /* SDK: gate already held */
+unsigned groove_samples_status(void);
+/* 808 default kit at the preset's current volume and sends (app/presets.c). */
+void groove_preset_drum_default(struct groove_preset *p);
 
 /* MIDI performance routing. Device preferences occupy eight bytes and are
  * independent of project/undo data. Modes: 0 local, 1 local+MIDI, 2 MIDI only.

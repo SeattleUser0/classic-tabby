@@ -215,7 +215,7 @@ main{max-width:1440px}
 <div class="workspace-extras">
 
 <details class="sim-details"><summary>八轨状态</summary><div id="sim-tracks" class="track-grid" aria-label="八轨步进状态"></div></details>
-<details class="sim-details"><summary>文件与 MIDI</summary><div class="sim-file-row"><button id="sim-project-export" data-sim disabled>导出项目文件</button><button id="sim-timbre-export" data-sim disabled>导出轨道音色</button><button id="sim-patch-export" data-sim disabled>导出 DX7 音色</button><button id="sim-midi" data-sim disabled>连接 MIDI 输入</button><select id="sim-midi-port" hidden aria-label="仿真 MIDI 输入"></select></div><div class="sim-file-row"><input id="sim-file" type="file" accept=".fm1,.fm1t,.syx" data-sim disabled aria-label="导入仿真项目或音色"><select id="sim-voice" hidden aria-label="选择音色库中的音色"></select><button id="sim-file-apply" data-sim disabled>导入到仿真</button></div><div class="sim-file-row"><label>独立音色库 <select id="sim-library-slot" data-sim disabled></select></label><button id="sim-library-load" data-sim disabled>载入到当前 DX7 轨</button><button id="sim-library-save" data-sim disabled>保存所选文件音色／当前 DX7 轨到此位置</button><button id="sim-library-bank" data-sim disabled>文件替换此组 32 音色</button><button id="sim-library-export" data-sim disabled>导出此组</button></div><div class="sim-file-row"><button id="sim-clear" data-sim disabled>清空本地仿真存档</button></div><p class="sim-help">导出文件可备份到电脑；浏览器存档与设备项目分别保存。</p><p id="sample-bank-note" class="sim-help" hidden>此预览使用演示采样；项目文件不包含采样音频。</p></details>
+<details class="sim-details"><summary>文件与 MIDI</summary><div class="sim-file-row"><button id="sim-project-export" data-sim disabled>导出项目文件</button><button id="sim-timbre-export" data-sim disabled>导出轨道音色</button><button id="sim-patch-export" data-sim disabled>导出 DX7 音色</button><button id="sim-midi" data-sim disabled>连接 MIDI 输入</button><select id="sim-midi-port" hidden aria-label="仿真 MIDI 输入"></select></div><div class="sim-file-row"><input id="sim-file" type="file" accept=".fm1,.fm1t,.syx" data-sim disabled aria-label="导入仿真项目或音色"><select id="sim-voice" hidden aria-label="选择音色库中的音色"></select><button id="sim-file-apply" data-sim disabled>导入到仿真</button></div><div class="sim-file-row"><button id="sim-clear" data-sim disabled>清空本地仿真存档</button></div><p class="sim-help">导出文件可备份到电脑；浏览器存档与设备项目分别保存。</p><p id="sample-bank-note" class="sim-help" hidden>此预览使用演示采样；项目文件不包含采样音频。</p></details>
 </div>
 </section>
 <section id="tab-update" role="tabpanel" aria-labelledby="mode-update" hidden>
@@ -229,7 +229,6 @@ main{max-width:1440px}
 <p id="force-warning" role="alert" hidden>警告：内置固件可能与当前设备不兼容。强制烧录可能清除数据、导致无法开机，并需要专用工具恢复。请只连接目标 SMK37 OPEN；不支持 USB-MIDI 升级协议的固件仍无法通过本页烧录。</p>
 <p id="device-identity"></p>
 <button id="connect" disabled>连接设备</button><button id="install" class="primary" disabled>开始更新</button>
-<button id="sample-check" hidden>检查 / 初始化采样</button>
 <button id="force-activate" hidden>启用强制烧录并重新连接</button><p id="update-next" aria-live="polite"></p>
 <p id="status" role="status" aria-live="polite">正在检查网页内容…</p>
 <progress id="progress" value="0" max="100" aria-label="更新进度"></progress>
@@ -265,39 +264,13 @@ main{max-width:1440px}
 <button id="patch-import" data-library disabled>导入到此轨</button><button id="patch-export" data-library disabled>导出此轨音色</button>
 <small>支持 DX7 单音色及 32 音色库 SysEx，不处理扩展参数。先将目标轨道设为 DX7。导入后，PROJECT 轨请保存项目；LIVE 轨请导出轨道音色或存入 DX7 独立库。</small>
 </details>
-<details class="library-group"><summary>128 个 DX7 独立音色</summary>
-<label>目标轨道 <select id="bank-track" data-library disabled></select></label>
-<div class="field-row"><label>音色组 <select id="bank-group" data-library disabled><option value="0">A · 1–32</option><option value="1">B · 33–64</option><option value="2">C · 65–96</option><option value="3">D · 97–128</option></select></label>
-<label>库内位置 <select id="bank-slot" data-library disabled></select></label></div>
-<button id="bank-read" data-library disabled>读取此组</button><button id="bank-load" data-library disabled>载入到目标 DX7 轨</button><button id="bank-export" data-library disabled>导出此组 .syx</button>
-<button id="bank-file-voice" data-library disabled>保存所选文件音色到此位置</button><button id="bank-track-voice" data-library disabled>保存所选 DX7 轨到此位置</button>
-<button id="bank-file-all" data-library disabled>用所选 32 音色文件替换此组</button>
-<small>选择本区目标轨道、音色组和位置，点击载入即可使用；文件写入使用上方的 DX7 文件。载入与写入均读回校验。项目保留完整音色，修改音色库不会自动改变已有项目。面板短按 EDIT 后，PRESETS 选音色，PAGE 换组。</small>
-</details>
-<details id="sample-section" class="library-group"><summary>8 槽采样库</summary>
-<p>8 槽共享约 19.55 秒，可自由分配。项目与采样分别备份。</p><p>Sampler：从键盘最左侧起，C、D、E、F、G、A、B、C 八个白键依次触发采样槽 1–8，黑键和其余琴键不触发采样，OCT 不改变槽位。ENV 跟随最后触发的槽位；Pad 1–8 和外部 MIDI 鼓音符映射保持一致。</p>
-<p class="sim-help">先读取设备采样库，再选槽位和 WAV。写入会替换整库，影响所有项目。</p>
-<details class="technical-details"><summary>音频格式与容量</summary><p class="quiet-note">WAV：PCM 8/16/24/32 位或 32 位浮点，单声道或立体声，8–192 kHz；原文件不超过 32 MiB、120 秒。8 槽共享约 19.55 秒，可自由分配；每段按 10 毫秒向上取整，替换时可复用当前槽空间。</p></details>
-<p id="sample-space"></p>
-<p id="sample-limit"></p>
-<button id="sample-read" data-sample disabled>读取设备采样库</button><button id="sample-factory" data-sample disabled>载入内置采样库</button>
-<div class="field-row"><label>采样槽 <select id="sample-slot" data-sample disabled></select></label>
-<label>WAV 音频 <input id="sample-wav" type="file" accept=".wav,audio/wav" data-sample disabled></label></div>
-<label>名称（最多 15 个英文字符）<input id="sample-name" maxlength="15" data-sample disabled></label>
-<div class="field-row"><label>起点（秒）<input id="sample-start" type="number" min="0" step="0.001" value="0" data-sample disabled></label>
-<label>终点（秒）<input id="sample-end" type="number" min="0" step="0.001" value="1" data-sample disabled></label></div>
-<button id="sample-audition" data-sample disabled>试听选段</button><button id="sample-replace" data-sample disabled>编码并替换网页槽位</button><button id="sample-empty" data-sample disabled>清空网页槽位</button>
-<button id="sample-sim" data-sample disabled>送入仿真</button><button id="sample-write" class="primary" data-sample disabled>写入设备采样库</button>
-<details class="technical-details"><summary>采样库文件</summary><button id="sample-export" data-sample disabled>备份网页采样库</button><label>恢复采样库文件 <input id="sample-bank-file" type="file" accept=".fm1s" data-sample disabled></label></details>
-<button id="sample-cancel" disabled>取消 / 停止试听</button><progress id="sample-progress" value="0" max="100" aria-label="采样传输进度"></progress>
-<p id="sample-status" role="status" aria-live="polite">正在载入内置采样…</p>
 </details>
 </section>
 <section id="tab-manual" role="tabpanel" aria-labelledby="mode-manual" tabindex="0" hidden>
 <div class="manual-heading"><div><h2>SMK37 OPEN 使用说明书</h2><p>从第一段节奏，到保存你的作品。适用于 SMK37 OPEN 配套固件与网页编辑器。</p></div><button id="manual-print">打印 / 存为 PDF</button></div>
 <div class="manual-layout">
 <aside class="manual-index" aria-label="说明书目录"><label for="manual-search">查找操作</label><input id="manual-search" type="search" placeholder="如：录音、MASTER、采样" autocomplete="off" aria-controls="manual-body"><p id="manual-count" class="manual-count" role="status" aria-live="polite">共 10 章</p><button id="manual-clear" hidden>显示全部章节</button><ol>
-<li><a href="#manual-start">01 · 三分钟上手</a></li><li><a href="#manual-panel">02 · 面板与快捷键</a></li><li><a href="#manual-sequence">03 · 步进与录入</a></li><li><a href="#manual-sound">04 · 六种音源</a></li><li><a href="#manual-mix">05 · 音量与混音</a></li><li><a href="#manual-project">06 · 保存与文件</a></li><li><a href="#manual-sample">07 · 采样库</a></li><li><a href="#manual-connect">08 · MIDI、蓝牙与时钟</a></li><li><a href="#manual-update">09 · 更新固件</a></li><li><a href="#manual-help">10 · 常见问题</a></li>
+<li><a href="#manual-start">01 · 三分钟上手</a></li><li><a href="#manual-panel">02 · 面板与快捷键</a></li><li><a href="#manual-sequence">03 · 步进与录入</a></li><li><a href="#manual-sound">04 · 六种音源</a></li><li><a href="#manual-mix">05 · 音量与混音</a></li><li><a href="#manual-project">06 · 保存与文件</a></li><li><a href="#manual-connect">08 · MIDI、蓝牙与时钟</a></li><li><a href="#manual-update">09 · 更新固件</a></li><li><a href="#manual-help">10 · 常见问题</a></li>
 </ol></aside>
 <div id="manual-body" class="manual-body">
 <p id="manual-empty" class="manual-empty" hidden>没有找到匹配章节。试试“保存”“音量”“MIDI”等关键词，或点击“显示全部章节”。</p>
@@ -366,12 +339,6 @@ main{max-width:1440px}
 <p>“读取设备项目”把当前实机工作区带入仿真；“恢复到工作区”也不会自动覆盖设备槽。网页的 SAVE 写入浏览器本地槽，清理浏览器数据会删除这些存档，重要作品请导出。</p>
 <div class="manual-table"><table><thead><tr><th scope="col">文件</th><th scope="col">包含什么</th></tr></thead><tbody><tr><td>.fm1</td><td>完整八轨项目：音源、参数、轨道音量、循环长度、步进等；不含采样音频。</td></tr><tr><td>.fm1t</td><td>一条轨道的音源类型、音色参数和音量；不携带步进。支持全部六种音源。</td></tr><tr><td>.syx</td><td>DX7 标准音色，支持单音色和 32 音色库。设备目标轨须设为 DX7。</td></tr><tr><td>.fm1s</td><td>完整 8 槽采样库，所有项目共用。使用自定义采样的作品须另备份此文件。</td></tr></tbody></table></div>
 <p>项目库列表读取失败时，载入、保存和导入按钮保持禁用；点击“刷新列表”重试。只有完整读取成功后才开放操作，重试会保留有效的选中槽位。</p></article>
-<article id="manual-sample" class="manual-chapter" tabindex="-1"><h3>07 · 采样库</h3>
-<p>在“项目与音色”的“8 槽采样库”编辑音频。8 槽共用 436 KiB，约 19.55 秒；可自由分配，页面显示剩余容量。先读取设备库，可保留已有采样。</p>
-<p>WAV：PCM 8/16/24/32 位或 32 位浮点，单声道或立体声，8–192 kHz；原文件不超过 32 MiB、120 秒。8 槽共享约 19.55 秒，可自由分配；每段按 10 毫秒向上取整，替换时可复用当前槽空间。</p>
-<ol><li><strong>先选完整库。</strong>修改现有实机采样时先连接项目库并“读取设备采样库”，再“备份网页采样库”。也可从内置库或 .fm1s 文件开始。</li><li><strong>选择采样槽与 WAV。</strong>设置名称（最多 15 个英文字符）、起点和终点，用“试听选段”检查裁切。</li><li><strong>可选：先在网页编辑。</strong>点击“编码并替换网页槽位”可先编辑网页库；直接写入设备时会自动完成这一步。</li><li><strong>试听仿真。</strong>点“送入仿真”，选择 SAMPLER 轨，用打击垫试听。</li><li><strong>写入实机。</strong>选择 WAV 后点“导入选段并写入设备”；已编辑好网页库时点“写入设备采样库”。完成设备读回校验后才会报告成功。写入会替换全部 8 槽，所有项目中的同号采样一起变化。</li><li><strong>分别备份。</strong>保存项目 .fm1，并备份采样库 .fm1s；只备份项目不能保存音频。</li></ol>
-<p>写入采样时设备暂停播放和录入。进度前段发送，后段从设备读回核对；保持连接直到显示读回一致。选择 SAMPLER 对应槽重新触发试听，808 是独立合成引擎，不会使用导入的音频。若中断导致采样未就绪，重新写入完整采样库即可恢复。项目槽独立保留。</p>
-<p>采样检查发现正在写入、读取或校验错误、回复不完整时，不会自动覆盖采样。请按提示检查连接；需要恢复时，在“项目与音色”中手动写入备份或内置采样库。</p></article>
 <article id="manual-connect" class="manual-chapter" tabindex="-1"><h3>08 · MIDI、蓝牙与时钟</h3>
 <h4>USB 与网页连接</h4><p>下载完整 HTML 后可离线试听和编辑；读写设备需要支持 Web MIDI 的电脑 Chrome／Edge 和 USB 数据线，并允许 MIDI／SysEx。不能连接时先关闭占用 MIDI 的其他网页或软件，再重新连接。外部演奏请选择与目标轨相同的输入通道；SHIFT + SEQ 后用 K2 查看或修改。</p><p>仿真页的“连接 MIDI 输入”用于外部键盘演奏网页。项目库连接用于读写实机项目和音色。USB 音频的输入／输出选择在电脑系统或音乐软件中设置。</p>
 <p>USB MIDI 开机即接收；蓝牙 MIDI 由 BT 页控制，两者使用相同的轨道输入通道设置。当前 Pro／Elite 没有有线 MIDI IN，机身 MIDI OUT 用于输出。</p>
@@ -511,8 +478,6 @@ main{max-width:1440px}
     $('stock-restore').disabled=locked||!openPkg||!FM1_PACKAGE?.stock;
     $('stock-restore').hidden=pkg?.kind==='stock';$('open-firmware').hidden=pkg?.kind!=='stock';
     $('open-firmware').disabled=locked;$('stock-warning').hidden=pkg?.kind!=='stock';
-    $('sample-check').hidden=pkg?.kind==='stock'||!(updateResult==='samples'||connected&&updater?.mode==='tagged');
-    $('sample-check').disabled=locked;
     $('force-activate').hidden=!forceSuggested||$('force-update').checked;
     $('force-activate').disabled=locked||!pkg;
     FM1I18n.text($('update-next'),SMK37Boot.blocked?'页面资源不完整，请重新载入。':!pkg?'':finishingUpdate?'固件已更新，正在检查采样区…':busy?'设备操作进行中，请稍候。':updateResult==='stock'?'原厂固件与资源已恢复，读回校验通过。请重新开机后使用。':updateResult==='ready'?
@@ -532,8 +497,6 @@ main{max-width:1440px}
     $('library-refresh').disabled=locked||disconnected;
     $('patch-import').disabled=unavailable||patchTarget()<0||!voices.length;
     $('patch-export').disabled=unavailable||patchTarget()<0;
-    $('bank-load').disabled=unavailable||patchTarget('bank-track')<0||library.programs!==128;
-    $('bank-track-voice').disabled=unavailable||patchTarget('bank-track')<0;
     $('project-import').disabled=unavailable||!projectBytes;
     $('timbre-import').disabled=unavailable||!timbreBytes;
     const link=!disconnected?library.link:connected&&!updater?.link?.lost?updater?.link:undefined;
@@ -570,7 +533,6 @@ main{max-width:1440px}
   }
   $('force-update').addEventListener('change',()=>setForceMode($('force-update').checked));
   $('patch-track').addEventListener('change',enable);
-  $('bank-track').addEventListener('change',enable);
   window.addEventListener('beforeunload',event=>{if(writing){event.preventDefault();event.returnValue='';}});
   function showConnectionDetails(diagnostics){
     const box=$('connection-details');box.hidden=!diagnostics;box.open=!!diagnostics;
@@ -699,32 +661,14 @@ main{max-width:1440px}
   saveDialog.addEventListener('close',()=>{FM1I18n.text($('device-save-cancel'),'取消');});
   $('quick-connect').addEventListener('click',()=>connecting?cancelConnection():$('tab-update').hidden?connectLibrary():connectDevice());
   $('about-open').onclick=()=>$('about-dialog').showModal();
-  const writeDeviceSamples=(data,progress,signal,duringUpdate=false)=>deviceProject(async l=>{
-      writing=true;
-      try{return await l.samplesWrite(data,progress,signal);}finally{writing=false;}
-    },false,duringUpdate,signal);
-  globalThis.FM1Workbench={state:()=>deviceState,read:()=>deviceProject(l=>l.download(0)),write:bytes=>deviceProject(l=>l.upload(0,0,bytes)),save:openSave,
-    sampleInfo:()=>deviceProject(l=>l.query(11)),
-    samplesRead:(progress,signal)=>deviceProject(l=>l.samplesRead(progress,signal),false,false,signal),
-    samplesWrite:(data,progress,signal)=>writeDeviceSamples(data,progress,signal)};
+  /* Classic Tabby (Task 03 a): no sample bank on the device. The post-update sample check
+     is a no-op that reports the firmware as ready. */
+  globalThis.FM1Workbench={state:()=>deviceState,read:()=>deviceProject(l=>l.download(0)),write:bytes=>deviceProject(l=>l.upload(0,0,bytes)),save:openSave};
   async function checkDeviceSamples(afterUpdate=false){
     if(busy||finishingUpdate&&!afterUpdate)return;
-    const identity=$('device-identity').textContent,first=afterUpdate?80:0;
-    finishingUpdate=true;FM1I18n.text($('error'),'');
-    status(afterUpdate?'固件已更新，正在检查采样区…':'正在检查设备采样区…',first);enable();
-    try {
-      await FM1EnsureSamples({
-        sampleInfo:()=>deviceProject(l=>l.query(11),false,true),
-        samplesWrite:(data,progress)=>writeDeviceSamples(data,progress,undefined,true)
-      },text=>status(text),value=>status('正在写入并核对采样库，请保持连接…',first+(99-first)*value));
-      updateResult=afterUpdate?'ready':'checked';
-      status(afterUpdate?'固件与采样区均已就绪。':'采样区已就绪。',100);
-    }catch(error){
-      updateResult='samples';FM1I18n.text($('error'),error.message);
-      status(afterUpdate?'固件已更新；请按错误提示重新检查，或在“项目与音色 → 8 槽采样库”恢复采样。':'采样区尚未就绪，可重新检查或从备份恢复。');
-    }finally{finishingUpdate=false;$('device-identity').textContent=identity;enable();}
+    updateResult=afterUpdate?'ready':'checked';
+    status(afterUpdate?'固件已就绪。':'设备已就绪。',100);enable();
   }
-  $('sample-check').onclick=()=>checkDeviceSamples();
   async function refreshLibrary(initial=false) {
     libraryReady=false;
     const info=await library.query(0);
@@ -747,7 +691,7 @@ main{max-width:1440px}
     for(let i=0;i<8;i++)$('timbre-track').append(option(i,'轨道 '+(i+1)+' · '+(sources[info[6+i]]||'未知')));
     $('timbre-track').value=toneTrack;
     const first=Array.from(info.slice(6)).findIndex(type=>type===0);
-    for(const id of ['patch-track','bank-track']){
+    for(const id of ['patch-track']){
       const track=Number($(id).value||0);$(id).replaceChildren();
       for(let i=0;i<8;i++){
         const node=option(i,'轨道 '+(i+1)+' · '+(sources[info[6+i]]||'未知'));node.disabled=info[6+i]!==0;$(id).append(node);
@@ -826,34 +770,6 @@ main{max-width:1440px}
   $('patch-export').addEventListener('click',()=>perform(async()=>{
     const track=patchTarget();if(track<0)throw Error('请先将一条轨道设为 DX7，再刷新列表');
     const patch=await library.download(1,track);saveFile(FM1Web.voiceFile(patch,track===7?9:track),'SMK37 OPEN-track-'+(track+1)+'.syx');message('音色已导出为 DX7 .syx 文件。');
-  }));
-  function bankSlots(raw){
-    const group=Number($('bank-group').value),old=$('bank-slot').value;
-    const list=raw?FM1Web.readVoices(FM1Web.bankFile(raw)):[];
-    $('bank-slot').replaceChildren(...Array.from({length:32},(_,i)=>option(i,(group*32+i+1)+' · '+(list[i]?String.fromCharCode(...list[i].slice(145,155)).replace(/[^\x20-\x7e]/g,' '):'DX7'))));
-    $('bank-slot').value=old||'0';
-  }
-  bankSlots();$('bank-group').addEventListener('change',()=>bankSlots());
-  $('bank-read').addEventListener('click',()=>perform(async()=>{bankSlots(await library.readBank(Number($('bank-group').value)));message('此组 32 个音色已读取。');}));
-  $('bank-load').addEventListener('click',()=>perform(async()=>{
-    const track=patchTarget('bank-track'),program=Number($('bank-group').value)*32+Number($('bank-slot').value);
-    await library.loadVoice(track,program);
-    message('音色已载入目标 DX7 轨，读回校验通过。PROJECT 轨请保存项目；LIVE 轨请导出轨道音色。');
-  }));
-  $('bank-export').addEventListener('click',()=>perform(async()=>{const group=Number($('bank-group').value);saveFile(FM1Web.bankFile(await library.readBank(group)),'SMK37-bank-'+String.fromCharCode(65+group)+'.syx');message('音色组已导出。');}));
-  async function storeBankVoice(fromTrack){
-    const program=Number($('bank-group').value)*32+Number($('bank-slot').value);
-    const patch=fromTrack?await library.download(1,patchTarget('bank-track')):voices[Number($('patch-choice').value)];
-    if(!patch)throw Error('请先选择 DX7 文件中的音色或目标 DX7 轨');
-    if(!confirm(FM1I18n.t('替换独立音色库的音色 ')+(program+1)+'？'))return;
-    bankSlots(await library.saveVoice(program,patch));message('音色已写入独立库，读回校验通过。');
-  }
-  $('bank-file-voice').addEventListener('click',()=>perform(()=>storeBankVoice(false)));
-  $('bank-track-voice').addEventListener('click',()=>perform(()=>storeBankVoice(true)));
-  $('bank-file-all').addEventListener('click',()=>perform(async()=>{
-    const group=Number($('bank-group').value),raw=FM1Web.voiceBank(voices);
-    if(!confirm(FM1I18n.t('替换此组全部 32 个音色？建议先导出此组备份。')))return;
-    bankSlots(await library.writeBank(group,raw));message('整组音色已写入，读回校验通过。');
   }));
   $('install').addEventListener('click',async()=>{
     if(busy||finishingUpdate||SMK37Boot.blocked||!connected||migration||same||!$('backup').checked)return;

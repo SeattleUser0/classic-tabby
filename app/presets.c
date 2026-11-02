@@ -2,8 +2,10 @@
 #include "instrument.h"
 #include "fm_patch.h"
 #include "drum808.h"
-#include "sampledrum.h"
 #include <string.h>
+/* Classic Tabby (Task 03 a): the sampler is gone. Scenes that used it play their beat on
+ * the 808 (SA now expands to an 808 part), and the GROOVE_SAMPLE preset branch is removed.
+ * groove_preset_drum_default() exposes the 808 default kit for app/project.c. */
 
 /* FM1 arrangements. Small musical recipes expand into the normal
  * editable project format, avoiding sixteen 4 KiB images in program Flash.
@@ -28,7 +30,7 @@ struct scene {
 #define PS(tone, role, level, rev, dly) {GROOVE_PSG, role, tone, level, rev + 16*dly}
 #define PL(tone, role, level, rev, dly) {GROOVE_PLUCK, role, tone, level, rev + 16*dly}
 #define DR(level) {GROOVE_808, BEAT, 0, level, 0}
-#define SA(role, level) {GROOVE_SAMPLE, role, 0, level, 1}
+#define SA(role, level) {GROOVE_808, role, 0, level, 1}
 /* Sixteen genre sketches. Sends are intentional per part: bass stays
  * dry, keys get a small room, sparse leads and arps get tempo-related echoes.
  * delay_steps counts sixteenths at the scene's initial tempo. */
@@ -189,16 +191,6 @@ static void preset(struct groove_preset *p, const struct part *v)
                     }
                     p->data[at++] = (uint8_t)value;
                 }
-    } else if (v->source == GROOVE_SAMPLE) {
-        p->sampler_pads = SAMPLE_DRUM_PADS;
-        for (unsigned pad = 0; pad < SAMPLE_DRUM_PADS; ++pad) {
-            uint8_t *pot = p->data + pad * SAMPLE_DRUM_PARAMS;
-            for (unsigned i = 0; i < SAMPLE_DRUM_PARAMS; ++i) pot[i] = sampledrum_param(i)->def;
-            static const uint8_t levels[SAMPLE_DRUM_PADS] = {105,83,75,83,72,73,58,62};
-            pot[SAMPLE_DRUM_LEVEL] = levels[pad];
-            pot[SAMPLE_DRUM_VELOCITY_LPF] = pad == 0 ? 12 : 30;
-            if (pad == 6 || pad == 7) pot[SAMPLE_DRUM_CHOKE] = 1;
-        }
     } else if (v->source == GROOVE_PLUCK) {
         static const uint8_t pluck[3][4] = {{88,70,24,48},{103,52,24,66},{79,89,24,42}};
         memcpy(p->data, pluck[v->tone], 4);
@@ -207,6 +199,11 @@ static void preset(struct groove_preset *p, const struct part *v)
         p->data[2] = 24; p->data[3] = v->role == BASS ? 20 : 38;
     }
     p->data[209] = v->sends;
+}
+void groove_preset_drum_default(struct groove_preset *p)
+{
+    const struct part beat = {GROOVE_808, BEAT, 0, p->volume, p->data[209]};
+    preset(p, &beat);
 }
 const char *groove_factory_name(unsigned index)
 {
@@ -239,7 +236,7 @@ int groove_factory_build(unsigned index, struct groove_project *p)
                 unsigned bit = 1U << i, chord = 0, gate = 7, tie = 0, pitch = root + 24;
                 if (v->role == BEAT || v->role == PERC) {
                     const uint16_t *b = beats[s->rhythm];
-                    unsigned sample = v->source == GROOVE_SAMPLE;
+                    const unsigned sample = 0; /* sampler pad numbering no longer used */
                     if (v->role == BEAT && (b[0] & bit)) n->drums |= 1U;
                     if (b[1] & bit) n->drums |= (uint16_t)(1U << (v->role == PERC && sample ? 2 : 1));
                     if (b[2] & bit) n->drums |= (uint16_t)(1U << (sample ? 6 : 10));

@@ -22,12 +22,20 @@
  *        channel 3 through the MIDI settings and the note follows it.
  *     4. the audio path renders finite output after the note.
  *
+ *   Task 03 checkpoint (a) (v0.2):
+ *     5. song storage migration: a cleared flash scans as READY with no old sectors;
+ *        a V01 sample bank magic at 69632 and a DX7 library bank magic at 516096 are
+ *        detected as OLD_DATA (2 sectors); the confirmed erase clears exactly those
+ *        sectors and leaves the project area and the tuning sector untouched;
+ *     6. a factory scene that used the sampler loads with no GROOVE_SAMPLE track.
+ *
  *   Build and run through the Makefile:  make test   (or make host-smoke)
  *   Exit status is the number of failed checks (0 = pass).
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-02  Task 03 (a): song storage migration and sampler-removal checks.
  *   v0.1  2026-11-01  Initial version.
  */
 #include <math.h>
@@ -48,6 +56,11 @@ uint8_t *sim_file(void);
 unsigned sim_block_frames(void);
 const float *sim_render(void);
 const void *sim_lcd_targets(void);
+uint8_t *sim_flash(void);
+unsigned sim_song_storage_state(void);
+int sim_song_storage_initialize(void);
+int sim_factory_project(unsigned index);
+int sim_import(unsigned bytes);
 
 enum { SMK37_BUTTON, SMK37_KEY, SMK37_PRESSURE, SMK37_PAD, SMK37_ENCODER, SMK37_COMBINATION, SMK37_PEDAL, SMK37_FADER };
 
@@ -161,6 +174,46 @@ int main(void)
     const float *out = sim_render(); int finite = 1;
     for (unsigned i = 0; i < sim_block_frames() * 2; ++i) if (!isfinite(out[i])) finite = 0;
     CHECK(finite, "render output finite");
+
+    /* ---- 5. song storage migration (Task 03 a) ---------------------------------------- */
+    {
+        enum { REGION = 69632, LIBRARY = 516096, TUNING = 532480, OLD_DATA = 2, READY = 1 };
+        uint8_t *flash = sim_flash();
+        unsigned st = sim_song_storage_state();
+        CHECK((st & 255U) == READY && (st >> 8) == 0, "cleared flash: song region READY, 0 old sectors (state %u, old %u)", st & 255U, st >> 8);
+        /* Plant a V01 sample bank header, a DX7 library bank, and markers outside the region. */
+        memcpy(flash + REGION, "FM1S", 4); memset(flash + REGION + 4, 0x11, 28);
+        memcpy(flash + LIBRARY, "FMB1", 4); memset(flash + LIBRARY + 4, 0x22, 28);
+        memcpy(flash + REGION - 4096, "KEEP", 4);  /* staging sector 16, below the region */
+        memcpy(flash + TUNING, "TUNE", 4);         /* tuning sector, above the region */
+        sim_boot(0);
+        st = sim_song_storage_state();
+        CHECK((st & 255U) == OLD_DATA, "old sample/DX7 data detected (state %u)", st & 255U);
+        CHECK((st >> 8) == 2, "exactly the two planted sectors are old (%u)", st >> 8);
+        CHECK(!memcmp(flash + REGION, "FM1S", 4), "nothing erased before confirmation");
+        CHECK(sim_song_storage_initialize() == 0, "confirmed erase accepted");
+        st = sim_song_storage_state();
+        CHECK((st & 255U) == READY && (st >> 8) == 0, "after erase: READY, 0 old sectors (state %u)", st & 255U);
+        unsigned clean = 1;
+        for (unsigned i = 0; i < 4096; ++i) clean &= flash[REGION + i] == 0xff && flash[LIBRARY + i] == 0xff;
+        CHECK(clean, "planted sectors erased to 0xFF");
+        CHECK(!memcmp(flash + REGION - 4096, "KEEP", 4), "staging sector below the region untouched");
+        CHECK(!memcmp(flash + TUNING, "TUNE", 4), "tuning sector above the region untouched");
+        CHECK(sim_song_storage_initialize() != 0, "erase refused when nothing is old");
+    }
+    /* ---- 6. sampler removal: factory scene with a former sampler part ------------------- */
+    {
+        /* Scene 0 "NEON KEYS" used SA(BEAT) in V01; it must load as an 808 track now. */
+        int r = sim_factory_project(0);
+        CHECK(r == 0, "factory scene 0 built (%d)", r);
+        r = sim_import(4064);
+        CHECK(r == 0, "factory scene 0 imported into the simulator (%d)", r);
+        const uint8_t *st8 = sim_state();
+        unsigned sampler = 0, drums = 0;
+        for (unsigned t = 0; t < 8; ++t) { sampler |= st8[8 + t * 20] == 5; drums |= st8[8 + t * 20] == 2; }
+        CHECK(!sampler, "no track uses the sampler source");
+        CHECK(drums, "the beat part plays on the 808");
+    }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);
     return failures;

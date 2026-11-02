@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.4
+Version: 0.5
 Revision log:
+- v0.5, 2026-11-02: section 6 added: Task 03 (song mode) decisions and checkpoint status;
+  checkpoint (a) done (sampler and DX7 user library removed, migration prompt).
 - v0.4, 2026-11-02: section 5 added: Task 02 (publication to GitHub, GitHub Pages and a
   GitHub release) with its acceptance criteria. No firmware change.
 - v0.3, 2026-11-01: acceptance criteria 2, 5 and 8 updated to the plan change approved
@@ -161,3 +163,35 @@ Chrome. It changes no firmware behaviour. It is complete when:
    hardware-validated.
 5. `make publish` repeats package, hosted and the gh-pages update for future versions, and
    docs/BUILD.md section 9 documents it. Nothing is flashed or sent to any device.
+
+## 6. Task 03 — song mode (chained sequences)
+
+Task text: docs/tasks/TASK-03-song-mode.md. Assessment and the **final** block, row and song
+formats: docs/tasks/TASK-03-step1-assessment.md (section 9 is binding for the MIDI
+importer built in another session).
+
+Fixed decisions (v0.2/v0.3 of the task): the sampler and the DX7 user library are removed;
+their flash region (USER 69632..532480, 113 sectors) becomes song storage; the FM6 (DX7)
+engine, the factory DX7 bank and voices inside projects stay; FM6 previews sequences
+through the per-track SEQ setting; step resolution stays 16ths; song blocks use the
+4-notes-per-step format; Classic Tabby's own app-side sequencer plays song blocks; the
+stock project sequencer keeps working for normal projects.
+
+Checkpoints and status:
+
+- **(a) done, 2026-11-02:** sampler and DX7 user library removed from app/, transfer
+  protocol (commands 11-16, kind 4; capability reply reports 0 banks and sample limit 0),
+  screen, controls, factory scenes (sampler beats play on the 808) and the workbench
+  (sample section, library section and simulator library controls removed; capability
+  check accepts the new reply). First-boot migration: the song region is scanned, old
+  V01 sample/DX7 data is reported on screen and erased only after the user confirms
+  "ERASE OLD SAMPLE/DX7" on the ACTIONS page. Projects with sampler tracks load on the
+  808. App image 450820 bytes, margin 3101 bytes. Host tests cover the migration and the
+  conversion (tests/host/smoke.c v0.2).
+- (b) DX7 operator editor pages and tone editor out, keeping preset select and macros.
+- (c) measure; song mode needs ≥ 4 KB headroom left after it lands, else stop and list
+  further removal candidates.
+- (d) app-side song sequencer, song storage, quantized row changes, queued jumps,
+  workbench song editing and transfer (kinds 5 and 6).
+
+Known limit (decision 4): song mode runs from the internal clock only in v1.

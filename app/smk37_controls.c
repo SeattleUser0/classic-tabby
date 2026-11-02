@@ -189,13 +189,8 @@ void smk37_control_event(unsigned kind,unsigned id,int value)
         if(!value)release(&held_notes[id]);
         else {
             unsigned track=smk37_performance_track(0);
-            int note;
-            if(groove_source_type(track)==GROOVE_SAMPLE) {
-                /* C D E F G A B C: the eight sample slots, independent of OCT.
-                 * Keep the engine's MIDI map for external input and recording. */
-                static const uint8_t slots[13]={0,255,1,255,2,3,255,4,255,5,255,6,7};
-                note=id<13?groove_pad_note(track,slots[id]):128;
-            } else note=48+(int)id+12*smk37_performance_octave(0);
+            /* Task 03 a: the sampler slot keys are gone; every track plays pitches. */
+            int note=48+(int)id+12*smk37_performance_octave(0);
             play(&held_notes[id],(unsigned)note,(unsigned)value,track,1);
         }
     } else if(kind==SMK37_PAD && id<16) {

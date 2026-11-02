@@ -656,8 +656,9 @@
       } catch(error){if(error.deviceCode!==71)throw error;}
       try {
         const info=await this.query(22);
-        check(info.length===9&&info[0]===1&&info[1]===128&&info[2]===4&&info[3]<=1&&le(info,4,4)===446464&&(info[8]&~3)===0,'设备扩展能力回复无效');
-        this.programs=128;this.sampleCapacity=446464;this.bankAvailable=!!info[3];this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);
+        // Classic Tabby (Task 03 a): a device may report no DX7 library (0 banks) and no sample bank (limit 0).
+        check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~7)===0,'设备扩展能力回复无效');
+        this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);
       } catch(error){if(error.deviceCode!==71)throw error;}
     }
     projectPayload(bytes){

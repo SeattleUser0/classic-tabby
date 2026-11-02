@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.8.1
+Version: 0.9
 Revision log:
+- v0.9, 2026-11-02 (Task 03 checkpoint a): section 10: sampler and DX7 user library removal,
+  migration prompt, workbench changes, manifest re-pin tool (tools/linux/pin-sdk-files.py),
+  measured flash/RAM. `make test` now has 35 host checks.
 - v0.8.1, 2026-11-02: section 9.3a, verification of the live site, archive and release.
 - v0.8, 2026-11-02 (Task 02): publication. `build.py` v0.3 ports `-Package`; `make package`,
   `hosted`, `release-assets`, `publish`, `release` (Makefile v0.4); `tools/linux/publish-pages.py`
@@ -61,6 +64,8 @@ are never written.
 - Task 02 (**done**, 2026-11-02): `make package` builds the distribution workbench with the
   firmware and stock V16 embedded, `make publish` puts the static site on GitHub Pages, and
   the tabby-v01.0 release carries the files. Section 9.
+- Task 03 checkpoint (a) (**done**, 2026-11-02): sampler and DX7 user library removed, song
+  region migration prompt. Section 10. Checkpoints (b)-(d) open.
 - Step 2 (partial): versions recorded below. Packages that need root are not installed yet
   (sudo requires an interactive password); `tools/linux/install-host-packages.sh` is the
   reproducible installer for a clean host.
@@ -539,3 +544,77 @@ migrate, click Enable force flash and reconnect."), or `SMK-37 Pro_8000001` for 
 installed Open V01 (status "SMK37 OPEN connected. Ready to update", or "This version is
 already installed" when the device reports the same build_id). An `Orange Cat FM-1` or any
 other identity is not the target device.
+
+## 10. Task 03 — song mode, checkpoint (a) (2026-11-02)
+
+### 10.1 What changed
+
+Firmware (app/, the first functional change to the fork):
+
+- `app/samples.c` v0.1: the V01 sample bank code is gone. The binary SDK still imports
+  `groove_samples_init` / `groove_samples_poll`; they now start and drive the song-region
+  scan. `groove_samples_status` always returns 0.
+- `app/song_storage.c` / `.h` v0.1: region constants (USER 69632, 113 sectors, up to the
+  tuning sector), boot scan (first 32 bytes of each sector, four per control poll),
+  classification (FM1G / FM1B / FM1Q song magics, erased, or old data such as the V01
+  `FM1S` bank and `FMB1` DX7 banks), and the user-confirmed erase of only the old sectors.
+  Nothing below 69632 and nothing at or above 532480 is touched.
+- `app/fm_library.c` v0.1 and `app/fm_patch.h`: library banks, staging recovery and the
+  sample-bank conflict check removed; `groove_fm_program` serves the factory bank only;
+  `groove_fm_library_init` stays as an SDK entry point (no-op).
+- `app/transfer.c`: commands 11-16 and transfer kind 4 removed; command 22 reports 0 DX7
+  library banks (unavailable) and a sample limit of 0; the "sample transfer in progress"
+  session checks are gone. Command 21 is unchanged (the workbench checks its exact bytes).
+- `app/project.c`: projects, imports and factory scenes with a GROOVE_SAMPLE track are
+  converted to the 808 default kit (volume and sends kept, step masks kept) before they
+  are applied; the SDK's power-on sampler track is moved to the 808 on the first poll;
+  the DX7 library staging recovery call is gone. The legacy `tuning_blocked()` check stays
+  as protection for the tuning sector until the old bank is erased.
+- `app/presets.c`: the seven factory scenes that used the sampler play their beat on the
+  808; `groove_preset_drum_default()` added for project.c.
+- `app/screen.c`: the sampler is not offered on the SOURCE page (`SOURCE_CHOICES`), its
+  knob map, pad hints and labels are gone; new ACTIONS entry 21 "ERASE OLD SAMPLE/DX7"
+  (destructive, SAVE to confirm, "ERASE OLD FLASH DATA?"); a one-time notice "OLD
+  SAMPLE/DX7 DATA - SEE ACTIONS TO ERASE" at boot when the scan finds old data.
+- `app/smk37_controls.c`: the sampler slot keys are gone; every track plays pitches.
+- `web/engine/Simulator.c`: sim_factory*, sim_sample_* and sim_library_* exports removed;
+  `sim_song_storage_state` / `sim_song_storage_initialize` added; the cleared simulator
+  flash no longer carries a factory sample bank.
+
+Workbench (sdk/, pinned files re-hashed with `tools/linux/pin-sdk-files.py`):
+
+- `sdk/WebUpdate.js`: the capability check accepts 0 DX7 banks and a sample limit of 0
+  (`sampleCapacity` follows the reply; `bankAvailable` needs 4 banks).
+- `sdk/Update.html.in`: the "8-slot sample bank" and "128 DX7 standalone voices" sections,
+  the simulator's standalone-library controls, the post-update sample check button and
+  the sample manual chapter are removed; the post-update check reports the firmware as
+  ready without touching samples.
+- `sdk/Simulator.js`: worker cases samples / library-read / library-load / library-write
+  and the library UI handlers removed.
+- `sdk/Samples.js`: reduced to two globals the shared code still references.
+- `sdk/manifest.json`: hashes of those four files updated. Every other entry, including
+  the binary SDK files, is unchanged; `make verify` still enforces all 67.
+
+### 10.2 Measured
+
+| Quantity | V01 | After (a) |
+| --- | ---: | ---: |
+| App image (limit 453921) | 453892 | **450820** (margin 3101) |
+| Static SRAM | 267348 | 266676 |
+| Runtime heap (min 49152) | 256268 | 256940 |
+
+Track A and Track B stay byte-identical (`make crosscheck`: sdk.elf 44adf5d3…, .fwsc
+d9e0c577…). `make test`: 35 host checks (migration scan, detection of planted FM1S/FMB1
+sectors, confirmed erase of exactly those sectors, staging and tuning sectors untouched,
+factory scene 0 loads with no sampler track) and the wasm smoke test all pass. The web
+preview rebuilt with the edited workbench loads in headless Chrome 156 with no console
+errors and the simulator running. Details in docs/FLASH-BUDGET.md section 5.
+
+### 10.3 Before flashing a V01 device with this firmware
+
+Back up the sample bank (`.fm1s`) and the four DX7 library banks (`.syx`) with the V01
+workbench first. On the first boot the screen shows "OLD SAMPLE/DX7 DATA - SEE ACTIONS TO
+ERASE"; song mode (checkpoint d) stays disabled until ACTIONS → "ERASE OLD SAMPLE/DX7" →
+SAVE is confirmed. Projects, settings and tuning are untouched either way. The workbench's
+"Restore factory V16" writes the factory resources back over 0xF4000-0xFDFFF of the
+device, which is inside the song region; that warning is added with checkpoint (d).

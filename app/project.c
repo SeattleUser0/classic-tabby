@@ -6,6 +6,7 @@
 #include "instrument.h"
 #include "tuning_hook.h"
 #include "fm_patch.h"
+#include "song_storage.h"
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +52,21 @@ static int apply_edit(const struct groove_project *p, unsigned operation)
     return groove_project_apply(p);
 }
 struct groove_project *groove_project_scratch(void) { return &record.project; }
+/* Classic Tabby (Task 03 a): the sampler is gone. A V01 project, factory scene or
+ * import that carries a GROOVE_SAMPLE track is played on the 808 instead: the preset
+ * becomes the default 808 kit at the stored volume and sends, and the step cells keep
+ * their pad masks (sampler pads 0..7 are a subset of the 808's 11). Nothing is written
+ * back to flash unless the user saves. */
+static void sanitize_sources(struct groove_project *p)
+{
+    for (unsigned t = 0; t < GROOVE_TRACKS; ++t)
+        if (p->preset[t].type == GROOVE_SAMPLE) groove_preset_drum_default(&p->preset[t]);
+}
+static int apply_sanitized(struct groove_project *p, unsigned operation)
+{
+    sanitize_sources(p);
+    return apply_edit(p, operation);
+}
 
 uint32_t groove_crc32(uint32_t crc, const void *data, unsigned bytes)
 {
@@ -458,8 +474,8 @@ static int recover_staging(void)
 {
     if (fm1_flash_size() < USER_BYTES)
         return FM1_FLASH_UNAVAILABLE;
-    int r = groove_fm_library_recover();
-    if (!r) r = tuning_recover();
+    /* The DX7 library staging path is gone (Task 03 a); only tuning uses this journal now. */
+    int r = tuning_recover();
     if (r) return r;
     r = read_sector(STAGING_SECTOR);
     if (r)
@@ -607,7 +623,7 @@ int groove_project_load_slot(unsigned slot)
         r = tuning_read(slot, key, tables);
     }
     if (!r) {
-        r = apply_edit(&record.project, 0x82000U + slot);
+        r = apply_sanitized(&record.project, 0x82000U + slot);
         if (!r && groove_tuning_apply)
             (void)groove_arrangement_tuning_apply(tables);
     }
@@ -645,7 +661,7 @@ int groove_project_import(const uint8_t *bytes, unsigned length)
     }
     if (!groove_project_valid(&record.project))
         return GROOVE_PROJECT_INVALID;
-    int r = apply_edit(&record.project, 0x83000U);
+    int r = apply_sanitized(&record.project, 0x83000U);
     if (!r) {
         if (tuned && groove_tuning_apply)
             (void)groove_arrangement_tuning_apply(block.t);
@@ -678,7 +694,7 @@ int groove_factory_load(unsigned index)
 {
     int r = groove_factory_build(index, &record.project);
     if (r) return r;
-    r = apply_edit(&record.project, 0x84000U + index);
+    r = apply_sanitized(&record.project, 0x84000U + index);
     if (!r) { tuning_zero(); groove_project_touch(); }
     return r;
 }
@@ -821,6 +837,10 @@ void groove_project_init(void)
 void groove_project_poll(void)
 {
     if (restore_pending == 2) {
+        /* Task 03 a: the SDK's power-on instrument may contain a sampler track; the app
+         * never offers that type, so move it to the 808 before anything is restored. */
+        for (unsigned t = 0; t < GROOVE_TRACKS; ++t)
+            if (groove_source_type(t) == GROOVE_SAMPLE) (void)groove_source_set(t, GROOVE_808);
         unsigned sector = SETTINGS_SECTOR;
         uint32_t generation = 0;
         int r = latest(sector, &sector, &generation);

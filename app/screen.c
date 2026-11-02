@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 #include "instrument.h"
+#include "song_storage.h"
 #include "fm_patch.h"
 #include "version.h"
 #include "fm1_engine_control.h"
@@ -146,11 +147,14 @@ static const struct fm_page {
     {"COMMON", {"ALG", "FDBACK", "OSC SYNC", "TRANS"}, {134, 135, 136, 144}, 0},
     {"LFO", {"WAVE", "SPEED", "PMD", "AMD"}, {142, 137, 139, 140}, 0},
     {"LFO MOD", {"DELAY", "P SENS", "LFO SYNC", "OSC SYNC"}, {138, 143, 141, 136}, 0}};
+/* Classic Tabby (Task 03 a): the sampler is not selectable; SOURCE_CHOICES excludes it.
+ * The sixth name stays so a GROOVE_SAMPLE view (never produced by the app) still prints. */
 static const char *const source_names[] = {"DX7 FM", "BASS 303", "DRUM 808", "PSG", "PLUCK", "SAMPLER"};
+enum { SOURCE_CHOICES = GROOVE_SAMPLE };
 static const char *const actions[] = {"STEP DETAILS", "RHYTHM / RECORD", "COPY STEP", "COPY PAGE", "COPY TRACK",
     "PASTE STEP", "PASTE PAGE", "PASTE TRACK", "CLEAR STEP", "CLEAR PAGE", "CLEAR TRACK",
     "REPEAT TO 32", "REPEAT TO 48", "REPEAT TO 64", "UNDO / REDO", "COPY TIMBRE", "PASTE TIMBRE",
-    "DX7 PATCH NAME", "BLUETOOTH / CLOCK", "STOP ALL / REWIND"};
+    "DX7 PATCH NAME", "BLUETOOTH / CLOCK", "STOP ALL / REWIND", "ERASE OLD SAMPLE/DX7"};
 enum { ACTION_COUNT = sizeof actions / sizeof actions[0] };
 static unsigned source_preview, action, action_confirm, tone_clip_ready;
 static struct groove_preset tone_clip;
@@ -823,11 +827,9 @@ static unsigned tone_parameter(unsigned col)
     if (page != FM_ENV) return tone_pages[track][tone_slot()] * 4U + col;
     static const uint8_t bass[] = {BASS303_ENVMOD, BASS303_DECAY, BASS303_ACCDEC, BASS303_CUTOFF};
     static const uint8_t pluck[] = {0, 3, 1, 255};
-    static const uint8_t sample[] = {2, 3, 255, 255};
     if (type == GROOVE_303) return bass[col];
     if (type == GROOVE_PSG) return col ? 255 : 3;
     if (type == GROOVE_PLUCK) return pluck[col];
-    if (type == GROOVE_SAMPLE) return sample[col];
     const char *name = col == 0 ? "Decay" : col == 1 ? "Attack" : col == 2 ? "Tone" : "Tune";
     for (unsigned i = 0; i < groove_tone_count(track, tone_part()); ++i) {
         const fm1_param_t *p = groove_tone_parameter(track, tone_part(), i);
@@ -871,10 +873,7 @@ static void tone_label(unsigned parameter, unsigned value, const fm1_param_t *p,
         strcpy(out, p->names[value]);
     else
         decimal(out,
-                (int)value - (((type == GROOVE_PSG || type == GROOVE_PLUCK) && parameter == 2) ||
-                                      (type == GROOVE_SAMPLE && parameter == 1)
-                                  ? 24
-                                  : 0),
+                (int)value - ((type == GROOVE_PSG || type == GROOVE_PLUCK) && parameter == 2 ? 24 : 0),
                 1);
 }
 static __attribute__((noinline)) void tone_draw(const uint8_t values[GROOVE_TONE_PARAMS])
@@ -912,8 +911,7 @@ static __attribute__((noinline)) void tone_draw(const uint8_t values[GROOVE_TONE
              : type == GROOVE_PLUCK ? "KEYS PLAY  KNOBS EDIT"
              : type == GROOVE_303
                  ? (view.mono ? "MONO SLIDE  MONO/POLY KEYS" : "POLY 4      MONO/POLY KEYS")
-             : type == GROOVE_SAMPLE ? "PADS 1-8 PLAY / SELECT"
-                                     : page == FM_ENV ? "PRESETS DRUM  KEYS PLAY" : "PRESETS DRUM / KIT  KEYS PLAY", DIM);
+             : page == FM_ENV ? "PRESETS DRUM  KEYS PLAY" : "PRESETS DRUM / KIT  KEYS PLAY", DIM);
         memset(cache->tile_cache, 0xff, sizeof cache->tile_cache);
     }
     if (!groove_pad_count(track)) {
@@ -936,7 +934,7 @@ static __attribute__((noinline)) void tone_draw(const uint8_t values[GROOVE_TONE
                 paint_fill(100, y, width, 8, colors[i]);
         }
     } else {
-        unsigned count = type == GROOVE_SAMPLE ? groove_pad_count(track) : GROOVE_DRUMS + (page != FM_ENV);
+        unsigned count = GROOVE_DRUMS + (page != FM_ENV);
         for (unsigned i = 0; i < count; ++i) {
             unsigned selected = i == part;
             if (cache->tile_cache[i] == selected)
@@ -1109,7 +1107,7 @@ static __attribute__((noinline)) void project_draw(void)
     if (cache->row_cache[1] == sig) return;
     cache->row_cache[1] = sig;
     const char *status = project_result == GROOVE_PROJECT_EMPTY     ? "NO VALID SAVE"
-                         : project_result == GROOVE_PROJECT_TUNING_SPACE ? "REDUCE SAMPLE BANK"
+                         : project_result == GROOVE_PROJECT_TUNING_SPACE ? "ERASE OLD SAMPLE DATA"
                          : project_result == GROOVE_PROJECT_MEMORY  ? "NOT ENOUGH MEMORY"
                          : project_result == GROOVE_PROJECT_INVALID ? "INVALID PROJECT"
                          : project_result == FM1_FLASH_BUSY         ? "FLASH BUSY - RETRY"
@@ -1303,7 +1301,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         plain_text(8, 42, "SOUND SOURCE");
         dim_text(166, 42, "TRACK"); small_number(202, 42, track + 1, 1, colors[track]);
         text(8, 64, source_names[source_preview], 2, ACCENT, BACK);
-        for (unsigned i = 0; i < GROOVE_SOURCES; ++i) {
+        for (unsigned i = 0; i < SOURCE_CHOICES; ++i) {
             unsigned x = 8 + (i & 1U) * 116, y = 94 + (i / 2U) * 22;
             uint16_t bg = i == source_preview ? PANEL : BACK;
             paint_fill(x, y, 108, 19, bg);
@@ -1318,7 +1316,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         color_text(8, 216, source_result ? "NOT ENOUGH MEMORY - RETRY" : "K1 / PADS 1-6 CHOOSE", source_result ? AMBER : TEXT);
         dim_text(8, 231, role == GROOVE_TRACK_OFF ? "K2 ENABLE TRACK   HOME BACK" : "SAVE APPLY SOUND   HOME BACK");
     } else if (visible == ACTIONS) {
-        if (action_confirm) color_text(8, 38, "REPLACE PATTERN DATA?", AMBER);
+        if (action_confirm) color_text(8, 38, action == 20 ? "ERASE OLD FLASH DATA?" : "REPLACE PATTERN DATA?", AMBER);
         else {
             dim_text(8, 38, "T"); small_number(16, 38, track + 1, 1, TEXT);
             dim_text(36, 38, "STEP"); small_number(68, 38, cursor + 1, 2, ACCENT);
@@ -1594,7 +1592,7 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
                 label = visible != OVERVIEW && step_follow && v->playing ? "PLAY" : "STEP";
                 decimal(value, step_follow && v->playing ? v->play_step + 1U : cursor + 1U, 2);
             } else if (col == 2 && groove_pad_count(track) != 0) {
-                label = v->type == GROOVE_SAMPLE ? "SLOT" : "DRUM";
+                label = "DRUM";
                 decimal(value, drum + 1, 2);
             } else if (col == 2)
                 note_name(selected_note, value);
@@ -2148,7 +2146,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     if ((controls->buttons & BUTTON(HOME)) && controls->encoders[6] &&
         !(controls->buttons & BUTTON(PLAY))) {
         source_preview = (unsigned)((int)groove_source_type(track) +
-            controls->encoders[6] % GROOVE_SOURCES + GROOVE_SOURCES) % GROOVE_SOURCES;
+            controls->encoders[6] % SOURCE_CHOICES + SOURCE_CHOICES) % SOURCE_CHOICES;
         page = SOURCE; source_result = 0;
         goto controls_done;
     }
@@ -2307,7 +2305,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     if (page == SOURCE) {
         unsigned before_preview = source_preview;
         int delta = controls->encoders[0] + controls->encoders[1] + controls->encoders[2] + controls->encoders[6];
-        source_preview = (unsigned)((int)source_preview + delta % GROOVE_SOURCES + GROOVE_SOURCES) % GROOVE_SOURCES;
+        source_preview = (unsigned)((int)source_preview + delta % SOURCE_CHOICES + SOURCE_CHOICES) % SOURCE_CHOICES;
         for (unsigned i = 0; i < GROOVE_SOURCES; ++i)
             if ((key_down & ~blocked_keys) & (1U << white_keys[i])) source_preview = i;
         if (source_preview != before_preview) source_result = 0;
@@ -2347,7 +2345,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (pressed & BUTTON(SAVE)) {
             int r = 0;
             unsigned operation = action;
-            unsigned destructive = (action >= 7 && action <= 13) || action == 16;
+            unsigned destructive = (action >= 7 && action <= 13) || action == 16 || action == 20;
             if (destructive && !action_confirm) { action_confirm = 1; goto controls_done; }
             action_confirm = 0;
             if (action <= 1) { page = STEPS; seq_page = action + 1; step_follow = 0; cache->shown_page = ~0U; }
@@ -2368,6 +2366,11 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 if (groove_source_type(track) == GROOVE_DX7) { page = NAME; name_cursor = 0; }
                 else r = -1;
             } else if (action == 18) { page = BLE; ble_view = ble_forget = ble_action = 0; ble_result = 0; }
+            else if (action == 20) {
+                /* Task 03 a: user-confirmed erase of the V01 sample bank / DX7 library
+                 * sectors so the region can become song storage (app/song_storage.c). */
+                r = song_storage_initialize();
+            }
             else {
                 if (!post(0xff, 0, 0, 1)) return 0;
                 memset(key_note, 0xff, sizeof key_note); project_keys = 0; writing = 0; page = OVERVIEW;
@@ -2674,6 +2677,12 @@ void groove_screen_control(void)
     }
     uint32_t now = fm1_millis(), key_down = controls.keys & ~previous_keys;
     if (notice && (int32_t)(now - notice_until) >= 0) notice = NULL;
+    /* Task 03 a: first boot on the song-storage layout with V01 data still in the region. */
+    static unsigned migration_seen;
+    if (!migration_seen && song_storage_state() == SONG_STORAGE_OLD_DATA) {
+        migration_seen = 1;
+        announce("OLD SAMPLE/DX7 DATA - SEE ACTIONS TO ERASE", now + 6000U);
+    }
     unsigned modes = smk37_fader_bank() | (smk37_pad_steps() << 1);
     if (modes != panel_modes_seen) {
         announce((modes ^ panel_modes_seen) & 2U

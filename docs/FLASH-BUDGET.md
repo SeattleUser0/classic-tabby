@@ -1,7 +1,10 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.3.1
+Version: 0.4
 Revision log:
+- v0.4, 2026-11-02 (Task 03 checkpoint a): section 5 added with the measured result of
+  removing the sampler and the DX7 user library: app image 450820 bytes (−3072), margin
+  3101 bytes. Sections 1-4 keep the V01 figures as the baseline they were measured on.
 - v0.3.1, 2026-11-01 (Steps 4-8): no figure changed. The same `sdk.elf` is now produced by
   the default Track B build (`make firmware`, native toolchain) and by Track A, and the
   official V01 package was reproduced byte for byte from the official kit, so these
@@ -349,6 +352,40 @@ editor state (operator/lfo/tone page arrays, clipboards) is roughly 1 KiB.
 - Test-Firmware does not care about any of this UI code, so none of the official checks
   constrain the cuts; the SRAM-placement rules only concern the board scan code and the
   SDK's DSP callbacks.
+
+## 5. Task 03 checkpoint (a): sampler and DX7 user library removed (measured)
+
+Built with Track B (`make firmware`), byte-identical to Track A (`make crosscheck`).
+
+| Quantity | V01 baseline | After (a) | Change |
+| --- | ---: | ---: | ---: |
+| App image | 453892 | 450820 | −3072 |
+| Margin to the 453921-byte packaging limit | 29 | 3101 | +3072 |
+| .text | 377920 | 374976 | −2944 |
+| .ram0_data | 75940 | 75812 | −128 |
+| .ram0_bss | 191356 | 190812 | −544 |
+| Static SRAM (data + bss + boot_info) | 267348 | 266676 | −672 |
+| Runtime heap | 256268 | 256940 | +672 |
+
+Where it came from (post-LTO attribution, `make flash-budget` with a refreshed
+`build/pro/nolto.json`):
+
+| Unit | Before | After | Note |
+| --- | ---: | ---: | --- |
+| app/samples.c | 1468 | 502 | bank validation, mapping, transfer paths gone; the 502 bytes are the SDK entry points plus the song-region scan that now lives in app/song_storage.c (attributed here by the LTO map) |
+| app/fm_library.c | 1618 | 14 | library banks, staging recovery, pack7 and the sample-bank conflict check gone; `groove_fm_unpack` and `groove_fm_program` are inlined into their callers |
+| app/transfer.c | 2780 | 2458 | commands 11-16 and transfer kind 4 gone |
+| app/screen.c | 41714 | 41780 | sampler branches gone, "ERASE OLD SAMPLE/DX7" action and the boot notice added |
+| app/smk37_controls.c | 2630 | 2565 | sampler slot keys gone |
+| app/presets.c | 1742 | 2664 | attribution change only: the 808 default-kit builder is now a separate exported function used by project.c |
+| libfm1_engine.a | 366556 | 366256 | −300: the linker dropped engine sections that only the removed app code referenced |
+
+Not recoverable (binary SDK): `sampledrum_*` 1856 B, SEA decoder ≈ 2.3 KB, GROOVE_SAMPLE
+branches inside the engine; `sampledrum_lpf20_asm` / `sampledrum_mix_asm` stay in SRAM
+because sdk/synth.json requires them.
+
+Next: checkpoint (b) removes the DX7 operator editor pages (3890 B per section 2.2) and the
+tone editor (1894 B), expected to bring the margin to roughly 8.5 KB before song mode.
 
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 
