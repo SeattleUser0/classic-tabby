@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.1
+Version: 0.3
 Revision log:
+- v0.3, 2026-11-01 (Step 4): official package reproduced byte for byte from the official
+  source kit (`build.py --source-root`, v0.2); second-directory determinism result recorded;
+  fork keeps LF line endings, so its build_id differs from official for that reason only.
 - v0.2, 2026-11-01 (Checkpoint A): Wine installed, ~/.wine-jieli created, Track A build
   done and deterministic; package versions updated; flash/RAM baseline now from Track A.
 - v0.1.2, 2026-11-01: PowerShell unavailable from Microsoft's repo for Ubuntu 26.04; pwsh
@@ -40,9 +43,12 @@ are never written.
   A second build in the same directory is bit-identical (sdk.elf e697dd67…, .fwsc b5bb4026…).
   The Track A ELF is also byte-identical to the native Linux toolchain build (Track B
   preview), which makes the A/B comparison in Step 5 trivial.
-- Step 4 (preparation): official V01 Pro release fetched from open.m-vave.com (metadata,
-  `.fwsc`, simulator, official source kit). The official `build_id` is reproduced exactly
-  from the official kit's `app/` files (see section 5).
+- Step 4 (**done**): official V01 Pro release fetched from open.m-vave.com (metadata,
+  `.fwsc`, simulator, official source kit). Building the official source kit tree with
+  Track A (`build.py --source-root <kit>`) reproduces the official package
+  `SMK37_PRO_OPEN.fwsc` **byte for byte** (SHA-256 09fc9346…, 492084 bytes, build_id
+  4c9e0084…). A build of the fork in a second, different directory gives a byte-identical
+  `.fwsc` and `app-image.bin`; only the ELF symbol-table strings differ (section 5).
 - Step 5 (preparation): JieLi Linux toolchain 20260730.1 downloaded, extracted and pinned in
   `tools/linux/toolchain-linux.json` (24 files).
 - Step 6 (preparation): WASI SDK 27 (Linux x86_64) downloaded and extracted; SHA-256 below.
@@ -55,8 +61,8 @@ are never written.
   "PowerShell without the apt repo" below. The Python packager is validated meanwhile by
   reproducing the official package byte for byte (Step 4), which exercises every code path
   of Package.cs on the real image.
-- Determinism build in a second directory; official-kit build for byte comparison.
-- Track B build in its final location (`/opt/jieli`) and the A/B comparison.
+- Track B build from `~/Documents/Classic Tabby/toolchains/` (not `/opt/jieli`: no sudo
+  needed) and the A/B comparison; Track B becomes the default `make firmware` target.
 - Web workbench local preview with the Linux WASI SDK (`tools/linux/build-web.py`).
 - Host test target and top-level Makefile.
 
@@ -152,7 +158,14 @@ python3 tools/linux/build.py --model pro --firmware-only --toolchain-kind wine \
     --wine-prefix ~/.wine-jieli
 
 # Track B: native Linux toolchain, pinned by tools/linux/toolchain-linux.json
-python3 tools/linux/build.py --model pro --firmware-only --toolchain-kind native --toolchain /opt/jieli
+python3 tools/linux/build.py --model pro --firmware-only --toolchain-kind native \
+    --toolchain "$HOME/Documents/Classic Tabby/toolchains/jieli-linux/jieli-linux-toolchains-20260730.1"
+
+# Step 4: build another checkout (here: the official source kit, copied to a scratch dir)
+# with this script and its own build directory. build.py v0.2.
+python3 tools/linux/build.py --model pro --firmware-only --toolchain-kind wine \
+    --toolchain "$HOME/Documents/Classic Tabby/toolchains/jieli-2.5.3/C\$/JL/pi32" \
+    --wine-prefix ~/.wine-jieli --source-root /path/to/kit-copy --build-root /path/to/kit-build
 ```
 
 Outputs: `build/pro/sdk.elf`, `sdk.map`, `firmware-report.json`, `package-report.json`,
@@ -180,8 +193,50 @@ linking `releases/smk37/V01-fa2b726-07f2269d67d5/`). Saved under
 Checkpoint A result: Track A `.fwsc` is 492084 bytes (same as official), SHA-256
 b5bb4026b9c8f501cf97c6f7eea36925bb9220100295cfe06fe34b1d4f294afa, `cmp -l` against the
 official package reports 46 differing bytes (the 32-byte `fm1_build_id` plus the CRC /
-cipher bytes that depend on it). Formal Step 4 comparison (build from the official kit,
-second-directory determinism) follows Checkpoint A.
+cipher bytes that depend on it).
+
+### Step 4 result: official package reproduced
+
+The official source kit (zip above, extracted to a scratch copy) built with Track A and
+`build.py --source-root` gives:
+
+| Output | Value |
+| --- | --- |
+| `generated/SMK37_PRO_OPEN.fwsc` | SHA-256 **09fc934630d9a3565966f533abeda6330abc4b6ed6801d746753383946cbb44b**, 492084 bytes — `cmp` against the official package: identical |
+| `build-identity.json` | build_id 4c9e0084… (ordinal sort) — identical to the official metadata |
+| `sdk.elf` | 6e5edc68e6222d64f6a71433ff20524367367dab981b1f1eeb5ddc9d9eb52c43 (loaded sections identical to the fork's build; only the identity bytes and the symbol-table path strings differ) |
+
+So the whole Linux chain (Wine + JieLi 2.5.3 clang/ld, the Build.ps1 port and the
+Package.cs port) is proven against M-VAVE's own release: the bytes they ship are the bytes
+this chain produces.
+
+**Why our fork's build_id differs from the official one, and only for that reason.** The
+fork keeps the GitHub tree, where `.gitattributes` normalizes all SDK files to LF. The
+official kit carries CRLF in `app/fm_factory.c` and `app/fm_library.c`. The build identity
+hashes the raw bytes of every file under `app/`, so the fork's identity is
+e3344029ab696c7395093fdddc5c3f949bbd47d8b605a78e6f691af664e0d12e instead of 4c9e0084….
+The compiled code is identical (the ELF's `.text`, `.ram0_data` and every other loaded
+section match byte for byte between the kit build and the fork build); only the 32
+`fm1_build_id` bytes in the image and the package CRC/cipher bytes that depend on them
+differ (46 bytes of 492084). The fork deliberately keeps LF.
+
+### Step 4 result: determinism in a second directory
+
+A fresh `git clone` of the fork in a different directory
+(`/tmp/claude-1000/…/scratchpad/det-clone`) built with the same Track A command:
+
+| Output | Result |
+| --- | --- |
+| `generated/SMK37_PRO_OPEN.fwsc` | byte-identical (b5bb4026…) |
+| `generated/app-image.bin` | byte-identical |
+| `build-identity.json`, `package-report.json`, `link-arguments.json` | identical |
+| `sdk.elf` | differs only in `.strtab` / `.symtab`: the five `-fno-lto` objects (screen.c, transfer.c, midi_router.c, panel.c, scan.c) carry a `FILE` symbol with the absolute source path; `.text`, `.ram0_data`, `.boot_info`, `.cache_ram_data` and `.shstrtab` are identical |
+| `sdk.map`, `compile_commands.json` | differ in paths only (the map also names the random `lto-llvm-xxxxxx.o` temp object) |
+
+Source of the ELF nondeterminism: the compiler is given absolute source paths, exactly as
+`sdk/Build.ps1` does on Windows (`C:\…\app\screen.c` in the official build). The
+flashed image does not contain them. This is accepted as-is; the deterministic artefact is
+the package, and `firmware-report.json` reports the ELF hash for information only.
 
 Build identity finding: the identity is SHA-256 over `pro`, the manifest hash, and
 `path:sha256` of every file under `app/` (sorted). From the GitHub checkout it comes out as
@@ -229,4 +284,5 @@ layout are in [FLASH-BUDGET.md](FLASH-BUDGET.md) (generated tables:
 | `Sort-Object FullName` (culture-sensitive) | Build.ps1 L357, L401 | ordinal sort; proven correct by reproducing the official build_id (`--identity-sort culture` kept for reference) |
 | 22 Windows toolchain hashes | sdk/manifest.json, sdk/synth.json | Track A: enforced unchanged. Track B: replaced by `tools/linux/toolchain-linux.json`; every SDK file check and every synth.json check except the installed-compiler hash remains |
 | `curl.exe`, `tar.exe`, Windows WASI SDK | Build-Web.ps1 L51-L55 | Linux WASI SDK 27 pinned (Step 6) |
-| CRLF in the official kit's app files | official source zip | Documented in section 5; no change to app/ |
+| CRLF in the official kit's app files | official source zip | Documented in section 5; the fork keeps LF and therefore a different build_id; no change to app/ |
+| Absolute source paths in the ELF symbol table | Build.ps1 L360-L370 (compile command) | Same behaviour on Linux; package unaffected (section 5, determinism) |

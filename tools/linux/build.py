@@ -37,9 +37,12 @@ Usage (from the repository root)
     python3 tools/linux/build.py --model pro --firmware-only --toolchain-kind native --toolchain /opt/jieli
     python3 tools/linux/build.py --verify-only [--toolchain-kind ... --toolchain ...]
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-01  --source-root: build a different checkout (e.g. the official source
+                      kit tree) with this script, so the official package can be reproduced
+                      byte for byte without copying tools/linux into that tree (Step 4).
     v0.1  2026-11-01  Initial port of sdk/Build.ps1 (build, -FirmwareOnly packaging,
                       Test-Firmware). -Package (web integration) is not ported yet; the
                       web workbench is built by tools/linux/build-web.py instead.
@@ -58,9 +61,21 @@ from pathlib import Path
 
 # The repository root is two levels above tools/linux/.  (Build.ps1 L13-L14 derive $root
 # from $PSScriptRoot = sdk/; here the script lives in tools/linux/ so we go up twice.)
+# v0.2: --source-root replaces ROOT/SDK at start-up (set_source_root) so another checkout,
+# such as the official source kit, can be built with this script unchanged.
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 SDK = ROOT / "sdk"
+
+
+def set_source_root(path):
+    """Point the build at a different source tree (must contain app/ and sdk/)."""
+    global ROOT, SDK
+    ROOT = Path(path).resolve()
+    SDK = ROOT / "sdk"
+    for required in ("app/version.h", "sdk/manifest.json", "sdk/Build.ps1"):
+        if not (ROOT / required).is_file():
+            raise BuildError("--source-root %s does not look like an SMK37 Open tree (missing %s)" % (ROOT, required))
 
 sys.path.insert(0, str(HERE))
 import package as fm1_package  # noqa: E402  (tools/linux/package.py, port of sdk/Package.cs)
@@ -741,6 +756,7 @@ def main(argv=None):
     parser.add_argument("--identity-sort", choices=("ordinal", "culture"), default="ordinal",
                         help="file ordering for the source list and the build identity (see culture_sort_key)")
     parser.add_argument("--build-root", help="directory that will contain <model>/ (default: <repo>/build)")
+    parser.add_argument("--source-root", help="build this source tree instead of the repository containing this script (v0.2)")
     parser.add_argument("--verify-only", action="store_true", help="run the input checks and exit")
     args = parser.parse_args(argv)
     if args.firmware_only and args.package:
@@ -752,6 +768,8 @@ def main(argv=None):
         print(message, flush=True)
 
     try:
+        if args.source_root:
+            set_source_root(args.source_root)
         if args.verify_only:
             native_manifest = load_json(args.toolchain_manifest) if args.toolchain_kind == "native" else None
             toolchain = Toolchain(args.toolchain_kind, args.toolchain, wine=args.wine, wine_prefix=args.wine_prefix,
