@@ -1,7 +1,9 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.1
+Version: 0.2
 Revision log:
+- v0.2, 2026-11-02: section 9, approved decisions and final block/row/song formats, reclaim
+  and lookup design, migration and transfer definitions. Formats in section 9 are final.
 - v0.1, 2026-11-02: first assessment against commit 5e5f0d7 (Task 02 state, firmware unchanged
   since Task 01). No code changed. Figures from build/pro (Track B), `make flash-budget`,
   `nm` on sdk/lib/libfm1_engine.a and web/engine sources.
@@ -267,3 +269,225 @@ field becomes 0). The workbench's capability check (`===446464`) is replaced by 
 3. Packed block records (recommended, 384 blocks guaranteed) vs fixed 768-byte slots.
 4. Internal clock only for v1 song mode; MIDI-clock slave later.
 5. Note editing stays in the workbench for v1.
+
+## 9. Approved decisions and final formats (v0.2, 2026-11-02)
+
+Approved by the user after the Step 1 report. These formats are **final**: a second session
+builds the MIDI importer against this section. Any later change to a byte layout here stops
+the work and goes back to the user first.
+
+### 9.1 Decisions
+
+1. Checkpoint order: (a) sampler and DX7 user library out, with the migration prompt;
+   (b) DX7 operator editor pages (FM_EDIT / FM_ENV / FM_LFO) and the tone editor
+   (TONE_EDIT) out, keeping on-device DX7 preset select and the existing macros;
+   (c) measure; (d) song mode in. Flash free is reported after every checkpoint. After song
+   mode at least **4 KB of flash headroom** must remain for the scene PC/CC work; if the
+   measurement after (c) says that cannot happen, stop after (c) and list further removal
+   candidates with sizes before building song mode.
+2. 16 songs, 128 rows per song, 255 blocks per song.
+3. Packed block records (section 9.4), with the reclaim and lookup design in 9.6 and 9.7.
+   Decoding always runs ahead of the row change; playback never waits on flash.
+4. Internal clock only for v1. **Known limit:** with the clock source set to MIDI
+   (GROOVE_CLOCK_MIDI) song mode does not run; the SMK-37 is the clock master. The stock
+   pattern sequencer keeps its external-clock behaviour.
+5. Note editing in the workbench only for v1. FM6 preview goes through the control-task
+   MIDI-in queue; MIDI out keeps stock timing (router lanes from the audio-thread hook).
+
+### 9.2 Common conventions
+
+- All multi-byte fields are little-endian. Offsets are USER-partition offsets
+  (`fm1_flash_*`), never absolute flash addresses.
+- CRC-32: `groove_crc32` in app/project.c, i.e. the standard reflected CRC-32 (polynomial
+  0xEDB88320, initial value 0xFFFFFFFF, final complement), computed over the exact byte
+  ranges stated below.
+- Magics are four ASCII characters stored as a little-endian uint32: `FM1G` = 0x47314D46
+  (song record), `FM1B` = 0x42314D46 (block sector), `FM1Q` = 0x51314D46 (song staging
+  journal). Legacy magics that must never be read as song data: the sample bank header
+  `FM1S` = 0x53314D46 at offset 69632, and the DX7 library bank 0x31424D46 (`FMB1`) at
+  516096 and the three sectors after it. Both are checked explicitly (9.8).
+- Region sector numbering: song region sector `n` (0..112) is at USER offset
+  `69632 + 4096 * n`.
+
+| Region sector | USER offset | Use |
+| ---: | ---: | --- |
+| 0 | 69632 | song staging / journal sector |
+| 1..16 | 73728 .. 135168 | song records, song 0..15 (sector 1 + song) |
+| 17..112 | 139264 .. 532480 | block sectors 0..95 (sector 17 + b) |
+
+The tuning sector at 532480 and everything below 69632 are untouched.
+
+### 9.3 Block payload (the note format, v0.3)
+
+A block is one track's 64 steps. The payload is the 64 steps in order, each:
+
+| Byte | Field |
+| --- | --- |
+| 0 | step header: bits 0-2 note count N (0..4); bits 3-5 probability P (0 = always, 1..7 = play with probability P/8, as stock); bit 6 alt tuning table for this step's notes; bit 7 reserved, must be 0 |
+| 1 .. 3N | N notes, 3 bytes each, in ascending pitch order (the importer sorts; the device does not require it but starts notes in stored order, which defines FM6 voice stealing) |
+
+Note (3 bytes):
+
+| Byte | Field |
+| --- | --- |
+| 0 | pitch 0..127 (MIDI note number); bit 7 reserved, must be 0 |
+| 1 | velocity 1..127; bit 7 = retrigger: 1 = if the same pitch is still sounding on this track, send note-off then note-on; 0 = legato: the sounding note is extended to this note's end and no new note-on is sent |
+| 2 | length L in 16th steps, 1..255; the note ends L steps after it starts, which may be inside a later row or after a jump |
+
+Rules:
+- Minimum payload 64 bytes (all steps empty), maximum 64 + 64*12 = 832 bytes.
+- A note runs past the block end into whatever row plays next; on a queued jump or stop it
+  is released at the jump/stop point. Note-off is always sent exactly once per note-on.
+- Same pitch twice in one step is invalid (the device rejects the block). Chords are N
+  notes with the same start.
+- Step resolution is 16ths; swing follows the project's swing setting at playback.
+
+### 9.4 Block record and block sector
+
+Block sector (4096 bytes, region sectors 17..112):
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 4 | magic `FM1B` 0x42314D46 |
+| 4 | 1 | version = 1 |
+| 5 | 1 | staged target: 0 in a block sector; in the staging copy, the destination region sector 17..112 |
+| 6 | 2 | record count (records stored in this sector, including stale ones) |
+| 8 | 4 | generation: global counter, +1 on every block-sector program (also after compaction); the larger generation wins when the same (song, block) is in two sectors |
+| 12 | 2 | songs mask: bit s set if any record of song s is in this sector |
+| 14 | 2 | crc16 placeholder, reserved = 0xFFFF |
+| 16 | 4 | crc32 over bytes 20..4095 (the record area, including unused 0xFF bytes) |
+| 20 | 4076 | record area: records back to back, then 0xFF to the end |
+
+Block record (inside the record area):
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 1 | song 0..15 (0xFF = erased filler, stop parsing) |
+| 1 | 1 | block id 1..255 (0 is "empty" in rows and never stored) |
+| 2 | 2 | payload length 64..832 |
+| 4 | L | payload (9.3) |
+
+Records are 4-byte aligned (pad with 0xFF after the payload; the next record starts at the
+next multiple of 4). A record is **live** when its song's record (9.5) is valid and no
+record with the same (song, block id) exists in a sector with a higher generation. The
+sector CRC covers stale records too; they are ordinary bytes until compaction.
+
+Capacity: 96 sectors × 4076 bytes. Worst case (832 + 4 per record) 4 per sector = 384
+blocks guaranteed; realistic content 1000–3000 blocks.
+
+### 9.5 Song record (one sector per song, region sectors 1..16)
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 4 | magic `FM1G` 0x47314D46 |
+| 4 | 4 | generation: +1 on every write of this song (and of the staging copy) |
+| 8 | 4 | target: region sector this record belongs to (1 + song), as project.c's header.target, used by staging recovery |
+| 12 | 4 | crc32 over bytes 20..1327 (body) |
+| 16 | 4 | commit: 0xFFFFFFFF while being written, 0 once complete (programmed last) |
+| 20 | 4 | version = 1 |
+| 24 | 12 | name: 12 printable ASCII bytes (32..126), space padded, no terminator |
+| 36 | 1 | project slot 0..15 (timbres, effects, tempo, MIDI channels) |
+| 37 | 1 | flags: bit 0 loop the whole song when the last row ends (else stop); bit 1 jump mode: 0 = queued jumps land at the next bar, 1 = at the end of the current row; bits 2-7 reserved 0 |
+| 38 | 2 | tempo override in BPM (0 = use the project's tempo) |
+| 40 | 1 | row count 1..128 |
+| 41 | 1 | block count: highest block id used + 0 (informational, 0..255) |
+| 42 | 1 | loop row: row index the song returns to when flag bit 0 is set (0..row count-1); 0 by default |
+| 43 | 5 | reserved 0 |
+| 48 | 1280 | rows[128] × 10 bytes (unused rows are zero) |
+| 1328 | 2768 | reserved 0xFF |
+
+Row (10 bytes):
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 8 | block id per track 0..7 (0 = track silent in this row) |
+| 8 | 1 | repeat count 1..64 (the row plays this many times) |
+| 9 | 1 | flags: bit 0 "loop here": playback repeats this row until a jump is queued; bits 1-7 reserved 0 |
+
+Row length: every block is 64 steps (4 bars of 4/4 at 16ths). Shorter musical phrases
+repeat inside the block (the importer fills the block). Row changes happen at the end of
+the row's last repeat.
+
+### 9.6 Writing, rewriting, deleting: reclaim without data loss
+
+Only the control task touches flash. One transaction at a time; every transaction goes
+through region sector 0 (song staging) with the project.c pattern:
+
+1. Build the full 4096-byte image of the destination sector in RAM.
+2. Erase staging and program the image into it. Both image types carry what recovery
+   needs: a song record has `target`; a block-sector image stores its region sector number
+   in header byte 5 (reserved in 9.4 for exactly this, 0 means "not a staged copy") and its
+   CRC. After readback verifies, program the journal commit word (the last 4 bytes of the
+   staging sector, offset 4092, outside both image CRC ranges) to 0.
+3. Erase the destination, program the image, verify by readback.
+4. Erase staging (clears the commit).
+
+Recovery at boot and before any new transaction (`song_storage_prepare`, the analogue of
+`groove_storage_prepare`): if staging has a committed image (commit word 0 and CRC valid)
+whose target differs from what is on flash, repeat step 3. An image that was never
+committed is ignored. A power cut therefore leaves either the old destination intact or
+the new one fully written.
+
+Block writes (workbench upload or importer file): records are appended to a block sector
+that has room (first fit by lowest region sector), via a full-sector rewrite through
+staging; a sector rewrite increments the global generation. Writing a block that already
+exists for that (song, id) makes the old copy stale; it is not erased in place.
+
+Rewriting a song: the workbench uploads the changed blocks (appends), then the song record
+(one sector through staging). Unchanged blocks are untouched.
+
+Deleting a song: its song sector is rewritten with an all-0xFF body and commit = 0 is not
+needed: a sector whose magic is not `FM1G` is "empty". All block records of that song
+become garbage.
+
+Compaction (space reclaim): when an append finds no sector with room, the device picks
+the sector with the most reclaimable bytes (stale + garbage records), builds the compacted
+image in RAM (live records only, 0xFF after), and writes it through staging as above. Live
+records keep their bytes; nothing is lost on a power cut because the old sector stays
+intact until the staged image is committed. Garbage is also compacted lazily: `SHIFT+SAVE`
+on the SONG page runs a full compaction pass sector by sector. Space available to the
+workbench = sum over sectors of (4076 − live bytes), reported in the capability reply.
+
+### 9.7 Locating a block at a row change
+
+- At boot and after any block-sector write, the device builds a RAM **block directory**
+  for the currently loaded song only: `uint16_t where[256]` (region sector 17..112 in bits
+  0-6, 0 = absent) and `uint16_t at[256]` (byte offset of the record in the sector, bits
+  0-11, length is read from the record). Build cost: read the 16-byte header of each of
+  the 96 sectors (songs mask), and walk the record area only of sectors whose mask has
+  this song's bit, keeping the copy with the highest sector generation. 1 KB of RAM.
+- A row change needs the 8 block ids of the next row: 8 array lookups, then up to 8
+  `fm1_flash_read` calls of ≤ 836 bytes each (or `fm1_flash_map` for a direct read), then
+  decoding into the fixed RAM row structure (8 × 64 × 13 bytes). This runs in the control
+  task **when the current row starts** (one full row ahead, ≥ 4 bars of time). For a queued
+  jump the decode of the target row starts at the pad press, into the "next row" buffer;
+  if the jump point (next bar, ≥ 1 beat away) arrives before the decode finished, the jump
+  lands at the following bar instead. The audio-thread sequencer reads only the RAM row
+  buffers and swaps a pointer at the row boundary.
+
+### 9.8 Migration (first boot on the new layout)
+
+The app checks region sectors 0..112 at boot: a sector is "song-formatted" when its
+first word is `FM1G`, `FM1B` or `FM1Q` or the sector is all 0xFF in its first 32 bytes.
+Any other content (in particular `FM1S` 0x53314D46 at 69632 and `FMB1` 0x31424D46 at
+516096 or in the following three sectors) marks the region as holding old data. Song mode
+is then disabled and the SONG page shows "OLD SAMPLE / DX7 DATA FOUND — SHIFT+SAVE TO
+INITIALIZE SONG STORAGE". Confirming erases only the non-song-formatted sectors of the
+region. Projects, settings, staging (sector 16) and tuning are never touched. Back up
+`.fm1s` banks and DX7 library banks with the V01 workbench before flashing.
+
+### 9.9 Transfer protocol and file container
+
+- Capability reply (cmd 22): out[8] gains bit 2 = song storage present; the sample limit
+  field (bytes 4-7) reports 0 on Classic Tabby. The workbench accepts 0 or 446464.
+- Transfer kind 5: song record, size 4096, target = song 0..15 (download reads the song
+  sector; upload writes it through staging after validation).
+- Transfer kind 6: one block, target = (song << 8) | block id, size = payload length
+  64..832 (upload appends; download returns the live payload).
+- Command 23 (new): song storage status: out[0..3] = free bytes, out[4..7] = reclaimable
+  bytes, out[8] = compaction/migration state (0 ready, 1 busy, 2 old data present).
+- Song file (`.tabby`, produced by the importer and by the workbench "export song"): the
+  4096-byte song record image (9.5, with generation 0, target 0, commit 0, crc valid),
+  followed by block records exactly as in 9.4 (4-byte header + payload, 4-byte aligned),
+  terminated by end of file. The song byte in each record must equal 0 in a file; the
+  device assigns the song number on upload.
