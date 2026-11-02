@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.5
+Version: 0.6
 Revision log:
+- v0.6, 2026-11-01 (Step 7): host smoke tests (`tests/host/smoke.c`, native gcc build of
+  the app + simulator sources with FM1_HOST_TEST) and `make test`; Makefile v0.3.
 - v0.5, 2026-11-01 (Step 6): web workbench preview built with the Linux WASI SDK 27
   (`tools/linux/build-web.py`); simulator wasm byte-identical to the official release;
   preview verified in Chrome; Node check of the wasm; Makefile v0.2 (web, web-smoke).
@@ -35,6 +37,16 @@ are never written.
 - Step 1: upstream cloned to `firmware/` (remote `upstream`, tag `upstream-v01` =
   b2d6bcb "SMK37 OPEN V01"), branch `classic-tabby/linux-build`. `.gitattributes` intact.
   All 67 hashes in the `files` section of `sdk/manifest.json` verified against disk.
+- Step 7 (**done**): `make test` = `host-smoke` + `web-smoke`. `host-smoke` compiles the 33
+  app/web/third_party C units (the simulator's source set, `-DFM1_HOST_TEST -DFM1_OPEN_WEB`)
+  natively with gcc 15.2 in 7 s together with `tests/host/smoke.c`, and runs it: it builds,
+  the simulator initializes with cleared storage, SMK37 key 12 gives Note On 60 velocity
+  100 on MIDI channel 1 (the default for keyboard track 0) on ports 0-2 and Note Off on
+  release, the track's output channel moved to 3 through the MIDI settings makes the note
+  follow (after the firmware's controller reset on the old channel), and audio renders.
+  21 checks, all pass. The Makefile (v0.3) has verify, firmware, firmware-native,
+  firmware-ref, crosscheck, web, web-smoke, host-smoke, test, flash-budget,
+  package-equivalence, clean.
 - Step 2 (partial): versions recorded below. Packages that need root are not installed yet
   (sudo requires an interactive password); `tools/linux/install-host-packages.sh` is the
   reproducible installer for a clean host.
@@ -82,7 +94,7 @@ are never written.
   "PowerShell without the apt repo" below. The Python packager is validated meanwhile by
   reproducing the official package byte for byte (Step 4), which exercises every code path
   of Package.cs on the real image.
-- Host test target (`make test`).
+- (nothing; Steps 1-7 complete)
 
 ### Left to test
 
@@ -173,6 +185,8 @@ make firmware-ref     # Track A (Wine)            -> build/ref/pro/
 make crosscheck       # both, then compare SHA-256 of sdk.elf, .fwsc, app-image.bin
 make web              # build/web/simulator.wasm + build/preview/index.html (Linux WASI SDK 27)
 make web-smoke        # /usr/bin/node tests/simulator-wasm-smoke.mjs build/web/simulator.wasm
+make host-smoke       # gcc build of app + simulator sources with FM1_HOST_TEST, runs tests/host/smoke.c
+make test             # host-smoke + web-smoke
 make flash-budget     # build/pro/flash-budget.md (read only)
 make clean
 ```
@@ -331,6 +345,30 @@ The Linux WASI SDK produces the same wasm as the Windows one (both clang 20.1.8-
 with the same sysroot), so the browser workbench is reproducible on Linux byte for byte.
 Node is not needed to build the preview; upstream uses it only in `tools/Build-Hosted.cjs`
 (static-site packaging of a distribution build, not part of Task 01).
+
+### 5c. Step 7: host tests
+
+`make host-smoke` compiles exactly the simulator's source set (every `.c` under `app/`,
+`web/` and `third_party/synth/` except `app/board/`, with `-DFM1_HOST_TEST -DFM1_OPEN_WEB`
+and the same include order as Build-Web.ps1 L82) with the host compiler (`CC`, default
+gcc; clang works when installed) and links `tests/host/smoke.c` against it. `-Werror` is
+not used in the host build because gcc rejects clang's `minsize` attribute and warns about
+indentation in third_party; both are warnings only and the wasm build keeps `-Werror`.
+
+The harness drives `web/engine/Simulator.c`'s `sim_*` entry points, the same ones the
+browser calls, so the app code under test (`smk37_controls.c`, `midi_router.c`,
+`project.c`, `screen.c`, …) runs unchanged. Checks (21, all pass):
+
+| Area | Check |
+| --- | --- |
+| builds | 33 units + harness compile and link natively (7 s) |
+| initializes | `sim_boot(1)`; panel snapshot readable; 128-frame blocks; LCD target table; keyboard track 0 on channel 1; destinations = ports 0-2; KEY OUT on |
+| keyboard note | key 12 velocity 100 → `90 3C 64` on ports 0, 1, 2; nothing on another channel; release → `80 3C 00` |
+| expected channel | `sim_midi_edit(0, 1, +2)` moves track 0 to channel 3; the firmware first sends its controller reset on channel 1 (`B0 78 00` all sound off, sustain/mod/bend/pressure neutral, stop); then key 12 → `92 3C 64` / `82 3C 00` |
+| audio | one rendered block, all values finite |
+
+Finding worth knowing for Phase 1: a MIDI settings change resets the previous channel
+and releases held notes on the next 10 ms poll. The test waits for that, as a player would.
 
 ## 6. Flash / RAM baseline (Track A and Track B, identical)
 

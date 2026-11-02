@@ -32,9 +32,12 @@
 #       make firmware JIELI_LINUX=/opt/jieli
 #       make firmware-ref WINEPREFIX=$HOME/.wine-jieli
 #
-# Version: 0.2
+# Version: 0.3
 #
 # Revision log
+#   v0.3  2026-11-01  Step 7: host-smoke (native $(CC) build of the app + simulator sources
+#                     with FM1_HOST_TEST, tests/host/smoke.c) and test (= host-smoke +
+#                     web-smoke).
 #   v0.2  2026-11-01  Step 6: web (tools/linux/build-web.py --local-preview with the pinned
 #                     Linux WASI SDK 27) and web-smoke (/usr/bin/node runs
 #                     tests/simulator-wasm-smoke.mjs against build/web/simulator.wasm).
@@ -65,7 +68,16 @@ BUILD      := tools/linux/build.py
 NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"
 
-.PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke flash-budget package-equivalence clean
+.PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence clean
+
+# Host test build: the same source set and defines as the WASI simulator build in
+# tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
+# clang's minsize attribute and warns about third_party indentation, so -Werror is not
+# used here (it stays on in the wasm build). CC=clang works too when clang is installed.
+HOST_SRCS  := $(shell find app web third_party/synth -name '*.c' ! -path 'app/board/*' | sort)
+HOST_FLAGS := -std=c11 -O1 -g -fwrapv -fno-fast-math -ffp-contract=off -DFM1_HOST_TEST -DFM1_OPEN_WEB \
+              -Wall -Wextra -Wno-unused-function -Wno-array-parameter -Wno-attributes -Wno-misleading-indentation \
+              -Iweb/engine -Iweb/synth -Ithird_party/synth -Isdk/include -Iapp/synth -Iapp
 
 help:
 	@sed -n '7,30p' Makefile | sed 's/^#   //; s/^#//'
@@ -95,8 +107,21 @@ web:
 	FM1_WASI_SDK="$(FM1_WASI_SDK)" $(PYTHON) -I tools/linux/build-web.py --local-preview
 	@echo "Open with: google-chrome \"file://$(CURDIR)/build/preview/index.html\""
 
-web-smoke:
+build/web/simulator.wasm:
+	$(MAKE) web
+
+web-smoke: build/web/simulator.wasm
 	$(NODE) tests/simulator-wasm-smoke.mjs build/web/simulator.wasm
+
+build/host/smoke: tests/host/smoke.c $(HOST_SRCS)
+	@mkdir -p build/host
+	$(CC) $(HOST_FLAGS) $(HOST_SRCS) tests/host/smoke.c -lm -o $@
+
+host-smoke: build/host/smoke
+	./build/host/smoke
+
+test: host-smoke web-smoke
+	@echo "test: host-smoke and web-smoke passed"
 
 flash-budget:
 	@# The analysis symbol map (per-file attribution of LTO-merged code) is built once per
