@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.8
+Version: 0.8.1
 Revision log:
+- v0.8.1, 2026-11-02: section 9.3a, verification of the live site, archive and release.
 - v0.8, 2026-11-02 (Task 02): publication. `build.py` v0.3 ports `-Package`; `make package`,
   `hosted`, `release-assets`, `publish`, `release` (Makefile v0.4); `tools/linux/publish-pages.py`
   v0.1 (Build-Hosted.cjs + gh-pages); section 9 with the published hashes, Pages URL and the
@@ -506,6 +507,27 @@ subdirectory (`--site-dir elite`), as HOSTING.md asks for separate directories.
   `https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v01.0.zip`.
 - `file://` opening of `index.html` redirects to the offline `SMK37-Open-Source.html`
   (Build-Hosted.cjs entry loader), as HOSTING.md describes.
+
+### 9.3a Verification after publishing (2026-11-02)
+
+- Pushed: `classic-tabby/linux-build` = ff723d2, tags `upstream-v01` (b2d6bcb) and
+  `tabby-v01.0` (annotated, → ff723d2), `gh-pages` = 43f4c2b. GitHub enabled Pages by
+  itself on the first gh-pages push (legacy build, branch root); the first build took 54 s.
+- The archive https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v01.0.zip
+  (302 → codeload.github.com, `classic-tabby-tabby-v01.0.zip`, 2606964 bytes, SHA-256
+  45c0cd15…) unpacks to 179 files whose SHA-256 all equal `git archive tabby-v01.0`. The
+  same URL fetched through the live page's source link gives the same bytes. GitHub does
+  not promise archive bytes stay stable forever, so the release carries no hash of the zip.
+- Live site https://seattleuser0.github.io/classic-tabby/: `index.html` byte-identical to
+  `build/hosted/pro/index.html`; scripts served as `application/javascript`, the simulator
+  as `application/wasm`, the two firmware images as `application/octet-stream`, the offline
+  HTML as `text/html` (2628842 bytes). Headless Chrome 156: no console errors, placeholder
+  hidden, 149 LCD targets, "Eight-track overview", status "Firmware loads when Device
+  Update is opened" (the firmware details in 9.4 are filled when that tab is opened).
+- Release https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v01.0: the
+  three assets downloaded back and `sha256sum -c SHA256SUMS.txt` passes.
+- This commit is a documentation follow-up on the branch; the tag stays on ff723d2, the
+  commit the firmware was built from. app/, sdk/, web/ and third_party/ are unchanged.
 
 ### 9.4 What the install screen shows for the SMK-37 Pro
 
