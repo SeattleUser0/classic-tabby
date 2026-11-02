@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.6
+Version: 0.7
 Revision log:
+- v0.7, 2026-11-01 (Step 8, end of Task 01): hardware readiness recorded read-only
+  (section 8); no udev rule needed for Chrome WebMIDI/SysEx; the plugged-in device
+  enumerates as "Orange Cat FM-1", not as an M-VAVE SMK-37 (open question).
 - v0.6, 2026-11-01 (Step 7): host smoke tests (`tests/host/smoke.c`, native gcc build of
   the app + simulator sources with FM1_HOST_TEST) and `make test`; Makefile v0.3.
 - v0.5, 2026-11-01 (Step 6): web workbench preview built with the Linux WASI SDK 27
@@ -47,6 +50,8 @@ are never written.
   21 checks, all pass. The Makefile (v0.3) has verify, firmware, firmware-native,
   firmware-ref, crosscheck, web, web-smoke, host-smoke, test, flash-budget,
   package-equivalence, clean.
+- Step 8 (**done, read only**): USB and ALSA enumeration recorded in section 8. Nothing
+  was sent to or written on any device.
 - Step 2 (partial): versions recorded below. Packages that need root are not installed yet
   (sudo requires an interactive password); `tools/linux/install-host-packages.sh` is the
   reproducible installer for a clean host.
@@ -98,12 +103,13 @@ are never written.
 
 ### Left to test
 
+- First flash of the Track B package on the SMK-37 Pro through the workbench (the user
+  does this; see section 8 for the device question first).
 - **pwsh packaging equivalence** (`make package-equivalence`: `tools/linux/package-pwsh.ps1`
   drives the original sdk/Package.cs via Add-Type on `build/pro/generated/app-image.bin`,
   compared byte for byte with `tools/linux/package.py`). Skipped until PowerShell 7 is
   available on this host.
 
-- Hardware enumeration (read only).
 
 ## 2. Host packages (Ubuntu 26.04.1 LTS "resolute", kernel 7.0.0-42-generic)
 
@@ -391,6 +397,22 @@ fail `Insufficient FM1 settings space` in Package.cs. This is the single most im
 constraint for Phase 1 work. The per-input breakdown, savings estimates and the USER-region
 layout are in [FLASH-BUDGET.md](FLASH-BUDGET.md) (generated tables:
 `tools/linux/flash-budget.py`).
+
+## 8. Hardware readiness (Step 8, read only, 2026-11-01)
+
+Commands run: `lsusb`, `amidi -l`, `aconnect -l`, `cat /proc/asound/cards`, and reads of
+`/sys/bus/usb/devices/1-1/*`. No MIDI message (not even an identity request) was sent, and
+nothing was written to any device.
+
+| Item | Result |
+| --- | --- |
+| USB devices (besides hubs) | 046d:c52b Logitech Unifying Receiver; 2321:0022 iConnectivity AUDIO4c; 8087:0a2b Intel Bluetooth; **1209:0001 "Generic pid.codes Test PID"** (bus 1, device 37, full speed, bus-powered 100 mA) |
+| 1209:0001 descriptors | manufacturer "Orange Cat", product **"Orange Cat FM-1"**, no serial, bcdDevice 3.30, 5 interfaces: Audio Control, MIDI Streaming, Audio Control, 2 × Audio Streaming; all bound to `snd-usb-audio` |
+| ALSA card | card 1 `FM1` "Orange Cat FM-1" (USB-Audio); `amidi -l`: `hw:1,0,0` "Orange Cat FM-1 MIDI 1" (IO); `aconnect -l`: client 20 "Orange Cat FM-1", port 0 |
+| other MIDI | AUDIO4c client 24 with DIN, USB2, HST1-8 ports; PipeWire sequencer clients 142/143 |
+| device permissions | `/dev/snd/seq` and `/dev/snd/midiC1D0` are `root:audio 0660` with a logind ACL `user:userzero:rw-` (seat session), so Chrome can open them without group membership changes; `/dev/bus/usb/001/037` is `root:root 0664` (not needed) |
+| udev rule | **not needed.** The workbench uses WebMIDI (`navigator.requestMIDIAccess({sysex:true})` in `sdk/Update.html.in`), which Chrome on Linux serves through the ALSA sequencer, not WebUSB/WebHID. Chrome will show its own per-site SysEx permission prompt. Nothing was added under `/etc/udev/rules.d/` |
+| firmware version | **not visible from descriptors as an M-VAVE version.** The only candidate device identifies itself as "Orange Cat FM-1" with USB VID/PID 1209:0001 (pid.codes test ID) and bcdDevice 3.30. The stock V16 and the Open V01 images carry the strings "M-VAVE" and "SMK-37 Pro_8000001" (found in `build/pro/generated/app-image.bin`); no such strings exist in the enumerated device. Either the SMK-37 Pro currently runs the Orange Cat firmware (the user's other project), or the plugged-in unit is the Orange Cat FM-1 and the SMK-37 Pro is not connected. Reading the version through the workbench would require sending SysEx to the device, which Step 8 forbids, so this is left as an open question for the user |
 
 ## 7. Windows-specific items found in the upstream build and how they are handled
 

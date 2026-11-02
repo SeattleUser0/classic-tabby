@@ -1,7 +1,12 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.3
+Version: 0.3.1
 Revision log:
+- v0.3.1, 2026-11-01 (Steps 4-8): no figure changed. The same `sdk.elf` is now produced by
+  the default Track B build (`make firmware`, native toolchain) and by Track A, and the
+  official V01 package was reproduced byte for byte from the official kit, so these
+  numbers are the official firmware's numbers. `make flash-budget` regenerates
+  `build/pro/flash-budget.md` (Appendix A) from the current build with GNU nm.
 - v0.3, 2026-11-01 (Checkpoint A): numbers confirmed from the Track A `sdk.elf` (Windows
   JieLi 2.5.3 toolchain under Wine). The Track A ELF is byte-identical to the native
   Linux toolchain build used for v0.1/v0.2, so every figure stands; Appendix A regenerated
