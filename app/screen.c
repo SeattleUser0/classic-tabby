@@ -124,29 +124,16 @@ static void text(unsigned x, unsigned y, const char *s, unsigned scale, uint16_t
 }
 /* Eight tracks stay visible on HOME. SEQ maps the sixteen white keys to one
  * quarter of the 64-step pattern. All drawing and edits run on app_control. */
+/* Classic Tabby (Task 03 b): FM_EDIT, FM_ENV, FM_LFO and TONE_EDIT (the DX7 operator
+ * editor and the per-engine tone editor) are no longer reachable; voice editing lives
+ * in the web workbench. Their numbers stay so the workbench simulator's page ids
+ * (sdk/Simulator.js state[1], data-sim-page) do not shift. groove_screen_open rejects
+ * them. FM_QUICK (DX7 preset select + ALG/FEEDBACK/TRANSPOSE/LEVEL macros) stays. */
 enum { OVERVIEW, STEPS, FM_EDIT, FM_ENV, FM_LFO, TONE_EDIT, MIX, BLE, PROJECT, NAME, EFFECTS, SOURCE, ACTIONS, STEP_EDIT, RHYTHM, FM_QUICK, PRESET_BROWSER, ARP_EDIT, STARTUP };
 enum { OCT_DOWN, OCT_UP, FX, SCL, ENV, LFO, EDIT, GLO, HOME, SAVE, ARP, SEQ, PLAY, REC };
 #define BUTTON(b) (1U << (b))
 static const uint16_t colors[8] = {0x3c9f, 0x07bf, 0x4eae, 0x06d4, 0xac9f, 0xed18, 0xff06, 0xfba5};
 static const uint8_t white_keys[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
-/* FM1 EDIT key IDs 15,17,19,22,24,27,29,31,34,36 minus 14. */
-static const uint8_t edit_keys[10] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22};
-static const struct fm_page {
-    const char *title, *label[4];
-    uint8_t parameter[4], per_operator;
-} fm_pages[] = {
-    /* Preserve the FM edit page and knob order. */
-    {"TUNE/LVL", {"DETUNE", "COARSE", "FINE", "OUT LVL"}, {20, 18, 19, 16}, 1},
-    {"OP RATES", {"RATE 1", "RATE 2", "RATE 3", "RATE 4"}, {0, 1, 2, 3}, 1},
-    {"OP LEVELS", {"LEVEL 1", "LEVEL 2", "LEVEL 3", "LEVEL 4"}, {4, 5, 6, 7}, 1},
-    {"SENS/OSC", {"AM SENS", "VELOC", "MODE", ""}, {14, 15, 17, 255}, 1},
-    {"SCALING", {"L DEPTH", "R DEPTH", "BREAKPT", ""}, {9, 10, 8, 255}, 1},
-    {"CURVES", {"L CURVE", "R CURVE", "RATE SC", ""}, {11, 12, 13, 255}, 1},
-    {"PITCH RATES", {"RATE 1", "RATE 2", "RATE 3", "RATE 4"}, {126, 127, 128, 129}, 0},
-    {"PITCH LEVELS", {"LEVEL 1", "LEVEL 2", "LEVEL 3", "LEVEL 4"}, {130, 131, 132, 133}, 0},
-    {"COMMON", {"ALG", "FDBACK", "OSC SYNC", "TRANS"}, {134, 135, 136, 144}, 0},
-    {"LFO", {"WAVE", "SPEED", "PMD", "AMD"}, {142, 137, 139, 140}, 0},
-    {"LFO MOD", {"DELAY", "P SENS", "LFO SYNC", "OSC SYNC"}, {138, 143, 141, 136}, 0}};
 /* Classic Tabby (Task 03 a): the sampler is not selectable; SOURCE_CHOICES excludes it.
  * The sixth name stays so a GROOVE_SAMPLE view (never produced by the app) still prints. */
 static const char *const source_names[] = {"DX7 FM", "BASS 303", "DRUM 808", "PSG", "PLUCK", "SAMPLER"};
@@ -160,7 +147,7 @@ static unsigned source_preview, action, action_confirm, tone_clip_ready;
 static struct groove_preset tone_clip;
 static uint32_t midi_seen[8], midi_until[8];
 static uint8_t midi_active[8];
-static unsigned track, cursor, selected_note = 60, drum, writing, page, fm_group, op;
+static unsigned track, cursor, selected_note = 60, drum, writing, page;
 static unsigned music_page, subpage_return, project_return, rec_before_press, effects_page;
 static unsigned seq_page, arp_page;
 static unsigned shift_visible;
@@ -194,10 +181,9 @@ static unsigned step_first(const struct groove_view *v)
 {
     return ((step_follow && v->playing ? v->play_step : cursor) % v->sequence_length) & ~15U;
 }
-static uint8_t operator_page[GROOVE_TRACKS][8], operator_selected[GROOVE_TRACKS],
-    lfo_page[GROOVE_TRACKS];
-static uint8_t tone_pages[GROOVE_TRACKS][GROOVE_PADS + 1], drum_parts[GROOVE_TRACKS];
-static uint32_t operator_time[6], operator_held, operator_long;
+/* Selected drum part per track, restored on track change (STEPS editing). Task 03 b
+ * removed the operator/tone editor state that used to sit next to it. */
+static uint8_t drum_parts[GROOVE_TRACKS];
 static uint8_t key_note[27], key_track[27], retry_reset;
 static uint32_t previous_buttons, previous_keys, blocked_keys, frame_ms, glo_ms;
 static uint32_t project_keys; /* Held Play pitches across a project remapping. */
@@ -216,8 +202,6 @@ static unsigned project_slot, project_factory, name_cursor;
 static unsigned preset_slot, preset_bank, preset_loaded;
 static unsigned preset_current_slot, preset_current_bank;
 static uint32_t preset_project_revision;
-static unsigned advanced_edit, edit_down, edit_long;
-static uint32_t edit_ms;
 static unsigned seq_down;
 static uint32_t seq_ms;
 static unsigned arp_down, arp_long;
@@ -328,7 +312,7 @@ static int fm_encoder_delta(unsigned encoder, int16_t value)
 }
 static unsigned parameter_page(unsigned value)
 {
-    return value == FM_ENV || value == FM_LFO || value == EFFECTS;
+    return value == EFFECTS;
 }
 static void open_subpage(unsigned target)
 {
@@ -421,38 +405,6 @@ static void frame(unsigned x, unsigned y, unsigned w, unsigned h, uint16_t color
     paint_fill(x, y + h - 1, w, 1, color);
     paint_fill(x, y, 1, h, color);
     paint_fill(x + w - 1, y, 1, h, color);
-}
-static void line(int x, int y, int end_x, int end_y, uint16_t color)
-{
-    if (paint_rendering && ((y < end_y ? y : end_y) >= (int)(paint_top + PAINT_ROWS) ||
-        (y > end_y ? y : end_y) < (int)paint_top)) return;
-    /* Algorithm wires are axis-aligned: one LCD window covers the whole wire. */
-    if (x == end_x) {
-        paint_fill((unsigned)x, (unsigned)(y < end_y ? y : end_y), 1,
-                        (unsigned)(y < end_y ? end_y - y + 1 : y - end_y + 1), color);
-        return;
-    }
-    if (y == end_y) {
-        paint_fill((unsigned)(x < end_x ? x : end_x), (unsigned)y,
-                        (unsigned)(x < end_x ? end_x - x + 1 : x - end_x + 1), 1, color);
-        return;
-    }
-    int dx = end_x > x ? end_x - x : x - end_x, dy = end_y > y ? y - end_y : end_y - y;
-    int sx = x < end_x ? 1 : -1, sy = y < end_y ? 1 : -1, error = dx + dy;
-    for (;;) {
-        paint_fill((unsigned)x, (unsigned)y, 1, 1, color);
-        if (x == end_x && y == end_y)
-            break;
-        int twice = 2 * error;
-        if (twice >= dy) {
-            error += dy;
-            x += sx;
-        }
-        if (twice <= dx) {
-            error += dx;
-            y += sy;
-        }
-    }
 }
 #ifdef FM1_HOST_TEST
 static char web_knobs[4][2][16];
@@ -704,247 +656,6 @@ static __attribute__((noinline)) void steps(const struct groove_view *v)
         else
             note_name(frame_step_notes[i], label);
         text(x + 25, y + 14, label, 1, fg, bg);
-    }
-}
-static unsigned fm_parameter(unsigned col)
-{
-    const struct fm_page *p = &fm_pages[fm_group];
-    if (p->parameter[col] == 255)
-        return 255;
-    return p->parameter[col] + (p->per_operator ? (5 - op) * 21 : 0);
-}
-static void algorithm_draw(unsigned algorithm, unsigned muted);
-static __attribute__((noinline, cold, minsize)) void fm_draw(const uint8_t patch[156], const struct groove_fm_controls *controls)
-{
-    if (paint_rendering && (paint_top >= 192 || paint_top + PAINT_ROWS <= 32)) return;
-    const struct fm_page *p = &fm_pages[fm_group];
-    /* Titles, diagrams and the summary row have independent damage. Editing
-     * a number never retransmits an unchanged operator diagram. */
-    uint32_t title = track | (op << 3) | (fm_group << 6) |
-                     ((uint32_t)controls->operators << 10);
-    uint32_t shape = patch[134] | (op << 5) | ((uint32_t)controls->operators << 8);
-    if (page == FM_ENV)
-        shape = signature(controls->enabled, controls->envelope, 4);
-    else if (page == FM_EDIT &&
-             (fm_group == 1 || fm_group == 2 || fm_group == 6 || fm_group == 7)) {
-        unsigned offset = op == 6 ? 126 : (5 - op) * 21;
-        shape = signature(op, patch + offset, 8);
-    } else if (page == FM_LFO)
-        memcpy(&shape, patch + 141, 3);
-    if (cache->title_cache != title) {
-        cache->title_cache = title;
-        erase(0, 32, 240, 40);
-        color_text(8, 35, "T", colors[track]);
-        small_number(14, 35, track + 1, 1, colors[track]);
-        plain_text(30, 35, "DX7");
-        color_text(64, 35, page == FM_ENV ? "AMP ENV" : p->title, colors[track]);
-        if (page == FM_EDIT) {
-            small_number(206, 35, operator_page[track][op] + 1, 1, TEXT);
-            dim_text(212, 35, op < 6 ? "/6" : op == 6 ? "/2" : "/1");
-        }
-        for (unsigned i = 0; i < 6; ++i) {
-            uint16_t bg = i == op && page == FM_EDIT ? colors[track] : PANEL;
-            paint_fill(8 + i * 38, 51, 34, 16, bg);
-            uint16_t fg = bg == colors[track] ? BACK : TEXT;
-            text(13 + i * 38, 56, controls->operators & (1U << i) ? "X " : "OP", 1, fg, bg);
-            number(25 + i * 38, 56, i + 1, 1, 1, fg, bg);
-        }
-    }
-    uint32_t context = track | (fm_group << 3) | (page << 7) | ((op == 6U) << 11);
-    if (cache->middle_shape != shape || cache->row_cache[0] != context) {
-        cache->row_cache[0] = context;
-        cache->middle_shape = shape;
-        erase(0, 72, 240, 108);
-        if (page == FM_ENV) {
-            color_text(8, 80, controls->enabled ? "ADSR ON" : "ADSR OFF", GREEN);
-            dim_text(8, 95, controls->enabled ? "AMPLITUDE SHAPE" : "PREVIEW / BYPASSED");
-            /* Match adsr_config_set's millisecond/level mapping. Sustain has
-             * an illustrative 400 ms hold; it lasts until the key is released. */
-            unsigned a = 8U * controls->envelope[0], d = 100U + 8U * controls->envelope[1];
-            unsigned r = 100U + 19U * controls->envelope[3], total = a + d + 400U + r;
-            int x1 = 20 + a * 200U / total, x2 = 20 + (a + d) * 200U / total;
-            int x3 = 20 + (a + d + 400U) * 200U / total;
-            int y = 167 - (100U + 7U * controls->envelope[2]) * 53U / 1000U;
-            unsigned color = controls->enabled ? colors[track] : DIM;
-            line(20, 167, x1, 114, color); line(x1, 114, x2, y, color);
-            line(x2, y, x3, y, color); line(x3, y, 220, 167, color);
-        } else if (page == FM_EDIT &&
-                   (fm_group == 1 || fm_group == 2 || fm_group == 6 || fm_group == 7)) {
-            unsigned offset = op == 6 ? 126 : (5 - op) * 21;
-            dim_text(8, 80, "RATE / LEVEL PREVIEW");
-            dim_text(8, 94, "HIGH RATE = FAST   L3 HOLDS");
-            if (op == 6)
-                paint_fill(20, 134, 201, 1, PANEL);
-            int x = 20, last_y = 166 - patch[offset + 7] * 64 / 99;
-            /* Schematic widths keep all stages visible: higher RATE is faster.
-             * L3 holds until release. This preview is not a millisecond trace. */
-            for (unsigned i = 0; i < 4; ++i) {
-                if (i == 3) { line(x, last_y, x + 30, last_y, colors[track]); x += 30; }
-                int y = 166 - patch[offset + 4 + i] * 64 / 99;
-                int next = x + 8 + (99 - patch[offset + i]) * 32 / 99;
-                line(x, last_y, next, y, colors[track]);
-                paint_fill((unsigned)next - 2, (unsigned)y - 2, 5, 5, TEXT);
-                x = next;
-                last_y = y;
-            }
-        } else if (page == FM_LFO) {
-            static const char *const waves[6] = {"TRIANGLE", "SAW DOWN", "SAW UP",
-                                                 "SQUARE",   "SINE",     "S/HOLD"};
-            dim_text(8, 91, "LFO WAVE");
-            text(8, 110, waves[patch[142] % 6], 2, colors[track], BACK);
-            plain_text(8, 146, patch[141] ? "KEY SYNC ON" : "KEY SYNC OFF");
-            dim_text(124, 146, "PM SENS");
-            small_number(178, 146, patch[143], 1, TEXT);
-        } else
-            algorithm_draw(patch[134], controls->operators);
-    }
-    uint32_t sig = patch[134] | ((uint32_t)patch[135] << 5) | ((uint32_t)controls->mono << 8);
-    sig = signature(sig, patch + 145, 10);
-    if (cache->middle_cache == sig) return;
-    cache->middle_cache = sig;
-    erase(0, 180, 240, 12);
-    dim_text(8, 181, "ALG");
-    small_number(32, 181, patch[134] + 1, 2, TEXT);
-    dim_text(60, 181, "FB");
-    small_number(78, 181, patch[135], 1, TEXT);
-    dim_text(104, 181, controls->mono ? "MONO" : "POLY 8");
-    char patch_name[11];
-    for (unsigned i = 0; i < 10; ++i)
-        patch_name[i] = patch[145 + i] >= 32 && patch[145 + i] <= 126 ? (char)patch[145 + i] : '?';
-    patch_name[10] = 0;
-    dim_text(164, 181, page == FM_ENV ? "ENV OVERLAY" : patch_name);
-}
-static unsigned tone_part(void) { return groove_pad_count(track) != 0 ? drum_parts[track] : 0; }
-static unsigned tone_slot(void)
-{
-    return groove_pad_count(track) != 0 ? 1U + drum_parts[track] : 0;
-}
-/* ENV exposes each engine's actual time/shape controls, without changing
- * its synthesis model. A missing knob is blank rather than a dummy ADSR. */
-static unsigned tone_parameter(unsigned col)
-{
-    unsigned type = groove_source_type(track);
-    if (page != FM_ENV) return tone_pages[track][tone_slot()] * 4U + col;
-    static const uint8_t bass[] = {BASS303_ENVMOD, BASS303_DECAY, BASS303_ACCDEC, BASS303_CUTOFF};
-    static const uint8_t pluck[] = {0, 3, 1, 255};
-    if (type == GROOVE_303) return bass[col];
-    if (type == GROOVE_PSG) return col ? 255 : 3;
-    if (type == GROOVE_PLUCK) return pluck[col];
-    const char *name = col == 0 ? "Decay" : col == 1 ? "Attack" : col == 2 ? "Tone" : "Tune";
-    for (unsigned i = 0; i < groove_tone_count(track, tone_part()); ++i) {
-        const fm1_param_t *p = groove_tone_parameter(track, tone_part(), i);
-        if (p && !strcmp(p->name, name)) return i;
-    }
-    return 255;
-}
-static __attribute__((noinline)) void track_lfo_draw(void)
-{
-    const uint8_t *v = frame_patch;
-    uint32_t sig = signature(track | (frame_views[track].type << 8), v, 4);
-    if (cache->title_cache == sig) return;
-    cache->title_cache = sig;
-    erase(0, 32, 240, 163);
-    text(8, 40, "TRACK LFO", 2, colors[track], BACK);
-    color_text(8, 62, "T", colors[track]);
-    small_number(14, 62, track + 1, 1, colors[track]);
-    plain_text(32, 62, source_names[frame_views[track].type]);
-    color_text(8, 80, v[1] ? "MODULATION ON" : "DEPTH 0 = OFF", v[1] ? GREEN : DIM);
-    text(8, 100, v[2] ? "STEREO PAN" : "VOLUME TREMOLO", 2, TEXT, BACK);
-    dim_text(8, 140, "K1 RATE    K2 DEPTH");
-    dim_text(8, 159, "K3 TARGET  K4 WAVE");
-    dim_text(8, 181, "KEYS PLAY  SELECT TRACK");
-    static const char *const labels[] = {"RATE Hz", "DEPTH", "TARGET", "WAVE"};
-    static const char *const waves[] = {"TRI", "SQUARE", "SAW UP", "SAW DOWN"};
-    for (unsigned i = 0; i < 4; ++i) {
-        char value[12];
-        if (!i) {
-            unsigned rate = groove_lfo_rate(v[0]);
-            char fraction[12]; decimal(value, rate / 100, 1); decimal(fraction, rate % 100, 2);
-            strcat(value, "."); strcat(value, fraction);
-        } else if (i == 1) { decimal(value, v[i], 1); strcat(value, "%"); }
-        else strcpy(value, i == 2 ? (v[i] ? "PAN" : "VOLUME") : waves[v[i]]);
-        knob(i, labels[i], value, colors[i]);
-    }
-}
-static void tone_label(unsigned parameter, unsigned value, const fm1_param_t *p, char out[12])
-{
-    unsigned type = groove_source_type(track);
-    if (p->names)
-        strcpy(out, p->names[value]);
-    else
-        decimal(out,
-                (int)value - ((type == GROOVE_PSG || type == GROOVE_PLUCK) && parameter == 2 ? 24 : 0),
-                1);
-}
-static __attribute__((noinline)) void tone_draw(const uint8_t values[GROOVE_TONE_PARAMS])
-{
-    if (paint_rendering && (paint_top >= 195 || paint_top + PAINT_ROWS <= 32)) return;
-    unsigned type = groove_source_type(track), part = tone_part(),
-             pg = page == FM_ENV ? 0 : tone_pages[track][tone_slot()];
-    const struct groove_view view = frame_views[track];
-    uint32_t title = track | (part << 3) | (pg << 7) | (type << 12) | (view.mono << 16);
-    if (cache->title_cache != title) {
-        cache->title_cache = title;
-        erase(0, 32, 240, 163);
-        text(8, 35,
-             page == FM_ENV ? "SOURCE ENV" :
-             type == GROOVE_303      ? "303 EDIT"
-             : type == GROOVE_PSG    ? "PSG EDIT"
-             : type == GROOVE_PLUCK  ? "PLUCK"
-             : type == GROOVE_SAMPLE ? "SAMPLER"
-                                     : "808 EDIT",
-             2, colors[track], BACK);
-        color_text(150, 38, "T", colors[track]);
-        small_number(156, 38, track + 1, 1, colors[track]);
-        small_number(192, 38, pg + 1, 1, TEXT);
-        dim_text(198, 38, "/");
-        small_number(204, 38, page == FM_ENV ? 1 : (groove_tone_count(track, part) + 3) / 4, 1, TEXT);
-        static const char *const pages[] = {"FILTER", "OSCILLATOR / LEVEL", "DRIVE / SLIDE"};
-        color_text(8, 56, page == FM_ENV && !groove_pad_count(track) ? source_names[type]
-             : type == GROOVE_PSG                           ? "8 VOICES  YM / AY CHIPS"
-             : type == GROOVE_PLUCK                       ? "8 VOICES  KARPLUS STRONG"
-             : type == GROOVE_303                         ? pages[pg]
-             : type == GROOVE_808 && part == GROOVE_DRUMS ? "KIT SETTINGS"
-                                                          : groove_pad_name(track, part), TEXT);
-        color_text(8, 181, page == FM_ENV ? (groove_pad_count(track) ? "KEY/PAD: PART" : "KEYS PLAY  SELECT TRACK")
-             : type == GROOVE_PSG     ? "KEYS PLAY  PRESETS MODE"
-             : type == GROOVE_PLUCK ? "KEYS PLAY  KNOBS EDIT"
-             : type == GROOVE_303
-                 ? (view.mono ? "MONO SLIDE  MONO/POLY KEYS" : "POLY 4      MONO/POLY KEYS")
-             : page == FM_ENV ? "PRESETS DRUM  KEYS PLAY" : "PRESETS DRUM / KIT  KEYS PLAY", DIM);
-        memset(cache->tile_cache, 0xff, sizeof cache->tile_cache);
-    }
-    if (!groove_pad_count(track)) {
-        for (unsigned i = 0; i < 4; ++i) {
-            unsigned parameter = tone_parameter(i);
-            const fm1_param_t *p = groove_tone_parameter(track, 0, parameter);
-            if (!p) continue;
-            unsigned value = values[parameter];
-            if (cache->tile_cache[i] == value) continue;
-            cache->tile_cache[i] = value;
-            unsigned y = 78 + i * 24;
-            char label[12];
-            tone_label(parameter, value, p, label);
-            dim_text(8, y, p->name);
-            erase(56, y, 36, 7);
-            plain_text(56, y, label);
-            paint_fill(100, y, 132, 8, PANEL);
-            unsigned width = value * 132U / p->max;
-            if (width)
-                paint_fill(100, y, width, 8, colors[i]);
-        }
-    } else {
-        unsigned count = GROOVE_DRUMS + (page != FM_ENV);
-        for (unsigned i = 0; i < count; ++i) {
-            unsigned selected = i == part;
-            if (cache->tile_cache[i] == selected)
-                continue;
-            cache->tile_cache[i] = selected;
-            unsigned x = 8 + (i % 4) * 57, y = 74 + (i / 4) * 25;
-            uint16_t bg = selected ? colors[track] : PANEL;
-            paint_fill(x, y, 53, 22, bg);
-            text(x + 4, y + 8, groove_pad_label(track, i), 1, selected ? BACK : TEXT, bg);
-        }
     }
 }
 static __attribute__((noinline)) void mix_draw(const struct groove_view v[8])
@@ -1210,7 +921,7 @@ static __attribute__((noinline)) void effects_draw(void)
 static void leds(const struct groove_view *v, unsigned visible)
 {
     uint32_t bits = 0;
-    unsigned first = step_first(v), blink = (frame_time / 250U) & 1U;
+    unsigned first = step_first(v);
     if (visible == STEPS && !writing) {
         uint64_t lane =
             groove_pad_count(track) != 0 ? groove_drum_steps(track, drum) : v->active_steps;
@@ -1232,19 +943,6 @@ static void leds(const struct groove_view *v, unsigned visible)
         for (unsigned key = 0; key < 27; ++key)
             if (key_note[key] != 0xff)
                 bits |= 1U << key;
-    if (visible == FM_EDIT) {
-        for (unsigned i = 0; i < 10; ++i) bits &= ~(1U << edit_keys[i]);
-        for (unsigned i = 0; i < 6; ++i)
-            if (!(frame_controls.operators & (1U << i))) bits |= 1U << edit_keys[i];
-        if (op < 8) {
-            bits &= ~(1U << edit_keys[op]);
-            if (!blink) bits |= 1U << edit_keys[op];
-        }
-        bits |= 1U << edit_keys[frame_controls.mono ? 8 : 9];
-    } else if (visible == TONE_EDIT && v->type == GROOVE_303) {
-        bits &= ~((1U << edit_keys[8]) | (1U << edit_keys[9]));
-        bits |= 1U << edit_keys[v->mono ? 8 : 9];
-    }
     uint32_t changed = bits ^ led_cache;
     for (unsigned key = 0; key < 27; ++key)
         if (changed & (1U << key))
@@ -1255,12 +953,10 @@ static void leds(const struct groove_view *v, unsigned visible)
         | ((step_pages ? first + 16 < v->sequence_length : octave > 0) << OCT_UP)
         | ((visible == OVERVIEW) << HOME) | ((visible == EFFECTS) << FX)
         | ((groove_arp_enabled(track) != 0) << ARP)
-        | ((visible == FM_EDIT && (fm_group == 4 || fm_group == 5)) << SCL)
         | ((visible == STEPS || visible == ACTIONS || visible == STEP_EDIT || visible == RHYTHM) << SEQ)
         | ((writing != 0) << REC)
         | ((v->playing != 0) << PLAY) | ((visible == MIX) << GLO)
-        | ((visible == FM_EDIT || visible == TONE_EDIT || visible == FM_QUICK || visible == STEP_EDIT) << EDIT)
-        | ((visible == FM_ENV) << ENV) | ((visible == FM_LFO) << LFO)
+        | ((visible == FM_QUICK || visible == STEP_EDIT) << EDIT)
         | ((visible == PROJECT || visible == SOURCE || (visible == ACTIONS && action_confirm)) << SAVE);
     changed = bits ^ button_led_cache;
     for (unsigned key = 0; key < 14; ++key)
@@ -1369,8 +1065,8 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         color_text(56, 76, frame_views[track].modified ? "*" : " ", AMBER);
         text(72, 72, name, 2, TEXT, BACK);
         plain_text(8, 102, "PRESETS VOICE  PAGE BANK");
-        dim_text(8, 126, "HOLD EDIT: FULL FM");
-        dim_text(8, 148, "ENV ENVELOPE   SHIFT+ENV LFO");
+        dim_text(8, 126, "VOICE EDIT: WEB WORKBENCH");
+        dim_text(8, 148, "EDIT BACK");
         dim_text(8, 170, "KEYS PLAY  SELECT TRACK");
         static const char *const labels[] = {"ALGORITHM", "FEEDBACK", "TRANSPOSE", "LEVEL"};
         int values[] = {frame_patch[134] + 1, frame_patch[135], (int)frame_patch[144] - 24, frame_views[track].volume};
@@ -1454,7 +1150,7 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
         edit_page_draw(visible);
         if (visible == FM_QUICK || visible == ARP_EDIT)
             hint_draw(state_hint ? state_hint : visible == FM_QUICK
-                ? "EDIT BACK  HOLD EDIT MORE" : "ARP ON/OFF   HOME BACK");
+                ? "EDIT BACK  SELECT TRACK" : "ARP ON/OFF   HOME BACK");
         return;
     }
     if (visible == NAME) {
@@ -1466,24 +1162,14 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
         hint_draw(state_hint ? state_hint : "PAGE EFFECTS  SELECT TRACK");
         return;
     }
-    if (visible == FM_LFO && v->type != GROOVE_DX7) {
-        track_lfo_draw();
-        hint_draw(state_hint ? state_hint : "SHIFT+ENV BACK  HOME TRACKS");
-        return;
-    }
-    const uint8_t *patch = frame_patch;
-    const struct groove_fm_controls controls = frame_controls;
+    /* Only OVERVIEW, STEPS and MIX reach this point (Task 03 b removed the
+     * FM_EDIT / FM_ENV / FM_LFO / TONE_EDIT draws that used to follow). */
     if (visible == OVERVIEW)
         overview(views);
     else if (visible == STEPS)
         steps(v);
-    else if (visible == MIX)
+    else
         mix_draw(views);
-    else if (visible == TONE_EDIT || (visible == FM_ENV && v->type != GROOVE_DX7)) {
-        tone_draw(patch);
-    } else {
-        fm_draw(patch, &controls);
-    }
     /* Lower controls cannot intersect an upper LCD band. Avoid formatting
      * their labels and querying the engine once for every unrelated band. */
     if (paint_rendering && paint_top + PAINT_ROWS <= 184) return;
@@ -1542,44 +1228,6 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
             label = labels[t];
             color = colors[t];
             decimal(value, views[t].volume, 1);
-        } else if (visible == TONE_EDIT || (visible == FM_ENV && v->type != GROOVE_DX7)) {
-            unsigned parameter = tone_parameter(col);
-            const fm1_param_t *p = groove_tone_parameter(track, tone_part(), parameter);
-            label = p ? p->name : "";
-            if (!p)
-                value[0] = 0;
-            else
-                tone_label(parameter, patch[parameter], p, value);
-        } else if (visible == FM_ENV) {
-            static const char *const labels[] = {"ATTACK", "DECAY", "SUSTAIN", "RELEASE"};
-            label = labels[col];
-            decimal(value, controls.envelope[col], 1);
-            strcat(value, "%");
-        } else if (visible == FM_EDIT || visible == FM_LFO) {
-            unsigned parameter = fm_parameter(col);
-            label = fm_pages[fm_group].label[col];
-            if (parameter == 255)
-                value[0] = 0;
-            else if (parameter < 126 && parameter % 21 == 17)
-                strcpy(value, patch[parameter] ? "FIXED" : "RATIO");
-            else if (parameter == 136 || parameter == 141)
-                strcpy(value, patch[parameter] ? "ON" : "OFF");
-            else if (parameter < 126 && parameter % 21 == 20)
-                decimal(value, (int)patch[parameter] - 7, 1);
-            else if (parameter < 126 && parameter % 21 == 8)
-                note_name(patch[parameter] + 9, value);
-            else if (parameter < 126 && (parameter % 21 == 11 || parameter % 21 == 12)) {
-                static const char *const curves[] = {"-LN", "-EX", "+EX", "+LN"};
-                strcpy(value, curves[patch[parameter] & 3]);
-            } else if (parameter == 142) {
-                static const char *const waves[] = {"TRI", "SAWDN", "SAWUP", "SQR", "SINE", "S/H"};
-                strcpy(value, waves[patch[parameter] % 6]);
-            } else
-                decimal(value,
-                        patch[parameter] + (parameter == 134   ? 1
-                                            : parameter == 144 ? -24
-                                                               : 0),
-                        1);
         } else {
             static const char *const labels[4] = {"LEVEL", "STEP", "NOTE", "BPM"};
             label = labels[col];
@@ -1628,12 +1276,7 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
                        : visible == OVERVIEW ? routing
                        : visible == STEPS    ? "PRESETS STEP  OCT PAGE  HOLD SEQ MORE"
                        : visible == MIX      ? "PADS MUTE/SOLO  MIX / HOME BACK"
-                       : visible == FM_EDIT  ? "PADS OP  SELECT PAGE  EDIT BACK"
-                       : visible == FM_ENV && v->type != GROOVE_DX7 ? "ENV BACK  SELECT TRACK"
-                       : visible == FM_ENV   ? "PRESETS ENV ON/OFF  HOME TRACKS"
-                       : visible == TONE_EDIT && !advanced_edit
-                           ? "HOLD EDIT MORE  SELECT TRACK"
-                           : "SELECT PAGE  HOME TRACKS";
+                       : "SELECT PAGE  HOME TRACKS";
     hint_draw(hint);
 }
 static void draw_page(const struct fm1_ble_status *ble)
@@ -1644,14 +1287,13 @@ static void draw_page(const struct fm1_ble_status *ble)
         paint_fill(0, 195, 240, 45, PANEL);
         text(8, 198, "SHIFT SHORTCUTS", 1, ACCENT, PANEL);
         text(8, 209, "PADS 1-8 TRACK   PADS 9-16 MUTE", 1, TEXT, PANEL);
-        text(8, 220, "ENV LFO  HOME SOURCE  SEQ MIDI", 1, TEXT, PANEL);
+        text(8, 220, "HOME SOURCE  SEQ MIDI", 1, TEXT, PANEL);
         text(8, 231, "PAD/STEP STEP EDIT  RELEASE TO RETURN", 1, DIM, PANEL);
     }
     if (boot_active || (paint_rendering && paint_top >= 30)) return;
     uint32_t since = 0;
     unsigned active = 1;
     if (glo_down && !glo_used) since = glo_ms;
-    else if (edit_down && !edit_long) since = edit_ms;
     else if (arp_down && !arp_long) since = arp_ms;
     else if (seq_down) since = seq_ms;
     else active = 0;
@@ -1708,11 +1350,7 @@ static void draw(const struct fm1_ble_status *ble)
     }
     memset(frame_patch, 0, sizeof frame_patch);
     memset(&frame_controls, 0, sizeof frame_controls);
-    if (visible == TONE_EDIT || (visible == FM_ENV && groove_source_type(track) != GROOVE_DX7))
-        groove_tone_copy(track, tone_part(), frame_patch);
-    else if (visible == FM_LFO && groove_source_type(track) != GROOVE_DX7)
-        groove_lfo_copy(track, frame_patch);
-    else if ((visible >= FM_EDIT && visible <= FM_LFO) || visible == NAME || visible == FM_QUICK)
+    if (visible == NAME || visible == FM_QUICK)
         groove_fm_copy(track, frame_patch, &frame_controls);
     /* Merge new damage with unfinished bands. Input can replace a pending
      * frame; no stale queue of old encoder positions needs to be displayed. */
@@ -1796,11 +1434,7 @@ static int preset_load(unsigned start, uint32_t now)
     preset_loaded = 1;
     preset_project_revision = groove_project_revision();
     preset_current_slot = preset_slot; preset_current_bank = preset_bank;
-    writing = cursor = drum = advanced_edit = 0; step_follow = 1;
-    memset(operator_page, 0, sizeof operator_page);
-    memset(operator_selected, 0, sizeof operator_selected);
-    memset(lfo_page, 0, sizeof lfo_page);
-    memset(tone_pages, 0, sizeof tone_pages);
+    writing = cursor = drum = 0; step_follow = 1;
     memset(drum_parts, 0, sizeof drum_parts);
     selected_note = groove_pad_count(track) ? groove_pad_note(track, 0) : 60;
     page = music_page = OVERVIEW;
@@ -1823,12 +1457,12 @@ static void toggle_step(unsigned step)
     groove_sequence_edit(track, step, selected_note, enabled ? 0 : 100);
     cursor = step;
     step_follow = 0;
-    if (page != TONE_EDIT && groove_pad_count(track)) drum_parts[track] = (uint8_t)drum;
+    if (groove_pad_count(track)) drum_parts[track] = (uint8_t)drum;
 }
 void groove_screen_init(void)
 {
     smk37_controls_reset();
-    track = cursor = drum = writing = page = fm_group = op = 0;
+    track = cursor = drum = writing = page = 0;
     music_page = subpage_return = project_return = rec_before_press = OVERVIEW;
     rec_down = rec_used = 0;
     selected_note = 60;
@@ -1862,19 +1496,13 @@ void groove_screen_init(void)
     preset_slot = preset_loaded = 0;
     preset_bank = 1;
     preset_current_slot = 0; preset_current_bank = 1;
-    advanced_edit = edit_down = edit_long = 0;
     seq_down = 0;
     arp_down = arp_long = 0;
     memset(project_stored, 0, sizeof project_stored);
     cache->shown_page = ~0U;
     led_cache = button_led_cache = 0;
     memset(key_note, 0xff, sizeof key_note); project_keys = 0;
-    memset(operator_page, 0, sizeof operator_page);
-    memset(operator_selected, 0, sizeof operator_selected);
-    memset(lfo_page, 0, sizeof lfo_page);
-    memset(tone_pages, 0, sizeof tone_pages);
     memset(drum_parts, 0, sizeof drum_parts);
-    operator_held = operator_long = 0;
     memset(paint_left, FM1_SCREEN_WIDTH, sizeof paint_left);
     memset(paint_right, 0, sizeof paint_right);
     paint_next = paint_rendering = paint_priority = 0;
@@ -1898,10 +1526,8 @@ static void select_track(int delta)
     unsigned type = groove_source_type(track), pads = groove_pad_count(track);
     /* Only PAD / STEP changes instrument focus. Selecting the Pad track with
      * KEY may audition the same sound, but must not reassign Pad or pin KEY. */
-    if (page == FM_QUICK && type != GROOVE_DX7) page = TONE_EDIT;
-    if (page == TONE_EDIT && !advanced_edit && type == GROOVE_DX7) page = FM_QUICK;
-    if ((type != GROOVE_DX7 && page == FM_EDIT) ||
-        (type == GROOVE_DX7 && page == TONE_EDIT)) page = OVERVIEW;
+    /* The DX7 quick page has no counterpart for other sources (Task 03 b). */
+    if (page == FM_QUICK && type != GROOVE_DX7) page = music_page;
     if (before != track) {
         if(track!=instrument_track[pad_focus]) {
             instrument_track[pad_focus]=(uint8_t)track;
@@ -1966,91 +1592,6 @@ static __attribute__((noinline)) void ble_control(const struct fm1_controls *con
         }
     }
 }
-static __attribute__((noinline)) void tone_control(const struct fm1_controls *controls, uint32_t key_down)
-{
-    if (page == TONE_EDIT && groove_source_type(track) == GROOVE_303)
-        for (unsigned i = 8; i < 10; ++i)
-            if ((key_down & ~blocked_keys) & (1U << edit_keys[i]))
-                groove_mono_set(track, i == 8);
-    if (groove_pad_count(track) != 0) {
-        drum_parts[track] = (uint8_t)clamp(
-            (int)drum_parts[track] + controls->encoders[6], 0,
-            groove_source_type(track) == GROOVE_808 ? GROOVE_DRUMS - (page == FM_ENV)
-                                                    : groove_pad_count(track) - 1);
-        for (unsigned key = 0; key < 27; ++key)
-            if ((key_down & ~blocked_keys) & (1U << key))
-                smk37_screen_note(track,groove_key_note(track,key,octave));
-        if (drum_parts[track] < groove_pad_count(track)) {
-            drum = drum_parts[track];
-            selected_note = groove_pad_note(track, drum);
-        }
-    }
-    unsigned slot = tone_slot(), count = groove_tone_count(track, tone_part());
-    int direction = page == TONE_EDIT && advanced_edit ? (controls->encoders[0] > 0) - (controls->encoders[0] < 0) : 0;
-    if (!advanced_edit) tone_pages[track][slot] = 0;
-    tone_pages[track][slot] = (uint8_t)clamp(
-        (int)tone_pages[track][slot] + direction, 0, (int)((count - 1) / 4));
-    for (unsigned col = 0; col < 4; ++col)
-        if (controls->encoders[2 + col]) {
-            unsigned parameter = tone_parameter(col);
-            const fm1_param_t *p =
-                groove_tone_parameter(track, tone_part(), parameter);
-            if (p)
-                groove_tone_edit(
-                    track, tone_part(), parameter,
-                    p->names ? controls->encoders[2 + col]
-                             : fm_encoder_delta(2 + col, controls->encoders[2 + col]));
-        }
-}
-static __attribute__((noinline)) void fm_control(const struct fm1_controls *controls, uint32_t key_down, uint32_t now)
-{
-    if (page == FM_EDIT) {
-        for (unsigned i = 0; i < 10; ++i) {
-            uint32_t bit = 1U << edit_keys[i];
-            if ((key_down & ~blocked_keys) & bit) {
-                if (i < 8)
-                    operator_selected[track] = (uint8_t)i;
-                else
-                    groove_mono_set(track, i == 8);
-                if (i < 6) {
-                    operator_time[i] = now;
-                    operator_held |= 1U << i;
-                    operator_long &= ~(1U << i);
-                }
-            }
-            if (i < 6) {
-                if (!(controls->keys & bit) || (blocked_keys & bit))
-                    operator_held &= ~(1U << i);
-                if ((operator_held & ~operator_long & (1U << i)) &&
-                    now - operator_time[i] >= 500U) {
-                    groove_operator_toggle(track, i);
-                    operator_long |= 1U << i;
-                }
-            }
-        }
-        op = operator_selected[track];
-        unsigned limit = op < 6 ? 5 : op == 6 ? 1 : 0;
-        int direction = (controls->encoders[0] > 0) - (controls->encoders[0] < 0);
-        operator_page[track][op] = (uint8_t)clamp(
-            (int)operator_page[track][op] + direction, 0, (int)limit);
-        fm_group = op < 6    ? operator_page[track][op]
-                   : op == 6 ? 6 + operator_page[track][op]
-                             : 8;
-    } else if (page == FM_LFO) {
-        lfo_page[track] =
-            (uint8_t)clamp((int)lfo_page[track] + controls->encoders[0], 0, 1);
-        fm_group = 9 + lfo_page[track];
-    }
-    for (unsigned col = 0; col < 4; ++col)
-        if (controls->encoders[2 + col]) {
-            if (page == FM_ENV)
-                groove_adsr_edit(track, col,
-                                 fm_encoder_delta(2 + col, controls->encoders[2 + col]));
-            else
-                groove_fm_edit(track, fm_parameter(col),
-                               fm_encoder_delta(2 + col, controls->encoders[2 + col]));
-        }
-}
 static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                           const struct fm1_ble_status *ble)
 {
@@ -2074,7 +1615,6 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     if (pressed & BUTTON(ARP)) {
         arp_down = 1; arp_long = 0; arp_ms = now;
     }
-    if (!(controls->buttons & BUTTON(EDIT))) edit_down = edit_long = 0;
     if (!(controls->buttons & BUTTON(SEQ))) seq_down = 0;
     if (pressed & BUTTON(SEQ)) {
         seq_down = 1; seq_ms = now;
@@ -2113,7 +1653,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (!post(0xff, 0, 0, 1)) return 0;
         memset(key_note, 0xff, sizeof key_note); project_keys = 0;
         page = music_page = OVERVIEW;
-        writing = glo_down = glo_used = project_reload = edit_down = edit_long = 0;
+        writing = glo_down = glo_used = project_reload = 0;
         arp_down = arp_long = seq_down = rec_down = 0;
         groove_edit_record(0, track, cursor);
         return 1;
@@ -2132,7 +1672,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     if ((pressed & BUTTON(SEQ)) && ((controls->buttons & BUTTON(HOME)) ||
         (page == EFFECTS && effects_page == 2 && controls->buttons == BUTTON(SEQ)))) {
         groove_screen_tap(now);
-        seq_down = edit_down = 0;
+        seq_down = 0;
         if (controls->buttons & BUTTON(HOME)) page = music_page;
         goto controls_done;
     }
@@ -2154,11 +1694,11 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         (pressed & (BUTTON(SEQ) | BUTTON(EDIT)))) {
         if (!release_keys()) return 0;
         blocked_keys |= controls->keys;
-        page = ACTIONS; action_confirm = 0; edit_down = seq_down = 0;
+        page = ACTIONS; action_confirm = 0; seq_down = 0;
         goto controls_done;
     }
     if (seq_down && page == STEPS && now - seq_ms >= 600U) {
-        page = ACTIONS; action_confirm = 0; seq_down = edit_down = 0;
+        page = ACTIONS; action_confirm = 0; seq_down = 0;
         goto controls_done;
     }
     if (arp_down && !arp_long && now - arp_ms >= 600U) {
@@ -2176,7 +1716,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     if ((controls->buttons & (BUTTON(EDIT) | BUTTON(REC))) == (BUTTON(EDIT) | BUTTON(REC)) &&
         (pressed & (BUTTON(EDIT) | BUTTON(REC))) && groove_source_type(track) == GROOVE_DX7) {
         writing = rec_before_press;
-        edit_down = glo_down = 0;
+        glo_down = 0;
         page = NAME; name_cursor = 0;
         goto controls_done;
     }
@@ -2194,33 +1734,16 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         } else if (pressed & BUTTON(FX)) {
             if (page != EFFECTS) effects_page = 0;
             open_subpage(EFFECTS);
-        } else if (pressed & BUTTON(SCL)) {
-            if (groove_source_type(track) == GROOVE_DX7) {
-                op = operator_selected[track] < 6 ? operator_selected[track] : 0;
-                operator_selected[track] = (uint8_t)op;
-                operator_page[track][op] = (uint8_t)(page == FM_EDIT && fm_group == 4 ? 5 : 4);
-                fm_group = operator_page[track][op]; page = FM_EDIT;
-            } else {
-                advanced_edit = 1; page = TONE_EDIT;
-                tone_pages[track][tone_slot()] = groove_source_type(track) == GROOVE_303 ? 1 : 0;
-            }
-        } else if (pressed & BUTTON(EDIT)) {
-            unsigned edit = groove_source_type(track) == GROOVE_DX7 ? FM_QUICK : TONE_EDIT;
-            edit_down = 1; edit_long = 0; edit_ms = now;
-            page = page == FM_QUICK || page == FM_EDIT || page == edit ? music_page : edit;
-            advanced_edit = 0;
-            if (page == TONE_EDIT) tone_pages[track][tone_slot()] = 0;
-            if (page == TONE_EDIT && groove_pad_count(track)) drum_parts[track] = (uint8_t)drum;
-        } else if (pressed & BUTTON(ENV)) {
-            if (groove_pad_count(track)) drum_parts[track] = (uint8_t)drum;
-            open_subpage(FM_ENV);
-        } else open_subpage(FM_LFO);
-        goto controls_done;
-    }
-    if (edit_down && !edit_long && now - edit_ms >= 600U &&
-        !(controls->buttons & (BUTTON(SEQ) | BUTTON(REC) | BUTTON(HOME)))) {
-        edit_long = advanced_edit = 1;
-        page = groove_source_type(track) == GROOVE_DX7 ? FM_EDIT : TONE_EDIT;
+        } else if ((pressed & BUTTON(EDIT)) && groove_source_type(track) == GROOVE_DX7) {
+            /* Classic Tabby (Task 03 b): EDIT toggles the DX7 quick page (preset
+             * select and the ALG / FEEDBACK / TRANSPOSE / LEVEL macros). Holding
+             * EDIT no longer opens the operator editor. */
+            page = page == FM_QUICK ? music_page : FM_QUICK;
+        } else {
+            /* EDIT on other sources, SCL, ENV and LFO opened the removed operator
+             * and tone editor pages. Say where editing went instead. */
+            announce("VOICE EDIT MOVED TO WORKBENCH", now + 2000U);
+        }
         goto controls_done;
     }
     if (arp_tap) {
@@ -2316,7 +1839,6 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if ((pressed & BUTTON(SAVE)) && groove_track_role(track) != GROOVE_TRACK_OFF) {
             source_result = groove_source_set(track, source_preview);
             if (!source_result) {
-                memset(tone_pages[track], 0, sizeof tone_pages[track]);
                 drum_parts[track] = drum = 0;
                 selected_note = groove_pad_count(track) ? groove_pad_note(track, 0) : 60;
                 page = music_page;
@@ -2434,8 +1956,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     } else {
         if (page != BLE) {
             unsigned tracks = page == OVERVIEW || page == STEPS || page == FM_QUICK || page == ARP_EDIT ||
-                page == EFFECTS || page == FM_ENV || (page == FM_LFO && groove_source_type(track) != GROOVE_DX7) ||
-                (page == TONE_EDIT && !advanced_edit);
+                page == EFFECTS;
             select_track(tracks ? controls->encoders[0] : 0);
             {
                 if (page == OVERVIEW && (controls->encoders[1] || controls->encoders[3])) {
@@ -2451,7 +1972,6 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                     source_result = 0;
                     page = SOURCE;
                     cache->shown_page = ~0U;
-                    operator_held = operator_long = 0;
                     goto controls_done;
                 }
                 int oct_delta = (int)((pressed >> OCT_UP) & 1U) - (int)((pressed >> OCT_DOWN) & 1U);
@@ -2527,13 +2047,6 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                         groove_control_edit(track, 0, controls->encoders[4], 0);
                         groove_effects_edit(3, controls->encoders[5]);
                     }
-                } else if (page == FM_LFO && groove_source_type(track) != GROOVE_DX7) {
-                    for (unsigned i = 0; i < 4; ++i)
-                        groove_lfo_edit(track, i, i < 2 ? fm_encoder_delta(2 + i, controls->encoders[2 + i]) : controls->encoders[2 + i]);
-                } else if (page == TONE_EDIT || (page == FM_ENV && groove_source_type(track) != GROOVE_DX7)) {
-                    tone_control(controls, key_down);
-                } else if (page >= FM_EDIT && page <= FM_LFO) {
-                    fm_control(controls, key_down, now);
                 } else if (page != STEPS || !seq_page) {
                     if (page == OVERVIEW) {
                         if (controls->encoders[4]) {
@@ -2576,9 +2089,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                         }
                     }
                 }
-                if (page == FM_ENV && groove_source_type(track) == GROOVE_DX7 && controls->encoders[6])
-                    groove_adsr_enable(track, controls->encoders[6] > 0);
-                if (controls->encoders[6] && page != FM_QUICK && page != ARP_EDIT && page != STEPS && page != FM_ENV && page != FM_LFO && page != EFFECTS && page != NAME && !(page == TONE_EDIT && groove_pad_count(track) != 0))
+                if (controls->encoders[6] && page != FM_QUICK && page != ARP_EDIT && page != STEPS && page != EFFECTS && page != NAME)
                     groove_control_edit(track, controls->encoders[6], 0, 0);
                 if (controls->encoders[1] && page != FM_QUICK && page != STEPS && page != ARP_EDIT && page != EFFECTS) {
                     if (groove_source_type(track) == GROOVE_DX7)
@@ -2592,7 +2103,6 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
 controls_done:
     if (page != old_page) {
         glo_down = glo_used = action_confirm = ble_forget = project_reload = 0;
-        if (!(pressed & BUTTON(EDIT))) edit_down = 0;
         if (page != STEPS) seq_down = 0;
     }
     if (page != OVERVIEW) rec_down = 0;
@@ -2608,8 +2118,6 @@ controls_done:
         if (!post(command, 0, 0, 1)) return 0;
     }
     unsigned mode = navigation_mode();
-    if (page != FM_EDIT || glo_down)
-        operator_held = operator_long = 0;
     if (mode != old_mode || page != old_page) {
         blocked_keys |= old_keys;
         if (!release_keys())
@@ -2623,13 +2131,6 @@ controls_done:
         memset(key_note, 0xff, sizeof key_note); project_keys = 0;
     }
     uint32_t keys = controls->keys & ~blocked_keys;
-    /* EDIT's labelled black keys select OP1..6 / Pitch / Global / Mono / Poly;
-     * they must never also generate keyboard MIDI, including on page changes. */
-    if (page == FM_EDIT)
-        for (unsigned i = 0; i < 10; ++i)
-            keys &= ~(1U << edit_keys[i]);
-    if (page == TONE_EDIT && groove_source_type(track) == GROOVE_303)
-        keys &= ~((1U << edit_keys[8]) | (1U << edit_keys[9]));
     if (page == STEPS && !writing && !glo_down) {
         struct groove_view view;
         groove_get_view(track, cursor, &view);
@@ -2663,7 +2164,7 @@ controls_done:
 
         }
     }
-    if (page != TONE_EDIT && groove_pad_count(track)) drum_parts[track] = (uint8_t)drum;
+    if (groove_pad_count(track)) drum_parts[track] = (uint8_t)drum;
     return 1;
 }
 
@@ -2769,13 +2270,7 @@ void groove_screen_control(void)
     unsigned old_page = page;
     unsigned boundary =
         controls.buttons != previous_buttons || controls.encoders[0] || controls.encoders[6];
-    if (page == FM_EDIT && !glo_down) {
-        for (unsigned i = 0; i < 10; ++i)
-            boundary |= (key_down & (1U << edit_keys[i])) != 0;
-    } else if (page == TONE_EDIT && groove_source_type(track) == GROOVE_303 && !glo_down) {
-        boundary |= (key_down & ((1U << edit_keys[8]) | (1U << edit_keys[9]))) != 0;
-    } else if (page == OVERVIEW || page == STEPS || glo_down ||
-               ((page == TONE_EDIT || page == FM_ENV) && groove_pad_count(track) != 0))
+    if (page == OVERVIEW || page == STEPS || glo_down)
         boundary |= key_down != 0;
     if (boundary) {
         if ((glo_down && !(controls.buttons & BUTTON(GLO))) ||
@@ -2823,14 +2318,9 @@ int smk37_performance_octave(unsigned pad)
 unsigned smk37_pad_focus(void) { return pad_focus; }
 void smk37_screen_note(unsigned owner,unsigned note)
 {
-    /* SMK37's chromatic keys bypass FM1's legacy panel-key bitmap. Follow the
-     * sounding note without letting the other instrument steal this editor. */
-    if(owner!=track || (page!=FM_ENV && page!=TONE_EDIT))return;
-    int part=groove_pad_index(track,note);
-    if(part<0 || part==drum_parts[track])return;
-    drum_parts[track]=(uint8_t)part;drum=(unsigned)part;
-    /* Draw and web-context signatures already include the selected part. */
-    memset(encoder_direction,0,sizeof encoder_direction);
+    /* V01 followed the sounding drum part here on the ENV / tone editor pages.
+     * Task 03 b removed those pages; nothing on the remaining pages follows notes. */
+    (void)owner;(void)note;
 }
 void smk37_panel_preferences_read(uint8_t data[4])
 {
@@ -2858,19 +2348,18 @@ __attribute__((noinline, cold, minsize)) void smk37_screen_pad_mode(unsigned ste
         select_track((int)instrument_track[pad_focus]-(int)track);
         octave=instrument_octave[pad_focus];
     }
-    glo_down=glo_used=edit_down=seq_down=arp_down=arp_long=rec_down=0;
+    glo_down=glo_used=seq_down=arp_down=arp_long=rec_down=0;
     action_confirm=ble_forget=project_reload=0;
     page=music_page=steps?STEPS:OVERVIEW;
     if(steps) {seq_page=0;writing=0;groove_edit_record(0,track,cursor);}
     notice=steps?"PAD STEPS - SHIFT+PAD TO PLAY":
-        pad_focus?"PAD READY - EDIT / ENV / FX":"KEY READY - EDIT / ENV / FX";
+        pad_focus?"PAD READY - EDIT / FX":"KEY READY - EDIT / FX";
     notice_until=fm1_millis()+2000U;
     boot_active=0;cache->shown_page=~0U;
 }
 unsigned smk37_screen_pad_key(unsigned pad)
 {
     if(pad>=16)return 255;
-    if(page==FM_EDIT && pad<10)return edit_keys[pad];
     return navigation_mode()?white_keys[pad]:255;
 }
 int smk37_screen_pad(unsigned pad,unsigned velocity,unsigned steps)
@@ -2894,7 +2383,7 @@ void smk37_screen_page(unsigned target)
 {
     if(!release_keys())return;
     blocked_keys|=previous_keys;
-    glo_down=glo_used=edit_down=seq_down=arp_down=arp_long=rec_down=0;
+    glo_down=glo_used=seq_down=arp_down=arp_long=rec_down=0;
     page=target==SMK37_PAGE_BLUETOOTH?BLE:target==SMK37_PAGE_MIDI?STEPS:SOURCE;
     if(page==BLE) {ble_view=ble_forget=ble_action=0;ble_result=0;}
     else if(page==STEPS) {music_page=STEPS;seq_page=5;}
@@ -2936,19 +2425,15 @@ int groove_screen_open(unsigned target)
 {
     if (target > ARP_EDIT || target == PROJECT) return -1;
     boot_active = 0;
-    unsigned quick = target == FM_QUICK;
-    if (quick && groove_source_type(track) != GROOVE_DX7) target = TONE_EDIT;
-    if ((target == FM_EDIT || target == NAME) &&
-        groove_source_type(track) != GROOVE_DX7) {
-        if (target == FM_EDIT) target = TONE_EDIT;
-        else return -1;
-    }
+    /* Task 03 b: the operator and tone editor pages are gone; the DX7 pages need a DX7. */
+    if (target == FM_EDIT || target == FM_ENV || target == FM_LFO || target == TONE_EDIT) return -1;
+    if ((target == FM_QUICK || target == NAME) && groove_source_type(track) != GROOVE_DX7) return -1;
     if (!release_keys()) return -1;
     blocked_keys |= previous_keys;
-    glo_down = glo_used = edit_down = seq_down = arp_down = arp_long = rec_down = 0;
+    glo_down = glo_used = seq_down = arp_down = arp_long = rec_down = 0;
     if (parameter_page(target)) {
         if (!parameter_page(page)) subpage_return = page;
-    } else advanced_edit = !quick && (target == FM_EDIT || target == TONE_EDIT);
+    }
     page = target;
     if (target == STEP_EDIT || target == RHYTHM) { page = STEPS; seq_page = target == STEP_EDIT ? 1 : 2; step_follow = 0; }
     else if (page == STEPS) seq_page = 0;
@@ -2957,8 +2442,6 @@ int groove_screen_open(unsigned target)
         writing = 0;
         groove_edit_record(0, track, cursor);
     }
-    if (quick && page == TONE_EDIT) tone_pages[track][tone_slot()] = 0;
-    if (page == FM_ENV && groove_pad_count(track)) drum_parts[track] = (uint8_t)drum;
     action_confirm = name_cursor = 0;
     if (page == OVERVIEW || page == STEPS) music_page = page;
     if (page == SOURCE) { source_preview = groove_source_type(track); source_result = 0; }
@@ -2975,9 +2458,8 @@ static struct web_target web_targets[32];
 static unsigned web_target_count;
 unsigned groove_screen_web_context(void)
 {
-    unsigned context[] = {page, track, groove_source_type(track), op, fm_group,
-        tone_part(), tone_pages[track][tone_slot()], effects_page,
-        ble_view, advanced_edit, glo_down && glo_used,
+    unsigned context[] = {page, track, groove_source_type(track), effects_page,
+        ble_view, glo_down && glo_used,
         (page == STEP_EDIT || (page == STEPS && seq_page)) ? cursor : 0, seq_page, arp_page};
     return signature(2166136261U, context, sizeof context);
 }
@@ -2986,8 +2468,7 @@ unsigned groove_screen_web_mask(void)
     unsigned mask = 0;
     if (shift_visible) return 0;
     if (glo_down && glo_used) return 0;
-    if (page == OVERVIEW || page == STEPS || page == MIX || page == FM_EDIT ||
-        page == FM_ENV || page == FM_LFO || page == TONE_EDIT || page == EFFECTS ||
+    if (page == OVERVIEW || page == STEPS || page == MIX || page == EFFECTS ||
         page == STEP_EDIT || page == RHYTHM || page == FM_QUICK || page == ARP_EDIT) {
         for (unsigned i = 0; i < 4; ++i)
             if (web_knobs[i][0][0] && strcmp(web_knobs[i][0], "-") &&
@@ -3025,7 +2506,6 @@ const void *groove_screen_web_targets(void)
     web_target_count = 0;
     if (shift_visible || (glo_down && glo_used)) return web_targets;
     struct groove_view v; groove_get_view(track, cursor, &v);
-    unsigned type = groove_source_type(track);
     if (page != BLE && page != PROJECT && page != PRESET_BROWSER && !v.clock_mode)
         web_target(6, 4, 65, 23, 1, 0, track, "BPM", v.tempo, NULL);
     if (page == OVERVIEW) {
@@ -3044,27 +2524,6 @@ const void *groove_screen_web_targets(void)
         web_target(6, 98, 228, 18, 6, 1, track, "BANK", v.program / 32 + 1, NULL);
     } else if (page == ARP_EDIT) {
         web_target(6, 176, 222, 16, 6, 1, track, "ARP PAGE", arp_page + 1, arp_page ? "HOLD / MIDI" : "NOTES");
-    } else if (page == FM_EDIT || ((page == FM_ENV || page == FM_LFO) && type == GROOVE_DX7)) {
-        uint8_t patch[156]; struct groove_fm_controls controls;
-        groove_fm_copy(track, patch, &controls);
-        web_target(6, 178, 47, 15, 3, 134, track, "ALGORITHM", patch[134] + 1, NULL);
-        web_target(58, 178, 37, 15, 3, 135, track, "FEEDBACK", patch[135], NULL);
-        web_target(101, 178, 56, 15, 4, 0, track, "VOICE MODE", controls.mono, controls.mono ? "MONO" : "POLY");
-        if (page == FM_EDIT && op < 7)
-            web_target(198, 31, 34, 17, 6, 0, track, "PARAMETER PAGE", operator_page[track][op] + 1, NULL);
-        if (page == FM_ENV)
-            web_target(6, 76, 65, 17, 5, 0, track, "ADSR", controls.enabled, controls.enabled ? "ON" : "OFF");
-        if (page == FM_LFO) {
-            static const char *const waves[] = {"TRI", "SAW DOWN", "SAW UP", "SQUARE", "SINE", "S/HOLD"};
-            web_target(6, 106, 180, 22, 3, 142, track, "LFO WAVE", patch[142], waves[patch[142] % 6]);
-            web_target(6, 142, 112, 17, 3, 141, track, "KEY SYNC", patch[141], patch[141] ? "ON" : "OFF");
-            web_target(122, 142, 67, 17, 3, 143, track, "PM SENS", patch[143], NULL);
-        }
-    } else if (page == TONE_EDIT || (page == FM_ENV && type != GROOVE_DX7)) {
-        if (!groove_pad_count(track))
-            for (unsigned col = 0; col < 4; ++col) web_alias(6, 74 + col * 24, 228, 19, col);
-        if (page == TONE_EDIT && advanced_edit && groove_tone_count(track, tone_part()) > 4)
-            web_target(188, 33, 40, 17, 6, 0, track, "PARAMETER PAGE", tone_pages[track][tone_slot()] + 1, NULL);
     } else if (page == EFFECTS) {
         for (unsigned col = 0; col < 4; ++col) web_alias(6, 86 + col * 22, 204, 20, col);
         web_target(6, 59, 228, 18, 6, 6, track, "FX PAGE", effects_page, effects_page == 2 ? "DELAY" : effects_page ? "SHARED" : "TRACK");
@@ -3096,9 +2555,6 @@ int groove_screen_web_adjust(unsigned context, unsigned action, unsigned index, 
     if (action == 6) return (int)index + 1;
     if (action == 1) groove_tempo_edit(delta);
     else if (action == 2) groove_control_edit(owner, 0, delta, 0);
-    else if (action == 3) groove_fm_edit(owner, index, delta);
-    else if (action == 4) groove_mono_set(owner, delta > 0);
-    else if (action == 5) groove_adsr_enable(owner, delta > 0);
     else if (action == 7) {
         struct groove_view v; groove_get_view(owner, cursor, &v);
         if ((index ? v.solo : v.muted) != (unsigned)(delta > 0)) groove_mix_toggle(owner, index);
@@ -3133,87 +2589,8 @@ void groove_screen_snapshot(uint8_t state[8])
     state[2] = (uint8_t)cursor;
     state[3] = (uint8_t)drum;
     state[4] = (uint8_t)writing;
-    state[5] = (uint8_t)op;
-    state[6] = (uint8_t)fm_group;
+    state[5] = 0; /* Task 03 b: no selected operator / FM page any more. */
+    state[6] = 0;
     state[7] = (uint8_t)(octave + 24);
 }
 #endif
-
-/* FM1 algorithm layout drawn with bounded RGB565 primitives. */
-static const uint8_t algorithms[32][12] = {
-    {0x20, 0x00, 0x21, 0x00, 0x30, 0x00, 0x31, 0x00, 0x32, 0x00, 0x33, 0x01}, /* 1 */
-    {0x20, 0x00, 0x21, 0x01, 0x30, 0x00, 0x31, 0x00, 0x32, 0x00, 0x33, 0x00}, /* 2 */
-    {0x20, 0x00, 0x21, 0x00, 0x22, 0x00, 0x30, 0x00, 0x31, 0x00, 0x32, 0x01}, /* 3 */
-    {0x20, 0x00, 0x21, 0x00, 0x22, 0x00, 0x30, 0x00, 0x31, 0x00, 0x32, 0x03}, /* 4 */
-    {0x10, 0x00, 0x11, 0x00, 0x20, 0x00, 0x21, 0x00, 0x30, 0x00, 0x31, 0x01}, /* 5 */
-    {0x10, 0x00, 0x11, 0x00, 0x20, 0x00, 0x21, 0x00, 0x30, 0x00, 0x31, 0x02}, /* 6 */
-    {0x20, 0x00, 0x21, 0x00, 0x30, 0x00, 0x31, 0x00, 0x41, 0x10, 0x42, 0x01}, /* 7 */
-    {0x20, 0x00, 0x21, 0x00, 0x30, 0x00, 0x31, 0x01, 0x41, 0x10, 0x42, 0x00}, /* 8 */
-    {0x20, 0x00, 0x21, 0x01, 0x30, 0x00, 0x31, 0x00, 0x41, 0x10, 0x42, 0x00}, /* 9 */
-    {0x20, 0x00, 0x21, 0x00, 0x22, 0x01, 0x30, 0x00, 0x31, 0x00, 0x41, 0x10}, /* 10 */
-    {0x20, 0x00, 0x21, 0x00, 0x22, 0x00, 0x30, 0x00, 0x31, 0x00, 0x41, 0x11}, /* 11 */
-    {0x10, 0x00, 0x11, 0x01, 0x30, 0x00, 0x21, 0x20, 0x31, 0x00, 0x41, 0x10}, /* 12 */
-    {0x10, 0x00, 0x11, 0x00, 0x30, 0x00, 0x21, 0x20, 0x31, 0x00, 0x41, 0x11}, /* 13 */
-    {0x20, 0x00, 0x21, 0x00, 0x30, 0x00, 0x31, 0x00, 0x32, 0x00, 0x42, 0x11}, /* 14 */
-    {0x20, 0x00, 0x21, 0x01, 0x30, 0x00, 0x31, 0x00, 0x32, 0x00, 0x42, 0x10}, /* 15 */
-    {0x20, 0x00, 0x11, 0x20, 0x21, 0x00, 0x22, 0x00, 0x31, 0x10, 0x32, 0x01}, /* 16 */
-    {0x20, 0x00, 0x11, 0x21, 0x21, 0x00, 0x22, 0x00, 0x31, 0x10, 0x32, 0x00}, /* 17 */
-    {0x20, 0x00, 0x11, 0x20, 0x21, 0x01, 0x31, 0x10, 0x32, 0x00, 0x33, 0x00}, /* 18 */
-    {0x10, 0x00, 0x11, 0x00, 0x12, 0x00, 0x20, 0x00, 0x30, 0x00, 0x21, 0x31}, /* 19 */
-    {0x10, 0x00, 0x20, 0x00, 0x11, 0x31, 0x30, 0x00, 0x31, 0x00, 0x41, 0x10}, /* 20 */
-    {0x10, 0x00, 0x20, 0x00, 0x11, 0x31, 0x30, 0x00, 0x40, 0x00, 0x31, 0x30}, /* 21 */
-    {0x10, 0x00, 0x11, 0x00, 0x20, 0x00, 0x30, 0x00, 0x40, 0x00, 0x21, 0x41}, /* 22 */
-    {0x10, 0x00, 0x20, 0x00, 0x21, 0x00, 0x30, 0x00, 0x40, 0x00, 0x31, 0x31}, /* 23 */
-    {0x10, 0x00, 0x20, 0x00, 0x30, 0x00, 0x40, 0x00, 0x50, 0x00, 0x31, 0x41}, /* 24 */
-    {0x10, 0x00, 0x20, 0x00, 0x30, 0x00, 0x40, 0x00, 0x50, 0x00, 0x41, 0x31}, /* 25 */
-    {0x10, 0x00, 0x20, 0x00, 0x21, 0x00, 0x30, 0x00, 0x31, 0x00, 0x41, 0x11}, /* 26 */
-    {0x10, 0x00, 0x20, 0x00, 0x21, 0x01, 0x30, 0x00, 0x31, 0x00, 0x41, 0x10}, /* 27 */
-    {0x20, 0x00, 0x21, 0x00, 0x30, 0x00, 0x31, 0x00, 0x32, 0x01, 0x40, 0x10}, /* 28 */
-    {0x10, 0x00, 0x20, 0x00, 0x30, 0x00, 0x31, 0x00, 0x40, 0x00, 0x41, 0x01}, /* 29 */
-    {0x10, 0x00, 0x20, 0x00, 0x30, 0x00, 0x31, 0x00, 0x32, 0x01, 0x40, 0x00}, /* 30 */
-    {0x10, 0x00, 0x20, 0x00, 0x30, 0x00, 0x40, 0x00, 0x50, 0x00, 0x51, 0x01}, /* 31 */
-    {0x00, 0x00, 0x10, 0x00, 0x20, 0x00, 0x30, 0x00, 0x40, 0x00, 0x50, 0x01}, /* 32 */
-};
-static void algorithm_draw(unsigned algorithm, unsigned muted)
-{
-    const uint8_t *layout = algorithms[algorithm & 31U];
-    unsigned left = 239, right = 0;
-    /* Draw wires first so every destination terminates behind an operator. */
-    for (unsigned i = 0; i < 6; ++i) {
-        unsigned column = layout[i * 2] >> 4, row = layout[i * 2] & 15;
-        int x = 19 + (int)column * 36, y = 151 - (int)row * 15;
-        unsigned branch = layout[i * 2 + 1] >> 4, feedback = layout[i * 2 + 1] & 15;
-        int bottom = row ? y + 15 : 169;
-        if (!row) {
-            if ((unsigned)x < left)
-                left = (unsigned)x;
-            if ((unsigned)x > right)
-                right = (unsigned)x;
-        }
-        if (branch == 0)
-            line(x, y + 12, x, bottom, DIM);
-        else {
-            line(x, y + 12, x, y + 15, DIM);
-            int first = branch == 1 ? x - 36 : branch == 2 ? x + 36 : x;
-            int last = branch == 4 ? x + 72 : branch >= 2 ? x + 36 : first;
-            line(first < x ? first : x, y + 15, last > x ? last : x, y + 15, DIM);
-            for (int dest = first; dest <= last; dest += 36)
-                line(dest, y + 15, dest, bottom, DIM);
-        }
-        if (feedback) {
-            int end_y = y + (int)(feedback - 1) * 15 + 12;
-            line(x, end_y, x + 17, end_y, AMBER);
-            line(x + 17, end_y, x + 17, y - 4, AMBER);
-            line(x + 17, y - 4, x, y - 4, AMBER);
-            line(x, y - 4, x, y, AMBER);
-        }
-    }
-    line((int)left, 169, (int)right, 169, DIM);
-    dim_text(104, 172, "OUT");
-    for (unsigned i = 0; i < 6; ++i) {
-        unsigned x = 8 + (layout[i * 2] >> 4) * 36, y = 151 - (layout[i * 2] & 15) * 15;
-        uint16_t bg = muted & (1U << i) ? PANEL : i == op ? colors[track] : DIM;
-        paint_fill(x, y, 22, 12, bg);
-        number(x + 8, y + 3, i + 1, 1, 1, muted & (1U << i) ? DIM : BACK, bg);
-    }
-}

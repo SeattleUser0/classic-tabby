@@ -1,7 +1,10 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.4
+Version: 0.5
 Revision log:
+- v0.5, 2026-11-02 (Task 03 checkpoint b): section 6 added with the measured result of
+  removing the DX7 operator editor pages and the tone editor (−11008 bytes, margin 14109),
+  the post-song-mode headroom projection and the further removal candidates with sizes.
 - v0.4, 2026-11-02 (Task 03 checkpoint a): section 5 added with the measured result of
   removing the sampler and the DX7 user library: app image 450820 bytes (−3072), margin
   3101 bytes. Sections 1-4 keep the V01 figures as the baseline they were measured on.
@@ -386,6 +389,65 @@ because sdk/synth.json requires them.
 
 Next: checkpoint (b) removes the DX7 operator editor pages (3890 B per section 2.2) and the
 tone editor (1894 B), expected to bring the margin to roughly 8.5 KB before song mode.
+
+## 6. Task 03 checkpoint (b): DX7 operator editor and tone editor removed (measured)
+
+Built with Track B (`make firmware`), byte-identical to Track A (`make crosscheck`).
+
+| Quantity | V01 baseline | After (a) | After (b) | (b) − (a) |
+| --- | ---: | ---: | ---: | ---: |
+| App image | 453892 | 450820 | **439812** | −11008 |
+| Margin to the 453921-byte packaging limit | 29 | 3101 | **14109** | +11008 |
+| .text | 377920 | 374976 | 364000 | −10976 |
+| .ram0_data | 75940 | 75812 | 75780 | −32 |
+| .ram0_bss | 191356 | 190812 | 190524 | −288 |
+| Static SRAM (data + bss + boot_info) | 267348 | 266676 | 266356 | −320 |
+| Runtime heap | 256268 | 256940 | 257260 | +320 |
+
+The section 2.2 estimate (3890 + 1894 = 5784 B) counted only the page functions. The
+measured drop is almost twice that because the pages' callers and tables went too:
+
+| Unit | After (a) | After (b) | Note |
+| --- | ---: | ---: | --- |
+| app/screen.c | 41780 | 32401 | −9379: fm_draw, tone_draw, track_lfo_draw, fm_control, tone_control, the algorithm diagram (table + `line` primitive), fm_pages, edit_keys and the FM/tone branches of apply_controls (6884 → 6018), draw_page_body (3424 → 2618), the LED map, the web targets and 1051 B of strings |
+| libfm1_engine.a | 366256 | 364647 | −1609: the linker dropped the engine's tone / LFO / ADSR / operator-toggle / mono editing sections that only the removed pages called (groove_* sequencer family 20258 → 18652 B, 141 → 131 symbols) |
+| every other unit | | | unchanged within ±20 B |
+
+What stays on the device for the DX7: FM_QUICK (voice 1..128 and bank select, ALGORITHM /
+FEEDBACK / TRANSPOSE / LEVEL encoders), the NAME page and the project / preset browser.
+Full voice editing is the workbench's job (and SysEx import). The DX7 ADSR macro page went
+with FM_ENV, as approved; bringing ATTACK / RELEASE back as two FM_QUICK knobs would cost
+about 300 B if wanted later.
+
+### 6.1 Headroom projection for song mode (decision 1 of the assessment)
+
+Song mode (checkpoint d) was estimated at 6–10 KB in the assessment (section 5): sequencer
+with clock and note table, storage with staging and CRC, directory, SONG page, transfer
+kinds 5/6 and command 23. Against the 14109-byte margin:
+
+| Song mode cost | Headroom after it | Meets the 4 KB requirement |
+| ---: | ---: | --- |
+| 6 KB (6144) | 7965 | yes |
+| 8 KB (8192) | 5917 | yes |
+| 10 KB (10240) | 3869 | **no, 227 B short** |
+
+The requirement is met for anything under 9.8 KB. The worst case of the estimate is at
+risk, so checkpoint (c) measures the song-mode skeleton early (storage + sequencer without
+the page) before the page is built, and these are the further removal candidates, with
+sizes from this build (`build/pro/flash-budget.md`), should they be needed:
+
+| Candidate | Bytes | Comment |
+| --- | ---: | --- |
+| Stock step editor pages (STEPS / STEP_EDIT / RHYTHM / ARP_EDIT: edit_page_draw, steps, toggle_step, …) | 3620 | the M8 sequences; the stock pattern sequencer stays usable from the workbench. ARP_EDIT is inside edit_page_draw and would have to be kept (≈ 600 B) |
+| Factory DX7 bank (`factory_tokens` 9399 + fm_factory.c code, unit total 10239) | 10239 | SPEC 1.1 names it first to cut; on-device preset select then works only on voices stored in projects (the workbench can still import SysEx). Largest single item |
+| Factory scenes (app/presets.c: `preset`, `scenes`, the 808 kit builder) | 2664 | the 16 demo scenes; projects on the device replace them |
+| EFFECTS page | 680 | sends and the shared effects stay editable from the workbench |
+| NAME page (DX7 patch naming) | 326 | naming moves to the workbench with the rest of voice editing |
+| BLE page | 1770 | screen only; the BLE stack itself is inside the binary SDK and cannot be removed |
+
+Not recoverable: everything inside libfm1_engine.a (section 2.3), including the
+sampler, the SEA decoder and the unused engines' SRAM entry points that sdk/synth.json
+requires.
 
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 

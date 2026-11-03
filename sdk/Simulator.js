@@ -345,10 +345,6 @@
       const pageTips={
         0:'总览：SELECT 选轨，K3（STEP）选步；PRESETS 换预设，PAGE／K2 换音源。',
         1:'SEQ：PAGE 翻底部七页，PRESETS 选步，SELECT 选轨，OCT−／OCT+ 换步进页；SHIFT + SEQ 直达输入／输出通道，长按 SEQ 复制与更多。',
-        2:'FM 详细编辑：编辑打击垫选择算子／音高／全局，SELECT 翻参数页，K1–K4 调节；长按 OP 键开关算子。',
-        3:fm?'FM 总包络：K1 起音，K2 衰减，K3 保持，K4 释放；各算子包络在 EDIT 详细编辑页调节。':'非 FM 包络：K1–K4 调屏幕列出的真实参数，SELECT 选轨；鼓／采样按琴键或打击垫播放并选中对应声部，也可用 PRESETS 选择。',
-        4:fm?'FM LFO：SELECT 翻参数页，K1–K4 调节；SHIFT + ENV 返回演奏。':'轨道 LFO：K1 速度，K2 深度，K3 音量／声像，K4 波形；深度 0 为关闭，SELECT 选轨。参数随项目和音色保存。',
-        5:'音色编辑：K1–K4 调当前四项；短按 EDIT 打开的常用页用 SELECT 选轨，长按后的细调页用 SELECT 翻页。PRESETS 选音色／鼓声部。',
         6:'混音：打击垫 1–8 静音、9–16 独奏，同轨互斥；SELECT 选轨，K1–K4 调当前四轨组音量。',
         7:'蓝牙：K1 总开关，K2 音频，K3 BLE 角色，K4 时钟；PRESETS 选屏幕下方操作，SAVE 执行，清除配对需再次确认。无线连接请在实机操作。',
         8:'保存项目：SELECT／PRESETS 选 USER 槽，再按 SAVE 保存；覆盖其他已有槽需确认，成功后自动返回。',
@@ -356,7 +352,7 @@
         10:'效果：PAGE 翻 TRACK／SHARED／DELAY，SELECT 选轨，K1–K4 调屏幕参数。DELAY 页连按 SEQ 或 TAP 打拍；PRESETS 也可翻页。',
         11:'音源预览：Pad 1–6 或 K1 选择，SAVE 应用，HOME 返回；K2 TRACK 即时选择 PROJECT（跟随项目）／LIVE（换项目保留音色）／OFF（关闭音源）。',
         12:'复制与粘贴：K1 或 SELECT 选操作，SAVE 执行；复制后自动选中 PASTE。PRESETS／K2 选目标步，OCT−／OCT+ 选目标页，再按 SAVE 粘贴。',
-        15:'FM 常用参数：PRESETS 选择 1–128 音色，PAGE 切换 A–D 组；K1 算法、K2 反馈、K3 移调、K4 音量。短按 EDIT 返回，长按进细调。',
+        15:'FM 常用参数：PRESETS 选择 1–128 音色，PAGE 切换 A–D 组；K1 算法、K2 反馈、K3 移调、K4 音量。EDIT 返回；完整音色编辑请使用网页工作台。',
         17:'ARP：短按开关，长按调参数；PAGE 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。SELECT 选轨，开关和参数随项目保存，不保存按住的音符。',
         16:'预设列表：PRESETS／SELECT 直接载入，PLAY 载入播放，SAVE 打开项目保存；K1 选 USER／FACTORY。切换直接生效，不提示保存。'
       };
@@ -364,7 +360,7 @@
     }
     if(contextChanged){
       for(const button of document.querySelectorAll('[data-sim-page]'))button.setAttribute('aria-pressed',String(Number(button.dataset.simPage)===state[1]||(Number(button.dataset.simPage)===15&&state[1]===5)));
-      const presetUse={0:'换整套预设',1:'选步进',3:fm?'开关 FM 包络':[2,5].includes(state[8+state[0]*20])?'选择鼓／采样声部':'此页不使用',4:'此页不使用',5:'换当前轨音色／鼓声部',8:'选保存槽位',10:'切换轨道发送／共用细调',12:'选步进',13:'选步进',15:'换当前轨音色',16:'选整套预设',17:'此页不使用'};
+      const presetUse={0:'换整套预设',1:'选步进',8:'选保存槽位',10:'切换轨道发送／共用细调',12:'选步进',13:'选步进',15:'换当前轨音色',16:'选整套预设',17:'此页不使用'};
       FM1I18n.text($('sim-context'),'面板 PRESETS 旋钮：'+(presetUse[state[1]]||'以屏幕下方标签为准')+'。网页“内置预设”始终切换整套项目。');
     }
     updateScreenControls(message.screen,contextChanged);

@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.9
+Version: 0.10
 Revision log:
+- v0.10, 2026-11-02 (Task 03 checkpoint b): section 11: DX7 operator editor pages and the
+  tone editor removed from app/screen.c and the workbench simulator; measured figures.
 - v0.9, 2026-11-02 (Task 03 checkpoint a): section 10: sampler and DX7 user library removal,
   migration prompt, workbench changes, manifest re-pin tool (tools/linux/pin-sdk-files.py),
   measured flash/RAM. `make test` now has 35 host checks.
@@ -618,3 +620,51 @@ ERASE"; song mode (checkpoint d) stays disabled until ACTIONS → "ERASE OLD SAM
 SAVE is confirmed. Projects, settings and tuning are untouched either way. The workbench's
 "Restore factory V16" writes the factory resources back over 0xF4000-0xFDFFF of the
 device, which is inside the song region; that warning is added with checkpoint (d).
+
+## 11. Task 03 — song mode, checkpoint (b) (2026-11-02)
+
+### 11.1 What changed
+
+Firmware, `app/screen.c` only (no data layout, no project format, no flash write changed):
+
+- The DX7 operator editor pages FM_EDIT / FM_ENV / FM_LFO and the per-engine tone editor
+  TONE_EDIT are gone: `fm_draw`, `tone_draw`, `track_lfo_draw`, `fm_control`,
+  `tone_control`, the algorithm diagram, the `fm_pages` parameter table, the EDIT black-key
+  map, the operator / tone / LFO page state and the hold-EDIT (600 ms) gesture.
+- The page numbers stay in the enum so the workbench simulator's page ids do not shift;
+  `groove_screen_open` rejects the four removed targets (the workbench shows its existing
+  "not supported for this source" message) and `groove_screen_snapshot` reports operator
+  and FM page as 0.
+- Buttons: EDIT on a DX7 track toggles FM_QUICK (voice / bank select, ALGORITHM, FEEDBACK,
+  TRANSPOSE, LEVEL) as before; EDIT on any other source, SCL, ENV and LFO show
+  "VOICE EDIT MOVED TO WORKBENCH". EDIT+REC (DX7 patch name), SEQ+EDIT (ACTIONS) and the
+  other chords are unchanged. The shift-shortcut strip no longer lists ENV / LFO.
+- The selected drum part per track is still remembered for STEPS editing (`drum_parts`).
+- Kept: on-device DX7 preset select and the existing macros (FM_QUICK), the NAME page,
+  PROJECT / PRESET_BROWSER, EFFECTS, MIX, BLE, STEPS, ARP_EDIT, SOURCE, ACTIONS.
+
+Workbench (`sdk/`, re-pinned with `tools/linux/pin-sdk-files.py`):
+
+- `sdk/Update.html.in`: the simulator shortcut buttons for the envelope, LFO and full
+  voice editor pages (page ids 3, 4, 2) are removed.
+- `sdk/Simulator.js`: the page tips and PRESETS-knob hints for pages 2-5 are removed; the
+  FM quick-page tip no longer mentions the hold-EDIT editor.
+- `sdk/manifest.json`: those two hashes updated; all 67 entries still enforced.
+
+Not changed: the SDK's DX7 voice editing API (`groove_fm_edit` etc.) is still linked and
+used by the FM_QUICK knobs and the workbench import paths; the web workbench's own DX7
+editor is unaffected.
+
+### 11.2 Measured
+
+| Quantity | After (a) | After (b) |
+| --- | ---: | ---: |
+| App image (limit 453921) | 450820 | **439812** (margin 14109) |
+| Static SRAM | 266676 | 266356 |
+| Runtime heap (min 49152) | 256940 | 257260 |
+
+Track A and Track B stay byte-identical (`make crosscheck`: sdk.elf 7ffed3da…, .fwsc
+c3cc41ac…). `make test`: the 35 host checks and the wasm smoke test pass unchanged; the
+host build compiles app/screen.c with no warnings. The rebuilt preview (`make web`) loads
+in headless Chrome 156 with no console errors, the placeholder hidden and 149 LCD targets.
+Details and the post-song-mode headroom projection in docs/FLASH-BUDGET.md section 6.

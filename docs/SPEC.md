@@ -1,7 +1,10 @@
 # Classic Tabby — Specification
 
-Version: 0.5
+Version: 0.6
 Revision log:
+- v0.6, 2026-11-02: section 6: checkpoint (b) done (DX7 operator editor and tone editor
+  out); the two format additions of assessment v0.3 (row step length, per-track song
+  output channels) recorded.
 - v0.5, 2026-11-02: section 6 added: Task 03 (song mode) decisions and checkpoint status;
   checkpoint (a) done (sampler and DX7 user library removed, migration prompt).
 - v0.4, 2026-11-02: section 5 added: Task 02 (publication to GitHub, GitHub Pages and a
@@ -188,10 +191,22 @@ Checkpoints and status:
   "ERASE OLD SAMPLE/DX7" on the ACTIONS page. Projects with sampler tracks load on the
   808. App image 450820 bytes, margin 3101 bytes. Host tests cover the migration and the
   conversion (tests/host/smoke.c v0.2).
-- (b) DX7 operator editor pages and tone editor out, keeping preset select and macros.
+- **(b) done, 2026-11-02:** DX7 operator editor pages (FM_EDIT / FM_ENV / FM_LFO) and the
+  tone editor (TONE_EDIT) removed from app/screen.c and from the workbench simulator's
+  shortcuts; on-device DX7 preset select and the ALGORITHM / FEEDBACK / TRANSPOSE / LEVEL
+  macros (FM_QUICK) stay; EDIT on other sources, SCL, ENV and LFO announce that voice
+  editing moved to the workbench. App image 439812 bytes, margin 14109 bytes. No data
+  layout changed.
 - (c) measure; song mode needs ≥ 4 KB headroom left after it lands, else stop and list
   further removal candidates.
 - (d) app-side song sequencer, song storage, quantized row changes, queued jumps,
   workbench song editing and transfer (kinds 5 and 6).
+
+Format additions approved after checkpoint (a) (assessment v0.3, section 9): each row has
+a step length of 16, 32, 48 or 64 steps (default 64; a shorter row plays the first N steps
+of its blocks and advances, notes past the row end follow the block-end release rules);
+the song header carries eight per-track output channels (1..16, or 0 = device OUT CH) that
+override the device setting while the song plays and are withdrawn when playback leaves
+the song, hanging notes being released on the old channel first.
 
 Known limit (decision 4): song mode runs from the internal clock only in v1.
