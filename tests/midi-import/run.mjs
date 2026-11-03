@@ -19,9 +19,13 @@
 //     8. tempo / CC / program file: first tempo used, everything else counted and ignored;
 //     9. long notes: 255 clip, same-pitch overlap clip, same-step duplicate;
 //    10. round trip: JSON save → load and .tabby encode → decode give identical songs; the
-//        section 9 v0.3 offsets (channels at 48, rows of 12 bytes at 64 with the step length
-//        at row byte 10, CRC over 20..1599) are checked byte by byte; invalid channel and
-//        step-length bytes are rejected on decode;
+//        section 9 v0.4 offsets (channels at 48, rows of 20 bytes at 64 with 16-bit ids and
+//        repeat/flags/step length at 16/17/18, CRC over 20..2623, 6-byte block record
+//        headers) are checked byte by byte; invalid channel and step-length bytes are
+//        rejected on decode; ids above 255 round-trip;
+//    10b. loose deduplication: off → distinct blocks; tolerance 4 / 8 / 16 merge the sections
+//        whose velocities differ by 6 and 12; the stored block keeps the first velocities;
+//        every merge is listed;
 //    11. format check: every produced song passes validate(); block size limits; the stub
 //        transfer plans every song;
 //    12. Renoise exports: every .mid in tests/fixtures/ (and renoise*.mid in
@@ -31,9 +35,11 @@
 //   Run:  /usr/bin/node tests/midi-import/run.mjs      (or: make midi-import-test)
 //   Exit status 0 on success; every check prints "ok" or "FAIL".
 //
-// Version: 0.2
+// Version: 0.3
 //
 // Revision log
+//   v0.3  2026-11-02  Section 9 v0.4 layout (16-bit ids, 20-byte rows); loose deduplication
+//                     tests; Renoise files also run at tolerances 4, 8 and 16.
 //   v0.2  2026-11-02  Section 9 v0.3 layout (row.steps, output channels); Renoise test takes
 //                     every file in tests/fixtures/.
 //   v0.1  2026-11-02  Initial version.
@@ -114,7 +120,7 @@ const produced = [];
   const unrolled = r.song.rows.flatMap(row => Array.from({ length: row.repeat }, () => row.blocks.map(id => id ? byId.get(id) : [])));
   check(same(unrolled, r.grid.map(cells => cells.map(Format.sortNotes))), 'multitrack: unrolling rows reproduces the original grid');
   check(r.song.rows.every(row => row.blocks[0] && row.blocks[1] && row.blocks[2] && !row.blocks[3]), 'multitrack: tracks 1-3 filled, 4-8 silent');
-  check(r.stats.poolPercent < 1 && r.stats.idPercent < 3, 'multitrack: pool use small', `${r.stats.recordBytes} B, ${r.stats.idPercent.toFixed(1)} % ids`);
+  check(r.stats.poolPercent < 1 && r.stats.idPercent < 1, 'multitrack: pool use small', `${r.stats.recordBytes} B, ${r.stats.idPercent.toFixed(2)} % ids`);
 }
 
 // ---- 4. pad under melody ----------------------------------------------------------------
@@ -167,7 +173,7 @@ const produced = [];
   const v = Format.validate(r.song);
   check(v.ok && v.warnings.length === 0, 'waltz: valid without warnings', JSON.stringify(v.warnings));
   const file = Format.encodeFile(r.song), back = Format.decodeFile(file);
-  check(file[64 + 10] === 48 && back.rows[0].steps === 48 && back.rows[0].repeat === 2, 'waltz: step length 48 written at row byte 10 and read back');
+  check(file[64 + 18] === 48 && back.rows[0].steps === 48 && back.rows[0].repeat === 2, 'waltz: step length 48 written at row byte 18 and read back');
   const r64 = importFile('waltz-3-4.mid', { rowSteps: 64 });
   check(r64.song.rows.length === 2 && r64.song.rows.every(x => x.steps === 64), 'waltz: forcing 64-step rows gives 2 unequal rows (96 steps)');
 }
@@ -206,20 +212,28 @@ const produced = [];
   const file = Format.encodeFile(r.song), decoded = Format.decodeFile(file);
   const strip = s => ({ name: s.name, projectSlot: s.projectSlot, tempo: s.tempo, loop: s.loop, jumpMode: s.jumpMode, loopRow: s.loopRow, outChannels: s.outChannels, rows: s.rows, blocks: s.blocks.map(b => ({ id: b.id, notes: Format.sortNotes(b.notes) })) });
   check(same(strip(decoded), strip(r.song)), 'round trip: .tabby encode → decode reproduces rows and blocks', `${file.length} bytes`);
-  check(file.length === 4096 + r.stats.recordBytes, 'round trip: .tabby size = record + aligned block records');
+  check(file.length === 4096 + r.stats.recordBytes && same(Array.from(file.subarray(4096, 4102)), [0, 0, 1, 0, file[4100], file[4101]]), 'round trip: .tabby size = record + aligned block records; 6-byte record header (song 0, reserved, id u16, length u16)');
   const v = new DataView(file.buffer);
-  check(v.getUint32(0, true) === 0x47314d46 && v.getUint32(16, true) === 0 && file[36] === 3 && (file[37] & 1) === 1 && v.getUint16(38, true) === 120 && file[40] === r.song.rows.length, 'round trip: record header fields at the section 9.5 offsets');
+  check(v.getUint32(0, true) === 0x47314d46 && v.getUint32(16, true) === 0 && file[36] === 3 && (file[37] & 1) === 1 && v.getUint16(38, true) === 120 && file[40] === r.song.rows.length && file[41] === 0, 'round trip: record header fields at the section 9.5 offsets (byte 41 reserved 0)');
   check(same(Array.from(file.subarray(48, 64)), [10, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'round trip: output channels at offset 48 as 1..16 (0 = device), reserved 56..63 zero', Array.from(file.subarray(48, 64)).join(' '));
-  const row0 = Array.from(file.subarray(64, 76));
-  check(same(row0.slice(0, 8), r.song.rows[0].blocks) && row0[8] === r.song.rows[0].repeat && row0[9] === 0 && row0[10] === 64 && row0[11] === 0, 'round trip: row 0 at offset 64 is 12 bytes: ids, repeat, flags, step length 64, reserved', row0.join(' '));
-  check(file.subarray(64 + 12 * r.song.rows.length, 1600).every(b => b === 0) && file.subarray(1600, 4096).every(b => b === 0xff), 'round trip: unused rows zero, 1600..4095 is 0xFF');
-  check(v.getUint32(12, true) === Format.crc32(file.subarray(20, 1600)), 'round trip: record CRC over bytes 20..1599');
-  const badCh = file.slice(0, 4096); badCh[48] = 17; new DataView(badCh.buffer).setUint32(12, Format.crc32(badCh.subarray(20, 1600)), true);
+  const row0 = Array.from(file.subarray(64, 84));
+  const ids16 = Array.from({ length: 8 }, (_, t) => row0[2 * t] | row0[2 * t + 1] << 8);
+  check(same(ids16, r.song.rows[0].blocks) && row0[16] === r.song.rows[0].repeat && row0[17] === 0 && row0[18] === 64 && row0[19] === 0, 'round trip: row 0 at offset 64 is 20 bytes: 8 × u16 ids, repeat, flags, step length 64, reserved', row0.join(' '));
+  check(file.subarray(64 + 20 * r.song.rows.length, 2624).every(b => b === 0) && file.subarray(2624, 4096).every(b => b === 0xff), 'round trip: unused rows zero, 2624..4095 is 0xFF');
+  check(v.getUint32(12, true) === Format.crc32(file.subarray(20, 2624)), 'round trip: record CRC over bytes 20..2623');
+  const reseal = img => { new DataView(img.buffer).setUint32(12, Format.crc32(img.subarray(20, 2624)), true); return img; };
+  const badCh = reseal(file.slice(0, 4096)); badCh[48] = 17; reseal(badCh);
   check(throws(() => Format.decodeRecord(badCh), /output channel byte 17/), 'round trip: channel byte 17 rejected on decode');
-  const zeroSteps = file.slice(0, 4096); zeroSteps[64 + 10] = 0; new DataView(zeroSteps.buffer).setUint32(12, Format.crc32(zeroSteps.subarray(20, 1600)), true);
+  const zeroSteps = file.slice(0, 4096); zeroSteps[64 + 18] = 0; reseal(zeroSteps);
   check(Format.decodeRecord(zeroSteps).rows[0].steps === 64, 'round trip: step-length byte 0 reads as 64');
-  const badSteps = file.slice(0, 4096); badSteps[64 + 10] = 20; new DataView(badSteps.buffer).setUint32(12, Format.crc32(badSteps.subarray(20, 1600)), true);
+  const badSteps = file.slice(0, 4096); badSteps[64 + 18] = 20; reseal(badSteps);
   check(throws(() => Format.decodeRecord(badSteps), /step length 20/), 'round trip: step-length byte 20 rejected on decode');
+  // 16-bit ids: renumber a block to 300 and round-trip through the record and the file.
+  const wide = Format.fromJSON(json); const oldId = wide.blocks[0].id; wide.blocks[0].id = 300;
+  wide.rows.forEach(row => { row.blocks = row.blocks.map(id => id === oldId ? 300 : id); });
+  const wideFile = Format.encodeFile(wide), wideBack = Format.decodeFile(wideFile);
+  const firstRowWith300 = wide.rows.findIndex(row => row.blocks.includes(300)), tr = wide.rows[firstRowWith300].blocks.indexOf(300);
+  check(wideFile[64 + 20 * firstRowWith300 + 2 * tr] === 44 && wideFile[64 + 20 * firstRowWith300 + 2 * tr + 1] === 1 && same(wideBack.rows, wide.rows) && wideBack.blocks.some(b => b.id === 300), 'round trip: block id 300 stored as 2C 01 in the row and in the 6-byte record header');
   const odd = Format.fromJSON(json); odd.rows[0].steps = 16;
   check(!Format.validate(odd).ok === false && Format.validate(odd).warnings.some(w => /never plays/.test(w)), 'validate: a 16-step row over a block with later notes warns');
   odd.rows[0].steps = 20;
@@ -243,15 +257,38 @@ const produced = [];
   const plans = await Promise.all(produced.map(s => stub.plan(s, 0)));
   check(stub.name === 'stub' && !stub.real && plans.every(p => p.record.bytes === 4096 && p.blocks.length > 0), 'transfer: stub plans every song (record + blocks)');
   const w = await stub.write(2, produced[1], {});
-  check(w.sent === false && /Nothing was written/.test(w.message) && w.blocks.every(b => b.target >> 8 === 2 && (b.target & 255) === b.id), 'transfer: stub write reports and sends nothing; targets (song<<8)|id', w.message);
+  check(w.sent === false && /Nothing was written/.test(w.message) && w.blocks.every(b => b.target >> 16 === 2 && (b.target & 0xffff) === b.id), 'transfer: stub write reports and sends nothing; targets (song<<16)|id', w.message);
   check((await stub.exists(0)).empty === 'unknown', 'transfer: stub cannot tell whether a slot is used');
-  // Limits: 129 distinct rows must be refused, 256 distinct blocks must be refused.
+  // ---- 10b. loose deduplication --------------------------------------------------------
+  {
+    // Three 4-bar sections with identical notes; velocities 100 / 106 / 112 (steps of 6).
+    const t = [{ tick: 0, type: 'tempo', bpm: 120 }];
+    for (let section = 0; section < 3; section++) for (let s = 0; s < 64; s += 4) note(t, (section * 64 + s) * 24, 24, 48 + (s / 4) % 8, 100 + section * 6, 0);
+    note(t, 3 * 64 * 24, 24, 48, 100, 0);          // a 4th section that differs in notes: never merged
+    const a = Song.analyze(Midi.parse(write({ format: 0, division: 96, tracks: [t] })));
+    const off = Song.convert(a, {});
+    check(off.song.blocks.length === 4 && !warning(off, 'looseMerged'), 'loose off: 4 distinct blocks', `${off.song.blocks.length}`);
+    const t4 = Song.convert(a, { looseDedup: true, velocityTolerance: 4 });
+    check(t4.song.blocks.length === 4 && !warning(t4, 'looseMerged'), 'loose ±4: velocities 6 apart stay separate');
+    const t8 = Song.convert(a, { looseDedup: true, velocityTolerance: 8 });
+    check(t8.song.blocks.length === 3 && warning(t8, 'looseMerged')?.count === 1 && same(t8.song.rows.map(x => x.blocks[0]), [1, 2, 3]) && t8.song.rows.length === 3, 'loose ±8: section 2 (diff 6) merges into block 1; section 3 (diff 12 from block 1) stays', `${t8.song.blocks.length} blocks, rows ${t8.song.rows.map(x => x.repeat + '×' + x.blocks[0]).join(' ')}`);
+    check(t8.song.blocks[0].notes.every(n => n.velocity === 100) && t8.song.rows[0].repeat === 2, 'loose ±8: shared block keeps the first section\'s velocities; rows 1-2 merge into one row ×2');
+    check(/row 2 .*block 1, largest velocity difference 6/.test(warning(t8, 'looseMerged').items[0].text), 'loose ±8: the merge is listed with row, block and difference', warning(t8, 'looseMerged').items[0].text);
+    const t16 = Song.convert(a, { looseDedup: true, velocityTolerance: 16 });
+    check(t16.song.blocks.length === 2 && warning(t16, 'looseMerged')?.count === 2 && t16.song.rows.length === 2 && t16.song.rows[0].repeat === 3 && t16.stats.looseMerges === 2, 'loose ±16: sections 1-3 share block 1 (row ×3), section 4 separate');
+    check(Format.validate(t16.song).ok && t16.song.source.velocityTolerance === 16, 'loose: result valid and the tolerance is recorded in song.source');
+  }
+  // Limits: 129 distinct rows must be refused; 256 distinct blocks are fine (16-bit ids);
+  // more than 2048 blocks is refused by validate().
   const many = [{ tick: 0, type: 'tempo', bpm: 120 }];
   for (let bar = 0; bar < 129 * 4; bar++) note(many, bar * 16 * 96 / 4, 96 / 4, 36 + (bar % 60), 100, 0);
   check(throws(() => Song.convert(Song.analyze(Midi.parse(write({ format: 0, division: 96, tracks: [many] })))), /128/), 'limits: more than 128 rows refused with a message');
   const big = [{ tick: 0, type: 'tempo', bpm: 120 }];
   for (let row = 0; row < 64; row++) for (let t = 0; t < 4; t++) note(big, row * 64 * 24 + t * 24, 24, 24 + row + t * 20, 100, t);
-  check(throws(() => Song.convert(Song.analyze(Midi.parse(write({ format: 0, division: 96, tracks: [big] })))), /255/), 'limits: more than 255 distinct blocks refused with a message');
+  const bigSong = Song.convert(Song.analyze(Midi.parse(write({ format: 0, division: 96, tracks: [big] })))).song;
+  check(bigSong.blocks.length === 256 && Format.validate(bigSong).ok && Format.decodeFile(Format.encodeFile(bigSong)).blocks.length === 256, 'limits: 256 distinct blocks accepted and round-trip with 16-bit ids');
+  const tooMany = Format.emptySong('x'); tooMany.blocks = Array.from({ length: 2049 }, (_, i) => ({ id: i + 1, notes: [{ step: 0, pitch: 60, velocity: 100, length: 1 }] })); tooMany.rows = [{ blocks: [1, 0, 0, 0, 0, 0, 0, 0], repeat: 1, steps: 64 }];
+  check(!Format.validate(tooMany).ok && /max 2048/.test(Format.validate(tooMany).errors[0]), 'limits: 2049 blocks rejected by validate()');
 }
 
 // ---- 12. Renoise exports -----------------------------------------------------------------
@@ -273,6 +310,9 @@ const produced = [];
       check(Format.validate(r.song).ok, `renoise ${name}: converted song is valid`, `${r.song.rows.length} rows (from ${r.stats.rowsBeforeMerge}), ${r.song.blocks.length} blocks from ${r.stats.cellsBeforeDedup} cells, ${r.stats.notesOut}/${r.stats.notesIn} notes, ${r.stats.recordBytes} B`);
       console.log('       warnings: ' + (r.warnings.map(w => w.kind + '×' + w.count).join(', ') || 'none'));
       for (const w of r.warnings.filter(w => w.severity === 'warn' && w.items.length)) console.log('         ' + w.kind + ': ' + w.items.slice(0, 3).map(it => (it.track ? 'T' + it.track + ' ' : '') + it.text).join(' | '));
+      const counts = [4, 8, 16].map(tol => { const x = Song.convert(a, { fileName: name, looseDedup: true, velocityTolerance: tol }); return { tol, blocks: x.song.blocks.length, merges: x.stats.looseMerges, rows: x.song.rows.length, ok: Format.validate(x.song).ok }; });
+      console.log(`       blocks: loose off ${r.song.blocks.length}; ` + counts.map(c => `±${c.tol} → ${c.blocks} (${c.merges} merges, ${c.rows} rows)`).join('; '));
+      check(counts.every(c => c.ok && c.blocks <= r.song.blocks.length) && counts[0].blocks >= counts[1].blocks && counts[1].blocks >= counts[2].blocks, `renoise ${name}: loose mode valid and monotonic in the tolerance`);
       check(Format.toJSON(Format.fromJSON(Format.toJSON(r.song))) === Format.toJSON(r.song), `renoise ${name}: JSON round trip`);
       const file = Format.encodeFile(r.song);
       check(same(Format.decodeFile(file).rows, r.song.rows), `renoise ${name}: .tabby round trip`, `${file.length} bytes`);

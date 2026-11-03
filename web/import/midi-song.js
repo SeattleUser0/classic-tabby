@@ -29,15 +29,21 @@
  *         v0.3 row byte 10); blocks are 64 steps and steps beyond rowSteps stay empty;
  *       * deduplication: identical block payloads share one id (0 = silent cell, never
  *         stored); consecutive identical rows merge into one row with a repeat count ≤ 64;
- *       * limits: more than 128 rows or 255 blocks is an error (narrow the bar range).
+ *       * loose deduplication (option, off by default): a cell whose notes match an existing
+ *         block in step, pitch and length, with every velocity within ±tolerance (default 8)
+ *         of that block's, reuses the block; the stored block keeps the first cell's
+ *         velocities. Every such merge is listed in the warnings (kind looseMerged);
+ *       * limits: more than 128 rows or 2048 blocks is an error (narrow the bar range).
  *       Everything dropped or changed goes into a warning list with counts and positions.
  *
  *   Loading: classic script (globalThis.TabbyMidiSong) and CommonJS; needs song-format.js
  *   (globalThis.TabbySongFormat or require) for block encoding, keys and usage.
  *
- * Version: 0.2
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-02  Loose deduplication option (velocity tolerance); block limit 2048
+ *                     (section 9 v0.4).
  *   v0.2  2026-11-02  Row step length stored per row (row.steps) instead of song.rowSteps,
  *                     following section 9 v0.3.
  *   v0.1  2026-11-02  Initial version (Task 02, Step 2).
@@ -174,6 +180,8 @@
     const rowSteps = options.rowSteps || analysis.rowSteps.default;
     if (!L.rowStepsAllowed.includes(rowSteps)) fail('row length must be 16, 32, 48 or 64 steps', 'options');
     const lengthRule = options.lengthRule || 'nearest', overflowRule = options.overflowRule || 'loudest';
+    const loose = !!options.looseDedup, tolerance = Number.isInteger(options.velocityTolerance) ? options.velocityTolerance : 8;
+    if (loose && (tolerance < 0 || tolerance > 126)) fail('velocity tolerance must be 0..126', 'options');
     if (!roundEnd[lengthRule]) fail('unknown length rule ' + lengthRule, 'options');
     if (!overflowOrder[overflowRule]) fail('unknown overflow rule ' + overflowRule, 'options');
     const assignments = options.assignments || defaultAssignments(analysis);
@@ -263,13 +271,32 @@
       const rel = n.start - rangeStart, row = Math.floor(rel / rowSteps);
       grid[row][t].push({ step: rel % rowSteps, pitch: n.pitch, velocity: n.velocity, length: n.length, retrigger: false });
     }
-    /* Deduplicate blocks and build rows. */
-    const pool = new Map(), blocks = [];
-    const rowsExpanded = grid.map(cells => cells.map(notes => {
+    /* Deduplicate blocks and build rows. Exact first (identical bytes); then, in loose mode,
+     * a block with the same notes whose velocities are all within the tolerance. */
+    const pool = new Map(), byShape = new Map(), blocks = [];
+    let looseMerges = 0;
+    const rowsExpanded = grid.map((cells, rowIndex) => cells.map((notes, t) => {
       if (!notes.length) return 0;
       const sorted = F.sortNotes(notes), key = F.blockKey(sorted);
       let id = pool.get(key);
-      if (!id) { id = blocks.length + 1; pool.set(key, id); blocks.push({ id, notes: sorted }); }
+      if (!id && loose) {
+        const shape = F.structuralKey(sorted);
+        for (const candidate of byShape.get(shape) || []) {
+          let worst = 0;
+          for (let i = 0; i < sorted.length; i++) worst = Math.max(worst, Math.abs(sorted[i].velocity - candidate.notes[i].velocity));
+          if (worst <= tolerance) {
+            id = candidate.id; looseMerges++;
+            w.add('looseMerged', 'warn', 'Blocks merged by loose matching (same notes, velocities within ±' + tolerance + '); the shared block keeps the first block\'s velocities',
+              { track: t + 1, text: 'row ' + (rowIndex + 1) + ' (bars ' + (barFrom + rowIndex * rowSteps / barSteps) + '..' + (barFrom + (rowIndex + 1) * rowSteps / barSteps - 1) + ') uses block ' + id + ', largest velocity difference ' + worst });
+            break;
+          }
+        }
+      }
+      if (!id) {
+        id = blocks.length + 1; pool.set(key, id);
+        const block = { id, notes: sorted }; blocks.push(block);
+        if (loose) { const shape = F.structuralKey(sorted); if (!byShape.has(shape)) byShape.set(shape, []); byShape.get(shape).push(block); }
+      }
       return id;
     }));
     const rows = [];
@@ -278,7 +305,7 @@
       if (last && last.repeat < L.repeatMax && last.blocks.every((id, t) => id === ids[t])) last.repeat++;
       else rows.push({ blocks: ids, repeat: 1, loopHere: false, steps: rowSteps });
     }
-    if (blocks.length > L.blocksPerSong) fail('The song needs ' + blocks.length + ' distinct blocks; a song holds 255. Narrow the bar range or import fewer tracks.', 'blocks');
+    if (blocks.length > L.blocksPerSong) fail('The song needs ' + blocks.length + ' distinct blocks; a song holds ' + L.blocksPerSong + '. Narrow the bar range or import fewer tracks.', 'blocks');
     if (rows.length > L.rowsPerSong) fail('The song needs ' + rows.length + ' rows after merging repeats; a song holds 128. Narrow the bar range.', 'rows');
 
     const song = F.emptySong(options.name || 'IMPORTED');
@@ -289,17 +316,18 @@
     song.rows = rows; song.blocks = blocks;
     song.source = { fileName: options.fileName || '', format: analysis.format, division: analysis.division, tempoExact: analysis.tempo.exact,
       meter: analysis.meter.numerator + '/' + analysis.meter.denominator, barSteps, barFrom, barTo, rowSteps, lengthRule, overflowRule,
+      looseDedup: loose, velocityTolerance: loose ? tolerance : null,
       parts: usedParts.map(u => ({ key: u.part.key, name: u.part.name, track: u.track + 1 })) };
     const usage = F.usage(song);
     const stats = { ...usage, rowsBeforeMerge: rowsExpanded.length, cellsBeforeDedup: rowsExpanded.reduce((n, r) => n + r.filter(Boolean).length, 0),
-      notesIn, notesOut, bars: barTo - barFrom + 1, barsPerRow: rowSteps / barSteps, rowSteps };
+      notesIn, notesOut, bars: barTo - barFrom + 1, barsPerRow: rowSteps / barSteps, rowSteps, looseMerges };
     const result = { song, stats, warnings: w.list(), grid, rowsExpanded };
     song.warnings = result.warnings.map(x => ({ kind: x.kind, severity: x.severity, message: x.message, count: x.count }));
     F.validate(song).errors.forEach(e => fail('internal: produced an invalid song: ' + e, 'internal'));
     return result;
   }
 
-  const TabbyMidiSong = { analyze, convert, defaultAssignments, rowStepsFor, position, where, nearest, version: '0.1' };
+  const TabbyMidiSong = { analyze, convert, defaultAssignments, rowStepsFor, position, where, nearest, version: '0.3' };
   globalThis.TabbyMidiSong = TabbyMidiSong;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyMidiSong;
 })();

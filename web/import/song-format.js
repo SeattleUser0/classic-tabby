@@ -7,10 +7,11 @@
  *   (midi-song.js), the transfer layer (song-transfer.js), the UI and the tests share it.
  *   The byte layouts follow docs/tasks/TASK-03-step1-assessment.md section 9 ("final"):
  *     9.3 block payload: 64 step headers, 0..4 notes of 3 bytes each, 64..832 bytes;
- *     9.4 block record: song, block id, length (u16 LE), payload, padded to 4 bytes;
- *     9.5 song record (v0.3): 4096 bytes, 64-byte header with eight per-track output
- *         channels at offset 48, then 128 rows × 12 bytes at offset 64 (block ids, repeat,
- *         flags, step length 16/32/48/64), CRC over bytes 20..1599;
+ *     9.4 block record (v0.4): song, reserved, block id (u16 LE), length (u16 LE), payload,
+ *         padded to 4 bytes;
+ *     9.5 song record (v0.4): 4096 bytes, 64-byte header with eight per-track output
+ *         channels at offset 48, then 128 rows × 20 bytes at offset 64 (8 × u16 block ids,
+ *         repeat, flags, step length 16/32/48/64, reserved), CRC over bytes 20..2623;
  *     9.9 .tabby file: song record image (generation 0, target 0, commit 0, CRC valid)
  *         followed by block records with song byte 0, 4-byte aligned, to end of file.
  *
@@ -19,7 +20,7 @@
  *       jumpMode: 'bar' | 'row', loopRow,
  *       outChannels: [8 × (null | 0..15)],     // null = use the device setting (byte 0)
  *       rows:   [{ blocks: [8 × id], repeat: 1..64, loopHere: false, steps: 16|32|48|64 }],
- *       blocks: [{ id: 1..255, notes: [{ step, pitch, velocity, length, retrigger }],
+ *       blocks: [{ id: 1..65535, notes: [{ step, pitch, velocity, length, retrigger }],
  *                  stepFlags: { step: { probability, alt } } (optional) }] }
  *
  *   Row step length and output channels (section 9 v0.3, commit b7abb99): a row plays steps
@@ -29,9 +30,13 @@
  *
  *   Loading: classic script (globalThis.TabbySongFormat) and CommonJS (module.exports).
  *
- * Version: 0.2
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-02  Section 9 v0.4 (commit 2d4ef83): 16-bit block ids (1..65535, at most
+ *                     2048 per song), 6-byte block record header, 20-byte rows, CRC over
+ *                     20..2623, header byte 41 reserved. structuralKey() added for the
+ *                     importer's loose deduplication.
  *   v0.2  2026-11-02  Section 9 v0.3 layout: per-row step length (row byte 10, rows now 12
  *                     bytes at offset 64) and per-track output channels (header offset 48);
  *                     body CRC over 20..1599. The v0.1 placeholder functions are gone;
@@ -48,11 +53,11 @@
   const LIMITS = Object.freeze({
     steps: 64, notesPerStep: 4, noteBytes: 3,
     blockMin: 64, blockMax: 832,
-    blocksPerSong: 255, rowsPerSong: 128, songs: 16, tracks: 8,
+    blocksPerSong: 2048, idMax: 65535, rowsPerSong: 128, songs: 16, tracks: 8,
     repeatMin: 1, repeatMax: 64, lengthMin: 1, lengthMax: 255,
     tempoMin: 30, tempoMax: 300, nameLength: 12,
     recordArea: 4076, blockSectors: 96, poolBytes: 96 * 4076,   /* 391296 */
-    recordBytes: 4096, rowBytes: 12, rowsOffset: 64, bodyEnd: 1600, channelsOffset: 48, headerBytes: 64,
+    recordBytes: 4096, rowBytes: 20, rowsOffset: 64, bodyEnd: 2624, channelsOffset: 48, headerBytes: 64, blockHeaderBytes: 6,
     rowStepsAllowed: [16, 32, 48, 64],
     magicRecord: 0x47314d46, /* FM1G */ magicBlocks: 0x42314d46, /* FM1B */
     version: 1,
@@ -133,14 +138,19 @@
   }
   /* Deduplication key: the exact payload bytes as a string (identical bytes = same block). */
   function blockKey(notes) { return String.fromCharCode(...encodeBlock({ notes })); }
+  /* Loose deduplication (importer option): the same notes ignoring velocity. Two blocks with
+   * equal structural keys differ only in velocities, position for position. */
+  function structuralKey(notes) { return sortNotes(notes).map(n => n.step + ':' + n.pitch + ':' + n.length + (n.retrigger ? 'r' : '')).join(','); }
 
   /* ---- block record (9.4) and .tabby file (9.9) --------------------------------------- */
   const align4 = n => (n + 3) & ~3;
   function encodeBlockRecord(block, song = 0) {
     const payload = encodeBlock(block, 'block ' + block.id);
-    const out = new Uint8Array(align4(4 + payload.length)).fill(0xff);
-    out[0] = song; out[1] = block.id; out[2] = payload.length & 255; out[3] = payload.length >> 8;
-    out.set(payload, 4);
+    const out = new Uint8Array(align4(LIMITS.blockHeaderBytes + payload.length)).fill(0xff);
+    out[0] = song; out[1] = 0;                                           /* v0.4: byte 1 reserved */
+    out[2] = block.id & 255; out[3] = block.id >> 8;                     /* 16-bit id */
+    out[4] = payload.length & 255; out[5] = payload.length >> 8;
+    out.set(payload, LIMITS.blockHeaderBytes);
     return out;
   }
 
@@ -160,16 +170,16 @@
     r[37] = (song.loop ? 1 : 0) | (song.jumpMode === 'row' ? 2 : 0);
     v.setUint16(38, song.tempo, true);
     r[40] = song.rows.length;
-    r[41] = song.blocks.reduce((m, b) => Math.max(m, b.id), 0);
+    r[41] = 0;                                          /* v0.4: reserved (was the block count) */
     r[42] = song.loopRow;
     /* v0.3: per-track output channel bytes, 0 = device setting, 1..16 = MIDI channel. */
     for (let t = 0; t < 8; t++) r[LIMITS.channelsOffset + t] = song.outChannels[t] === null ? 0 : song.outChannels[t] + 1;
     song.rows.forEach((row, i) => {
       const at = LIMITS.rowsOffset + i * LIMITS.rowBytes;
-      for (let t = 0; t < 8; t++) r[at + t] = row.blocks[t];
-      r[at + 8] = row.repeat; r[at + 9] = row.loopHere ? 1 : 0;
-      r[at + 10] = row.steps;                           /* v0.3 step length, written explicitly */
-      r[at + 11] = 0;
+      for (let t = 0; t < 8; t++) v.setUint16(at + 2 * t, row.blocks[t], true);   /* v0.4: 16-bit ids */
+      r[at + 16] = row.repeat; r[at + 17] = row.loopHere ? 1 : 0;
+      r[at + 18] = row.steps;                           /* step length, written explicitly */
+      r[at + 19] = 0;
     });
     v.setUint32(12, crc32(r.subarray(20, LIMITS.bodyEnd)), true);
     return r;
@@ -191,9 +201,9 @@
     const rowCount = r[40];
     for (let i = 0; i < rowCount; i++) {
       const at = LIMITS.rowsOffset + i * LIMITS.rowBytes;
-      const steps = r[at + 10] || 64;                     /* 0 reads as 64 (section 9.5) */
-      if (!LIMITS.rowStepsAllowed.includes(steps)) fail('song record row ' + (i + 1) + ' step length ' + r[at + 10] + ' invalid');
-      song.rows.push({ blocks: Array.from(r.subarray(at, at + 8)), repeat: r[at + 8], loopHere: !!(r[at + 9] & 1), steps });
+      const steps = r[at + 18] || 64;                     /* 0 reads as 64 (section 9.5) */
+      if (!LIMITS.rowStepsAllowed.includes(steps)) fail('song record row ' + (i + 1) + ' step length ' + r[at + 18] + ' invalid');
+      song.rows.push({ blocks: Array.from({ length: 8 }, (_, t) => v.getUint16(at + 2 * t, true)), repeat: r[at + 16], loopHere: !!(r[at + 17] & 1), steps });
     }
     song.generation = v.getUint32(4, true); song.commit = v.getUint32(16, true);
     return song;
@@ -211,13 +221,14 @@
     let at = LIMITS.recordBytes;
     while (at < bytes.length) {
       if (bytes[at] === 0xff) break;                      /* erased filler */
-      if (at + 4 > bytes.length) fail('.tabby block record header truncated');
-      const songByte = bytes[at], id = bytes[at + 1], length = bytes[at + 2] | bytes[at + 3] << 8;
+      const H = LIMITS.blockHeaderBytes;
+      if (at + H > bytes.length) fail('.tabby block record header truncated');
+      const songByte = bytes[at], id = bytes[at + 2] | bytes[at + 3] << 8, length = bytes[at + 4] | bytes[at + 5] << 8;
       if (songByte !== 0) fail('.tabby block record song byte must be 0');
       if (!id) fail('.tabby block record id 0 is invalid');
-      if (length < LIMITS.blockMin || length > LIMITS.blockMax || at + 4 + length > bytes.length) fail('.tabby block record ' + id + ' length invalid');
-      song.blocks.push(decodeBlock(bytes.subarray(at + 4, at + 4 + length), id));
-      at = align4(at + 4 + length);
+      if (length < LIMITS.blockMin || length > LIMITS.blockMax || at + H + length > bytes.length) fail('.tabby block record ' + id + ' length invalid');
+      song.blocks.push(decodeBlock(bytes.subarray(at + H, at + H + length), id));
+      at = align4(at + H + length);
     }
     checkSong(song);
     return song;
@@ -238,18 +249,18 @@
     if (!Number.isInteger(song.loopRow) || song.loopRow < 0 || song.loopRow >= Math.max(1, (song.rows || []).length)) err('loop row outside the row list');
     const ids = new Map();
     for (const b of song.blocks || []) {
-      if (!Number.isInteger(b.id) || b.id < 1 || b.id > 255) err('block id ' + b.id + ' outside 1..255');
+      if (!Number.isInteger(b.id) || b.id < 1 || b.id > LIMITS.idMax) err('block id ' + b.id + ' outside 1..65535');
       if (ids.has(b.id)) err('block id ' + b.id + ' used twice');
       ids.set(b.id, b);
       try { const bytes = encodeBlock(b, 'block ' + b.id); if (bytes.length < LIMITS.blockMin || bytes.length > LIMITS.blockMax) err('block ' + b.id + ' payload ' + bytes.length + ' bytes'); }
       catch (e) { err(e.message); }
     }
-    if ((song.blocks || []).length > LIMITS.blocksPerSong) err('song has ' + song.blocks.length + ' blocks (max 255)');
+    if ((song.blocks || []).length > LIMITS.blocksPerSong) err('song has ' + song.blocks.length + ' blocks (max 2048 per song)');
     const used = new Set();
     (song.rows || []).forEach((row, i) => {
       if (!Array.isArray(row.blocks) || row.blocks.length !== 8) { err('row ' + (i + 1) + ' needs 8 block ids'); return; }
       row.blocks.forEach((id, t) => {
-        if (!Number.isInteger(id) || id < 0 || id > 255) err('row ' + (i + 1) + ' track ' + (t + 1) + ' block id invalid');
+        if (!Number.isInteger(id) || id < 0 || id > LIMITS.idMax) err('row ' + (i + 1) + ' track ' + (t + 1) + ' block id invalid');
         else if (id) { used.add(id); if (!ids.has(id)) err('row ' + (i + 1) + ' track ' + (t + 1) + ' references missing block ' + id); }
       });
       if (!Number.isInteger(row.repeat) || row.repeat < LIMITS.repeatMin || row.repeat > LIMITS.repeatMax) err('row ' + (i + 1) + ' repeat outside 1..64');
@@ -268,7 +279,7 @@
   /* Bytes as stored on the device (record header + payload, 4-byte aligned), and the number
    * of 4076-byte sector areas a first-fit-decreasing packing needs. */
   function usage(song) {
-    const sizes = song.blocks.map(b => align4(4 + encodeBlock(b).length));
+    const sizes = song.blocks.map(b => align4(LIMITS.blockHeaderBytes + encodeBlock(b).length));
     const payloadBytes = song.blocks.reduce((n, b) => n + encodeBlock(b).length, 0);
     const recordBytes = sizes.reduce((n, s) => n + s, 0);
     const bins = [];
@@ -308,8 +319,8 @@
     return song.rows.map(r => r.blocks.map(id => id ? sortNotes(byId.get(id).notes) : []));
   }
 
-  const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, encodeBlockRecord,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, version: '0.2' };
+  const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, structuralKey, encodeBlockRecord,
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, version: '0.3' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();

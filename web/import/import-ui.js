@@ -28,9 +28,11 @@
  *
  *   Strings are English for the standalone page; at merge they get FM1I18n entries.
  *
- * Version: 0.2
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-02  Loose block matching option with velocity tolerance (default 8, off);
+ *                     block count shown against 2048 (section 9 v0.4).
  *   v0.2  2026-11-02  Row step length shown per row; OUT CH note updated (field now in the
  *                     song header, section 9 v0.3).
  *   v0.1  2026-11-02  Initial version (Task 02, Step 2).
@@ -80,6 +82,8 @@
       name: h('input', { type: 'text', maxLength: 12, value: 'IMPORTED', spellcheck: false }),
       projectSlot: h('select', {}, ...Array.from({ length: 16 }, (_, i) => option(i, 'project ' + (i + 1)))),
       loop: h('input', { type: 'checkbox' }),
+      loose: h('input', { type: 'checkbox' }),
+      tolerance: h('input', { type: 'number', min: 0, max: 126, step: 1, value: 8 }),
       status: h('p', { class: 'ti-status', role: 'status' }),
       stats: h('div', { class: 'ti-stats' }),
       rows: h('tbody'),
@@ -112,8 +116,9 @@
           h('label', {}, 'Note ends ', ui.lengthRule),
           h('label', {}, 'More than 4 notes on a step ', ui.overflowRule),
           h('label', {}, 'Song name ', ui.name), h('label', {}, 'Project slot ', ui.projectSlot),
-          h('label', {}, ui.loop, ' loop the whole song')),
-        h('p', { class: 'ti-muted' }, 'Grid: 16th notes. Starts snap to the nearest step (ties toward the earlier step). The first tempo of the file becomes the song tempo.')),
+          h('label', {}, ui.loop, ' loop the whole song'),
+          h('label', {}, ui.loose, ' loose block matching, velocity tolerance ±', ui.tolerance)),
+        h('p', { class: 'ti-muted' }, 'Grid: 16th notes. Starts snap to the nearest step (ties toward the earlier step). The first tempo of the file becomes the song tempo. Loose matching shares a block when the notes are the same and only velocities differ, within the tolerance; the first block\'s velocities are kept and every merge is listed below.')),
       h('section', { class: 'ti-step' }, h('h3', {}, '4. Resulting song'), ui.status, ui.stats,
         h('div', { class: 'ti-scroll' }, h('table', { class: 'ti-table ti-rows' }, h('thead', {}, h('tr', {}, h('th', {}, 'Row'), h('th', {}, 'Repeat'), h('th', {}, 'Steps'), ...Array.from({ length: 8 }, (_, t) => h('th', {}, 'T' + (t + 1))))), ui.rows)),
         h('h4', {}, 'Dropped or changed'), ui.warnings),
@@ -162,8 +167,8 @@
       const F = Format, usage = result ? result.stats : F.usage(song);
       const v = F.validate(song);
       ui.stats.replaceChildren(h('p', {}, h('strong', {}, song.name.trim() || '(unnamed)'), ' · tempo ' + (song.tempo || 'project') + ' · project ' + (song.projectSlot + 1) + ' · rows ' + song.rows.length +
-        (result ? ' (from ' + result.stats.rowsBeforeMerge + ')' : '') + ', ' + usage.repeats + ' with repeats · row ' + [...new Set(song.rows.map(r => r.steps))].join('/') + ' steps · blocks ' + usage.blocks + ' of 255 (' + usage.idPercent.toFixed(1) + ' %)' +
-        (result ? ' from ' + result.stats.cellsBeforeDedup + ' cells' : '') + ' · block bytes ' + usage.recordBytes + ' (' + usage.poolPercent.toFixed(2) + ' % of the pool, ' + usage.sectors + ' sector(s))' +
+        (result ? ' (from ' + result.stats.rowsBeforeMerge + ')' : '') + ', ' + usage.repeats + ' with repeats · row ' + [...new Set(song.rows.map(r => r.steps))].join('/') + ' steps · blocks ' + usage.blocks + ' of 2048 (' + usage.idPercent.toFixed(1) + ' %)' +
+        (result ? ' from ' + result.stats.cellsBeforeDedup + ' cells' + (result.stats.looseMerges ? ', ' + result.stats.looseMerges + ' loose merge(s)' : '') : '') + ' · block bytes ' + usage.recordBytes + ' (' + usage.poolPercent.toFixed(2) + ' % of the pool, ' + usage.sectors + ' sector(s))' +
         (result ? ' · notes ' + result.stats.notesOut + ' of ' + result.stats.notesIn : '') + ' · .tabby ' + kb(usage.fileBytes) + '.'),
         ...v.warnings.map(w => h('p', { class: 'ti-muted' }, '⚑ ' + w)), ...v.errors.map(e => h('p', { class: 'ti-error' }, e)));
       ui.rows.replaceChildren(...song.rows.map((row, i) => h('tr', {}, h('td', {}, i + 1), h('td', {}, '×' + row.repeat + (row.loopHere ? ' ⟲' : '')), h('td', {}, row.steps), ...row.blocks.map(id => h('td', { class: id ? 'ti-block' : 'ti-empty' }, id || '·')))));
@@ -178,7 +183,8 @@
       try {
         const options = { fileName: state.fileName, assignments: state.assignments, outChannels: state.outChannels,
           barFrom: Number(ui.barFrom.value) || 1, barTo: Number(ui.barTo.value) || state.analysis.totalBars, rowSteps: Number(ui.rowSteps.value) || undefined,
-          lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked };
+          lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked,
+          looseDedup: ui.loose.checked, velocityTolerance: Math.max(0, Math.min(126, Math.round(Number(ui.tolerance.value) || 0))) };
         state.result = Song.convert(state.analysis, options); state.song = state.result.song;
         showSong(state.result, state.song);
         say('Converted. Nothing is written until step 6.');
@@ -188,7 +194,7 @@
       }
       enable();
     }
-    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop]) el.addEventListener('change', reconvert);
+    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop, ui.loose, ui.tolerance]) el.addEventListener('change', reconvert);
     ui.name.addEventListener('input', () => { if (state.song) { state.song.name = Format.padName(ui.name.value); showSong(state.result, state.song); } });
 
     ui.file.addEventListener('change', async () => {
@@ -229,7 +235,7 @@
         say(report.message || ('Written to song ' + (slot + 1) + '.'));
         ui.plan.hidden = false;
         ui.plan.textContent = [`transfer: ${transfer.name}  sent: ${report.sent !== false}`, `kind 5  target ${report.record.target}  ${report.record.bytes} bytes (song record)`,
-          ...report.blocks.map(b => `kind 6  target 0x${b.target.toString(16).padStart(4, '0')}  block ${b.id}  ${b.bytes} bytes`),
+          ...report.blocks.map(b => `kind 6  target 0x${b.target.toString(16).padStart(6, '0')}  block ${b.id}  ${b.bytes} bytes`),
           `total ${report.totalBytes} bytes, ${report.queries} queries, about ${report.seconds.toFixed(1)} s`].join('\n');
       } catch (error) { say('Write failed: ' + error.message); }
       state.busy = false; enable(); slotInfo();

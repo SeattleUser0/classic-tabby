@@ -1,7 +1,10 @@
 # Task 02 — MIDI file import: spec and build notes
 
-Version: 0.2
+Version: 0.3
 Revision log:
+- v0.3, 2026-11-02: section 9 v0.4 (commit 2d4ef83): 16-bit block ids, 20-byte rows, CRC over
+  20..2623, 6-byte block record header, 2048 blocks per song, kind 6 target (song << 16) | id.
+  Loose deduplication option (velocity tolerance) added; Renoise results at ±4/8/16 in 6.
 - v0.2, 2026-11-02: section 9 v0.3 layout adopted (commit b7abb99 on classic-tabby/linux-build):
   per-row step length and per-track output channels are written and validated; section 3
   closed. Renoise fixtures (four files in tests/fixtures/) run in the tests; findings in 6.
@@ -20,7 +23,7 @@ to 4 independent notes per step (pitch, velocity, length) at 16th resolution. Ev
 runs in the browser (web/import/); the device write goes through one transfer interface
 whose only implementation today is a stub that validates and reports. No firmware change,
 no change under app/ or sdk/. The approved Task 03 Step 1 report, section 9, is the binding
-format (v0.3, commit b7abb99).
+format (v0.4, commit 2d4ef83).
 
 Files (all new, Task 02):
 
@@ -75,9 +78,18 @@ range are kept (a long note may ring through them).
 
 Deduplication: the cell (row, track) is encoded with the section 9.3 block encoding; the
 byte string is the pool key; an empty cell is block id 0 and is never stored; identical
-cells share one id (1..255 in order of first appearance). Consecutive rows with identical 8
+cells share one id (1..65535 in order of first appearance). Consecutive rows with identical 8
 ids merge into one row with repeat + 1, up to 64. The merge is lossless (test 3 unrolls the
 rows and compares with the pre-deduplication grid).
+
+Loose deduplication (option, **off by default**, tolerance default ±8): when a cell has no
+exact match, it is compared with every stored block that has the same notes (step, pitch,
+length, position for position); if every velocity differs by at most the tolerance, the
+cell reuses that block and the stored block keeps the first cell's velocities (no drift:
+later cells are always compared with the stored velocities, never with each other). Each
+merge is listed in the warnings as kind `looseMerged` with track, row, bar range, block id
+and the largest velocity difference; the count is in the statistics. The tolerance (0..126)
+and the mode are recorded in `song.source`.
 
 Song fields set by the importer: name (file name, 12 upper-case ASCII, editable), project
 slot (user choice, default 1), tempo override (first tempo), loop flag (checkbox, off),
@@ -86,23 +98,27 @@ jump mode bar, loop row 0, every row's step length (above; row byte 10), OUT CH 
 bar range, rules and the part-to-track assignment; `song.warnings` records the warning
 kinds and counts.
 
-Limits, checked after deduplication: 128 rows, 255 blocks, block payload 64..832 bytes,
-pool 96 × 4076 bytes. The import is refused with a message (narrow the bar range) when a
+Limits, checked after deduplication: 128 rows, 2048 blocks per song (16-bit ids; the
+importer can produce at most 128 × 8 = 1024 anyway), block payload 64..832 bytes, pool
+96 × 4076 bytes. The import is refused with a message (narrow the bar range) when a
 limit is exceeded.
 
-## 3. Layout as written (section 9 v0.3)
+## 3. Layout as written (section 9 v0.4)
 
-Song record: header 64 bytes (magic FM1G, generation, target, CRC over 20..1599, commit,
-version 1, name at 24, project slot 36, flags 37, tempo 38, row count 40, block count 41,
-loop row 42, reserved 43..47, **output channels 48..55** as 0 = device setting or 1..16,
-reserved 56..63), then **128 rows × 12 bytes at offset 64**: 8 block ids, repeat, flags,
-**step length at row byte 10** (16/32/48/64; 0 reads as 64), reserved byte 11; 1600..4095
-0xFF. The importer writes the step length explicitly in every used row and leaves unused
-rows zero. Decoding rejects channel bytes above 16 and step lengths other than 0/16/32/48/
-64, as the device does. `validate()` warns when a row shorter than 64 steps points at a block
-with notes beyond the row's end (the device never starts them); the importer never produces
-that. The v0.1 placeholder ("pending layout") is gone; v0.1 JSON files with `song.rowSteps`
-still load (the value moves into each row).
+Song record: header 64 bytes (magic FM1G, generation, target, **CRC over 20..2623**, commit,
+version 1, name at 24, project slot 36, flags 37, tempo 38, row count 40, byte 41 reserved
+0 (v0.4; was the block count), loop row 42, reserved 43..47, **output channels 48..55** as
+0 = device setting or 1..16, reserved 56..63), then **128 rows × 20 bytes at offset 64**:
+**8 × uint16 LE block ids** (0 = silent, 1..65535), repeat at 16, flags at 17, **step length
+at 18** (16/32/48/64; 0 reads as 64), reserved 19; 2624..4095 0xFF. Block record (file and
+device): song byte, reserved 0, **id uint16 LE**, length uint16 LE, payload, padded to 4
+bytes (6-byte header). Transfer kind 6 target = **(song << 16) | id**. The importer writes
+the step length explicitly in every used row and leaves unused rows zero. Decoding rejects
+channel bytes above 16 and step lengths other than 0/16/32/48/64, as the device does.
+`validate()` warns when a row shorter than 64 steps points at a block with notes beyond the
+row's end (the device never starts them); the importer never produces that. v0.1 JSON
+files with `song.rowSteps` still load (the value moves into each row). The v0.2 and v0.3
+record layouts were never written to a device and are not read.
 
 ## 4. Done (Step 2, 2026-11-02)
 
@@ -127,6 +143,11 @@ still load (the value moves into each row).
 - Makefile: `midi-import-test` target (the only shared file touched; approved).
 - v0.2: encoder and decoder write and read the row step length and the output channels;
   tests updated; Renoise fixtures run (section 6).
+- v0.3: 16-bit block ids, 20-byte rows, 6-byte block record header, CRC over 20..2623,
+  2048-block limit, kind 6 target (song << 16) | id; loose deduplication option in the
+  converter and the page (checkbox + tolerance); tests: byte checks of the new offsets, id
+  300 round trip, 256 distinct blocks accepted, 2049 rejected, loose mode at ±4/8/16 on a
+  synthetic file and on the four Renoise files (119 checks).
 
 ## 5. Left to build
 
@@ -150,7 +171,7 @@ with an InstrName meta, all on channel 1. No CC, program change, pitch bend, Sys
 tempo/meter change in any file. The importer reads the text form directly (midi-parse.js
 v0.2).
 
-| File | Tracks / parts | Bars | BPM | Rows | Blocks (cells) | Bytes (pool %) | Changed | Dropped |
+| File | Tracks / parts | Bars | BPM | Rows | Blocks exact (cells) | Bytes (pool %) | Changed | Dropped |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
 | renoise-export.mid | 9 / 8 | 69 | 80 | 18 | 112 (112) | 10772 (2.75) | 193 starts moved, 139 lengths rounded, 10 overlaps clipped | none |
 | Glass Relay.mid | 9 / 8 | 66 | 110 | 17 | 98 (119) | 10672 (2.73) | 126 moved, 165 rounded, 1 overlap | none |
@@ -167,11 +188,24 @@ v0.2).
 - **Nothing was dropped**: every note of every assigned part survives, no step has more
   than 4 notes on one track, and the only unassigned parts are the ones beyond eight,
   which the user assigns or merges in the preview.
-- **Deduplication finds almost nothing** in these files (blocks ≈ cells, no merged rows):
-  the material is through-composed and humanised, so no two 4-bar cells are byte-identical.
-  The songs still fit easily (2.7–3.4 % of the pool) but use 44–54 % of the 255 block ids
-  per song; a 128-bar file of this kind would approach the id limit. Velocity and strum
-  humanisation are what defeat the byte equality.
+- **Exact deduplication finds almost nothing** in these files (blocks ≈ cells, no merged
+  rows): the material is through-composed and humanised, so no two 4-bar cells are
+  byte-identical. With 16-bit ids (v0.4) the songs use 5–7 % of the 2048 ids per song and
+  2.7–3.4 % of the pool, so capacity is no longer a concern for files of this size.
+- **Loose deduplication** (same notes, velocities within the tolerance) recovers a little,
+  because the humanisation is mostly in the strums (timing) rather than in velocities, and
+  strums that cross a step boundary change the notes themselves:
+
+| File | exact | ±4 | ±8 | ±16 |
+| --- | ---: | ---: | ---: | ---: |
+| renoise-export.mid | 112 | 111 (1 merge) | 110 (2) | 110 (2) |
+| Glass Relay.mid | 98 | 97 (3) | 95 (6) | 91 (10) |
+| meridian_fault.mid | 137 | 137 (0) | 135 (6) | 132 (13) |
+| the_space_between_wires.mid | 117 | 110 (7) | 106 (11) | 104 (13) |
+
+  Rows never merge in these files even in loose mode (a merged block in one track rarely
+  lines up with identical blocks in all eight). Every merge is listed in the warnings with
+  the row, bar range, block id and the largest velocity difference.
 
 ## 7. Left to test
 

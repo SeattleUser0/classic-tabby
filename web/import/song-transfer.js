@@ -7,8 +7,8 @@
  *   the tests do not care whether a real SMK-37 is attached. Two implementations:
  *
  *     stub   (this file, v0.1)  validates the song, serialises it exactly as the device
- *            transfer would (Task 03 section 9.9: kind 5 = 4096-byte song record, kind 6 =
- *            one block payload per transfer with target (song << 8) | id) and reports what
+ *            transfer would (Task 03 section 9.9 v0.4: kind 5 = 4096-byte song record, kind 6 =
+ *            one block payload per transfer with target (song << 16) | id) and reports what
  *            it would send: byte counts, number of 64-byte protocol queries and a time
  *            estimate. It never opens a MIDI port. Used until Task 03 Step 2 is merged.
  *     device (Task 02 Step 4)   same interface, built on the workbench Library class
@@ -33,9 +33,10 @@
  *
  *   Loading: classic script (globalThis.TabbySongTransfer) and CommonJS.
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-02  Kind 6 target (song << 16) | id (section 9 v0.4, 16-bit block ids).
  *   v0.1  2026-11-02  Initial version (Task 02, Step 2): interface and stub.
  */
 (() => {
@@ -60,7 +61,7 @@
         const record = F.encodeRecord(song);
         const blocks = song.blocks.slice().sort((a, b) => a.id - b.id).map(b => {
           const payload = F.encodeBlock(b, 'block ' + b.id);
-          return { kind: 6, target: (slot << 8) | b.id, id: b.id, bytes: payload.length, payload };
+          return { kind: 6, target: (slot << 16) | b.id, id: b.id, bytes: payload.length, payload };
         });
         const items = [{ kind: 5, target: slot, bytes: record.length }, ...blocks];
         const queries = items.reduce((n, i) => n + Math.ceil(i.bytes / CHUNK) + OVERHEAD_QUERIES, 0);
@@ -91,7 +92,7 @@
     return createStub();
   }
 
-  const TabbySongTransfer = { createStub, select, CHUNK, SECONDS_PER_QUERY, version: '0.1' };
+  const TabbySongTransfer = { createStub, select, CHUNK, SECONDS_PER_QUERY, version: '0.2' };
   globalThis.TabbySongTransfer = TabbySongTransfer;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongTransfer;
 })();
