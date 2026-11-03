@@ -18,6 +18,8 @@
 #                            build/preview/index.html                      [Step 6]
 #     make test              host tests: native gcc build of the app + simulator sources
 #                            with FM1_HOST_TEST, plus a Node check of the wasm   [Step 7]
+#     make midi-import-test  Node tests of the MIDI importer (web/import, tests/midi-import)
+#                            against the generated fixture .mid files        [Task 02 MIDI]
 #     make flash-budget      docs tables from the current build/<MODEL>/ (read only)
 #     make package-equivalence  Package.cs (pwsh) vs package.py byte comparison; skipped
 #                            with a message when pwsh is not installed
@@ -43,9 +45,10 @@
 #       make firmware JIELI_LINUX=/opt/jieli
 #       make firmware-ref WINEPREFIX=$HOME/.wine-jieli
 #
-# Version: 0.4
+# Version: 0.5
 #
 # Revision log
+#   v0.5  2026-11-02  Task 02 (MIDI import): midi-import-test target (Node, no build needed).
 #   v0.4  2026-11-02  Task 02: package, hosted, release-assets, publish and release targets;
 #                     GITHUB_REPO, TAG, FM1_SOURCE_URL, PAGES_URL variables. clean also
 #                     removes the gh-pages worktree registration.
@@ -93,7 +96,7 @@ NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
-        package hosted release-assets publish release clean
+        package hosted release-assets publish release clean midi-import-test
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -105,7 +108,7 @@ HOST_FLAGS := -std=c11 -O1 -g -fwrapv -fno-fast-math -ffp-contract=off -DFM1_HOS
               -Iweb/engine -Iweb/synth -Ithird_party/synth -Isdk/include -Iapp/synth -Iapp
 
 help:
-	@sed -n '7,43p' Makefile | sed 's/^#   //; s/^#//'
+	@sed -n '7,45p' Makefile | sed 's/^#   //; s/^#//'
 
 verify:
 	$(PYTHON) -I $(BUILD) --verify-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
@@ -147,6 +150,10 @@ host-smoke: build/host/smoke
 
 test: host-smoke web-smoke
 	@echo "test: host-smoke and web-smoke passed"
+
+# Task 02 (MIDI import): pure Node, no toolchain. Regenerates the fixture files first.
+midi-import-test:
+	$(NODE) tests/midi-import/make-fixtures.mjs >/dev/null && $(NODE) tests/midi-import/run.mjs
 
 flash-budget:
 	@# The analysis symbol map (per-file attribution of LTO-merged code) is built once per

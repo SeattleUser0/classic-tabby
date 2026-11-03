@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception -->
+<!--
+  web/import/index.html — standalone development page for the Classic Tabby MIDI importer
+
+  Purpose
+    Hosts the Import MIDI panel (import-ui.js) outside the workbench while Task 03 Step 2
+    changes the workbench files in another session (Task 02 parallel-work rules). Open it
+    directly from disk: file://…/web/import/index.html. The scripts are classic scripts, so
+    no server and no build step are needed. At Task 02 Step 4 the same scripts are inlined
+    into sdk/Update.html.in and mounted inside the Library tab; this page then stays as the
+    developer harness.
+
+  Version: 0.1
+
+  Revision log
+    v0.1  2026-11-02  Initial version (Task 02, Step 2).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classic Tabby · Import MIDI</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #f6f6f4; --panel: #fff; --line: #d8d8d4; --muted: #6b6b70; --warn: #a24c00; --error: #b00020; --accent: #0b5fff; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #ececec; --bg: #171718; --panel: #212123; --line: #3a3a3e; --muted: #a0a0a6; --warn: #ffb067; --error: #ff6b7a; --accent: #6aa0ff; } }
+  body { margin: 0; padding: 16px; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; } h3 { font-size: 15px; margin: 0 0 8px; } h4 { font-size: 13px; margin: 12px 0 4px; }
+  .ti-step { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 12px 0; }
+  .ti-table { border-collapse: collapse; width: 100%; } .ti-table th, .ti-table td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; font-variant-numeric: tabular-nums; }
+  .ti-rows td.ti-block { font-weight: 600; } .ti-rows td.ti-empty { color: var(--muted); }
+  .ti-scroll { max-height: 320px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+  .ti-grid { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; } .ti-grid label { display: inline-flex; gap: 6px; align-items: center; }
+  .ti-channels { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 6px; }
+  .ti-muted { color: var(--muted); } .ti-warn { color: var(--warn); } .ti-error { color: var(--error); }
+  .ti-status { font-weight: 600; } .ti-list { padding-left: 18px; } .ti-list details { margin-left: 4px; } .ti-list details ul { color: var(--muted); }
+  .ti-badge { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 10px; border: 1px solid currentColor; }
+  .ti-plan { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; max-height: 260px; overflow: auto; font-size: 12px; }
+  input[type=number] { width: 5em; } input[type=text] { width: 10em; } button { font: inherit; }
+  pre, code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Classic Tabby · Import MIDI</h1>
+  <p class="ti-muted">Standard MIDI files (type 0 and 1) → Task 03 songs: rows of 64-step blocks, up to 4 notes per step at 16th resolution. Development page for Task 02; the same panel mounts inside the workbench after Task 03 lands.</p>
+  <div id="import"></div>
+  <p class="ti-muted">Classic Tabby MIDI importer v0.1 · GPLv3 with the SDK linking exception · web/import/</p>
+</main>
+<script src="midi-parse.js"></script>
+<script src="song-format.js"></script>
+<script src="midi-song.js"></script>
+<script src="song-transfer.js"></script>
+<script src="import-ui.js"></script>
+<script>
+  TabbyImportUI.mount(document.getElementById('import'), { transfer: TabbySongTransfer.select({}) });
+</script>
+</body>
+</html>
