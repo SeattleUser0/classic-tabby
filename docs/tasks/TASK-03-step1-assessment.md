@@ -1,7 +1,13 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.5.1
+Version: 0.6
 Revision log:
+- v0.6, 2026-11-02 (Task 04, approved Step 1): **song record version 2** carries a row event
+  table in the sector tail (9.11): program change, program change with bank select, control
+  change and gap events, 5 bytes each, up to 292 per song and 32 per row, CRC over
+  20..4091. Version 1 records stay exactly as they are (CRC over 20..2623, no events) and
+  the workbench writes version 1 for a song without events. Firing rules, SEND SETUP, the
+  `.tabby` trailer for workbench-only data and the importer window are in 9.11.
 - v0.5.1, 2026-11-02 (checkpoint f): two rule changes, no byte-layout change. 9.4: a block
   record is live only while a row of its song's record references its id (unreferenced
   blocks are garbage for compaction). 9.5: the tempo override must be 0 or 30..300; the
@@ -440,7 +446,7 @@ directory holds 2048 live blocks (9.7); a song that references more cannot be pl
 | 8 | 4 | target: region sector this record belongs to (1 + song), as project.c's header.target, used by staging recovery |
 | 12 | 4 | crc32 over bytes 20..2623 (body: header fields and the 128 rows) |
 | 16 | 4 | commit: 0xFFFFFFFF while being written, 0 once complete (programmed last) |
-| 20 | 4 | version = 1 |
+| 20 | 4 | version: 1 (no event table, CRC over 20..2623) or 2 (v0.6: event table at 2624, CRC over 20..4091, see 9.11) |
 | 24 | 12 | name: 12 printable ASCII bytes (32..126), space padded, no terminator |
 | 36 | 1 | project slot 0..15 (timbres, effects, tempo, MIDI channels) |
 | 37 | 1 | flags: bit 0 loop the whole song when the last row ends (else stop); bit 1 jump mode: 0 = queued jumps land at the next bar, 1 = at the end of the current row; bits 2-7 reserved 0 |
@@ -709,3 +715,88 @@ region. Projects, settings, staging (sector 16) and tuning are never touched. Ba
   30..300 (`SONG_INVALID`), the workbench's parser and the importer's decoder do the same.
   The workbench's song write deletes an occupied slot first (one kind-5 download begin and
   cancel to check, then the all-0xFF record); the simulator target does the same.
+
+### 9.11 Row events (v0.6, Task 04)
+
+A **version 2** song record (header byte 20 = 2) adds an event table in the sector tail.
+Bytes 2624..4091 are inside the CRC (offset 12 covers **20..4091** for version 2); bytes
+4092..4095 stay outside because the staging transaction (9.6) writes its commit word
+there. Nothing in the header or the rows moves. A version-1 record is unchanged and means
+"no events"; the workbench writes version 1 whenever a song has no events, so firmware
+before Task 04 keeps reading those songs. A version-2 record on firmware before Task 04
+reads as invalid (its CRC range differs), which is the intended failure.
+
+Event table, version 2 only:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 2624 | 2 | event count N, 0..292 |
+| 2626 | 1 | table version = 1 |
+| 2627 | 1 | flags, reserved 0 |
+| 2628 | 4 | reserved 0 |
+| 2632 | 5 × N | events, in firing order: sorted by row (non-decreasing), stream order inside a row |
+| 2632 + 5N .. 4091 | | 0xFF |
+
+Event (5 bytes):
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 1 | row index 0..127, < the record's row count |
+| 1 | 1 | bits 0-3: MIDI channel 0..15 (channel 1..16); bits 4-7: type |
+| 2 | 1 | d0 |
+| 3 | 1 | d1 |
+| 4 | 1 | d2 |
+
+| Type | Name | d0 | d1 | d2 | Sent |
+| ---: | --- | --- | --- | --- | --- |
+| 0 | program change | program 0..127 | 0 | 0 | Cn d0 |
+| 1 | program change with bank select | bank MSB 0..127, or 0xFF = none | bank LSB 0..127, or 0xFF = none | program 0..127 | Bn 00 d0 (if MSB), Bn 20 d1 (if LSB), Cn d2, in one audio block |
+| 2 | control change | controller 0..127 | value 0..127 | 0 | Bn d0 d1 |
+| 3 | gap | milliseconds 1..255 | 0 | 0 | nothing; the next event of the row waits d0 ms, rounded up to whole audio blocks (2.902 ms); the channel bits are ignored |
+
+Validation (device `song_record_valid`, workbench `songRecordParse`, importer `decodeRecord`):
+N ≤ 292; table version 1; flags and reserved 0; every row index < rows; type ≤ 3; data
+ranges per type (unused bytes 0); rows non-decreasing; at most **32 events per row**; the
+bytes after the last event up to 4091 are 0xFF; CRC over 20..4091. A failing table makes
+the record `SONG_INVALID`, like a bad channel or step-length byte. Capacity: 292 events per
+song, a bank+program counting as one; the per-device bank-select gap is a type-3 event
+placed by the workbench, so "bank, gap, program" is three events (CC 0 / CC 32 as type 2,
+then type 3, then type 0).
+
+Firing (app/song.c, app/midi_router.c):
+
+- The events of a row fire **once when the row is entered** (not on its repeats; a loop or
+  a jump back into the row fires them again), on all three MIDI out ports, under the
+  router's channel owners (24..39, the thru owners), so the channel is the event's own and
+  no track setting applies. They never reach the internal engine.
+- Order: the row's events are enqueued into router lane 0 before the row's first notes;
+  lane 0 drains before lane 1, so every event leaves every port before the first note of
+  the row. A queued jump enters the target row through the same path.
+- Gaps and **pre-firing**: the next row is decoded a row ahead, so its event stream and its
+  total gap (the lead, in blocks) are known early. The tick starts the stream `lead`
+  blocks before the row boundary; events before the first gap go out at once, the rest
+  after their gaps, and the stream ends in the boundary tick before the notes. A stream
+  without gaps starts in the boundary tick itself. When the lead is not available (a jump
+  queued with less time to its landing point than the lead, or the song starting on a row
+  with gaps) the stream starts at the boundary and its tail lands after it; the device
+  counts such row entries in **late** (SONG page "LATE n", command 23 byte 13). Song start
+  is not counted: SEND SETUP exists for that.
+- **SEND SETUP** (ACTIONS, stopped only): sends row 0's stream immediately, gaps included,
+  from the audio tick (the audio thread is the only writer of the router lanes). Refused
+  while playing ("STOP THE SONG FIRST") and without a loaded song.
+
+Transfer: unchanged (kinds 5, 6, 7; the record image is 4096 bytes either way). Command
+23 gains byte 13 = late count (low byte) and byte 14 = event count of the loaded song (low
+byte). The `.tabby` file (9.9) is unchanged: the record image carries the table.
+
+`.tabby` trailer (workbench only, v0.6): after the block records a byte 0xFF ends the record
+stream (the reader already stops there), then optionally `TRIG`, a 4-byte little-endian
+length and that many bytes of UTF-8 JSON: the song's rig override (channel → device,
+gaps). The device never receives it; the upload path sends the record and the block
+records only.
+
+Importer (Task 02, v0.6): a program change, bank select or control change becomes a row
+event of row R when its tick lies in [start(R) − pre-roll, start(R) + ½ step); the
+pre-roll is one beat by default, selectable 0 or one bar. Bank select CC 0 / CC 32 on a
+channel immediately followed by a program change on the same channel inside the window
+merge into one bank+program event. Everything else is listed as dropped.
