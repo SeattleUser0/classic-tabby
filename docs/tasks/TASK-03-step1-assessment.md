@@ -1,7 +1,13 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.3
+Version: 0.4
 Revision log:
+- v0.4, 2026-11-02: block ids widened to 16 bits after the Task 02 session's import test
+  (humanized material used 98..137 ids per 70 bars). Row record 12 -> 20 bytes (8 × 2-byte
+  block ids), rows 64..2623, song body CRC over bytes 20..2623, reserved 0xFF from 2624;
+  block record header 4 -> 6 bytes (16-bit id); per-song block maximum 2048 (device
+  directory); transfer kind 6 target = (song << 16) | id. Decision 8 in 9.1; lookup design
+  in 9.7 rewritten for 16-bit ids. Everything else of v0.3 unchanged. No code change.
 - v0.3, 2026-11-02: two format additions approved after checkpoint (a): the row record gets
   a step-length field (16/32/48/64, default 64) and the song header gets eight per-track
   output channels. Row record 10 -> 12 bytes, rows move to offset 64, song body CRC now
@@ -289,7 +295,8 @@ the work and goes back to the user first.
    mode at least **4 KB of flash headroom** must remain for the scene PC/CC work; if the
    measurement after (c) says that cannot happen, stop after (c) and list further removal
    candidates with sizes before building song mode.
-2. 16 songs, 128 rows per song, 255 blocks per song.
+2. 16 songs, 128 rows per song, 255 blocks per song (v0.4: up to 2048 blocks per song,
+   16-bit ids, decision 8).
 3. Packed block records (section 9.4), with the reclaim and lookup design in 9.6 and 9.7.
    Decoding always runs ahead of the row change; playback never waits on flash.
 4. Internal clock only for v1. **Known limit:** with the clock source set to MIDI
@@ -301,6 +308,10 @@ the work and goes back to the user first.
    default 64. A shorter row plays the first N steps of each of its blocks and then
    advances. Notes running past the row end follow the same release rules as at a block
    end (9.3).
+8. (v0.4) **Block ids are 16 bits** (1..65535, 0 = silent) in rows, block records and the
+   transfer protocol. A song may reference at most **2048 distinct live block ids** (the
+   device's directory capacity, 9.7); the pool itself holds 96 × 4076 bytes of records
+   (384 blocks guaranteed at the 832-byte worst case, realistically 1000..3000).
 7. (v0.3, after checkpoint (a)) The song header carries **eight per-track output
    channels** (1..16, or 0 = use the device setting). While a song plays they override the
    device OUT CH (per-track MIDI setting 1, the project's channel) for those tracks. When
@@ -380,17 +391,19 @@ Block record (inside the record area):
 | Offset | Size | Field |
 | ---: | ---: | --- |
 | 0 | 1 | song 0..15 (0xFF = erased filler, stop parsing) |
-| 1 | 1 | block id 1..255 (0 is "empty" in rows and never stored) |
-| 2 | 2 | payload length 64..832 |
-| 4 | L | payload (9.3) |
+| 1 | 1 | reserved 0 |
+| 2 | 2 | block id 1..65535 (v0.4; 0 is "silent" in rows and never stored) |
+| 4 | 2 | payload length 64..832 |
+| 6 | L | payload (9.3) |
 
 Records are 4-byte aligned (pad with 0xFF after the payload; the next record starts at the
 next multiple of 4). A record is **live** when its song's record (9.5) is valid and no
 record with the same (song, block id) exists in a sector with a higher generation. The
 sector CRC covers stale records too; they are ordinary bytes until compaction.
 
-Capacity: 96 sectors × 4076 bytes. Worst case (832 + 4 per record) 4 per sector = 384
-blocks guaranteed; realistic content 1000–3000 blocks.
+Capacity: 96 sectors × 4076 bytes. Worst case (832 + 6 per record, padded to 840) 4 per
+sector = 384 blocks guaranteed; realistic content 1000–3000 blocks. Per song the device
+directory holds 2048 live blocks (9.7); a song that references more cannot be played.
 
 ### 9.5 Song record (one sector per song, region sectors 1..16)
 
@@ -399,7 +412,7 @@ blocks guaranteed; realistic content 1000–3000 blocks.
 | 0 | 4 | magic `FM1G` 0x47314D46 |
 | 4 | 4 | generation: +1 on every write of this song (and of the staging copy) |
 | 8 | 4 | target: region sector this record belongs to (1 + song), as project.c's header.target, used by staging recovery |
-| 12 | 4 | crc32 over bytes 20..1599 (body: header fields and the 128 rows) |
+| 12 | 4 | crc32 over bytes 20..2623 (body: header fields and the 128 rows) |
 | 16 | 4 | commit: 0xFFFFFFFF while being written, 0 once complete (programmed last) |
 | 20 | 4 | version = 1 |
 | 24 | 12 | name: 12 printable ASCII bytes (32..126), space padded, no terminator |
@@ -407,27 +420,28 @@ blocks guaranteed; realistic content 1000–3000 blocks.
 | 37 | 1 | flags: bit 0 loop the whole song when the last row ends (else stop); bit 1 jump mode: 0 = queued jumps land at the next bar, 1 = at the end of the current row; bits 2-7 reserved 0 |
 | 38 | 2 | tempo override in BPM (0 = use the project's tempo) |
 | 40 | 1 | row count 1..128 |
-| 41 | 1 | block count: highest block id used + 0 (informational, 0..255) |
+| 41 | 1 | reserved 0 (v0.4: was the informational block count; the device ignores it) |
 | 42 | 1 | loop row: row index the song returns to when flag bit 0 is set (0..row count-1); 0 by default |
 | 43 | 5 | reserved 0 |
 | 48 | 8 | output channel per track 0..7 (v0.3): 0 = use the device setting, 1..16 = MIDI channel 1..16; values 17..255 are invalid (the device rejects the record) |
 | 56 | 8 | reserved 0 |
-| 64 | 1536 | rows[128] × 12 bytes (unused rows are zero) |
-| 1600 | 2496 | reserved 0xFF |
+| 64 | 2560 | rows[128] × 20 bytes (v0.4; unused rows are zero) |
+| 2624 | 1472 | reserved 0xFF |
 
-Sizes (v0.3): header 64 bytes, rows 1536 bytes, body 1580 bytes under the CRC (20..1599),
-record image 4096 bytes as before. The v0.2 layout (rows of 10 bytes at offset 48, CRC over
-20..1327) was never written to a device and is not supported.
+Sizes (v0.4): header 64 bytes, rows 2560 bytes, body 2604 bytes under the CRC (20..2623),
+record image 4096 bytes as before. The v0.2 layout (rows of 10 bytes at offset 48) and the
+v0.3 layout (rows of 12 bytes, CRC over 20..1599) were never written to a device and are
+not supported.
 
-Row (12 bytes, v0.3):
+Row (20 bytes, v0.4):
 
 | Offset | Size | Field |
 | ---: | ---: | --- |
-| 0 | 8 | block id per track 0..7 (0 = track silent in this row) |
-| 8 | 1 | repeat count 1..64 (the row plays this many times) |
-| 9 | 1 | flags: bit 0 "loop here": playback repeats this row until a jump is queued; bits 1-7 reserved 0 |
-| 10 | 1 | step length N: 16, 32, 48 or 64 (steps of each block played per repeat); 0 is read as 64 so zero-filled unused rows stay valid; any other value is invalid (the device rejects the record) |
-| 11 | 1 | reserved 0 |
+| 0 | 16 | block id per track 0..7, 8 × uint16 little-endian (0 = track silent in this row, 1..65535 = block id) |
+| 16 | 1 | repeat count 1..64 (the row plays this many times) |
+| 17 | 1 | flags: bit 0 "loop here": playback repeats this row until a jump is queued; bits 1-7 reserved 0 |
+| 18 | 1 | step length N: 16, 32, 48 or 64 (steps of each block played per repeat); 0 is read as 64 so zero-filled unused rows stay valid; any other value is invalid (the device rejects the record) |
+| 19 | 1 | reserved 0 |
 
 Row length: a block holds 64 steps (4 bars of 4/4 at 16ths). Each repeat of the row plays
 steps 0..N-1 of every block in the row, then the next repeat (or the next row) starts at
@@ -499,17 +513,20 @@ workbench = sum over sectors of (4076 − live bytes), reported in the capabilit
 ### 9.7 Locating a block at a row change
 
 - At boot and after any block-sector write, the device builds a RAM **block directory**
-  for the currently loaded song only: `uint16_t where[256]` (region sector 17..112 in bits
-  0-6, 0 = absent) and `uint16_t at[256]` (byte offset of the record in the sector, bits
-  0-11, length is read from the record). Build cost: read the 16-byte header of each of
-  the 96 sectors (songs mask), and walk the record area only of sectors whose mask has
-  this song's bit, keeping the copy with the highest sector generation. 1 KB of RAM.
-- A row change needs the 8 block ids of the next row: 8 array lookups, then up to 8
-  `fm1_flash_read` calls of ≤ 836 bytes each (or `fm1_flash_map` for a direct read), then
-  decoding into the fixed RAM row structure (8 × 64 × 13 bytes). This runs in the control
-  task **when the current row starts** (one full row ahead, ≥ 4 bars of time). For a queued
-  jump the decode of the target row starts at the pad press, into the "next row" buffer;
-  if the jump point (next bar, ≥ 1 beat away) arrives before the decode finished, the jump
+  for the currently loaded song only (v0.4, 16-bit ids): a table of up to 2048 entries
+  `{uint16_t id; uint16_t at; uint8_t sector}` (region sector 17..112 and the record's
+  byte offset in it; the length is read from the record), **sorted by id**. Build cost:
+  read the 20-byte header of each of the 96 sectors (songs mask, generation), walk the
+  record area only of sectors whose mask has this song's bit, keep the copy with the
+  highest sector generation (a later record in the same sector supersedes an earlier
+  one), then sort. 12 KB of RAM. A song with more than 2048 live blocks fails to load
+  (screen: "TOO MANY BLOCKS") and is never played partially.
+- A row change needs the 8 block ids of the next row: 8 binary searches (≤ 11 probes
+  each), then up to 8 `fm1_flash_read` calls of ≤ 838 bytes each, then decoding into
+  the fixed RAM row structure (8 × 64 × 13 bytes). This runs in the control task **when
+  the current row starts** (one full row ahead, ≥ 1 bar of time). For a queued jump the
+  decode of the target row starts at the pad press, into the "next row" buffer; if the
+  jump point (next bar, ≥ 1 beat away) arrives before the decode finished, the jump
   lands at the following bar instead. The audio-thread sequencer reads only the RAM row
   buffers and swaps a pointer at the row boundary.
 
@@ -529,15 +546,20 @@ region. Projects, settings, staging (sector 16) and tuning are never touched. Ba
 - Capability reply (cmd 22): out[8] gains bit 2 = song storage present; the sample limit
   field (bytes 4-7) reports 0 on Classic Tabby. The workbench accepts 0 or 446464.
 - Transfer kind 5: song record, size 4096, target = song 0..15 (download reads the song
-  sector; upload writes it through staging after validation).
-- Transfer kind 6: one block, target = (song << 8) | block id, size = payload length
-  64..832 (upload appends; download returns the live payload).
+  sector; upload writes it through staging after validation; an uploaded image whose
+  magic is not `FM1G`, for example all 0xFF, deletes the song). Wire form: download
+  begin = cmd 1 with data [5, song]; upload begin = cmd 3 with data [5, song, 0, 16].
+- Transfer kind 6: one block, target = (song << 16) | block id (v0.4), size = payload
+  length 64..832 (upload appends; download returns the live payload). Wire form: download
+  begin = cmd 1 with data [6, song, id low, id high] (reply: 2-byte payload length);
+  upload begin = cmd 3 with data [6, song, id low, id high, size low, size high].
+  Chunks (cmd 2 / 4), the CRC finish (cmd 5) and cancel (cmd 6) are the stock commands.
 - Command 23 (new): song storage status: out[0..3] = free bytes, out[4..7] = reclaimable
   bytes, out[8] = compaction/migration state (0 ready, 1 busy, 2 old data present).
 - Song file (`.tabby`, produced by the importer and by the workbench "export song"): the
-  4096-byte song record image (9.5 v0.3 layout, with generation 0, target 0, commit 0, crc
-  valid over 20..1599), followed by block records exactly as in 9.4 (4-byte header +
-  payload, 4-byte aligned), terminated by end of file. The song byte in each record must
+  4096-byte song record image (9.5 v0.4 layout, with generation 0, target 0, commit 0, crc
+  valid over 20..2623), followed by block records exactly as in 9.4 (6-byte header with a
+  16-bit id + payload, 4-byte aligned), terminated by end of file. The song byte in each record must
   equal 0 in a file; the device assigns the song number on upload. The importer sets each
   row's step length (16/32/48/64; 64 when the row fills its blocks) and may fill the
   per-track output channels from the MIDI file's channels or leave them 0 (device
