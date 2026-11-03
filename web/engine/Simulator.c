@@ -4,6 +4,7 @@
 #include "internal.h"
 #include "fm1_engine_control.h"
 #include "song_storage.h"
+#include "song.h"
 #include "audio_output.h"
 #include "fm1_audio_io.h"
 #include "smk37_controls.h"
@@ -245,6 +246,47 @@ EXPORT("sim_song_storage_initialize") int sim_song_storage_initialize(void)
     int r = song_storage_initialize();
     while (!r && song_storage_state() == SONG_STORAGE_ERASING) groove_samples_poll();
     return r;
+}
+/* Task 03 d: song storage and playback for tests and the workbench simulator. Records
+ * and payloads pass through file_buffer (4264 bytes, enough for a 4096-byte image). */
+EXPORT("sim_song_record_read") int sim_song_record_read(unsigned song)
+{
+    memset(file_buffer, 0xff, SONG_RECORD_BYTES);
+    return song_record_read(song, (struct song_record *)file_buffer);
+}
+EXPORT("sim_song_record_write") int sim_song_record_write(unsigned song)
+{ return song_record_write(song, (const struct song_record *)file_buffer); }
+EXPORT("sim_song_record_delete") int sim_song_record_delete(unsigned song) { return song_record_delete(song); }
+EXPORT("sim_block_write") int sim_block_write(unsigned song, unsigned id, unsigned bytes)
+{ return song_block_append(song, id, file_buffer, bytes); }
+EXPORT("sim_block_read") int sim_block_read(unsigned song, unsigned id)
+{
+    unsigned bytes = 0;
+    int r = song_block_read(song, id, file_buffer, &bytes);
+    return r ? (r > 0 ? -1 : r - 100) : (int)bytes;
+}
+EXPORT("sim_song_free") uint32_t sim_song_free(void)
+{ uint32_t f = 0, r = 0; (void)song_storage_status(&f, &r); return f; }
+EXPORT("sim_song_reclaimable") uint32_t sim_song_reclaimable(void)
+{ uint32_t f = 0, r = 0; (void)song_storage_status(&f, &r); return r; }
+EXPORT("sim_song_compact") int sim_song_compact(void)
+{
+    int r = song_storage_compact();
+    while (!r && song_storage_state() == SONG_STORAGE_COMPACTING) groove_samples_poll();
+    return r;
+}
+EXPORT("sim_song_load") int sim_song_load(unsigned song) { return song_load(song); }
+EXPORT("sim_song_play") int sim_song_play(void) { return song_play(); }
+EXPORT("sim_song_stop") void sim_song_stop(void) { song_stop(); }
+EXPORT("sim_song_jump") int sim_song_jump(unsigned row) { return song_queue_jump(row); }
+/* song | playing << 8 | row << 16 | step << 24; the second word: repeat | next << 8 |
+ * queued << 16 | error << 24; underruns in the third. */
+EXPORT("sim_song_status") uint32_t sim_song_status(unsigned word)
+{
+    struct song_status st; song_status_read(&st);
+    if (word == 1) return st.repeat | (uint32_t)st.next_row << 8 | (uint32_t)st.queued << 16 | (uint32_t)st.error << 24;
+    if (word == 2) return st.underruns;
+    return st.song | (uint32_t)st.playing << 8 | (uint32_t)st.row << 16 | (uint32_t)st.step << 24;
 }
 EXPORT("sim_control") void sim_control(unsigned kind, unsigned index, int value)
 {

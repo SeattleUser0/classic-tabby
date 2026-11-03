@@ -2,6 +2,7 @@
 #include "instrument.h"
 #include "tuning_hook.h"
 #include "fm_patch.h"
+#include "song.h"
 #include "fm1_engine_control.h"
 #include <stdlib.h>
 #include <string.h>
@@ -64,8 +65,13 @@ void groove_transfer_init(void)
 }
 static int transfer_begin(unsigned kind, unsigned target, unsigned size, unsigned writing)
 {
-    /* Kind 4 (DX7 library bank) is gone with the user library (Task 03 a). */
-    if (kind > 3 || (kind == 1 && (target >= GROOVE_TRACKS || size != 156)) ||
+    /* Kind 4 (DX7 library bank) is gone with the user library (Task 03 a). Kinds 5 (song
+     * record, 4096 bytes, target = song) and 6 (one block payload, target = song << 16 |
+     * id) are song storage (Task 03 d, assessment 9.9 v0.4). */
+    if (kind == 5 && (target >= SONG_SONGS || size != SONG_RECORD_BYTES)) return GROOVE_PROJECT_INVALID;
+    if (kind == 6 && ((target >> 16) >= SONG_SONGS || !(target & 0xffffU) ||
+                      size < SONG_PAYLOAD_MIN || size > SONG_PAYLOAD_MAX)) return GROOVE_PROJECT_INVALID;
+    if (kind == 4 || kind > 6 || (kind == 1 && (target >= GROOVE_TRACKS || size != 156)) ||
         (kind == 2 && (target >= GROOVE_TRACKS || size != sizeof(struct groove_preset))) ||
         (!kind && (target || (size != GROOVE_PROJECT_BYTES && size != GROOVE_PROJECT_LEGACY_BYTES &&
                               (!writing || size != GROOVE_PROJECT_TUNED_BYTES)))) ||
@@ -102,8 +108,19 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         /* Classic Tabby (Task 03 a): no DX7 user library (0 banks, unavailable) and no
          * sample bank (limit 0); bit 2 of out[8] announces song storage (checkpoint d). */
         out[0]=1; out[1]=128; out[2]=0; out[3]=0;
-        put32(out+4,0); out[8]=3; /* session roles and extended/synchronized delay */
+        put32(out+4,0); out[8]=7; /* session roles, extended delay, song storage (d) */
         *count=9; return 0;
+    }
+    if (cmd == 23 && !n) {
+        /* Song storage status (Task 03 d): free bytes, reclaimable bytes, state. */
+        uint32_t free_bytes, reclaimable;
+        unsigned st = song_storage_state();
+        int sr = st == SONG_STORAGE_READY ? song_storage_status(&free_bytes, &reclaimable) : 1;
+        put32(out, sr ? 0 : free_bytes); put32(out + 4, sr ? 0 : reclaimable);
+        out[8] = (uint8_t)(st == SONG_STORAGE_OLD_DATA ? 2 : st == SONG_STORAGE_READY ? 0 : 1);
+        struct song_status song; song_status_read(&song);
+        out[9] = song.song; out[10] = song.playing; out[11] = song.row; out[12] = song.error;
+        *count = 13; return 0;
     }
     if (cmd == 21 && !n) {
         out[0] = groove_tuning_capture && groove_tuning_apply ? 1 : 0;
@@ -153,11 +170,30 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         *count = 14;
         return 0;
     }
-    if (cmd == 1 && n == 2) {
+    if (cmd == 1 && (n == 2 || (n == 4 && data[0] == 6))) {
         unsigned size = data[0] == 2 ? sizeof(struct groove_preset) : data[0] == 1 ? 156
-                        : data[0] == 3 ? GROOVE_PROJECT_TUNED_BYTES : GROOVE_PROJECT_BYTES;
-        r = transfer_begin(data[0], data[1], size, 0);
+                        : data[0] == 3 ? GROOVE_PROJECT_TUNED_BYTES : data[0] == 5 ? SONG_RECORD_BYTES
+                        : GROOVE_PROJECT_BYTES;
+        unsigned target = data[1], block_id = n == 4 ? get16(data + 2) : 0;
+        if (data[0] == 6) {
+            /* The live payload length is only known after reading the block. */
+            uint8_t *next = calloc(1, SONG_PAYLOAD_MAX);
+            if (!next) return GROOVE_PROJECT_MEMORY;
+            r = song_block_read(data[1], block_id, next, &size);
+            if (r) { free(next); return r > 0 ? GROOVE_PROJECT_EMPTY : r; }
+            transfer_cancel(); transfer = next; transfer_size = size; transferred = 0;
+            transfer_kind = 6; transfer_target = data[1] << 16 | block_id; transfer_writing = 0;
+            out[0] = (uint8_t)size; out[1] = (uint8_t)(size >> 8); *count = 2;
+            return 0;
+        }
+        r = transfer_begin(data[0], target, size, 0);
         if (!r) {
+            if (data[0] == 5) {
+                /* The record image: 2624 bytes from flash, 0xFF after (as stored). */
+                memset(transfer, 0xff, size);
+                r = song_record_read(target, (struct song_record *)transfer);
+                if (r > 0) r = GROOVE_PROJECT_EMPTY;
+            } else
             r = data[0] == 2 ? groove_timbre_export(data[1], transfer, size)
                 : data[0] == 1 ? groove_fm_copy(data[1], transfer, NULL)
                         : groove_project_export(transfer, size);
@@ -178,6 +214,8 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         }
     } else if (cmd == 3 && n == 4)
         r = transfer_begin(data[0], data[1], get16(data + 2), 1);
+    else if (cmd == 3 && n == 6 && data[0] == 6)
+        r = transfer_begin(6, data[1] << 16 | get16(data + 2), get16(data + 4), 1);
     else if (cmd == 4 && n > 2 && n <= 66 && transfer && transfer_writing) {
         unsigned at = get16(data), bytes = n - 2;
         if (at == transferred && at <= transfer_size && bytes <= transfer_size - at) {
@@ -187,6 +225,14 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         }
     } else if (cmd == 5 && n == 4 && transfer && transfer_writing && transferred == transfer_size) {
         if (get32(data) == ~groove_crc32(~0U, transfer, transfer_size)) {
+            if (transfer_kind == 5) {
+                /* An image whose magic is not FM1G (for example all 0xFF) deletes the song. */
+                r = get32(transfer) == SONG_MAGIC_RECORD
+                        ? song_record_write(transfer_target, (const struct song_record *)transfer)
+                        : song_record_delete(transfer_target);
+            } else if (transfer_kind == 6)
+                r = song_block_append(transfer_target >> 16, transfer_target & 0xffffU, transfer, transfer_size);
+            else
             r = transfer_kind == 2 ? groove_timbre_import(transfer_target, transfer, transfer_size)
                 : transfer_kind == 1 ? groove_fm_import(transfer_target, transfer)
                               : groove_project_import(transfer, transfer_size);

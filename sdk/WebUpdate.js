@@ -648,7 +648,7 @@
     }
     async disconnect(){if(this.link)await this.link.close();this.link=null;this.projectBytes=0;this.tuningBytes=0;}
     async extensions(){
-      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;
+      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;
       try {
         const info=await this.query(21);
         check(info.length===7&&(info[0]&~1)===0&&le(info,1,2)===4264&&le(info,3,4)===462848,'设备文件长度无效');
@@ -658,7 +658,7 @@
         const info=await this.query(22);
         // Classic Tabby (Task 03 a): a device may report no DX7 library (0 banks) and no sample bank (limit 0).
         check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~7)===0,'设备扩展能力回复无效');
-        this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);
+        this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);this.songStorage=!!(info[8]&4);
       } catch(error){if(error.deviceCode!==71)throw error;}
     }
     projectPayload(bytes){
@@ -690,7 +690,7 @@
             const r=await link.read(Math.min(200,until-Date.now()));check(!link.lost,'USB 已断开，当前操作未完成');
             if(!r||r.command!==(command|64)||r.token!==token)continue;
             check(r.data.length>0,'设备回复不完整');const code=r.data[0];
-            if(code!==0&&!(emptyOK&&code===1))throw Object.assign(Error(code===1?'该项目槽为空':code===73?'旧采样库占用了扩展存储空间，请先备份并缩小采样库':code===72?'内存不足，当前项目保持不变':code===71?'文件或参数无效，当前项目保持不变':'设备操作失败：'+code),{deviceCode:code});
+            if(code!==0&&!(emptyOK&&code===1))throw Object.assign(Error(code===1?'该项目槽为空':code===73?'旧采样库占用了扩展存储空间，请先备份并缩小采样库':code===72?'内存不足，当前项目保持不变':code===71?'文件或参数无效，当前项目保持不变':code===74?'歌曲存储已满，请在设备 ACTIONS 中压缩歌曲存储或删除歌曲':'设备操作失败：'+code),{deviceCode:code});
             return r.data.slice(1);
           }
         }
@@ -701,12 +701,45 @@
       if(kind===0&&this.tuningBytes)kind=3;
       // The device may have begun even if every start ACK was lost.
       try {
-        const head=await this.query(1,[kind,target]),size=le(head,0,2);check(head.length===2&&(kind?size===(kind===4?4096:kind===3?4264:kind===2?223:156):[4048,4064].includes(size)),'设备文件长度无效');
+        const head=await this.query(1,[kind,target]),size=le(head,0,2);check(head.length===2&&(kind?size===(kind===5?4096:kind===4?4096:kind===3?4264:kind===2?223:156):[4048,4064].includes(size)),'设备文件长度无效');
         const bytes=new Uint8Array(size);
         for(let at=0;at<size;at+=64){const n=Math.min(64,size-at),part=await this.query(2,[at&255,at>>8,n]);check(part.length===n,'文件片段不完整');bytes.set(part,at);}return bytes;
       }
       finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
     }
+    // Classic Tabby song mode (Task 03 d): kinds 5 (record) and 6 (block, 16-bit id).
+    async songStatus(){const s=await this.query(23);check(s.length===13,'歌曲存储状态回复无效');return {free:le(s,0,4),reclaimable:le(s,4,4),state:s[8],loaded:s[9],playing:s[10],row:s[11],error:s[12]};}
+    async downloadBlock(song,id){
+      try {
+        const head=await this.query(1,[6,song,id&255,id>>8]),size=le(head,0,2);check(head.length===2&&size>=64&&size<=832,'块长度无效');
+        const bytes=new Uint8Array(size);
+        for(let at=0;at<size;at+=64){const n=Math.min(64,size-at),part=await this.query(2,[at&255,at>>8,n]);check(part.length===n,'文件片段不完整');bytes.set(part,at);}return bytes;
+      } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
+    }
+    async uploadBlock(song,id,bytes){
+      songPayloadParse(bytes);
+      try {
+        await this.query(3,[6,song,id&255,id>>8,bytes.length&255,bytes.length>>8]);
+        for(let at=0;at<bytes.length;at+=64)await this.query(4,[at&255,at>>8,...bytes.slice(at,at+64)]);
+        const c=crc32(bytes);await this.query(5,[c&255,(c>>>8)&255,(c>>>16)&255,c>>>24]);
+      } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
+    }
+    async songRead(song,progress=()=>{}){
+      check(this.songStorage,'请先更新固件以使用歌曲模式');
+      let record;try{record=await this.download(5,song);}catch(error){if(error.deviceCode===1)return null;throw error;}
+      const parsed=songRecordParse(record),ids=[...songBlockIds(parsed)],blocks=new Map();
+      for(let i=0;i<ids.length;i++){blocks.set(ids[i],await this.downloadBlock(song,ids[i]));progress((i+1)/ids.length);}
+      return {record,blocks};
+    }
+    async songWrite(song,record,blocks,progress=()=>{}){
+      check(this.songStorage,'请先更新固件以使用歌曲模式');songRecordParse(record);
+      const list=[...blocks];for(let i=0;i<list.length;i++){await this.uploadBlock(song,list[i][0],list[i][1]);progress((i+1)/(list.length+1));}
+      await this.upload(5,song,record);
+      const saved=await this.download(5,song);
+      check(saved.subarray(20,SONG_BODY).every((v,i)=>v===record[20+i]),'歌曲读回校验不一致，请重试');
+      progress(1);return saved;
+    }
+    async songDelete(song){check(this.songStorage,'请先更新固件以使用歌曲模式');await this.upload(5,song,new Uint8Array(SONG_RECORD).fill(255));}
     async saveProject(slot,bytes) {
       check(Number.isInteger(slot)&&slot>=0&&slot<16,'请选择设备项目槽');
       if(bytes){bytes=this.projectPayload(bytes);await this.upload(0,0,bytes);}
@@ -782,6 +815,7 @@
         if((this.programs||16)<128&&bytes[0]===0&&bytes[2]>=16){bytes=bytes.slice();bytes[2]=0;bytes[3]=1;}
       }
       else if(kind===4){check(this.programs===128,'请先更新固件以使用 128 音色库');bankFile(bytes);}
+      else if(kind===5){check(bytes.length===SONG_RECORD,'歌曲记录长度无效');}
       else {
         bytes=this.projectPayload(bytes);
         if(bytes.length===4264)kind=3;
@@ -793,6 +827,93 @@
       } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
     }
   }
+
+  // ---- Classic Tabby song mode (Task 03 d): docs/tasks/TASK-03-step1-assessment.md section 9 v0.4 ----
+  const SONG_MAGIC=0x47314d46,SONG_RECORD=4096,SONG_BODY=2624,SONG_ROW0=64,SONG_ROW=20;
+  const u16=(b,at)=>b[at]|b[at+1]<<8,u32=(b,at)=>(u16(b,at)|u16(b,at+2)<<16)>>>0;
+  const put16=(b,at,v)=>{b[at]=v&255;b[at+1]=(v>>>8)&255;},put32=(b,at,v)=>{put16(b,at,v&65535);put16(b,at+2,v>>>16);};
+  function songEmpty(){return {name:'NEW SONG',project:0,loop:false,jumpRow:false,tempo:0,loopRow:0,channel:[0,0,0,0,0,0,0,0],rows:[{block:[0,0,0,0,0,0,0,0],repeat:1,loopHere:false,steps:64}]};}
+  // Parse a 4096-byte record image into an editable object (CRC checked, ranges checked).
+  function songRecordParse(bytes){
+    check(bytes instanceof Uint8Array&&bytes.length===SONG_RECORD&&u32(bytes,0)===SONG_MAGIC,'不是歌曲记录');
+    check(u32(bytes,12)===crc32(bytes.subarray(20,SONG_BODY)),'歌曲记录校验失败');
+    check(u32(bytes,20)===1,'歌曲记录版本不受支持');
+    const rows=bytes[40];check(rows>=1&&rows<=128&&bytes[42]<rows&&bytes[36]<16&&!(bytes[37]&~3),'歌曲记录字段无效');
+    const song={name:String.fromCharCode(...bytes.subarray(24,36)).replace(/\s+$/,''),project:bytes[36],loop:!!(bytes[37]&1),jumpRow:!!(bytes[37]&2),
+      tempo:u16(bytes,38),loopRow:bytes[42],channel:Array.from(bytes.subarray(48,56)),rows:[]};
+    for(let r=0;r<rows;r++){const at=SONG_ROW0+r*SONG_ROW;const block=[];for(let t=0;t<8;t++)block.push(u16(bytes,at+t*2));
+      const steps=bytes[at+18]||64;check(bytes[at+16]>=1&&bytes[at+16]<=64&&steps%16===0&&steps<=64,'第 '+(r+1)+' 行无效');
+      song.rows.push({block,repeat:bytes[at+16],loopHere:!!(bytes[at+17]&1),steps});}
+    return song;
+  }
+  // Build the record image (generation 0, target 0, commit 0, CRC valid) from the object.
+  function songRecordBuild(song){
+    const bytes=new Uint8Array(SONG_RECORD).fill(255);bytes.fill(0,0,SONG_BODY);
+    put32(bytes,0,SONG_MAGIC);put32(bytes,20,1);
+    const name=String(song.name||'').toUpperCase().slice(0,12);check(/^[\x20-\x7e]{0,12}$/.test(name),'歌曲名称须为英文字符');
+    for(let i=0;i<12;i++)bytes[24+i]=name.charCodeAt(i)||32;
+    check(Number.isInteger(song.project)&&song.project>=0&&song.project<16,'项目槽无效');bytes[36]=song.project;
+    bytes[37]=(song.loop?1:0)|(song.jumpRow?2:0);
+    check(Number.isInteger(song.tempo)&&song.tempo>=0&&song.tempo<=65535,'BPM 无效');put16(bytes,38,song.tempo);
+    check(Array.isArray(song.rows)&&song.rows.length>=1&&song.rows.length<=128,'歌曲须有 1–128 行');bytes[40]=song.rows.length;
+    check(Number.isInteger(song.loopRow)&&song.loopRow>=0&&song.loopRow<song.rows.length,'循环起始行无效');bytes[42]=song.loopRow;
+    for(let t=0;t<8;t++){const c=song.channel[t]|0;check(c>=0&&c<=16,'输出通道须为 0–16');bytes[48+t]=c;}
+    song.rows.forEach((row,r)=>{const at=SONG_ROW0+r*SONG_ROW;
+      for(let t=0;t<8;t++){const id=row.block[t]|0;check(id>=0&&id<=65535,'第 '+(r+1)+' 行块编号无效');put16(bytes,at+t*2,id);}
+      check(row.repeat>=1&&row.repeat<=64,'第 '+(r+1)+' 行重复次数须为 1–64');bytes[at+16]=row.repeat;
+      bytes[at+17]=row.loopHere?1:0;check([16,32,48,64].includes(row.steps),'第 '+(r+1)+' 行步数须为 16/32/48/64');bytes[at+18]=row.steps;});
+    put32(bytes,12,crc32(bytes.subarray(20,SONG_BODY)));
+    return bytes;
+  }
+  // Block payload (9.3) <-> 64 steps of {probability, alt, notes:[{pitch,velocity,length,retrigger}]}.
+  function songPayloadParse(bytes){
+    const steps=[];let at=0;
+    for(let s=0;s<64;s++){check(at<bytes.length,'块数据不完整');const head=bytes[at++],count=head&7;check(count<=4&&!(head&128),'块步进头无效');
+      const step={probability:(head>>3)&7,alt:!!(head&64),notes:[]};
+      for(let n=0;n<count;n++,at+=3){check(at+3<=bytes.length&&bytes[at]<128&&(bytes[at+1]&127)>0&&bytes[at+2]>0,'块音符无效');
+        step.notes.push({pitch:bytes[at],velocity:bytes[at+1]&127,length:bytes[at+2],retrigger:!!(bytes[at+1]&128)});}
+      steps.push(step);}
+    check(at===bytes.length,'块长度不符');return steps;
+  }
+  function songPayloadBuild(steps){
+    const out=[];check(steps.length===64,'块须有 64 步');
+    for(const step of steps){check(step.notes.length<=4,'每步最多 4 个音符');
+      out.push((step.notes.length)|((step.probability&7)<<3)|(step.alt?64:0));
+      const seen=new Set();for(const n of step.notes){check(n.pitch>=0&&n.pitch<128&&n.velocity>=1&&n.velocity<=127&&n.length>=1&&n.length<=255&&!seen.has(n.pitch),'音符须为 音高 0–127、力度 1–127、长度 1–255，且同一步音高不重复');seen.add(n.pitch);
+        out.push(n.pitch,n.velocity|(n.retrigger?128:0),n.length);}}
+    return Uint8Array.from(out);
+  }
+  // Step text: "60:100:2 64:100:2r @3" (pitch:velocity:length, r = retrigger, @n = probability n/8, ! = alt tuning).
+  function songStepText(step){
+    const parts=step.notes.map(n=>n.pitch+':'+n.velocity+':'+n.length+(n.retrigger?'r':''));
+    if(step.probability)parts.push('@'+step.probability);if(step.alt)parts.push('!');return parts.join(' ');
+  }
+  function songStepParse(text){
+    const step={probability:0,alt:false,notes:[]};
+    for(const token of String(text).trim().split(/\s+/).filter(Boolean)){
+      if(token==='!'){step.alt=true;continue;}
+      if(token[0]==='@'){step.probability=Number(token.slice(1));check(Number.isInteger(step.probability)&&step.probability>=0&&step.probability<=7,'概率须为 @0–@7');continue;}
+      const m=token.match(/^(\d+)(?::(\d+))?(?::(\d+))?(r)?$/i);check(m,'无法解析音符 '+token);
+      step.notes.push({pitch:Number(m[1]),velocity:m[2]===undefined?100:Number(m[2]),length:m[3]===undefined?1:Number(m[3]),retrigger:!!m[4]});
+    }
+    return step;
+  }
+  // .tabby file: the record image followed by block records {0,0,id16,len16,payload} padded to 4 bytes.
+  function tabbyFile(record,blocks){
+    const parts=[record];for(const [id,payload] of blocks){const head=new Uint8Array(6);put16(head,2,id);put16(head,4,payload.length);
+      const pad=new Uint8Array((4-(6+payload.length)%4)%4).fill(255);parts.push(head,payload,pad);}
+    const total=parts.reduce((n,p)=>n+p.length,0),out=new Uint8Array(total);let at=0;for(const p of parts){out.set(p,at);at+=p.length;}return out;
+  }
+  function readTabbyFile(bytes){
+    check(bytes.length>=SONG_RECORD,'不是 .tabby 歌曲文件');const record=bytes.slice(0,SONG_RECORD);songRecordParse(record);
+    const blocks=new Map();let at=SONG_RECORD;
+    while(at+6<=bytes.length&&bytes[at]!==255){check(bytes[at]===0,'文件中的块须属于歌曲 0');const id=u16(bytes,at+2),len=u16(bytes,at+4);
+      check(id>=1&&len>=64&&len<=832&&at+6+len<=bytes.length,'块记录无效');const payload=bytes.slice(at+6,at+6+len);songPayloadParse(payload);
+      blocks.set(id,payload);at+=6+len;at+=(4-at%4)%4;}
+    return {record,blocks};
+  }
+  function songBlockIds(song){const ids=new Set();for(const row of song.rows)for(const id of row.block)if(id)ids.add(id);return ids;}
   globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,Updater,
+    songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadBuild,songStepText,songStepParse,tabbyFile,readTabbyFile,songBlockIds,
     crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library};
 })();

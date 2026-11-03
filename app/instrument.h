@@ -378,5 +378,9 @@ FM1_DSP_CODE void groove_midi_track_reset(unsigned track);
 /* Bit 3 restricts reset to live keys/ARP; pattern ownership is retained. */
 static inline void groove_midi_keys_reset(unsigned track) { groove_midi_track_reset(track | 8U); }
 FM1_DSP_CODE void groove_midi_transport(unsigned owner, uint8_t status);
+/* Classic Tabby (Task 03 d): song sequencer notes (owner 40 + track) and the song's
+ * per-track output-channel override (NULL or all zero = device settings). */
+FM1_DSP_CODE void groove_midi_song_note(unsigned track, unsigned note, unsigned velocity);
+void groove_midi_song_channels(const uint8_t *channels);
 FM1_DSP_CODE void groove_midi_clock(unsigned owner, unsigned tempo);
 #endif

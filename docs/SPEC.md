@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.6
+Version: 0.7
 Revision log:
+- v0.7, 2026-11-02: section 6: checkpoint (d) done (song mode in firmware and workbench),
+  format v0.4 (16-bit block ids) recorded, known limits listed.
 - v0.6, 2026-11-02: section 6: checkpoint (b) done (DX7 operator editor and tone editor
   out); the two format additions of assessment v0.3 (row step length, per-track song
   output channels) recorded.
@@ -197,10 +199,24 @@ Checkpoints and status:
   macros (FM_QUICK) stay; EDIT on other sources, SCL, ENV and LFO announce that voice
   editing moved to the workbench. App image 439812 bytes, margin 14109 bytes. No data
   layout changed.
-- (c) measure; song mode needs ≥ 4 KB headroom left after it lands, else stop and list
-  further removal candidates.
-- (d) app-side song sequencer, song storage, quantized row changes, queued jumps,
-  workbench song editing and transfer (kinds 5 and 6).
+- (c) skipped by decision after (b): its measurement is the (b) report (margin 14109).
+- **(d) done, 2026-11-02:** song storage (app/song_storage.c: records, block sectors,
+  staging transactions with power-cut recovery, per-song directory, compaction, status),
+  the app-side song sequencer (app/song.c: rows decoded one ahead on the control task,
+  audio-thread step tick from the per-block clock hook, swing, probability, legato /
+  retrigger, note lengths across rows, queued jumps at the next bar or row end, loop
+  rows, end-of-song stop), the router's song owner and per-track output-channel
+  override (app/midi_router.c), transfer kinds 5 and 6 and command 23 (app/transfer.c),
+  the SONG page (page 19, ACTIONS "SONG MODE", pads queue row jumps, PLAY starts and
+  stops, "COMPACT SONG STORAGE" action) and the workbench song editor (library tab:
+  read / write / delete / .tabby export and import / storage status, device or browser
+  simulator as target) with the factory-V16 warning. App image 449572 bytes, margin
+  4349 bytes. Host tests cover storage, rewrite, compaction, playback timing, the
+  channel override and queued jumps (tests/host/smoke.c v0.3).
+
+Formats: section 9 of the assessment, **v0.4** (2d4ef83): 16-bit block ids, 20-byte rows
+at offset 64, song body CRC over bytes 20..2623, 6-byte block record headers, 2048 live
+blocks per song, transfer kind 6 target = (song << 16) | id.
 
 Format additions approved after checkpoint (a) (assessment v0.3, section 9): each row has
 a step length of 16, 32, 48 or 64 steps (default 64; a shorter row plays the first N steps
@@ -209,4 +225,16 @@ the song header carries eight per-track output channels (1..16, or 0 = device OU
 override the device setting while the song plays and are withdrawn when playback leaves
 the song, hanging notes being released on the old channel first.
 
-Known limit (decision 4): song mode runs from the internal clock only in v1.
+Known limits (v1):
+
+- Decision 4: song mode runs from the internal clock only; PLAY on the SONG page refuses
+  to start in MIDI clock mode ("SONG NEEDS INTERNAL CLOCK").
+- The alt-tuning bit of a step (9.3, bit 6) is stored and transferred but not applied by
+  the device sequencer (tuning hold is a control-task call; MIDI out has no tuning).
+- Blocks upload one at a time, each through a staging transaction (three sector erases),
+  so a song with hundreds of blocks takes a few minutes to write; audio pauses briefly on
+  every erase. A batched upload command is a candidate for later.
+- Note editing is in the workbench only (decision 5); the device shows the row's block ids
+  and plays, it does not edit songs.
+- The SEQ page "OUT CH" readout shows the device setting while a song override is active
+  (no marker in v1; the SONG page shows the song's channels only through the record).

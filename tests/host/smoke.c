@@ -32,9 +32,11 @@
  *   Build and run through the Makefile:  make test   (or make host-smoke)
  *   Exit status is the number of failed checks (0 = pass).
  *
- * Version: 0.2
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-02  Task 03 (d): song storage (records, blocks, rewrite, compaction) and
+ *                     song playback (channel override, note timing, end, queued jump).
  *   v0.2  2026-11-02  Task 03 (a): song storage migration and sampler-removal checks.
  *   v0.1  2026-11-01  Initial version.
  */
@@ -61,6 +63,19 @@ unsigned sim_song_storage_state(void);
 int sim_song_storage_initialize(void);
 int sim_factory_project(unsigned index);
 int sim_import(unsigned bytes);
+int sim_song_record_read(unsigned song);
+int sim_song_record_write(unsigned song);
+int sim_song_record_delete(unsigned song);
+int sim_block_write(unsigned song, unsigned id, unsigned bytes);
+int sim_block_read(unsigned song, unsigned id);
+uint32_t sim_song_free(void);
+uint32_t sim_song_reclaimable(void);
+int sim_song_compact(void);
+int sim_song_load(unsigned song);
+int sim_song_play(void);
+void sim_song_stop(void);
+int sim_song_jump(unsigned row);
+uint32_t sim_song_status(unsigned word);
 
 enum { SMK37_BUTTON, SMK37_KEY, SMK37_PRESSURE, SMK37_PAD, SMK37_ENCODER, SMK37_COMBINATION, SMK37_PEDAL, SMK37_FADER };
 
@@ -213,6 +228,102 @@ int main(void)
         for (unsigned t = 0; t < 8; ++t) { sampler |= st8[8 + t * 20] == 5; drums |= st8[8 + t * 20] == 2; }
         CHECK(!sampler, "no track uses the sampler source");
         CHECK(drums, "the beat part plays on the 808");
+    }
+
+    /* ---- 7. song storage and playback (Task 03 d) --------------------------------------- */
+    {
+        uint8_t *f = sim_file();
+        /* Block payloads (assessment 9.3): 64 steps, header + 3 bytes per note. */
+        uint8_t block1[64 + 6], block2[64 + 3];
+        memset(block1, 0, sizeof block1); memset(block2, 0, sizeof block2);
+        unsigned at = 0;
+        block1[at++] = 1; block1[at++] = 60; block1[at++] = 100; block1[at++] = 2; /* step 0: C4, 2 steps */
+        at += 3;                                                                /* steps 1..3 empty */
+        block1[at++] = 1; block1[at++] = 62; block1[at++] = 90; block1[at++] = 1;  /* step 4: D4, 1 step */
+        block2[0] = 1; block2[1] = 64; block2[2] = 80; block2[3] = 1;             /* step 0: E4 */
+        memcpy(f, block1, sizeof block1);
+        int r = sim_block_write(0, 1, sizeof block1);
+        CHECK(r == 0, "block 1 of song 0 appended (%d)", r);
+        memcpy(f, block2, sizeof block2);
+        r = sim_block_write(0, 2, sizeof block2);
+        CHECK(r == 0, "block 2 of song 0 appended (%d)", r);
+        r = sim_block_read(0, 1);
+        CHECK(r == (int)sizeof block1 && !memcmp(f, block1, sizeof block1), "block 1 reads back (%d bytes)", r);
+        CHECK(sim_block_read(0, 3) < 0, "a missing block id is reported");
+        block1[1] = 61; memcpy(f, block1, sizeof block1); block1[1] = 60;
+        CHECK(sim_block_write(0, 1, sizeof block1) == 0, "block 1 rewritten (stale copy left behind)");
+        r = sim_block_read(0, 1);
+        CHECK(r == (int)sizeof block1 && f[1] == 61, "the newest copy of block 1 is live (pitch %u)", f[1]);
+        /* Song record (9.5 v0.4): two rows of 16 steps, track 0 to MIDI channel 5. */
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4);
+        f[20] = 1; memcpy(f + 24, "HOST TEST   ", 12); f[36] = 0; f[37] = 0; f[40] = 2; f[42] = 0;
+        f[48] = 5;
+        f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16;            /* row 0: block 1, x1, 16 steps */
+        f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;            /* row 1: block 2, x1, 16 steps */
+        r = sim_song_record_write(0);
+        CHECK(r == 0, "song record 0 written (%d)", r);
+        memset(f, 0, 4096);
+        r = sim_song_record_read(0);
+        CHECK(r == 0 && !memcmp(f + 24, "HOST TEST   ", 12) && f[40] == 2 && f[84] == 2, "song record 0 reads back (%d)", r);
+        CHECK(sim_song_record_read(1) == 1, "song 1 is empty");
+        uint32_t reclaim = sim_song_reclaimable(), before = sim_song_free();
+        CHECK(reclaim == 76, "stale copy of block 1 is reclaimable (%u bytes = 6 + 70, 4-aligned)", reclaim);
+        r = sim_song_compact();
+        CHECK(r == 0 && sim_song_reclaimable() == 0 && sim_song_free() == before + 76, "compaction reclaims it (%d, free %u -> %u)", r, before, sim_song_free());
+        r = sim_block_read(0, 1);
+        CHECK(r == (int)sizeof block1 && f[1] == 61, "block 1 still live after compaction");
+        /* Playback: the song moves track 0 from its device channel to channel 5. The
+         * factory import above reset the device preferences, so read the channel now. */
+        unsigned device_channel = sim_midi_setting(0, 1);
+        r = sim_song_load(0);
+        CHECK(r == 0, "song 0 loaded (%d)", r);
+        sim_midi_capture(1); { struct message m[64]; (void)drain(m, 64); }
+        r = sim_song_play();
+        CHECK(r == 0, "song 0 started (%d)", r);
+        const uint8_t *st = sim_state(); unsigned tempo = st[8 + 10] | st[8 + 11] << 8;
+        unsigned blocks_per_step = (unsigned)(44100.0 * 60.0 / 4.0 / tempo / 128.0 + 1);
+        unsigned on60 = 0, off60 = 0, on62 = 0, on64 = 0, start = 0, stop = 0, stray = 0, first64 = 0, blocks = 0;
+        for (unsigned i = 0; i < blocks_per_step * 40; ++i) {
+            (void)sim_render(); ++blocks;
+            struct message m[64]; unsigned n = drain(m, 64), p;
+            on60 += count(m, n, 0x94, 61, 100, &p); off60 += count(m, n, 0x84, 61, 0, &p);
+            on62 += count(m, n, 0x94, 62, 90, &p);
+            unsigned e = count(m, n, 0x94, 64, 80, &p); if (e && !first64) first64 = blocks; on64 += e;
+            for (unsigned k = 0; k < n && k < 64; ++k) {
+                if (m[k].data[0] == 0xfa) ++start; else if (m[k].data[0] == 0xfc) ++stop;
+                else if (m[k].data[0] < 0xf0 && (m[k].data[0] & 15U) != 4 && (m[k].data[0] & 0xf0U) != 0xb0) ++stray;
+            }
+        }
+        /* Every message reaches the three ports, so one event counts 3. */
+        CHECK(start == 3, "song start sent MIDI Start once to 3 ports (%u)", start);
+        CHECK(on60 == 3 && off60 == 3, "row 0 step 0: C#4 on channel 5 once with its note-off (%u/%u)", on60, off60);
+        CHECK(on62 == 3, "row 0 step 4: D4 on channel 5 (%u)", on62);
+        CHECK(on64 == 3 && first64 > 15 * blocks_per_step && first64 < 18 * blocks_per_step,
+              "row 1 follows after 16 steps (E4 at block %u, step ~%u)", first64, blocks_per_step ? first64 / blocks_per_step : 0);
+        CHECK(stray == 0, "no song note left the override channel");
+        CHECK(stop == 3 && (sim_song_status(0) >> 8 & 255U) == 0, "song ended after its last row: Stop sent once, stopped (%u)", stop);
+        CHECK(sim_song_status(2) == 0, "no row underruns (%u)", sim_song_status(2));
+        /* The device channel applies again after the song. */
+        CHECK(sim_midi_setting(0, 1) == device_channel, "device OUT CH unchanged by the song (%u)", device_channel + 1);
+        note_test(12, 100, device_channel, "after song");
+        /* Queued jump: row 0 x4 then row 1; a jump queued at once lands at the next bar. */
+        r = sim_song_record_read(0); f[64 + 16] = 4; f[37] = 1; /* loop the song */
+        CHECK(sim_song_record_write(0) == 0, "song record rewritten with row 0 x4 and loop");
+        CHECK(sim_song_load(0) == 0 && sim_song_play() == 0, "song restarted");
+        CHECK(sim_song_jump(1) == 0, "jump to row 1 queued");
+        first64 = 0; blocks = 0;
+        for (unsigned i = 0; i < blocks_per_step * 40 && !first64; ++i) {
+            (void)sim_render(); ++blocks;
+            struct message m[64]; unsigned n = drain(m, 64), p;
+            if (count(m, n, 0x94, 64, 80, &p)) first64 = blocks;
+        }
+        CHECK(first64 > 15 * blocks_per_step && first64 < 18 * blocks_per_step, "jump landed at the next bar (block %u)", first64);
+        CHECK((sim_song_status(0) >> 8 & 255U) == 1, "looping song still playing");
+        sim_song_stop(); settle(); settle();
+        CHECK((sim_song_status(0) >> 8 & 255U) == 0, "song stopped on request");
+        { struct message m[64]; (void)drain(m, 64); }
+        sim_midi_capture(0);
+        CHECK(sim_song_record_delete(0) == 0 && sim_song_record_read(0) == 1, "song 0 deleted");
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

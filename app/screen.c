@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 #include "instrument.h"
 #include "song_storage.h"
+#include "song.h"
 #include "fm_patch.h"
 #include "version.h"
 #include "fm1_engine_control.h"
@@ -129,7 +130,8 @@ static void text(unsigned x, unsigned y, const char *s, unsigned scale, uint16_t
  * in the web workbench. Their numbers stay so the workbench simulator's page ids
  * (sdk/Simulator.js state[1], data-sim-page) do not shift. groove_screen_open rejects
  * them. FM_QUICK (DX7 preset select + ALG/FEEDBACK/TRANSPOSE/LEVEL macros) stays. */
-enum { OVERVIEW, STEPS, FM_EDIT, FM_ENV, FM_LFO, TONE_EDIT, MIX, BLE, PROJECT, NAME, EFFECTS, SOURCE, ACTIONS, STEP_EDIT, RHYTHM, FM_QUICK, PRESET_BROWSER, ARP_EDIT, STARTUP };
+enum { OVERVIEW, STEPS, FM_EDIT, FM_ENV, FM_LFO, TONE_EDIT, MIX, BLE, PROJECT, NAME, EFFECTS, SOURCE, ACTIONS, STEP_EDIT, RHYTHM, FM_QUICK, PRESET_BROWSER, ARP_EDIT, STARTUP,
+       SONG /* Task 03 d: song mode, page 19 (ACTIONS "SONG MODE", web shortcut 19) */ };
 enum { OCT_DOWN, OCT_UP, FX, SCL, ENV, LFO, EDIT, GLO, HOME, SAVE, ARP, SEQ, PLAY, REC };
 #define BUTTON(b) (1U << (b))
 static const uint16_t colors[8] = {0x3c9f, 0x07bf, 0x4eae, 0x06d4, 0xac9f, 0xed18, 0xff06, 0xfba5};
@@ -141,7 +143,8 @@ enum { SOURCE_CHOICES = GROOVE_SAMPLE };
 static const char *const actions[] = {"STEP DETAILS", "RHYTHM / RECORD", "COPY STEP", "COPY PAGE", "COPY TRACK",
     "PASTE STEP", "PASTE PAGE", "PASTE TRACK", "CLEAR STEP", "CLEAR PAGE", "CLEAR TRACK",
     "REPEAT TO 32", "REPEAT TO 48", "REPEAT TO 64", "UNDO / REDO", "COPY TIMBRE", "PASTE TIMBRE",
-    "DX7 PATCH NAME", "BLUETOOTH / CLOCK", "STOP ALL / REWIND", "ERASE OLD SAMPLE/DX7"};
+    "DX7 PATCH NAME", "BLUETOOTH / CLOCK", "STOP ALL / REWIND", "ERASE OLD SAMPLE/DX7",
+    "SONG MODE", "COMPACT SONG STORAGE"};
 enum { ACTION_COUNT = sizeof actions / sizeof actions[0] };
 static unsigned source_preview, action, action_confirm, tone_clip_ready;
 static struct groove_preset tone_clip;
@@ -150,6 +153,7 @@ static uint8_t midi_active[8];
 static unsigned track, cursor, selected_note = 60, drum, writing, page;
 static unsigned music_page, subpage_return, project_return, rec_before_press, effects_page;
 static unsigned seq_page, arp_page;
+static unsigned song_select, song_row_page; /* SONG page: selected song, pads = rows 1-16 + 16 * page */
 static unsigned shift_visible;
 static unsigned panel_modes_seen;
 static uint32_t fader_feedback_seen;
@@ -272,7 +276,7 @@ static void move_step(const struct groove_view *view, int delta, int pages)
 static unsigned navigation_mode(void)
 {
     return page == BLE || page == PROJECT || page == PRESET_BROWSER || page == MIX || page == NAME ||
-        (page >= SOURCE && page <= RHYTHM) || (page == STEPS && !writing) || glo_down;
+        (page >= SOURCE && page <= RHYTHM) || page == SONG || (page == STEPS && !writing) || glo_down;
 }
 static unsigned encoder_active(const int16_t values[7])
 {
@@ -955,7 +959,7 @@ static void leds(const struct groove_view *v, unsigned visible)
         | ((groove_arp_enabled(track) != 0) << ARP)
         | ((visible == STEPS || visible == ACTIONS || visible == STEP_EDIT || visible == RHYTHM) << SEQ)
         | ((writing != 0) << REC)
-        | ((v->playing != 0) << PLAY) | ((visible == MIX) << GLO)
+        | ((v->playing != 0 || song_playing()) << PLAY) | ((visible == MIX) << GLO)
         | ((visible == FM_QUICK || visible == STEP_EDIT) << EDIT)
         | ((visible == PROJECT || visible == SOURCE || (visible == ACTIONS && action_confirm)) << SAVE);
     changed = bits ^ button_led_cache;
@@ -981,6 +985,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             sig = signature(sig, frame_patch, 156);
             sig = sig * 33U + frame_views[track].program;
             sig = sig * 33U + frame_views[track].modified;
+        }
+        if (visible == SONG) {
+            struct song_status st; song_status_read(&st);
+            sig = signature(sig, &st, sizeof st);
+            sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12);
         }
         if (visible == ARP_EDIT) {
             sig = sig * 33U + track + (groove_arp_enabled(track) << 8) + (arp_page << 9);
@@ -1029,6 +1038,55 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         }
         plain_text(8, 213, notice ? notice : "K1 / SELECT ACTION  SAVE EXECUTE");
         dim_text(8, 231, action_confirm ? "SAVE CONFIRM   HOME CANCEL" : "PRESETS STEP  OCT PAGE  SAVE DO");
+    } else if (visible == SONG) {
+        /* Task 03 d: song mode. Row = song record row, pads queue jumps. */
+        struct song_status st; song_status_read(&st);
+        const struct song_record *rec = song_current();
+        unsigned storage = song_storage_state();
+        text(8, 40, "SONG", 2, ACCENT, BACK);
+        number(72, 40, (int)song_select + 1, 2, 2, TEXT, BACK);
+        if (rec && st.song == song_select) {
+            char name[13]; memcpy(name, rec->name, 12); name[12] = 0;
+            text(104, 40, name, 1, TEXT, BACK);
+        } else dim_text(104, 40, storage == SONG_STORAGE_READY ? "(EMPTY)" : "");
+        if (storage != SONG_STORAGE_READY) {
+            color_text(8, 70, storage == SONG_STORAGE_OLD_DATA ? "OLD SAMPLE/DX7 DATA IN FLASH" :
+                              storage == SONG_STORAGE_ERROR ? "SONG STORAGE ERROR" :
+                              storage == SONG_STORAGE_COMPACTING ? "COMPACTING STORAGE..." : "SCANNING STORAGE...", AMBER);
+            if (storage == SONG_STORAGE_OLD_DATA) dim_text(8, 88, "ACTIONS: ERASE OLD SAMPLE/DX7");
+        } else if (rec && st.song == song_select) {
+            unsigned row = st.playing ? st.row : 0;
+            const struct song_row *r = &rec->row[row];
+            dim_text(8, 70, "ROW"); small_number(32, 70, row + 1, 3, ACCENT);
+            dim_text(58, 70, "/"); small_number(64, 70, rec->rows, 3, TEXT);
+            dim_text(96, 70, "X"); small_number(104, 70, st.playing ? st.repeat + 1U : 1, 2, TEXT);
+            dim_text(118, 70, "/"); small_number(124, 70, r->repeat, 2, TEXT);
+            dim_text(150, 70, "BAR"); small_number(174, 70, st.step / 16U + 1U, 1, TEXT);
+            dim_text(186, 70, "/"); small_number(192, 70, (r->steps ? r->steps : 64U) / 16U, 1, TEXT);
+            color_text(8, 88, st.playing == 2 ? "STOPPING" : st.playing ? "PLAYING" : "STOPPED - PLAY STARTS", st.playing ? GREEN : DIM);
+            if (st.queued != SONG_NONE) { dim_text(104, 88, "JUMP TO ROW"); small_number(176, 88, st.queued + 1U, 3, AMBER); }
+            else if (st.playing && st.next_row != SONG_NONE) { dim_text(104, 88, "NEXT ROW"); small_number(158, 88, st.next_row + 1U, 3, TEXT); }
+            else if (st.playing) dim_text(104, 88, r->flags & SONG_ROW_FLAG_LOOP_HERE ? "LOOPING ROW" : "LAST ROW");
+            /* Block id per track of the shown row, one column per track. */
+            for (unsigned t = 0; t < SONG_TRACKS; ++t) {
+                unsigned x = 8 + t * 29;
+                color_text(x, 108, "T", colors[t]); small_number(x + 6, 108, t + 1, 1, colors[t]);
+                if (r->block[t]) small_number(x, 120, r->block[t], 5, TEXT); else dim_text(x, 120, "-");
+            }
+            /* Row pads: pads 1-16 = rows 1-16 of the pad page. */
+            dim_text(8, 140, "PADS ROW"); small_number(64, 140, song_row_page * 16U + 1U, 3, TEXT);
+            dim_text(86, 140, "-"); small_number(94, 140, song_row_page * 16U + 16U, 3, TEXT);
+            dim_text(130, 140, st.jump_mode ? "JUMP: ROW END" : "JUMP: NEXT BAR");
+            if (st.error) { color_text(8, 158, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS" : "BLOCK READ ERROR", AMBER); }
+            else if (st.underruns) color_text(8, 158, "ROW DECODE LATE", AMBER);
+            if (rec->tempo) { dim_text(130, 158, "BPM"); small_number(154, 158, rec->tempo, 3, TEXT); }
+        } else {
+            dim_text(8, 70, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS IN SONG" : "NO SONG HERE - UPLOAD FROM");
+            dim_text(8, 88, "THE WEB WORKBENCH");
+        }
+        plain_text(8, 198, notice ? notice : "K1 SONG  PADS JUMP  OCT PAD PAGE");
+        dim_text(8, 213, "PLAY START/STOP  K4 JUMP MODE");
+        dim_text(8, 231, "HOME BACK");
     } else if (visible == ARP_EDIT) {
         text(8, 40, "ARPEGGIATOR", 2, ACCENT, BACK);
         text(184, 40, "T", 2, colors[track], BACK);
@@ -1498,6 +1556,7 @@ void groove_screen_init(void)
     preset_current_slot = 0; preset_current_bank = 1;
     seq_down = 0;
     arp_down = arp_long = 0;
+    song_select = song_row_page = 0;
     memset(project_stored, 0, sizeof project_stored);
     cache->shown_page = ~0U;
     led_cache = button_led_cache = 0;
@@ -1825,6 +1884,38 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         }
         goto controls_done;
     }
+    if (page == SONG) {
+        /* Task 03 d: song mode owns PLAY here. K1 / PRESETS select the song (stopped
+         * only), pads queue a row jump, OCT pages the pads, K4 toggles the jump mode. */
+        play_handled = 1;
+        struct song_status st; song_status_read(&st);
+        int delta = controls->encoders[0] + controls->encoders[6];
+        if (delta && !st.playing) {
+            song_select = (unsigned)clamp((int)song_select + delta, 0, SONG_SONGS - 1);
+            int r = song_load(song_select);
+            if (r == SONG_EMPTY) notice = NULL;
+        }
+        int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN));
+        if (paging) song_row_page = (unsigned)clamp((int)song_row_page + paging, 0, SONG_ROWS / 16 - 1);
+        if (controls->encoders[5]) song_jump_mode_set(controls->encoders[5] > 0);
+        for (unsigned i = 0; i < 16; ++i)
+            if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
+                if (song_queue_jump(song_row_page * 16U + i)) announce("NO SUCH ROW / NOT PLAYING", now + 1500U);
+            }
+        if (pressed & BUTTON(PLAY)) {
+            if (st.playing) song_stop();
+            else {
+                if (song_loaded() != song_select) (void)song_load(song_select);
+                int r = song_play();
+                if (r == SONG_EMPTY) announce("NO SONG - UPLOAD FROM WORKBENCH", now + 2000U);
+                else if (r == SONG_INVALID) announce("SONG NEEDS INTERNAL CLOCK", now + 2000U);
+                else if (r) announce("SONG STORAGE BUSY", now + 2000U);
+                else { struct groove_view view; groove_get_view(track, cursor, &view);
+                       if (view.playing && !post(0xfc, 0, 0, 1)) return 0; } /* stock patterns stop */
+            }
+        }
+        goto controls_done;
+    }
     if (page == SOURCE) {
         unsigned before_preview = source_preview;
         int delta = controls->encoders[0] + controls->encoders[1] + controls->encoders[2] + controls->encoders[6];
@@ -1892,6 +1983,12 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 /* Task 03 a: user-confirmed erase of the V01 sample bank / DX7 library
                  * sectors so the region can become song storage (app/song_storage.c). */
                 r = song_storage_initialize();
+            } else if (action == 21) {
+                page = SONG;
+                if (song_loaded() == SONG_NONE) (void)song_load(song_select);
+            } else if (action == 22) {
+                /* Task 03 d: full compaction pass, one block sector per poll (9.6). */
+                r = song_playing() ? -1 : song_storage_compact();
             }
             else {
                 if (!post(0xff, 0, 0, 1)) return 0;
@@ -2115,7 +2212,8 @@ controls_done:
         struct groove_view view;
         groove_get_view(track, cursor, &view);
         uint8_t command = view.playing ? 0xfc : (writing && groove_sequence_setting(2) && groove_sequence_rewound() ? 0xfa : 0xfb);
-        if (!post(command, 0, 0, 1)) return 0;
+        if (song_playing()) song_stop(); /* Task 03 d: PLAY anywhere stops a playing song */
+        else if (!post(command, 0, 0, 1)) return 0;
     }
     unsigned mode = navigation_mode();
     if (mode != old_mode || page != old_page) {
@@ -2423,7 +2521,7 @@ unsigned groove_screen_preset_position(void)
 /* Web shortcuts enter the same editor and use the same parameter handlers. */
 int groove_screen_open(unsigned target)
 {
-    if (target > ARP_EDIT || target == PROJECT) return -1;
+    if ((target > ARP_EDIT && target != SONG) || target == PROJECT) return -1;
     boot_active = 0;
     /* Task 03 b: the operator and tone editor pages are gone; the DX7 pages need a DX7. */
     if (target == FM_EDIT || target == FM_ENV || target == FM_LFO || target == TONE_EDIT) return -1;
@@ -2446,6 +2544,7 @@ int groove_screen_open(unsigned target)
     if (page == OVERVIEW || page == STEPS) music_page = page;
     if (page == SOURCE) { source_preview = groove_source_type(track); source_result = 0; }
     if (page == PRESET_BROWSER) { project_result = 0; preset_refresh(); }
+    if (page == SONG && song_loaded() == SONG_NONE) (void)song_load(song_select);
     if (page == BLE) { ble_view = ble_forget = ble_action = 0; ble_result = 0; }
     cache->shown_page = ~0U;
     return 0;

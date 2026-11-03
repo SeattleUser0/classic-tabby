@@ -1,7 +1,10 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.5
+Version: 0.6
 Revision log:
+- v0.6, 2026-11-02 (Task 03 checkpoint d): section 7 added with the measured cost of song
+  mode (+9760 bytes, margin 4349) and the RAM figures; flash-budget.py v0.2 attributes the
+  two new units.
 - v0.5, 2026-11-02 (Task 03 checkpoint b): section 6 added with the measured result of
   removing the DX7 operator editor pages and the tone editor (−11008 bytes, margin 14109),
   the post-song-mode headroom projection and the further removal candidates with sizes.
@@ -448,6 +451,48 @@ sizes from this build (`build/pro/flash-budget.md`), should they be needed:
 Not recoverable: everything inside libfm1_engine.a (section 2.3), including the
 sampler, the SEA decoder and the unused engines' SRAM entry points that sdk/synth.json
 requires.
+
+## 7. Task 03 checkpoint (d): song mode (measured)
+
+Built with Track B (`make firmware`), byte-identical to Track A (`make crosscheck`):
+sdk.elf 311365d6…, .fwsc a36467a7….
+
+| Quantity | After (b) | After (d) | Change |
+| --- | ---: | ---: | ---: |
+| App image | 439812 | **449572** | +9760 |
+| Margin to the 453921-byte packaging limit | 14109 | **4349** | −9760 |
+| .text | 364000 | 372608 | +8608 |
+| .ram0_data | 75780 | 76932 | +1152 |
+| .ram0_bss | 190524 | 223356 | +32832 |
+| Static SRAM (data + bss + boot_info) | 266356 | 300340 | +33984 |
+| Runtime heap (minimum 49152) | 257260 | 223276 | −33984 |
+
+The 4 KB post-song-mode requirement (decision 1) is met with 253 bytes to spare. Where the
+flash went (post-LTO attribution, `make flash-budget` with a regenerated
+`build/pro/nolto.json`; flash-budget.py v0.2 lists the two new units):
+
+| Unit | After (b) | After (d) | Note |
+| --- | ---: | ---: | --- |
+| app/song_storage.c | — | 3850 | transactions, recovery, directory, compaction, status (`song_storage_prepare` 570, `song_directory_build` 430) |
+| app/song.c | — | 1886 | row decode, audio tick, play / stop / jump; most of it inlined into `groove_samples_poll` and the tick |
+| app/samples.c | 36 | 1282 | `groove_samples_poll` now carries the inlined song poll and the storage poll |
+| app/screen.c | 32401 | 34566 | +2165: SONG page draw and controls, two ACTIONS entries, PLAY ownership |
+| app/transfer.c | 2458 | 3060 | +602: kinds 5 / 6, command 23 |
+| app/midi_router.c | 3835 | 4229 | +394: song owner, channel override, delivery-time channel, tick hook |
+| libfm1_engine.a | 364647 | 364647 | unchanged |
+| other units | | | within ±20 B |
+
+RAM: the sequencer's two row buffers (2 × 6670 B), the directory (2048 × 5 B), the 4 KB
+transaction image, the loaded record (2624 B), a payload buffer (832 B) and the router's
+wider held-note maps account for the 33 KB of static SRAM; the heap stays 4.5× the minimum.
+
+### 7.1 If more flash is needed later
+
+The margin is above the requirement but small. The candidates of section 6.1 still apply
+(factory DX7 bank 10239, step editor pages 3620, factory scenes 2664, BLE page 1770,
+EFFECTS page 680, NAME page 326). Inside the new code the cheapest cuts would be the SONG
+page's per-track block-id columns and error texts (≈ 400 B) and the compaction pass
+(≈ 500 B, keeping only the append-time compaction).
 
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 

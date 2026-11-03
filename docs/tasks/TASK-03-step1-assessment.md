@@ -1,7 +1,9 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.4
+Version: 0.4.1
 Revision log:
+- v0.4.1, 2026-11-02: section 9.10 added: how checkpoint (d) implemented section 9 and the
+  device-side decisions left open in it. No format change (9.3-9.9 unchanged since v0.4).
 - v0.4, 2026-11-02: block ids widened to 16 bits after the Task 02 session's import test
   (humanized material used 98..137 ids per 70 bars). Row record 12 -> 20 bytes (8 × 2-byte
   block ids), rows 64..2623, song body CRC over bytes 20..2623, reserved 0xFF from 2624;
@@ -564,3 +566,35 @@ region. Projects, settings, staging (sector 16) and tuning are never touched. Ba
   row's step length (16/32/48/64; 64 when the row fills its blocks) and may fill the
   per-track output channels from the MIDI file's channels or leave them 0 (device
   setting); both are valid files.
+
+### 9.10 Implementation notes from checkpoint (d) (v0.4.1, no format change)
+
+- Files: app/song_storage.c (region, transactions, directory, compaction), app/song.c
+  (sequencer), app/midi_router.c (song owner 40..47, channel override), app/transfer.c
+  (kinds 5/6, command 23), app/screen.c (SONG page 19), sdk/WebUpdate.js + Update.html.in
+  + Simulator.js (editor, .tabby, simulator target).
+- Transactions are exactly 9.6: image in RAM, staging program + verify, commit word at
+  4092, destination program + verify, staging erase; `song_storage_prepare` finishes a
+  committed staged image at boot and before every write. Deleting a song is a plain
+  sector erase (a half-erased record fails its CRC and reads as empty).
+- Compaction: when an append finds no room, the sector with the most reclaimable bytes is
+  compacted first; the full pass is the ACTIONS entry "COMPACT SONG STORAGE" (not
+  SHIFT+SAVE on the SONG page as proposed in 9.6), one block sector per control poll.
+- Directory (9.7): sorted table of up to 2048 `{id, sector, offset}` entries for the loaded
+  song, binary search; `song_block_read` rebuilds it on demand after any write.
+- Sequencer timing: a 16th is counted in `tempo × 4 × 128` frame units per block from the
+  router's per-block clock hook (free-running while the stock transport is stopped, so song
+  mode never starts the pattern sequencer). Swing = the project's swing setting (0..50):
+  even steps are lengthened and odd steps shortened by that share. Probability uses an LCG
+  on the audio thread. Up to 16 sounding notes per track; a 17th steals the oldest.
+- Transport out: Start / Stop are sent through the router's transport path when the song
+  starts and stops; MIDI clock follows the song's BPM override while it plays.
+- Output channels (9.5): applied by the router's `channel()` for every owner of the track,
+  released on the old channel first; the channel is resolved at delivery from the owner so
+  an event already queued at the moment of the change follows its note-off.
+- Device UI: SONG page 19 from ACTIONS "SONG MODE" (or the workbench shortcut), K1 /
+  PRESETS select the song while stopped, pads 1-16 queue jumps (OCT pages rows 17..128),
+  K4 toggles the jump mode in RAM, PLAY starts / stops (PLAY on any page stops a playing
+  song; starting a song stops the stock transport). Known limits: SPEC.md section 6.
+- Transfer wire forms are the ones listed in 9.9; command 23 additionally returns bytes
+  9..12 = loaded song, playing state, row, last error (informational).

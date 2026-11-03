@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.10
+Version: 0.11
 Revision log:
+- v0.11, 2026-11-02 (Task 03 checkpoint d): section 12: song mode (storage, sequencer,
+  transfer, SONG page, workbench editor); measured figures; host test v0.3.
 - v0.10, 2026-11-02 (Task 03 checkpoint b): section 11: DX7 operator editor pages and the
   tone editor removed from app/screen.c and the workbench simulator; measured figures.
 - v0.9, 2026-11-02 (Task 03 checkpoint a): section 10: sampler and DX7 user library removal,
@@ -668,3 +670,81 @@ c3cc41ac…). `make test`: the 35 host checks and the wasm smoke test pass uncha
 host build compiles app/screen.c with no warnings. The rebuilt preview (`make web`) loads
 in headless Chrome 156 with no console errors, the placeholder hidden and 149 LCD targets.
 Details and the post-song-mode headroom projection in docs/FLASH-BUDGET.md section 6.
+
+## 12. Task 03 — song mode, checkpoint (d) (2026-11-02)
+
+### 12.1 What changed
+
+Firmware (formats: docs/tasks/TASK-03-step1-assessment.md section 9 v0.4, binding):
+
+- `app/song_storage.c` / `.h` v0.2: song records (one sector per song, CRC over bytes
+  20..2623), block sectors (packed records, 6-byte header with a 16-bit id), the staging
+  transactions of 9.6 with recovery at boot and before every write, the sorted per-song
+  directory (2048 entries), free / reclaimable accounting, compaction of one sector or of
+  the whole region (poll driven, one sector per poll). Payloads and records are validated
+  before any flash write.
+- `app/song.c` / `.h` v0.1: the sequencer. Two RAM row buffers (8 × 64 × 13 bytes); the
+  control task decodes the next row (natural next, loop row, or the queued jump target)
+  while the current one plays; the audio tick runs from `groove_midi_clock` once per
+  block, counts 16ths from the tempo (or the song's BPM override), applies swing,
+  probability, legato / retrigger and note lengths, swaps rows at row ends, lands jumps at
+  the next bar (mode 0) or row end (mode 1), replays a row if the next one is not decoded
+  in time (counted as an underrun), stops at the end of the last row unless the song loops.
+- `app/midi_router.c`: song owners 40..47 (`OWNERS` 48), `groove_midi_song_note` (SEQ
+  mode rules as for pattern notes; the local engine copy is posted on the track's input
+  channel when the lane drains), `groove_midi_song_channels` (per-track override, notes
+  released on the old channel first), channel resolved at delivery from the owner, the
+  song tick hooked at the top of the clock callback.
+- `app/transfer.c`: kinds 5 (song record, 4096) and 6 (block, target song << 16 | id,
+  begin commands `[6, song, id lo, id hi]` / `[6, song, id lo, id hi, size lo, size hi]`),
+  command 23 (free, reclaimable, state, loaded song, playing, row, error), capability bit
+  2 set in command 22. An uploaded record whose magic is not `FM1G` deletes the song.
+- `app/screen.c`: page 19 SONG (ACTIONS entry 21 "SONG MODE", web shortcut 19): song
+  select on K1 / PRESETS, row / repeat / bar readout, block id per track, queued jump,
+  storage state, errors; pads 1-16 queue jumps (OCT pages the pads), K4 jump mode, PLAY
+  starts / stops the song (PLAY anywhere stops a playing song, starting a song stops the
+  stock transport); ACTIONS entry 22 "COMPACT SONG STORAGE".
+- `app/samples.c` v0.2: initializes and polls the sequencer from the SDK entry points.
+- `web/engine/Simulator.c`: `sim_song_*` / `sim_block_*` exports (records, blocks,
+  status, compaction, load / play / stop / jump) for the tests and the simulator target.
+- `tools/linux/flash-budget.py` v0.2: the two new units in the attribution lists.
+
+Workbench (`sdk/`, re-pinned; all 67 manifest entries still enforced):
+
+- `sdk/WebUpdate.js`: `songRecordParse` / `songRecordBuild` (v0.4 layout, CRC),
+  `songPayloadParse` / `songPayloadBuild`, step text syntax, `.tabby` writer / reader,
+  `Library.songStatus / downloadBlock / uploadBlock / songRead / songWrite / songDelete`,
+  kind 5 in `download` / `upload`, capability bit 2 → `songStorage`, error 74 text.
+- `sdk/Update.html.in`: library group "Song mode" (target device or browser simulator,
+  song slot, read / new / write / delete / export / import / status, header fields,
+  channels, rows table, block step editor), the factory-V16 confirmation now warns that
+  the restore overwrites the last 40 KB of song storage (block sectors 86..95), simulator
+  shortcut button for page 19.
+- `sdk/Simulator.js`: worker cases song-read / song-write / song-delete / song-status,
+  `FM1Simulator.request` for the editor, page tip 19.
+- `sdk/I18n.js`: English strings for the song section.
+
+### 12.2 Measured
+
+| Quantity | After (b) | After (d) |
+| --- | ---: | ---: |
+| App image (limit 453921) | 439812 | **449572** (margin 4349) |
+| Static SRAM | 266356 | 300340 |
+| Runtime heap (min 49152) | 257260 | 223276 |
+
+Track A and Track B byte-identical (`make crosscheck`, hashes in docs/FLASH-BUDGET.md
+section 7). `make test`: 70 host checks (35 from Task 01 / checkpoint a plus 35 for song
+storage and playback) and the wasm smoke test pass; no compiler warnings. The rebuilt
+preview (`make web`) loads in headless Chrome 156 with no console errors, the placeholder
+hidden, 149 LCD targets and the page-19 shortcut present.
+
+### 12.3 Using song mode
+
+1. Workbench → Projects & sounds → Song mode: choose the device (project library
+   connected) or the browser simulator, pick a song slot, "New song" or "Import .tabby",
+   fill the rows (block id per track, repeat, steps, loop here), store blocks (step text
+   `pitch:velocity:length[r]`, `@n` probability, `!` alt tuning), "Write song".
+2. Device: ACTIONS → SONG MODE, K1 selects the song, PLAY starts; pads 1-16 queue a jump to
+   that row (OCT pages rows 17..128), PLAY stops. The song's output channels apply while it
+   plays and the device channels return afterwards.
+3. "COMPACT SONG STORAGE" (ACTIONS) reclaims stale block copies after rewrites.

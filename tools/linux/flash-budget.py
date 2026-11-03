@@ -33,9 +33,10 @@ Usage
     python3 tools/linux/flash-budget.py --make-nolto-map build/pro/nolto.json \
         --clang /opt/jieli/pi32v2/bin/clang --objdump ... --nm-native ...
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-02  Task 03 (d): app/song.c and app/song_storage.c added to the unit lists.
     v0.1  2026-11-01  Initial version: map parser (handles wrapped input-section lines),
                       flash-only symbol filter via firmware-report.json section ranges,
                       grouping by input, LTO attribution via nm + analysis map, top-N
@@ -144,9 +145,9 @@ def read_nm(nm_cmd, elf):
 # ---- analysis-only non-LTO compile for the symbol -> file map ---------------------------------
 APP_SOURCES = ["app/audio_output.c", "app/board/audio.c", "app/board/panel.c", "app/board/scan.c", "app/fm_factory.c",
                "app/fm_library.c", "app/midi_router.c", "app/presets.c", "app/project.c", "app/samples.c", "app/screen.c",
-               "app/smk37_controls.c", "app/transfer.c"]
+               "app/smk37_controls.c", "app/transfer.c", "app/song.c", "app/song_storage.c"]
 OZ = {"app/project.c", "app/transfer.c", "app/samples.c", "app/screen.c", "app/presets.c", "app/midi_router.c",
-      "app/smk37_controls.c", "app/fm_library.c", "app/fm_factory.c"}
+      "app/smk37_controls.c", "app/fm_library.c", "app/fm_factory.c", "app/song.c", "app/song_storage.c"}
 
 
 def make_nolto_map(output, clang, nm_native, objdump, model, workdir):

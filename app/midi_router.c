@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 #include "instrument.h"
+#include "song.h"
 #include "fm1_engine_control.h"
 #include <string.h>
 #ifdef FM1_HOST_TEST
@@ -13,7 +14,8 @@
  * ports/local/clock/live flags, and Thru/source-clock fields. */
 static struct groove_midi_config config;
 enum { LOCAL_OFF = 8, CLOCK_OUT = 16, LIVE_OUT = 32, SEQ_OFF = 64, QUEUE = 128 };
-enum { ARP_OWNER = 8, LIVE_OWNER = 16, THRU_OWNER = 24, OWNERS = 40 };
+/* Classic Tabby (Task 03 d): song owners 40..47 follow the 16 Thru channel owners. */
+enum { ARP_OWNER = 8, LIVE_OWNER = 16, THRU_OWNER = 24, SONG_OWNER = 40, OWNERS = 48 };
 struct events { WORD read, write, lost; unsigned seen; uint32_t data[QUEUE]; } __attribute__((aligned(32)));
 /* One producer per audio owner and one for the MIDI routing task. */
 static struct events events[3] __attribute__((aligned(32)));
@@ -24,6 +26,8 @@ struct output {
 };
 static struct output output[3];
 static unsigned ready_seen, auto_source = 3;
+/* Song output-channel override per track: 0 = device OUT CH, 1..16 (Task 03 d). */
+static uint8_t song_channel[8];
 static uint32_t clock_seen, clock_phase;
 static uint32_t resume_phase;
 static unsigned clock_first, resume_first, master_running;
@@ -41,7 +45,11 @@ static FM1_AUDIO_CODE void barrier(void)
 #endif
 }
 static unsigned size(unsigned status) { return status >= 0xf8 ? 1 : (status & 0xe0U) == 0xc0U ? 2 : 3; }
-static unsigned channel(unsigned track) { return (config.channel[track >> 1] >> (4U * (track & 1U))) & 15U; }
+static unsigned channel(unsigned track)
+{
+    if (song_channel[track]) return song_channel[track] - 1U;
+    return (config.channel[track >> 1] >> (4U * (track & 1U))) & 15U;
+}
 FM1_AUDIO_CODE unsigned groove_midi_mode(unsigned track)
 { return (config.mode[track >> 2] >> (2U * (track & 3U))) & 3U; }
 void groove_midi_defaults(struct groove_midi_config *c)
@@ -119,7 +127,7 @@ void groove_midi_clock_reset(void)
 }
 void groove_midi_init(void)
 {
-    memset(events, 0, sizeof events); memset(output, 0, sizeof output);
+    memset(events, 0, sizeof events); memset(output, 0, sizeof output); memset(song_channel, 0, sizeof song_channel);
     groove_midi_defaults(&config);
     ready_seen = dropped = clock_seen = 0; groove_midi_clock_reset();
 }
@@ -141,7 +149,8 @@ unsigned groove_midi_setting(unsigned track, unsigned parameter)
 }
 static FM1_AUDIO_CODE void enqueue(unsigned lane, unsigned owner, unsigned ports, unsigned status, unsigned a, unsigned b)
 {
-    if (!ports && status != 0xf6) return;
+    /* Song events travel without ports when only the local engine listens. */
+    if (!ports && status != 0xf6 && owner < SONG_OWNER) return;
     struct events *q = &events[lane];
     unsigned w = q->write;
     if (w - q->read == QUEUE) { ++q->lost; return; }
@@ -154,8 +163,15 @@ static FM1_AUDIO_CODE void enqueue(unsigned lane, unsigned owner, unsigned ports
 FM1_AUDIO_CODE void groove_midi_note(unsigned track, unsigned note, unsigned velocity)
 {
     if ((config.flags & SEQ_OFF) || !groove_midi_mode(track)) return;
-    unsigned ch = (config.channel[track >> 1] >> (4U * (track & 1U))) & 15U;
-    enqueue(track & 1U, track, config.flags & 7U, (velocity ? 0x90U : 0x80U) | ch, note, velocity);
+    enqueue(track & 1U, track, config.flags & 7U, (velocity ? 0x90U : 0x80U) | channel(track), note, velocity);
+}
+/* Song sequencer notes (Task 03 d): same SEQ mode rules as pattern notes for MIDI out
+ * (mode LOCAL or SEQ OUT off sends nothing); the local engine copy is posted when the
+ * lane is drained (song_local), so the event is queued even without ports. */
+FM1_AUDIO_CODE void groove_midi_song_note(unsigned track, unsigned note, unsigned velocity)
+{
+    unsigned ports = ((config.flags & SEQ_OFF) || !groove_midi_mode(track)) ? 0 : config.flags & 7U;
+    enqueue(track & 1U, SONG_OWNER + track, ports, (velocity ? 0x90U : 0x80U) | channel(track), note, velocity);
 }
 FM1_AUDIO_CODE void groove_midi_arp_note(unsigned track, unsigned note, unsigned velocity)
 {
@@ -183,6 +199,13 @@ FM1_AUDIO_CODE void groove_midi_transport(unsigned owner, uint8_t status)
 }
 FM1_AUDIO_CODE void groove_midi_clock(unsigned owner, unsigned tempo)
 {
+    if (!owner) {
+        /* Task 03 d: the song sequencer ticks here, once per block, with the song's
+         * tempo override (if any) so the MIDI clock below follows the same tempo. */
+        unsigned song = song_tempo();
+        if (song) tempo = song;
+        song_tick(tempo);
+    }
     if (owner || !(config.flags & CLOCK_OUT) || groove_clock_mode()) return;
     enum { PERIOD = FM1_SAMPLE_RATE * 60U };
     if (clock_first || clock_phase >= PERIOD) {
@@ -192,15 +215,18 @@ FM1_AUDIO_CODE void groove_midi_clock(unsigned owner, unsigned tempo)
     }
     clock_phase += tempo * 24U * FM1_BLOCK_FRAMES;
 }
-static unsigned owner_channel(unsigned owner) { return owner < THRU_OWNER ? channel(owner & 7U) : owner - THRU_OWNER; }
+static unsigned owner_channel(unsigned owner)
+{ return owner < THRU_OWNER || owner >= SONG_OWNER ? channel(owner & 7U) : owner - THRU_OWNER; }
 static int held_elsewhere(const struct output *o, unsigned owner, unsigned ch, unsigned note)
 {
     /* Thru has exactly one owner per channel; the other fifteen cannot
      * share this note. SEQ, ARP and physical owners use track maps. */
     unsigned thru = THRU_OWNER + ch;
     if (owner != thru && (o->held[thru][note >> 3] & (1U << (note & 7U)))) return 1;
-    for (unsigned i = 0; i < THRU_OWNER; ++i)
+    for (unsigned i = 0; i < OWNERS; ++i) {
+        if (i >= THRU_OWNER && i < SONG_OWNER) continue;
         if (i != owner && (o->held[i][note >> 3] & (1U << (note & 7U))) && owner_channel(i) == ch) return 1;
+    }
     return 0;
 }
 static void deliver(unsigned port, unsigned owner, const uint8_t *m)
@@ -232,8 +258,13 @@ static void deliver(unsigned port, unsigned owner, const uint8_t *m)
         o->sent_sustain &= (uint16_t)~(1U << ch);
     }
 }
-static void send_event(unsigned owner, unsigned ports, const uint8_t *m)
+static void send_event(unsigned owner, unsigned ports, const uint8_t *in)
 {
+    /* The channel is resolved at delivery from the owner, not from the queued status
+     * byte: an event queued just before a song channel override changed still goes
+     * where its note-off will go (Task 03 d). Thru owners already carry their channel. */
+    uint8_t m[3] = {in[0], in[1], in[2]};
+    if (m[0] < 0xf0) m[0] = (uint8_t)((m[0] & 0xf0U) | owner_channel(owner));
     for (unsigned p = 0; p < 3; ++p) if (ports & (1U << p)) {
         /* Desired state must follow a controller reset even if the port is
          * disconnected or congested; recovery must not revive an old pedal. */
@@ -257,6 +288,30 @@ static void release_owner(unsigned owner, unsigned ports)
                 deliver(p, owner, off);
             }
         }
+    }
+}
+/* Local engine copy of a song note: the track's input channel, when Local Control is
+ * on, the track's SEQ mode is not MIDI-only and the track is not OFF (Task 03 d). */
+static void song_local(unsigned track, const uint8_t *m)
+{
+    if ((config.flags & LOCAL_OFF) || groove_midi_mode(track) == 2 || groove_track_role(track) == GROOVE_TRACK_OFF) return;
+    uint8_t local[3] = {(uint8_t)((m[0] & 0xf0U) | groove_midi_input_channel(track)), m[1], m[2]};
+    (void)fm1_midi_post(local, 3);
+}
+/* Song output-channel override (assessment 9.5 v0.3). Called on the control task with
+ * the lanes drained; every note still held by any owner of a track whose channel
+ * changes is released on the old channel first, then the new channel applies. */
+void groove_midi_song_channels(const uint8_t *channels)
+{
+    for (unsigned t = 0; t < 8; ++t) {
+        unsigned next = channels ? channels[t] : 0;
+        if (next == song_channel[t]) continue;
+        release_owner(t, config.flags & 7U);
+        release_owner(ARP_OWNER + t, config.flags & 7U);
+        release_owner(LIVE_OWNER + t, config.flags & 7U);
+        release_owner(SONG_OWNER + t, config.flags & 7U);
+        song_channel[t] = (uint8_t)next;
+        barrier();
     }
 }
 void groove_midi_poll(void)
@@ -311,7 +366,10 @@ void groove_midi_poll(void)
                 release_owner(owner + LIVE_OWNER, ports);
                 if (groove_midi_panel_track_reset) groove_midi_panel_track_reset(owner);
             }
-            else send_event(owner, ports, m);
+            else {
+                if (owner >= SONG_OWNER) song_local(owner & 7U, m);
+                if (ports) send_event(owner, ports, m);
+            }
             found = 1;
         }
         if (!found) break;

@@ -72,10 +72,30 @@
             new Uint8Array(c.memory.buffer,c.sim_file(),message.data.length).set(message.data);
             result=message.timbre?c.sim_timbre_import():message.patch?c.sim_patch_import():c.sim_import(message.data.length); break;
           case 'clear': c.sim_clear(); break;
+          // Classic Tabby song mode (Task 03 d): records and blocks in the simulator's flash.
+          case 'song-read': {
+            const song=message.song>>>0;result=c.sim_song_record_read(song);
+            if(result===1){data=null;result=0;break;}
+            if(!result){
+              const record=new Uint8Array(c.memory.buffer,c.sim_file(),4096).slice(),ids=new Set(),blocks=[];
+              for(let r=0;r<record[40];r++)for(let t=0;t<8;t++){const id=record[64+r*20+t*2]|record[65+r*20+t*2]<<8;if(id)ids.add(id);}
+              for(const id of ids){const n=c.sim_block_read(song,id);if(n>0)blocks.push([id,new Uint8Array(c.memory.buffer,c.sim_file(),n).slice()]);}
+              data={record,blocks};
+            }
+            break;
+          }
+          case 'song-write': {
+            const song=message.song>>>0;
+            for(const [id,payload] of message.blocks){new Uint8Array(c.memory.buffer,c.sim_file(),payload.length).set(payload);result=c.sim_block_write(song,id,payload.length);if(result)break;}
+            if(!result){new Uint8Array(c.memory.buffer,c.sim_file(),4096).set(message.record);result=c.sim_song_record_write(song);}
+            break;
+          }
+          case 'song-delete': result=c.sim_song_record_delete(message.song>>>0); break;
+          case 'song-status': data={free:c.sim_song_free()>>>0,reclaimable:c.sim_song_reclaimable()>>>0,state:c.sim_song_status(0)>>>0}; break;
           case 'tick': for(let i=0;i<Math.min(32,message.blocks>>>0);i++)c.sim_render();break;
           default: throw Error('未知仿真操作');
         }
-        if(result)throw Error(result===-8?'内存不足，当前项目保持不变':'当前音源或参数不支持此操作');
+        if(result)throw Error(result===-8?'内存不足，当前项目保持不变':result===-10?'歌曲存储已满':'当前音源或参数不支持此操作');
         return data;
       }
       projectRevision(){return this.c.sim_edit_revision()+':'+this.c.sim_project_revision();}
@@ -353,6 +373,7 @@
         11:'音源预览：Pad 1–6 或 K1 选择，SAVE 应用，HOME 返回；K2 TRACK 即时选择 PROJECT（跟随项目）／LIVE（换项目保留音色）／OFF（关闭音源）。',
         12:'复制与粘贴：K1 或 SELECT 选操作，SAVE 执行；复制后自动选中 PASTE。PRESETS／K2 选目标步，OCT−／OCT+ 选目标页，再按 SAVE 粘贴。',
         15:'FM 常用参数：PRESETS 选择 1–128 音色，PAGE 切换 A–D 组；K1 算法、K2 反馈、K3 移调、K4 音量。EDIT 返回；完整音色编辑请使用网页工作台。',
+        19:'歌曲模式：K1／PRESETS 选歌曲，PLAY 开始／停止，打击垫 1–16 排队跳转到该行，OCT 翻打击垫页，K4 设置跳转落点。歌曲由网页工作台写入。',
         17:'ARP：短按开关，长按调参数；PAGE 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。SELECT 选轨，开关和参数随项目保存，不保存按住的音符。',
         16:'预设列表：PRESETS／SELECT 直接载入，PLAY 载入播放，SAVE 打开项目保存；K1 选 USER／FACTORY。切换直接生效，不提示保存。'
       };
@@ -920,6 +941,7 @@
   });
   $('sim-save-control').onclick=()=>{release();send('open',{page:0});tap(9);};
   $('sim-save-device').onclick=()=>action(async()=>{release();await globalThis.FM1Workbench.save(await request('export'));});
+  globalThis.FM1Simulator={request,ready:()=>ready}; /* song editor access (Task 03 d) */
   for(const button of document.querySelectorAll('[data-sim-page]'))button.onclick=()=>action(async()=>{
     await request('open',{page:Number(button.dataset.simPage)});
     $('sim-device').scrollIntoView({behavior:'smooth',block:'center'});
