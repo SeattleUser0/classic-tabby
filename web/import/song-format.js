@@ -158,7 +158,7 @@
   function encodeRecord(song, { generation = 0, target = 0 } = {}) {
     checkSong(song);
     const r = new Uint8Array(LIMITS.recordBytes), v = new DataView(r.buffer);
-    r.fill(0xff, LIMITS.bodyEnd);                       /* 1328..4095 reserved 0xFF */
+    r.fill(0xff, LIMITS.bodyEnd);                       /* 2624..4095 reserved 0xFF */
     v.setUint32(0, LIMITS.magicRecord, true);
     v.setUint32(4, generation >>> 0, true);
     v.setUint32(8, target >>> 0, true);

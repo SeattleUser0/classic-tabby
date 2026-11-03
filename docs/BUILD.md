@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.12
+Version: 0.13
 Revision log:
+- v0.13, 2026-11-02 (Task 02 Step 4): section 14: MIDI import build notes folded from
+  docs/tasks/TASK-02-notes.md, the Step 4 changes, the simulator check and the hardware
+  checklist for the importer.
 - v0.12, 2026-11-02 (Task 03 checkpoint e): section 13: batched block upload (transfer
   kind 7), measured figures, upload time estimate, hardware checklist for the first flash.
 - v0.11, 2026-11-02 (Task 03 checkpoint d): section 12: song mode (storage, sequencer,
@@ -922,3 +925,176 @@ DATA IN FLASH" and song storage stays disabled: run step 2 before step 1 there.
     write the 137-block song: stopwatch from the click to "Song written and verified by
     read-back"; note where the audio dips (expected: only in the moment after each batch's
     last chunk, none while chunks stream). Record the time against section 13.3.
+
+## 14. Task 02 — MIDI file import (folded from docs/tasks/TASK-02-notes.md at Step 4)
+
+Spec side (scope, mapping rules, layout, differences found at the rebase): SPEC.md section 7.
+
+### 14.1 Step 4 (2026-11-02): rebase, real transfer, workbench mount, simulator check
+
+- Rebase of classic-tabby/task02-midi-import onto classic-tabby/linux-build (659422b,
+  checkpoint e): clean, no conflicts; the only shared file both sides had touched was the
+  Makefile (different hunks).
+- `web/import/song-transfer.js` v0.3: `createBackend()` on the workbench song backend
+  (device or simulator), `select({backend, name})`, kind-7 batch plan (same cut as
+  `FM1Web.songBatches`: 4076-byte record areas, 8 sectors per batch), delete-before-replace,
+  `read()` decoding the slot into the song model. The stub stays for the standalone page.
+- `web/import/import-ui.js` v0.4: target name (device / simulator) in the confirm and the
+  messages, batch plan shown, elapsed time reported, "Write song…" button.
+- Shared files touched (kept small): `tools/linux/build-web.py` (+3 lines: the
+  `/*FM1_IMPORT_SCRIPT*/` placeholder inlining the five web/import scripts in load order),
+  `sdk/Update.html.in` (+1 `<details>` group with the mount point, +1 script placeholder,
+  `songBackend()` gains an optional progress callback and `exists(slot)`, +3 lines mounting
+  the panel), `sdk/I18n.js` (+2 entries: the group title and its help line),
+  `sdk/manifest.json` (re-pinned for those two), `Makefile` (+`midi-import-sim` target).
+- `tests/midi-import/run.mjs` v0.4: section 11c on a fake backend: first write = record +
+  blocks with no delete, occupied slot reported with name / rows / distinct blocks, rewrite
+  deletes first, read() gives identical `.tabby` bytes, batch plan within 8 sectors / 32608
+  bytes, unconnected target reports "unknown" with the reason. 127 checks.
+- `tests/midi-import/simulator.mjs` v0.1 (`make midi-import-sim`): renoise-export.mid
+  through the wasm simulator, below.
+- docs/tasks/TASK-02-notes.md folded into SPEC.md section 7 and this section, then removed.
+
+### 14.2 Simulator check (renoise-export.mid, 2026-11-02)
+
+tests/midi-import/simulator.mjs imports the file with the default assignments, output
+channels 3 / 5 / 7 / 9 on tracks 1–4 and "device setting" on tracks 5–8, writes it to the
+simulator's slot 3 as the workbench's simulator target does (record first, one kind-7
+batch of 112 blocks, 10 772 bytes), switches all eight tracks to FM6, plays it to the end
+with MIDI capture on and compares MIDI out with the model:
+
+| Check | Result |
+| --- | --- |
+| Song: rows / blocks / steps / tempo | 18 / 112 / 1152 / 80 BPM |
+| Played to its end and stopped by itself | 74 422 blocks = 216.0 s of audio, 0 underruns |
+| FM6 audible | mean RMS 0.135 over the run |
+| Note-ons on MIDI out | 1002 sent = 1002 in the model, every one matched by pitch, channel and step |
+| Velocities | all equal |
+| Note-on timing | within one tick block of the step: max error 3.0 blocks (8.7 ms), mean −0.8 blocks first and last 100 notes (no drift) |
+| Note lengths | every Note Off at start + length (or the song end) within 3.5 blocks |
+| Channels | tracks 1–4 on 3 / 5 / 7 / 9, track 5 on the device channel, nothing on any other channel |
+
+Run time about 23 s in Node 22. The check is not part of `make test` because it needs the
+wasm from `make web`.
+
+### 14.3 Done (Steps 2 and 3, 2026-11-02)
+- SMF parser with note pairing, running status, type 0 channel split, SMPTE and format 2
+  refusal, tolerant of truncated tracks.
+- Analysis and conversion with the mapping rules in section 2, warnings grouped by kind
+  with positions (bar, beat.sixteenth) and per-Tabby-track labels, statistics (rows before
+  and after merging, cells vs distinct blocks, notes in vs out, block bytes, sectors, pool %,
+  id %).
+- Song format module: block encoding/decoding, block records, song record with the 9.5
+  offsets and CRC, .tabby file (9.9) encode/decode, validation rule list, pool usage
+  (first-fit-decreasing into 4076-byte areas), JSON save/load.
+- Transfer interface and stub (plan: kind 5 record + kind 6 per block, targets
+  `(song << 8) | id`, query and time estimate; write: validate, plan, report, send nothing).
+- Standalone page with the full flow (file → parts and assignment → options → result →
+  save/load/export → write with the replace warning and the stub report).
+- Host tests (`make midi-import-test`): parser, every fixture scenario, deduplication,
+  JSON and .tabby round trips with byte-level checks of the v0.3 offsets, decode rejection
+  of bad channel and step-length bytes, validation rules, stub transfer, limits, and the four
+  Renoise files in tests/fixtures/. Headless Chrome run of the page: multitrack fixture
+  imported, OUT CH and bar range changed, stub write reported, no script errors.
+- Makefile: `midi-import-test` target (the only shared file touched; approved).
+- v0.2: encoder and decoder write and read the row step length and the output channels;
+  tests updated; Renoise fixtures run (section 6).
+- v0.3: 16-bit block ids, 20-byte rows, 6-byte block record header, CRC over 20..2623,
+  2048-block limit, kind 6 target (song << 16) | id; loose deduplication option in the
+  converter and the page (checkbox + tolerance); tests: byte checks of the new offsets, id
+  300 round trip, 256 distinct blocks accepted, 2049 rejected, loose mode at ±4/8/16 on a
+  synthetic file and on the four Renoise files (119 checks).
+
+### 14.4 Renoise fixtures: what the files hold (2026-11-02)
+
+The four files in tests/fixtures/ (renoise-export.mid, Glass Relay.mid, meridian_fault.mid,
+the_space_between_wires.mid) are **mf2t text**, not binary SMF: first line `MFile 1 N 96`
+(format 1, N tracks, 96 ticks per quarter = 24 ticks per 16th), then `MTrk` … `TrkEnd`
+blocks of `<tick> On|Off ch=1 n=… v=…` lines. Track 0 holds only `TimeSig 4/4 24 8` and
+`Tempo`; every other track is one Renoise instrument, named "Track name (NN: Instrument)"
+with an InstrName meta, all on channel 1. No CC, program change, pitch bend, SysEx or
+tempo/meter change in any file. The importer reads the text form directly (midi-parse.js
+v0.2).
+
+| File | Tracks / parts | Bars | BPM | Rows | Blocks exact (cells) | Bytes (pool %) | Changed | Dropped |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| renoise-export.mid | 9 / 8 | 69 | 80 | 18 | 112 (112) | 10772 (2.75) | 193 starts moved, 139 lengths rounded, 10 overlaps clipped | none |
+| Glass Relay.mid | 9 / 8 | 66 | 110 | 17 | 98 (119) | 10672 (2.73) | 126 moved, 165 rounded, 1 overlap | none |
+| meridian_fault.mid | 12 / 11 | 85 | 104 | 22 | 137 (157) | 13420 (3.43) | 91 moved, 182 rounded, 1 overlap | 3 parts unassigned by default (11 parts > 8 tracks) |
+| the_space_between_wires.mid | 10 / 9 | 64 | 104 | 16 | 117 (117) | 11924 (3.05) | 250 moved, 130 rounded, 44 overlaps | 1 part unassigned by default (9 parts) |
+
+- **Moved starts** are chord strums and humanisation: offsets of 1–3 ticks (up to 8 in
+  meridian_fault) inside a 24-tick 16th, so every note snaps back to its own step; nothing
+  moves by a whole step.
+- **Rounded lengths** are note-offs a tick or two early or late (3.969 → 4.00 beats and
+  the like).
+- **Overlaps clipped** are sustained pad and string notes re-struck on the same pitch
+  before the previous one ended (16 → 8 steps); MIDI would have cut them the same way.
+- **Nothing was dropped**: every note of every assigned part survives, no step has more
+  than 4 notes on one track, and the only unassigned parts are the ones beyond eight,
+  which the user assigns or merges in the preview.
+- **Exact deduplication finds almost nothing** in these files (blocks ≈ cells, no merged
+  rows): the material is through-composed and humanised, so no two 4-bar cells are
+  byte-identical. With 16-bit ids (v0.4) the songs use 5–7 % of the 2048 ids per song and
+  2.7–3.4 % of the pool, so capacity is no longer a concern for files of this size.
+- **Loose deduplication** (same notes, velocities within the tolerance) recovers a little,
+  because the humanisation is mostly in the strums (timing) rather than in velocities, and
+  strums that cross a step boundary change the notes themselves:
+
+| File | exact | ±4 | ±8 | ±16 |
+| --- | ---: | ---: | ---: | ---: |
+| renoise-export.mid | 112 | 111 (1 merge) | 110 (2) | 110 (2) |
+| Glass Relay.mid | 98 | 97 (3) | 95 (6) | 91 (10) |
+| meridian_fault.mid | 137 | 137 (0) | 135 (6) | 132 (13) |
+| the_space_between_wires.mid | 117 | 110 (7) | 106 (11) | 104 (13) |
+
+  Rows never merge in these files even in loose mode (a merged block in one track rarely
+  lines up with identical blocks in all eight). Every merge is listed in the warnings with
+  the row, bar range, block id and the largest velocity difference.
+
+### 14.5 Hardware checklist (Task 02 Step 5, done by the user)
+
+Do this after the Task 03 checklist of section 13.4 (song mode itself works on the device).
+Preparation: workbench connected to the device with the project library open (Projects &
+sounds); the song editor's target set to "device"; a project with tracks 1–8 on FM6 and SEQ
+on; the M8 (or a MIDI monitor) on the device's MIDI out; the four files from tests/fixtures/
+at hand: renoise-export.mid (69 bars, 80 BPM, 112 blocks), Glass Relay.mid (66 bars, 110
+BPM, 98 blocks), meridian_fault.mid (85 bars, 104 BPM, 137 blocks, 11 parts), and
+the_space_between_wires.mid (64 bars, 104 BPM, 117 blocks, 9 parts). Use spare song slots
+(for example 13–16) so nothing of yours is replaced.
+
+1. **Import each Renoise file.** Library tab → "Import MIDI file (Classic Tabby)" → choose
+   the file. See: the summary line (format 1, 96 ticks per quarter, N tracks, parts, bars,
+   tempo), the parts table with every Renoise instrument on channel 1 and its note count and
+   range, and in step 4 the row table and the "Dropped or changed" list with only
+   `moved`, `lengthRounded` and `overlapClipped` entries (the counts of section 14.4) and,
+   for meridian_fault and the_space_between_wires, the parts beyond eight marked "skip".
+   Assign the skipped parts to a track or leave them. Nothing is written yet.
+2. **Write it to a spare song slot and time the upload.** Step 6: pick the slot, confirm
+   the dialog ("Write … to device song N? Existing content … deleted and replaced."), start
+   a stopwatch at OK. See: "Writing… NN %" climbing, then the message "Written to device
+   song N: record + K block(s) in B batch(es), X bytes, T s; record read back and verified."
+   and the plan box listing kind 5 then the kind-7 batches. Expected T (section 13.3
+   estimate): about 3.5–11 s for these songs (one or two batches of 10–13 KB plus the
+   record); write the measured T next to the file name. Audio dips only in the moment after
+   each batch's last chunk.
+3. **Audition on FM6.** Device: ACTIONS → SONG MODE, K1 to the slot, PLAY. See: the song's
+   name, ROW advancing every 4 bars (64-step rows; the last row shorter), the tempo of the
+   file (80 / 110 / 104 BPM) on MIDI clock out. Hear: the Renoise arrangement on FM6, every
+   part on its track, chords intact (up to 4 notes per step), sustained pads holding across
+   row changes, the song stopping by itself after the last bar with "STOPPED - PLAY STARTS".
+4. **Switch the tracks to MIDI out and confirm on the M8.** Set the song's OUT CH per track
+   in the importer (step 2 of the panel, for example T1 ch 1 … T8 ch 8), write again (the
+   slot is deleted and replaced; time it again), and set the M8 to receive those channels.
+   PLAY. See on the M8 / monitor: each track's notes on its channel only, note lengths as
+   in Renoise (a 4-step note is 4 sixteenths at the song tempo), velocities as exported,
+   Start at the beginning and Stop at the end, no hanging note after the stop. Compare one
+   bar against Renoise's pattern editor: the same pitches on the same 16th positions
+   (strums snapped to their step, as the warning list said).
+5. **Re-import one file to the same slot and check free space after compaction.** Note
+   "Storage status" (song editor) before: free F0, reclaimable R0. Write the same file to
+   the same slot again. See: the message says "(previous "NAME" deleted first)"; status now
+   shows reclaimable ≈ R0 + the song's block bytes (the first copy is garbage) and free
+   lower by the second copy. ACTIONS → COMPACT SONG STORAGE on the device, wait for
+   "COMPACTING STORAGE..." to clear. See: reclaimable back to R0 and free = F0 (one copy of
+   the song in the pool, no leak), and the song still plays through.

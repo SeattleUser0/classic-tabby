@@ -288,6 +288,10 @@ main{max-width:1440px}
 </div>
 <small>写入歌曲会先写入歌曲记录，再把编辑器中的全部块分批写入设备（每批最多 8 个扇区，一次提交；旧副本在设备 ACTIONS → COMPACT SONG STORAGE 时回收），最后读回校验。写入期间设备音频会短暂中断。恢复原厂 V16 会覆盖歌曲存储的最后 40 KB（块扇区 86–95），请先导出歌曲。</small>
 </details>
+<details class="library-group"><summary>导入 MIDI 文件（Classic Tabby）</summary>
+<p class="sim-help">把标准 MIDI 文件（.mid，type 0/1，含 Renoise 导出）转换为歌曲：预览各声部、指定轨道与输出通道、选择小节范围后写入设备或浏览器仿真（写入目标跟随上方“歌曲模式”的目标选择；占用的歌曲槽会先删除再写入）。面板为英文。</p>
+<div id="midi-import" class="midi-import"></div>
+</details>
 </details>
 </section>
 <section id="tab-manual" role="tabpanel" aria-labelledby="mode-manual" tabindex="0" hidden>
@@ -403,6 +407,7 @@ main{max-width:1440px}
 /*FM1_I18N*/
 /*FM1_PAYLOAD*/
 /*FM1_SCRIPT*/
+/*FM1_IMPORT_SCRIPT*/
 /*FM1_SIMULATOR*/
 (() => {
   const $=id=>document.getElementById(id);
@@ -800,15 +805,23 @@ main{max-width:1440px}
   const songEd={song:null,blocks:new Map(),slot:0};
   const songMessage=text=>FM1I18n.text($('song-message'),text);
   const songSim=()=>$('song-target').value==='sim';
-  const songBackend=()=>{
+  // `progress` (Task 02 Step 4) lets the MIDI importer show the write progress in its own
+  // panel; `exists` returns the slot's record image (or null) without downloading blocks.
+  const songBackend=(progress=p=>songMessage('正在写入歌曲 '+Math.round(p*100)+'%'))=>{
     if(songSim()){const sim=globalThis.FM1Simulator;if(!sim||!sim.ready())throw Error('请先启动仿真');
       return {read:song=>sim.request('song-read',{song}).then(d=>d?{record:d.record,blocks:new Map(d.blocks)}:null),
         write:(song,record,blocks)=>sim.request('song-write',{song,record,blocks:[...blocks]}),
-        remove:song=>sim.request('song-delete',{song}),status:()=>sim.request('song-status')};}
+        remove:song=>sim.request('song-delete',{song}),status:()=>sim.request('song-status'),
+        exists:song=>sim.request('song-read',{song}).then(d=>d?d.record:null)};}
     if(!library||!libraryReady)throw Error('请先连接项目库');
-    return {read:song=>library.songRead(song,p=>songMessage('正在读取歌曲 '+Math.round(p*100)+'%')),write:(song,record,blocks)=>library.songWrite(song,record,blocks,p=>songMessage('正在写入歌曲 '+Math.round(p*100)+'%')),
-      remove:song=>library.songDelete(song),status:()=>library.songStatus()};
+    return {read:song=>library.songRead(song,p=>songMessage('正在读取歌曲 '+Math.round(p*100)+'%')),write:(song,record,blocks)=>library.songWrite(song,record,blocks,progress),
+      remove:song=>library.songDelete(song),status:()=>library.songStatus(),
+      exists:song=>library.download(5,song).catch(error=>{if(error.deviceCode===1)return null;throw error;})};
   };
+  // Task 02 Step 4: the MIDI importer (web/import/, inlined by build-web.py) mounts next to the
+  // editor and writes through the same backend, so device and simulator targets behave alike.
+  if(globalThis.TabbyImportUI&&globalThis.TabbySongTransfer&&$('midi-import'))
+    TabbyImportUI.mount($('midi-import'),{transfer:TabbySongTransfer.select({backend:songBackend,name:()=>songSim()?'simulator':'device'})});
   for(let i=0;i<16;i++){$('song-slot').append(option(i,String(i+1)));$('song-project').append(option(i,String(i+1)));}
   for(let t=0;t<8;t++){const l=document.createElement('label');l.textContent='T'+(t+1)+' ';const i=document.createElement('input');i.type='number';i.min='0';i.max='16';i.step='1';i.dataset.songChannel=t;l.append(i);$('song-channels').append(l);}
   for(let s=0;s<64;s++){const l=document.createElement('label');l.textContent=(s+1)+' ';const i=document.createElement('input');i.type='text';i.dataset.songStep=s;i.placeholder='-';l.append(i);$('song-steps').append(l);}

@@ -1,7 +1,10 @@
 # Classic Tabby — Specification
 
-Version: 0.8
+Version: 0.9
 Revision log:
+- v0.9, 2026-11-02: section 7 added: Task 02 MIDI import (scope, workbench write path,
+  mapping rules, layout, differences found at the Step 4 rebase, known limits), folded from
+  docs/tasks/TASK-02-notes.md.
 - v0.8, 2026-11-02: section 6: checkpoint (e) done (batched block upload, transfer kind 7,
   assessment v0.5), upload order record-first, flash margin below the 4 KB target noted,
   known limits updated; hardware checklist for the first flash in BUILD.md section 13.4.
@@ -263,3 +266,171 @@ Known limits (v1):
   and plays, it does not edit songs.
 - The SEQ page "OUT CH" readout shows the device setting while a song override is active
   (no marker in v1; the SONG page shows the song's channels only through the record).
+
+## 7. Task 02 — MIDI file import (folded from docs/tasks/TASK-02-notes.md at Step 4)
+
+Task text: docs/tasks/TASK-02-midi-import.md. Assessment: docs/tasks/TASK-02-step1-assessment.md.
+Build notes, test results and the hardware checklist: BUILD.md section 14.
+
+### 7.1 Scope
+
+Import Standard MIDI Files (type 0 and type 1, PPQ time division; binary SMF or the mf2t
+text form that the Renoise/XRNS2MIDI tool chain writes) in the browser workbench and turn
+them into Task 03 songs: rows of 64-step blocks shared through a per-song pool, up to 4
+independent notes per step (pitch, velocity, length) at 16th resolution. Everything runs in
+the browser (web/import/); the device write goes through one transfer interface whose
+workbench implementation (Step 4) is the song editor's own write path. No firmware change.
+The approved Task 03 Step 1 report, section 9, is the binding format (v0.5, commit 96c9058;
+the block, row, song record and `.tabby` layouts are those of v0.4).
+
+Files (all new, Task 02):
+
+| File | Role |
+| --- | --- |
+| web/import/midi-parse.js | SMF parser (binary MThd/MTrk and mf2t text "MFile …"): header, tracks, running status, meta, SysEx, note pairing |
+| web/import/midi-song.js | analyze() the file into parts; convert() to a song with the mapping rules |
+| web/import/song-format.js | song model, block/record/.tabby encoding and decoding, validation rules, pool usage, JSON save/load |
+| web/import/song-transfer.js | transfer interface: stub (standalone page) and the workbench backend (Step 4) |
+| web/import/import-ui.js | the Import MIDI panel as a DOM component (`TabbyImportUI.mount`) |
+| web/import/index.html | standalone development page (open from disk; stub transfer) |
+| tests/midi-import/smf-write.mjs | SMF writer for fixtures |
+| tests/midi-import/make-fixtures.mjs | generates tests/midi-import/fixtures/*.mid deterministically |
+| tests/midi-import/run.mjs | the host tests (`make midi-import-test`) |
+| tests/midi-import/simulator.mjs | the simulator check (`make midi-import-sim`, after `make web`) |
+| tests/fixtures/*.mid | four Renoise exports (mf2t text) used by the tests |
+
+The scripts are classic scripts publishing `globalThis.TabbyMidi`, `TabbyMidiSong`,
+`TabbySongFormat`, `TabbySongTransfer`, `TabbyImportUI`, with a CommonJS export guard so
+Node loads the same files. No library is used (the parser is about 200 lines), so
+THIRD_PARTY.md is unchanged. In the workbench they are inlined by tools/linux/build-web.py
+(placeholder `/*FM1_IMPORT_SCRIPT*/`) and the panel is mounted in the Library tab, group
+"导入 MIDI 文件（Classic Tabby）" / "Import MIDI file (Classic Tabby)", next to the song
+editor. The panel's own strings are English in both UI languages (decision at Step 4: no
+80-string addition to the shared sdk/I18n.js; only the group title and its help line are
+translated).
+
+### 7.2 Writing to the device (Step 4)
+
+The importer never sends a transfer itself. Its transfer object wraps the song editor's
+backend (`songBackend()` in sdk/Update.html.in), which is the Library class for a connected
+device or the browser simulator, following the editor's "target" choice:
+
+1. the slot is checked (kind 5 download of the record only, no blocks);
+2. an occupied slot is **deleted first** (`Library.songDelete`), so every old block becomes
+   garbage for compaction instead of staying live under an id the new song no longer uses
+   (Task 03 liveness rule, 9.4);
+3. the song is written by `Library.songWrite`: the song record first, then the blocks in
+   kind-7 batches cut at the device's packing boundaries (section 9.6 v0.5), then the record
+   is read back and compared;
+4. the panel shows the elapsed time, the batch plan and the replace note.
+
+With firmware before checkpoint (e) (capability bit 3 clear) the Library class falls back
+to kind 6, one block per transaction; the importer does not care.
+
+### 7.3 Mapping rules (as implemented)
+
+Positions: `step = tick × 4 / division` in 16ths from the start of the file; starts snap to
+the nearest step, ties toward the earlier step (2.5 → 2).
+
+| MIDI content | Handling |
+| --- | --- |
+| Note ends | rounded to whole steps by the chosen rule: nearest (default, ties earlier), never shorter (round up), never longer (round down); stored length = max(1, end − start) |
+| Notes shorter than a step | length 1 (counted: lengthMin) |
+| Notes longer than 255 steps | clipped to 255 (lengthClipped) |
+| Notes outside the chosen bar range | dropped (droppedRange); notes ending past it clipped (clippedRange) |
+| Same pitch overlapping on one track | the earlier note is shortened to end where the next starts (overlapClipped); two same-pitch notes on one step keep the louder (duplicateDropped); the retrigger bit is never set |
+| More than 4 notes starting on one step on one track | keep the 4 loudest (tie → higher pitch), or highest, or lowest (overflowDropped) |
+| Velocity 0 note-on | note-off (MIDI rule) |
+| Tempo | first set-tempo event, rounded to an integer BPM (tempoRounded), clamped 30..300 (tempoClamped); becomes the song's tempo override; no tempo → 120 (noTempo); later tempo events that differ from the previous one are listed and ignored (tempoChangesIgnored) |
+| Time signature | first one sets the bar length `16 × numerator / denominator` steps (must be a whole number 1..64, else the file is refused); later changes listed and ignored (meterChangesIgnored) |
+| Control changes, pitch bend, aftertouch, SysEx, other meta | ignored, counted per type; sustain (CC 64) counted separately |
+| Program changes | ignored, listed with track, channel, program (1-based) and position |
+| Several channels in one MIDI track | split into parts keyed (track, channel); the part name gets " chN" |
+| More than 8 parts | the first 8 non-empty parts are pre-assigned to tracks 1..8, the rest are "skip"; any part may be assigned to any track; several parts may share a track |
+| Truncated file / missing end-of-track | events read so far are kept; warning shown |
+| SMPTE division, format 2 | refused with a message |
+| mf2t text files | read like binary files; measure:beat:click times are refused (re-run mf2t without -t); unknown lines are counted, not fatal |
+
+Rows: one row per `rowSteps` steps from the start of the bar range. `rowSteps` is one of 16,
+32, 48, 64 (the allowed row lengths) and must hold whole bars; the default is the candidate
+closest to 4 bars (ties → longer): 4/4 → 64, 3/4 and 6/8 → 48, 2/4 → 32, 12/8 → 48 (2
+bars), 1/4 → 16. Meters with no aligned candidate (5/4, 7/8, 9/8, 7/4 …) use 64 with the
+warning meterUnaligned. A note is stored in the row and step where it starts with its full
+length; steps ≥ rowSteps inside a block stay empty. Trailing silent rows inside the bar
+range are kept (a long note may ring through them).
+
+Deduplication: the cell (row, track) is encoded with the section 9.3 block encoding; the
+byte string is the pool key; an empty cell is block id 0 and is never stored; identical
+cells share one id (1..65535 in order of first appearance). Consecutive rows with identical 8
+ids merge into one row with repeat + 1, up to 64. The merge is lossless (test 3 unrolls the
+rows and compares with the pre-deduplication grid).
+
+Loose deduplication (option, **off by default**, tolerance default ±8): when a cell has no
+exact match, it is compared with every stored block that has the same notes (step, pitch,
+length, position for position); if every velocity differs by at most the tolerance, the
+cell reuses that block and the stored block keeps the first cell's velocities (no drift:
+later cells are always compared with the stored velocities, never with each other). Each
+merge is listed in the warnings as kind `looseMerged` with track, row, bar range, block id
+and the largest velocity difference; the count is in the statistics. The tolerance (0..126)
+and the mode are recorded in `song.source`.
+
+Song fields set by the importer: name (file name, 12 upper-case ASCII, editable), project
+slot (user choice, default 1), tempo override (first tempo), loop flag (checkbox, off),
+jump mode bar, loop row 0, every row's step length (above; row byte 10), OUT CH per track
+(user choice, default "device setting" = header byte 0; channel n is written as n, 1..16). `song.source` records file name, format, division, exact tempo, meter,
+bar range, rules and the part-to-track assignment; `song.warnings` records the warning
+kinds and counts.
+
+Limits, checked after deduplication: 128 rows, 2048 blocks per song (16-bit ids; the
+importer can produce at most 128 × 8 = 1024 anyway), block payload 64..832 bytes, pool
+96 × 4076 bytes. The import is refused with a message (narrow the bar range) when a
+limit is exceeded.
+
+### 7.4 Layout as written (section 9 v0.4 layouts, unchanged in v0.5)
+
+Song record: header 64 bytes (magic FM1G, generation, target, **CRC over 20..2623**, commit,
+version 1, name at 24, project slot 36, flags 37, tempo 38, row count 40, byte 41 reserved
+0 (v0.4; was the block count), loop row 42, reserved 43..47, **output channels 48..55** as
+0 = device setting or 1..16, reserved 56..63), then **128 rows × 20 bytes at offset 64**:
+**8 × uint16 LE block ids** (0 = silent, 1..65535), repeat at 16, flags at 17, **step length
+at 18** (16/32/48/64; 0 reads as 64), reserved 19; 2624..4095 0xFF. Block record (file and
+device): song byte, reserved 0, **id uint16 LE**, length uint16 LE, payload, padded to 4
+bytes (6-byte header). Transfer kind 6 target = **(song << 16) | id**. The importer writes
+the step length explicitly in every used row and leaves unused rows zero. Decoding rejects
+channel bytes above 16 and step lengths other than 0/16/32/48/64, as the device does.
+`validate()` warns when a row shorter than 64 steps points at a block with notes beyond the
+row's end (the device never starts them); the importer never produces that. v0.1 JSON
+files with `song.rowSteps` still load (the value moves into each row). The v0.2 and v0.3
+record layouts were never written to a device and are not read.
+
+### 7.5 Merged code against the spec the importer was built on
+
+The importer was built against section 9 v0.4; the merged firmware implements v0.5. Found
+at the rebase (Step 4), none of them a byte-layout difference:
+
+- Transfer: the merged workbench writes the record first and the blocks as kind-7 batches
+  (v0.5); the importer's stub planned the v0.4 order (record then kind-6 blocks). The
+  importer now uses the workbench path and only plans the batch cut for its estimate.
+- Liveness (9.4): a block stays live while its song's record is valid, whether or not a row
+  references it, so a rewrite that renumbers blocks leaks pool space until the song is
+  deleted. The importer deletes an occupied slot before writing.
+- Capability reply bit 3 and command 23 bytes 9..12 are new; the importer reads neither
+  (the Library class does).
+- Validation: the device does not range-check the tempo override (any 16-bit value); the
+  importer's 30..300 is stricter. The device requires name bytes 32..126; the importer's
+  padName produces upper-case ASCII. Unused rows may be zero (the device validates only the
+  first `rows` rows), as the importer writes them.
+- Timing granularity (measured in the simulator, not in the spec): the sequencer ticks once
+  per 128-frame block and events leave on the next block, so note-ons and note-offs land
+  within ±3 blocks (about 9 ms at 44.1 kHz) of their step, with no drift over a 216-second
+  song.
+
+### 7.6 Known limits
+
+- Sustain pedal (CC 64) is counted, not applied; tempo and meter changes after the first
+  are ignored; program changes are listed and ignored (rules in 7.3).
+- One file becomes one song; splitting into several songs and transposed-block detection
+  are not planned for v1.
+- Legato is not produced: the importer clips same-pitch overlaps instead of setting the
+  retrigger bit, so the device never extends a note (9.3 legato rule) for imported material.
+- The panel is English only (7.1).

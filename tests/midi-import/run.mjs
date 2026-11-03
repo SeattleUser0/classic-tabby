@@ -27,7 +27,7 @@
 //        whose velocities differ by 6 and 12; the stored block keeps the first velocities;
 //        every merge is listed;
 //    11. format check: every produced song passes validate(); block size limits; the stub
-//        transfer plans every song;
+//        transfer plans every song; 11c: the workbench backend transfer on a fake backend;
 //    12. Renoise exports: every .mid in tests/fixtures/ (and renoise*.mid in
 //        tests/midi-import/fixtures/): parses, converts, validates, JSON round trip, and the
 //        file's division, track layout and warnings are printed; SKIPPED when none exists.
@@ -35,9 +35,11 @@
 //   Run:  /usr/bin/node tests/midi-import/run.mjs      (or: make midi-import-test)
 //   Exit status 0 on success; every check prints "ok" or "FAIL".
 //
-// Version: 0.3
+// Version: 0.4
 //
 // Revision log
+//   v0.4  2026-11-02  Step 4: 11c backend transfer (delete-before-replace, record first, kind-7
+//                     batch plan, read-back decode).
 //   v0.3  2026-11-02  Section 9 v0.4 layout (16-bit ids, 20-byte rows); loose deduplication
 //                     tests; Renoise files also run at tolerances 4, 8 and 16.
 //   v0.2  2026-11-02  Section 9 v0.3 layout (row.steps, output channels); Renoise test takes
@@ -289,6 +291,35 @@ const produced = [];
   check(bigSong.blocks.length === 256 && Format.validate(bigSong).ok && Format.decodeFile(Format.encodeFile(bigSong)).blocks.length === 256, 'limits: 256 distinct blocks accepted and round-trip with 16-bit ids');
   const tooMany = Format.emptySong('x'); tooMany.blocks = Array.from({ length: 2049 }, (_, i) => ({ id: i + 1, notes: [{ step: 0, pitch: 60, velocity: 100, length: 1 }] })); tooMany.rows = [{ blocks: [1, 0, 0, 0, 0, 0, 0, 0], repeat: 1, steps: 64 }];
   check(!Format.validate(tooMany).ok && /max 2048/.test(Format.validate(tooMany).errors[0]), 'limits: 2049 blocks rejected by validate()');
+  // ---- 11c. the workbench backend transfer (Step 4): delete-before-replace, record first,
+  // kind-7 batches cut like sdk/WebUpdate.js songBatches(), read() decodes the slot ---------
+  {
+    const log = [], store = new Map();
+    const fake = progress => ({
+      exists: async slot => store.get(slot)?.record ?? null,
+      remove: async slot => { log.push('remove ' + slot); store.delete(slot); },
+      write: async (slot, record, blocks) => { log.push('write ' + slot + ' record then ' + blocks.size + ' blocks'); store.set(slot, { record, blocks }); progress?.(1); },
+      read: async slot => store.get(slot) ?? null,
+      status: async () => ({ free: 391296, reclaimable: 0, state: 0 }),
+    });
+    const dev = Transfer.select({ backend: fake, name: () => 'device' });
+    check(dev.real && dev.name === 'device' && (await dev.describe()).real, 'backend: selected when a backend is given');
+    check((await dev.exists(3)).empty === true, 'backend: empty slot reported empty');
+    const song = produced[1], first = await dev.write(3, song, { progress: () => {} });
+    check(first.sent && !first.replaced && same(log, ['write 3 record then ' + song.blocks.length + ' blocks']), 'backend: first write = record + blocks through the workbench path, no delete', log.join('; '));
+    const e = await dev.exists(3);
+    check(e.empty === false && e.rows === song.rows.length && e.blocks === new Set(song.rows.flatMap(r => r.blocks).filter(Boolean)).size && e.name === song.name.trim(), 'backend: occupied slot reports name, rows, distinct blocks', JSON.stringify(e));
+    log.length = 0;
+    const second = await dev.write(3, song, {});
+    check(second.replaced && same(log, ['remove 3', 'write 3 record then ' + song.blocks.length + ' blocks']) && /deleted first/.test(second.message), 'backend: rewrite deletes the slot first, then writes', log.join('; '));
+    const back = await dev.read(3);
+    check(back && same(Format.encodeFile(back), Format.encodeFile(song)), 'backend: read() returns the written song (identical .tabby bytes)');
+    const plan = await dev.plan(bigSong, 0);
+    const sizes = plan.batches.map(b => b.bytes), fits = plan.batches.every(b => { let fill = 0, sectors = 1; for (const id of b.blocks) { const sz = (6 + plan.blocks.find(x => x.id === id).bytes + 3) & ~3; if (fill + sz > 4076) { sectors++; fill = 0; } fill += sz; } return sectors <= 8 && b.bytes <= 32608; });
+    check(plan.batches.length >= 1 && fits && plan.batches.reduce((n, b) => n + b.blocks.length, 0) === bigSong.blocks.length && sizes.every(x => x % 4 === 0), 'backend: plan cuts kind-7 batches of at most 8 sectors / 32608 bytes covering every block', `${plan.batches.length} batch(es): ${sizes.join(', ')} bytes`);
+    const none = Transfer.select({ backend: () => { throw new Error('not connected'); } });
+    check((await none.exists(0)).empty === 'unknown' && /not connected/.test((await none.exists(0)).reason), 'backend: unconnected target reports unknown with the reason');
+  }
 }
 
 // ---- 12. Renoise exports -----------------------------------------------------------------

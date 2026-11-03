@@ -240,6 +240,9 @@ def build(args, log):
         "/*FM1_SCRIPT*/": (ROOT / "sdk/WebUpdate.js").read_text(encoding="utf-8"),
         "/*FM1_SIM_SCRIPT*/": (ROOT / "sdk/Simulator.js").read_text(encoding="utf-8"),
         "/*FM1_SAMPLE_SCRIPT*/": (ROOT / "sdk/Samples.js").read_text(encoding="utf-8"),
+        # Task 02 Step 4: the MIDI importer (web/import/, classic scripts) inlined in load order.
+        "/*FM1_IMPORT_SCRIPT*/": "\n".join((ROOT / "web/import" / name).read_text(encoding="utf-8")
+                                           for name in ("midi-parse.js", "song-format.js", "midi-song.js", "song-transfer.js", "import-ui.js")),
     }
     for name in ("THIRD_PARTY.md", "LICENSE.md"):
         notice = (ROOT / name).read_text(encoding="utf-8")

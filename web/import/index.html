@@ -7,13 +7,15 @@
     Hosts the Import MIDI panel (import-ui.js) outside the workbench while Task 03 Step 2
     changes the workbench files in another session (Task 02 parallel-work rules). Open it
     directly from disk: file://…/web/import/index.html. The scripts are classic scripts, so
-    no server and no build step are needed. At Task 02 Step 4 the same scripts are inlined
-    into sdk/Update.html.in and mounted inside the Library tab; this page then stays as the
-    developer harness.
+    no server and no build step are needed. Since Task 02 Step 4 the same scripts are inlined
+    into the workbench by tools/linux/build-web.py (placeholder /*FM1_IMPORT_SCRIPT*/) and
+    mounted in the Library tab next to the song editor; this page stays as the developer
+    harness with the stub transfer.
 
-  Version: 0.1
+  Version: 0.2
 
   Revision log
+    v0.2  2026-11-02  Step 4: note on the workbench mount; stub transfer stays here.
     v0.1  2026-11-02  Initial version (Task 02, Step 2).
 -->
 <html lang="en">

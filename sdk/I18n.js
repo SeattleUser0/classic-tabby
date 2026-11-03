@@ -847,6 +847,8 @@
   "连接超时，请检查 USB 连接和 MIDI 权限后重试。": "Connection timed out. Check USB and MIDI permissions, then retry.",
   "采样读取已取消": "Sample reading cancelled",
   "歌曲模式（Classic Tabby）": "Song mode (Classic Tabby)",
+  "导入 MIDI 文件（Classic Tabby）": "Import MIDI file (Classic Tabby)",
+  "把标准 MIDI 文件（.mid，type 0/1，含 Renoise 导出）转换为歌曲：预览各声部、指定轨道与输出通道、选择小节范围后写入设备或浏览器仿真（写入目标跟随上方“歌曲模式”的目标选择；占用的歌曲槽会先删除再写入）。面板为英文。": "Converts a standard MIDI file (.mid, type 0/1, Renoise exports included) into a song: preview the parts, assign tracks and output channels, pick a bar range, then write to the device or the browser simulator (the target follows the Song mode target above; an occupied song slot is deleted first). The panel is in English.",
   "歌曲 = 行的序列；每行给 8 条轨道各指定一个块（64 步、每步最多 4 个音符）。歌曲存放在设备的歌曲存储区，由面板 ACTIONS → SONG MODE 播放。文件格式见 docs/tasks/TASK-03-step1-assessment.md 第 9 节。": "A song is a sequence of rows; each row assigns one block (64 steps, up to 4 notes per step) to each of the 8 tracks. Songs live in the device's song storage and play from the panel's ACTIONS > SONG MODE. File format: docs/tasks/TASK-03-step1-assessment.md section 9.",
   "目标": "Target",
   "设备（项目库）": "Device (project library)",

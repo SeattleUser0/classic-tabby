@@ -26,11 +26,16 @@
  *   Every change in steps 2 and 3 re-converts immediately; the result shown is always the
  *   song that "Save" / "Write" would use. Nothing touches a device until step 6 is confirmed.
  *
- *   Strings are English for the standalone page; at merge they get FM1I18n entries.
+ *   Strings are English on purpose: the workbench translates its own Chinese strings
+ *   through FM1I18n; this panel is Classic Tabby only and is shown in English in both
+ *   languages (Step 4 decision: no 80-string addition to the shared sdk/I18n.js).
  *
- * Version: 0.3
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-02  Step 4: mounted in the workbench Library tab; the transfer may be the
+ *                     workbench backend (device or simulator): target name in the confirm
+ *                     and the messages, batch plan shown, elapsed time reported.
  *   v0.3  2026-11-02  Loose block matching option with velocity tolerance (default 8, off);
  *                     block count shown against 2048 (section 9 v0.4).
  *   v0.2  2026-11-02  Row step length shown per row; OUT CH note updated (field now in the
@@ -93,7 +98,7 @@
       exportTabby: h('button', { type: 'button', textContent: 'Export .tabby file' }),
       slot: h('select', {}, ...Array.from({ length: 16 }, (_, i) => option(i, 'song ' + (i + 1)))),
       slotInfo: h('span', { class: 'ti-slot-info' }),
-      write: h('button', { type: 'button', textContent: 'Write song to device…' }),
+      write: h('button', { type: 'button', textContent: 'Write song…' }),
       transferInfo: h('p', { class: 'ti-muted' }),
       plan: h('pre', { class: 'ti-plan', hidden: true }),
     };
@@ -125,10 +130,10 @@
       h('section', { class: 'ti-step' }, h('h3', {}, '5. Browser song'),
         h('p', {}, ui.saveJson, ' ', ui.exportTabby, ' ', h('label', {}, 'Load song JSON ', ui.loadJson)),
         h('p', { class: 'ti-muted' }, 'The song lives in this page until you write it. Save the JSON to keep it; the .tabby file is the Task 03 device/file format (song record + block records).')),
-      h('section', { class: 'ti-step' }, h('h3', {}, '6. Write to device'),
+      h('section', { class: 'ti-step' }, h('h3', {}, '6. Write to the device or the simulator'),
         ui.transferInfo,
-        h('p', {}, h('label', {}, 'Device song slot ', ui.slot), ' ', ui.slotInfo),
-        h('p', { class: 'ti-warn' }, 'Writing replaces whatever that song slot holds on the device. Projects are not changed.'),
+        h('p', {}, h('label', {}, 'Song slot ', ui.slot), ' ', ui.slotInfo),
+        h('p', { class: 'ti-warn' }, 'Writing replaces whatever that song slot holds (an occupied slot is deleted first). Projects are not changed. The target follows the song editor\'s "target" choice above: device (project library connected) or browser simulator.'),
         h('p', {}, ui.write), ui.plan));
 
     /* ---- helpers ---------------------------------------------------------------------- */
@@ -138,9 +143,9 @@
       ui.saveJson.disabled = ui.exportTabby.disabled = ui.write.disabled = !have || state.busy;
       for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.lengthRule, ui.overflowRule]) el.disabled = !state.analysis || state.busy;
     };
-    transfer.describe().then(d => { ui.transferInfo.textContent = 'Transfer: ' + transfer.name + (d.real ? '' : ' (stub: validates and reports what it would send; no device is written)') + ' · ' + d.songs + ' songs · ' + d.rows + ' rows · ' + d.blocks + ' blocks per song · pool ' + kb(d.poolBytes) + '.'; });
+    transfer.describe().then(d => { ui.transferInfo.textContent = 'Transfer: ' + (d.real ? d.note : 'stub (validates and reports what it would send; no device is written)') + ' · ' + d.songs + ' songs · ' + d.rows + ' rows · ' + d.blocks + ' blocks per song · pool ' + kb(d.poolBytes) + '.'; });
     const slotInfo = async () => {
-      try { const e = await transfer.exists(Number(ui.slot.value)); ui.slotInfo.textContent = e.empty === 'unknown' ? 'Contents unknown until a device is connected.' : e.empty ? 'Slot is empty.' : 'Slot holds "' + e.name + '" (' + e.rows + ' rows, ' + e.blocks + ' blocks) — it will be replaced.'; }
+      try { const e = await transfer.exists(Number(ui.slot.value)); ui.slotInfo.textContent = e.empty === 'unknown' ? 'Contents unknown until the target is connected' + (e.reason ? ' (' + e.reason + ')' : '') + '.' : e.empty ? 'Slot is empty on the ' + transfer.name + '.' : 'Slot holds "' + e.name + '" (' + e.rows + ' rows, ' + e.blocks + ' blocks) on the ' + transfer.name + ' — it will be deleted and replaced.'; }
       catch (error) { ui.slotInfo.textContent = error.message; }
     };
     ui.slot.addEventListener('change', slotInfo); slotInfo();
@@ -228,15 +233,17 @@
     ui.write.addEventListener('click', async () => {
       if (!state.song || state.busy) return;
       const slot = Number(ui.slot.value);
-      if (!confirm('Write "' + state.song.name.trim() + '" to device song ' + (slot + 1) + '? Existing content in that slot is replaced.' + (transfer.real ? '' : '\n\n(Stub transfer: nothing is written; the plan is shown instead.)'))) return;
+      if (!confirm('Write "' + state.song.name.trim() + '" to ' + transfer.name + ' song ' + (slot + 1) + '? Existing content in that slot is deleted and replaced.' + (transfer.real ? '' : '\n\n(Stub transfer: nothing is written; the plan is shown instead.)'))) return;
       state.busy = true; enable(); ui.plan.hidden = true; say('Writing…');
       try {
         const report = await transfer.write(slot, state.song, { progress: v => say('Writing… ' + Math.round(v * 100) + ' %') });
         say(report.message || ('Written to song ' + (slot + 1) + '.'));
         ui.plan.hidden = false;
-        ui.plan.textContent = [`transfer: ${transfer.name}  sent: ${report.sent !== false}`, `kind 5  target ${report.record.target}  ${report.record.bytes} bytes (song record)`,
-          ...report.blocks.map(b => `kind 6  target 0x${b.target.toString(16).padStart(6, '0')}  block ${b.id}  ${b.bytes} bytes`),
-          `total ${report.totalBytes} bytes, ${report.queries} queries, about ${report.seconds.toFixed(1)} s`].join('\n');
+        ui.plan.textContent = [`transfer: ${transfer.name}  sent: ${report.sent !== false}` + (report.replaced ? '  (previous song deleted first)' : ''), `kind 5  target ${report.record.target}  ${report.record.bytes} bytes (song record, written first)`,
+          ...(report.batches && report.batches.length
+            ? report.batches.map((b, i) => `kind 7  batch ${i + 1}  ${b.blocks.length} block(s) ${b.blocks[0]}..${b.blocks[b.blocks.length - 1]}  ${b.bytes} bytes`)
+            : report.blocks.map(b => `kind 6  target 0x${b.target.toString(16).padStart(6, '0')}  block ${b.id}  ${b.bytes} bytes`)),
+          `total ${report.totalBytes} bytes, ${report.queries} queries, ` + (report.sent !== false ? `${report.seconds.toFixed(1)} s` : `about ${report.seconds.toFixed(1)} s`)].join('\n');
       } catch (error) { say('Write failed: ' + error.message); }
       state.busy = false; enable(); slotInfo();
     });
@@ -245,7 +252,7 @@
     return { state, reconvert, ui };
   }
 
-  const TabbyImportUI = { mount, h, version: '0.1' };
+  const TabbyImportUI = { mount, h, version: '0.4' };
   globalThis.TabbyImportUI = TabbyImportUI;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();

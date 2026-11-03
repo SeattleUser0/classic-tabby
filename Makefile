@@ -20,6 +20,8 @@
 #                            with FM1_HOST_TEST, plus a Node check of the wasm   [Step 7]
 #     make midi-import-test  Node tests of the MIDI importer (web/import, tests/midi-import)
 #                            against the generated fixture .mid files        [Task 02 MIDI]
+#     make midi-import-sim   plays an imported Renoise export through build/web/simulator.wasm
+#                            (after make web) and checks MIDI out            [Task 02 Step 4]
 #     make flash-budget      docs tables from the current build/<MODEL>/ (read only)
 #     make package-equivalence  Package.cs (pwsh) vs package.py byte comparison; skipped
 #                            with a message when pwsh is not installed
@@ -45,9 +47,10 @@
 #       make firmware JIELI_LINUX=/opt/jieli
 #       make firmware-ref WINEPREFIX=$HOME/.wine-jieli
 #
-# Version: 0.5
+# Version: 0.6
 #
 # Revision log
+#   v0.6  2026-11-02  Task 02 Step 4: midi-import-sim target (Node, needs build/web/simulator.wasm).
 #   v0.5  2026-11-02  Task 02 (MIDI import): midi-import-test target (Node, no build needed).
 #   v0.4  2026-11-02  Task 02: package, hosted, release-assets, publish and release targets;
 #                     GITHUB_REPO, TAG, FM1_SOURCE_URL, PAGES_URL variables. clean also
@@ -96,7 +99,7 @@ NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
-        package hosted release-assets publish release clean midi-import-test
+        package hosted release-assets publish release clean midi-import-test midi-import-sim
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -108,7 +111,7 @@ HOST_FLAGS := -std=c11 -O1 -g -fwrapv -fno-fast-math -ffp-contract=off -DFM1_HOS
               -Iweb/engine -Iweb/synth -Ithird_party/synth -Isdk/include -Iapp/synth -Iapp
 
 help:
-	@sed -n '7,45p' Makefile | sed 's/^#   //; s/^#//'
+	@sed -n '7,47p' Makefile | sed 's/^#   //; s/^#//'
 
 verify:
 	$(PYTHON) -I $(BUILD) --verify-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
@@ -154,6 +157,10 @@ test: host-smoke web-smoke
 # Task 02 (MIDI import): pure Node, no toolchain. Regenerates the fixture files first.
 midi-import-test:
 	$(NODE) tests/midi-import/make-fixtures.mjs >/dev/null && $(NODE) tests/midi-import/run.mjs
+
+# Task 02 Step 4: the imported Renoise export played through the wasm simulator (make web first).
+midi-import-sim:
+	$(NODE) tests/midi-import/simulator.mjs build/web/simulator.wasm
 
 flash-budget:
 	@# The analysis symbol map (per-file attribution of LTO-merged code) is built once per
