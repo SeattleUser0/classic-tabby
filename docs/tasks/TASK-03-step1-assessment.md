@@ -1,7 +1,13 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.4.1
+Version: 0.5
 Revision log:
+- v0.5, 2026-11-02: batched block upload after the Task 02 session's import test (98..137
+  blocks per song; one block per transaction was too slow). New transfer kind 7 (9.9), the
+  batch transaction with its journal in the staging sector (9.6), block-sector header byte 5
+  value 0xFF = "pending batch member" (9.4), capability bit 3 of cmd 22, and the upload order
+  "song record first" (9.6, 9.9). Decision 9 in 9.1. Block, row, song record and `.tabby`
+  layouts (9.3, 9.4 record layout, 9.5, 9.9 file) are unchanged: the importer needs no change.
 - v0.4.1, 2026-11-02: section 9.10 added: how checkpoint (d) implemented section 9 and the
   device-side decisions left open in it. No format change (9.3-9.9 unchanged since v0.4).
 - v0.4, 2026-11-02: block ids widened to 16 bits after the Task 02 session's import test
@@ -319,6 +325,10 @@ the work and goes back to the user first.
    device OUT CH (per-track MIDI setting 1, the project's channel) for those tracks. When
    playback leaves the song the device settings apply again. Hanging notes are released on
    the old channel before any channel change takes effect.
+9. (v0.5, after checkpoint (d)) **Batched block upload**: transfer kind 7 writes many
+   blocks in one transaction (9.6, 9.9): the device packs the records into whole block
+   sectors, erases each destination once, commits the batch with one journal and the same
+   power-cut guarantee as a single-sector transaction. Kind 6 (one block) keeps working.
 
 ### 9.2 Common conventions
 
@@ -328,8 +338,8 @@ the work and goes back to the user first.
   0xEDB88320, initial value 0xFFFFFFFF, final complement), computed over the exact byte
   ranges stated below.
 - Magics are four ASCII characters stored as a little-endian uint32: `FM1G` = 0x47314D46
-  (song record), `FM1B` = 0x42314D46 (block sector), `FM1Q` = 0x51314D46 (song staging
-  journal). Legacy magics that must never be read as song data: the sample bank header
+  (song record), `FM1B` = 0x42314D46 (block sector), `FM1Q` = 0x51314D46 (batch journal
+  in the staging sector, v0.5; reserved and unused before). Legacy magics that must never be read as song data: the sample bank header
   `FM1S` = 0x53314D46 at offset 69632, and the DX7 library bank 0x31424D46 (`FMB1`) at
   516096 and the three sectors after it. Both are checked explicitly (9.8).
 - Region sector numbering: song region sector `n` (0..112) is at USER offset
@@ -380,7 +390,7 @@ Block sector (4096 bytes, region sectors 17..112):
 | ---: | ---: | --- |
 | 0 | 4 | magic `FM1B` 0x42314D46 |
 | 4 | 1 | version = 1 |
-| 5 | 1 | staged target: 0 in a block sector; in the staging copy, the destination region sector 17..112 |
+| 5 | 1 | staged target: 0 in a block sector; in the staging copy, the destination region sector 17..112; 0xFF (v0.5) = pending batch member, see 9.6: not a block sector until the batch journal commits it |
 | 6 | 2 | record count (records stored in this sector, including stale ones) |
 | 8 | 4 | generation: global counter, +1 on every block-sector program (also after compaction); the larger generation wins when the same (song, block) is in two sectors |
 | 12 | 2 | songs mask: bit s set if any record of song s is in this sector |
@@ -402,6 +412,12 @@ Records are 4-byte aligned (pad with 0xFF after the payload; the next record sta
 next multiple of 4). A record is **live** when its song's record (9.5) is valid and no
 record with the same (song, block id) exists in a sector with a higher generation. The
 sector CRC covers stale records too; they are ordinary bytes until compaction.
+
+A sector whose header byte 5 is 0xFF (v0.5) is **pending**: it was programmed by a batch
+upload whose journal has not committed. The boot scan, the directory, the status and the
+free-space search treat it as erased; `song_storage_prepare` erases it, unless a committed
+batch journal (9.6) lists it, in which case byte 5 is programmed to 0 and it becomes an
+ordinary block sector. Byte 5 is outside the CRC range for exactly this reason.
 
 Capacity: 96 sectors × 4076 bytes. Worst case (832 + 6 per record, padded to 840) 4 per
 sector = 384 blocks guaranteed; realistic content 1000–3000 blocks. Per song the device
@@ -497,8 +513,65 @@ that has room (first fit by lowest region sector), via a full-sector rewrite thr
 staging; a sector rewrite increments the global generation. Writing a block that already
 exists for that (song, id) makes the old copy stale; it is not erased in place.
 
-Rewriting a song: the workbench uploads the changed blocks (appends), then the song record
-(one sector through staging). Unchanged blocks are untouched.
+Rewriting a song (order changed in v0.5): the workbench uploads the **song record first**
+(one sector through staging), then the changed blocks (appends or batches), then reads the
+record back to verify. The record goes first because a block is live only while its song's
+record is valid (9.4): with the record in place every block is live the moment it lands and
+compaction, including the one a full pool triggers inside an append, can never reclaim a
+block of the song being uploaded. For a new song the record references blocks that arrive
+in the following seconds; playing it before the upload ends reports a missing block, no
+worse. Unchanged blocks are untouched.
+
+Batch write (v0.5, transfer kind 7, `song_block_batch`): one transaction stores a stream of
+block records (9.4 record layout, up to `SONG_BATCH_BYTES` = 32768 bytes) in whole block
+sectors:
+
+1. Validate the whole stream in RAM (every record: id 1..65535, length 64..832, payload per
+   9.3, song byte 0 or the target song). Pack the records in stream order into sector images:
+   a record goes into the current sector if it fits in the remaining record area (4076
+   bytes), else it starts the next; records never split. A batch fills at most
+   `SONG_BATCH_SECTORS` = 10 sectors (32768 bytes plus packing loss). Choose that many
+   **free** block sectors, lowest region sector first: erased sectors and sectors holding no
+   live record (their contents are garbage). Too few: result `SONG_FULL`, nothing written.
+2. For each batch sector i in order: erase the destination once, program the image with
+   header byte 5 = 0xFF (pending), record count, generation G + i (G = current global
+   generation + 1), songs mask = 1 << song, CRC over 20..4095; verify by readback.
+3. Erase the staging sector, program the batch journal (below), verify, program the commit
+   word (offset 4092) to 0.
+4. For each batch sector: program header byte 5 to 0 (a 1→0 write of one byte, no erase).
+5. Erase the staging sector. The global generation becomes G + N − 1.
+
+Erases per batch of N sectors: N + 2 (against 3 per block for kind 6). The flash API
+silences audio briefly on every erase and write (sdk/include/fm1.h), so an upload still
+produces short audio gaps: about N + 2 erases and N + 2 programs plus N one-byte writes per
+batch instead of 3 erases and 3 programs per block.
+
+Batch journal (the staging sector image during steps 3..5):
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 4 | magic `FM1Q` 0x51314D46 |
+| 4 | 1 | version = 1 |
+| 5 | 1 | sector count N, 1..10 |
+| 6 | 1 | song 0..15 |
+| 7 | 1 | reserved 0 |
+| 8 | 4 | generation G of the first batch sector; batch sector i carries G + i |
+| 12 | 4 | reserved 0xFFFFFFFF |
+| 16 | 4 | crc32 over bytes 20..35 |
+| 20 | 16 | region sector numbers (17..112) of the batch sectors in order, 0xFF unused |
+| 36 | 4056 | 0xFF |
+| 4092 | 4 | commit word: 0xFFFFFFFF while writing, 0 once all batch sectors are programmed |
+
+Recovery (`song_storage_prepare`, boot and before every write), in addition to the
+single-sector rule above: a committed journal (commit word 0, magic `FM1Q`, CRC valid)
+repeats step 4 for every listed sector that still has byte 5 = 0xFF and magic `FM1B`, then
+erases staging. An uncommitted journal is erased. Every pending sector that no committed
+journal lists is erased. A power cut before the commit therefore leaves the pool exactly as
+it was (the chosen sectors held nothing live); after the commit the whole batch becomes
+visible, never a part of it. A batch sector's records supersede older copies of the same
+(song, id) in lower-generation sectors; inside a batch a later record wins (higher
+generation, or later in the same sector), as in 9.4. The device does not check the per-song
+2048-block limit (9.7) at upload time; a song that exceeds it fails to load.
 
 Deleting a song: its song sector is rewritten with an all-0xFF body and commit = 0 is not
 needed: a sector whose magic is not `FM1G` is "empty". All block records of that song
@@ -545,8 +618,10 @@ region. Projects, settings, staging (sector 16) and tuning are never touched. Ba
 
 ### 9.9 Transfer protocol and file container
 
-- Capability reply (cmd 22): out[8] gains bit 2 = song storage present; the sample limit
-  field (bytes 4-7) reports 0 on Classic Tabby. The workbench accepts 0 or 446464.
+- Capability reply (cmd 22): out[8] gains bit 2 = song storage present and (v0.5) bit 3 =
+  batched block upload (kind 7) supported; the sample limit field (bytes 4-7) reports 0 on
+  Classic Tabby. The workbench accepts 0 or 446464 and falls back to kind 6 when bit 3 is
+  clear.
 - Transfer kind 5: song record, size 4096, target = song 0..15 (download reads the song
   sector; upload writes it through staging after validation; an uploaded image whose
   magic is not `FM1G`, for example all 0xFF, deletes the song). Wire form: download
@@ -556,6 +631,19 @@ region. Projects, settings, staging (sector 16) and tuning are never touched. Ba
   begin = cmd 1 with data [6, song, id low, id high] (reply: 2-byte payload length);
   upload begin = cmd 3 with data [6, song, id low, id high, size low, size high].
   Chunks (cmd 2 / 4), the CRC finish (cmd 5) and cancel (cmd 6) are the stock commands.
+- Transfer kind 7 (v0.5): block batch, upload only, target = song 0..15, size = length of
+  the stream, 70..32768 bytes. Wire form: upload begin = cmd 3 with data [7, song, size low,
+  size high]; chunks cmd 4 (64 bytes each, in order), finish cmd 5 with the CRC-32 of the
+  stream, cancel cmd 6. A download begin for kind 7 is invalid. The stream is a sequence of
+  block records exactly as in 9.4 and in the `.tabby` file: 6-byte header {song byte 0 or the
+  target song, 0, id, length} + payload, each record padded with 0xFF to a multiple of 4
+  (the last record's padding may be omitted). The finish reply reports the result of the
+  whole batch (0, or 64 + 10 = `SONG_FULL` when fewer than the needed free sectors exist,
+  64 + 7 = invalid stream); on any error nothing of the batch is stored. The workbench cuts
+  a song's records into batches at the device's packing boundaries (greedy first fit into
+  4076-byte record areas, 8 sectors = at most 32608 bytes per batch), so a batched upload
+  packs exactly like one giant batch would, and uploads them in order after the song record
+  (9.6). Expected cost per batch: N + 2 sector erases for N sectors, against 3 per block.
 - Command 23 (new): song storage status: out[0..3] = free bytes, out[4..7] = reclaimable
   bytes, out[8] = compaction/migration state (0 ready, 1 busy, 2 old data present).
 - Song file (`.tabby`, produced by the importer and by the workbench "export song"): the
@@ -598,3 +686,8 @@ region. Projects, settings, staging (sector 16) and tuning are never touched. Ba
   song; starting a song stops the stock transport). Known limits: SPEC.md section 6.
 - Transfer wire forms are the ones listed in 9.9; command 23 additionally returns bytes
   9..12 = loaded song, playing state, row, last error (informational).
+- (v0.5, checkpoint e) The workbench's "write song" is: record (kind 5), then the blocks as
+  kind 7 batches when cmd 22 bit 3 is set (kind 6 one by one otherwise), then the record is
+  read back and compared. The browser simulator target follows the same order and uses the
+  batch path. Compacting a sector that holds no live record is a plain erase (no staging
+  pass), used by the full compaction pass and by the batch's free-sector choice.
