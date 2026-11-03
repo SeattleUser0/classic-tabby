@@ -1,7 +1,11 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.2
+Version: 0.3
 Revision log:
+- v0.3, 2026-11-02: two format additions approved after checkpoint (a): the row record gets
+  a step-length field (16/32/48/64, default 64) and the song header gets eight per-track
+  output channels. Row record 10 -> 12 bytes, rows move to offset 64, song body CRC now
+  covers bytes 20..1599. Decisions 6 and 7 in 9.1; playback rules in 9.5. No code change.
 - v0.2, 2026-11-02: section 9, approved decisions and final block/row/song formats, reclaim
   and lookup design, migration and transfer definitions. Formats in section 9 are final.
 - v0.1, 2026-11-02: first assessment against commit 5e5f0d7 (Task 02 state, firmware unchanged
@@ -293,6 +297,15 @@ the work and goes back to the user first.
    pattern sequencer keeps its external-clock behaviour.
 5. Note editing in the workbench only for v1. FM6 preview goes through the control-task
    MIDI-in queue; MIDI out keeps stock timing (router lanes from the audio-thread hook).
+6. (v0.3, after checkpoint (a)) Each row has a **step length** of 16, 32, 48 or 64 steps,
+   default 64. A shorter row plays the first N steps of each of its blocks and then
+   advances. Notes running past the row end follow the same release rules as at a block
+   end (9.3).
+7. (v0.3, after checkpoint (a)) The song header carries **eight per-track output
+   channels** (1..16, or 0 = use the device setting). While a song plays they override the
+   device OUT CH (per-track MIDI setting 1, the project's channel) for those tracks. When
+   playback leaves the song the device settings apply again. Hanging notes are released on
+   the old channel before any channel change takes effect.
 
 ### 9.2 Common conventions
 
@@ -338,6 +351,10 @@ Rules:
 - Minimum payload 64 bytes (all steps empty), maximum 64 + 64*12 = 832 bytes.
 - A note runs past the block end into whatever row plays next; on a queued jump or stop it
   is released at the jump/stop point. Note-off is always sent exactly once per note-on.
+  The **row end** is the block end for release purposes: when the row's step length (9.5)
+  is shorter than 64, a note that would run past step N of the row's last repeat continues
+  into whatever row plays next, exactly as a note running past step 64 does; it is released
+  at a queued jump or stop. Steps N..63 of the block are never started by that row.
 - Same pitch twice in one step is invalid (the device rejects the block). Chords are N
   notes with the same start.
 - Step resolution is 16ths; swing follows the project's swing setting at playback.
@@ -382,7 +399,7 @@ blocks guaranteed; realistic content 1000–3000 blocks.
 | 0 | 4 | magic `FM1G` 0x47314D46 |
 | 4 | 4 | generation: +1 on every write of this song (and of the staging copy) |
 | 8 | 4 | target: region sector this record belongs to (1 + song), as project.c's header.target, used by staging recovery |
-| 12 | 4 | crc32 over bytes 20..1327 (body) |
+| 12 | 4 | crc32 over bytes 20..1599 (body: header fields and the 128 rows) |
 | 16 | 4 | commit: 0xFFFFFFFF while being written, 0 once complete (programmed last) |
 | 20 | 4 | version = 1 |
 | 24 | 12 | name: 12 printable ASCII bytes (32..126), space padded, no terminator |
@@ -393,20 +410,51 @@ blocks guaranteed; realistic content 1000–3000 blocks.
 | 41 | 1 | block count: highest block id used + 0 (informational, 0..255) |
 | 42 | 1 | loop row: row index the song returns to when flag bit 0 is set (0..row count-1); 0 by default |
 | 43 | 5 | reserved 0 |
-| 48 | 1280 | rows[128] × 10 bytes (unused rows are zero) |
-| 1328 | 2768 | reserved 0xFF |
+| 48 | 8 | output channel per track 0..7 (v0.3): 0 = use the device setting, 1..16 = MIDI channel 1..16; values 17..255 are invalid (the device rejects the record) |
+| 56 | 8 | reserved 0 |
+| 64 | 1536 | rows[128] × 12 bytes (unused rows are zero) |
+| 1600 | 2496 | reserved 0xFF |
 
-Row (10 bytes):
+Sizes (v0.3): header 64 bytes, rows 1536 bytes, body 1580 bytes under the CRC (20..1599),
+record image 4096 bytes as before. The v0.2 layout (rows of 10 bytes at offset 48, CRC over
+20..1327) was never written to a device and is not supported.
+
+Row (12 bytes, v0.3):
 
 | Offset | Size | Field |
 | ---: | ---: | --- |
 | 0 | 8 | block id per track 0..7 (0 = track silent in this row) |
 | 8 | 1 | repeat count 1..64 (the row plays this many times) |
 | 9 | 1 | flags: bit 0 "loop here": playback repeats this row until a jump is queued; bits 1-7 reserved 0 |
+| 10 | 1 | step length N: 16, 32, 48 or 64 (steps of each block played per repeat); 0 is read as 64 so zero-filled unused rows stay valid; any other value is invalid (the device rejects the record) |
+| 11 | 1 | reserved 0 |
 
-Row length: every block is 64 steps (4 bars of 4/4 at 16ths). Shorter musical phrases
-repeat inside the block (the importer fills the block). Row changes happen at the end of
-the row's last repeat.
+Row length: a block holds 64 steps (4 bars of 4/4 at 16ths). Each repeat of the row plays
+steps 0..N-1 of every block in the row, then the next repeat (or the next row) starts at
+step 0 of its blocks. With N = 64 the whole block plays; with N = 16 the row is one bar.
+Shorter musical phrases that do not fit 16/32/48 repeat inside the block (the importer
+fills the block). Row changes happen at the end of the row's last repeat. A queued jump in
+jump mode 0 lands at the next bar boundary of the playing row (bars are 16 steps, so every
+N is a whole number of bars); in jump mode 1 at the end of the current row.
+
+Output channels (song header offset 48, v0.3), playback rules:
+
+- The override is applied when the song starts playing and removed when playback leaves
+  the song (stop, or the end of the last row with loop off). Tracks whose value is 0 keep
+  the device OUT CH throughout. The project's stored MIDI settings are not modified; the
+  override lives in RAM only (a router-level channel substitution for that track, so the
+  song's notes and anything else the track sends on MIDI out, such as live keys on that
+  track, go to the song's channel while it plays). How the SEQ/STEPS "OUT CH" readout marks
+  an active override is decided at checkpoint (d).
+- Before any effective channel change of a track (song start, song stop/leave, or a device
+  OUT CH edit while the track's value is 0), every note still sounding on that track is
+  released with a note-off on the **old** channel, then the new channel takes effect. A
+  note-on and its note-off always use the same channel. Notes started by the stock
+  sequencer or live keys on that track are released the same way: app/midi_router.c keeps
+  a held-note map per owner (SEQ, ARP, keys) and `release_owner` sends their note-offs on
+  the owner's current channel. The song override uses that per-track path; it does not go
+  through `groove_midi_config_apply`'s channel-edit branch, which stops the engine and
+  sends a panic.
 
 ### 9.6 Writing, rewriting, deleting: reclaim without data loss
 
@@ -487,7 +535,10 @@ region. Projects, settings, staging (sector 16) and tuning are never touched. Ba
 - Command 23 (new): song storage status: out[0..3] = free bytes, out[4..7] = reclaimable
   bytes, out[8] = compaction/migration state (0 ready, 1 busy, 2 old data present).
 - Song file (`.tabby`, produced by the importer and by the workbench "export song"): the
-  4096-byte song record image (9.5, with generation 0, target 0, commit 0, crc valid),
-  followed by block records exactly as in 9.4 (4-byte header + payload, 4-byte aligned),
-  terminated by end of file. The song byte in each record must equal 0 in a file; the
-  device assigns the song number on upload.
+  4096-byte song record image (9.5 v0.3 layout, with generation 0, target 0, commit 0, crc
+  valid over 20..1599), followed by block records exactly as in 9.4 (4-byte header +
+  payload, 4-byte aligned), terminated by end of file. The song byte in each record must
+  equal 0 in a file; the device assigns the song number on upload. The importer sets each
+  row's step length (16/32/48/64; 64 when the row fills its blocks) and may fill the
+  per-track output channels from the MIDI file's channels or leave them 0 (device
+  setting); both are valid files.
