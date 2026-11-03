@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.16
+Version: 0.17
 Revision log:
+- v0.17, 2026-11-02: section 9: tabby-v02.0 published (9.1 current values, 9.3b verification).
 - v0.16, 2026-11-02 (Task 04, workbench part): section 17: device library, rig setup, row
   event editor, importer conversion, tests, the Task 04 hardware checklist.
 - v0.15, 2026-11-02 (Task 04, firmware part): section 16: row events in firmware, measured
@@ -474,6 +475,20 @@ nothing was written to any device.
 
 ### 9.1 What is published
 
+Current release **tabby-v02.0** (2026-11-02; the tabby-v01.0 values below stay as the
+record of the first publication):
+
+| Item | Value |
+| --- | --- |
+| Branch and tag | `classic-tabby/linux-build` = ad73b97; tag `tabby-v02.0` (annotated) → ad73b97 |
+| Firmware package `SMK37_PRO_OPEN.fwsc` | SHA-256 73c1a5ad11703ca701851ef6de9f2682d7cd9ae629eeebf8c10b0b47957ee34c, 487988 bytes, build_id 41d72747b0f68867dc8f9a8c4457c4558b4399faaca6b3630e52770c8c18f972, app image 449252 |
+| Offline workbench `SMK37-Open-Source.html` | SHA-256 e97f3227c396dafecda7f47107d4530327e50fd5dd80e00011cddee66edc3a48, 2870621 bytes |
+| Static site | `gh-pages` = 67968bf ("Pages: tabby-v02.0 (build 41d72747b0f6, release V01)"), `index.html` 289251 bytes, assets under `assets/smk37/` named by SHA-256 (firmware = `73c1a5ad….bin`, simulator `7f52193e….wasm`) |
+| Source archive | https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v02.0.zip |
+| GitHub release | https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v02.0 (`SMK37_PRO_OPEN.fwsc`, `SMK37-Open-Source.html`, `SHA256SUMS.txt`; notes docs/releases/tabby-v02.0.md) |
+
+Record of tabby-v01.0:
+
 | Item | Where | Value |
 | --- | --- | --- |
 | Repository | https://github.com/SeattleUser0/classic-tabby (public) | branch `classic-tabby/linux-build`, tags `upstream-v01` (= b2d6bcb, M-VAVE's V01) and `tabby-v01.0`; remote `upstream` stays m-vave/smk37_open |
@@ -550,11 +565,36 @@ subdirectory (`--site-dir elite`), as HOSTING.md asks for separate directories.
 - This commit is a documentation follow-up on the branch; the tag stays on ff723d2, the
   commit the firmware was built from. app/, sdk/, web/ and third_party/ are unchanged.
 
+### 9.3b Verification after publishing tabby-v02.0 (2026-11-02)
+
+- Before tagging: tree clean at 310526d + the release note (ad73b97); `make verify`,
+  `make crosscheck` (sdk.elf 36bd2380…, .fwsc 73c1a5ad…, app image 449252), `make test`
+  (148 host checks, wasm smoke, workbench song-write and device schema tests),
+  `make midi-import-test` (140) and `make midi-import-sim` (Renoise song, row-event song)
+  all passed.
+- Pushed: `classic-tabby/linux-build` d54b579 → ad73b97, tag `tabby-v02.0` (annotated →
+  ad73b97), `gh-pages` 43f4c2b → 67968bf. `classic-tabby/task02-midi-import` stays local.
+- `make publish TAG=tabby-v02.0` rebuilt the package from the tagged tree with the same
+  firmware SHA-256 and build_id as the pre-tag build (the release note changed nothing the
+  build id hashes). `make release TAG=tabby-v02.0` created the release; the three assets
+  downloaded back and `sha256sum -c SHA256SUMS.txt` passes; the release `.fwsc` is
+  byte-identical to `build/pro/generated/SMK37_PRO_OPEN.fwsc`.
+- Live site https://seattleuser0.github.io/classic-tabby/ after the Pages build (the first
+  poll already saw it built): `index.html` byte-identical to `build/hosted/pro/index.html`;
+  the firmware asset `assets/smk37/73c1a5ad….bin` served as `application/octet-stream`,
+  487988 bytes, byte-identical to the local package; headless Chrome: no console errors,
+  placeholder hidden, 149 LCD targets, the song editor, the importer panel (6 sections),
+  the rig setup table and the events panel present; the source link is the tag archive.
+- The archive https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v02.0.zip
+  (2939630 bytes) unpacks to 249 files whose SHA-256 all equal `git archive tabby-v02.0`.
+- This commit is the documentation follow-up; the tag stays on ad73b97.
+
 ### 9.4 What the install screen shows for the SMK-37 Pro
 
 Device update tab, before connecting: Firmware **SMK37 Pro Open**, Version **V01**,
-Firmware details: size **480.6 KiB**, build number **e3344029ab696c73** (the full build_id
-is the tooltip). After "Connect device" the identity line shows the device's own name:
+Firmware details: size **476.6 KiB** and build number **41d72747b0f68867** for tabby-v02.0
+(480.6 KiB and **e3344029ab696c73** were tabby-v01.0; the full build_id is the tooltip; the
+version line stays V01, the Open firmware line the fork builds on). After "Connect device" the identity line shows the device's own name:
 `SMK-37 Pro_016` for factory V16 (status "Device and current firmware recognized. To
 migrate, click Enable force flash and reconnect."), or `SMK-37 Pro_8000001` for an
 installed Open V01 (status "SMK37 OPEN connected. Ready to update", or "This version is
