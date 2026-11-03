@@ -1,0 +1,62 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "dirtywave-m8",
+ "name": "Dirtywave M8 Tracker Model:02",
+ "maker": "Dirtywave",
+ "channel": {
+  "default": null,
+  "note": "MIDI Settings view: a channel per track 1..8 (default track n = channel n), stored in the song; separate record, control-map (10) and song-row-cue (11) channels."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 0,
+  "programs": 128,
+  "bankFormat": "none",
+  "pad": 2,
+  "displayHex": true,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "With PG CHANGE on, a PC on a track's channel selects that track's instrument INST 00..7F (hex). PC 0 = INST 00 is the natural reading; unverified. Bank select on receive is not documented."
+ },
+ "controllers": [
+  {
+   "cc": -1,
+   "name": "No fixed CC list: per-song MIDI mappings (any CC on the control-map channel to instrument / mixer / effect / tempo / transpose parameters); CC 64 sustain on track input",
+   "min": 0,
+   "max": 127
+  }
+ ],
+ "setup": [
+  "MIDI Settings: track channels (default track n = channel n).",
+  "MIDI Settings: PG CHANGE = on.",
+  "Name the instruments in the song; the rig profile can name INST 00..7F for the editor."
+ ],
+ "notes": [
+  "Instruments are per-song user content (00..7F hex); no factory names.",
+  "Firmware 6.6.3C at research time; manual v6.5.2."
+ ],
+ "sources": [
+  {
+   "title": "M8 Operation Manual v6.5.2 (2026-04-21)",
+   "url": "https://cdn.shopify.com/s/files/1/0455/0485/6229/files/m8_operation_manual_v20260421.pdf?v=1776791699",
+   "detail": "pp. 2, 5, 8, 43-45, 62-65, 91"
+  },
+  {
+   "title": "M8 firmware changelog",
+   "url": "https://raw.githubusercontent.com/Dirtywave/M8Firmware/main/changelog.txt",
+   "detail": "2.5.0 sustain, 2.7.0 bank MSB on send, 2.7.3 and 6.5.2 program change"
+  }
+ ],
+ "unverified": [
+  "channel.default",
+  "programChange.displayBase",
+  "bank select on receive",
+  "omni"
+ ],
+ "presets": []
+}

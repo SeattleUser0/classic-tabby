@@ -1,0 +1,454 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "zoom-ms-70cdr-plus",
+ "name": "Zoom MS-70CDR+",
+ "maker": "Zoom",
+ "channel": {
+  "default": 16,
+  "note": "MENU > USB MIDI CH = 1..16 or OMNI (memorised). USB MIDI only: the pedal is a USB device and needs a USB host (CME H4MIDI WC in this rig). Factory default not stated; 16 is this rig's setting."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 1,
+  "programs": 100,
+  "bankFormat": "none",
+  "pad": 3,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "Patches are displayed 001..100; the chart lists PC 0-100 'true number 0-100' without a mapping, so whether PC 0 or PC 1 is patch 001 is unverified (displayBase 1 assumed; change it after the hardware check)."
+ },
+ "controllers": [],
+ "setup": [
+  "MENU > USB MIDI CH = 16 (or OMNI).",
+  "Connect the USB host before the set; the pedal shows a USB CONNECT prompt on batteries.",
+  "Hardware check: send PC 0 and PC 1 and note which patch the display shows; set displayBase accordingly."
+ ],
+ "notes": [
+  "No control change and no SysEx are recognised (chart); patch selection is the only MIDI function.",
+  "Factory patches 001..080 from Zoom's patch list; 081..100 are empty user slots."
+ ],
+ "sources": [
+  {
+   "title": "MS-70CDR+ Operation Manual (chart p. 69, USB MIDI CH p. 59)",
+   "url": "https://zoomcorp.com/media/documents/E_MS-70CDRplus.pdf",
+   "detail": "chart dated Mar. 1, 2024, version 1.00"
+  },
+  {
+   "title": "MS-70CDR+ Patch Memory List, preset ver. 1.00",
+   "url": "https://zoomcorp.com/media/documents/E_MS-70CDRplus_Patchlist.pdf",
+   "detail": "80 factory patches"
+  }
+ ],
+ "unverified": [
+  "channel.default",
+  "programChange.displayBase",
+  "class compliance behind a USB host"
+ ],
+ "presets": [
+  {
+   "bank": null,
+   "program": 0,
+   "name": "C-D-R+"
+  },
+  {
+   "bank": null,
+   "program": 1,
+   "name": "63 Spring Reverb"
+  },
+  {
+   "bank": null,
+   "program": 2,
+   "name": "Silky Tape Echo"
+  },
+  {
+   "bank": null,
+   "program": 3,
+   "name": "Phase Room"
+  },
+  {
+   "bank": null,
+   "program": 4,
+   "name": "Shimmer Reverb+"
+  },
+  {
+   "bank": null,
+   "program": 5,
+   "name": "Long Echo"
+  },
+  {
+   "bank": null,
+   "program": 6,
+   "name": "69s Vibe"
+  },
+  {
+   "bank": null,
+   "program": 7,
+   "name": "Mangle Ice"
+  },
+  {
+   "bank": null,
+   "program": 8,
+   "name": "LO-FI Noise"
+  },
+  {
+   "bank": null,
+   "program": 9,
+   "name": "Small & Smooth"
+  },
+  {
+   "bank": null,
+   "program": 10,
+   "name": "Modulation Delay 1&2"
+  },
+  {
+   "bank": null,
+   "program": 11,
+   "name": "Pipe Organ"
+  },
+  {
+   "bank": null,
+   "program": 12,
+   "name": "Pop Chorus"
+  },
+  {
+   "bank": null,
+   "program": 13,
+   "name": "Deep Blue"
+  },
+  {
+   "bank": null,
+   "program": 14,
+   "name": "Dual Reverb"
+  },
+  {
+   "bank": null,
+   "program": 15,
+   "name": "Rotary"
+  },
+  {
+   "bank": null,
+   "program": 16,
+   "name": "Stairway"
+  },
+  {
+   "bank": null,
+   "program": 17,
+   "name": "Tape Echo 3"
+  },
+  {
+   "bank": null,
+   "program": 18,
+   "name": "Filter Pad"
+  },
+  {
+   "bank": null,
+   "program": 19,
+   "name": "BPM Sync Delay"
+  },
+  {
+   "bank": null,
+   "program": 20,
+   "name": "Kick Flanger"
+  },
+  {
+   "bank": null,
+   "program": 21,
+   "name": "Ambient"
+  },
+  {
+   "bank": null,
+   "program": 22,
+   "name": "Chorus One"
+  },
+  {
+   "bank": null,
+   "program": 23,
+   "name": "Green Chorus"
+  },
+  {
+   "bank": null,
+   "program": 24,
+   "name": "Orange Tremolo"
+  },
+  {
+   "bank": null,
+   "program": 25,
+   "name": "Vibrato"
+  },
+  {
+   "bank": null,
+   "program": 26,
+   "name": "Swell Vibrato"
+  },
+  {
+   "bank": null,
+   "program": 27,
+   "name": "Analog Chorus"
+  },
+  {
+   "bank": null,
+   "program": 28,
+   "name": "BF Flanger 2"
+  },
+  {
+   "bank": null,
+   "program": 29,
+   "name": "Jet Flanger"
+  },
+  {
+   "bank": null,
+   "program": 30,
+   "name": "Clone Chorus"
+  },
+  {
+   "bank": null,
+   "program": 31,
+   "name": "Detune"
+  },
+  {
+   "bank": null,
+   "program": 32,
+   "name": "Phaser"
+  },
+  {
+   "bank": null,
+   "program": 33,
+   "name": "Duo Phaser"
+  },
+  {
+   "bank": null,
+   "program": 34,
+   "name": "Tremolo-Pan"
+  },
+  {
+   "bank": null,
+   "program": 35,
+   "name": "Slicer"
+  },
+  {
+   "bank": null,
+   "program": 36,
+   "name": "Tri Chorus"
+  },
+  {
+   "bank": null,
+   "program": 37,
+   "name": "Polyphonic Octaver"
+  },
+  {
+   "bank": null,
+   "program": 38,
+   "name": "Bass Analog Octaver"
+  },
+  {
+   "bank": null,
+   "program": 39,
+   "name": "Polyphonic Pitch Shifter"
+  },
+  {
+   "bank": null,
+   "program": 40,
+   "name": "Geminos Doubler"
+  },
+  {
+   "bank": null,
+   "program": 41,
+   "name": "AC Tape Echo"
+  },
+  {
+   "bank": null,
+   "program": 42,
+   "name": "Smooth Delay"
+  },
+  {
+   "bank": null,
+   "program": 43,
+   "name": "Rockabilly"
+  },
+  {
+   "bank": null,
+   "program": 44,
+   "name": "Digital Delay"
+  },
+  {
+   "bank": null,
+   "program": 45,
+   "name": "Soft Echo"
+  },
+  {
+   "bank": null,
+   "program": 46,
+   "name": "Drive Echo"
+  },
+  {
+   "bank": null,
+   "program": 47,
+   "name": "Dual Delay"
+  },
+  {
+   "bank": null,
+   "program": 48,
+   "name": "Trigger Hold Delay"
+  },
+  {
+   "bank": null,
+   "program": 49,
+   "name": "Drunkship"
+  },
+  {
+   "bank": null,
+   "program": 50,
+   "name": "FD Spring Reverb"
+  },
+  {
+   "bank": null,
+   "program": 51,
+   "name": "Chamber Reverb"
+  },
+  {
+   "bank": null,
+   "program": 52,
+   "name": "Church Reverb"
+  },
+  {
+   "bank": null,
+   "program": 53,
+   "name": "Cave Reverb"
+  },
+  {
+   "bank": null,
+   "program": 54,
+   "name": "Slap Back Reverb"
+  },
+  {
+   "bank": null,
+   "program": 55,
+   "name": "Gate Reverb"
+  },
+  {
+   "bank": null,
+   "program": 56,
+   "name": "Long Plate"
+  },
+  {
+   "bank": null,
+   "program": 57,
+   "name": "Loop Roll"
+  },
+  {
+   "bank": null,
+   "program": 58,
+   "name": "Hold Delay"
+  },
+  {
+   "bank": null,
+   "program": 59,
+   "name": "Hold Reverb"
+  },
+  {
+   "bank": null,
+   "program": 60,
+   "name": "Higher"
+  },
+  {
+   "bank": null,
+   "program": 61,
+   "name": "Guitar Strings"
+  },
+  {
+   "bank": null,
+   "program": 62,
+   "name": "Pad Guitar"
+  },
+  {
+   "bank": null,
+   "program": 63,
+   "name": "Synchronized"
+  },
+  {
+   "bank": null,
+   "program": 64,
+   "name": "Reverse"
+  },
+  {
+   "bank": null,
+   "program": 65,
+   "name": "12 Strings"
+  },
+  {
+   "bank": null,
+   "program": 66,
+   "name": "Delay & Delay"
+  },
+  {
+   "bank": null,
+   "program": 67,
+   "name": "Mono Synth"
+  },
+  {
+   "bank": null,
+   "program": 68,
+   "name": "Voice Reverse"
+  },
+  {
+   "bank": null,
+   "program": 69,
+   "name": "Sequence Filter"
+  },
+  {
+   "bank": null,
+   "program": 70,
+   "name": "Hollywood"
+  },
+  {
+   "bank": null,
+   "program": 71,
+   "name": "Monument"
+  },
+  {
+   "bank": null,
+   "program": 72,
+   "name": "Robot"
+  },
+  {
+   "bank": null,
+   "program": 73,
+   "name": "Magical Warp"
+  },
+  {
+   "bank": null,
+   "program": 74,
+   "name": "Adamski"
+  },
+  {
+   "bank": null,
+   "program": 75,
+   "name": "Ring Noise"
+  },
+  {
+   "bank": null,
+   "program": 76,
+   "name": "Ducking"
+  },
+  {
+   "bank": null,
+   "program": 77,
+   "name": "Eraserhead"
+  },
+  {
+   "bank": null,
+   "program": 78,
+   "name": "Sound EFX"
+  },
+  {
+   "bank": null,
+   "program": 79,
+   "name": "Bomber+"
+  }
+ ]
+}

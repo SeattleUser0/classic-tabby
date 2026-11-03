@@ -1,0 +1,139 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "mvave-fm1-melodee",
+ "name": "M-VAVE FM-1 (Melodee firmware)",
+ "maker": "M-VAVE (firmware: Melodee by keremimo, GPL-3.0)",
+ "channel": {
+  "default": null,
+  "note": "GLO > SYSTEM > ROUT = CH1-4 / CH5-8 / CH9-12 / CH13-16 (four consecutive channels on tracks 1..4) or SEL (every channel plays the selected track); DRUM channel OFF / 1..16 (default 10); MIDI tracks have their own channel 1..16. USB class-compliant, TRS input, BLE MIDI."
+ },
+ "programChange": {
+  "supported": false,
+  "displayBase": 0,
+  "programs": 0,
+  "bankFormat": "none",
+  "pad": 0,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "Melodee 1.6.1 has no program change handler (0xCn is only forwarded to MIDI-only tracks for output); sounds are selected on the panel. The optional MIDI KNOBS profile turns the PRESETS encoder with CC 18 (GENERAL) or CC 76 (MINILAB), a knob emulation, not a PC. A program event targeted at this device does nothing."
+ },
+ "controllers": [
+  {
+   "cc": 1,
+   "name": "Mod wheel (selected track)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 5,
+   "name": "Glide",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 7,
+   "name": "Track level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 10,
+   "name": "Pan",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 64,
+   "name": "Sustain",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "64": "on"
+   }
+  },
+  {
+   "cc": 71,
+   "name": "Engine macro (resonance)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 72,
+   "name": "Release",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 73,
+   "name": "Attack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 74,
+   "name": "Engine macro (brightness / cutoff)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 75,
+   "name": "Decay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 120,
+   "name": "All Sound Off",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 121,
+   "name": "Reset All Controllers",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 123,
+   "name": "All Notes Off",
+   "min": 0,
+   "max": 0
+  }
+ ],
+ "setup": [
+  "Load Melodee (web installer); GLO > SYSTEM > ROUT to put the tracks on the channels the song uses (or SEL).",
+  "No program change: only CC events reach this device."
+ ],
+ "notes": [
+  "Melodee 1.6.1 (2026-11-02) at research time; a modified Felucca. FM6 ROM voices: TINE EP, BRASS SECT, SOLID BASS, BELLS, MARIMBA, CLAVINET, DRAWBARS, STRINGS, GLASS PAD, SYNC LEAD, HARP, KALIMBA, FLUTE, STEEL DRUM, SAW BASS, TUBULAR (not selectable by MIDI)."
+ ],
+ "sources": [
+  {
+   "title": "Melodee repository",
+   "url": "https://github.com/keremimo/melodee",
+   "detail": "v1.6.1"
+  },
+  {
+   "title": "Melodee manual, MIDI section",
+   "url": "https://keremimo.github.io/melodee/webapp/manual/",
+   "detail": "ROUT, DRUM channel, CC list, MIDI KNOBS, MIDI LEARN"
+  },
+  {
+   "title": "Melodee source: firmware/src/midi_control.c (midi_event: no 0xCn handler)",
+   "url": "https://github.com/keremimo/melodee/blob/main/firmware/src/midi_control.c",
+   "detail": "code read, not hardware-verified"
+  }
+ ],
+ "unverified": [
+  "channel.default",
+  "behaviour on hardware (code read only)",
+  "whether a nightly adds program change"
+ ],
+ "presets": []
+}

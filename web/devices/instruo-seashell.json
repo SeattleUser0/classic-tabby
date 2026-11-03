@@ -1,0 +1,66 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "instruo-seashell",
+ "name": "Instruo Seashell",
+ "maker": "Instruo",
+ "channel": {
+  "default": null,
+  "note": "Set in the Seashell Controller software (Settings > MIDI Channel). TRS type A MIDI in and class-compliant USB-C. Default and omni not documented."
+ },
+ "programChange": {
+  "supported": "unverified",
+  "displayBase": 0,
+  "programs": 0,
+  "bankFormat": "none",
+  "pad": 0,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "Not supported in the published firmware 1.0.x (presets are files of the Controller app). Firmware 2.0 (announced, not on Instruo's site) is said to add 120 preset slots selected by program change; numbering and bank scheme unknown."
+ },
+ "controllers": [
+  {
+   "cc": -1,
+   "name": "No fixed CC map: parameters are assigned by MIDI Learn in the Controller app; any CC 0..127 can be a modulation-matrix source",
+   "min": 0,
+   "max": 127
+  }
+ ],
+ "setup": [
+  "Seashell Controller: Settings > MIDI Channel.",
+  "Map the parameters you want to drive with MIDI Learn (the mapping is yours; enter the CC numbers in the rig profile)."
+ ],
+ "notes": [
+  "No preset names published.",
+  "Secondary: a user-made default CC map exists (Electra One preset); not a factory assignment."
+ ],
+ "sources": [
+  {
+   "title": "Seashell user manual (2025-06-10, firmware 1.0.0)",
+   "url": "https://instruomodular.com/wp-content/uploads/manuals/Seashell%20Manual.pdf",
+   "detail": "pp. 11, 45, 49-50, 55"
+  },
+  {
+   "title": "Instruo firmware page (1.0.3 notes)",
+   "url": "https://www.instruomodular.com/firmware/",
+   "detail": ""
+  },
+  {
+   "title": "SonicState report on firmware 2.0 (secondary)",
+   "url": "https://sonicstate.com/news/2026/10/26/beijing-26-instruo-seashell-v20/",
+   "detail": "120 slots, program change"
+  }
+ ],
+ "unverified": [
+  "channel.default",
+  "programChange.supported",
+  "programChange.programs",
+  "any CC assignment",
+  "timing"
+ ],
+ "presets": []
+}

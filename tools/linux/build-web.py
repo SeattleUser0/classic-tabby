@@ -240,6 +240,12 @@ def build(args, log):
         "/*FM1_SCRIPT*/": (ROOT / "sdk/WebUpdate.js").read_text(encoding="utf-8"),
         "/*FM1_SIM_SCRIPT*/": (ROOT / "sdk/Simulator.js").read_text(encoding="utf-8"),
         "/*FM1_SAMPLE_SCRIPT*/": (ROOT / "sdk/Samples.js").read_text(encoding="utf-8"),
+        # Task 04: the device library (web/devices/*.json as one array) and the rig scripts.
+        "/*FM1_DEVICES*/": "globalThis.FM1_DEVICES = [" + ",".join(
+            json.dumps(json.loads((ROOT / "web/devices" / name).read_text(encoding="utf-8")), separators=(",", ":"), ensure_ascii=False)
+            for name in sorted(p.name for p in (ROOT / "web/devices").glob("*.json"))) + "];",
+        "/*FM1_RIG_SCRIPT*/": "\n".join((ROOT / "web/rig" / name).read_text(encoding="utf-8")
+                                        for name in ("device-library.js", "rig.js", "rig-ui.js")),
         # Task 02 Step 4: the MIDI importer (web/import/, classic scripts) inlined in load order.
         "/*FM1_IMPORT_SCRIPT*/": "\n".join((ROOT / "web/import" / name).read_text(encoding="utf-8")
                                            for name in ("midi-parse.js", "song-format.js", "midi-song.js", "song-transfer.js", "import-ui.js")),

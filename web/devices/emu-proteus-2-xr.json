@@ -1,0 +1,1291 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "emu-proteus-2-xr",
+ "name": "E-MU Proteus/2 XR",
+ "maker": "E-mu Systems",
+ "channel": {
+  "default": null,
+  "note": "Multi mode: each of the 16 channels has its own preset; set MIDI ENABLE and PRESET CHANGE on per channel."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 0,
+  "programs": 128,
+  "bankFormat": "none",
+  "pad": 3,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "Presets are shown 000..383 (XR). MIDI reaches 0..127 directly; presets 128..383 only through the device's MIDI PROG>PRESET map, which maps an incoming program 0..127 to any preset. Enter such presets as the mapped program number."
+ },
+ "controllers": [
+  {
+   "cc": 7,
+   "name": "Volume",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 10,
+   "name": "Pan",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "hard left",
+    "64": "centre",
+    "127": "hard right"
+   }
+  },
+  {
+   "cc": 1,
+   "name": "Realtime controller A (default assignment)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 2,
+   "name": "Realtime controller B (default assignment)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 3,
+   "name": "Realtime controller C (default assignment)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 4,
+   "name": "Realtime controller D (default assignment)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 64,
+   "name": "Footswitch 1 (default; sustain if the preset routes it)",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "64": "on"
+   }
+  },
+  {
+   "cc": 65,
+   "name": "Footswitch 2 (default)",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "64": "on"
+   }
+  },
+  {
+   "cc": 66,
+   "name": "Footswitch 3 (default)",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "64": "on"
+   }
+  },
+  {
+   "cc": 121,
+   "name": "Reset all controllers",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 123,
+   "name": "All notes off",
+   "min": 0,
+   "max": 0
+  }
+ ],
+ "setup": [
+  "Master menu: MIDI MODE = Multi.",
+  "Per channel the song addresses: MIDI ENABLE on and PRESET CHANGE on.",
+  "Master menu MIDI PROG>PRESET: identity for presets 0..127; map a program number to each preset above 127 the song needs (no bank select exists).",
+  "Leave the Edit menu before playing: program changes are ignored inside it.",
+  "Run SEND SETUP before PLAY: the manual asks for setup messages before the song starts."
+ ],
+ "notes": [
+  "Factory list from the operation manual pp. 92-93 (192 presets 0..191; XR ROM 256..383 repeats the ROM set). User presets 64..127 (and XR RAM 0..255) carry whatever you stored; names here are the factory ones.",
+  "The manual: do not send setup information just before the first beat (timing errors)."
+ ],
+ "sources": [
+  {
+   "title": "E-mu Proteus operation manual (family manual with the 1992 MIDI addendum)",
+   "url": "https://archive.org/download/synthmanual-e-mu-proteus-owners-manual/e-muproteusownersmanual.pdf",
+   "detail": "pp. 14, 18-21, 69, 92-93, 118-124 (PDF page = printed + 2)"
+  },
+  {
+   "title": "synthmania Proteus/2 page (secondary, text preset list)",
+   "url": "https://www.synthmania.com/proteus-2.htm",
+   "detail": "cross-check of names 000..190"
+  }
+ ],
+ "unverified": [
+  "channel.default",
+  "programChange.note:factory state of the program map on a reset unit"
+ ],
+ "presets": [
+  {
+   "bank": null,
+   "program": 0,
+   "number": 0,
+   "name": "Solo Cello"
+  },
+  {
+   "bank": null,
+   "program": 1,
+   "number": 1,
+   "name": "Solo Viola"
+  },
+  {
+   "bank": null,
+   "program": 2,
+   "number": 2,
+   "name": "Solo Violin"
+  },
+  {
+   "bank": null,
+   "program": 3,
+   "number": 3,
+   "name": "Quartet"
+  },
+  {
+   "bank": null,
+   "program": 4,
+   "number": 4,
+   "name": "Solo Chamber"
+  },
+  {
+   "bank": null,
+   "program": 5,
+   "number": 5,
+   "name": "Arco Basses"
+  },
+  {
+   "bank": null,
+   "program": 6,
+   "number": 6,
+   "name": "Arco Celli"
+  },
+  {
+   "bank": null,
+   "program": 7,
+   "number": 7,
+   "name": "Arco Violas"
+  },
+  {
+   "bank": null,
+   "program": 8,
+   "number": 8,
+   "name": "Arco Violins"
+  },
+  {
+   "bank": null,
+   "program": 9,
+   "number": 9,
+   "name": "Marcato 1"
+  },
+  {
+   "bank": null,
+   "program": 10,
+   "number": 10,
+   "name": "Marcato 2"
+  },
+  {
+   "bank": null,
+   "program": 11,
+   "number": 11,
+   "name": "Legato Str"
+  },
+  {
+   "bank": null,
+   "program": 12,
+   "number": 12,
+   "name": "Concerto"
+  },
+  {
+   "bank": null,
+   "program": 13,
+   "number": 13,
+   "name": "Pizz Basses"
+  },
+  {
+   "bank": null,
+   "program": 14,
+   "number": 14,
+   "name": "Pizz Celli"
+  },
+  {
+   "bank": null,
+   "program": 15,
+   "number": 15,
+   "name": "Pizz Violas"
+  },
+  {
+   "bank": null,
+   "program": 16,
+   "number": 16,
+   "name": "Pizz Violins"
+  },
+  {
+   "bank": null,
+   "program": 17,
+   "number": 17,
+   "name": "Pizzicato 1"
+  },
+  {
+   "bank": null,
+   "program": 18,
+   "number": 18,
+   "name": "Pizzicato 2"
+  },
+  {
+   "bank": null,
+   "program": 19,
+   "number": 19,
+   "name": "Trem Strings"
+  },
+  {
+   "bank": null,
+   "program": 20,
+   "number": 20,
+   "name": "Tremulus"
+  },
+  {
+   "bank": null,
+   "program": 21,
+   "number": 21,
+   "name": "Strgs/Flutes"
+  },
+  {
+   "bank": null,
+   "program": 22,
+   "number": 22,
+   "name": "Resting Pad"
+  },
+  {
+   "bank": null,
+   "program": 23,
+   "number": 23,
+   "name": "Divertimento"
+  },
+  {
+   "bank": null,
+   "program": 24,
+   "number": 24,
+   "name": "Flute"
+  },
+  {
+   "bank": null,
+   "program": 25,
+   "number": 25,
+   "name": "Piccolo"
+  },
+  {
+   "bank": null,
+   "program": 26,
+   "number": 26,
+   "name": "Oboe"
+  },
+  {
+   "bank": null,
+   "program": 27,
+   "number": 27,
+   "name": "English Horn"
+  },
+  {
+   "bank": null,
+   "program": 28,
+   "number": 28,
+   "name": "Clarinet"
+  },
+  {
+   "bank": null,
+   "program": 29,
+   "number": 29,
+   "name": "Bass Clarinet"
+  },
+  {
+   "bank": null,
+   "program": 30,
+   "number": 30,
+   "name": "Bassoon"
+  },
+  {
+   "bank": null,
+   "program": 31,
+   "number": 31,
+   "name": "Contrbassoon"
+  },
+  {
+   "bank": null,
+   "program": 32,
+   "number": 32,
+   "name": "Chamber Winds"
+  },
+  {
+   "bank": null,
+   "program": 33,
+   "number": 33,
+   "name": "Section Winds"
+  },
+  {
+   "bank": null,
+   "program": 34,
+   "number": 34,
+   "name": "Epilogue"
+  },
+  {
+   "bank": null,
+   "program": 35,
+   "number": 35,
+   "name": "Wind Stack"
+  },
+  {
+   "bank": null,
+   "program": 36,
+   "number": 36,
+   "name": "French Horn 1"
+  },
+  {
+   "bank": null,
+   "program": 37,
+   "number": 37,
+   "name": "French Horn 2"
+  },
+  {
+   "bank": null,
+   "program": 38,
+   "number": 38,
+   "name": "Section Horns"
+  },
+  {
+   "bank": null,
+   "program": 39,
+   "number": 39,
+   "name": "Trumpet 1"
+  },
+  {
+   "bank": null,
+   "program": 40,
+   "number": 40,
+   "name": "Trumpet 2"
+  },
+  {
+   "bank": null,
+   "program": 41,
+   "number": 41,
+   "name": "Two Trumpets"
+  },
+  {
+   "bank": null,
+   "program": 42,
+   "number": 42,
+   "name": "Harmon Mute"
+  },
+  {
+   "bank": null,
+   "program": 43,
+   "number": 43,
+   "name": "Trombone 1"
+  },
+  {
+   "bank": null,
+   "program": 44,
+   "number": 44,
+   "name": "Trombone 2"
+  },
+  {
+   "bank": null,
+   "program": 45,
+   "number": 45,
+   "name": "Tuba"
+  },
+  {
+   "bank": null,
+   "program": 46,
+   "number": 46,
+   "name": "Back Brass"
+  },
+  {
+   "bank": null,
+   "program": 47,
+   "number": 47,
+   "name": "Bright Brass"
+  },
+  {
+   "bank": null,
+   "program": 48,
+   "number": 48,
+   "name": "Chamber Brass"
+  },
+  {
+   "bank": null,
+   "program": 49,
+   "number": 49,
+   "name": "BrassStrings"
+  },
+  {
+   "bank": null,
+   "program": 50,
+   "number": 50,
+   "name": "Timpani"
+  },
+  {
+   "bank": null,
+   "program": 51,
+   "number": 51,
+   "name": "Gong/Cymbal"
+  },
+  {
+   "bank": null,
+   "program": 52,
+   "number": 52,
+   "name": "Bass/Snare"
+  },
+  {
+   "bank": null,
+   "program": 53,
+   "number": 53,
+   "name": "Temple Block"
+  },
+  {
+   "bank": null,
+   "program": 54,
+   "number": 54,
+   "name": "Xylophone"
+  },
+  {
+   "bank": null,
+   "program": 55,
+   "number": 55,
+   "name": "Glockenspiel"
+  },
+  {
+   "bank": null,
+   "program": 56,
+   "number": 56,
+   "name": "Celesta"
+  },
+  {
+   "bank": null,
+   "program": 57,
+   "number": 57,
+   "name": "Tubular Bells"
+  },
+  {
+   "bank": null,
+   "program": 58,
+   "number": 58,
+   "name": "Percussion 1"
+  },
+  {
+   "bank": null,
+   "program": 59,
+   "number": 59,
+   "name": "Percussion 2"
+  },
+  {
+   "bank": null,
+   "program": 60,
+   "number": 60,
+   "name": "Harp"
+  },
+  {
+   "bank": null,
+   "program": 61,
+   "number": 61,
+   "name": "Harpstrings"
+  },
+  {
+   "bank": null,
+   "program": 62,
+   "number": 62,
+   "name": "Harpsikord"
+  },
+  {
+   "bank": null,
+   "program": 63,
+   "number": 63,
+   "name": "Notre Dame"
+  },
+  {
+   "bank": null,
+   "program": 64,
+   "number": 64,
+   "name": "Winter Signs"
+  },
+  {
+   "bank": null,
+   "program": 65,
+   "number": 65,
+   "name": "Deep Pad"
+  },
+  {
+   "bank": null,
+   "program": 66,
+   "number": 66,
+   "name": "Portamento/F"
+  },
+  {
+   "bank": null,
+   "program": 67,
+   "number": 67,
+   "name": "Bell Ensemble"
+  },
+  {
+   "bank": null,
+   "program": 68,
+   "number": 68,
+   "name": "Cyberspace"
+  },
+  {
+   "bank": null,
+   "program": 69,
+   "number": 69,
+   "name": "PizzMoogBass"
+  },
+  {
+   "bank": null,
+   "program": 70,
+   "number": 70,
+   "name": "Marimbala"
+  },
+  {
+   "bank": null,
+   "program": 71,
+   "number": 71,
+   "name": "Grim Reaper"
+  },
+  {
+   "bank": null,
+   "program": 72,
+   "number": 72,
+   "name": "Tinker Bell"
+  },
+  {
+   "bank": null,
+   "program": 73,
+   "number": 73,
+   "name": "Carousel"
+  },
+  {
+   "bank": null,
+   "program": 74,
+   "number": 74,
+   "name": "Exotic Harp"
+  },
+  {
+   "bank": null,
+   "program": 75,
+   "number": 75,
+   "name": "Darn Saucers"
+  },
+  {
+   "bank": null,
+   "program": 76,
+   "number": 76,
+   "name": "Bronze Pad"
+  },
+  {
+   "bank": null,
+   "program": 77,
+   "number": 77,
+   "name": "Vibraphone"
+  },
+  {
+   "bank": null,
+   "program": 78,
+   "number": 78,
+   "name": "Astral Flute"
+  },
+  {
+   "bank": null,
+   "program": 79,
+   "number": 79,
+   "name": "Kool Bass"
+  },
+  {
+   "bank": null,
+   "program": 80,
+   "number": 80,
+   "name": "Sombre Winds"
+  },
+  {
+   "bank": null,
+   "program": 81,
+   "number": 81,
+   "name": "Space Cowboy"
+  },
+  {
+   "bank": null,
+   "program": 82,
+   "number": 82,
+   "name": "The Machine"
+  },
+  {
+   "bank": null,
+   "program": 83,
+   "number": 83,
+   "name": "Early Perc"
+  },
+  {
+   "bank": null,
+   "program": 84,
+   "number": 84,
+   "name": "Gently Now"
+  },
+  {
+   "bank": null,
+   "program": 85,
+   "number": 85,
+   "name": "Piccolodeeyo"
+  },
+  {
+   "bank": null,
+   "program": 86,
+   "number": 86,
+   "name": "Infinite One"
+  },
+  {
+   "bank": null,
+   "program": 87,
+   "number": 87,
+   "name": "ShimmerWays"
+  },
+  {
+   "bank": null,
+   "program": 88,
+   "number": 88,
+   "name": "Turbo Bass"
+  },
+  {
+   "bank": null,
+   "program": 89,
+   "number": 89,
+   "name": "Requiem"
+  },
+  {
+   "bank": null,
+   "program": 90,
+   "number": 90,
+   "name": "Wrong Room"
+  },
+  {
+   "bank": null,
+   "program": 91,
+   "number": 91,
+   "name": "Analog Pad"
+  },
+  {
+   "bank": null,
+   "program": 92,
+   "number": 92,
+   "name": "Chapel Organ"
+  },
+  {
+   "bank": null,
+   "program": 93,
+   "number": 93,
+   "name": "Electrovocal"
+  },
+  {
+   "bank": null,
+   "program": 94,
+   "number": 94,
+   "name": "Fat Boy Tuba"
+  },
+  {
+   "bank": null,
+   "program": 95,
+   "number": 95,
+   "name": "SawBass/Lead"
+  },
+  {
+   "bank": null,
+   "program": 96,
+   "number": 96,
+   "name": "Vienna Dream"
+  },
+  {
+   "bank": null,
+   "program": 97,
+   "number": 97,
+   "name": "Vertigo Pad"
+  },
+  {
+   "bank": null,
+   "program": 98,
+   "number": 98,
+   "name": "Tarkus Twin"
+  },
+  {
+   "bank": null,
+   "program": 99,
+   "number": 99,
+   "name": "RoomOfStrings"
+  },
+  {
+   "bank": null,
+   "program": 100,
+   "number": 100,
+   "name": "Magic Bells"
+  },
+  {
+   "bank": null,
+   "program": 101,
+   "number": 101,
+   "name": "Reginatron"
+  },
+  {
+   "bank": null,
+   "program": 102,
+   "number": 102,
+   "name": "Sub It!"
+  },
+  {
+   "bank": null,
+   "program": 103,
+   "number": 103,
+   "name": "Psychlotron"
+  },
+  {
+   "bank": null,
+   "program": 104,
+   "number": 104,
+   "name": "CloudChamber"
+  },
+  {
+   "bank": null,
+   "program": 105,
+   "number": 105,
+   "name": "Sepulcher"
+  },
+  {
+   "bank": null,
+   "program": 106,
+   "number": 106,
+   "name": "Lurch Pluck"
+  },
+  {
+   "bank": null,
+   "program": 107,
+   "number": 107,
+   "name": "Pizz/Piccolo"
+  },
+  {
+   "bank": null,
+   "program": 108,
+   "number": 108,
+   "name": "Vampirical"
+  },
+  {
+   "bank": null,
+   "program": 109,
+   "number": 109,
+   "name": "String Thing"
+  },
+  {
+   "bank": null,
+   "program": 110,
+   "number": 110,
+   "name": "Galapagos"
+  },
+  {
+   "bank": null,
+   "program": 111,
+   "number": 111,
+   "name": "Square One"
+  },
+  {
+   "bank": null,
+   "program": 112,
+   "number": 112,
+   "name": "Square Link"
+  },
+  {
+   "bank": null,
+   "program": 113,
+   "number": 113,
+   "name": "<*>"
+  },
+  {
+   "bank": null,
+   "program": 114,
+   "number": 114,
+   "name": "Sardonicus"
+  },
+  {
+   "bank": null,
+   "program": 115,
+   "number": 115,
+   "name": "Master Tron"
+  },
+  {
+   "bank": null,
+   "program": 116,
+   "number": 116,
+   "name": "Lo Wind Inst"
+  },
+  {
+   "bank": null,
+   "program": 117,
+   "number": 117,
+   "name": "Sympathetic"
+  },
+  {
+   "bank": null,
+   "program": 118,
+   "number": 118,
+   "name": "Wind Chimes"
+  },
+  {
+   "bank": null,
+   "program": 119,
+   "number": 119,
+   "name": "Boat Haus"
+  },
+  {
+   "bank": null,
+   "program": 120,
+   "number": 120,
+   "name": "Glitter God"
+  },
+  {
+   "bank": null,
+   "program": 121,
+   "number": 121,
+   "name": "Story Bass"
+  },
+  {
+   "bank": null,
+   "program": 122,
+   "number": 122,
+   "name": "Nice Night"
+  },
+  {
+   "bank": null,
+   "program": 123,
+   "number": 123,
+   "name": "Prophet Lead"
+  },
+  {
+   "bank": null,
+   "program": 124,
+   "number": 124,
+   "name": "Prophet Link"
+  },
+  {
+   "bank": null,
+   "program": 125,
+   "number": 125,
+   "name": "Whistl'n Joe"
+  },
+  {
+   "bank": null,
+   "program": 126,
+   "number": 126,
+   "name": "Link2Shimmer"
+  },
+  {
+   "bank": null,
+   "program": 127,
+   "number": 127,
+   "name": "Ascending"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 128,
+   "name": "Harpsomatic"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 129,
+   "name": "Phaedra"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 130,
+   "name": "Cimbalon"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 131,
+   "name": "Recorder"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 132,
+   "name": "Koto"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 133,
+   "name": "Dream Garden"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 134,
+   "name": "Amplify Bass"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 135,
+   "name": "Asian Reed"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 136,
+   "name": "Soft Harp"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 137,
+   "name": "Jazz Bass"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 138,
+   "name": "Grandfather"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 139,
+   "name": "Classic Gtr"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 140,
+   "name": "Temple Bell"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 141,
+   "name": "StrHarmonic"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 142,
+   "name": "Cellophane"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 143,
+   "name": "Gamba Musik"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 144,
+   "name": "Quintoctave"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 145,
+   "name": "Basses&Vios"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 146,
+   "name": "Violin&Celli"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 147,
+   "name": "ArcoViolins"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 148,
+   "name": "Arco Duet"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 149,
+   "name": "Str Section"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 150,
+   "name": "Arco Strings"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 151,
+   "name": "In The Pit"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 152,
+   "name": "<<InThePit<<"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 153,
+   "name": "Rotary Chmbr"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 154,
+   "name": "Krummhorns"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 155,
+   "name": "C.Bsn/Dbl Bs"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 156,
+   "name": "Soft Flute"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 157,
+   "name": "Hi Wind Solo"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 158,
+   "name": "Verb Clarinet"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 159,
+   "name": "PiccoloPeace"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 160,
+   "name": "Flute/Oboe"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 161,
+   "name": "Clar./Flute"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 162,
+   "name": "Clar/Bassoon"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 163,
+   "name": "Double Reeds"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 164,
+   "name": "Bassoon/Horn"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 165,
+   "name": "Alto Flute"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 166,
+   "name": "WindEnsemble"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 167,
+   "name": "DblReeds/Hrn"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 168,
+   "name": "Verb Horn"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 169,
+   "name": "Xprsv Cornet"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 170,
+   "name": "Bone&Trumpet"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 171,
+   "name": "Bone&Tuba"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 172,
+   "name": "Trombones"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 173,
+   "name": "Sfz Brass"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 174,
+   "name": "Horn Vel+Wh"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 175,
+   "name": "Afroblocks"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 176,
+   "name": "Timba Mallet"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 177,
+   "name": "Timp w/Tone"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 178,
+   "name": "Bass Drum"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 179,
+   "name": "TimpLowBlock"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 180,
+   "name": "Deep Drum"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 181,
+   "name": "Triangle"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 182,
+   "name": "Big Log"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 183,
+   "name": "Gamelan"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 184,
+   "name": "Clarinet/Bb"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 185,
+   "name": "Clarinet/A"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 186,
+   "name": "BassClar/Bb"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 187,
+   "name": "EngHorn/F"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 188,
+   "name": "FrenchHorn/F"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 189,
+   "name": "Trumpet/Bb"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 190,
+   "name": "Trumpet/D"
+  },
+  {
+   "bank": null,
+   "program": null,
+   "number": 191,
+   "name": "Default"
+  }
+ ]
+}

@@ -264,6 +264,10 @@ main{max-width:1440px}
 <button id="patch-import" data-library disabled>导入到此轨</button><button id="patch-export" data-library disabled>导出此轨音色</button>
 <small>支持 DX7 单音色及 32 音色库 SysEx，不处理扩展参数。先将目标轨道设为 DX7。导入后，PROJECT 轨请保存项目；LIVE 轨请导出轨道音色或存入 DX7 独立库。</small>
 </details>
+<details class="library-group"><summary>设备配置 Rig（Classic Tabby）</summary>
+<p class="sim-help">告诉工作台每个 MIDI 通道上接的是哪台设备（web/devices/ 中的定义：音色编号方式、音色库、命名的 CC、设备需要的间隔）。行事件编辑器据此按名称选择音色。配置保存在本浏览器，可导出/导入 JSON；歌曲可带自己的副本。面板为英文。</p>
+<div id="rig-setup" class="rig-setup"></div>
+</details>
 <details class="library-group"><summary>歌曲模式（Classic Tabby）</summary>
 <p class="sim-help">歌曲 = 行的序列；每行给 8 条轨道各指定一个块（64 步、每步最多 4 个音符）。歌曲存放在设备的歌曲存储区，由面板 ACTIONS → SONG MODE 播放。文件格式见 docs/tasks/TASK-03-step1-assessment.md 第 9 节。</p>
 <div class="field-row"><label>目标 <select id="song-target"><option value="device">设备（项目库）</option><option value="sim">浏览器仿真</option></select></label>
@@ -280,6 +284,8 @@ main{max-width:1440px}
 <label>行（块编号按轨道 1–8；0 = 该轨静音）</label>
 <div class="device-scroll"><table id="song-rows"><thead><tr><th>行</th><th>T1</th><th>T2</th><th>T3</th><th>T4</th><th>T5</th><th>T6</th><th>T7</th><th>T8</th><th>重复</th><th>步数</th><th>行内循环</th></tr></thead><tbody></tbody></table></div>
 <button id="song-row-add">添加行</button><button id="song-row-remove">删除末行</button>
+<label>行事件（Task 04：行开始时发送的 Program Change / Bank Select / CC，目标为 MIDI 通道；面板为英文）</label>
+<div id="song-events" class="song-events" hidden></div>
 <div class="field-row"><label>块编号 <input id="song-block-id" type="number" min="1" max="65535" step="1" value="1"></label></div>
 <button id="song-block-load">载入块</button><button id="song-block-store">保存块</button><button id="song-block-remove">删除块</button>
 <p class="sim-help">每步：音高:力度:长度[r]，多个音符以空格分隔；r = 重触发，@n = 概率 n/8，! = 备用调音（例：60:100:2 64:100:2r @4）。长度以 16 分音符计。</p>
@@ -407,6 +413,8 @@ main{max-width:1440px}
 /*FM1_I18N*/
 /*FM1_PAYLOAD*/
 /*FM1_SCRIPT*/
+/*FM1_DEVICES*/
+/*FM1_RIG_SCRIPT*/
 /*FM1_IMPORT_SCRIPT*/
 /*FM1_SIMULATOR*/
 (() => {
@@ -822,6 +830,10 @@ main{max-width:1440px}
   // editor and writes through the same backend, so device and simulator targets behave alike.
   if(globalThis.TabbyImportUI&&globalThis.TabbySongTransfer&&$('midi-import'))
     TabbyImportUI.mount($('midi-import'),{transfer:TabbySongTransfer.select({backend:songBackend,name:()=>songSim()?'simulator':'device'})});
+  // Task 04: the rig setup and the row event editor (web/rig/, inlined by build-web.py) edit
+  // song.events in place; the write and export paths take the list with the rig's gaps applied.
+  const rigUI=globalThis.TabbyRigUI&&globalThis.TabbyRig&&globalThis.TabbyDevices&&$('rig-setup')&&$('song-events')
+    ?TabbyRigUI.mount({setup:$('rig-setup'),events:$('song-events'),library:TabbyDevices.load(globalThis.FM1_DEVICES||[]),onChange:()=>{},message:text=>songMessage(text)}):null;
   for(let i=0;i<16;i++){$('song-slot').append(option(i,String(i+1)));$('song-project').append(option(i,String(i+1)));}
   for(let t=0;t<8;t++){const l=document.createElement('label');l.textContent='T'+(t+1)+' ';const i=document.createElement('input');i.type='number';i.min='0';i.max='16';i.step='1';i.dataset.songChannel=t;l.append(i);$('song-channels').append(l);}
   for(let s=0;s<64;s++){const l=document.createElement('label');l.textContent=(s+1)+' ';const i=document.createElement('input');i.type='text';i.dataset.songStep=s;i.placeholder='-';l.append(i);$('song-steps').append(l);}
@@ -841,6 +853,7 @@ main{max-width:1440px}
     $('song-loop-row').value=String(s.loopRow+1);$('song-jump').value=s.jumpRow?'1':'0';
     for(const i of $('song-channels').querySelectorAll('input'))i.value=String(s.channel[Number(i.dataset.songChannel)]);
     songRowsRender();songBlockList();
+    if(rigUI)rigUI.setSong(s);
   }
   function songCollect(){
     const s=songEd.song;if(!s)throw Error('请先读取或新建歌曲');
@@ -849,7 +862,8 @@ main{max-width:1440px}
     for(const i of $('song-channels').querySelectorAll('input'))s.channel[Number(i.dataset.songChannel)]=Number(i.value)||0;
     for(const i of $('song-rows').querySelectorAll('input')){const row=s.rows[Number(i.dataset.songRow)],f=i.dataset.songField;
       if(f==='loop')row.loopHere=i.checked;else if(f==='repeat')row.repeat=Number(i.value);else if(f==='steps')row.steps=Number(i.value);else row.block[Number(f.slice(1))]=Number(i.value)||0;}
-    const record=FM1Web.songRecordBuild(s);
+    // Task 04: events with the rig's gaps applied; a song with events becomes a version-2 record.
+    const record=FM1Web.songRecordBuild({...s,events:rigUI?rigUI.prepareEvents(s):(s.events||[])});
     for(const id of FM1Web.songBlockIds(s))if(!songEd.blocks.has(id))throw Error('行中引用的块 '+id+' 不在编辑器中，请先保存该块');
     return record;
   }
@@ -873,16 +887,18 @@ main{max-width:1440px}
     await songBackend().remove(slot);songMessage('歌曲已删除。');
   }));
   $('song-export').addEventListener('click',songAct(async()=>{
-    const record=songCollect();saveFile(FM1Web.tabbyFile(record,songEd.blocks),'SMK37 OPEN-'+(songEd.song.name.trim()||'song').replace(/[^A-Za-z0-9-]+/g,'_')+'.tabby');songMessage('已导出 .tabby 文件。');
+    const record=songCollect();saveFile(FM1Web.tabbyFile(record,songEd.blocks,rigUI?rigUI.trailer(songEd.song):null),'SMK37 OPEN-'+(songEd.song.name.trim()||'song').replace(/[^A-Za-z0-9-]+/g,'_')+'.tabby');songMessage('已导出 .tabby 文件。');
   }));
   $('song-file').addEventListener('change',songAct(async()=>{
     const file=$('song-file').files[0];if(!file)return;if(file.size>4096+2048*840)throw Error('.tabby 文件过大');
-    const got=FM1Web.readTabbyFile(new Uint8Array(await file.arrayBuffer()));songEd.song=FM1Web.songRecordParse(got.record);songEd.blocks=got.blocks;songRender();
+    const got=FM1Web.readTabbyFile(new Uint8Array(await file.arrayBuffer()));songEd.song=FM1Web.songRecordParse(got.record);songEd.blocks=got.blocks;
+    if(got.trailer&&got.trailer.rig&&globalThis.TabbyRig){try{songEd.song.rig=TabbyRig.rigNormalize(got.trailer.rig);}catch(_){songEd.song.rig=null;}}   // Task 04: per-song rig override
+    songRender();
     songMessage('已导入 .tabby 文件到编辑器，点击“写入歌曲”上传。');
   }));
   $('song-status').addEventListener('click',songAct(async()=>{
     const s=await songBackend().status();
-    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (old sample / DX7 data still present)':s.state===1?' (busy)':'')+'.');
+    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (old sample / DX7 data still present)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+'.');
   }));
   $('song-row-add').addEventListener('click',songAct(async()=>{if(!songEd.song)throw Error('请先读取或新建歌曲');if(songEd.song.rows.length>=128)throw Error('最多 128 行');
     const last=songEd.song.rows[songEd.song.rows.length-1];songEd.song.rows.push({block:last.block.slice(),repeat:last.repeat,loopHere:false,steps:last.steps});songRowsRender();}));

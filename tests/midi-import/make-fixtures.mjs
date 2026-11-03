@@ -160,6 +160,20 @@ export function fixtures() {
     list.push({ name: 'long-notes.mid', bytes: write({ format: 0, division: ppq, tracks: [t] }),
       expect: { bars: 19, notes: [{ step: 0, pitch: 40, length: 255 }, { step: 0, pitch: 60, length: 4 }, { step: 4, pitch: 60, length: 4 }, { step: 16, pitch: 64, velocity: 110, length: 2 }], clipped: 1, overlap: 1, duplicate: 1 } });
   }
+  // 10. Row events (Task 04): 8 bars of 4/4 = two 64-step rows. Row 1 start: PC 5 on ch 1,
+  // CC 7 = 100 on ch 2, bank MSB 1 + LSB 2 + PC 9 on ch 3. One beat before row 2: PC 6 on
+  // ch 1 (pre-roll). At row 2's start: PC 7 on ch 1. Mid-row: CC 74 = 50 on ch 2 (dropped).
+  // A bank LSB without a program on ch 4 at row 2's start (dropped). Notes on ch 1, one per bar.
+  {
+    const ppq = 480, step = ppq / 4, t = head('Events');
+    t.push({ tick: 0, type: 'programChange', channel: 0, program: 5 }, { tick: 0, type: 'controlChange', channel: 1, controller: 7, value: 100 },
+      { tick: 0, type: 'controlChange', channel: 2, controller: 0, value: 1 }, { tick: 0, type: 'controlChange', channel: 2, controller: 32, value: 2 }, { tick: 0, type: 'programChange', channel: 2, program: 9 });
+    t.push({ tick: 10 * step, type: 'controlChange', channel: 1, controller: 74, value: 50 });
+    t.push({ tick: 60 * step, type: 'programChange', channel: 0, program: 6 });
+    t.push({ tick: 64 * step, type: 'programChange', channel: 0, program: 7 }, { tick: 64 * step, type: 'controlChange', channel: 3, controller: 32, value: 3 });
+    for (let bar = 0; bar < 8; bar++) note(t, bar * 16 * step, 4 * step, 48 + bar, 100, 0);
+    list.push({ name: 'row-events.mid', bytes: write({ format: 1, division: ppq, tracks: [t] }), expect: { events: 5, droppedMidRow: 1, bankWithoutProgram: 1 } });
+  }
   return list;
 }
 

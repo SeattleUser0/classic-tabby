@@ -1,0 +1,3643 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "waldorf-pulse-2",
+ "name": "Waldorf Pulse 2",
+ "maker": "Waldorf",
+ "channel": {
+  "default": null,
+  "note": "Global MIDI Channel: OMNI or 1..16 (omni receives all, sends on 1)."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 1,
+  "programs": 100,
+  "bankFormat": "hundreds",
+  "pad": 3,
+  "bankSelect": {
+   "scheme": "cc32",
+   "banks": [
+    {
+     "index": 0,
+     "name": "1..100",
+     "msb": null,
+     "lsb": 0
+    },
+    {
+     "index": 1,
+     "name": "101..200",
+     "msb": null,
+     "lsb": 1
+    },
+    {
+     "index": 2,
+     "name": "201..300",
+     "msb": null,
+     "lsb": 2
+    },
+    {
+     "index": 3,
+     "name": "301..400",
+     "msb": null,
+     "lsb": 3
+    },
+    {
+     "index": 4,
+     "name": "401..500",
+     "msb": null,
+     "lsb": 4
+    }
+   ]
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "Display 001..500 as one range. Firmware readme (v1.14): only bank LSB (CC 32) is read, banks 0..4 = 001..100, 101..200, 201..300, 301..400, 401..500; CC 0 ignored; the program number is clamped to 0..99 inside the bank; the bank stays latched until Reset All Controllers. PC 0 = 001 per user tests (not stated by Waldorf). Program 500 generates a random patch."
+ },
+ "controllers": [
+  {
+   "cc": 1,
+   "name": "Modulation Wheel",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 5,
+   "name": "Glide Rate",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 10,
+   "name": "VCA Panning",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 14,
+   "name": "Filter Env Attack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 15,
+   "name": "Filter Env Decay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 16,
+   "name": "Filter Env Sustain",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 17,
+   "name": "Filter Env Release",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 18,
+   "name": "Amp Env Attack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 19,
+   "name": "Amp Env Decay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 20,
+   "name": "Amp Env Sustain",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 21,
+   "name": "Amp Env Release",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 24,
+   "name": "LFO 1 Speed",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 25,
+   "name": "LFO 1 Shape",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 26,
+   "name": "LFO 2 Speed",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 27,
+   "name": "LFO 2 Delay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 29,
+   "name": "Filter Env Trigger",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 31,
+   "name": "Amp Env Trigger",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 35,
+   "name": "Osc 1 Pulsewidth",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 36,
+   "name": "Osc 2 Semitone",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 37,
+   "name": "Osc 2 Detune",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 38,
+   "name": "Osc 2 Shape",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 39,
+   "name": "Osc 2 Pulsewidth",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 40,
+   "name": "Osc 2 Keytrack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 41,
+   "name": "Osc 3 Sync",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 42,
+   "name": "Osc 3 Semitone",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 43,
+   "name": "Osc 3 Detune",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 44,
+   "name": "Osc 3 Shape",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 45,
+   "name": "Osc 1 Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 46,
+   "name": "Osc 2 Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 47,
+   "name": "Osc 3 Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 48,
+   "name": "Noise Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 49,
+   "name": "VCF Type",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 50,
+   "name": "VCF Cutoff",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 51,
+   "name": "VCF Keytrack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 52,
+   "name": "VCF Env Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 53,
+   "name": "VCF Velocity",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 56,
+   "name": "VCF Resonance",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 57,
+   "name": "VCA Volume",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 58,
+   "name": "VCA Velocity",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 62,
+   "name": "Glide Mode",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 64,
+   "name": "Sustain Pedal",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 70,
+   "name": "Osc 1 Semitone",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 71,
+   "name": "Osc 1 Detune",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 72,
+   "name": "Osc 3 Routing",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 73,
+   "name": "Osc 1 Keytrack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 74,
+   "name": "Filter Env Loop",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 75,
+   "name": "Amp Env Loop",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 76,
+   "name": "VCA Drive",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 77,
+   "name": "VCA Drive Curve",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 79,
+   "name": "Arp Active",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 80,
+   "name": "Arp Range",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 81,
+   "name": "Arp Tempo",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 82,
+   "name": "Arp Clock",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 83,
+   "name": "Arp Mode",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 84,
+   "name": "Step Duration",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 85,
+   "name": "Arp Swing",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 86,
+   "name": "Arp Delay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 87,
+   "name": "Pattern Length",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 88,
+   "name": "Accent Control",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 90,
+   "name": "Mod 5 Source",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 91,
+   "name": "Mod 5 Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 92,
+   "name": "Mod 5 Target",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 93,
+   "name": "Mod 6 Source",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 94,
+   "name": "Mod 6 Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 95,
+   "name": "Mod 6 Target",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 96,
+   "name": "Mod 7 Source",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 97,
+   "name": "Mod 7 Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 98,
+   "name": "Mod 7 Target",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 99,
+   "name": "Mod 8 Source",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 100,
+   "name": "Mod 8 Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 101,
+   "name": "Mod 8 Target",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 102,
+   "name": "Unison Detune",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 103,
+   "name": "Osc 1 Amp Env Fade",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 104,
+   "name": "Osc 2 Amp Env Fade",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 105,
+   "name": "Bend Upwards",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 106,
+   "name": "Bend Down",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 108,
+   "name": "Mod 1 Source",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 109,
+   "name": "Mod 1 Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 110,
+   "name": "Mod 1 Target",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 111,
+   "name": "Mod 2 Source",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 112,
+   "name": "Mod 2 Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 113,
+   "name": "Mod 2 Target",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 114,
+   "name": "Mod 3 Source",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 115,
+   "name": "Mod 3 Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 116,
+   "name": "Mod 3 Target",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 117,
+   "name": "Mod 4 Source",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 118,
+   "name": "Mod 4 Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 119,
+   "name": "Mod 4 Target",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 120,
+   "name": "All Sound Off",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 121,
+   "name": "Reset All Controllers",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 123,
+   "name": "All Notes Off",
+   "min": 0,
+   "max": 0
+  }
+ ],
+ "setup": [
+  "Global: MIDI Channel.",
+  "No program-change enable exists; bank LSB (CC 32) 0..4 selects the hundred, latched until Reset All Controllers.",
+  "Program 500 is the random patch generator."
+ ],
+ "notes": [
+  "Factory names from Waldorf's preset list (2016-07-26): 001..410 named, 411..499 INIT, 500 RANDOM.",
+  "A secondary changelog says CC 59 = preset panning against the manual's CC 10; left as the manual says."
+ ],
+ "sources": [
+  {
+   "title": "Pulse 2 user manual, revision 1.0 (September 2013)",
+   "url": "https://downloads.waldorfmusic.com/cloud/index.php/s/kfHqRdr7Jd4FQoj",
+   "detail": "pp. 13-14, 40-45, 58, 61-63, 67"
+  },
+  {
+   "title": "Pulse 2 factory preset list (2016-07-26)",
+   "url": "https://downloads.waldorfmusic.com/cloud/index.php/s/egSEKaiSn4jk8Lq",
+   "detail": "pages 1-2, by number"
+  },
+  {
+   "title": "Pulse 2 firmware bundle with the cumulative readme (bank select in the v1.14 entry)",
+   "url": "https://downloads.waldorfmusic.com/cloud/index.php/s/n6mxaCwWFZ2yeB2",
+   "detail": "Pulse_2_Firmware_V1.21/readme.txt"
+  },
+  {
+   "title": "Elektronauts user test of bank/PC numbering (secondary)",
+   "url": "https://www.elektronauts.com/t/switching-programs-on-the-pulse-2/3361?page=2",
+   "detail": "PC 0 = 001"
+  }
+ ],
+ "unverified": [
+  "channel.default",
+  "programChange.displayBase (user tests only)",
+  "CC 0 handling on firmware 1.21",
+  "CC 10 vs CC 59 panning"
+ ],
+ "presets": [
+  {
+   "bank": 0,
+   "program": 0,
+   "name": "TECH STAB RL",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 1,
+   "name": "I",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 2,
+   "name": "SWIMGER DK",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 3,
+   "name": "TREIBGUT JD",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 4,
+   "name": "CATHERINE IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 5,
+   "name": "CHORUS",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 6,
+   "name": "DER MUSSO DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 7,
+   "name": "BAD ROCKER RL",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 8,
+   "name": "WITH DELAY",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 9,
+   "name": "SWEEPER",
+   "category": "PAD"
+  },
+  {
+   "bank": 0,
+   "program": 10,
+   "name": "WHITE DOORS",
+   "category": "PAD"
+  },
+  {
+   "bank": 0,
+   "program": 11,
+   "name": "ACIDIZER JD",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 12,
+   "name": "AUTOBAHN",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 13,
+   "name": "BITTERSWEET JD",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 14,
+   "name": "DOPPLER JD",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 15,
+   "name": "OVERDRIVEN",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 16,
+   "name": "UNISON",
+   "category": "PAD"
+  },
+  {
+   "bank": 0,
+   "program": 17,
+   "name": "MONOLAKE TD CG",
+   "category": "ATMO"
+  },
+  {
+   "bank": 0,
+   "program": 18,
+   "name": "TIME IS CHNG",
+   "category": "ATMO"
+  },
+  {
+   "bank": 0,
+   "program": 19,
+   "name": "3OSC 101 IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 20,
+   "name": "ARTROCKBASS CG",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 21,
+   "name": "BASSIC",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 22,
+   "name": "BLOODPR@SS DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 23,
+   "name": "JMJ SEQBASS CG",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 24,
+   "name": "LIVELY",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 25,
+   "name": "REZ SWEEP 1 IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 26,
+   "name": "UNIPULSE DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 27,
+   "name": "KICK",
+   "category": "DRUM"
+  },
+  {
+   "bank": 0,
+   "program": 28,
+   "name": "SIMMONS SD1 CG",
+   "category": "DRUM"
+  },
+  {
+   "bank": 0,
+   "program": 29,
+   "name": "SNAREROLL",
+   "category": "DRUM"
+  },
+  {
+   "bank": 0,
+   "program": 30,
+   "name": "AUTOBAHNEN TEK",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 31,
+   "name": "D-FEKT TEK",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 32,
+   "name": "APW PIANO IW",
+   "category": "KEYS"
+  },
+  {
+   "bank": 0,
+   "program": 33,
+   "name": "FRESH DK",
+   "category": "KEYS"
+  },
+  {
+   "bank": 0,
+   "program": 34,
+   "name": "ORGANICS 1 CG",
+   "category": "KEYS"
+  },
+  {
+   "bank": 0,
+   "program": 35,
+   "name": "PLUCKED",
+   "category": "KEYS"
+  },
+  {
+   "bank": 0,
+   "program": 36,
+   "name": "PLUCKY",
+   "category": "KEYS"
+  },
+  {
+   "bank": 0,
+   "program": 37,
+   "name": "LFO",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 38,
+   "name": "NAUGHTY2 DK",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 39,
+   "name": "NONSTER PULSE",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 40,
+   "name": "SAWTEETH",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 41,
+   "name": "SINGLE SAW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 42,
+   "name": "SINGING SAW",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 43,
+   "name": "STANDARD SYNC",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 44,
+   "name": "CLASSIC",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 45,
+   "name": "DRIVE",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 46,
+   "name": "THICK AND FAT",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 47,
+   "name": "FIFTH PULSE",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 48,
+   "name": "MACHINE",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 49,
+   "name": "WEIRD SCHON",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 50,
+   "name": "SQUARE SYNC",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 51,
+   "name": "SQUARED",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 52,
+   "name": "SYNC ATTACK",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 53,
+   "name": "SWEET SYNC",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 54,
+   "name": "SOFT DRIVE",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 55,
+   "name": "FUZZY FUZZ",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 56,
+   "name": "CROSSMOD",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 57,
+   "name": "STEREO SYNC",
+   "category": "LEAD"
+  },
+  {
+   "bank": 0,
+   "program": 58,
+   "name": "GLOBAL WARMING",
+   "category": "ATMO"
+  },
+  {
+   "bank": 0,
+   "program": 59,
+   "name": "MINOR SWEEP",
+   "category": "ATMO"
+  },
+  {
+   "bank": 0,
+   "program": 60,
+   "name": "DOUBLE CHORD",
+   "category": "PAD"
+  },
+  {
+   "bank": 0,
+   "program": 61,
+   "name": "FIFTH",
+   "category": "PAD"
+  },
+  {
+   "bank": 0,
+   "program": 62,
+   "name": "ROB STEREO",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 63,
+   "name": "SOFT 5TH & 7TH",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 64,
+   "name": "CLASSIC",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 65,
+   "name": "FILTERED",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 66,
+   "name": "EIGHTIES",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 67,
+   "name": "NINETIES",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 68,
+   "name": "DISTORTED",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 69,
+   "name": "DEEP & BORING",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 70,
+   "name": "SUBSTANDARD",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 71,
+   "name": "NOT A CLAVINET",
+   "category": "MONO"
+  },
+  {
+   "bank": 0,
+   "program": 72,
+   "name": "SQUARE",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 73,
+   "name": "HOLLOW ACID",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 74,
+   "name": "ANALOG BELL",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 75,
+   "name": "BELLISSIMO",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 76,
+   "name": "HIT ON METAL",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 77,
+   "name": "BASS BY ROB",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 78,
+   "name": "ANLOG CIRCUIT",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 79,
+   "name": "MY FAVOURITE",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 80,
+   "name": "PORTAMENTO",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 81,
+   "name": "CLICKETY-CLICK",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 82,
+   "name": "FLUTE",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 83,
+   "name": "MESMERIZED",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 84,
+   "name": "JUST FILTER",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 85,
+   "name": "PLAIN",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 86,
+   "name": "FAST RUN",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 87,
+   "name": "CROSSMOD",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 88,
+   "name": "CARIBBEAN JIVE",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 89,
+   "name": "TOO NORMAL",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 90,
+   "name": "TOO HARSH",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 91,
+   "name": "UNDER WATER",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 92,
+   "name": "RHYTHM'N",
+   "category": "BASS"
+  },
+  {
+   "bank": 0,
+   "program": 93,
+   "name": "BOTTOM KICK",
+   "category": "DRUM"
+  },
+  {
+   "bank": 0,
+   "program": 94,
+   "name": "ANALOG",
+   "category": "DRUM"
+  },
+  {
+   "bank": 0,
+   "program": 95,
+   "name": "NOISE HIT",
+   "category": "DRUM"
+  },
+  {
+   "bank": 0,
+   "program": 96,
+   "name": "TRIGGER HAPPY",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 97,
+   "name": "SETI SUCCESS",
+   "category": "FX"
+  },
+  {
+   "bank": 0,
+   "program": 98,
+   "name": "ADDTHEKICK RL",
+   "category": "ARP"
+  },
+  {
+   "bank": 0,
+   "program": 99,
+   "name": "ARCADE GAME",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 0,
+   "name": "CHEAP T-BEE RL",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 1,
+   "name": "DIGIDI JD",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 2,
+   "name": "DREAM SEQ CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 3,
+   "name": "ENGINE RUN CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 4,
+   "name": "ION DANCE 1 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 5,
+   "name": "ION DANCE 2 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 6,
+   "name": "JMJ ARPBASS CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 7,
+   "name": "JUMP 'N RUN",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 8,
+   "name": "KRAFT-ARP CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 9,
+   "name": "MAGNETICS 1 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 10,
+   "name": "MAGNETICS 2 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 11,
+   "name": "MAGNETICS 3 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 12,
+   "name": "MAGNETICS 4 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 13,
+   "name": "MAGNETICS 5 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 14,
+   "name": "MAGNETICS 6 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 15,
+   "name": "MAID OF",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 16,
+   "name": "MEEDLES DK",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 17,
+   "name": "MOD ZAPS JD",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 18,
+   "name": "OUT OF SYNC",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 19,
+   "name": "P2 DANCIMG CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 20,
+   "name": "PARAPHONIC",
+   "category": "PAD"
+  },
+  {
+   "bank": 1,
+   "program": 21,
+   "name": "PLUCKY",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 22,
+   "name": "PUL5E KRAFT CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 23,
+   "name": "REZOMACHINE RL",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 24,
+   "name": "ROBOT DANCE CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 25,
+   "name": "ROBOTIC",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 26,
+   "name": "SHORTING TEK",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 27,
+   "name": "SINPEGGIO JD",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 28,
+   "name": "SPIRITUALS CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 29,
+   "name": "SWINGER2 DK",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 30,
+   "name": "TRASHER DK",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 31,
+   "name": "ULTRAMOD RL",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 32,
+   "name": "UNRUHE DK",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 33,
+   "name": "XTRAKTION 1 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 34,
+   "name": "XTRAKTION 2 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 35,
+   "name": "XTRAKTION 3 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 36,
+   "name": "XTRAKTION 4 CG",
+   "category": "ARP"
+  },
+  {
+   "bank": 1,
+   "program": 37,
+   "name": "DE PROFUNDISCG",
+   "category": "ATMO"
+  },
+  {
+   "bank": 1,
+   "program": 38,
+   "name": "ELDRITCHIAN CG",
+   "category": "ATMO"
+  },
+  {
+   "bank": 1,
+   "program": 39,
+   "name": "HOLD & PRESS",
+   "category": "ATMO"
+  },
+  {
+   "bank": 1,
+   "program": 40,
+   "name": "METAMORPHIC CG",
+   "category": "ATMO"
+  },
+  {
+   "bank": 1,
+   "program": 41,
+   "name": "PRESS&WAIT DK",
+   "category": "ATMO"
+  },
+  {
+   "bank": 1,
+   "program": 42,
+   "name": "SWISS ALPES CG",
+   "category": "ATMO"
+  },
+  {
+   "bank": 1,
+   "program": 43,
+   "name": "3 SAW DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 44,
+   "name": "3OCT",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 45,
+   "name": "ACIDIC BS 1 IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 46,
+   "name": "ACIDIC BS 2 IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 47,
+   "name": "ACIDIC BS 3 IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 48,
+   "name": "ANALOGIQUE1 CG",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 49,
+   "name": "ANALOGIQUE2 CG",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 50,
+   "name": "ANALOGIQUE3 CG",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 51,
+   "name": "ANALOGIQUE4 CG",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 52,
+   "name": "ANALOGIQUE5 CG",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 53,
+   "name": "ANALOGUE",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 54,
+   "name": "ART OF",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 55,
+   "name": "ATOMIC",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 56,
+   "name": "BASSTAR",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 57,
+   "name": "BLOODPR@SS2 DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 58,
+   "name": "BLOODPR@SS3 DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 59,
+   "name": "BRAIN SALAD IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 60,
+   "name": "BROKEN",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 61,
+   "name": "BUTTERBASS JD",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 62,
+   "name": "CRISPY",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 63,
+   "name": "DEEP",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 64,
+   "name": "DUBBASS",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 65,
+   "name": "DUBBY DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 66,
+   "name": "DUBBY2 DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 67,
+   "name": "ECHO",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 68,
+   "name": "ELECTRO ORG RL",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 69,
+   "name": "FIFTK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 70,
+   "name": "FREQUENCY RL",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 71,
+   "name": "FUZZ BWZZ",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 72,
+   "name": "FUZZY SAW IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 73,
+   "name": "GIANT",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 74,
+   "name": "J.D.BASS DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 75,
+   "name": "JUNAUTICA JD",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 76,
+   "name": "JUNOPULSE DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 77,
+   "name": "JUNOPULSE2 DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 78,
+   "name": "JUNOPULSE3 DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 79,
+   "name": "KNOCK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 80,
+   "name": "LIQUID",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 81,
+   "name": "MASSIVE JD",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 82,
+   "name": "MEVER MIND DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 83,
+   "name": "MODERN",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 84,
+   "name": "MOOGY DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 85,
+   "name": "POOG DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 86,
+   "name": "PULSE XOX DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 87,
+   "name": "PULSER DK",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 88,
+   "name": "PWM",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 89,
+   "name": "RESOBASS JD",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 90,
+   "name": "RETRO",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 91,
+   "name": "REZ SWEEP 2 IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 92,
+   "name": "SHORT",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 93,
+   "name": "SINGSANG JD",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 94,
+   "name": "SNAPPY SAWS IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 95,
+   "name": "SUB",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 96,
+   "name": "SUB",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 97,
+   "name": "TB SOLO JD",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 98,
+   "name": "VAIN JD",
+   "category": "BASS"
+  },
+  {
+   "bank": 1,
+   "program": 99,
+   "name": "WOBBLER 1 IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 2,
+   "program": 0,
+   "name": "WOBBLER 2 IW",
+   "category": "BASS"
+  },
+  {
+   "bank": 2,
+   "program": 1,
+   "name": "AUTOBAHN",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 2,
+   "name": "CLAP",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 3,
+   "name": "CLAP 2",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 4,
+   "name": "KICK LOW",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 5,
+   "name": "NOISE TOMS1 CG",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 6,
+   "name": "NOISE TOMS2 CG",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 7,
+   "name": "SDSV TOMS1 CG",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 8,
+   "name": "SMARE",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 9,
+   "name": "TOM",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 10,
+   "name": "ZAPP! KW TEK",
+   "category": "DRUM"
+  },
+  {
+   "bank": 2,
+   "program": 11,
+   "name": "ANSWER = 42 CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 12,
+   "name": "BAD SUBWOOFER",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 13,
+   "name": "BIUUU CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 14,
+   "name": "BLACKROCKET JD",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 15,
+   "name": "EURORACK DK",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 16,
+   "name": "FIREBALL CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 17,
+   "name": "FLYING OBJ JD",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 18,
+   "name": "HIGH HARLEY CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 19,
+   "name": "HUGE STORM CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 20,
+   "name": "MO P-CORDS TEK",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 21,
+   "name": "NOISE DROP CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 22,
+   "name": "PROZESSOR RL",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 23,
+   "name": "S&H DK",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 24,
+   "name": "SAW & HOLD DK",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 25,
+   "name": "SICK",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 26,
+   "name": "SNOW STORM CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 27,
+   "name": "SONAR",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 28,
+   "name": "TANGERINES CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 29,
+   "name": "THE PLUMMER DK",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 30,
+   "name": "THEREMIN JD",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 31,
+   "name": "TURBO PROP CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 32,
+   "name": "WEIRD WAVE CG",
+   "category": "FX"
+  },
+  {
+   "bank": 2,
+   "program": 33,
+   "name": "A BIT KOTO TEK",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 34,
+   "name": "APW",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 35,
+   "name": "APW ORGAN IW",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 36,
+   "name": "BELLS IW",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 37,
+   "name": "CARBOMIC",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 38,
+   "name": "DET ORGAN JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 39,
+   "name": "DST CHORD JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 40,
+   "name": "E-ORGAN TEK",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 41,
+   "name": "E. GRAND 1 IW",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 42,
+   "name": "E. GRAND 2 IW",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 43,
+   "name": "FLUTE TEK",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 44,
+   "name": "HARPSICKEYS IW",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 45,
+   "name": "HITCHY JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 46,
+   "name": "LEGATO-ATO TEK",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 47,
+   "name": "MAGIC FLY JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 48,
+   "name": "NICRO SWEEP JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 49,
+   "name": "NOVIESTAR JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 50,
+   "name": "ORGANICS 2 CG",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 51,
+   "name": "ORGANICS 3 CG",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 52,
+   "name": "PLUCKED 2",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 53,
+   "name": "RAVE ORGAN JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 54,
+   "name": "REVERS ACC JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 55,
+   "name": "REZZY BP IW",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 56,
+   "name": "SILICON 64 JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 57,
+   "name": "SYNCED KEY",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 58,
+   "name": "UNIRAVE DK",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 59,
+   "name": "WHABBAWHEEL JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 60,
+   "name": "XTC ACID JD",
+   "category": "KEYS"
+  },
+  {
+   "bank": 2,
+   "program": 61,
+   "name": "101 BRASS 1 IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 62,
+   "name": "101 BRASS 2 IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 63,
+   "name": "12AU7 TUBE TEK",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 64,
+   "name": "20 TO 100 IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 65,
+   "name": "3 SQUARES IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 66,
+   "name": "3 TUNED BP IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 67,
+   "name": "3OCT SAW 1 IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 68,
+   "name": "3OCT SAW 2 IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 69,
+   "name": "3OCT SQUARE IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 70,
+   "name": "3OCT TRI IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 71,
+   "name": "70'S",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 72,
+   "name": "70S FUNK LD IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 73,
+   "name": "ABACAB IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 74,
+   "name": "AGGRESSOR IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 75,
+   "name": "ANAZING IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 76,
+   "name": "AQUATARKUS IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 77,
+   "name": "BP TRIANGLE IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 78,
+   "name": "BAAHNPASS IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 79,
+   "name": "CELLPHONE DK",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 80,
+   "name": "CLARINET IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 81,
+   "name": "CRAZY KNOBS RL",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 82,
+   "name": "DRIVE LIGHT DK",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 83,
+   "name": "DRIVER SEAT CG",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 84,
+   "name": "DRONE LD 1 IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 85,
+   "name": "DRONE LD 2 IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 86,
+   "name": "DUCK LD IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 87,
+   "name": "DUCKY DK",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 88,
+   "name": "ELECTRONICA IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 89,
+   "name": "FAKE DELAYS RL",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 90,
+   "name": "FAKE DISTO",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 91,
+   "name": "FAT BP REZ IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 92,
+   "name": "FAT REZ LD IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 93,
+   "name": "FIFTHS LD IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 94,
+   "name": "FILTER FM IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 95,
+   "name": "FLUTE IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 96,
+   "name": "FUSION IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 97,
+   "name": "FUZZY BEAR CG",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 98,
+   "name": "FUZZYGUITAR IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 2,
+   "program": 99,
+   "name": "GOOM IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 0,
+   "name": "GROWLING BP IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 1,
+   "name": "HARDROON JD",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 2,
+   "name": "HARSH",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 3,
+   "name": "HIGH SKY IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 4,
+   "name": "HORN IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 5,
+   "name": "LD DELIGHT IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 6,
+   "name": "LESS DTUME TEK",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 7,
+   "name": "LITTLEPULSE CG",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 8,
+   "name": "LOW BRASS IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 9,
+   "name": "LYLEISH IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 10,
+   "name": "MISBEHAVE DK",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 11,
+   "name": "MYSTICLEAD CG",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 12,
+   "name": "NASAL",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 13,
+   "name": "NEG SWEEP IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 14,
+   "name": "NOISY BP LD IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 15,
+   "name": "OBOE IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 16,
+   "name": "P2 SINGING CG",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 17,
+   "name": "PARAPHASED CG",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 18,
+   "name": "PHAT",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 19,
+   "name": "PITCH DOWN IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 20,
+   "name": "PULSE2",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 21,
+   "name": "PULSEWELT DK",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 22,
+   "name": "RAVE MATION JD",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 23,
+   "name": "RETRO",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 24,
+   "name": "REVIVAL LD CG",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 25,
+   "name": "RIWER DEEP CG",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 26,
+   "name": "S+H BPF IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 27,
+   "name": "SEVENTH HP IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 28,
+   "name": "SH-IOLIN IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 29,
+   "name": "SINGING HPF 1W",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 30,
+   "name": "SINOID LD IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 31,
+   "name": "SIZZLER IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 32,
+   "name": "SLOW SYNC IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 33,
+   "name": "STEREO LD 2 CG",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 34,
+   "name": "STEREO",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 35,
+   "name": "STEVE W. TEK",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 36,
+   "name": "SYNC LD 1 IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 37,
+   "name": "SYNC LD 2 IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 38,
+   "name": "THE PULSE RL",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 39,
+   "name": "UNI SQUARE IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 40,
+   "name": "URANUS IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 41,
+   "name": "WHISTLER IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 42,
+   "name": "WHITE ROCK IW",
+   "category": "LEAD"
+  },
+  {
+   "bank": 3,
+   "program": 43,
+   "name": "ANALOG WARMTH",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 44,
+   "name": "ART OF SYNT CG",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 45,
+   "name": "BPPULSE DK",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 46,
+   "name": "CIRCUIT BENT",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 47,
+   "name": "CLASSIC MOD CG",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 48,
+   "name": "DRAFT FUNK CG",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 49,
+   "name": "ENOLA JD",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 50,
+   "name": "FUJIYAMA CG",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 51,
+   "name": "KRAFTMAX CG",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 52,
+   "name": "MINI MOOD CG",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 53,
+   "name": "MODERN PAST CG",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 54,
+   "name": "PANNER DK",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 55,
+   "name": "POINT OF VIEW",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 56,
+   "name": "PURE PULSE2 CG",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 57,
+   "name": "SECRETGARD JD",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 58,
+   "name": "SHORTY DK",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 59,
+   "name": "TOKYO TUNE CG",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 60,
+   "name": "TUCKER DK",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 61,
+   "name": "TUCKER2 DK",
+   "category": "MONO"
+  },
+  {
+   "bank": 3,
+   "program": 62,
+   "name": "70'S",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 63,
+   "name": "ABENDROT CG",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 64,
+   "name": "ABENDSTERN CG",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 65,
+   "name": "ANTIQUE",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 66,
+   "name": "APWSTRINGS IW",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 67,
+   "name": "BP STRINGS IW",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 68,
+   "name": "BRASSY",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 69,
+   "name": "BREATHY",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 70,
+   "name": "FADING",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 71,
+   "name": "FATTY",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 72,
+   "name": "GLORIA",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 73,
+   "name": "HIGHSTRINGS IW",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 74,
+   "name": "INFLUX IW",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 75,
+   "name": "LEIT@R DK",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 76,
+   "name": "OLD HARMONY CG",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 77,
+   "name": "PAD PANNER JD",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 78,
+   "name": "PWM",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 79,
+   "name": "PWM",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 80,
+   "name": "QUADRO-PAD CG",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 81,
+   "name": "SOFT PULSE2 CG",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 82,
+   "name": "SOFTSTRINGS IW",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 83,
+   "name": "STRINGPULSE CG",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 84,
+   "name": "WIDE PULSE2 CG",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 85,
+   "name": "HIHAT",
+   "category": "PERC"
+  },
+  {
+   "bank": 3,
+   "program": 86,
+   "name": "Z@PPA DK",
+   "category": "PERC"
+  },
+  {
+   "bank": 3,
+   "program": 87,
+   "name": "Z@PPER2 DK",
+   "category": "PERC"
+  },
+  {
+   "bank": 3,
+   "program": 88,
+   "name": "ZWITSCHER CG",
+   "category": "PERC"
+  },
+  {
+   "bank": 3,
+   "program": 89,
+   "name": "4-VOICE",
+   "category": "PAD"
+  },
+  {
+   "bank": 3,
+   "program": 90,
+   "name": "8-VOICE PWM",
+   "category": "POLY"
+  },
+  {
+   "bank": 3,
+   "program": 91,
+   "name": "APW",
+   "category": "POLY"
+  },
+  {
+   "bank": 3,
+   "program": 92,
+   "name": "BRASSERERIE DK",
+   "category": "POLY"
+  },
+  {
+   "bank": 3,
+   "program": 93,
+   "name": "DAS MODEL CG",
+   "category": "POLY"
+  },
+  {
+   "bank": 3,
+   "program": 94,
+   "name": "FULL PULSE CG",
+   "category": "POLY"
+  },
+  {
+   "bank": 3,
+   "program": 95,
+   "name": "FUNKADELIC",
+   "category": "POLY"
+  },
+  {
+   "bank": 3,
+   "program": 96,
+   "name": "HARMONICS IW",
+   "category": "POLY"
+  },
+  {
+   "bank": 3,
+   "program": 97,
+   "name": "HOOVER DK",
+   "category": "POLY"
+  },
+  {
+   "bank": 3,
+   "program": 98,
+   "name": "MORPI LFO",
+   "category": "POLY"
+  },
+  {
+   "bank": 3,
+   "program": 99,
+   "name": "NEED PRESSURE",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 0,
+   "name": "PAD P2 DK",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 1,
+   "name": "POLI 80IES TEK",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 2,
+   "name": "POLY CELLO CG",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 3,
+   "name": "POLY PULSE CG",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 4,
+   "name": "POLYNOISIA",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 5,
+   "name": "POLYP2 DK",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 6,
+   "name": "PULSEWIDTH",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 7,
+   "name": "STAKKER A CG",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 8,
+   "name": "UNI GUITAR IW",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 9,
+   "name": "UNISON SQUARE",
+   "category": "POLY"
+  },
+  {
+   "bank": 4,
+   "program": 10,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 11,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 12,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 13,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 14,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 15,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 16,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 17,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 18,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 19,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 20,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 21,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 22,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 23,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 24,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 25,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 26,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 27,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 28,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 29,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 30,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 31,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 32,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 33,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 34,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 35,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 36,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 37,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 38,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 39,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 40,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 41,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 42,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 43,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 44,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 45,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 46,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 47,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 48,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 49,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 50,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 51,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 52,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 53,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 54,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 55,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 56,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 57,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 58,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 59,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 60,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 61,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 62,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 63,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 64,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 65,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 66,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 67,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 68,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 69,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 70,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 71,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 72,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 73,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 74,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 75,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 76,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 77,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 78,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 79,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 80,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 81,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 82,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 83,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 84,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 85,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 86,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 87,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 88,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 89,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 90,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 91,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 92,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 93,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 94,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 95,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 96,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 97,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 98,
+   "name": "INIT",
+   "category": "NONE"
+  },
+  {
+   "bank": 4,
+   "program": 99,
+   "name": "RANDOM",
+   "category": "NONE"
+  }
+ ]
+}

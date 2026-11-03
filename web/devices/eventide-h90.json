@@ -1,0 +1,67 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "eventide-h90",
+ "name": "Eventide H90 Harmonizer",
+ "maker": "Eventide",
+ "channel": {
+  "default": 15,
+  "note": "One channel for receive and transmit, or Receive Omni (System > MIDI). The default value is not stated in the manual; 15 is this rig's setting."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 1,
+  "programs": 99,
+  "bankFormat": "none",
+  "pad": 0,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "PC selects a Program in the current Playlist (a User List of up to 99). With PC Offset 0 (default) PC n loads Program n as displayed (1-based; PC 0 is not used); with PC Offset 1, PC 0 loads Program 1: set this definition's displayBase to 0 then. No bank select; banks of three are reached only by Bank Up / Down CC functions."
+ },
+ "controllers": [
+  {
+   "cc": -1,
+   "name": "No default CC map: assign CC numbers per function in System > MIDI > Global Control (Load, Increment, Decrement, Bank Up/Down, Tuner, Tap Tempo, P/A/B active-bypass toggle or momentary, Insert 1/2, HotSwitch 1-3, Perform 1-6, Quick Knobs 1-6, HotKnob, In/Out gain, Mix) and enter them in the rig profile",
+   "min": 0,
+   "max": 127
+  }
+ ],
+ "setup": [
+  "System > MIDI: channel 15 (or Receive Omni).",
+  "System > MIDI: PC Offset 0 keeps PC n = Program n as displayed; if you use PC Offset 1, set displayBase 0 in the rig.",
+  "Make the User List you play from the Playlist: program numbers in the song refer to its order.",
+  "Assign CC numbers for bypass / HotSwitch / tap in Global Control and enter them in the rig profile.",
+  "Firmware 1.8.6..1.9.x ignores a CC sent together with a PC: keep this device's gap (after the program change) until you run 1.13.2 or later."
+ ],
+ "notes": [
+  "Program names are per user (the Playlist is user-arranged): name the 99 slots in the rig profile.",
+  "A PC loads the whole Program (both A and B); presets A/B are not selectable by MIDI."
+ ],
+ "sources": [
+  {
+   "title": "H90 User Manual v1.9.7, 7.4 MIDI",
+   "url": "https://cdn.eventideaudio.com/manuals/h90/1.9.7/content/system-menu/midi.html",
+   "detail": "PDF pp. 94-96"
+  },
+  {
+   "title": "H90 User Manual v1.9.7, Appendix C global mapping chart",
+   "url": "https://cdn.eventideaudio.com/manuals/h90/1.9.7/content/appendix/global.html",
+   "detail": "PDF pp. 253-256"
+  },
+  {
+   "title": "Eventide staff forum answers (manufacturer, informal): PC/CC timing, no bank select",
+   "url": "https://www.eventideaudio.com/?p=189216",
+   "detail": "also ?p=187986, ?p=194425"
+  }
+ ],
+ "unverified": [
+  "channel.default",
+  "programChange.gapMs:older firmware needs ~300 ms after a PC before a CC (user report)",
+  "USB carries PC/CC (manual says only 'receive MIDI over USB')"
+ ],
+ "presets": []
+}

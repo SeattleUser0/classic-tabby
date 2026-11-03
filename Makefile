@@ -19,8 +19,9 @@
 #     make test              host tests: native gcc build of the app + simulator sources
 #                            with FM1_HOST_TEST, a Node check of the wasm, and the
 #                            workbench song-write test                           [Step 7]
-#     make workbench-test    Node test of the workbench's shared song write path
-#                            (sdk/WebUpdate.js Library.songWrite on a fake device) [Task 03 f]
+#     make workbench-test    Node tests of the workbench: the shared song write path on a fake
+#                            device [Task 03 f] and the device library schema [Task 04]
+#     make midi-import-sim   also plays a row-event song through the wasm       [Task 04]
 #     make midi-import-test  Node tests of the MIDI importer (web/import, tests/midi-import)
 #                            against the generated fixture .mid files        [Task 02 MIDI]
 #     make midi-import-sim   plays an imported Renoise export through build/web/simulator.wasm
@@ -50,9 +51,11 @@
 #       make firmware JIELI_LINUX=/opt/jieli
 #       make firmware-ref WINEPREFIX=$HOME/.wine-jieli
 #
-# Version: 0.7
+# Version: 0.8
 #
 # Revision log
+#   v0.8  2026-11-02  Task 04: workbench-test also runs tests/workbench/devices.mjs;
+#                     midi-import-sim also runs tests/workbench/row-events-sim.mjs.
 #   v0.7  2026-11-02  Task 03 (f): workbench-test target, part of test.
 #   v0.6  2026-11-02  Task 02 Step 4: midi-import-sim target (Node, needs build/web/simulator.wasm).
 #   v0.5  2026-11-02  Task 02 (MIDI import): midi-import-test target (Node, no build needed).
@@ -115,7 +118,7 @@ HOST_FLAGS := -std=c11 -O1 -g -fwrapv -fno-fast-math -ffp-contract=off -DFM1_HOS
               -Iweb/engine -Iweb/synth -Ithird_party/synth -Isdk/include -Iapp/synth -Iapp
 
 help:
-	@sed -n '7,51p' Makefile | sed 's/^#   //; s/^#//'
+	@sed -n '7,53p' Makefile | sed 's/^#   //; s/^#//'
 
 verify:
 	$(PYTHON) -I $(BUILD) --verify-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
@@ -158,6 +161,7 @@ host-smoke: build/host/smoke
 # Task 03 (f): the workbench's shared song write path (Node, no build needed).
 workbench-test:
 	$(NODE) tests/workbench/song-write.mjs
+	$(NODE) tests/workbench/devices.mjs
 
 test: host-smoke web-smoke workbench-test
 	@echo "test: host-smoke, web-smoke and workbench-test passed"
@@ -169,6 +173,7 @@ midi-import-test:
 # Task 02 Step 4: the imported Renoise export played through the wasm simulator (make web first).
 midi-import-sim:
 	$(NODE) tests/midi-import/simulator.mjs build/web/simulator.wasm
+	$(NODE) tests/workbench/row-events-sim.mjs build/web/simulator.wasm
 
 flash-budget:
 	@# The analysis symbol map (per-file attribution of LTO-merged code) is built once per

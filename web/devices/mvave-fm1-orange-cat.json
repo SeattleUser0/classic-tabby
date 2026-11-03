@@ -1,0 +1,43 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "mvave-fm1-orange-cat",
+ "name": "M-VAVE FM-1 (Orange Cat firmware)",
+ "maker": "M-VAVE (firmware: Orange Cat, in development)",
+ "channel": {
+  "default": null,
+  "note": "Placeholder: Orange Cat's MIDI implementation is not settled. Channel and notes only."
+ },
+ "programChange": {
+  "supported": "unverified",
+  "displayBase": 0,
+  "programs": 0,
+  "bankFormat": "none",
+  "pad": 0,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "Placeholder to fill in when Orange Cat's MIDI implementation is settled."
+ },
+ "controllers": [],
+ "setup": [
+  "Load the Orange Cat firmware; set its MIDI channel per its own documentation."
+ ],
+ "notes": [
+  "Placeholder definition (Task 04): no program change, no named CCs until the firmware's MIDI implementation is settled."
+ ],
+ "sources": [
+  {
+   "title": "Orange Cat FM-1 firmware (separate project, in development)",
+   "url": "",
+   "detail": "no published MIDI implementation yet"
+  }
+ ],
+ "unverified": [
+  "everything beyond channel and notes"
+ ],
+ "presets": []
+}

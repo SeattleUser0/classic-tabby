@@ -30,9 +30,16 @@
  *
  *   Loading: classic script (globalThis.TabbySongFormat) and CommonJS (module.exports).
  *
- * Version: 0.3
+ *   Row events (Task 04, section 9.11 v0.6): `events` [{ row, channel 0..15, type 0 PC |
+ *   1 bank+PC | 2 CC | 3 gap, d0, d1, d2 }] in firing order; a song with events encodes as a
+ *   version-2 record (event table at 2624, CRC over 20..4091), without as version 1. The
+ *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
+ *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
+ *
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-02  Task 04: row events (version-2 records), the .tabby trailer.
  *   v0.3  2026-11-02  Section 9 v0.4 (commit 2d4ef83): 16-bit block ids (1..65535, at most
  *                     2048 per song), 6-byte block record header, 20-byte rows, CRC over
  *                     20..2623, header byte 41 reserved. structuralKey() added for the
@@ -58,6 +65,7 @@
     tempoMin: 30, tempoMax: 300, nameLength: 12,
     recordArea: 4076, blockSectors: 96, poolBytes: 96 * 4076,   /* 391296 */
     recordBytes: 4096, rowBytes: 20, rowsOffset: 64, bodyEnd: 2624, channelsOffset: 48, headerBytes: 64, blockHeaderBytes: 6,
+    eventsOffset: 2624, eventsStart: 2632, eventBytes: 5, eventsMax: 292, rowEventsMax: 32, recordV2End: 4092,   /* 9.11 v0.6 */
     rowStepsAllowed: [16, 32, 48, 64],
     magicRecord: 0x47314d46, /* FM1G */ magicBlocks: 0x42314d46, /* FM1B */
     version: 1,
@@ -75,7 +83,7 @@
   /* ---- model helpers ------------------------------------------------------------------- */
   function emptySong(name = 'IMPORTED') {
     return { schema: 'tabby-song/1', name: padName(name), projectSlot: 0, tempo: 0, loop: false, jumpMode: 'bar', loopRow: 0,
-      outChannels: [null, null, null, null, null, null, null, null], rows: [], blocks: [] };
+      outChannels: [null, null, null, null, null, null, null, null], rows: [], blocks: [], events: [] };
   }
   /* 12 printable ASCII characters, space padded, upper case like the device shows names. */
   function padName(text) {
@@ -163,7 +171,8 @@
     v.setUint32(4, generation >>> 0, true);
     v.setUint32(8, target >>> 0, true);
     v.setUint32(16, 0, true);                           /* commit = complete */
-    v.setUint32(20, LIMITS.version, true);
+    const events = (song.events || []).slice().sort((a, b) => a.row - b.row);
+    v.setUint32(20, events.length ? 2 : LIMITS.version, true);   /* 9.11: version 2 carries events */
     const name = padName(song.name);
     for (let i = 0; i < LIMITS.nameLength; i++) r[24 + i] = name.charCodeAt(i);
     r[36] = song.projectSlot;
@@ -181,15 +190,20 @@
       r[at + 18] = row.steps;                           /* step length, written explicitly */
       r[at + 19] = 0;
     });
-    v.setUint32(12, crc32(r.subarray(20, LIMITS.bodyEnd)), true);
+    if (events.length) {
+      v.setUint16(LIMITS.eventsOffset, events.length, true); r[LIMITS.eventsOffset + 2] = 1; r[LIMITS.eventsOffset + 3] = 0; v.setUint32(LIMITS.eventsOffset + 4, 0, true);
+      events.forEach((e, i) => { const at = LIMITS.eventsStart + i * LIMITS.eventBytes; r[at] = e.row; r[at + 1] = (e.channel & 15) | (e.type << 4); r[at + 2] = e.d0 | 0; r[at + 3] = e.d1 | 0; r[at + 4] = e.d2 | 0; });
+    }
+    v.setUint32(12, crc32(r.subarray(20, events.length ? LIMITS.recordV2End : LIMITS.bodyEnd)), true);
     return r;
   }
   function decodeRecord(r) {
     if (!(r instanceof Uint8Array) || r.length !== LIMITS.recordBytes) fail('song record must be 4096 bytes');
     const v = new DataView(r.buffer, r.byteOffset, r.byteLength);
     if (v.getUint32(0, true) !== LIMITS.magicRecord) fail('song record magic is not FM1G');
-    if (v.getUint32(12, true) !== crc32(r.subarray(20, LIMITS.bodyEnd))) fail('song record CRC mismatch');
-    if (v.getUint32(20, true) !== LIMITS.version) fail('song record version ' + v.getUint32(20, true) + ' unsupported');
+    const version = v.getUint32(20, true);
+    if (version !== 1 && version !== 2) fail('song record version ' + version + ' unsupported');
+    if (v.getUint32(12, true) !== crc32(r.subarray(20, version === 2 ? LIMITS.recordV2End : LIMITS.bodyEnd))) fail('song record CRC mismatch');
     const song = emptySong('');
     song.name = String.fromCharCode(...r.subarray(24, 36));
     song.projectSlot = r[36]; song.loop = !!(r[37] & 1); song.jumpMode = r[37] & 2 ? 'row' : 'bar';
@@ -206,12 +220,45 @@
       if (!LIMITS.rowStepsAllowed.includes(steps)) fail('song record row ' + (i + 1) + ' step length ' + r[at + 18] + ' invalid');
       song.rows.push({ blocks: Array.from({ length: 8 }, (_, t) => v.getUint16(at + 2 * t, true)), repeat: r[at + 16], loopHere: !!(r[at + 17] & 1), steps });
     }
+    song.events = [];
+    if (version === 2) {                                /* 9.11: the event table, validated as the device does */
+      const n = v.getUint16(LIMITS.eventsOffset, true);
+      if (n > LIMITS.eventsMax || r[LIMITS.eventsOffset + 2] !== 1 || r[LIMITS.eventsOffset + 3] !== 0 || v.getUint32(LIMITS.eventsOffset + 4, true) !== 0) fail('song record event table header invalid');
+      for (let i = 0; i < n; i++) { const at = LIMITS.eventsStart + i * LIMITS.eventBytes; song.events.push({ row: r[at], channel: r[at + 1] & 15, type: r[at + 1] >> 4, d0: r[at + 2], d1: r[at + 3], d2: r[at + 4] }); }
+      for (let i = LIMITS.eventsStart + n * LIMITS.eventBytes; i < LIMITS.recordV2End; i++) if (r[i] !== 0xff) fail('song record bytes after the event table are not 0xFF');
+      const problems = validateEvents(song.events, rowCount); if (problems.length) fail('song record ' + problems[0]);
+    }
     song.generation = v.getUint32(4, true); song.commit = v.getUint32(16, true);
     return song;
+  }
+  /* Event rules of 9.11 (device, workbench and importer agree). Returns a list of errors. */
+  function validateEvents(events, rows) {
+    const errors = [], b = x => Number.isInteger(x) && x >= 0 && x <= 127, bb = x => b(x) || x === 255;
+    if (!Array.isArray(events)) return ['events must be an array'];
+    if (events.length > LIMITS.eventsMax) errors.push('has ' + events.length + ' events (max 292)');
+    let last = -1, inRow = 0;
+    events.forEach((e, i) => {
+      if (!e || !Number.isInteger(e.row) || e.row < 0 || e.row >= rows) { errors.push('event ' + (i + 1) + ' row outside the song'); return; }
+      if (e.row < last) errors.push('event ' + (i + 1) + ' out of row order');
+      inRow = e.row === last ? inRow + 1 : 1; last = e.row;
+      if (inRow > LIMITS.rowEventsMax) errors.push('row ' + (e.row + 1) + ' has more than 32 events');
+      if (!Number.isInteger(e.channel) || e.channel < 0 || e.channel > 15) errors.push('event ' + (i + 1) + ' channel outside 1..16');
+      if (e.type === 0) { if (!b(e.d0) || e.d1 || e.d2) errors.push('event ' + (i + 1) + ' program invalid'); }
+      else if (e.type === 1) { if (!bb(e.d0) || !bb(e.d1) || !b(e.d2)) errors.push('event ' + (i + 1) + ' bank/program invalid'); }
+      else if (e.type === 2) { if (!b(e.d0) || !b(e.d1) || e.d2) errors.push('event ' + (i + 1) + ' control change invalid'); }
+      else if (e.type === 3) { if (!Number.isInteger(e.d0) || e.d0 < 1 || e.d0 > 255 || e.d1 || e.d2) errors.push('event ' + (i + 1) + ' gap must be 1..255 ms'); }
+      else errors.push('event ' + (i + 1) + ' type invalid');
+    });
+    return errors;
   }
   function encodeFile(song) {
     const record = encodeRecord(song);
     const parts = [record, ...song.blocks.slice().sort((a, b) => a.id - b.id).map(b => encodeBlockRecord(b, 0))];
+    if (song.rig) {                                     /* 9.11 trailer: workbench-only data */
+      const json = new TextEncoder().encode(JSON.stringify({ rig: song.rig })), head = new Uint8Array(9);
+      head[0] = 0xff; head.set([84, 82, 73, 71], 1); new DataView(head.buffer).setUint32(5, json.length, true);
+      parts.push(head, json);
+    }
     const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
     let at = 0; for (const p of parts) { out.set(p, at); at += p.length; }
     return out;
@@ -230,6 +277,12 @@
       if (length < LIMITS.blockMin || length > LIMITS.blockMax || at + H + length > bytes.length) fail('.tabby block record ' + id + ' length invalid');
       song.blocks.push(decodeBlock(bytes.subarray(at + H, at + H + length), id));
       at = align4(at + H + length);
+    }
+    if (at + 9 <= bytes.length && bytes[at] === 0xff && String.fromCharCode(...bytes.subarray(at + 1, at + 5)) === 'TRIG') {
+      const len = new DataView(bytes.buffer, bytes.byteOffset + at + 5, 4).getUint32(0, true);
+      if (at + 9 + len > bytes.length) fail('.tabby trailer truncated');
+      let trailer; try { trailer = JSON.parse(new TextDecoder().decode(bytes.subarray(at + 9, at + 9 + len))); } catch (e) { fail('.tabby trailer is not JSON'); }
+      if (trailer && trailer.rig) song.rig = trailer.rig;
     }
     checkSong(song);
     return song;
@@ -269,6 +322,7 @@
       else if (row.steps < 64) row.blocks.forEach((id, t) => { const b = ids.get(id); if (b && b.notes.some(n => n.step >= row.steps)) warn('row ' + (i + 1) + ' track ' + (t + 1) + ': block ' + id + ' has notes beyond step ' + row.steps + ' that this row never plays'); });
     });
     for (const id of ids.keys()) if (!used.has(id)) warn('block ' + id + ' is stored but no row uses it');
+    validateEvents(song.events || [], (song.rows || []).length).forEach(err);   /* 9.11 */
     const u = errors.length ? null : usage(song);
     if (u && u.recordBytes > LIMITS.poolBytes) err('blocks need ' + u.recordBytes + ' bytes, the pool holds ' + LIMITS.poolBytes);
     if (!Array.isArray(song.outChannels) || song.outChannels.length !== 8 || song.outChannels.some(c => c !== null && !(Number.isInteger(c) && c >= 0 && c <= 15))) err('outChannels must be 8 entries of null or 0..15');
@@ -308,6 +362,7 @@
     song.blocks = (data.blocks || []).map(b => ({ id: b.id, ...(b.stepFlags ? { stepFlags: b.stepFlags } : {}),
       notes: (b.notes || []).map(n => Array.isArray(n) ? { step: n[0], pitch: n[1], velocity: n[2], length: n[3], retrigger: !!n[4] } : { ...n, retrigger: !!n.retrigger }) }));
     song.rows = (data.rows || []).map(r => ({ blocks: Array.from(r.blocks || []), repeat: r.repeat, loopHere: !!r.loopHere, steps: r.steps || data.rowSteps || 64 }));
+    song.events = (data.events || []).map(e => ({ row: e.row, channel: e.channel, type: e.type, d0: e.d0 | 0, d1: e.d1 | 0, d2: e.d2 | 0 }));
     delete song.rowSteps;                                 /* v0.1 files: the length now lives in each row */
     checkSong(song);
     return song;
@@ -320,7 +375,7 @@
     return song.rows.map(r => r.blocks.map(id => id ? sortNotes(byId.get(id).notes) : []));
   }
 
-  const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, structuralKey, encodeBlockRecord,
+  const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, structuralKey, encodeBlockRecord, validateEvents,
     encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, version: '0.3' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;

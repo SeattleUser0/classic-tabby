@@ -1,7 +1,10 @@
 # Classic Tabby — Specification
 
-Version: 0.11
+Version: 0.12
 Revision log:
+- v0.12, 2026-11-02: section 8: Task 04 workbench part done (device library, rig setup, row
+  event editor, .tabby events and trailer, importer conversion, simulator check); section 7
+  importer rules extended with row events.
 - v0.11, 2026-11-02: section 8 added: Task 04 row events and device library; firmware part
   done (event storage, firing, SEND SETUP), workbench part pending.
 - v0.10, 2026-11-02: section 6: checkpoint (f) done (factory scenes out, delete-before-replace
@@ -456,6 +459,12 @@ at the rebase (Step 4), none of them a byte-layout difference:
 - Legato is not produced: the importer clips same-pitch overlaps instead of setting the
   retrigger bit, so the device never extends a note (9.3 legato rule) for imported material.
 - The panel is English only (7.1).
+- Row events (Task 04): a program change, bank select or control change in a `.mid` becomes
+  a row event when its position lies in [row start − pre-roll, row start + ½ step); the
+  pre-roll is one beat by default, 0 or one bar selectable; CC 0 / CC 32 directly before a
+  program change on the same channel merge into one bank+program event; a row with events
+  is never merged into a repeat of the previous row; everything else is listed as dropped.
+  Events are addressed to the file's MIDI channel, not to a Tabby track.
 
 ## 8. Task 04 — Row events (program change, bank select, CC) and the device library
 
@@ -485,8 +494,25 @@ Status:
   tick; the late counter), SEND SETUP (ACTIONS, stopped only), SONG page "EVENTS n / LATE
   m", command 23 bytes 13..14. Host tests: section 10 (36 checks). Measured figures:
   BUILD.md section 16.
-- Workbench part: pending (device library loader, the device JSON files, rig setup, row
-  event editor, `.tabby` events and trailer, importer).
+- **Workbench part done, 2026-11-02:** the device library (`web/devices/*.json`, eleven
+  definitions in the `tabby-device/1` format written by tools/linux/devices-from-sources.py
+  from the manufacturer documents of the Step 1 research, preset lists parsed from the
+  manufacturers' own files: Proteus/2 192, Blofeld 1024, Pulse 2 500, Zoom 80; every
+  definition cites its sources and lists its unverified fields; three FM-1 definitions, one
+  per firmware: Skiff, Melodee and an Orange Cat placeholder), `web/rig/device-library.js`
+  (schema validation, display numbering, bank bytes, preset and controller names),
+  `web/rig/rig.js` (the rig profile: channel → device, name, gap override, user program
+  names; browser storage, export / import; gap generation for writing) and
+  `web/rig/rig-ui.js` (rig setup table and the row event editor, mounted in the Library
+  tab next to the song editor; English like the importer panel). The shared parser reads
+  and writes version-2 records (`song.events`) and the `.tabby` trailer; the song editor's
+  write and export paths apply the rig's gaps; the per-song rig override is a checkbox.
+  The importer converts program change, bank select and control change events at or near
+  a row start (one-beat pre-roll by default, 0 or one bar selectable) into row events and
+  lists the rest as dropped. Tests: device schema and numbering (38 checks), importer suite
+  140 checks (row-events fixture, version-2 round trips, trailer), a simulator check with a
+  three-row song (events in order before each row's notes, on their channels, 0 late).
+  Hardware checklist: BUILD.md section 17.3.
 
 Known limits (firmware part):
 

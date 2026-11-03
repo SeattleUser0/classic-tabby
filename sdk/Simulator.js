@@ -93,7 +93,7 @@
             break;
           }
           case 'song-delete': result=c.sim_song_record_delete(message.song>>>0); break;
-          case 'song-status': data={free:c.sim_song_free()>>>0,reclaimable:c.sim_song_reclaimable()>>>0,state:c.sim_song_status(0)>>>0}; break;
+          case 'song-status': data={free:c.sim_song_free()>>>0,reclaimable:c.sim_song_reclaimable()>>>0,state:c.sim_song_status(0)>>>0,late:(c.sim_song_status(2)>>>16)&0xffff,events:c.sim_song_status(3)>>>0}; break;
           case 'tick': for(let i=0;i<Math.min(32,message.blocks>>>0);i++)c.sim_render();break;
           default: throw Error('未知仿真操作');
         }

@@ -35,9 +35,11 @@
 //   Run:  /usr/bin/node tests/midi-import/run.mjs      (or: make midi-import-test)
 //   Exit status 0 on success; every check prints "ok" or "FAIL".
 //
-// Version: 0.4
+// Version: 0.5
 //
 // Revision log
+//   v0.5  2026-11-02  Task 04: section 13, row events (fixture row-events.mid, pre-roll, version-2
+//                     records, decode rejection, the .tabby trailer).
 //   v0.4  2026-11-02  Step 4: 11c backend transfer (delete-before-replace, record first, kind-7
 //                     batch plan, read-back decode).
 //   v0.3  2026-11-02  Section 9 v0.4 layout (16-bit ids, 20-byte rows); loose deduplication
@@ -351,6 +353,38 @@ const produced = [];
       check(same(Format.decodeFile(file).rows, r.song.rows), `renoise ${name}: .tabby round trip`, `${file.length} bytes`);
     } catch (error) { check(false, `renoise ${name}: ${error.message}`); }
   }
+}
+
+// ---- 13. row events (Task 04, section 9.11 v0.6) --------------------------------------------
+{
+  const bytes = readFileSync(join(here, 'fixtures', 'row-events.mid'));
+  const a = Song.analyze(Midi.parse(new Uint8Array(bytes)));
+  const r = Song.convert(a, { name: 'EVENTS' }), ev = r.song.events;
+  const sig = ev.map(e => [e.row, e.channel, e.type, e.d0, e.d1, e.d2].join('/')).join(' ');
+  check(ev.length === 5 && sig === '0/0/0/5/0/0 0/1/2/7/100/0 0/2/1/1/2/9 1/0/0/6/0/0 1/0/0/7/0/0',
+    'events: PC, CC and bank+PC at row 1; the pre-rolled PC 6 and PC 7 at row 2; mid-row CC dropped', sig);
+  check(warning(r, 'ccIgnored')?.count === 1 && warning(r, 'bankWithoutProgram')?.count === 1 && warning(r, 'rowEvents')?.count === 5, 'events: the mid-row CC and the lone bank select are listed as dropped');
+  check(r.song.rows.length === 2 && r.song.rows.every(x => x.repeat === 1), 'events: rows with events are not merged into repeats');
+  const none = Song.convert(a, { name: 'EVENTS', preRoll: 'none' }).song.events;
+  check(none.length === 4 && !none.some(e => e.d0 === 6 && e.type === 0), 'events: pre-roll none drops the PC a beat before row 2', none.length + ' events');
+  const bar = Song.convert(a, { name: 'EVENTS', preRoll: 'bar' }).song.events;
+  check(bar.length === 5, 'events: pre-roll bar keeps the same five');
+  const img = Format.encodeRecord(r.song);
+  check(new DataView(img.buffer).getUint32(20, true) === 2 && img[2624] === 5 && img[2626] === 1 && img[2632] === 0 && img[2633] === 0x00 && img[2634] === 5 && img[2643] === 0x12 && img[4091] === 0xff,
+    'events: version-2 record, table at 2624, first event {0, ch1 type0, 5}, third event channel|type = 0x12', Array.from(img.subarray(2624, 2650)).map(x => x.toString(16).padStart(2, '0')).join(' '));
+  const back = Format.decodeRecord(img);
+  check(same(back.events, ev) && Format.validate({ ...r.song, blocks: r.song.blocks }).ok, 'events: decodeRecord returns the same events');
+  const plain = Format.encodeRecord({ ...r.song, events: [] });
+  check(new DataView(plain.buffer).getUint32(20, true) === 1 && Array.from(plain.subarray(2624, 4096)).every(x => x === 0xff), 'events: a song without events stays a version-1 record');
+  const bad = img.slice(); bad[2632] = 1; new DataView(bad.buffer).setUint32(12, Format.crc32(bad.subarray(20, 4092)), true);
+  check(throws(() => Format.decodeRecord(bad), /row order/), 'events: unsorted table rejected on decode');
+  const bad2 = img.slice(); bad2[2632 + 1] = 0x40; new DataView(bad2.buffer).setUint32(12, Format.crc32(bad2.subarray(20, 4092)), true);
+  check(throws(() => Format.decodeRecord(bad2), /type invalid/), 'events: type 4 rejected on decode');
+  const rig = { schema: 'tabby-rig/1', name: 'test', channels: Array.from({ length: 16 }, (_, i) => ({ device: i === 0 ? 'waldorf-blofeld' : null, name: '', gapMs: null, programs: {} })) };
+  const withRig = { ...r.song, rig };
+  const file = Format.encodeFile(withRig), got = Format.decodeFile(file);
+  check(file.length > Format.encodeFile(r.song).length + 9 && got.rig && got.rig.channels[0].device === 'waldorf-blofeld' && same(got.events, ev), 'events: .tabby trailer carries the rig override and reads back');
+  check(same(Format.fromJSON(Format.toJSON(withRig)).events, ev), 'events: JSON round trip keeps the events');
 }
 
 console.log(failures ? `${failures} of ${checks} check(s) FAILED` : `all ${checks} checks passed`);

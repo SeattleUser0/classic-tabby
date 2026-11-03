@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.15
+Version: 0.16
 Revision log:
+- v0.16, 2026-11-02 (Task 04, workbench part): section 17: device library, rig setup, row
+  event editor, importer conversion, tests, the Task 04 hardware checklist.
 - v0.15, 2026-11-02 (Task 04, firmware part): section 16: row events in firmware, measured
   figures, host tests, and the device setup list for the hardware checklist.
 - v0.14, 2026-11-02 (Task 03 checkpoint f): section 15: factory scenes out, delete-before-
@@ -1253,3 +1255,121 @@ the same text in its `notes`. Sources: docs/tasks/TASK-04-step1-assessment.md se
 | Korg volca fm2 | MIDI channel (hold MEMORY at power-on, key 1..16); global 7 "MIDI ShortMessage" = on (factory default). No program change at all: a song can only send its CCs (40..50, 91, 93, 64). |
 | Instruo Seashell | MIDI channel in the Seashell Controller app (Settings); no program change in firmware 1.0.x, parameters by MIDI Learn only. |
 | M-VAVE FM-1 (Skiff / Melodee / Orange Cat) | Per the firmware loaded; definitions pending (workbench part). |
+
+## 17. Task 04 — row events, workbench part (2026-11-02)
+
+### 17.1 What changed
+
+- `web/devices/*.json` (11): `emu-proteus-2-xr`, `eventide-h90`, `zoom-ms-70cdr-plus`,
+  `waldorf-blofeld`, `waldorf-pulse-2`, `dirtywave-m8`, `korg-volca-fm2`,
+  `instruo-seashell`, `mvave-fm1-skiff`, `mvave-fm1-melodee`, `mvave-fm1-orange-cat`
+  (placeholder). Written by `tools/linux/devices-from-sources.py`: the hand-written facts
+  come from the cited manufacturer pages (assessment section 4 plus the Skiff and Melodee
+  research: Skiff v2.1.1 receives program changes counted from 0 per engine, no bank
+  select, a fixed CC map; Melodee 1.6.1 has no program change handler, CCs only), the
+  preset lists are parsed from the manufacturers' own files (Proteus manual text layer
+  pp. 92–93: 192 names, 128..191 marked as reachable only through the program map;
+  Blofeld 2012 SNDD dumps: 1024 sixteen-character names, Waldorf's programmer code
+  included as the device shows it; Pulse 2 preset list: 500 with categories; Zoom patch
+  list: 80). Each file lists `sources`, `setup` (what to set on the device) and
+  `unverified`.
+- `web/rig/device-library.js` v0.1: the `tabby-device/1` validator, `programLabel` /
+  `programFromLabel` (0- or 1-based display, letter banks, hundreds, hex), `bankBytes` /
+  `bankFromBytes` (CC 0 / CC 32 schemes), preset, controller and value-meaning lookups.
+- `web/rig/rig.js` v0.1: the `tabby-rig/1` profile (16 channels: device, name, gap
+  override, user program names), localStorage persistence, export / import, `applyGaps`
+  (type-3 gap events after a program change, or between bank select and program change
+  with the bank+program event split into CC 0 / CC 32 events), `describe` for the editor.
+- `web/rig/rig-ui.js` v0.1: the rig setup table (device select from the library, name, gap,
+  numbering note, "Names…" for user-named programs, export / import / reset) and the row
+  event editor (row selector with counts, the row's events with device and preset names
+  and raw numbers, move / delete, an add form driven by the device on the chosen channel:
+  preset list, bank list, named controllers with value meanings, raw fields always; a
+  checkbox for the per-song rig copy).
+- `sdk/WebUpdate.js`: `songRecordParse` / `songRecordBuild` read and write version-2
+  records (`song.events`, validated as the device does; a song without events stays
+  version 1), `tabbyFile` / `readTabbyFile` carry the `TRIG` trailer, `songStatus` reads
+  bytes 13..14 (late, events). `sdk/Simulator.js`: the simulator's status carries late and
+  events. `sdk/Update.html.in`: the rig group before the song mode group, the events panel
+  under the row table, the mount, the write / export paths applying the rig's gaps, the
+  import path reading the trailer, the status message. `sdk/I18n.js`: 3 entries.
+  `tools/linux/build-web.py`: placeholders `/*FM1_DEVICES*/` (the JSON files as one array)
+  and `/*FM1_RIG_SCRIPT*/`. `sdk/manifest.json` re-pinned.
+- Importer: `web/import/song-format.js` v0.4 (events in the model, version-2 encode and
+  decode with the device's rules, `validateEvents`, the `.tabby` trailer with `song.rig`,
+  JSON round trip), `web/import/midi-song.js` v0.4 (every CC and PC collected in file
+  order; the window rule with the pre-roll option; bank CCs merged into a bank+program
+  event; rows with events never merged into repeats; `rowEvents`, `bankWithoutProgram` and
+  the reworded `programIgnored` / `ccIgnored` warnings), `web/import/import-ui.js` v0.6
+  (pre-roll select, an Events column in the row table, the count in the statistics).
+- Tests: `tests/workbench/devices.mjs` (38 checks: every file validates and cites sources;
+  Proteus 0-based "007" = Arco Violas and the map-only presets; Blofeld "B001" = bank 1 PC
+  0 by CC 32; Pulse 2 "102" = bank 1 PC 1 and "500" = RANDOM; H90 1-based; Zoom base marked
+  unverified; M8 hex; value meanings; a broken definition refused), part of
+  `make workbench-test`; `tests/midi-import/run.mjs` v0.5 section 13 (the `row-events.mid`
+  fixture: PC, CC and bank+PC at row 1, a pre-rolled PC and a PC at row 2, a mid-row CC and
+  a lone bank select dropped; pre-roll none / bar; the version-2 record bytes; decode
+  rejection of an unsorted table and of type 4; the trailer and JSON round trips; 140
+  checks in all); `tests/workbench/row-events-sim.mjs` (`make midi-import-sim`): a
+  three-row song with a program change and a control change per row, built with the
+  workbench's own record builder, played through the wasm: Start, then each row's PC and
+  CC on its channel immediately before the row's note, bank LSB before the PC, every
+  event once, nothing stray, Stop last, 0 late; plus the rig's gap generation and the
+  Blofeld vocabulary ("B010" with its factory name, "CC 7 Channel Volume").
+
+### 17.2 Measured
+
+No firmware change in this part (margin stays 4669, section 16.2). `make test` (148 host
+checks, wasm smoke, workbench song-write and device tests), `make midi-import-test` (140)
+and `make midi-import-sim` (Renoise song and row-event song) pass. The rebuilt preview
+loads in headless Chrome with no console errors, the rig table with the eleven devices,
+the events panel (hidden until a song is in the editor), the importer's pre-roll option
+and the eleven definitions inlined.
+
+### 17.3 Hardware checklist for Task 04
+
+Do the device setup list of section 16.3 first (Proteus/2 XR MIDI mode Multi, per-channel
+MIDI ENABLE and PRESET CHANGE, the program map for presets above 127; H90 channel 15 and
+PC Offset; Zoom USB MIDI CH 16 behind the H4MIDI WC; Blofeld Ctrl Receive on; M8 PG CHANGE
+on; Pulse 2 channel; volca fm2 ShortMessage on; Seashell channel in its app). Then, in the
+workbench, Library tab → "Rig setup": put each device on its channel, set the gaps you want
+(H90: after the program change if its firmware is below 1.13.2), export the profile once.
+
+1. **SEND SETUP changes every device to its row-1 preset.** Build a song (song editor or
+   the importer) with row 1 events: a Proteus/2 XR program (name from the list), an H90
+   Program number, a Zoom patch, a Blofeld "A001"-style program (bank by CC 32), a Pulse 2
+   program 101..200 (bank 1), an M8 instrument, and a CC for the volca fm2 (for example CC
+   48 algorithm). Write it to a spare slot. Device: ACTIONS → SEND SETUP. See on the SONG
+   page "SETUP SENT - ROW 1 EVENTS" and the line "EVENTS n". See on the gear: every device
+   shows the preset you named, the volca's algorithm changed, the Zoom shows the patch
+   number (note which PC base matched: the definition assumes PC 0 = patch 001, marked
+   unverified; if patch 002 appears, set displayBase 0 in web/devices/zoom-ms-70cdr-plus.json
+   or correct the event numbers). Nothing on channels the song does not address.
+2. **Row changes switch the Proteus/2 part, the H90 program and the Zoom patch at the bar
+   line.** Three rows of 16 steps with notes on tracks routed to the Proteus (channel per
+   part), the H90's channel and the Zoom's channel, and a different program for each on
+   every row. PLAY. See: each device changes at the row boundary; on a MIDI monitor the
+   program changes (and the H90's CC, if any) arrive before the row's first note-on, in the
+   row's event order, bank select before the program change; "LATE" stays absent on the
+   SONG page. Hear: the new sound from the first note of the row, no note of the previous
+   row cut short, no glitch at the change (a Blofeld program change on a sustained note
+   may retrigger: that is the device, not the sequencer).
+3. **The Zoom reacts on channel 16 only.** Add a row event with the same program number on
+   channel 15 (the H90's) and on channel 16: at the row change the Zoom changes only once
+   (the channel-16 event). Send a program change on channel 1 from the workbench song
+   (a row event addressed to channel 1): the Zoom does not react. If USB MIDI CH is OMNI it
+   reacts to all: set it to 16.
+4. **Nothing glitches or drops notes at the change.** The three-row song with dense
+   chords on FM6 and on the external synths at 120 BPM and again at 240 BPM: every note of
+   the row after a change sounds (count the first bar on the monitor against the block),
+   FM6 does not click, the device's audio continues, and "ROW DECODE LATE" never shows.
+   Then with gaps: set a 50 ms gap on the Blofeld's channel in the rig, write again: on
+   the monitor the Blofeld's program change arrives about 50 ms before the row's first
+   note (pre-fired), the note-on still on the bar line; "LATE" stays 0. Queue a jump to a
+   row with gaps one step before the bar: "LATE 1" appears once and the gapped program
+   change lands just after the bar (the known limit).
+5. **Importer round trip.** Export a `.mid` from Renoise with program changes at bar starts
+   (one bar before the section where possible) and a CC at a bar start, import it: the
+   "Dropped or changed" list shows "rowEvents" with each converted event and lists the
+   mid-bar ones as dropped; the row table's Events column shows them; write the song and
+   confirm the gear changes as in step 2.

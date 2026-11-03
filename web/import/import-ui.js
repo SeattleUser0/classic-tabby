@@ -30,9 +30,11 @@
  *   through FM1I18n; this panel is Classic Tabby only and is shown in English in both
  *   languages (Step 4 decision: no 80-string addition to the shared sdk/I18n.js).
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-02  Task 04: row events: pre-roll option, event column in the row table,
+ *                     event count in the statistics.
  *   v0.5  2026-11-02  Task 03 (f): the replace warning says the old song is deleted first and
  *                     suggests exporting a .tabby; the delete itself moved to the workbench.
  *   v0.4  2026-11-02  Step 4: mounted in the workbench Library tab; the transfer may be the
@@ -84,6 +86,7 @@
       barFrom: h('input', { type: 'number', min: 1, step: 1, value: 1 }),
       barTo: h('input', { type: 'number', min: 1, step: 1, value: 1 }),
       rowSteps: h('select'),
+      preRoll: h('select', {}, option('beat', 'one beat before (default)'), option('none', 'at the row start only'), option('bar', 'up to one bar before')),
       lengthRule: h('select', {}, option('nearest', 'nearest step (default)'), option('up', 'never shorter (round up)'), option('down', 'never longer (round down)')),
       overflowRule: h('select', {}, option('loudest', 'keep the 4 loudest'), option('highest', 'keep the 4 highest'), option('lowest', 'keep the 4 lowest')),
       name: h('input', { type: 'text', maxLength: 12, value: 'IMPORTED', spellcheck: false }),
@@ -120,6 +123,7 @@
         h('div', { class: 'ti-grid' },
           h('label', {}, 'Bars from ', ui.barFrom), h('label', {}, 'to ', ui.barTo),
           h('label', {}, 'Bars per row ', ui.rowSteps),
+          h('label', {}, 'Row events: PC / bank / CC ', ui.preRoll),
           h('label', {}, 'Note ends ', ui.lengthRule),
           h('label', {}, 'More than 4 notes on a step ', ui.overflowRule),
           h('label', {}, 'Song name ', ui.name), h('label', {}, 'Project slot ', ui.projectSlot),
@@ -127,7 +131,7 @@
           h('label', {}, ui.loose, ' loose block matching, velocity tolerance ±', ui.tolerance)),
         h('p', { class: 'ti-muted' }, 'Grid: 16th notes. Starts snap to the nearest step (ties toward the earlier step). The first tempo of the file becomes the song tempo. Loose matching shares a block when the notes are the same and only velocities differ, within the tolerance; the first block\'s velocities are kept and every merge is listed below.')),
       h('section', { class: 'ti-step' }, h('h3', {}, '4. Resulting song'), ui.status, ui.stats,
-        h('div', { class: 'ti-scroll' }, h('table', { class: 'ti-table ti-rows' }, h('thead', {}, h('tr', {}, h('th', {}, 'Row'), h('th', {}, 'Repeat'), h('th', {}, 'Steps'), ...Array.from({ length: 8 }, (_, t) => h('th', {}, 'T' + (t + 1))))), ui.rows)),
+        h('div', { class: 'ti-scroll' }, h('table', { class: 'ti-table ti-rows' }, h('thead', {}, h('tr', {}, h('th', {}, 'Row'), h('th', {}, 'Repeat'), h('th', {}, 'Steps'), h('th', {}, 'Events'), ...Array.from({ length: 8 }, (_, t) => h('th', {}, 'T' + (t + 1))))), ui.rows)),
         h('h4', {}, 'Dropped or changed'), ui.warnings),
       h('section', { class: 'ti-step' }, h('h3', {}, '5. Browser song'),
         h('p', {}, ui.saveJson, ' ', ui.exportTabby, ' ', h('label', {}, 'Load song JSON ', ui.loadJson)),
@@ -176,9 +180,11 @@
       ui.stats.replaceChildren(h('p', {}, h('strong', {}, song.name.trim() || '(unnamed)'), ' · tempo ' + (song.tempo || 'project') + ' · project ' + (song.projectSlot + 1) + ' · rows ' + song.rows.length +
         (result ? ' (from ' + result.stats.rowsBeforeMerge + ')' : '') + ', ' + usage.repeats + ' with repeats · row ' + [...new Set(song.rows.map(r => r.steps))].join('/') + ' steps · blocks ' + usage.blocks + ' of 2048 (' + usage.idPercent.toFixed(1) + ' %)' +
         (result ? ' from ' + result.stats.cellsBeforeDedup + ' cells' + (result.stats.looseMerges ? ', ' + result.stats.looseMerges + ' loose merge(s)' : '') : '') + ' · block bytes ' + usage.recordBytes + ' (' + usage.poolPercent.toFixed(2) + ' % of the pool, ' + usage.sectors + ' sector(s))' +
-        (result ? ' · notes ' + result.stats.notesOut + ' of ' + result.stats.notesIn : '') + ' · .tabby ' + kb(usage.fileBytes) + '.'),
+        (result ? ' · notes ' + result.stats.notesOut + ' of ' + result.stats.notesIn : '') + ' · row events ' + (song.events || []).length + ' of 292' + ' · .tabby ' + kb(usage.fileBytes) + '.'),
         ...v.warnings.map(w => h('p', { class: 'ti-muted' }, '⚑ ' + w)), ...v.errors.map(e => h('p', { class: 'ti-error' }, e)));
-      ui.rows.replaceChildren(...song.rows.map((row, i) => h('tr', {}, h('td', {}, i + 1), h('td', {}, '×' + row.repeat + (row.loopHere ? ' ⟲' : '')), h('td', {}, row.steps), ...row.blocks.map(id => h('td', { class: id ? 'ti-block' : 'ti-empty' }, id || '·')))));
+      ui.rows.replaceChildren(...song.rows.map((row, i) => h('tr', {}, h('td', {}, i + 1), h('td', {}, '×' + row.repeat + (row.loopHere ? ' ⟲' : '')), h('td', {}, row.steps),
+        h('td', { class: 'ti-muted' }, (song.events || []).filter(e => e.row === i).map(e => e.type === 0 ? 'PC' + e.d0 : e.type === 1 ? 'B/PC' + e.d2 : e.type === 2 ? 'CC' + e.d0 : 'gap').join(' ') || '·'),
+        ...row.blocks.map(id => h('td', { class: id ? 'ti-block' : 'ti-empty' }, id || '·')))));
       const list = result ? result.warnings : (song.warnings || []);
       ui.warnings.replaceChildren(list.length ? h('ul', { class: 'ti-list' }, ...list.map(w => h('li', { class: w.severity === 'warn' ? 'ti-warn' : '' },
         h('span', { class: 'ti-badge' }, w.severity === 'warn' ? 'changed' : 'info'), ' ', w.message, w.count > 1 || (w.items && w.items.length) ? ' (' + w.count + ')' : '',
@@ -190,7 +196,7 @@
       try {
         const options = { fileName: state.fileName, assignments: state.assignments, outChannels: state.outChannels,
           barFrom: Number(ui.barFrom.value) || 1, barTo: Number(ui.barTo.value) || state.analysis.totalBars, rowSteps: Number(ui.rowSteps.value) || undefined,
-          lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked,
+          lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked, preRoll: ui.preRoll.value,
           looseDedup: ui.loose.checked, velocityTolerance: Math.max(0, Math.min(126, Math.round(Number(ui.tolerance.value) || 0))) };
         state.result = Song.convert(state.analysis, options); state.song = state.result.song;
         showSong(state.result, state.song);
@@ -201,7 +207,7 @@
       }
       enable();
     }
-    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop, ui.loose, ui.tolerance]) el.addEventListener('change', reconvert);
+    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop, ui.loose, ui.tolerance, ui.preRoll]) el.addEventListener('change', reconvert);
     ui.name.addEventListener('input', () => { if (state.song) { state.song.name = Format.padName(ui.name.value); showSong(state.result, state.song); } });
 
     ui.file.addEventListener('change', async () => {
@@ -254,7 +260,7 @@
     return { state, reconvert, ui };
   }
 
-  const TabbyImportUI = { mount, h, version: '0.5' };
+  const TabbyImportUI = { mount, h, version: '0.6' };
   globalThis.TabbyImportUI = TabbyImportUI;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();

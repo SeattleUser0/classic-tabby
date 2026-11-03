@@ -708,7 +708,7 @@
       finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
     }
     // Classic Tabby song mode (Task 03 d): kinds 5 (record) and 6 (block, 16-bit id).
-    async songStatus(){const s=await this.query(23);check(s.length===13,'歌曲存储状态回复无效');return {free:le(s,0,4),reclaimable:le(s,4,4),state:s[8],loaded:s[9],playing:s[10],row:s[11],error:s[12]};}
+    async songStatus(){const s=await this.query(23);check(s.length===13||s.length===15,'歌曲存储状态回复无效');return {free:le(s,0,4),reclaimable:le(s,4,4),state:s[8],loaded:s[9],playing:s[10],row:s[11],error:s[12],late:s.length>13?s[13]:0,events:s.length>14?s[14]:0};}
     async downloadBlock(song,id){
       try {
         const head=await this.query(1,[6,song,id&255,id>>8]),size=le(head,0,2);check(head.length===2&&size>=64&&size<=832,'块长度无效');
@@ -849,14 +849,41 @@
 
   // ---- Classic Tabby song mode (Task 03 d): docs/tasks/TASK-03-step1-assessment.md section 9 v0.4 ----
   const SONG_MAGIC=0x47314d46,SONG_RECORD=4096,SONG_BODY=2624,SONG_ROW0=64,SONG_ROW=20;
+  // Task 04 (section 9.11 v0.6): version-2 records carry a row event table in the sector tail.
+  const SONG_EVENTS=2624,SONG_EVENTS_START=2632,SONG_EVENT_BYTES=5,SONG_EVENTS_MAX=292,SONG_ROW_EVENTS_MAX=32,SONG_V2_END=4092;
+  // Event model: {row 0..127, channel 0..15, type 0 PC | 1 bank+PC | 2 CC | 3 gap, d0, d1, d2}.
+  function songEventsValidate(events,rows){
+    check(Array.isArray(events)&&events.length<=SONG_EVENTS_MAX,'歌曲事件须不超过 292 个');
+    let last=-1,inRow=0;
+    events.forEach((e,i)=>{
+      check(Number.isInteger(e.row)&&e.row>=0&&e.row<rows&&e.row>=last,'事件 '+(i+1)+' 的行无效或未按行排序');
+      inRow=e.row===last?inRow+1:1;last=e.row;check(inRow<=SONG_ROW_EVENTS_MAX,'第 '+(e.row+1)+' 行事件超过 32 个');
+      check(Number.isInteger(e.channel)&&e.channel>=0&&e.channel<=15,'事件 '+(i+1)+' 的通道无效');
+      const b=v=>Number.isInteger(v)&&v>=0&&v<=127,bb=v=>b(v)||v===255;
+      if(e.type===0)check(b(e.d0)&&!e.d1&&!e.d2,'事件 '+(i+1)+'：音色号须为 0–127');
+      else if(e.type===1)check(bb(e.d0)&&bb(e.d1)&&b(e.d2),'事件 '+(i+1)+'：音色库/音色号无效');
+      else if(e.type===2)check(b(e.d0)&&b(e.d1)&&!e.d2,'事件 '+(i+1)+'：控制器号与值须为 0–127');
+      else if(e.type===3)check(Number.isInteger(e.d0)&&e.d0>=1&&e.d0<=255&&!e.d1&&!e.d2,'事件 '+(i+1)+'：间隔须为 1–255 ms');
+      else check(false,'事件 '+(i+1)+' 的类型无效');});
+  }
+  function songEventsParse(bytes){
+    const n=u16(bytes,SONG_EVENTS);check(n<=SONG_EVENTS_MAX&&bytes[SONG_EVENTS+2]===1&&bytes[SONG_EVENTS+3]===0&&u32(bytes,SONG_EVENTS+4)===0,'歌曲事件表无效');
+    const events=[];for(let i=0;i<n;i++){const at=SONG_EVENTS_START+i*SONG_EVENT_BYTES;events.push({row:bytes[at],channel:bytes[at+1]&15,type:bytes[at+1]>>4,d0:bytes[at+2],d1:bytes[at+3],d2:bytes[at+4]});}
+    for(let i=SONG_EVENTS_START+n*SONG_EVENT_BYTES;i<SONG_V2_END;i++)check(bytes[i]===255,'歌曲事件表之后须为 0xFF');
+    return events;
+  }
+  function songEventsBuild(bytes,events){
+    put16(bytes,SONG_EVENTS,events.length);bytes[SONG_EVENTS+2]=1;bytes[SONG_EVENTS+3]=0;put32(bytes,SONG_EVENTS+4,0);
+    events.forEach((e,i)=>{const at=SONG_EVENTS_START+i*SONG_EVENT_BYTES;bytes[at]=e.row;bytes[at+1]=(e.channel&15)|(e.type<<4);bytes[at+2]=e.d0|0;bytes[at+3]=e.d1|0;bytes[at+4]=e.d2|0;});
+  }
   const u16=(b,at)=>b[at]|b[at+1]<<8,u32=(b,at)=>(u16(b,at)|u16(b,at+2)<<16)>>>0;
   const put16=(b,at,v)=>{b[at]=v&255;b[at+1]=(v>>>8)&255;},put32=(b,at,v)=>{put16(b,at,v&65535);put16(b,at+2,v>>>16);};
   function songEmpty(){return {name:'NEW SONG',project:0,loop:false,jumpRow:false,tempo:0,loopRow:0,channel:[0,0,0,0,0,0,0,0],rows:[{block:[0,0,0,0,0,0,0,0],repeat:1,loopHere:false,steps:64}]};}
   // Parse a 4096-byte record image into an editable object (CRC checked, ranges checked).
   function songRecordParse(bytes){
     check(bytes instanceof Uint8Array&&bytes.length===SONG_RECORD&&u32(bytes,0)===SONG_MAGIC,'不是歌曲记录');
-    check(u32(bytes,12)===crc32(bytes.subarray(20,SONG_BODY)),'歌曲记录校验失败');
-    check(u32(bytes,20)===1,'歌曲记录版本不受支持');
+    const version=u32(bytes,20);check(version===1||version===2,'歌曲记录版本不受支持');
+    check(u32(bytes,12)===crc32(bytes.subarray(20,version===2?SONG_V2_END:SONG_BODY)),'歌曲记录校验失败');   // (Task 04) CRC range by version
     const rows=bytes[40];check(rows>=1&&rows<=128&&bytes[42]<rows&&bytes[36]<16&&!(bytes[37]&~3),'歌曲记录字段无效');
     check(u16(bytes,38)===0||(u16(bytes,38)>=30&&u16(bytes,38)<=300),'歌曲速度须为 0 或 30–300');   // (f): as the device checks
     const song={name:String.fromCharCode(...bytes.subarray(24,36)).replace(/\s+$/,''),project:bytes[36],loop:!!(bytes[37]&1),jumpRow:!!(bytes[37]&2),
@@ -864,12 +891,16 @@
     for(let r=0;r<rows;r++){const at=SONG_ROW0+r*SONG_ROW;const block=[];for(let t=0;t<8;t++)block.push(u16(bytes,at+t*2));
       const steps=bytes[at+18]||64;check(bytes[at+16]>=1&&bytes[at+16]<=64&&steps%16===0&&steps<=64,'第 '+(r+1)+' 行无效');
       song.rows.push({block,repeat:bytes[at+16],loopHere:!!(bytes[at+17]&1),steps});}
+    song.events=version===2?songEventsParse(bytes):[];   // Task 04: row events (9.11)
+    if(version===2)songEventsValidate(song.events,rows);
     return song;
   }
   // Build the record image (generation 0, target 0, commit 0, CRC valid) from the object.
   function songRecordBuild(song){
     const bytes=new Uint8Array(SONG_RECORD).fill(255);bytes.fill(0,0,SONG_BODY);
-    put32(bytes,0,SONG_MAGIC);put32(bytes,20,1);
+    // Task 04: a song with events is a version-2 record (CRC over 20..4091); without, version 1.
+    const events=(song.events||[]).slice().sort((a,b)=>a.row-b.row);
+    put32(bytes,0,SONG_MAGIC);put32(bytes,20,events.length?2:1);
     const name=String(song.name||'').toUpperCase().slice(0,12);check(/^[\x20-\x7e]{0,12}$/.test(name),'歌曲名称须为英文字符');
     for(let i=0;i<12;i++)bytes[24+i]=name.charCodeAt(i)||32;
     check(Number.isInteger(song.project)&&song.project>=0&&song.project<16,'项目槽无效');bytes[36]=song.project;
@@ -882,7 +913,8 @@
       for(let t=0;t<8;t++){const id=row.block[t]|0;check(id>=0&&id<=65535,'第 '+(r+1)+' 行块编号无效');put16(bytes,at+t*2,id);}
       check(row.repeat>=1&&row.repeat<=64,'第 '+(r+1)+' 行重复次数须为 1–64');bytes[at+16]=row.repeat;
       bytes[at+17]=row.loopHere?1:0;check([16,32,48,64].includes(row.steps),'第 '+(r+1)+' 行步数须为 16/32/48/64');bytes[at+18]=row.steps;});
-    put32(bytes,12,crc32(bytes.subarray(20,SONG_BODY)));
+    if(events.length){songEventsValidate(events,song.rows.length);songEventsBuild(bytes,events);}
+    put32(bytes,12,crc32(bytes.subarray(20,events.length?SONG_V2_END:SONG_BODY)));
     return bytes;
   }
   // Block payload (9.3) <-> 64 steps of {probability, alt, notes:[{pitch,velocity,length,retrigger}]}.
@@ -919,9 +951,12 @@
     return step;
   }
   // .tabby file: the record image followed by block records {0,0,id16,len16,payload} padded to 4 bytes.
-  function tabbyFile(record,blocks){
+  // Task 04 (9.11 v0.6): an optional trailer after the records, 0xFF then "TRIG", a u32 length and
+  // UTF-8 JSON (workbench-only data: the song's rig override); the device never receives it.
+  function tabbyFile(record,blocks,trailer){
     const parts=[record];for(const [id,payload] of blocks){const head=new Uint8Array(6);put16(head,2,id);put16(head,4,payload.length);
       const pad=new Uint8Array((4-(6+payload.length)%4)%4).fill(255);parts.push(head,payload,pad);}
+    if(trailer){const json=new TextEncoder().encode(JSON.stringify(trailer)),head=new Uint8Array(9);head[0]=255;head.set([84,82,73,71],1);put32(head,5,json.length);parts.push(head,json);}
     const total=parts.reduce((n,p)=>n+p.length,0),out=new Uint8Array(total);let at=0;for(const p of parts){out.set(p,at);at+=p.length;}return out;
   }
   function readTabbyFile(bytes){
@@ -930,7 +965,10 @@
     while(at+6<=bytes.length&&bytes[at]!==255){check(bytes[at]===0,'文件中的块须属于歌曲 0');const id=u16(bytes,at+2),len=u16(bytes,at+4);
       check(id>=1&&len>=64&&len<=832&&at+6+len<=bytes.length,'块记录无效');const payload=bytes.slice(at+6,at+6+len);songPayloadParse(payload);
       blocks.set(id,payload);at+=6+len;at+=(4-at%4)%4;}
-    return {record,blocks};
+    let trailer=null;
+    if(at+9<=bytes.length&&bytes[at]===255&&String.fromCharCode(...bytes.subarray(at+1,at+5))==='TRIG'){const len=u32(bytes,at+5);check(at+9+len<=bytes.length,'.tabby 附加数据无效');
+      try{trailer=JSON.parse(new TextDecoder().decode(bytes.subarray(at+9,at+9+len)));}catch(_){check(false,'.tabby 附加数据无效');}}
+    return {record,blocks,trailer};
   }
   // Batches for transfer kind 7 (9.9 v0.5): the records cut at the device's packing boundaries
   // (greedy first fit into 4076-byte record areas, a record never splits), at most 8 sectors =
@@ -950,6 +988,6 @@
   }
   function songBlockIds(song){const ids=new Set();for(const row of song.rows)for(const id of row.block)if(id)ids.add(id);return ids;}
   globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,Updater,
-    songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadBuild,songStepText,songStepParse,tabbyFile,readTabbyFile,songBlockIds,songBatches,
+    songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadBuild,songStepText,songStepParse,tabbyFile,readTabbyFile,songBlockIds,songBatches,songEventsValidate,
     crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library};
 })();

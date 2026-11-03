@@ -1,0 +1,166 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "mvave-fm1-skiff",
+ "name": "M-VAVE FM-1 (Skiff firmware)",
+ "maker": "M-VAVE (firmware: Skiff by illuminus5, GPL-3.0)",
+ "channel": {
+  "default": null,
+  "note": "MENU > MIDI: MIDI IN = CH1-6 (channels 1..6 play tracks 1..6; other channels are ignored entirely) or SEL (every channel plays the selected track); T1..T6 CHANNEL 1..16 per track (default 1..6). USB MIDI in/out and TRS in."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 0,
+  "programs": 148,
+  "bankFormat": "none",
+  "pad": 0,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "Skiff 1.3+: a PC on a track's channel loads that track's engine's factory sound number n, counted from 0 (0 on an FM6 track = TINE EP); a program past the engine's last preset is ignored, not wrapped; user sounds are not reachable. No bank select (CC 0 / CC 32 ignored). The number means a different sound per engine, so name presets per engine in the rig profile."
+ },
+ "controllers": [
+  {
+   "cc": 1,
+   "name": "Mod wheel (MOD source)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 5,
+   "name": "Glide",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 7,
+   "name": "Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 10,
+   "name": "Pan",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 11,
+   "name": "Expression (MOD source)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 64,
+   "name": "Sustain",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "64": "on"
+   }
+  },
+  {
+   "cc": 71,
+   "name": "Engine resonance (ANALOG / TRIO / NOISE)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 72,
+   "name": "Release",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 73,
+   "name": "Attack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 74,
+   "name": "Engine brightness (cutoff / DCW / tone / FM6 modulator level)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 75,
+   "name": "Decay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 91,
+   "name": "Reverb send",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 93,
+   "name": "Chorus send",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 94,
+   "name": "Delay send",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 120,
+   "name": "All Sound Off",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 121,
+   "name": "Reset All Controllers",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 123,
+   "name": "All Notes Off",
+   "min": 0,
+   "max": 0
+  }
+ ],
+ "setup": [
+  "Load Skiff (web installer); MENU > MIDI: MIDI IN = CH1-6 and the track channels, or SEL.",
+  "Program numbers count the track's engine's factory presets from 0: set each track's engine first.",
+  "A PC is applied by the main loop after the message: keep a small gap before the notes (no published figure)."
+ ],
+ "notes": [
+  "148 factory sounds over 14 engines (per-engine order in firmware/src/engines.c); no complete published name list, so presets are named in the rig profile.",
+  "Skiff v2.1.1 (2026-10-31) at research time."
+ ],
+ "sources": [
+  {
+   "title": "Skiff repository (README: MIDI, CC map)",
+   "url": "https://github.com/illuminus5/skiff",
+   "detail": "v2.1.1"
+  },
+  {
+   "title": "Skiff manual, chapter 19 MIDI and the web editor",
+   "url": "https://illuminus5.github.io/skiff/learn/",
+   "detail": "program change counted from 0, CC table, MIDI LEARN"
+  },
+  {
+   "title": "Skiff source: firmware/src/midi_control.c, ui.c (midi_pc_load)",
+   "url": "https://github.com/illuminus5/skiff/blob/main/firmware/src/midi_control.c",
+   "detail": "PC per track, no bank select"
+  }
+ ],
+ "unverified": [
+  "channel.default",
+  "per-engine preset order and names",
+  "PC latency on hardware",
+  "TRS jack polarity"
+ ],
+ "presets": []
+}

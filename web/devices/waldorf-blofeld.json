@@ -1,0 +1,5982 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.1",
+ "id": "waldorf-blofeld",
+ "name": "Waldorf Blofeld",
+ "maker": "Waldorf",
+ "channel": {
+  "default": null,
+  "note": "Global MIDI Channel (omni, 1..16). In Multi mode each of 16 parts has its own channel and a 'Prg Change' receive filter."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 1,
+  "programs": 128,
+  "bankFormat": "letter",
+  "pad": 3,
+  "bankSelect": {
+   "scheme": "cc32",
+   "banks": [
+    {
+     "index": 0,
+     "name": "A",
+     "msb": null,
+     "lsb": 0
+    },
+    {
+     "index": 1,
+     "name": "B",
+     "msb": null,
+     "lsb": 1
+    },
+    {
+     "index": 2,
+     "name": "C",
+     "msb": null,
+     "lsb": 2
+    },
+    {
+     "index": 3,
+     "name": "D",
+     "msb": null,
+     "lsb": 3
+    },
+    {
+     "index": 4,
+     "name": "E",
+     "msb": null,
+     "lsb": 4
+    },
+    {
+     "index": 5,
+     "name": "F",
+     "msb": null,
+     "lsb": 5
+    },
+    {
+     "index": 6,
+     "name": "G",
+     "msb": null,
+     "lsb": 6
+    },
+    {
+     "index": 7,
+     "name": "H",
+     "msb": null,
+     "lsb": 7
+    }
+   ]
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "Display A001..H128. CC 32 = 0..7 selects bank A..H (manual table; CC 0 'not used'; the OS 1.15 notes say CC 0 and CC 32 are interchangeable). 128 Multi programs are selected with CC 0 = 127 then PC on the global channel, only when already in Multi mode (secondary)."
+ },
+ "controllers": [
+  {
+   "cc": 1,
+   "name": "Modulation Wheel",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 2,
+   "name": "Breath Control",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 4,
+   "name": "Foot Control",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 5,
+   "name": "Glide Rate",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 7,
+   "name": "Channel Volume",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 10,
+   "name": "Pan",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "L64",
+    "64": "centre",
+    "127": "R63"
+   }
+  },
+  {
+   "cc": 12,
+   "name": "Arp Range",
+   "min": 0,
+   "max": 9,
+   "values": {
+    "0": "1 octave",
+    "9": "10 octaves"
+   }
+  },
+  {
+   "cc": 13,
+   "name": "Arp Length",
+   "min": 0,
+   "max": 15,
+   "values": {
+    "0": "1 step",
+    "15": "16 steps"
+   }
+  },
+  {
+   "cc": 14,
+   "name": "Arp Active",
+   "min": 0,
+   "max": 3,
+   "values": {
+    "0": "off",
+    "1": "on",
+    "2": "one shot",
+    "3": "hold"
+   }
+  },
+  {
+   "cc": 15,
+   "name": "LFO 1 Shape",
+   "min": 0,
+   "max": 5,
+   "values": {
+    "0": "sine",
+    "1": "triangle",
+    "2": "square",
+    "3": "sawtooth",
+    "4": "random",
+    "5": "S&H"
+   }
+  },
+  {
+   "cc": 16,
+   "name": "LFO 1 Speed",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 17,
+   "name": "LFO 1 Sync",
+   "min": 0,
+   "max": 1,
+   "values": {
+    "0": "off",
+    "1": "on"
+   }
+  },
+  {
+   "cc": 18,
+   "name": "LFO 1 Delay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 19,
+   "name": "LFO 2 Shape",
+   "min": 0,
+   "max": 5
+  },
+  {
+   "cc": 20,
+   "name": "LFO 2 Speed",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 21,
+   "name": "LFO 2 Sync",
+   "min": 0,
+   "max": 1
+  },
+  {
+   "cc": 22,
+   "name": "LFO 2 Delay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 23,
+   "name": "LFO 3 Shape",
+   "min": 0,
+   "max": 5
+  },
+  {
+   "cc": 24,
+   "name": "LFO 3 Speed",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 25,
+   "name": "LFO 3 Sync",
+   "min": 0,
+   "max": 1
+  },
+  {
+   "cc": 26,
+   "name": "LFO 3 Delay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 27,
+   "name": "Osc 1 Octave",
+   "min": 16,
+   "max": 112,
+   "values": {
+    "16": "128'",
+    "112": "1/2'"
+   }
+  },
+  {
+   "cc": 28,
+   "name": "Osc 1 Semitone",
+   "min": 52,
+   "max": 76,
+   "values": {
+    "52": "-12",
+    "64": "0",
+    "76": "+12"
+   }
+  },
+  {
+   "cc": 29,
+   "name": "Osc 1 Detune",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 30,
+   "name": "Osc 1 FM",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 31,
+   "name": "Osc 1 Shape",
+   "min": 0,
+   "max": 5,
+   "values": {
+    "0": "pulse",
+    "1": "saw",
+    "2": "triangle",
+    "3": "sine",
+    "4": "alt 1",
+    "5": "alt 2"
+   }
+  },
+  {
+   "cc": 33,
+   "name": "Osc 1 PW",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 34,
+   "name": "Osc 1 PWM",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 35,
+   "name": "Osc 2 Octave",
+   "min": 16,
+   "max": 112
+  },
+  {
+   "cc": 36,
+   "name": "Osc 2 Semitone",
+   "min": 52,
+   "max": 76
+  },
+  {
+   "cc": 37,
+   "name": "Osc 2 Detune",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 38,
+   "name": "Osc 2 FM",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 39,
+   "name": "Osc 2 Shape",
+   "min": 0,
+   "max": 5
+  },
+  {
+   "cc": 40,
+   "name": "Osc 2 PW",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 41,
+   "name": "Osc 2 PWM",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 42,
+   "name": "Osc 3 Octave",
+   "min": 16,
+   "max": 112
+  },
+  {
+   "cc": 43,
+   "name": "Osc 3 Semitone",
+   "min": 52,
+   "max": 76
+  },
+  {
+   "cc": 44,
+   "name": "Osc 3 Detune",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 45,
+   "name": "Osc 3 FM",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 46,
+   "name": "Osc 3 Shape",
+   "min": 0,
+   "max": 5
+  },
+  {
+   "cc": 47,
+   "name": "Osc 3 PW",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 48,
+   "name": "Osc 3 PWM",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 49,
+   "name": "Sync",
+   "min": 0,
+   "max": 1
+  },
+  {
+   "cc": 50,
+   "name": "Pitchmod",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 51,
+   "name": "Glide Mode",
+   "min": 0,
+   "max": 9
+  },
+  {
+   "cc": 52,
+   "name": "Osc 1 Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 53,
+   "name": "Osc 1 Balance",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 54,
+   "name": "Ringmod Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 55,
+   "name": "Ringmod Balance",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 56,
+   "name": "Osc 2 Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 57,
+   "name": "Osc 2 Balance",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 58,
+   "name": "Osc 3 Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 59,
+   "name": "Osc 3 Balance",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 60,
+   "name": "Noise Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 61,
+   "name": "Noise Balance",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 62,
+   "name": "Noise Colour",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 64,
+   "name": "Sustain Pedal",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "64": "on"
+   }
+  },
+  {
+   "cc": 65,
+   "name": "Glide Active",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 66,
+   "name": "Sostenuto",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 67,
+   "name": "Routing",
+   "min": 0,
+   "max": 1,
+   "values": {
+    "0": "serial",
+    "1": "parallel"
+   }
+  },
+  {
+   "cc": 68,
+   "name": "Filter 1 Type",
+   "min": 0,
+   "max": 10
+  },
+  {
+   "cc": 69,
+   "name": "Filter 1 Cutoff",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 70,
+   "name": "Filter 1 Resonance",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 71,
+   "name": "Filter 1 Drive",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 72,
+   "name": "Filter 1 Keytrack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 73,
+   "name": "Filter 1 Env Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 74,
+   "name": "Filter 1 Env Velocity",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 75,
+   "name": "Filter 1 Cutoff Mod",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 76,
+   "name": "Filter 1 FM",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 77,
+   "name": "Filter 1 Pan",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 78,
+   "name": "Filter 1 Pan Mod",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 79,
+   "name": "Filter 2 Type",
+   "min": 0,
+   "max": 10
+  },
+  {
+   "cc": 80,
+   "name": "Filter 2 Cutoff",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 81,
+   "name": "Filter 2 Resonance",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 82,
+   "name": "Filter 2 Drive",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 83,
+   "name": "Filter 2 Keytrack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 84,
+   "name": "Filter 2 Env Amount",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 85,
+   "name": "Filter 2 Env Velocity",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 86,
+   "name": "Filter 2 Cutoff Mod",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 87,
+   "name": "Filter 2 FM",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 88,
+   "name": "Filter 2 Pan",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 89,
+   "name": "Filter 2 Pan Mod",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 90,
+   "name": "Amp Volume",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 91,
+   "name": "Amp Velocity",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 92,
+   "name": "Amp Mod",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 93,
+   "name": "FX 1 Mix",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 94,
+   "name": "FX 2 Mix",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 95,
+   "name": "Filter Env Attack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 96,
+   "name": "Filter Env Decay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 97,
+   "name": "Filter Env Sustain",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 98,
+   "name": "Filter Env Decay 2",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 99,
+   "name": "Filter Env Sustain 2",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 100,
+   "name": "Filter Env Release",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 101,
+   "name": "Amp Env Attack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 102,
+   "name": "Amp Env Decay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 103,
+   "name": "Amp Env Sustain",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 104,
+   "name": "Amp Env Decay 2",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 105,
+   "name": "Amp Env Sustain 2",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 106,
+   "name": "Amp Env Release",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 107,
+   "name": "Env 3 Attack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 108,
+   "name": "Env 3 Decay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 109,
+   "name": "Env 3 Sustain",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 110,
+   "name": "Env 3 Decay 2",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 111,
+   "name": "Env 3 Sustain 2",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 112,
+   "name": "Env 3 Release",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 113,
+   "name": "Env 4 Attack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 114,
+   "name": "Env 4 Decay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 115,
+   "name": "Env 4 Sustain",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 116,
+   "name": "Env 4 Decay 2",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 117,
+   "name": "Env 4 Sustain 2",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 118,
+   "name": "Env 4 Release",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 120,
+   "name": "All Sound Off",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 121,
+   "name": "Reset All Controllers",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 122,
+   "name": "Local Control",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 123,
+   "name": "All Notes Off",
+   "min": 0,
+   "max": 0
+  }
+ ],
+ "setup": [
+  "Global: MIDI Channel (or per-part channel in Multi mode with the part's Prg Change filter set to receive).",
+  "Global: Ctrl Receive = on, or no control change changes a parameter.",
+  "Avoid channel 10 in Multi mode (Waldorf FAQ: can cause crashes).",
+  "Allow a gap after a program change (OS notes: fast program changes can be missed)."
+ ],
+ "notes": [
+  "Factory names from Waldorf's 2012 factory sound set (SNDD dumps, 16-character names); 2008 set differs.",
+  "Secondary: after switching a Multi, wait before selecting the parts' programs; an editor uses 800 ms."
+ ],
+ "sources": [
+  {
+   "title": "Blofeld User's Manual, revision 1.1 (January 2009)",
+   "url": "https://downloads.waldorfmusic.com/cloud/index.php/s/32zdTsdYcRSX9eE",
+   "detail": "pp. 18, 24-28, 82-85, 113-117, 122"
+  },
+  {
+   "title": "Blofeld factory sounds 2012 (name list and SNDD dumps)",
+   "url": "https://downloads.waldorfmusic.com/cloud/index.php/s/fi4DWR7G2aXnWQ3",
+   "detail": "Blo Factory 2012.txt, Sysex/factory 2012 A..H.syx"
+  },
+  {
+   "title": "Blofeld SysEx specification, release 1.04",
+   "url": "https://downloads.waldorfmusic.com/cloud/index.php/s/ybExJgT4TzqT8ir",
+   "detail": "SNDD layout, name at 363..378"
+  },
+  {
+   "title": "Waldorf OS 1.15 notes as re-posted (secondary)",
+   "url": "https://www.elektronauts.com/t/digitakt-blofeld-multi-mode-midi/51291/20",
+   "detail": "CC 0 / CC 32 interchangeable, Multi selection, timing"
+  }
+ ],
+ "unverified": [
+  "channel.default",
+  "programChange.gapMs:no manufacturer figure",
+  "Multi selection by CC 0 = 127",
+  "CC 0 acceptance on OS 1.25"
+ ],
+ "presets": [
+  {
+   "bank": 0,
+   "program": 0,
+   "name": "Start Up       T"
+  },
+  {
+   "bank": 0,
+   "program": 1,
+   "name": "70s Pad        T"
+  },
+  {
+   "bank": 0,
+   "program": 2,
+   "name": "Tschingeling SCD"
+  },
+  {
+   "bank": 0,
+   "program": 3,
+   "name": "XT Close     SCD"
+  },
+  {
+   "bank": 0,
+   "program": 4,
+   "name": "Digital JP4  SCD"
+  },
+  {
+   "bank": 0,
+   "program": 5,
+   "name": "BloChoir       T"
+  },
+  {
+   "bank": 0,
+   "program": 6,
+   "name": "Sync Different T"
+  },
+  {
+   "bank": 0,
+   "program": 7,
+   "name": "TearsFromCombSCD"
+  },
+  {
+   "bank": 0,
+   "program": 8,
+   "name": "Click Bass     T"
+  },
+  {
+   "bank": 0,
+   "program": 9,
+   "name": "Myst 6         T"
+  },
+  {
+   "bank": 0,
+   "program": 10,
+   "name": "Sander Lead    T"
+  },
+  {
+   "bank": 0,
+   "program": 11,
+   "name": "Bladerunner    T"
+  },
+  {
+   "bank": 0,
+   "program": 12,
+   "name": "BloStrings     T"
+  },
+  {
+   "bank": 0,
+   "program": 13,
+   "name": "ArpDelayLFO? SCD"
+  },
+  {
+   "bank": 0,
+   "program": 14,
+   "name": "Dahlbeck Bass  T"
+  },
+  {
+   "bank": 0,
+   "program": 15,
+   "name": "CopiedByLargo  T"
+  },
+  {
+   "bank": 0,
+   "program": 16,
+   "name": "JustResonanceSCD"
+  },
+  {
+   "bank": 0,
+   "program": 17,
+   "name": "IntensiveCareSCD"
+  },
+  {
+   "bank": 0,
+   "program": 18,
+   "name": "Planet Ice     T"
+  },
+  {
+   "bank": 0,
+   "program": 19,
+   "name": "Pad Brown      T"
+  },
+  {
+   "bank": 0,
+   "program": 20,
+   "name": "Rasenflaeche   T"
+  },
+  {
+   "bank": 0,
+   "program": 21,
+   "name": "PWM<->SWM    SCD"
+  },
+  {
+   "bank": 0,
+   "program": 22,
+   "name": "SuperPulse   SCD"
+  },
+  {
+   "bank": 0,
+   "program": 23,
+   "name": "Eyes Wide Open T"
+  },
+  {
+   "bank": 0,
+   "program": 24,
+   "name": "BriteWhitePad  T"
+  },
+  {
+   "bank": 0,
+   "program": 25,
+   "name": "Chronos        T"
+  },
+  {
+   "bank": 0,
+   "program": 26,
+   "name": "Ambientity     T"
+  },
+  {
+   "bank": 0,
+   "program": 27,
+   "name": "Lothlorien     T"
+  },
+  {
+   "bank": 0,
+   "program": 28,
+   "name": "Boelissimo     T"
+  },
+  {
+   "bank": 0,
+   "program": 29,
+   "name": "Inglorious Pad T"
+  },
+  {
+   "bank": 0,
+   "program": 30,
+   "name": "PitchShifter SCD"
+  },
+  {
+   "bank": 0,
+   "program": 31,
+   "name": "X-File Pad     T"
+  },
+  {
+   "bank": 0,
+   "program": 32,
+   "name": "AmbienTable    T"
+  },
+  {
+   "bank": 0,
+   "program": 33,
+   "name": "ShortWave      T"
+  },
+  {
+   "bank": 0,
+   "program": 34,
+   "name": "CS100          T"
+  },
+  {
+   "bank": 0,
+   "program": 35,
+   "name": "Slightly Pad   T"
+  },
+  {
+   "bank": 0,
+   "program": 36,
+   "name": "FlyingDutchman T"
+  },
+  {
+   "bank": 0,
+   "program": 37,
+   "name": "BoelesBrass SCD"
+  },
+  {
+   "bank": 0,
+   "program": 38,
+   "name": "Phase 5        T"
+  },
+  {
+   "bank": 0,
+   "program": 39,
+   "name": "RingCon        T"
+  },
+  {
+   "bank": 0,
+   "program": 40,
+   "name": "LeadING        T"
+  },
+  {
+   "bank": 0,
+   "program": 41,
+   "name": "Chord Hose     T"
+  },
+  {
+   "bank": 0,
+   "program": 42,
+   "name": "Chordalis      T"
+  },
+  {
+   "bank": 0,
+   "program": 43,
+   "name": "Deadmau5 Chord T"
+  },
+  {
+   "bank": 0,
+   "program": 44,
+   "name": "JigSaw         T"
+  },
+  {
+   "bank": 0,
+   "program": 45,
+   "name": "Fat Pig        T"
+  },
+  {
+   "bank": 0,
+   "program": 46,
+   "name": "Leadgut        T"
+  },
+  {
+   "bank": 0,
+   "program": 47,
+   "name": "Crying Lead    T"
+  },
+  {
+   "bank": 0,
+   "program": 48,
+   "name": "AggLead        T"
+  },
+  {
+   "bank": 0,
+   "program": 49,
+   "name": "Overdrive      T"
+  },
+  {
+   "bank": 0,
+   "program": 50,
+   "name": "Lead Keen      T"
+  },
+  {
+   "bank": 0,
+   "program": 51,
+   "name": "Van Doorn      T"
+  },
+  {
+   "bank": 0,
+   "program": 52,
+   "name": "Gummi Lead     T"
+  },
+  {
+   "bank": 0,
+   "program": 53,
+   "name": "Static Leads   T"
+  },
+  {
+   "bank": 0,
+   "program": 54,
+   "name": "Sync By FM   SCD"
+  },
+  {
+   "bank": 0,
+   "program": 55,
+   "name": "Enganged       T"
+  },
+  {
+   "bank": 0,
+   "program": 56,
+   "name": "Hummer         T"
+  },
+  {
+   "bank": 0,
+   "program": 57,
+   "name": "Old School     T"
+  },
+  {
+   "bank": 0,
+   "program": 58,
+   "name": "Handjob        T"
+  },
+  {
+   "bank": 0,
+   "program": 59,
+   "name": "Slipping Lead  T"
+  },
+  {
+   "bank": 0,
+   "program": 60,
+   "name": "Glidelis     SCD"
+  },
+  {
+   "bank": 0,
+   "program": 61,
+   "name": "Rave On        T"
+  },
+  {
+   "bank": 0,
+   "program": 62,
+   "name": "SynChaos       T"
+  },
+  {
+   "bank": 0,
+   "program": 63,
+   "name": "Airy Lead      T"
+  },
+  {
+   "bank": 0,
+   "program": 64,
+   "name": "Airy Lead 2    T"
+  },
+  {
+   "bank": 0,
+   "program": 65,
+   "name": "Tiestofeld   SCD"
+  },
+  {
+   "bank": 0,
+   "program": 66,
+   "name": "ARPollinaris   T"
+  },
+  {
+   "bank": 0,
+   "program": 67,
+   "name": "Driving Line   T"
+  },
+  {
+   "bank": 0,
+   "program": 68,
+   "name": "TD 2010      SCD"
+  },
+  {
+   "bank": 0,
+   "program": 69,
+   "name": "SawmodulationSCD"
+  },
+  {
+   "bank": 0,
+   "program": 70,
+   "name": "Bram A.      SCD"
+  },
+  {
+   "bank": 0,
+   "program": 71,
+   "name": "Laidback     SCD"
+  },
+  {
+   "bank": 0,
+   "program": 72,
+   "name": "Reseq        SCD"
+  },
+  {
+   "bank": 0,
+   "program": 73,
+   "name": "S&H Drive    SCD"
+  },
+  {
+   "bank": 0,
+   "program": 74,
+   "name": "Mouth Arp    SCD"
+  },
+  {
+   "bank": 0,
+   "program": 75,
+   "name": "ADHD         SCD"
+  },
+  {
+   "bank": 0,
+   "program": 76,
+   "name": "mARPledust     T"
+  },
+  {
+   "bank": 0,
+   "program": 77,
+   "name": "305 Bassline   T"
+  },
+  {
+   "bank": 0,
+   "program": 78,
+   "name": "WArpeggiator   T"
+  },
+  {
+   "bank": 0,
+   "program": 79,
+   "name": "ARPower        T"
+  },
+  {
+   "bank": 0,
+   "program": 80,
+   "name": "Drumloop       T"
+  },
+  {
+   "bank": 0,
+   "program": 81,
+   "name": "OnTheRun       T"
+  },
+  {
+   "bank": 0,
+   "program": 82,
+   "name": "LFO Delay 2  SCD"
+  },
+  {
+   "bank": 0,
+   "program": 83,
+   "name": "LFOWahDelay  SCD"
+  },
+  {
+   "bank": 0,
+   "program": 84,
+   "name": "The End      SCD"
+  },
+  {
+   "bank": 0,
+   "program": 85,
+   "name": "Deadmau5 Bass  T"
+  },
+  {
+   "bank": 0,
+   "program": 86,
+   "name": "Pulse Drive    T"
+  },
+  {
+   "bank": 0,
+   "program": 87,
+   "name": "FM Bass        T"
+  },
+  {
+   "bank": 0,
+   "program": 88,
+   "name": "Oizo Bass      T"
+  },
+  {
+   "bank": 0,
+   "program": 89,
+   "name": "Pickup Bass    T"
+  },
+  {
+   "bank": 0,
+   "program": 90,
+   "name": "BassTrap     SCD"
+  },
+  {
+   "bank": 0,
+   "program": 91,
+   "name": "Wide Bass      T"
+  },
+  {
+   "bank": 0,
+   "program": 92,
+   "name": "Dirty Bass     T"
+  },
+  {
+   "bank": 0,
+   "program": 93,
+   "name": "Rev Pulse Bass T"
+  },
+  {
+   "bank": 0,
+   "program": 94,
+   "name": "C64 Bass       T"
+  },
+  {
+   "bank": 0,
+   "program": 95,
+   "name": "Tranceptor     T"
+  },
+  {
+   "bank": 0,
+   "program": 96,
+   "name": "Short Trance   T"
+  },
+  {
+   "bank": 0,
+   "program": 97,
+   "name": "Sauron Pad     T"
+  },
+  {
+   "bank": 0,
+   "program": 98,
+   "name": "Ghost On Mars  T"
+  },
+  {
+   "bank": 0,
+   "program": 99,
+   "name": "ImpulseResp. SCD"
+  },
+  {
+   "bank": 0,
+   "program": 100,
+   "name": "CombDeBoele  SCD"
+  },
+  {
+   "bank": 0,
+   "program": 101,
+   "name": "SpaceDigde     T"
+  },
+  {
+   "bank": 0,
+   "program": 102,
+   "name": "The 1980s      T"
+  },
+  {
+   "bank": 0,
+   "program": 103,
+   "name": "Pulse3+      SCD"
+  },
+  {
+   "bank": 0,
+   "program": 104,
+   "name": "Dig. Modular SCD"
+  },
+  {
+   "bank": 0,
+   "program": 105,
+   "name": "VA*FM        SCD"
+  },
+  {
+   "bank": 0,
+   "program": 106,
+   "name": "PPGenious    SCD"
+  },
+  {
+   "bank": 0,
+   "program": 107,
+   "name": "TriangleDanceSCD"
+  },
+  {
+   "bank": 0,
+   "program": 108,
+   "name": "Wave Voices  SCD"
+  },
+  {
+   "bank": 0,
+   "program": 109,
+   "name": "Piano E      SCD"
+  },
+  {
+   "bank": 0,
+   "program": 110,
+   "name": "SimpleSeq    SCD"
+  },
+  {
+   "bank": 0,
+   "program": 111,
+   "name": "Chopshop3.0  SCD"
+  },
+  {
+   "bank": 0,
+   "program": 112,
+   "name": "OrganClav      T"
+  },
+  {
+   "bank": 0,
+   "program": 113,
+   "name": "Wit Licht    SCD"
+  },
+  {
+   "bank": 0,
+   "program": 114,
+   "name": "Morphorgan     T"
+  },
+  {
+   "bank": 0,
+   "program": 115,
+   "name": "My Keys      SCD"
+  },
+  {
+   "bank": 0,
+   "program": 116,
+   "name": "Warning      SCD"
+  },
+  {
+   "bank": 0,
+   "program": 117,
+   "name": "InYourRoom   SCD"
+  },
+  {
+   "bank": 0,
+   "program": 118,
+   "name": "Bad Highpass SCD"
+  },
+  {
+   "bank": 0,
+   "program": 119,
+   "name": "ChildOfMine  SCD"
+  },
+  {
+   "bank": 0,
+   "program": 120,
+   "name": "2 Cats       SCD"
+  },
+  {
+   "bank": 0,
+   "program": 121,
+   "name": "PPG 2        SCD"
+  },
+  {
+   "bank": 0,
+   "program": 122,
+   "name": "FlangerSaw   SCD"
+  },
+  {
+   "bank": 0,
+   "program": 123,
+   "name": "ChainSaw     SCD"
+  },
+  {
+   "bank": 0,
+   "program": 124,
+   "name": "BloAttack    SCD"
+  },
+  {
+   "bank": 0,
+   "program": 125,
+   "name": "Sines        SCD"
+  },
+  {
+   "bank": 0,
+   "program": 126,
+   "name": "BloodLife    SCD"
+  },
+  {
+   "bank": 0,
+   "program": 127,
+   "name": "Delerium       T"
+  },
+  {
+   "bank": 1,
+   "program": 0,
+   "name": "RisePad RL"
+  },
+  {
+   "bank": 1,
+   "program": 1,
+   "name": "AmbientNodes RL"
+  },
+  {
+   "bank": 1,
+   "program": 2,
+   "name": "JunoStack RL"
+  },
+  {
+   "bank": 1,
+   "program": 3,
+   "name": "LayeredBass RL"
+  },
+  {
+   "bank": 1,
+   "program": 4,
+   "name": "FirstContact RL"
+  },
+  {
+   "bank": 1,
+   "program": 5,
+   "name": "ElectroKitty RL"
+  },
+  {
+   "bank": 1,
+   "program": 6,
+   "name": "AnoDomini RL"
+  },
+  {
+   "bank": 1,
+   "program": 7,
+   "name": "ClubbyOrgan RL"
+  },
+  {
+   "bank": 1,
+   "program": 8,
+   "name": "DanceChord95 RL"
+  },
+  {
+   "bank": 1,
+   "program": 9,
+   "name": "RioLargo RL"
+  },
+  {
+   "bank": 1,
+   "program": 10,
+   "name": "FunkyDisco RL"
+  },
+  {
+   "bank": 1,
+   "program": 11,
+   "name": "UtopianPad RL"
+  },
+  {
+   "bank": 1,
+   "program": 12,
+   "name": "HardTrancer RL"
+  },
+  {
+   "bank": 1,
+   "program": 13,
+   "name": "TechnoChords RL"
+  },
+  {
+   "bank": 1,
+   "program": 14,
+   "name": "SquareWaver RL"
+  },
+  {
+   "bank": 1,
+   "program": 15,
+   "name": "ArpBells RL"
+  },
+  {
+   "bank": 1,
+   "program": 16,
+   "name": "FakeGuitar RL"
+  },
+  {
+   "bank": 1,
+   "program": 17,
+   "name": "Trance2K RL"
+  },
+  {
+   "bank": 1,
+   "program": 18,
+   "name": "Hacienda RL"
+  },
+  {
+   "bank": 1,
+   "program": 19,
+   "name": "BloChoir RL"
+  },
+  {
+   "bank": 1,
+   "program": 20,
+   "name": "BassNation RL"
+  },
+  {
+   "bank": 1,
+   "program": 21,
+   "name": "MellowKeys RL"
+  },
+  {
+   "bank": 1,
+   "program": 22,
+   "name": "TotalTrance RL"
+  },
+  {
+   "bank": 1,
+   "program": 23,
+   "name": "PianoMan RL"
+  },
+  {
+   "bank": 1,
+   "program": 24,
+   "name": "FloorBass RL"
+  },
+  {
+   "bank": 1,
+   "program": 25,
+   "name": "AnotherWorld RL"
+  },
+  {
+   "bank": 1,
+   "program": 26,
+   "name": "ClockWork RL"
+  },
+  {
+   "bank": 1,
+   "program": 27,
+   "name": "SuperMario RL"
+  },
+  {
+   "bank": 1,
+   "program": 28,
+   "name": "ClubDelays RL"
+  },
+  {
+   "bank": 1,
+   "program": 29,
+   "name": "TronicLead RL"
+  },
+  {
+   "bank": 1,
+   "program": 30,
+   "name": "FireWire RL"
+  },
+  {
+   "bank": 1,
+   "program": 31,
+   "name": "DirtyRamirez RL"
+  },
+  {
+   "bank": 1,
+   "program": 32,
+   "name": "MerlinsPad RL"
+  },
+  {
+   "bank": 1,
+   "program": 33,
+   "name": "DreamSaw RL"
+  },
+  {
+   "bank": 1,
+   "program": 34,
+   "name": "CosmicGates RL"
+  },
+  {
+   "bank": 1,
+   "program": 35,
+   "name": "ElectroPulse RL"
+  },
+  {
+   "bank": 1,
+   "program": 36,
+   "name": "SquelchBass RL"
+  },
+  {
+   "bank": 1,
+   "program": 37,
+   "name": "TechnoDawn RL"
+  },
+  {
+   "bank": 1,
+   "program": 38,
+   "name": "Orchestral RL"
+  },
+  {
+   "bank": 1,
+   "program": 39,
+   "name": "StarGazer RL"
+  },
+  {
+   "bank": 1,
+   "program": 40,
+   "name": "PartyLikeAlex RL"
+  },
+  {
+   "bank": 1,
+   "program": 41,
+   "name": "DanceMaster RL"
+  },
+  {
+   "bank": 1,
+   "program": 42,
+   "name": "HeavenlyVox RL"
+  },
+  {
+   "bank": 1,
+   "program": 43,
+   "name": "PartyLead RL"
+  },
+  {
+   "bank": 1,
+   "program": 44,
+   "name": "HouseClassic RL"
+  },
+  {
+   "bank": 1,
+   "program": 45,
+   "name": "ClubUK RL"
+  },
+  {
+   "bank": 1,
+   "program": 46,
+   "name": "TrashBass RL"
+  },
+  {
+   "bank": 1,
+   "program": 47,
+   "name": "SadStrings RL"
+  },
+  {
+   "bank": 1,
+   "program": 48,
+   "name": "RezzoPoly RL"
+  },
+  {
+   "bank": 1,
+   "program": 49,
+   "name": "MrMiles RL"
+  },
+  {
+   "bank": 1,
+   "program": 50,
+   "name": "SamplerVox RL"
+  },
+  {
+   "bank": 1,
+   "program": 51,
+   "name": "TunnelPad RL"
+  },
+  {
+   "bank": 1,
+   "program": 52,
+   "name": "ElectroSaw RL"
+  },
+  {
+   "bank": 1,
+   "program": 53,
+   "name": "TranceMelody RL"
+  },
+  {
+   "bank": 1,
+   "program": 54,
+   "name": "DancePizz RL"
+  },
+  {
+   "bank": 1,
+   "program": 55,
+   "name": "DigitalDance RL"
+  },
+  {
+   "bank": 1,
+   "program": 56,
+   "name": "SlowingDown RL"
+  },
+  {
+   "bank": 1,
+   "program": 57,
+   "name": "303AutoGlide RL"
+  },
+  {
+   "bank": 1,
+   "program": 58,
+   "name": "PhazedOut RL"
+  },
+  {
+   "bank": 1,
+   "program": 59,
+   "name": "MiniLead RL"
+  },
+  {
+   "bank": 1,
+   "program": 60,
+   "name": "Neptune RL"
+  },
+  {
+   "bank": 1,
+   "program": 61,
+   "name": "Back2Detroit RL"
+  },
+  {
+   "bank": 1,
+   "program": 62,
+   "name": "RetroKeys RL"
+  },
+  {
+   "bank": 1,
+   "program": 63,
+   "name": "PowerCore RL"
+  },
+  {
+   "bank": 1,
+   "program": 64,
+   "name": "Infected RL"
+  },
+  {
+   "bank": 1,
+   "program": 65,
+   "name": "Pikey RL"
+  },
+  {
+   "bank": 1,
+   "program": 66,
+   "name": "TechnoFX RL"
+  },
+  {
+   "bank": 1,
+   "program": 67,
+   "name": "AfterDark RL"
+  },
+  {
+   "bank": 1,
+   "program": 68,
+   "name": "FlangePad RL"
+  },
+  {
+   "bank": 1,
+   "program": 69,
+   "name": "EuroClassic RL"
+  },
+  {
+   "bank": 1,
+   "program": 70,
+   "name": "HouseMeUp RL"
+  },
+  {
+   "bank": 1,
+   "program": 71,
+   "name": "Motivator RL"
+  },
+  {
+   "bank": 1,
+   "program": 72,
+   "name": "TuffBass RL"
+  },
+  {
+   "bank": 1,
+   "program": 73,
+   "name": "DarkSweeper RL"
+  },
+  {
+   "bank": 1,
+   "program": 74,
+   "name": "DeepBlue RL"
+  },
+  {
+   "bank": 1,
+   "program": 75,
+   "name": "NuElectro RL"
+  },
+  {
+   "bank": 1,
+   "program": 76,
+   "name": "NiteCrawler RL"
+  },
+  {
+   "bank": 1,
+   "program": 77,
+   "name": "Time2Groove RL"
+  },
+  {
+   "bank": 1,
+   "program": 78,
+   "name": "Planetarium RL"
+  },
+  {
+   "bank": 1,
+   "program": 79,
+   "name": "DiscoBass RL"
+  },
+  {
+   "bank": 1,
+   "program": 80,
+   "name": "NoseBleeder RL"
+  },
+  {
+   "bank": 1,
+   "program": 81,
+   "name": "OldSkool RL"
+  },
+  {
+   "bank": 1,
+   "program": 82,
+   "name": "Slither RL"
+  },
+  {
+   "bank": 1,
+   "program": 83,
+   "name": "SuperSquare RL"
+  },
+  {
+   "bank": 1,
+   "program": 84,
+   "name": "RemixKeys RL"
+  },
+  {
+   "bank": 1,
+   "program": 85,
+   "name": "DangerZone RL"
+  },
+  {
+   "bank": 1,
+   "program": 86,
+   "name": "SnapAttack RL"
+  },
+  {
+   "bank": 1,
+   "program": 87,
+   "name": "Pitch&Slide RL"
+  },
+  {
+   "bank": 1,
+   "program": 88,
+   "name": "LiquidSaws RL"
+  },
+  {
+   "bank": 1,
+   "program": 89,
+   "name": "Icelandic RL"
+  },
+  {
+   "bank": 1,
+   "program": 90,
+   "name": "Avatar RL"
+  },
+  {
+   "bank": 1,
+   "program": 91,
+   "name": "Seduction RL"
+  },
+  {
+   "bank": 1,
+   "program": 92,
+   "name": "FollowMe RL"
+  },
+  {
+   "bank": 1,
+   "program": 93,
+   "name": "DutchLead RL"
+  },
+  {
+   "bank": 1,
+   "program": 94,
+   "name": "ElectricPiano RL"
+  },
+  {
+   "bank": 1,
+   "program": 95,
+   "name": "WetElectro RL"
+  },
+  {
+   "bank": 1,
+   "program": 96,
+   "name": "Airwave RL"
+  },
+  {
+   "bank": 1,
+   "program": 97,
+   "name": "RaveGenerator RL"
+  },
+  {
+   "bank": 1,
+   "program": 98,
+   "name": "Amnesia RL"
+  },
+  {
+   "bank": 1,
+   "program": 99,
+   "name": "PlayedLive RL"
+  },
+  {
+   "bank": 1,
+   "program": 100,
+   "name": "AcidHouse RL"
+  },
+  {
+   "bank": 1,
+   "program": 101,
+   "name": "TechnoBoy RL"
+  },
+  {
+   "bank": 1,
+   "program": 102,
+   "name": "ClubRiffer RL"
+  },
+  {
+   "bank": 1,
+   "program": 103,
+   "name": "TechnoBells RL"
+  },
+  {
+   "bank": 1,
+   "program": 104,
+   "name": "Evolution  RL"
+  },
+  {
+   "bank": 1,
+   "program": 105,
+   "name": "DelMar RL"
+  },
+  {
+   "bank": 1,
+   "program": 106,
+   "name": "HardEdge RL"
+  },
+  {
+   "bank": 1,
+   "program": 107,
+   "name": "FatPulse RL"
+  },
+  {
+   "bank": 1,
+   "program": 108,
+   "name": "KnockDelays RL"
+  },
+  {
+   "bank": 1,
+   "program": 109,
+   "name": "Siberia RL"
+  },
+  {
+   "bank": 1,
+   "program": 110,
+   "name": "TechnoEric RL"
+  },
+  {
+   "bank": 1,
+   "program": 111,
+   "name": "DanceClassic RL"
+  },
+  {
+   "bank": 1,
+   "program": 112,
+   "name": "OffShore44 RL"
+  },
+  {
+   "bank": 1,
+   "program": 113,
+   "name": "Parisien RL"
+  },
+  {
+   "bank": 1,
+   "program": 114,
+   "name": "DeepHouse RL"
+  },
+  {
+   "bank": 1,
+   "program": 115,
+   "name": "MonstaBass RL"
+  },
+  {
+   "bank": 1,
+   "program": 116,
+   "name": "Ambience RL"
+  },
+  {
+   "bank": 1,
+   "program": 117,
+   "name": "XTBass RL"
+  },
+  {
+   "bank": 1,
+   "program": 118,
+   "name": "ModularFX RL"
+  },
+  {
+   "bank": 1,
+   "program": 119,
+   "name": "Organesque RL"
+  },
+  {
+   "bank": 1,
+   "program": 120,
+   "name": "PearlDrops RL"
+  },
+  {
+   "bank": 1,
+   "program": 121,
+   "name": "BattleStar RL"
+  },
+  {
+   "bank": 1,
+   "program": 122,
+   "name": "AlienBass RL"
+  },
+  {
+   "bank": 1,
+   "program": 123,
+   "name": "SuperWaves RL"
+  },
+  {
+   "bank": 1,
+   "program": 124,
+   "name": "Unchartered RL"
+  },
+  {
+   "bank": 1,
+   "program": 125,
+   "name": "PlanetZod RL"
+  },
+  {
+   "bank": 1,
+   "program": 126,
+   "name": "Elevation RL"
+  },
+  {
+   "bank": 1,
+   "program": 127,
+   "name": "BassTrap RL"
+  },
+  {
+   "bank": 2,
+   "program": 0,
+   "name": "The 1980s      T"
+  },
+  {
+   "bank": 2,
+   "program": 1,
+   "name": "S1l4g3        CA"
+  },
+  {
+   "bank": 2,
+   "program": 2,
+   "name": "Dig. Modular SCD"
+  },
+  {
+   "bank": 2,
+   "program": 3,
+   "name": "Shy T3ddy     CA"
+  },
+  {
+   "bank": 2,
+   "program": 4,
+   "name": "PPGenious    SCD"
+  },
+  {
+   "bank": 2,
+   "program": 5,
+   "name": "Torreblanca   CA"
+  },
+  {
+   "bank": 2,
+   "program": 6,
+   "name": "Wave Voices  SCD"
+  },
+  {
+   "bank": 2,
+   "program": 7,
+   "name": "Channel 1337  CA"
+  },
+  {
+   "bank": 2,
+   "program": 8,
+   "name": "SimpleSeq    SCD"
+  },
+  {
+   "bank": 2,
+   "program": 9,
+   "name": "404 Found  CA"
+  },
+  {
+   "bank": 2,
+   "program": 10,
+   "name": "OrganClav      T"
+  },
+  {
+   "bank": 2,
+   "program": 11,
+   "name": "Encinarejo    CA"
+  },
+  {
+   "bank": 2,
+   "program": 12,
+   "name": "Morphorgan     T"
+  },
+  {
+   "bank": 2,
+   "program": 13,
+   "name": "Vic 20        CA"
+  },
+  {
+   "bank": 2,
+   "program": 14,
+   "name": "Warning      SCD"
+  },
+  {
+   "bank": 2,
+   "program": 15,
+   "name": "Jaws    CitCA y"
+  },
+  {
+   "bank": 2,
+   "program": 16,
+   "name": "Bad Highpass SCD"
+  },
+  {
+   "bank": 2,
+   "program": 17,
+   "name": "Bottle        CA"
+  },
+  {
+   "bank": 2,
+   "program": 18,
+   "name": "2 Cats       SCD"
+  },
+  {
+   "bank": 2,
+   "program": 19,
+   "name": "Sa Calobra    CA"
+  },
+  {
+   "bank": 2,
+   "program": 20,
+   "name": "FlangerSaw   SCD"
+  },
+  {
+   "bank": 2,
+   "program": 21,
+   "name": "Graja         CA"
+  },
+  {
+   "bank": 2,
+   "program": 22,
+   "name": "BloAttack    SCD"
+  },
+  {
+   "bank": 2,
+   "program": 23,
+   "name": "Table FM     SCD"
+  },
+  {
+   "bank": 2,
+   "program": 24,
+   "name": "Glockenklang   T"
+  },
+  {
+   "bank": 2,
+   "program": 25,
+   "name": "Flowinx       CA"
+  },
+  {
+   "bank": 2,
+   "program": 26,
+   "name": "BloodLife    SCD"
+  },
+  {
+   "bank": 2,
+   "program": 27,
+   "name": "2Osc Sync    SCD"
+  },
+  {
+   "bank": 2,
+   "program": 28,
+   "name": "Latmo          T"
+  },
+  {
+   "bank": 2,
+   "program": 29,
+   "name": "Halloween      T"
+  },
+  {
+   "bank": 2,
+   "program": 30,
+   "name": "Down to 5kHz   T"
+  },
+  {
+   "bank": 2,
+   "program": 31,
+   "name": "Filter FM    SCD"
+  },
+  {
+   "bank": 2,
+   "program": 32,
+   "name": "Comb-at       CA"
+  },
+  {
+   "bank": 2,
+   "program": 33,
+   "name": "Borg Cubus     T"
+  },
+  {
+   "bank": 2,
+   "program": 34,
+   "name": "Relax3       SCD"
+  },
+  {
+   "bank": 2,
+   "program": 35,
+   "name": "Mahlstrom      T"
+  },
+  {
+   "bank": 2,
+   "program": 36,
+   "name": "AM on Sinus  SCD"
+  },
+  {
+   "bank": 2,
+   "program": 37,
+   "name": "19/20          T"
+  },
+  {
+   "bank": 2,
+   "program": 38,
+   "name": "What?        SCD"
+  },
+  {
+   "bank": 2,
+   "program": 39,
+   "name": "StefanIsMad  SCD"
+  },
+  {
+   "bank": 2,
+   "program": 40,
+   "name": "ReverseWhoosch T"
+  },
+  {
+   "bank": 2,
+   "program": 41,
+   "name": "50s Pad        T"
+  },
+  {
+   "bank": 2,
+   "program": 42,
+   "name": "Deepspace 9   ST"
+  },
+  {
+   "bank": 2,
+   "program": 43,
+   "name": "Chorus       WMF"
+  },
+  {
+   "bank": 2,
+   "program": 44,
+   "name": "HP PPG       SCD"
+  },
+  {
+   "bank": 2,
+   "program": 45,
+   "name": "Hmm, lecker  WMF"
+  },
+  {
+   "bank": 2,
+   "program": 46,
+   "name": "Angel Pad     HS"
+  },
+  {
+   "bank": 2,
+   "program": 47,
+   "name": "Heaven        JL"
+  },
+  {
+   "bank": 2,
+   "program": 48,
+   "name": "Blovachord   SCD"
+  },
+  {
+   "bank": 2,
+   "program": 49,
+   "name": "MeetInTheSky SCD"
+  },
+  {
+   "bank": 2,
+   "program": 50,
+   "name": "Padings       HM"
+  },
+  {
+   "bank": 2,
+   "program": 51,
+   "name": "Om mani padme HM"
+  },
+  {
+   "bank": 2,
+   "program": 52,
+   "name": "Raising Sun    T"
+  },
+  {
+   "bank": 2,
+   "program": 53,
+   "name": "Slow Wavetrip  T"
+  },
+  {
+   "bank": 2,
+   "program": 54,
+   "name": "Brightseite    T"
+  },
+  {
+   "bank": 2,
+   "program": 55,
+   "name": "LateNightPad   T"
+  },
+  {
+   "bank": 2,
+   "program": 56,
+   "name": "Angels Cry    JL"
+  },
+  {
+   "bank": 2,
+   "program": 57,
+   "name": "Phalanx       ST"
+  },
+  {
+   "bank": 2,
+   "program": 58,
+   "name": "The Bridge    SK"
+  },
+  {
+   "bank": 2,
+   "program": 59,
+   "name": "ObiWahnPad    SK"
+  },
+  {
+   "bank": 2,
+   "program": 60,
+   "name": "Sonnenaufgang  T"
+  },
+  {
+   "bank": 2,
+   "program": 61,
+   "name": "Queen-mom     HM"
+  },
+  {
+   "bank": 2,
+   "program": 62,
+   "name": "DarkQuietPad   T"
+  },
+  {
+   "bank": 2,
+   "program": 63,
+   "name": "Geiler Lurch   T"
+  },
+  {
+   "bank": 2,
+   "program": 64,
+   "name": "Zeitlos        T"
+  },
+  {
+   "bank": 2,
+   "program": 65,
+   "name": "MI5 Pad      ugh"
+  },
+  {
+   "bank": 2,
+   "program": 66,
+   "name": "Octopussy Pad  T"
+  },
+  {
+   "bank": 2,
+   "program": 67,
+   "name": "Like Wool     HM"
+  },
+  {
+   "bank": 2,
+   "program": 68,
+   "name": "di-Fusion      T"
+  },
+  {
+   "bank": 2,
+   "program": 69,
+   "name": "Go to Pad      T"
+  },
+  {
+   "bank": 2,
+   "program": 70,
+   "name": "Kiddings      HM"
+  },
+  {
+   "bank": 2,
+   "program": 71,
+   "name": "Harsh Pad      T"
+  },
+  {
+   "bank": 2,
+   "program": 72,
+   "name": "Broadway     ugh"
+  },
+  {
+   "bank": 2,
+   "program": 73,
+   "name": "Neocrest      ST"
+  },
+  {
+   "bank": 2,
+   "program": 74,
+   "name": "BandSpass      T"
+  },
+  {
+   "bank": 2,
+   "program": 75,
+   "name": "Event Horizon  T"
+  },
+  {
+   "bank": 2,
+   "program": 76,
+   "name": "Long Sweep     T"
+  },
+  {
+   "bank": 2,
+   "program": 77,
+   "name": "DisharmonicPad T"
+  },
+  {
+   "bank": 2,
+   "program": 78,
+   "name": "Goldfinger Pad T"
+  },
+  {
+   "bank": 2,
+   "program": 79,
+   "name": "Wartofsky 2.0  T"
+  },
+  {
+   "bank": 2,
+   "program": 80,
+   "name": "S&H&Pad&Nice WMF"
+  },
+  {
+   "bank": 2,
+   "program": 81,
+   "name": "Attacke      WMF"
+  },
+  {
+   "bank": 2,
+   "program": 82,
+   "name": "Moving       SCD"
+  },
+  {
+   "bank": 2,
+   "program": 83,
+   "name": "Q-rious?     WMF"
+  },
+  {
+   "bank": 2,
+   "program": 84,
+   "name": "Bioshock      JL"
+  },
+  {
+   "bank": 2,
+   "program": 85,
+   "name": "With Love    WMF"
+  },
+  {
+   "bank": 2,
+   "program": 86,
+   "name": "Mellow Tron   TK"
+  },
+  {
+   "bank": 2,
+   "program": 87,
+   "name": "JV HardBass"
+  },
+  {
+   "bank": 2,
+   "program": 88,
+   "name": "PredictaBass WMF"
+  },
+  {
+   "bank": 2,
+   "program": 89,
+   "name": "Phalanx Bass"
+  },
+  {
+   "bank": 2,
+   "program": 90,
+   "name": "BassterKeaton  T"
+  },
+  {
+   "bank": 2,
+   "program": 91,
+   "name": "Narrow"
+  },
+  {
+   "bank": 2,
+   "program": 92,
+   "name": "Drum'n'Bass 1"
+  },
+  {
+   "bank": 2,
+   "program": 93,
+   "name": "Mars Mouse"
+  },
+  {
+   "bank": 2,
+   "program": 94,
+   "name": "Fonky Fonky"
+  },
+  {
+   "bank": 2,
+   "program": 95,
+   "name": "Frittenlos"
+  },
+  {
+   "bank": 2,
+   "program": 96,
+   "name": "Mo'Grass"
+  },
+  {
+   "bank": 2,
+   "program": 97,
+   "name": "Bassanova"
+  },
+  {
+   "bank": 2,
+   "program": 98,
+   "name": "2Step Bass"
+  },
+  {
+   "bank": 2,
+   "program": 99,
+   "name": "TockTock"
+  },
+  {
+   "bank": 2,
+   "program": 100,
+   "name": "Silicon Base"
+  },
+  {
+   "bank": 2,
+   "program": 101,
+   "name": "Ultra Sub 1"
+  },
+  {
+   "bank": 2,
+   "program": 102,
+   "name": "Ultra Sub 2"
+  },
+  {
+   "bank": 2,
+   "program": 103,
+   "name": "WhopWhop"
+  },
+  {
+   "bank": 2,
+   "program": 104,
+   "name": "Acrylic Bass"
+  },
+  {
+   "bank": 2,
+   "program": 105,
+   "name": "Ringmono"
+  },
+  {
+   "bank": 2,
+   "program": 106,
+   "name": "CascadeVCF"
+  },
+  {
+   "bank": 2,
+   "program": 107,
+   "name": "303 Wanna Be"
+  },
+  {
+   "bank": 2,
+   "program": 108,
+   "name": "Morph Bass    ST"
+  },
+  {
+   "bank": 2,
+   "program": 109,
+   "name": "Q-Timps"
+  },
+  {
+   "bank": 2,
+   "program": 110,
+   "name": "DeepHouse     SK"
+  },
+  {
+   "bank": 2,
+   "program": 111,
+   "name": "FM Roads      HS"
+  },
+  {
+   "bank": 2,
+   "program": 112,
+   "name": "DX-ClassiQ    HS"
+  },
+  {
+   "bank": 2,
+   "program": 113,
+   "name": "Hippy Freuds  HS"
+  },
+  {
+   "bank": 2,
+   "program": 114,
+   "name": "Shed          HM"
+  },
+  {
+   "bank": 2,
+   "program": 115,
+   "name": "Harpsi        HS"
+  },
+  {
+   "bank": 2,
+   "program": 116,
+   "name": "Easy Piano    HS"
+  },
+  {
+   "bank": 2,
+   "program": 117,
+   "name": "Lounge Morph  HS"
+  },
+  {
+   "bank": 2,
+   "program": 118,
+   "name": "BloodyFeld   SCD"
+  },
+  {
+   "bank": 2,
+   "program": 119,
+   "name": "ModWheelOrganSCD"
+  },
+  {
+   "bank": 2,
+   "program": 120,
+   "name": "Minor Chords   T"
+  },
+  {
+   "bank": 2,
+   "program": 121,
+   "name": "Ice Bells     SK"
+  },
+  {
+   "bank": 2,
+   "program": 122,
+   "name": "Bone Soup"
+  },
+  {
+   "bank": 2,
+   "program": 123,
+   "name": "DCS3 Bubbles"
+  },
+  {
+   "bank": 2,
+   "program": 124,
+   "name": "Flying Teapot"
+  },
+  {
+   "bank": 2,
+   "program": 125,
+   "name": "Gastrology"
+  },
+  {
+   "bank": 2,
+   "program": 126,
+   "name": "Into Mouth"
+  },
+  {
+   "bank": 2,
+   "program": 127,
+   "name": "Whoosch        T"
+  },
+  {
+   "bank": 3,
+   "program": 0,
+   "name": "UltraFatPoly WMF"
+  },
+  {
+   "bank": 3,
+   "program": 1,
+   "name": "Brass Comp    HM"
+  },
+  {
+   "bank": 3,
+   "program": 2,
+   "name": "Pussy Galore   T"
+  },
+  {
+   "bank": 3,
+   "program": 3,
+   "name": "Euro-Zeichen  HS"
+  },
+  {
+   "bank": 3,
+   "program": 4,
+   "name": "Brassy House  SK"
+  },
+  {
+   "bank": 3,
+   "program": 5,
+   "name": "BestOfThe80s   T"
+  },
+  {
+   "bank": 3,
+   "program": 6,
+   "name": "Classic Synth  T"
+  },
+  {
+   "bank": 3,
+   "program": 7,
+   "name": "WT mess     SCD"
+  },
+  {
+   "bank": 3,
+   "program": 8,
+   "name": "Leadrunner    HS"
+  },
+  {
+   "bank": 3,
+   "program": 9,
+   "name": "10VoicePS3100SCD"
+  },
+  {
+   "bank": 3,
+   "program": 10,
+   "name": "Patagonia     HS"
+  },
+  {
+   "bank": 3,
+   "program": 11,
+   "name": "Quintage       T"
+  },
+  {
+   "bank": 3,
+   "program": 12,
+   "name": "RoundTheHorn  HS"
+  },
+  {
+   "bank": 3,
+   "program": 13,
+   "name": "Net Profit    HS"
+  },
+  {
+   "bank": 3,
+   "program": 14,
+   "name": "SyncMush    DocT"
+  },
+  {
+   "bank": 3,
+   "program": 15,
+   "name": "Tron Flutes   HM"
+  },
+  {
+   "bank": 3,
+   "program": 16,
+   "name": "Qazzio        HS"
+  },
+  {
+   "bank": 3,
+   "program": 17,
+   "name": "VintageSpringWMF"
+  },
+  {
+   "bank": 3,
+   "program": 18,
+   "name": "Zawichords    HS"
+  },
+  {
+   "bank": 3,
+   "program": 19,
+   "name": "Spring Clean  HS"
+  },
+  {
+   "bank": 3,
+   "program": 20,
+   "name": "Papathanasiou  T"
+  },
+  {
+   "bank": 3,
+   "program": 21,
+   "name": "FloorFilla    SK"
+  },
+  {
+   "bank": 3,
+   "program": 22,
+   "name": "Hyper       DocT"
+  },
+  {
+   "bank": 3,
+   "program": 23,
+   "name": "Dr. Motte      T"
+  },
+  {
+   "bank": 3,
+   "program": 24,
+   "name": "FilterFM Keys  T"
+  },
+  {
+   "bank": 3,
+   "program": 25,
+   "name": "80sFM Analog  SK"
+  },
+  {
+   "bank": 3,
+   "program": 26,
+   "name": "Analog Lute   HS"
+  },
+  {
+   "bank": 3,
+   "program": 27,
+   "name": "D-NoiZer      SK"
+  },
+  {
+   "bank": 3,
+   "program": 28,
+   "name": "Crawlers      SK"
+  },
+  {
+   "bank": 3,
+   "program": 29,
+   "name": "Brownies     WMF"
+  },
+  {
+   "bank": 3,
+   "program": 30,
+   "name": "Late Ring     HS"
+  },
+  {
+   "bank": 3,
+   "program": 31,
+   "name": "RingThemBellsSCD"
+  },
+  {
+   "bank": 3,
+   "program": 32,
+   "name": "TributeTo DX WMF"
+  },
+  {
+   "bank": 3,
+   "program": 33,
+   "name": "WhatYouSay?  SCD"
+  },
+  {
+   "bank": 3,
+   "program": 34,
+   "name": "Atlantis       T"
+  },
+  {
+   "bank": 3,
+   "program": 35,
+   "name": "Atmostrobe     T"
+  },
+  {
+   "bank": 3,
+   "program": 36,
+   "name": "Background     T"
+  },
+  {
+   "bank": 3,
+   "program": 37,
+   "name": "Baraka         T"
+  },
+  {
+   "bank": 3,
+   "program": 38,
+   "name": "Beautiful Sky  T"
+  },
+  {
+   "bank": 3,
+   "program": 39,
+   "name": "Clink Clash    T"
+  },
+  {
+   "bank": 3,
+   "program": 40,
+   "name": "Comb Tree      T"
+  },
+  {
+   "bank": 3,
+   "program": 41,
+   "name": "Drift"
+  },
+  {
+   "bank": 3,
+   "program": 42,
+   "name": "Fear'n'Loath"
+  },
+  {
+   "bank": 3,
+   "program": 43,
+   "name": "Flinker"
+  },
+  {
+   "bank": 3,
+   "program": 44,
+   "name": "Orthanc        T"
+  },
+  {
+   "bank": 3,
+   "program": 45,
+   "name": "RePression     T"
+  },
+  {
+   "bank": 3,
+   "program": 46,
+   "name": "Royalties"
+  },
+  {
+   "bank": 3,
+   "program": 47,
+   "name": "Biosphere      T"
+  },
+  {
+   "bank": 3,
+   "program": 48,
+   "name": "Spitzbergen    T"
+  },
+  {
+   "bank": 3,
+   "program": 49,
+   "name": "Stratosphere   T"
+  },
+  {
+   "bank": 3,
+   "program": 50,
+   "name": "Swiss Atmo     T"
+  },
+  {
+   "bank": 3,
+   "program": 51,
+   "name": "Upstream       T"
+  },
+  {
+   "bank": 3,
+   "program": 52,
+   "name": "VeryCompleqs"
+  },
+  {
+   "bank": 3,
+   "program": 53,
+   "name": "Waterworld     T"
+  },
+  {
+   "bank": 3,
+   "program": 54,
+   "name": "RingmodFart  SCD"
+  },
+  {
+   "bank": 3,
+   "program": 55,
+   "name": "Vangelibells SCD"
+  },
+  {
+   "bank": 3,
+   "program": 56,
+   "name": "PolterBlofeldSCD"
+  },
+  {
+   "bank": 3,
+   "program": 57,
+   "name": "Ambishous"
+  },
+  {
+   "bank": 3,
+   "program": 58,
+   "name": "ScaramangAtmo  T"
+  },
+  {
+   "bank": 3,
+   "program": 59,
+   "name": "CS4O RingMod   T"
+  },
+  {
+   "bank": 3,
+   "program": 60,
+   "name": "ReSolotion   WMF"
+  },
+  {
+   "bank": 3,
+   "program": 61,
+   "name": "Anna Powers   HM"
+  },
+  {
+   "bank": 3,
+   "program": 62,
+   "name": "HardSaw       ST"
+  },
+  {
+   "bank": 3,
+   "program": 63,
+   "name": "X-Feels"
+  },
+  {
+   "bank": 3,
+   "program": 64,
+   "name": "Bach Whistler"
+  },
+  {
+   "bank": 3,
+   "program": 65,
+   "name": "Modulator"
+  },
+  {
+   "bank": 3,
+   "program": 66,
+   "name": "NoisyLead"
+  },
+  {
+   "bank": 3,
+   "program": 67,
+   "name": "Pulsar Solo"
+  },
+  {
+   "bank": 3,
+   "program": 68,
+   "name": "Starweed"
+  },
+  {
+   "bank": 3,
+   "program": 69,
+   "name": "Saw 1 Osc    WMF"
+  },
+  {
+   "bank": 3,
+   "program": 70,
+   "name": "Old Squares"
+  },
+  {
+   "bank": 3,
+   "program": 71,
+   "name": "Crazy Parade"
+  },
+  {
+   "bank": 3,
+   "program": 72,
+   "name": "Monoguitar"
+  },
+  {
+   "bank": 3,
+   "program": 73,
+   "name": "Eff Emmd!"
+  },
+  {
+   "bank": 3,
+   "program": 74,
+   "name": "DiscoPhonic"
+  },
+  {
+   "bank": 3,
+   "program": 75,
+   "name": "Moany"
+  },
+  {
+   "bank": 3,
+   "program": 76,
+   "name": "MiniDuke Solo"
+  },
+  {
+   "bank": 3,
+   "program": 77,
+   "name": "FictionGuitar"
+  },
+  {
+   "bank": 3,
+   "program": 78,
+   "name": "Autobahn      jh"
+  },
+  {
+   "bank": 3,
+   "program": 79,
+   "name": "MoogSolo      HS"
+  },
+  {
+   "bank": 3,
+   "program": 80,
+   "name": "LA-Pipe       HS"
+  },
+  {
+   "bank": 3,
+   "program": 81,
+   "name": "Clinics      WMF"
+  },
+  {
+   "bank": 3,
+   "program": 82,
+   "name": "Attacke      WMF"
+  },
+  {
+   "bank": 3,
+   "program": 83,
+   "name": "Expensive2   WMF"
+  },
+  {
+   "bank": 3,
+   "program": 84,
+   "name": "ZZ-you"
+  },
+  {
+   "bank": 3,
+   "program": 85,
+   "name": "Juanita        T"
+  },
+  {
+   "bank": 3,
+   "program": 86,
+   "name": "Ricochet2008 SCD"
+  },
+  {
+   "bank": 3,
+   "program": 87,
+   "name": "Spiffing"
+  },
+  {
+   "bank": 3,
+   "program": 88,
+   "name": "StarSoldiers"
+  },
+  {
+   "bank": 3,
+   "program": 89,
+   "name": "Slow Pop"
+  },
+  {
+   "bank": 3,
+   "program": 90,
+   "name": "Space Arp 1"
+  },
+  {
+   "bank": 3,
+   "program": 91,
+   "name": "Space Arp 2"
+  },
+  {
+   "bank": 3,
+   "program": 92,
+   "name": "Goonraker   DocT"
+  },
+  {
+   "bank": 3,
+   "program": 93,
+   "name": "Sierra Velone"
+  },
+  {
+   "bank": 3,
+   "program": 94,
+   "name": "Selbstlaeufer  T"
+  },
+  {
+   "bank": 3,
+   "program": 95,
+   "name": "GeeGaGooQ    WMF"
+  },
+  {
+   "bank": 3,
+   "program": 96,
+   "name": "PassPortament"
+  },
+  {
+   "bank": 3,
+   "program": 97,
+   "name": "cARPet         T"
+  },
+  {
+   "bank": 3,
+   "program": 98,
+   "name": "DeluXaflex    RJ"
+  },
+  {
+   "bank": 3,
+   "program": 99,
+   "name": "E-Motion"
+  },
+  {
+   "bank": 3,
+   "program": 100,
+   "name": "AthmoDrops"
+  },
+  {
+   "bank": 3,
+   "program": 101,
+   "name": "1DrunkenStenz"
+  },
+  {
+   "bank": 3,
+   "program": 102,
+   "name": "Weirdo FX"
+  },
+  {
+   "bank": 3,
+   "program": 103,
+   "name": "Solaris"
+  },
+  {
+   "bank": 3,
+   "program": 104,
+   "name": "SoundScapes 1"
+  },
+  {
+   "bank": 3,
+   "program": 105,
+   "name": "Spektrum Pad"
+  },
+  {
+   "bank": 3,
+   "program": 106,
+   "name": "Sphere"
+  },
+  {
+   "bank": 3,
+   "program": 107,
+   "name": "Spitzbergen"
+  },
+  {
+   "bank": 3,
+   "program": 108,
+   "name": "Stratosphere"
+  },
+  {
+   "bank": 3,
+   "program": 109,
+   "name": "Swiss Atmo"
+  },
+  {
+   "bank": 3,
+   "program": 110,
+   "name": "The 5th Atmo"
+  },
+  {
+   "bank": 3,
+   "program": 111,
+   "name": "The Fog"
+  },
+  {
+   "bank": 3,
+   "program": 112,
+   "name": "The Year 3000"
+  },
+  {
+   "bank": 3,
+   "program": 113,
+   "name": "Thin Ice"
+  },
+  {
+   "bank": 3,
+   "program": 114,
+   "name": "ThrillerOrgan"
+  },
+  {
+   "bank": 3,
+   "program": 115,
+   "name": "Tire-Guy"
+  },
+  {
+   "bank": 3,
+   "program": 116,
+   "name": "TschingHisCan"
+  },
+  {
+   "bank": 3,
+   "program": 117,
+   "name": "Upstream"
+  },
+  {
+   "bank": 3,
+   "program": 118,
+   "name": "ValeyPad"
+  },
+  {
+   "bank": 3,
+   "program": 119,
+   "name": "Vanilla Sky"
+  },
+  {
+   "bank": 3,
+   "program": 120,
+   "name": "Orthanc"
+  },
+  {
+   "bank": 3,
+   "program": 121,
+   "name": "Lettland"
+  },
+  {
+   "bank": 3,
+   "program": 122,
+   "name": "Wartofsky      T"
+  },
+  {
+   "bank": 3,
+   "program": 123,
+   "name": "Wavescapes 1"
+  },
+  {
+   "bank": 3,
+   "program": 124,
+   "name": "Wavescapes 2"
+  },
+  {
+   "bank": 3,
+   "program": 125,
+   "name": "Wavescapes 3"
+  },
+  {
+   "bank": 3,
+   "program": 126,
+   "name": "WideWarmWash WMF"
+  },
+  {
+   "bank": 3,
+   "program": 127,
+   "name": "The Carpet"
+  },
+  {
+   "bank": 4,
+   "program": 0,
+   "name": "With Love    WMF"
+  },
+  {
+   "bank": 4,
+   "program": 1,
+   "name": "ScaramangAtmo  T"
+  },
+  {
+   "bank": 4,
+   "program": 2,
+   "name": "Handy      H2SCD"
+  },
+  {
+   "bank": 4,
+   "program": 3,
+   "name": "Angels Cry    JL"
+  },
+  {
+   "bank": 4,
+   "program": 4,
+   "name": "Chorus       WMF"
+  },
+  {
+   "bank": 4,
+   "program": 5,
+   "name": "ModWheelOrganSCD"
+  },
+  {
+   "bank": 4,
+   "program": 6,
+   "name": "SyncMush    DocT"
+  },
+  {
+   "bank": 4,
+   "program": 7,
+   "name": "Yummi       DocT"
+  },
+  {
+   "bank": 4,
+   "program": 8,
+   "name": "Pussy Galore   T"
+  },
+  {
+   "bank": 4,
+   "program": 9,
+   "name": "Clinics      WMF"
+  },
+  {
+   "bank": 4,
+   "program": 10,
+   "name": "CtrlAltDel  DocT"
+  },
+  {
+   "bank": 4,
+   "program": 11,
+   "name": "Tines&Bars   WMF"
+  },
+  {
+   "bank": 4,
+   "program": 12,
+   "name": "Unstable    DocT"
+  },
+  {
+   "bank": 4,
+   "program": 13,
+   "name": "Deepspace 9   ST"
+  },
+  {
+   "bank": 4,
+   "program": 14,
+   "name": "DrivingLicnsDocT"
+  },
+  {
+   "bank": 4,
+   "program": 15,
+   "name": "FlangedHeavenSCD"
+  },
+  {
+   "bank": 4,
+   "program": 16,
+   "name": "Heaven        JL"
+  },
+  {
+   "bank": 4,
+   "program": 17,
+   "name": "Hmm, lecker  WMF"
+  },
+  {
+   "bank": 4,
+   "program": 18,
+   "name": "Horse Trip   SCD"
+  },
+  {
+   "bank": 4,
+   "program": 19,
+   "name": "Inversion   DocT"
+  },
+  {
+   "bank": 4,
+   "program": 20,
+   "name": "JMX vs. DeLeon"
+  },
+  {
+   "bank": 4,
+   "program": 21,
+   "name": "LA Woman   H2SCD"
+  },
+  {
+   "bank": 4,
+   "program": 22,
+   "name": "Minor Chords"
+  },
+  {
+   "bank": 4,
+   "program": 23,
+   "name": "MoogSolo 2"
+  },
+  {
+   "bank": 4,
+   "program": 24,
+   "name": "OhMyLord    DocT"
+  },
+  {
+   "bank": 4,
+   "program": 25,
+   "name": "PPG Bells    WMF"
+  },
+  {
+   "bank": 4,
+   "program": 26,
+   "name": "PPGesus      SCD"
+  },
+  {
+   "bank": 4,
+   "program": 27,
+   "name": "Quadratur   DocT"
+  },
+  {
+   "bank": 4,
+   "program": 28,
+   "name": "RingmodFart  SCD"
+  },
+  {
+   "bank": 4,
+   "program": 29,
+   "name": "SchnoerkelosDocT"
+  },
+  {
+   "bank": 4,
+   "program": 30,
+   "name": "Schulze?     SCD"
+  },
+  {
+   "bank": 4,
+   "program": 31,
+   "name": "shArp       DocT"
+  },
+  {
+   "bank": 4,
+   "program": 32,
+   "name": "Space Echo   SCD"
+  },
+  {
+   "bank": 4,
+   "program": 33,
+   "name": "Synthline     JL"
+  },
+  {
+   "bank": 4,
+   "program": 34,
+   "name": "Taken!       SCD"
+  },
+  {
+   "bank": 4,
+   "program": 35,
+   "name": "TouchyBuggerDocT"
+  },
+  {
+   "bank": 4,
+   "program": 36,
+   "name": "UpperWarp    SCD"
+  },
+  {
+   "bank": 4,
+   "program": 37,
+   "name": "WhatYouSay?  SCD"
+  },
+  {
+   "bank": 4,
+   "program": 38,
+   "name": "WT mess     SCD"
+  },
+  {
+   "bank": 4,
+   "program": 39,
+   "name": "10VoicePS3100SCD"
+  },
+  {
+   "bank": 4,
+   "program": 40,
+   "name": "ArcoStrings  TEK"
+  },
+  {
+   "bank": 4,
+   "program": 41,
+   "name": "Blocked      SCD"
+  },
+  {
+   "bank": 4,
+   "program": 42,
+   "name": "Blolitzer    SCD"
+  },
+  {
+   "bank": 4,
+   "program": 43,
+   "name": "BloodyFeld   SCD"
+  },
+  {
+   "bank": 4,
+   "program": 44,
+   "name": "BloSync     DocT"
+  },
+  {
+   "bank": 4,
+   "program": 45,
+   "name": "Blovachord   SCD"
+  },
+  {
+   "bank": 4,
+   "program": 46,
+   "name": "Boele Keys   SCD"
+  },
+  {
+   "bank": 4,
+   "program": 47,
+   "name": "Bonker Bass   ST"
+  },
+  {
+   "bank": 4,
+   "program": 48,
+   "name": "Camel Saw   DocT"
+  },
+  {
+   "bank": 4,
+   "program": 49,
+   "name": "Cream S+H    SCD"
+  },
+  {
+   "bank": 4,
+   "program": 50,
+   "name": "CS4O RingMod"
+  },
+  {
+   "bank": 4,
+   "program": 51,
+   "name": "DalaiDelayMa SCD"
+  },
+  {
+   "bank": 4,
+   "program": 52,
+   "name": "Dirty Organ  SCD"
+  },
+  {
+   "bank": 4,
+   "program": 53,
+   "name": "Dr.Blo      DocT"
+  },
+  {
+   "bank": 4,
+   "program": 54,
+   "name": "Driven      DocT"
+  },
+  {
+   "bank": 4,
+   "program": 55,
+   "name": "Euro Clubber  ST"
+  },
+  {
+   "bank": 4,
+   "program": 56,
+   "name": "Flangelized  SCD"
+  },
+  {
+   "bank": 4,
+   "program": 57,
+   "name": "Funky Bass    JL"
+  },
+  {
+   "bank": 4,
+   "program": 58,
+   "name": "Goldfinger Pad T"
+  },
+  {
+   "bank": 4,
+   "program": 59,
+   "name": "HardSaw       ST"
+  },
+  {
+   "bank": 4,
+   "program": 60,
+   "name": "Heimweh     DocT"
+  },
+  {
+   "bank": 4,
+   "program": 61,
+   "name": "Honey House"
+  },
+  {
+   "bank": 4,
+   "program": 62,
+   "name": "Horny Bass    ST"
+  },
+  {
+   "bank": 4,
+   "program": 63,
+   "name": "HP PPG       SCD"
+  },
+  {
+   "bank": 4,
+   "program": 64,
+   "name": "Hyper       DocT"
+  },
+  {
+   "bank": 4,
+   "program": 65,
+   "name": "I'm Evil     WMF"
+  },
+  {
+   "bank": 4,
+   "program": 66,
+   "name": "InfinitesimaDocT"
+  },
+  {
+   "bank": 4,
+   "program": 67,
+   "name": "Jankorgel    SCD"
+  },
+  {
+   "bank": 4,
+   "program": 68,
+   "name": "Leading      SCD"
+  },
+  {
+   "bank": 4,
+   "program": 69,
+   "name": "Maximum Zorin  T"
+  },
+  {
+   "bank": 4,
+   "program": 70,
+   "name": "MeetInTheSky SCD"
+  },
+  {
+   "bank": 4,
+   "program": 71,
+   "name": "Meridian    DocT"
+  },
+  {
+   "bank": 4,
+   "program": 72,
+   "name": "Messing     DocT"
+  },
+  {
+   "bank": 4,
+   "program": 73,
+   "name": "Minimal Bass JL"
+  },
+  {
+   "bank": 4,
+   "program": 74,
+   "name": "Morph Bass    ST"
+  },
+  {
+   "bank": 4,
+   "program": 75,
+   "name": "Moving       SCD"
+  },
+  {
+   "bank": 4,
+   "program": 76,
+   "name": "NearlyInTune SCD"
+  },
+  {
+   "bank": 4,
+   "program": 77,
+   "name": "Neocrest      ST"
+  },
+  {
+   "bank": 4,
+   "program": 78,
+   "name": "Octopussy Pad  T"
+  },
+  {
+   "bank": 4,
+   "program": 79,
+   "name": "Organella"
+  },
+  {
+   "bank": 4,
+   "program": 80,
+   "name": "Partyhupe     ST"
+  },
+  {
+   "bank": 4,
+   "program": 81,
+   "name": "Pastry      DocT"
+  },
+  {
+   "bank": 4,
+   "program": 82,
+   "name": "Persecutor  DocT"
+  },
+  {
+   "bank": 4,
+   "program": 83,
+   "name": "Phalanx       ST"
+  },
+  {
+   "bank": 4,
+   "program": 84,
+   "name": "Pick It Up!  SCD"
+  },
+  {
+   "bank": 4,
+   "program": 85,
+   "name": "Pienzchen   DocT"
+  },
+  {
+   "bank": 4,
+   "program": 86,
+   "name": "Pigs X-Mod   TEK"
+  },
+  {
+   "bank": 4,
+   "program": 87,
+   "name": "PlainBass   DocT"
+  },
+  {
+   "bank": 4,
+   "program": 88,
+   "name": "PolterBlofeldSCD"
+  },
+  {
+   "bank": 4,
+   "program": 89,
+   "name": "Poly Lead    SCD"
+  },
+  {
+   "bank": 4,
+   "program": 90,
+   "name": "PPG Piano    SCD"
+  },
+  {
+   "bank": 4,
+   "program": 91,
+   "name": "PPG T40 like TEK"
+  },
+  {
+   "bank": 4,
+   "program": 92,
+   "name": "PredictaBass WMF"
+  },
+  {
+   "bank": 4,
+   "program": 93,
+   "name": "Pressure    DocT"
+  },
+  {
+   "bank": 4,
+   "program": 94,
+   "name": "Principia   DocT"
+  },
+  {
+   "bank": 4,
+   "program": 95,
+   "name": "Pure        DocT"
+  },
+  {
+   "bank": 4,
+   "program": 96,
+   "name": "Reset       DocT"
+  },
+  {
+   "bank": 4,
+   "program": 97,
+   "name": "Ricochet2008 SCD"
+  },
+  {
+   "bank": 4,
+   "program": 98,
+   "name": "RingThemBellsSCD"
+  },
+  {
+   "bank": 4,
+   "program": 99,
+   "name": "Robotic       JL"
+  },
+  {
+   "bank": 4,
+   "program": 100,
+   "name": "Saw Orgy     SCD"
+  },
+  {
+   "bank": 4,
+   "program": 101,
+   "name": "Seq 1        SCD"
+  },
+  {
+   "bank": 4,
+   "program": 102,
+   "name": "Seven Ties   SCD"
+  },
+  {
+   "bank": 4,
+   "program": 103,
+   "name": "S&Hatmo"
+  },
+  {
+   "bank": 4,
+   "program": 104,
+   "name": "Sobstuff    DocT"
+  },
+  {
+   "bank": 4,
+   "program": 105,
+   "name": "Soft Brass 2DocT"
+  },
+  {
+   "bank": 4,
+   "program": 106,
+   "name": "SpatialDrive1SCD"
+  },
+  {
+   "bank": 4,
+   "program": 107,
+   "name": "SpatialDrive2SCD"
+  },
+  {
+   "bank": 4,
+   "program": 108,
+   "name": "Stenzelized  SCD"
+  },
+  {
+   "bank": 4,
+   "program": 109,
+   "name": "Stop Bass    SCD"
+  },
+  {
+   "bank": 4,
+   "program": 110,
+   "name": "SunOfTheDogs WMF"
+  },
+  {
+   "bank": 4,
+   "program": 111,
+   "name": "Supersaw      ST"
+  },
+  {
+   "bank": 4,
+   "program": 112,
+   "name": "Tabloid     DocT"
+  },
+  {
+   "bank": 4,
+   "program": 113,
+   "name": "Telenovela  DocT"
+  },
+  {
+   "bank": 4,
+   "program": 114,
+   "name": "Thrill Arp   SCD"
+  },
+  {
+   "bank": 4,
+   "program": 115,
+   "name": "Utmost      DocT"
+  },
+  {
+   "bank": 4,
+   "program": 116,
+   "name": "Variator    DocT"
+  },
+  {
+   "bank": 4,
+   "program": 117,
+   "name": "Wave Mayhem DocT"
+  },
+  {
+   "bank": 4,
+   "program": 118,
+   "name": "WavEpiano    SCD"
+  },
+  {
+   "bank": 4,
+   "program": 119,
+   "name": "West Wave  H2SCD"
+  },
+  {
+   "bank": 4,
+   "program": 120,
+   "name": "AfterConcert SCD"
+  },
+  {
+   "bank": 4,
+   "program": 121,
+   "name": "AnalogBass   SCD"
+  },
+  {
+   "bank": 4,
+   "program": 122,
+   "name": "Barbarie BrassST"
+  },
+  {
+   "bank": 4,
+   "program": 123,
+   "name": "Basster Keaton"
+  },
+  {
+   "bank": 4,
+   "program": 124,
+   "name": "Bend Me     DocT"
+  },
+  {
+   "bank": 4,
+   "program": 125,
+   "name": "Bioshock      JL"
+  },
+  {
+   "bank": 4,
+   "program": 126,
+   "name": "Blubber      TEK"
+  },
+  {
+   "bank": 4,
+   "program": 127,
+   "name": "Diving Echos TEK"
+  },
+  {
+   "bank": 5,
+   "program": 0,
+   "name": "Flups Bass    ST"
+  },
+  {
+   "bank": 5,
+   "program": 1,
+   "name": "Goonraker   DocT"
+  },
+  {
+   "bank": 5,
+   "program": 2,
+   "name": "microQ Plus"
+  },
+  {
+   "bank": 5,
+   "program": 3,
+   "name": "MiniMoogThnd TEK"
+  },
+  {
+   "bank": 5,
+   "program": 4,
+   "name": "Octa Bass     ST"
+  },
+  {
+   "bank": 5,
+   "program": 5,
+   "name": "Porno Bass    ST"
+  },
+  {
+   "bank": 5,
+   "program": 6,
+   "name": "ReSolotion   WMF"
+  },
+  {
+   "bank": 5,
+   "program": 7,
+   "name": "Roadies Keyb TEK"
+  },
+  {
+   "bank": 5,
+   "program": 8,
+   "name": "Spynett     DocT"
+  },
+  {
+   "bank": 5,
+   "program": 9,
+   "name": "Tines       DocT"
+  },
+  {
+   "bank": 5,
+   "program": 10,
+   "name": "Velo Drive   SCD"
+  },
+  {
+   "bank": 5,
+   "program": 11,
+   "name": "Vangelibells SCD"
+  },
+  {
+   "bank": 5,
+   "program": 12,
+   "name": "Bellflutes"
+  },
+  {
+   "bank": 5,
+   "program": 13,
+   "name": "Bellissimo"
+  },
+  {
+   "bank": 5,
+   "program": 14,
+   "name": "Bells'E.Piano RZ"
+  },
+  {
+   "bank": 5,
+   "program": 15,
+   "name": "Cheap Organ"
+  },
+  {
+   "bank": 5,
+   "program": 16,
+   "name": "Chorgany      SK"
+  },
+  {
+   "bank": 5,
+   "program": 17,
+   "name": "Combuder Orgs SK"
+  },
+  {
+   "bank": 5,
+   "program": 18,
+   "name": "Crunge Organ  SK"
+  },
+  {
+   "bank": 5,
+   "program": 19,
+   "name": "DeepHouse     SK"
+  },
+  {
+   "bank": 5,
+   "program": 20,
+   "name": "Dirty Organ1 WMF"
+  },
+  {
+   "bank": 5,
+   "program": 21,
+   "name": "Driven Keys"
+  },
+  {
+   "bank": 5,
+   "program": 22,
+   "name": "Dull Bells"
+  },
+  {
+   "bank": 5,
+   "program": 23,
+   "name": "DX-ClassiQ    HS"
+  },
+  {
+   "bank": 5,
+   "program": 24,
+   "name": "DX-Pipe       HS"
+  },
+  {
+   "bank": 5,
+   "program": 25,
+   "name": "Easy Piano    HS"
+  },
+  {
+   "bank": 5,
+   "program": 26,
+   "name": "ElectricOrgan"
+  },
+  {
+   "bank": 5,
+   "program": 27,
+   "name": "ElectricPiano"
+  },
+  {
+   "bank": 5,
+   "program": 28,
+   "name": "Fat Sine Keys"
+  },
+  {
+   "bank": 5,
+   "program": 29,
+   "name": "FM KeysMelody"
+  },
+  {
+   "bank": 5,
+   "program": 30,
+   "name": "FM Roads"
+  },
+  {
+   "bank": 5,
+   "program": 31,
+   "name": "Full Organ    HS"
+  },
+  {
+   "bank": 5,
+   "program": 32,
+   "name": "Glockenspiel"
+  },
+  {
+   "bank": 5,
+   "program": 33,
+   "name": "GS-Piano      HS"
+  },
+  {
+   "bank": 5,
+   "program": 34,
+   "name": "Harpsi        HS"
+  },
+  {
+   "bank": 5,
+   "program": 35,
+   "name": "Hippy Freuds  HS"
+  },
+  {
+   "bank": 5,
+   "program": 36,
+   "name": "House         HM"
+  },
+  {
+   "bank": 5,
+   "program": 37,
+   "name": "Jazz Creeper  HS"
+  },
+  {
+   "bank": 5,
+   "program": 38,
+   "name": "LA-Pipe       HS"
+  },
+  {
+   "bank": 5,
+   "program": 39,
+   "name": "LoFi Organ    SK"
+  },
+  {
+   "bank": 5,
+   "program": 40,
+   "name": "Lounge Morph  HS"
+  },
+  {
+   "bank": 5,
+   "program": 41,
+   "name": "Lower Steam   HS"
+  },
+  {
+   "bank": 5,
+   "program": 42,
+   "name": "Marimboid     HS"
+  },
+  {
+   "bank": 5,
+   "program": 43,
+   "name": "Modern House  SK"
+  },
+  {
+   "bank": 5,
+   "program": 44,
+   "name": "Modern Keys"
+  },
+  {
+   "bank": 5,
+   "program": 45,
+   "name": "Noise Toys    HS"
+  },
+  {
+   "bank": 5,
+   "program": 46,
+   "name": "Ode to Joy    HS"
+  },
+  {
+   "bank": 5,
+   "program": 47,
+   "name": "Oil Well"
+  },
+  {
+   "bank": 5,
+   "program": 48,
+   "name": "Organ #2       S"
+  },
+  {
+   "bank": 5,
+   "program": 49,
+   "name": "Quad-Square"
+  },
+  {
+   "bank": 5,
+   "program": 50,
+   "name": "Reso Organ"
+  },
+  {
+   "bank": 5,
+   "program": 51,
+   "name": "ResOrgan      SK"
+  },
+  {
+   "bank": 5,
+   "program": 52,
+   "name": "Rhodos Corso WMF"
+  },
+  {
+   "bank": 5,
+   "program": 53,
+   "name": "RhodosFlango WMF"
+  },
+  {
+   "bank": 5,
+   "program": 54,
+   "name": "Rodesque      HS"
+  },
+  {
+   "bank": 5,
+   "program": 55,
+   "name": "Schwebend     jh"
+  },
+  {
+   "bank": 5,
+   "program": 56,
+   "name": "Shed          HM"
+  },
+  {
+   "bank": 5,
+   "program": 57,
+   "name": "Sick FM       SK"
+  },
+  {
+   "bank": 5,
+   "program": 58,
+   "name": "SpaceChimes   SK"
+  },
+  {
+   "bank": 5,
+   "program": 59,
+   "name": "The Oily Way  HS"
+  },
+  {
+   "bank": 5,
+   "program": 60,
+   "name": "Thin Organ    HS"
+  },
+  {
+   "bank": 5,
+   "program": 61,
+   "name": "Troubadour"
+  },
+  {
+   "bank": 5,
+   "program": 62,
+   "name": "Wartz Piano1  HM"
+  },
+  {
+   "bank": 5,
+   "program": 63,
+   "name": "Wooden E     WMF"
+  },
+  {
+   "bank": 5,
+   "program": 64,
+   "name": "Wurlitzer104b HM"
+  },
+  {
+   "bank": 5,
+   "program": 65,
+   "name": "Yamlitzer"
+  },
+  {
+   "bank": 5,
+   "program": 66,
+   "name": "7th Sense     SK"
+  },
+  {
+   "bank": 5,
+   "program": 67,
+   "name": "80sFM Analog  SK"
+  },
+  {
+   "bank": 5,
+   "program": 68,
+   "name": "Aggreppo       T"
+  },
+  {
+   "bank": 5,
+   "program": 69,
+   "name": "Analog Lute   HS"
+  },
+  {
+   "bank": 5,
+   "program": 70,
+   "name": "Analog Quest  SK"
+  },
+  {
+   "bank": 5,
+   "program": 71,
+   "name": "Aphazing      SK"
+  },
+  {
+   "bank": 5,
+   "program": 72,
+   "name": "Bell like     RZ"
+  },
+  {
+   "bank": 5,
+   "program": 73,
+   "name": "BestOfThe80s   T"
+  },
+  {
+   "bank": 5,
+   "program": 74,
+   "name": "Blakes 7 Str  AT"
+  },
+  {
+   "bank": 5,
+   "program": 75,
+   "name": "B-Lead        SK"
+  },
+  {
+   "bank": 5,
+   "program": 76,
+   "name": "Bounty Synth"
+  },
+  {
+   "bank": 5,
+   "program": 77,
+   "name": "Brass Comp    HM"
+  },
+  {
+   "bank": 5,
+   "program": 78,
+   "name": "Brass-lead   SCD"
+  },
+  {
+   "bank": 5,
+   "program": 79,
+   "name": "Brassy House  SK"
+  },
+  {
+   "bank": 5,
+   "program": 80,
+   "name": "Bright Sync"
+  },
+  {
+   "bank": 5,
+   "program": 81,
+   "name": "Brownies     WMF"
+  },
+  {
+   "bank": 5,
+   "program": 82,
+   "name": "CareFull      RZ"
+  },
+  {
+   "bank": 5,
+   "program": 83,
+   "name": "Caspoly      WMF"
+  },
+  {
+   "bank": 5,
+   "program": 84,
+   "name": "Chamber High  HS"
+  },
+  {
+   "bank": 5,
+   "program": 85,
+   "name": "Chamber Low   HS"
+  },
+  {
+   "bank": 5,
+   "program": 86,
+   "name": "Chord-Hose     T"
+  },
+  {
+   "bank": 5,
+   "program": 87,
+   "name": "Chord Revival SK"
+  },
+  {
+   "bank": 5,
+   "program": 88,
+   "name": "Classic Dance"
+  },
+  {
+   "bank": 5,
+   "program": 89,
+   "name": "Classic Synth"
+  },
+  {
+   "bank": 5,
+   "program": 90,
+   "name": "Clavinetro    jh"
+  },
+  {
+   "bank": 5,
+   "program": 91,
+   "name": "Clock&Bells   RZ"
+  },
+  {
+   "bank": 5,
+   "program": 92,
+   "name": "Combi Saws    SK"
+  },
+  {
+   "bank": 5,
+   "program": 93,
+   "name": "Compromise K  HM"
+  },
+  {
+   "bank": 5,
+   "program": 94,
+   "name": "Concertino   SCD"
+  },
+  {
+   "bank": 5,
+   "program": 95,
+   "name": "Cool Porta    HM"
+  },
+  {
+   "bank": 5,
+   "program": 96,
+   "name": "Crawlers      SK"
+  },
+  {
+   "bank": 5,
+   "program": 97,
+   "name": "Crispy Saw    SK"
+  },
+  {
+   "bank": 5,
+   "program": 98,
+   "name": "CyberLeader   SK"
+  },
+  {
+   "bank": 5,
+   "program": 99,
+   "name": "Dawn Organ"
+  },
+  {
+   "bank": 5,
+   "program": 100,
+   "name": "Deep Synth    DK"
+  },
+  {
+   "bank": 5,
+   "program": 101,
+   "name": "Delead It!    SK"
+  },
+  {
+   "bank": 5,
+   "program": 102,
+   "name": "DirtyLead     SK"
+  },
+  {
+   "bank": 5,
+   "program": 103,
+   "name": "D-NoiZer      SK"
+  },
+  {
+   "bank": 5,
+   "program": 104,
+   "name": "DollarBells  ugh"
+  },
+  {
+   "bank": 5,
+   "program": 105,
+   "name": "Dr. Motte      T"
+  },
+  {
+   "bank": 5,
+   "program": 106,
+   "name": "Energee!      SK"
+  },
+  {
+   "bank": 5,
+   "program": 107,
+   "name": "Enough Power   T"
+  },
+  {
+   "bank": 5,
+   "program": 108,
+   "name": "EthnoPerc     SK"
+  },
+  {
+   "bank": 5,
+   "program": 109,
+   "name": "Euro-Zeichen  HS"
+  },
+  {
+   "bank": 5,
+   "program": 110,
+   "name": "ExploreChords SK"
+  },
+  {
+   "bank": 5,
+   "program": 111,
+   "name": "Fat 8-Osc     SK"
+  },
+  {
+   "bank": 5,
+   "program": 112,
+   "name": "Filigrano     SK"
+  },
+  {
+   "bank": 5,
+   "program": 113,
+   "name": "FilterFM Keys"
+  },
+  {
+   "bank": 5,
+   "program": 114,
+   "name": "FloorFilla    SK"
+  },
+  {
+   "bank": 5,
+   "program": 115,
+   "name": "FM Chords     SK"
+  },
+  {
+   "bank": 5,
+   "program": 116,
+   "name": "FM Melodies"
+  },
+  {
+   "bank": 5,
+   "program": 117,
+   "name": "FMod Saws     SK"
+  },
+  {
+   "bank": 5,
+   "program": 118,
+   "name": "FM-sono Saw"
+  },
+  {
+   "bank": 5,
+   "program": 119,
+   "name": "French        RZ"
+  },
+  {
+   "bank": 5,
+   "program": 120,
+   "name": "Fun Man"
+  },
+  {
+   "bank": 5,
+   "program": 121,
+   "name": "Gated 80's"
+  },
+  {
+   "bank": 5,
+   "program": 122,
+   "name": "Gattaca       SK"
+  },
+  {
+   "bank": 5,
+   "program": 123,
+   "name": "Gimme Five!   SK"
+  },
+  {
+   "bank": 5,
+   "program": 124,
+   "name": "Glitter Power HS"
+  },
+  {
+   "bank": 5,
+   "program": 125,
+   "name": "Good Air      SK"
+  },
+  {
+   "bank": 5,
+   "program": 126,
+   "name": "High Sequence jh"
+  },
+  {
+   "bank": 5,
+   "program": 127,
+   "name": "HitMeQuick!   SK"
+  },
+  {
+   "bank": 6,
+   "program": 0,
+   "name": "Human Touch   SK"
+  },
+  {
+   "bank": 6,
+   "program": 1,
+   "name": "Ice Bells     SK"
+  },
+  {
+   "bank": 6,
+   "program": 2,
+   "name": "Illbient Mind"
+  },
+  {
+   "bank": 6,
+   "program": 3,
+   "name": "It's Digital"
+  },
+  {
+   "bank": 6,
+   "program": 4,
+   "name": "Jembala      WMF"
+  },
+  {
+   "bank": 6,
+   "program": 5,
+   "name": "JMX jun."
+  },
+  {
+   "bank": 6,
+   "program": 6,
+   "name": "Juno Soul     DK"
+  },
+  {
+   "bank": 6,
+   "program": 7,
+   "name": "KlingKlang'02 jh"
+  },
+  {
+   "bank": 6,
+   "program": 8,
+   "name": "La Sirena     SK"
+  },
+  {
+   "bank": 6,
+   "program": 9,
+   "name": "Late Ring     HS"
+  },
+  {
+   "bank": 6,
+   "program": 10,
+   "name": "Leadrunner"
+  },
+  {
+   "bank": 6,
+   "program": 11,
+   "name": "Legal Resins  HS"
+  },
+  {
+   "bank": 6,
+   "program": 12,
+   "name": "LikeClinics  WMF"
+  },
+  {
+   "bank": 6,
+   "program": 13,
+   "name": "Liquid Mel   WMF"
+  },
+  {
+   "bank": 6,
+   "program": 14,
+   "name": "Liquid Var   WMF"
+  },
+  {
+   "bank": 6,
+   "program": 15,
+   "name": "LoFi 1oscPoly"
+  },
+  {
+   "bank": 6,
+   "program": 16,
+   "name": "LoFi Lead    WMF"
+  },
+  {
+   "bank": 6,
+   "program": 17,
+   "name": "Minor Chord   RZ"
+  },
+  {
+   "bank": 6,
+   "program": 18,
+   "name": "Modulizer     SK"
+  },
+  {
+   "bank": 6,
+   "program": 19,
+   "name": "Move Sound"
+  },
+  {
+   "bank": 6,
+   "program": 20,
+   "name": "My Ol' House  SK"
+  },
+  {
+   "bank": 6,
+   "program": 21,
+   "name": "Net Profit    HS"
+  },
+  {
+   "bank": 6,
+   "program": 22,
+   "name": "Neu * Utz     HM"
+  },
+  {
+   "bank": 6,
+   "program": 23,
+   "name": "NewClassicLd  SK"
+  },
+  {
+   "bank": 6,
+   "program": 24,
+   "name": "No. 5 lives    T"
+  },
+  {
+   "bank": 6,
+   "program": 25,
+   "name": "OB-One Knobi  HS"
+  },
+  {
+   "bank": 6,
+   "program": 26,
+   "name": "OBX Purple5 PROX"
+  },
+  {
+   "bank": 6,
+   "program": 27,
+   "name": "Old * Uck     HM"
+  },
+  {
+   "bank": 6,
+   "program": 28,
+   "name": "Organistic    SK"
+  },
+  {
+   "bank": 6,
+   "program": 29,
+   "name": "Papathanasiou"
+  },
+  {
+   "bank": 6,
+   "program": 30,
+   "name": "Patagonia     HS"
+  },
+  {
+   "bank": 6,
+   "program": 31,
+   "name": "PEG Horns     HM"
+  },
+  {
+   "bank": 6,
+   "program": 32,
+   "name": "Phased FM     SK"
+  },
+  {
+   "bank": 6,
+   "program": 33,
+   "name": "Play It Sam!  jh"
+  },
+  {
+   "bank": 6,
+   "program": 34,
+   "name": "Poly Flutes   HS"
+  },
+  {
+   "bank": 6,
+   "program": 35,
+   "name": "PolySequencer"
+  },
+  {
+   "bank": 6,
+   "program": 36,
+   "name": "PowerLead    WMF"
+  },
+  {
+   "bank": 6,
+   "program": 37,
+   "name": "Harp"
+  },
+  {
+   "bank": 6,
+   "program": 38,
+   "name": "PPG Nylons  PROX"
+  },
+  {
+   "bank": 6,
+   "program": 39,
+   "name": "Pure Keys"
+  },
+  {
+   "bank": 6,
+   "program": 40,
+   "name": "PWMaster      SK"
+  },
+  {
+   "bank": 6,
+   "program": 41,
+   "name": "Qazzio        HS"
+  },
+  {
+   "bank": 6,
+   "program": 42,
+   "name": "Qddicted!     SK"
+  },
+  {
+   "bank": 6,
+   "program": 43,
+   "name": "Qtronix      ugh"
+  },
+  {
+   "bank": 6,
+   "program": 44,
+   "name": "Quake FM      SK"
+  },
+  {
+   "bank": 6,
+   "program": 45,
+   "name": "Quintage       T"
+  },
+  {
+   "bank": 6,
+   "program": 46,
+   "name": "Quinter 007   SK"
+  },
+  {
+   "bank": 6,
+   "program": 47,
+   "name": "RaveLover     SK"
+  },
+  {
+   "bank": 6,
+   "program": 48,
+   "name": "Really Insane"
+  },
+  {
+   "bank": 6,
+   "program": 49,
+   "name": "Romeo         DK"
+  },
+  {
+   "bank": 6,
+   "program": 50,
+   "name": "RoundTheHorn  HS"
+  },
+  {
+   "bank": 6,
+   "program": 51,
+   "name": "SawTheLight   SK"
+  },
+  {
+   "bank": 6,
+   "program": 52,
+   "name": "Sax And Dregs"
+  },
+  {
+   "bank": 6,
+   "program": 53,
+   "name": "Schubduese     T"
+  },
+  {
+   "bank": 6,
+   "program": 54,
+   "name": "ShatterWaves  SK"
+  },
+  {
+   "bank": 6,
+   "program": 55,
+   "name": "Siegessaeule   T"
+  },
+  {
+   "bank": 6,
+   "program": 56,
+   "name": "Simple Melo   jh"
+  },
+  {
+   "bank": 6,
+   "program": 57,
+   "name": "Smash It!     SK"
+  },
+  {
+   "bank": 6,
+   "program": 58,
+   "name": "Solo Harp"
+  },
+  {
+   "bank": 6,
+   "program": 59,
+   "name": "Speed"
+  },
+  {
+   "bank": 6,
+   "program": 60,
+   "name": "Spice         SK"
+  },
+  {
+   "bank": 6,
+   "program": 61,
+   "name": "Spring Clean"
+  },
+  {
+   "bank": 6,
+   "program": 62,
+   "name": "Stabs!"
+  },
+  {
+   "bank": 6,
+   "program": 63,
+   "name": "Stack with you"
+  },
+  {
+   "bank": 6,
+   "program": 64,
+   "name": "SteaLead      SK"
+  },
+  {
+   "bank": 6,
+   "program": 65,
+   "name": "String Poly   HS"
+  },
+  {
+   "bank": 6,
+   "program": 66,
+   "name": "String Thing  HS"
+  },
+  {
+   "bank": 6,
+   "program": 67,
+   "name": "Stuermer 1   WMF"
+  },
+  {
+   "bank": 6,
+   "program": 68,
+   "name": "Stylotub      SK"
+  },
+  {
+   "bank": 6,
+   "program": 69,
+   "name": "SyncCity"
+  },
+  {
+   "bank": 6,
+   "program": 70,
+   "name": "Synchronic    SK"
+  },
+  {
+   "bank": 6,
+   "program": 71,
+   "name": "SynthPiano    SK"
+  },
+  {
+   "bank": 6,
+   "program": 72,
+   "name": "Synth X"
+  },
+  {
+   "bank": 6,
+   "program": 73,
+   "name": "Tea @ Eight   HS"
+  },
+  {
+   "bank": 6,
+   "program": 74,
+   "name": "Tech.Lead 1"
+  },
+  {
+   "bank": 6,
+   "program": 75,
+   "name": "Tech.Lead 2"
+  },
+  {
+   "bank": 6,
+   "program": 76,
+   "name": "TelephoneSyn ugh"
+  },
+  {
+   "bank": 6,
+   "program": 77,
+   "name": "Telepromter  ugh"
+  },
+  {
+   "bank": 6,
+   "program": 78,
+   "name": "The Big 80s"
+  },
+  {
+   "bank": 6,
+   "program": 79,
+   "name": "The Cutter    SK"
+  },
+  {
+   "bank": 6,
+   "program": 80,
+   "name": "Titanomania   SK"
+  },
+  {
+   "bank": 6,
+   "program": 81,
+   "name": "TranceHarp    HM"
+  },
+  {
+   "bank": 6,
+   "program": 82,
+   "name": "Trance Plant  HS"
+  },
+  {
+   "bank": 6,
+   "program": 83,
+   "name": "Trancer       SK"
+  },
+  {
+   "bank": 6,
+   "program": 84,
+   "name": "TrashCan!     SK"
+  },
+  {
+   "bank": 6,
+   "program": 85,
+   "name": "TributeTo DX WMF"
+  },
+  {
+   "bank": 6,
+   "program": 86,
+   "name": "Tron Flutes   HM"
+  },
+  {
+   "bank": 6,
+   "program": 87,
+   "name": "Tsching Lead   T"
+  },
+  {
+   "bank": 6,
+   "program": 88,
+   "name": "TuBerkel      DK"
+  },
+  {
+   "bank": 6,
+   "program": 89,
+   "name": "Typ Reso      RZ"
+  },
+  {
+   "bank": 6,
+   "program": 90,
+   "name": "UltraFatPoly WMF"
+  },
+  {
+   "bank": 6,
+   "program": 91,
+   "name": "UltraSynC     jh"
+  },
+  {
+   "bank": 6,
+   "program": 92,
+   "name": "UltraWave     SK"
+  },
+  {
+   "bank": 6,
+   "program": 93,
+   "name": "Unisono Bass  DK"
+  },
+  {
+   "bank": 6,
+   "program": 94,
+   "name": "Utopia!       SK"
+  },
+  {
+   "bank": 6,
+   "program": 95,
+   "name": "VeloFreak     jh"
+  },
+  {
+   "bank": 6,
+   "program": 96,
+   "name": "Vintage Days  SK"
+  },
+  {
+   "bank": 6,
+   "program": 97,
+   "name": "VintageSpringWMF"
+  },
+  {
+   "bank": 6,
+   "program": 98,
+   "name": "Vitalica      SK"
+  },
+  {
+   "bank": 6,
+   "program": 99,
+   "name": "Wank         WMF"
+  },
+  {
+   "bank": 6,
+   "program": 100,
+   "name": "Wank Lead    WMF"
+  },
+  {
+   "bank": 6,
+   "program": 101,
+   "name": "Wanna Noise?? jh"
+  },
+  {
+   "bank": 6,
+   "program": 102,
+   "name": "Warm PWM Lead SK"
+  },
+  {
+   "bank": 6,
+   "program": 103,
+   "name": "Warm Verse"
+  },
+  {
+   "bank": 6,
+   "program": 104,
+   "name": "WaveLayer     SK"
+  },
+  {
+   "bank": 6,
+   "program": 105,
+   "name": "Wells'Tripod WMF"
+  },
+  {
+   "bank": 6,
+   "program": 106,
+   "name": "YourChords    SK"
+  },
+  {
+   "bank": 6,
+   "program": 107,
+   "name": "Zapper        SK"
+  },
+  {
+   "bank": 6,
+   "program": 108,
+   "name": "Zawichords    HS"
+  },
+  {
+   "bank": 6,
+   "program": 109,
+   "name": "Zing Thing    HS"
+  },
+  {
+   "bank": 6,
+   "program": 110,
+   "name": "Zippy 2       HM"
+  },
+  {
+   "bank": 6,
+   "program": 111,
+   "name": "Zombie Nation  T"
+  },
+  {
+   "bank": 6,
+   "program": 112,
+   "name": "50s Pad"
+  },
+  {
+   "bank": 6,
+   "program": 113,
+   "name": "Airpad"
+  },
+  {
+   "bank": 6,
+   "program": 114,
+   "name": "AirSpacePad   SK"
+  },
+  {
+   "bank": 6,
+   "program": 115,
+   "name": "AmbientSweep  SK"
+  },
+  {
+   "bank": 6,
+   "program": 116,
+   "name": "Analog Pad 1"
+  },
+  {
+   "bank": 6,
+   "program": 117,
+   "name": "Analog Pad 2"
+  },
+  {
+   "bank": 6,
+   "program": 118,
+   "name": "Analog Pad 3"
+  },
+  {
+   "bank": 6,
+   "program": 119,
+   "name": "Angel Pad"
+  },
+  {
+   "bank": 6,
+   "program": 120,
+   "name": "Antarktis Pad jh"
+  },
+  {
+   "bank": 6,
+   "program": 121,
+   "name": "Archangel"
+  },
+  {
+   "bank": 6,
+   "program": 122,
+   "name": "Attacke      WMF"
+  },
+  {
+   "bank": 6,
+   "program": 123,
+   "name": "BackStrings  WMF"
+  },
+  {
+   "bank": 6,
+   "program": 124,
+   "name": "Bandpad      ugh"
+  },
+  {
+   "bank": 6,
+   "program": 125,
+   "name": "BandSpass"
+  },
+  {
+   "bank": 6,
+   "program": 126,
+   "name": "Bend Pad"
+  },
+  {
+   "bank": 6,
+   "program": 127,
+   "name": "Big Bad Pad"
+  },
+  {
+   "bank": 7,
+   "program": 0,
+   "name": "Captain Kirk"
+  },
+  {
+   "bank": 7,
+   "program": 1,
+   "name": "ChopperSweep"
+  },
+  {
+   "bank": 7,
+   "program": 2,
+   "name": "ComputerGames"
+  },
+  {
+   "bank": 7,
+   "program": 3,
+   "name": "Cyber Farm"
+  },
+  {
+   "bank": 7,
+   "program": 4,
+   "name": "DCS3 Bubbles"
+  },
+  {
+   "bank": 7,
+   "program": 5,
+   "name": "Duck Lambada"
+  },
+  {
+   "bank": 7,
+   "program": 6,
+   "name": "EffEmmEffIxx"
+  },
+  {
+   "bank": 7,
+   "program": 7,
+   "name": "Fade FX."
+  },
+  {
+   "bank": 7,
+   "program": 8,
+   "name": "Final Choice"
+  },
+  {
+   "bank": 7,
+   "program": 9,
+   "name": "FlangedNoise WMF"
+  },
+  {
+   "bank": 7,
+   "program": 10,
+   "name": "FlangeplosionWMF"
+  },
+  {
+   "bank": 7,
+   "program": 11,
+   "name": "Flying Teapot"
+  },
+  {
+   "bank": 7,
+   "program": 12,
+   "name": "FM Comb FX"
+  },
+  {
+   "bank": 7,
+   "program": 13,
+   "name": "FM Noises"
+  },
+  {
+   "bank": 7,
+   "program": 14,
+   "name": "Gastrology"
+  },
+  {
+   "bank": 7,
+   "program": 15,
+   "name": "HawaiGlider"
+  },
+  {
+   "bank": 7,
+   "program": 16,
+   "name": "Into Mouth"
+  },
+  {
+   "bank": 7,
+   "program": 17,
+   "name": "LFO  Speeddwn"
+  },
+  {
+   "bank": 7,
+   "program": 18,
+   "name": "LFO  Speedup"
+  },
+  {
+   "bank": 7,
+   "program": 19,
+   "name": "LilaBells"
+  },
+  {
+   "bank": 7,
+   "program": 20,
+   "name": "Living Water"
+  },
+  {
+   "bank": 7,
+   "program": 21,
+   "name": "LosAngeles2019"
+  },
+  {
+   "bank": 7,
+   "program": 22,
+   "name": "Maschinenraum"
+  },
+  {
+   "bank": 7,
+   "program": 23,
+   "name": "Newtronic"
+  },
+  {
+   "bank": 7,
+   "program": 24,
+   "name": "Noise Move"
+  },
+  {
+   "bank": 7,
+   "program": 25,
+   "name": "NoiseSlapper"
+  },
+  {
+   "bank": 7,
+   "program": 26,
+   "name": "NoRobotsHere"
+  },
+  {
+   "bank": 7,
+   "program": 27,
+   "name": "Power Down"
+  },
+  {
+   "bank": 7,
+   "program": 28,
+   "name": "Q Wars"
+  },
+  {
+   "bank": 7,
+   "program": 29,
+   "name": "Reverse-ecioV"
+  },
+  {
+   "bank": 7,
+   "program": 30,
+   "name": "RingDaBell"
+  },
+  {
+   "bank": 7,
+   "program": 31,
+   "name": "Ring Steps"
+  },
+  {
+   "bank": 7,
+   "program": 32,
+   "name": "Rise&Fall"
+  },
+  {
+   "bank": 7,
+   "program": 33,
+   "name": "Robotalk =:b"
+  },
+  {
+   "bank": 7,
+   "program": 34,
+   "name": "Score FX Pad"
+  },
+  {
+   "bank": 7,
+   "program": 35,
+   "name": "Shoot Goose!"
+  },
+  {
+   "bank": 7,
+   "program": 36,
+   "name": "Shore"
+  },
+  {
+   "bank": 7,
+   "program": 37,
+   "name": "Short Moment"
+  },
+  {
+   "bank": 7,
+   "program": 38,
+   "name": "Shot Tool"
+  },
+  {
+   "bank": 7,
+   "program": 39,
+   "name": "Sine Down"
+  },
+  {
+   "bank": 7,
+   "program": 40,
+   "name": "Skywalker"
+  },
+  {
+   "bank": 7,
+   "program": 41,
+   "name": "SubSineSweep WMF"
+  },
+  {
+   "bank": 7,
+   "program": 42,
+   "name": "The Assault"
+  },
+  {
+   "bank": 7,
+   "program": 43,
+   "name": "The BORG"
+  },
+  {
+   "bank": 7,
+   "program": 44,
+   "name": "Thunderain"
+  },
+  {
+   "bank": 7,
+   "program": 45,
+   "name": "ThunderDrums"
+  },
+  {
+   "bank": 7,
+   "program": 46,
+   "name": "Tron Ring Game"
+  },
+  {
+   "bank": 7,
+   "program": 47,
+   "name": "Tuxedosun"
+  },
+  {
+   "bank": 7,
+   "program": 48,
+   "name": "Why?"
+  },
+  {
+   "bank": 7,
+   "program": 49,
+   "name": "Wind Athmo"
+  },
+  {
+   "bank": 7,
+   "program": 50,
+   "name": "WipeOut"
+  },
+  {
+   "bank": 7,
+   "program": 51,
+   "name": "ZischDeep"
+  },
+  {
+   "bank": 7,
+   "program": 52,
+   "name": "Agogo Scrape"
+  },
+  {
+   "bank": 7,
+   "program": 53,
+   "name": "All Thumbs"
+  },
+  {
+   "bank": 7,
+   "program": 54,
+   "name": "AnalogBongo 1"
+  },
+  {
+   "bank": 7,
+   "program": 55,
+   "name": "Analog HH op"
+  },
+  {
+   "bank": 7,
+   "program": 56,
+   "name": "AnalogStick 1"
+  },
+  {
+   "bank": 7,
+   "program": 57,
+   "name": "Bass Drum    WMF"
+  },
+  {
+   "bank": 7,
+   "program": 58,
+   "name": "BD 90ies Drum"
+  },
+  {
+   "bank": 7,
+   "program": 59,
+   "name": "BD 808 @ 2002"
+  },
+  {
+   "bank": 7,
+   "program": 60,
+   "name": "BD analg80ies"
+  },
+  {
+   "bank": 7,
+   "program": 61,
+   "name": "BD analog 02"
+  },
+  {
+   "bank": 7,
+   "program": 62,
+   "name": "BD analog 03"
+  },
+  {
+   "bank": 7,
+   "program": 63,
+   "name": "BD AnalogRand"
+  },
+  {
+   "bank": 7,
+   "program": 64,
+   "name": "BD Club 01"
+  },
+  {
+   "bank": 7,
+   "program": 65,
+   "name": "BD Deep Zap"
+  },
+  {
+   "bank": 7,
+   "program": 66,
+   "name": "BD Disto 808"
+  },
+  {
+   "bank": 7,
+   "program": 67,
+   "name": "BD DoorSlam"
+  },
+  {
+   "bank": 7,
+   "program": 68,
+   "name": "BD Hardcore"
+  },
+  {
+   "bank": 7,
+   "program": 69,
+   "name": "BD HighKick"
+  },
+  {
+   "bank": 7,
+   "program": 70,
+   "name": "BD On Stage"
+  },
+  {
+   "bank": 7,
+   "program": 71,
+   "name": "BD Plock!"
+  },
+  {
+   "bank": 7,
+   "program": 72,
+   "name": "BD Smack It!"
+  },
+  {
+   "bank": 7,
+   "program": 73,
+   "name": "BD SpectroZap"
+  },
+  {
+   "bank": 7,
+   "program": 74,
+   "name": "BD SubDrum"
+  },
+  {
+   "bank": 7,
+   "program": 75,
+   "name": "BD Woof&Pock"
+  },
+  {
+   "bank": 7,
+   "program": 76,
+   "name": "BD ZapDrum"
+  },
+  {
+   "bank": 7,
+   "program": 77,
+   "name": "Bended Metal"
+  },
+  {
+   "bank": 7,
+   "program": 78,
+   "name": "Brush HH"
+  },
+  {
+   "bank": 7,
+   "program": 79,
+   "name": "Clap 01"
+  },
+  {
+   "bank": 7,
+   "program": 80,
+   "name": "Clap 03"
+  },
+  {
+   "bank": 7,
+   "program": 81,
+   "name": "Clap 04"
+  },
+  {
+   "bank": 7,
+   "program": 82,
+   "name": "ClapsMuehle"
+  },
+  {
+   "bank": 7,
+   "program": 83,
+   "name": "Deep Bell"
+  },
+  {
+   "bank": 7,
+   "program": 84,
+   "name": "DivX Pad"
+  },
+  {
+   "bank": 7,
+   "program": 85,
+   "name": "DoubleHHclose"
+  },
+  {
+   "bank": 7,
+   "program": 86,
+   "name": "Dry BD"
+  },
+  {
+   "bank": 7,
+   "program": 87,
+   "name": "Dry BD 2"
+  },
+  {
+   "bank": 7,
+   "program": 88,
+   "name": "FM HHcl"
+  },
+  {
+   "bank": 7,
+   "program": 89,
+   "name": "FM HHop"
+  },
+  {
+   "bank": 7,
+   "program": 90,
+   "name": "HammerBell"
+  },
+  {
+   "bank": 7,
+   "program": 91,
+   "name": "HH closed 01"
+  },
+  {
+   "bank": 7,
+   "program": 92,
+   "name": "HH closed 02"
+  },
+  {
+   "bank": 7,
+   "program": 93,
+   "name": "HH closed 03"
+  },
+  {
+   "bank": 7,
+   "program": 94,
+   "name": "HH closed 04"
+  },
+  {
+   "bank": 7,
+   "program": 95,
+   "name": "HH closed 05"
+  },
+  {
+   "bank": 7,
+   "program": 96,
+   "name": "HH closed 06"
+  },
+  {
+   "bank": 7,
+   "program": 97,
+   "name": "HH closed 08"
+  },
+  {
+   "bank": 7,
+   "program": 98,
+   "name": "HH closed 09"
+  },
+  {
+   "bank": 7,
+   "program": 99,
+   "name": "HH open 01"
+  },
+  {
+   "bank": 7,
+   "program": 100,
+   "name": "HH open 02"
+  },
+  {
+   "bank": 7,
+   "program": 101,
+   "name": "HH open 03"
+  },
+  {
+   "bank": 7,
+   "program": 102,
+   "name": "HH open 06"
+  },
+  {
+   "bank": 7,
+   "program": 103,
+   "name": "HH open 07"
+  },
+  {
+   "bank": 7,
+   "program": 104,
+   "name": "HH open 08"
+  },
+  {
+   "bank": 7,
+   "program": 105,
+   "name": "High PulseZap"
+  },
+  {
+   "bank": 7,
+   "program": 106,
+   "name": "PPG Zaps"
+  },
+  {
+   "bank": 7,
+   "program": 107,
+   "name": "Punchy SN"
+  },
+  {
+   "bank": 7,
+   "program": 108,
+   "name": "Q-La Shaker"
+  },
+  {
+   "bank": 7,
+   "program": 109,
+   "name": "Skellington"
+  },
+  {
+   "bank": 7,
+   "program": 110,
+   "name": "SN NeoAnalog"
+  },
+  {
+   "bank": 7,
+   "program": 111,
+   "name": "SN Real Snare"
+  },
+  {
+   "bank": 7,
+   "program": 112,
+   "name": "SN RimSnare"
+  },
+  {
+   "bank": 7,
+   "program": 113,
+   "name": "SN SnAir ;-)"
+  },
+  {
+   "bank": 7,
+   "program": 114,
+   "name": "SN Thinny"
+  },
+  {
+   "bank": 7,
+   "program": 115,
+   "name": "SN Zappada"
+  },
+  {
+   "bank": 7,
+   "program": 116,
+   "name": "SN ZapSnare"
+  },
+  {
+   "bank": 7,
+   "program": 117,
+   "name": "Surrr"
+  },
+  {
+   "bank": 7,
+   "program": 118,
+   "name": "Tombola 1"
+  },
+  {
+   "bank": 7,
+   "program": 119,
+   "name": "TR66 Hihat   WMF"
+  },
+  {
+   "bank": 7,
+   "program": 120,
+   "name": "Various Metal"
+  },
+  {
+   "bank": 7,
+   "program": 121,
+   "name": "Woodpicker"
+  },
+  {
+   "bank": 7,
+   "program": 122,
+   "name": "Zap 1"
+  },
+  {
+   "bank": 7,
+   "program": 123,
+   "name": "Zap 2"
+  },
+  {
+   "bank": 7,
+   "program": 124,
+   "name": "Zap BD"
+  },
+  {
+   "bank": 7,
+   "program": 125,
+   "name": "Zappy :)"
+  },
+  {
+   "bank": 7,
+   "program": 126,
+   "name": "Zap Stick"
+  },
+  {
+   "bank": 7,
+   "program": 127,
+   "name": "Init"
+  }
+ ]
+}

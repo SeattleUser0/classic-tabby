@@ -799,4 +799,7 @@ Importer (Task 02, v0.6): a program change, bank select or control change become
 event of row R when its tick lies in [start(R) − pre-roll, start(R) + ½ step); the
 pre-roll is one beat by default, selectable 0 or one bar. Bank select CC 0 / CC 32 on a
 channel immediately followed by a program change on the same channel inside the window
-merge into one bank+program event. Everything else is listed as dropped.
+merge into one bank+program event. Everything else is listed as dropped. Inside a row the
+events keep the file's order; a row that receives events is never merged into a repeat
+of the previous row (events fire once per row entry). Implemented in Task 04's workbench
+part (web/import/midi-song.js v0.4, option `preRoll`).

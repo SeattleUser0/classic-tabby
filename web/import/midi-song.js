@@ -96,16 +96,19 @@
     const toStep = tick => tick * 4 / division;                  /* exact position in 16ths */
     const tempos = [], meters = [], ignored = { controlChange: 0, sustain: 0, pitchBend: 0, polyPressure: 0, channelPressure: 0, programChange: [], sysex: 0, meta: 0, markers: [] };
     const programs = new Map();                                  /* "track:channel" → [programs] */
+    const controls = [];                                         /* every CC, for row events (Task 04) */
+    let seq = 0;                                                 /* file order across the two lists */
     parsed.tracks.forEach((track, ti) => {
       for (const e of track.events) {
         switch (e.type) {
           case 'tempo': tempos.push({ tick: e.tick, track: ti, bpm: e.bpm }); break;
           case 'timeSignature': meters.push({ tick: e.tick, track: ti, numerator: e.numerator, denominator: e.denominator }); break;
-          case 'controlChange': ignored.controlChange++; if (e.controller === 64) ignored.sustain++; break;
+          case 'controlChange': ignored.controlChange++; if (e.controller === 64) ignored.sustain++;
+            controls.push({ track: ti, channel: e.channel, controller: e.controller, value: e.value, tick: e.tick, seq: seq++ }); break;   /* Task 04 */
           case 'pitchBend': ignored.pitchBend++; break;
           case 'polyPressure': ignored.polyPressure++; break;
           case 'channelPressure': ignored.channelPressure++; break;
-          case 'programChange': { ignored.programChange.push({ track: ti, channel: e.channel, program: e.program, tick: e.tick });
+          case 'programChange': { ignored.programChange.push({ track: ti, channel: e.channel, program: e.program, tick: e.tick, seq: seq++ });
             const k = ti + ':' + e.channel; if (!programs.has(k)) programs.set(k, []); programs.get(k).push(e.program); break; }
           case 'sysex': ignored.sysex++; break;
           case 'marker': ignored.markers.push({ tick: e.tick, text: e.text }); break;
@@ -154,7 +157,7 @@
     return { format: parsed.format, division, trackCount: parsed.tracks.length, fileWarnings: parsed.warnings,
       tempo: { exact: bpmExact, rounded: bpmRounded, bpm, present: !!firstTempo, changes: tempoChanges.map(t => ({ ...t, ...steps(t.tick) })) },
       meter: { ...meter, barSteps, changes: meterChanges.map(m => ({ ...m, ...steps(m.tick) })) },
-      barSteps, totalBars, totalSteps: Math.ceil(totalStepsExact - EPS), parts, ignored,
+      barSteps, totalBars, totalSteps: Math.ceil(totalStepsExact - EPS), parts, ignored, controls,
       rowSteps: rowStepsFor(bs), errors, toStep };
   }
 
@@ -187,6 +190,39 @@
     const assignments = options.assignments || defaultAssignments(analysis);
     const rangeStart = (barFrom - 1) * barSteps, rangeEnd = barTo * barSteps;
     const toStep = analysis.toStep;
+    /* Row events (Task 04, 9.11): pre-roll window before a row start, in steps. */
+    const preRoll = options.preRoll === 'none' ? 0 : options.preRoll === 'bar' ? barSteps : 4;
+    if (!['none', 'beat', 'bar', undefined].includes(options.preRoll)) fail('unknown pre-roll ' + options.preRoll, 'options');
+
+    /* Row events (Task 04): a program change, bank select or control change in the window
+     * [start(R) − preRoll, start(R) + ½ step) of an expanded row R becomes an event of that
+     * row; CC 0 / CC 32 right before a program change on the same channel inside the window
+     * merge into one bank+program event. Row indices are expanded rows here and mapped to
+     * the merged rows below (a row with events is never merged into a repeat). */
+    const rowStepsExact = rowSteps, eventTaken = new Set();
+    let eventTakenCC = 0;
+    const rowOf = step => { const rel = step - rangeStart; const R = Math.round(rel / rowStepsExact); const d = rel - R * rowStepsExact; return (d >= -preRoll && d < 0.5 && R >= 0 && R * rowStepsExact < rangeEnd - rangeStart) ? R : -1; };
+    const byRow = new Map();
+    const pending = new Map();                                       /* channel → { msb, lsb } seen before a PC */
+    const everything = [...analysis.ignored.programChange.map(p => ({ ...p, kind: 'pc' })), ...(analysis.controls || []).map(c => ({ ...c, kind: 'cc' }))].sort((a, b) => a.tick - b.tick || a.seq - b.seq);   /* file order inside a tick */
+    for (const ev of everything) {
+      const R = rowOf(toStep(ev.tick));
+      if (R < 0) continue;
+      if (ev.kind === 'cc' && (ev.controller === 0 || ev.controller === 32)) {
+        const p = pending.get(ev.channel) || { row: R, msb: 255, lsb: 255, items: [] };
+        if (p.row !== R) { p.row = R; p.msb = 255; p.lsb = 255; p.items = []; }
+        if (ev.controller === 0) p.msb = ev.value; else p.lsb = ev.value;
+        p.items.push(ev); pending.set(ev.channel, p); continue;
+      }
+      if (!byRow.has(R)) byRow.set(R, []);
+      if (ev.kind === 'pc') {
+        const p = pending.get(ev.channel);
+        if (p && p.row === R && (p.msb !== 255 || p.lsb !== 255)) { byRow.get(R).push({ channel: ev.channel, type: 1, d0: p.msb, d1: p.lsb, d2: ev.program, tick: ev.tick }); p.items.forEach(x => eventTaken.add(x)); eventTakenCC += p.items.length; pending.delete(ev.channel); }
+        else byRow.get(R).push({ channel: ev.channel, type: 0, d0: ev.program, d1: 0, d2: 0, tick: ev.tick });
+        eventTaken.add(ev);
+      } else { byRow.get(R).push({ channel: ev.channel, type: 2, d0: ev.controller, d1: ev.value, d2: 0, tick: ev.tick }); eventTaken.add(ev); eventTakenCC++; }
+    }
+    for (const [R, list] of byRow) if (list.length > L.rowEventsMax) { w.add('eventsOverflow', 'warn', 'More than 32 events at one row start; the extra ones were dropped', { text: 'row ' + (R + 1) }); list.length = L.rowEventsMax; }
 
     /* Non-conversion warnings first: file-level things that are ignored. */
     if (!analysis.tempo.present) w.add('noTempo', 'info', 'The file has no tempo event; 120 BPM is used');
@@ -196,10 +232,10 @@
     for (const m of analysis.meter.changes) w.add('meterChangesIgnored', 'warn', 'Time signature changes ignored (rows follow the first signature)', { text: m.numerator + '/' + m.denominator + ' at ' + where(m.step, barSteps) });
     if (!analysis.rowSteps.aligned) w.add('meterUnaligned', 'warn', 'No row length of 16/32/48/64 steps holds whole bars of ' + barSteps + ' steps; rows do not start on bar lines');
     const ig = analysis.ignored;
-    if (ig.controlChange) w.add('ccIgnored', 'info', ig.controlChange + ' control change event(s) ignored' + (ig.sustain ? ' (' + ig.sustain + ' sustain pedal)' : ''));
+    if (ig.controlChange - eventTakenCC) w.add('ccIgnored', 'info', (ig.controlChange - eventTakenCC) + ' control change event(s) away from a row start dropped' + (ig.sustain ? ' (' + ig.sustain + ' sustain pedal)' : ''));
     if (ig.pitchBend) w.add('pitchBendIgnored', 'info', ig.pitchBend + ' pitch bend event(s) ignored');
     if (ig.polyPressure + ig.channelPressure) w.add('pressureIgnored', 'info', (ig.polyPressure + ig.channelPressure) + ' aftertouch event(s) ignored');
-    for (const p of ig.programChange) w.add('programIgnored', 'info', 'Program changes ignored (choose timbres in the project)', { text: 'track ' + (p.track + 1) + ' ch' + (p.channel + 1) + ' program ' + (p.program + 1) + ' at ' + where(nearest(toStep(p.tick)), barSteps) });
+    for (const p of ig.programChange) if (!eventTaken.has(p)) w.add('programIgnored', 'info', 'Program changes away from a row start dropped (only events at or just before a row start become row events)', { text: 'track ' + (p.track + 1) + ' ch' + (p.channel + 1) + ' program ' + (p.program + 1) + ' at ' + where(nearest(toStep(p.tick)), barSteps) });
     if (ig.sysex) w.add('sysexIgnored', 'info', ig.sysex + ' SysEx event(s) ignored');
     if (ig.meta) w.add('metaIgnored', 'info', ig.meta + ' other meta event(s) ignored');
     for (const f of analysis.fileWarnings || []) w.add('file:' + f.kind, 'warn', f.message);
@@ -299,12 +335,17 @@
       }
       return id;
     }));
-    const rows = [];
-    for (const ids of rowsExpanded) {
-      const last = rows[rows.length - 1];
-      if (last && last.repeat < L.repeatMax && last.blocks.every((id, t) => id === ids[t])) last.repeat++;
-      else rows.push({ blocks: ids, repeat: 1, loopHere: false, steps: rowSteps });
-    }
+    const rows = [], events = [];
+    rowsExpanded.forEach((ids, expanded) => {
+      const last = rows[rows.length - 1], hasEvents = byRow.has(expanded) && byRow.get(expanded).length > 0;
+      if (last && !hasEvents && last.repeat < L.repeatMax && last.blocks.every((id, t) => id === ids[t])) { last.repeat++; return; }
+      rows.push({ blocks: ids, repeat: 1, loopHere: false, steps: rowSteps });
+      if (hasEvents) for (const e of byRow.get(expanded)) events.push({ row: rows.length - 1, channel: e.channel, type: e.type, d0: e.d0, d1: e.d1, d2: e.d2 });
+    });
+    if (events.length > L.eventsMax) fail('The song needs ' + events.length + ' row events; a song holds ' + L.eventsMax + '. Narrow the bar range.', 'events');
+    for (const e of events) w.add('rowEvents', 'info', 'Program / bank / control change event(s) at row starts became row events (pre-roll ' + (preRoll ? preRoll + ' steps' : 'none') + ')',
+      { text: 'row ' + (e.row + 1) + ' channel ' + (e.channel + 1) + ': ' + (e.type === 0 ? 'program ' + e.d0 : e.type === 1 ? 'bank ' + (e.d0 === 255 ? '-' : e.d0) + '/' + (e.d1 === 255 ? '-' : e.d1) + ' program ' + e.d2 : 'CC ' + e.d0 + ' = ' + e.d1) });
+    for (const [, p] of pending) if (p.items.some(x => !eventTaken.has(x))) w.add('bankWithoutProgram', 'info', 'Bank select without a following program change dropped', { text: 'row ' + (p.row + 1) + ' channel ' + (p.items[0].channel + 1) });
     if (blocks.length > L.blocksPerSong) fail('The song needs ' + blocks.length + ' distinct blocks; a song holds ' + L.blocksPerSong + '. Narrow the bar range or import fewer tracks.', 'blocks');
     if (rows.length > L.rowsPerSong) fail('The song needs ' + rows.length + ' rows after merging repeats; a song holds 128. Narrow the bar range.', 'rows');
 
@@ -313,21 +354,21 @@
     song.tempo = analysis.tempo.bpm;
     song.loop = !!options.loop; song.jumpMode = options.jumpMode === 'row' ? 'row' : 'bar'; song.loopRow = 0;
     song.outChannels = Array.from({ length: 8 }, (_, t) => { const c = (options.outChannels || [])[t]; return Number.isInteger(c) && c >= 0 && c <= 15 ? c : null; });
-    song.rows = rows; song.blocks = blocks;
+    song.rows = rows; song.blocks = blocks; song.events = events;
     song.source = { fileName: options.fileName || '', format: analysis.format, division: analysis.division, tempoExact: analysis.tempo.exact,
       meter: analysis.meter.numerator + '/' + analysis.meter.denominator, barSteps, barFrom, barTo, rowSteps, lengthRule, overflowRule,
-      looseDedup: loose, velocityTolerance: loose ? tolerance : null,
+      looseDedup: loose, velocityTolerance: loose ? tolerance : null, preRoll: options.preRoll || 'beat',
       parts: usedParts.map(u => ({ key: u.part.key, name: u.part.name, track: u.track + 1 })) };
     const usage = F.usage(song);
     const stats = { ...usage, rowsBeforeMerge: rowsExpanded.length, cellsBeforeDedup: rowsExpanded.reduce((n, r) => n + r.filter(Boolean).length, 0),
-      notesIn, notesOut, bars: barTo - barFrom + 1, barsPerRow: rowSteps / barSteps, rowSteps, looseMerges };
+      notesIn, notesOut, bars: barTo - barFrom + 1, barsPerRow: rowSteps / barSteps, rowSteps, looseMerges, events: events.length };
     const result = { song, stats, warnings: w.list(), grid, rowsExpanded };
     song.warnings = result.warnings.map(x => ({ kind: x.kind, severity: x.severity, message: x.message, count: x.count }));
     F.validate(song).errors.forEach(e => fail('internal: produced an invalid song: ' + e, 'internal'));
     return result;
   }
 
-  const TabbyMidiSong = { analyze, convert, defaultAssignments, rowStepsFor, position, where, nearest, version: '0.3' };
+  const TabbyMidiSong = { analyze, convert, defaultAssignments, rowStepsFor, position, where, nearest, version: '0.4' };
   globalThis.TabbyMidiSong = TabbyMidiSong;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyMidiSong;
 })();
