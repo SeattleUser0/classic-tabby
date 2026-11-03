@@ -25,8 +25,8 @@
  *       * tempo: the file's first tempo, rounded to an integer BPM and clamped to 30..300,
  *         becomes the song tempo override; later tempo events are listed and ignored;
  *       * rows: one row per `rowSteps` steps from the start of the bar range (4 bars of 4/4 =
- *         64; 3/4 → 48; see analyze().rowSteps); blocks are 64 steps and steps beyond
- *         rowSteps stay empty;
+ *         64; 3/4 → 48; see analyze().rowSteps); every row gets that step length (section 9.5
+ *         v0.3 row byte 10); blocks are 64 steps and steps beyond rowSteps stay empty;
  *       * deduplication: identical block payloads share one id (0 = silent cell, never
  *         stored); consecutive identical rows merge into one row with a repeat count ≤ 64;
  *       * limits: more than 128 rows or 255 blocks is an error (narrow the bar range).
@@ -35,9 +35,11 @@
  *   Loading: classic script (globalThis.TabbyMidiSong) and CommonJS; needs song-format.js
  *   (globalThis.TabbySongFormat or require) for block encoding, keys and usage.
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-02  Row step length stored per row (row.steps) instead of song.rowSteps,
+ *                     following section 9 v0.3.
  *   v0.1  2026-11-02  Initial version (Task 02, Step 2).
  */
 (() => {
@@ -274,7 +276,7 @@
     for (const ids of rowsExpanded) {
       const last = rows[rows.length - 1];
       if (last && last.repeat < L.repeatMax && last.blocks.every((id, t) => id === ids[t])) last.repeat++;
-      else rows.push({ blocks: ids, repeat: 1, loopHere: false });
+      else rows.push({ blocks: ids, repeat: 1, loopHere: false, steps: rowSteps });
     }
     if (blocks.length > L.blocksPerSong) fail('The song needs ' + blocks.length + ' distinct blocks; a song holds 255. Narrow the bar range or import fewer tracks.', 'blocks');
     if (rows.length > L.rowsPerSong) fail('The song needs ' + rows.length + ' rows after merging repeats; a song holds 128. Narrow the bar range.', 'rows');
@@ -283,7 +285,6 @@
     song.projectSlot = Number.isInteger(options.projectSlot) ? options.projectSlot : 0;
     song.tempo = analysis.tempo.bpm;
     song.loop = !!options.loop; song.jumpMode = options.jumpMode === 'row' ? 'row' : 'bar'; song.loopRow = 0;
-    song.rowSteps = rowSteps;
     song.outChannels = Array.from({ length: 8 }, (_, t) => { const c = (options.outChannels || [])[t]; return Number.isInteger(c) && c >= 0 && c <= 15 ? c : null; });
     song.rows = rows; song.blocks = blocks;
     song.source = { fileName: options.fileName || '', format: analysis.format, division: analysis.division, tempoExact: analysis.tempo.exact,

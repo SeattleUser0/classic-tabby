@@ -1,7 +1,10 @@
 # Task 02 — MIDI file import: spec and build notes
 
-Version: 0.1
+Version: 0.2
 Revision log:
+- v0.2, 2026-11-02: section 9 v0.3 layout adopted (commit b7abb99 on classic-tabby/linux-build):
+  per-row step length and per-track output channels are written and validated; section 3
+  closed. Renoise fixtures (four files in tests/fixtures/) run in the tests; findings in 6.
 - v0.1, 2026-11-02: Step 2 checkpoint on branch classic-tabby/task02-midi-import. Parser,
   conversion, format encoder, transfer stub, standalone page, host tests (74 checks).
 
@@ -10,19 +13,20 @@ merge; until then it is the only place these notes live (Task 02 parallel-work r
 
 ## 1. Scope
 
-Import Standard MIDI Files (type 0 and type 1, PPQ time division) in the browser workbench
+Import Standard MIDI Files (type 0 and type 1, PPQ time division; binary SMF or the mf2t
+text form that the Renoise/XRNS2MIDI tool chain writes) in the browser workbench
 and turn them into Task 03 songs: rows of 64-step blocks shared through a per-song pool, up
 to 4 independent notes per step (pitch, velocity, length) at 16th resolution. Everything
 runs in the browser (web/import/); the device write goes through one transfer interface
 whose only implementation today is a stub that validates and reports. No firmware change,
 no change under app/ or sdk/. The approved Task 03 Step 1 report, section 9, is the binding
-format; see section 3 for the two fields that are still pending there.
+format (v0.3, commit b7abb99).
 
 Files (all new, Task 02):
 
 | File | Role |
 | --- | --- |
-| web/import/midi-parse.js | SMF parser: header, tracks, running status, meta, SysEx, note pairing |
+| web/import/midi-parse.js | SMF parser (binary MThd/MTrk and mf2t text "MFile …"): header, tracks, running status, meta, SysEx, note pairing |
 | web/import/midi-song.js | analyze() the file into parts; convert() to a song with the mapping rules |
 | web/import/song-format.js | song model, block/record/.tabby encoding and decoding, validation rules, pool usage, JSON save/load |
 | web/import/song-transfer.js | transfer interface; stub implementation |
@@ -59,6 +63,7 @@ the nearest step, ties toward the earlier step (2.5 → 2).
 | More than 8 parts | the first 8 non-empty parts are pre-assigned to tracks 1..8, the rest are "skip"; any part may be assigned to any track; several parts may share a track |
 | Truncated file / missing end-of-track | events read so far are kept; warning shown |
 | SMPTE division, format 2 | refused with a message |
+| mf2t text files | read like binary files; measure:beat:click times are refused (re-run mf2t without -t); unknown lines are counted, not fatal |
 
 Rows: one row per `rowSteps` steps from the start of the bar range. `rowSteps` is one of 16,
 32, 48, 64 (the allowed row lengths) and must hold whole bars; the default is the candidate
@@ -76,8 +81,8 @@ rows and compares with the pre-deduplication grid).
 
 Song fields set by the importer: name (file name, 12 upper-case ASCII, editable), project
 slot (user choice, default 1), tempo override (first tempo), loop flag (checkbox, off),
-jump mode bar, loop row 0, row length (above), OUT CH per track (user choice, default
-"device setting"). `song.source` records file name, format, division, exact tempo, meter,
+jump mode bar, loop row 0, every row's step length (above; row byte 10), OUT CH per track
+(user choice, default "device setting" = header byte 0; channel n is written as n, 1..16). `song.source` records file name, format, division, exact tempo, meter,
 bar range, rules and the part-to-track assignment; `song.warnings` records the warning
 kinds and counts.
 
@@ -85,22 +90,19 @@ Limits, checked after deduplication: 128 rows, 255 blocks, block payload 64..832
 pool 96 × 4076 bytes. The import is refused with a message (narrow the bar range) when a
 limit is exceeded.
 
-## 3. Pending layout (blocks nothing today, must be closed at Step 4)
+## 3. Layout as written (section 9 v0.3)
 
-The Task 02 approval message (2026-11-02) states that Task 03 added (1) a per-row step
-length (16/32/48/64) and (2) eight per-track output channels with a "use the device
-setting" value to the song header. The committed section 9 of the Task 03 assessment at
-classic-tabby/linux-build 7c1cdc2 (checked 2026-11-02, clean tree, no other branch,
-worktree or stash) does not contain either field: 9.5 says "every block is 64 steps", the
-row is 8 ids + repeat + flags, header bytes 43..47 are reserved 0. The importer therefore:
-
-- keeps `rowSteps` and `outChannels` in the song model and the JSON save file;
-- does not write them into the binary song record or the .tabby file
-  (`TabbySongFormat.PENDING.encode/decode` are no-ops);
-- reports them in `validate()` as warnings ("pending layout") shown in the result panel.
-
-When the offsets are published, `PENDING.encode/decode` in song-format.js, the tests in
-run.mjs (round trip and header-offset checks) and this section change; nothing else.
+Song record: header 64 bytes (magic FM1G, generation, target, CRC over 20..1599, commit,
+version 1, name at 24, project slot 36, flags 37, tempo 38, row count 40, block count 41,
+loop row 42, reserved 43..47, **output channels 48..55** as 0 = device setting or 1..16,
+reserved 56..63), then **128 rows × 12 bytes at offset 64**: 8 block ids, repeat, flags,
+**step length at row byte 10** (16/32/48/64; 0 reads as 64), reserved byte 11; 1600..4095
+0xFF. The importer writes the step length explicitly in every used row and leaves unused
+rows zero. Decoding rejects channel bytes above 16 and step lengths other than 0/16/32/48/
+64, as the device does. `validate()` warns when a row shorter than 64 steps points at a block
+with notes beyond the row's end (the device never starts them); the importer never produces
+that. The v0.1 placeholder ("pending layout") is gone; v0.1 JSON files with `song.rowSteps`
+still load (the value moves into each row).
 
 ## 4. Done (Step 2, 2026-11-02)
 
@@ -117,15 +119,19 @@ run.mjs (round trip and header-offset checks) and this section change; nothing e
   `(song << 8) | id`, query and time estimate; write: validate, plan, report, send nothing).
 - Standalone page with the full flow (file → parts and assignment → options → result →
   save/load/export → write with the replace warning and the stub report).
-- Host tests: 74 checks, all pass (`make midi-import-test`). Headless Chrome run of the
-  page: multitrack fixture imported, OUT CH and bar range changed, stub write reported, no
-  script errors.
+- Host tests (`make midi-import-test`): parser, every fixture scenario, deduplication,
+  JSON and .tabby round trips with byte-level checks of the v0.3 offsets, decode rejection
+  of bad channel and step-length bytes, validation rules, stub transfer, limits, and the four
+  Renoise files in tests/fixtures/. Headless Chrome run of the page: multitrack fixture
+  imported, OUT CH and bar range changed, stub write reported, no script errors.
 - Makefile: `midi-import-test` target (the only shared file touched; approved).
+- v0.2: encoder and decoder write and read the row step length and the output channels;
+  tests updated; Renoise fixtures run (section 6).
 
 ## 5. Left to build
 
-- Step 4 (after Task 03 Step 2 merges): rebase; confirm or correct the section 9 layout
-  including the two pending fields (section 3); device implementation of the transfer
+- Step 4 (after Task 03 Step 2 merges): rebase; compare the merged code with section 9
+  v0.3; device implementation of the transfer
   interface on the Library class (kinds 5 and 6, command 23, capability bit 2); mount the
   panel in the workbench Library tab (two placeholders in tools/linux/build-web.py and
   sdk/Update.html.in, FM1I18n strings); export in whatever song file container the merged
@@ -133,11 +139,41 @@ run.mjs (round trip and header-offset checks) and this section change; nothing e
 - Optional, not planned for v1: sustain pedal (CC 64) lengthening notes; splitting a file
   into several songs; transposed-block detection.
 
-## 6. Left to test
+## 6. Renoise fixtures: what the files hold (2026-11-02)
 
-- Renoise export fixture: `tests/fixtures/renoise-export.mid` (the path named in the
-  approval) or `tests/midi-import/fixtures/renoise-export.mid`. The test exists and is
-  SKIPPED until the file is present; it prints the file's division and part layout and
-  checks parse, convert, validate and the JSON round trip.
+The four files in tests/fixtures/ (renoise-export.mid, Glass Relay.mid, meridian_fault.mid,
+the_space_between_wires.mid) are **mf2t text**, not binary SMF: first line `MFile 1 N 96`
+(format 1, N tracks, 96 ticks per quarter = 24 ticks per 16th), then `MTrk` … `TrkEnd`
+blocks of `<tick> On|Off ch=1 n=… v=…` lines. Track 0 holds only `TimeSig 4/4 24 8` and
+`Tempo`; every other track is one Renoise instrument, named "Track name (NN: Instrument)"
+with an InstrName meta, all on channel 1. No CC, program change, pitch bend, SysEx or
+tempo/meter change in any file. The importer reads the text form directly (midi-parse.js
+v0.2).
+
+| File | Tracks / parts | Bars | BPM | Rows | Blocks (cells) | Bytes (pool %) | Changed | Dropped |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| renoise-export.mid | 9 / 8 | 69 | 80 | 18 | 112 (112) | 10772 (2.75) | 193 starts moved, 139 lengths rounded, 10 overlaps clipped | none |
+| Glass Relay.mid | 9 / 8 | 66 | 110 | 17 | 98 (119) | 10672 (2.73) | 126 moved, 165 rounded, 1 overlap | none |
+| meridian_fault.mid | 12 / 11 | 85 | 104 | 22 | 137 (157) | 13420 (3.43) | 91 moved, 182 rounded, 1 overlap | 3 parts unassigned by default (11 parts > 8 tracks) |
+| the_space_between_wires.mid | 10 / 9 | 64 | 104 | 16 | 117 (117) | 11924 (3.05) | 250 moved, 130 rounded, 44 overlaps | 1 part unassigned by default (9 parts) |
+
+- **Moved starts** are chord strums and humanisation: offsets of 1–3 ticks (up to 8 in
+  meridian_fault) inside a 24-tick 16th, so every note snaps back to its own step; nothing
+  moves by a whole step.
+- **Rounded lengths** are note-offs a tick or two early or late (3.969 → 4.00 beats and
+  the like).
+- **Overlaps clipped** are sustained pad and string notes re-struck on the same pitch
+  before the previous one ended (16 → 8 steps); MIDI would have cut them the same way.
+- **Nothing was dropped**: every note of every assigned part survives, no step has more
+  than 4 notes on one track, and the only unassigned parts are the ones beyond eight,
+  which the user assigns or merges in the preview.
+- **Deduplication finds almost nothing** in these files (blocks ≈ cells, no merged rows):
+  the material is through-composed and humanised, so no two 4-bar cells are byte-identical.
+  The songs still fit easily (2.7–3.4 % of the pool) but use 44–54 % of the 255 block ids
+  per song; a 128-bar file of this kind would approach the id limit. Velocity and strum
+  humanisation are what defeat the byte equality.
+
+## 7. Left to test
+
 - Step 4: simulator check (64-bar imported song on FM6 and MIDI out) and the hardware
   checklist (Step 5).

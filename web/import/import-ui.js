@@ -28,9 +28,11 @@
  *
  *   Strings are English for the standalone page; at merge they get FM1I18n entries.
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-02  Row step length shown per row; OUT CH note updated (field now in the
+ *                     song header, section 9 v0.3).
  *   v0.1  2026-11-02  Initial version (Task 02, Step 2).
  */
 (() => {
@@ -102,7 +104,7 @@
       h('section', { class: 'ti-step' }, h('h3', {}, '2. Parts → Classic Tabby tracks'),
         h('table', { class: 'ti-table' }, h('thead', {}, h('tr', {}, ...['MIDI part', 'Channel', 'Notes', 'Range', 'Bars', 'Programs', 'Tabby track'].map(x => h('th', {}, x)))), ui.parts),
         h('p', { class: 'ti-muted' }, 'Several parts may share one track; the 4-notes-per-step limit then applies to the mix. Drum parts (channel 10) are marked ♩.'),
-        h('div', {}, h('strong', {}, 'OUT CH per track '), h('span', { class: 'ti-muted' }, '(recorded with the song; the header field is pending in Task 03, see the notes) '), ui.channels)),
+        h('div', {}, h('strong', {}, 'OUT CH per track '), h('span', { class: 'ti-muted' }, '(written into the song header; "device" keeps the device OUT CH for that track) '), ui.channels)),
       h('section', { class: 'ti-step' }, h('h3', {}, '3. Options'),
         h('div', { class: 'ti-grid' },
           h('label', {}, 'Bars from ', ui.barFrom), h('label', {}, 'to ', ui.barTo),
@@ -113,7 +115,7 @@
           h('label', {}, ui.loop, ' loop the whole song')),
         h('p', { class: 'ti-muted' }, 'Grid: 16th notes. Starts snap to the nearest step (ties toward the earlier step). The first tempo of the file becomes the song tempo.')),
       h('section', { class: 'ti-step' }, h('h3', {}, '4. Resulting song'), ui.status, ui.stats,
-        h('div', { class: 'ti-scroll' }, h('table', { class: 'ti-table ti-rows' }, h('thead', {}, h('tr', {}, h('th', {}, 'Row'), h('th', {}, 'Repeat'), ...Array.from({ length: 8 }, (_, t) => h('th', {}, 'T' + (t + 1))))), ui.rows)),
+        h('div', { class: 'ti-scroll' }, h('table', { class: 'ti-table ti-rows' }, h('thead', {}, h('tr', {}, h('th', {}, 'Row'), h('th', {}, 'Repeat'), h('th', {}, 'Steps'), ...Array.from({ length: 8 }, (_, t) => h('th', {}, 'T' + (t + 1))))), ui.rows)),
         h('h4', {}, 'Dropped or changed'), ui.warnings),
       h('section', { class: 'ti-step' }, h('h3', {}, '5. Browser song'),
         h('p', {}, ui.saveJson, ' ', ui.exportTabby, ' ', h('label', {}, 'Load song JSON ', ui.loadJson)),
@@ -160,11 +162,11 @@
       const F = Format, usage = result ? result.stats : F.usage(song);
       const v = F.validate(song);
       ui.stats.replaceChildren(h('p', {}, h('strong', {}, song.name.trim() || '(unnamed)'), ' · tempo ' + (song.tempo || 'project') + ' · project ' + (song.projectSlot + 1) + ' · rows ' + song.rows.length +
-        (result ? ' (from ' + result.stats.rowsBeforeMerge + ')' : '') + ', ' + usage.repeats + ' with repeats · row ' + song.rowSteps + ' steps · blocks ' + usage.blocks + ' of 255 (' + usage.idPercent.toFixed(1) + ' %)' +
+        (result ? ' (from ' + result.stats.rowsBeforeMerge + ')' : '') + ', ' + usage.repeats + ' with repeats · row ' + [...new Set(song.rows.map(r => r.steps))].join('/') + ' steps · blocks ' + usage.blocks + ' of 255 (' + usage.idPercent.toFixed(1) + ' %)' +
         (result ? ' from ' + result.stats.cellsBeforeDedup + ' cells' : '') + ' · block bytes ' + usage.recordBytes + ' (' + usage.poolPercent.toFixed(2) + ' % of the pool, ' + usage.sectors + ' sector(s))' +
         (result ? ' · notes ' + result.stats.notesOut + ' of ' + result.stats.notesIn : '') + ' · .tabby ' + kb(usage.fileBytes) + '.'),
         ...v.warnings.map(w => h('p', { class: 'ti-muted' }, '⚑ ' + w)), ...v.errors.map(e => h('p', { class: 'ti-error' }, e)));
-      ui.rows.replaceChildren(...song.rows.map((row, i) => h('tr', {}, h('td', {}, i + 1), h('td', {}, '×' + row.repeat + (row.loopHere ? ' ⟲' : '')), ...row.blocks.map(id => h('td', { class: id ? 'ti-block' : 'ti-empty' }, id || '·')))));
+      ui.rows.replaceChildren(...song.rows.map((row, i) => h('tr', {}, h('td', {}, i + 1), h('td', {}, '×' + row.repeat + (row.loopHere ? ' ⟲' : '')), h('td', {}, row.steps), ...row.blocks.map(id => h('td', { class: id ? 'ti-block' : 'ti-empty' }, id || '·')))));
       const list = result ? result.warnings : (song.warnings || []);
       ui.warnings.replaceChildren(list.length ? h('ul', { class: 'ti-list' }, ...list.map(w => h('li', { class: w.severity === 'warn' ? 'ti-warn' : '' },
         h('span', { class: 'ti-badge' }, w.severity === 'warn' ? 'changed' : 'info'), ' ', w.message, w.count > 1 || (w.items && w.items.length) ? ' (' + w.count + ')' : '',
