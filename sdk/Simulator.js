@@ -54,19 +54,7 @@
             result=c.sim_export();
             if(!result)data={bytes:new Uint8Array(c.memory.buffer,c.sim_file(),4264).slice(),revision:this.projectRevision()};
             break;
-          case 'factory':
-            result=c.sim_factory_project(message.index);
-            if(!result)data=new Uint8Array(c.memory.buffer,c.sim_file(),4264).slice();
-            break;
-          case 'factories':
-            data=[];
-            for(let i=0;i<64;i++){
-              const at=c.sim_factory_name(i);if(!at)break;
-              const bytes=new Uint8Array(c.memory.buffer,at,13);let name='';
-              for(const byte of bytes){if(!byte)break;name+=String.fromCharCode(byte);}
-              data.push(name);
-            }
-            break;
+          // Task 03 (f): the 'factory' / 'factories' requests are gone with the factory scenes.
           case 'import':
             if (!message.data || (message.timbre?message.data.length!==223:message.patch?message.data.length!==156:![4048,4064,4264].includes(message.data.length))) throw Error('文件长度无效');
             new Uint8Array(c.memory.buffer,c.sim_file(),message.data.length).set(message.data);
@@ -89,7 +77,10 @@
             // device's packing boundaries (4076-byte record areas, 8 sectors per batch), as the
             // workbench does against a device.
             const song=message.song>>>0;
-            new Uint8Array(c.memory.buffer,c.sim_file(),4096).set(message.record);result=c.sim_song_record_write(song);
+            // Task 03 (f): like Library.songWrite, an occupied slot is deleted first.
+            const replaced=c.sim_song_record_read(song)===0;if(replaced)result=c.sim_song_record_delete(song);
+            if(!result){new Uint8Array(c.memory.buffer,c.sim_file(),4096).set(message.record);result=c.sim_song_record_write(song);}
+            data={replaced};
             const batches=[];let parts=[],total=0,fill=0,sectors=1;
             for(const [id,payload] of message.blocks){
               const size=6+payload.length+(4-(6+payload.length)%4)%4;
@@ -130,7 +121,7 @@
             }))};
         }
         message.screen=this.screen;
-        message.workspace={name:String.fromCharCode(...name).trim(),slot:position&255,factory:(position&768)===768,dirty:!!c.sim_project_dirty(),revision:this.projectRevision()};
+        message.workspace={name:String.fromCharCode(...name).trim(),slot:position&255,dirty:!!c.sim_project_dirty(),revision:this.projectRevision()};
         message.countIn=c.sim_count_in();
         message.hardware=c.sim_smk37_state();
         message.session=Array.from({length:8},(_,i)=>c.sim_smk37_session(i));
@@ -255,10 +246,10 @@
     if(bootError)FM1I18n.text($('sim-current-project'),'载入失败');
     FM1I18n.text($('sim-audio-state'),audioOn?'声音已开启':muted?'静音编辑':'点琴键即可发声');
     $('sim-engine-state').hidden=ready;$('sim-audio-state').hidden=!ready;
-    for(const id of ['sim-preset-prev','sim-preset-next','sim-factory'])$(id).disabled=!ready||presetBusy;
-    $('sim-preset-prev').disabled||=!!workspace?.factory&&workspace.slot===0;
-    $('sim-preset-next').disabled||=!!workspace?.factory&&workspace.slot===15;
-    $('sim-factory-export').disabled=!ready||$('sim-factory').value==='';
+    // Task 03 (f): prev / next step through the USER project slots of the simulated flash.
+    for(const id of ['sim-preset-prev','sim-preset-next'])$(id).disabled=!ready||presetBusy;
+    $('sim-preset-prev').disabled||=(workspace?.slot??0)===0;
+    $('sim-preset-next').disabled||=(workspace?.slot??0)===15;
     for(const id of ['sim-save-device','sim-read-device'])$(id).disabled=!ready||syncDevice.busy||!navigator.requestMIDIAccess;
   }
   let syncDevice={mode:'offline',epoch:0,busy:false},deviceSnapshot,deviceSnapshotKind;
@@ -393,7 +384,7 @@
     if(contextChanged){
       for(const button of document.querySelectorAll('[data-sim-page]'))button.setAttribute('aria-pressed',String(Number(button.dataset.simPage)===state[1]||(Number(button.dataset.simPage)===15&&state[1]===5)));
       const presetUse={0:'换整套预设',1:'选步进',8:'选保存槽位',10:'切换轨道发送／共用细调',12:'选步进',13:'选步进',15:'换当前轨音色',16:'选整套预设',17:'此页不使用'};
-      FM1I18n.text($('sim-context'),'面板 PRESETS 旋钮：'+(presetUse[state[1]]||'以屏幕下方标签为准')+'。网页“内置预设”始终切换整套项目。');
+      FM1I18n.text($('sim-context'),'面板 PRESETS 旋钮：'+(presetUse[state[1]]||'以屏幕下方标签为准')+'。');
     }
     updateScreenControls(message.screen,contextChanged);
     if(message.pixels)for(let band=0,source=0;band<15;){
@@ -411,7 +402,6 @@
       workspace=message.workspace;
       if(!oldWorkspace||workspace.name!==oldWorkspace.name)$('sim-current-project').textContent=workspace.name||'UNTITLED';
       if(!oldWorkspace||workspace.dirty!==oldWorkspace.dirty)FM1I18n.text($('sim-project-note'),workspace.dirty?'工作区有修改':'工作区未修改');
-      if(!oldWorkspace||workspace.slot!==oldWorkspace.slot||workspace.factory!==oldWorkspace.factory)$('sim-factory').value=workspace.factory?String(workspace.slot):'';
       renderSync();
     }
     const count=Math.min(4,Math.ceil(message.countIn/4));
@@ -511,7 +501,7 @@
       }
     }
     if(message.flash){try{localStorage.setItem(storageKey,encode(message.flash));$('sim-storage-warning').hidden=true;}catch(_){$('sim-storage-warning').hidden=false;}}
-    if(selectionChanged||!oldWorkspace||workspace?.slot!==oldWorkspace.slot||workspace?.factory!==oldWorkspace.factory)availability();
+    if(selectionChanged||!oldWorkspace||workspace?.slot!==oldWorkspace.slot)availability();
   }
   let lcdKey='',lcdScreen,lcdEditing,lcdItems=new Map(),lcdReturnFocus;
   const lcdDialog=$('sim-lcd-dialog');
@@ -641,12 +631,7 @@
       let flash;try{const saved=localStorage.getItem(storageKey);if(saved)flash=decode(saved);}catch(_){}
       preview=new globalThis.FM1SimulatorCore(wasm,flash);
       ready=true;receive(preview.frame(true));availability();setVolume(Number($('sim-volume').value));
-      $('sim-factory').replaceChildren();
-      const choose=document.createElement('option');choose.value='';FM1I18n.text(choose,'选择内置预设…');choose.disabled=true;$('sim-factory').append(choose);
-      (await request('factories')).forEach((name,index)=>{
-        const option=document.createElement('option');option.value=index;option.textContent=String(index+1).padStart(2,'0')+' · '+name;$('sim-factory').append(option);
-      });
-      $('sim-factory').value=workspace?.factory?String(workspace.slot):'';availability();
+      availability();
       say('已就绪，点琴键或播放即可试听。');globalThis.SMK37Boot?.ready();
       const blockFrames=preview.c.sim_block_frames();
       let last=performance.now(),frames=0;
@@ -971,18 +956,11 @@
     presetBusy=true;availability();
     try{
       await request('preset',{index});
-      $('sim-factory').value=String(index);
-      say('已载入 '+$('sim-factory').selectedOptions[0].textContent+'。');
+      say('已载入用户项目 '+(index+1)+'。');
     }finally{presetBusy=false;availability();}
   }
-  $('sim-factory').onchange=()=>action(()=>loadPreset(Number($('sim-factory').value)));
-  $('sim-preset-prev').onclick=()=>action(()=>loadPreset(workspace?.factory?Math.max(0,workspace.slot-1):0));
-  $('sim-preset-next').onclick=()=>action(()=>loadPreset(workspace?.factory?Math.min(15,workspace.slot+1):0));
-  $('sim-factory-export').onclick=()=>action(async()=>{
-    const index=Number($('sim-factory').value),data=await request('factory',{index});
-    save(FM1Web.projectFile(data),'SMK37-'+String(index+1).padStart(2,'0')+'-'+String.fromCharCode(...data.slice(3836,3848)).trim()+'.fm1');
-    say('官方工程已导出，当前仿真工作区保持不变。');
-  });
+  $('sim-preset-prev').onclick=()=>action(()=>loadPreset(Math.max(0,(workspace?.slot??0)-1)));
+  $('sim-preset-next').onclick=()=>action(()=>loadPreset(Math.min(15,(workspace?.slot??0)+1)));
   $('sim-timbre-export').onclick=()=>action(async()=>{save(FM1Web.timbreFile(await request('export',{timbre:true})),'SMK37-timbre.fm1t');say('已导出当前轨道的音源类型与全部音色参数。');});
   $('sim-patch-export').onclick=()=>action(async()=>{save(FM1Web.voiceFile(await request('export',{patch:true})),'SMK37-voice.syx');say('已导出当前轨道的 DX7 音色。');});
   $('sim-file').onchange=async()=>{

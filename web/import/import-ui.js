@@ -30,9 +30,11 @@
  *   through FM1I18n; this panel is Classic Tabby only and is shown in English in both
  *   languages (Step 4 decision: no 80-string addition to the shared sdk/I18n.js).
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-02  Task 03 (f): the replace warning says the old song is deleted first and
+ *                     suggests exporting a .tabby; the delete itself moved to the workbench.
  *   v0.4  2026-11-02  Step 4: mounted in the workbench Library tab; the transfer may be the
  *                     workbench backend (device or simulator): target name in the confirm
  *                     and the messages, batch plan shown, elapsed time reported.
@@ -133,7 +135,7 @@
       h('section', { class: 'ti-step' }, h('h3', {}, '6. Write to the device or the simulator'),
         ui.transferInfo,
         h('p', {}, h('label', {}, 'Song slot ', ui.slot), ' ', ui.slotInfo),
-        h('p', { class: 'ti-warn' }, 'Writing replaces whatever that song slot holds (an occupied slot is deleted first). Projects are not changed. The target follows the song editor\'s "target" choice above: device (project library connected) or browser simulator.'),
+        h('p', { class: 'ti-warn' }, 'Writing deletes whatever that song slot holds before the new song is written (its blocks are reclaimed at the next compaction); export a .tabby of the old song first if you want to keep it. Projects are not changed. The target follows the song editor\'s "target" choice above: device (project library connected) or browser simulator.'),
         h('p', {}, ui.write), ui.plan));
 
     /* ---- helpers ---------------------------------------------------------------------- */
@@ -233,13 +235,13 @@
     ui.write.addEventListener('click', async () => {
       if (!state.song || state.busy) return;
       const slot = Number(ui.slot.value);
-      if (!confirm('Write "' + state.song.name.trim() + '" to ' + transfer.name + ' song ' + (slot + 1) + '? Existing content in that slot is deleted and replaced.' + (transfer.real ? '' : '\n\n(Stub transfer: nothing is written; the plan is shown instead.)'))) return;
+      if (!confirm('Write "' + state.song.name.trim() + '" to ' + transfer.name + ' song ' + (slot + 1) + '? A song already in that slot is deleted first; export a .tabby of it beforehand if you want to keep it.' + (transfer.real ? '' : '\n\n(Stub transfer: nothing is written; the plan is shown instead.)'))) return;
       state.busy = true; enable(); ui.plan.hidden = true; say('Writing…');
       try {
         const report = await transfer.write(slot, state.song, { progress: v => say('Writing… ' + Math.round(v * 100) + ' %') });
         say(report.message || ('Written to song ' + (slot + 1) + '.'));
         ui.plan.hidden = false;
-        ui.plan.textContent = [`transfer: ${transfer.name}  sent: ${report.sent !== false}` + (report.replaced ? '  (previous song deleted first)' : ''), `kind 5  target ${report.record.target}  ${report.record.bytes} bytes (song record, written first)`,
+        ui.plan.textContent = [`transfer: ${transfer.name}  sent: ${report.sent !== false}` + (report.replaced ? '  (previous song deleted first by the workbench)' : ''), `kind 5  target ${report.record.target}  ${report.record.bytes} bytes (song record, written first)`,
           ...(report.batches && report.batches.length
             ? report.batches.map((b, i) => `kind 7  batch ${i + 1}  ${b.blocks.length} block(s) ${b.blocks[0]}..${b.blocks[b.blocks.length - 1]}  ${b.bytes} bytes`)
             : report.blocks.map(b => `kind 6  target 0x${b.target.toString(16).padStart(6, '0')}  block ${b.id}  ${b.bytes} bytes`)),
@@ -252,7 +254,7 @@
     return { state, reconvert, ui };
   }
 
-  const TabbyImportUI = { mount, h, version: '0.4' };
+  const TabbyImportUI = { mount, h, version: '0.5' };
   globalThis.TabbyImportUI = TabbyImportUI;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();

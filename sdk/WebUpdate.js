@@ -742,6 +742,13 @@
     }
     async songWrite(song,record,blocks,progress=()=>{}){
       check(this.songStorage,'请先更新固件以使用歌曲模式');songRecordParse(record);
+      // Task 03 (f): an occupied slot is deleted first (the shared rule for the song editor and the
+      // MIDI importer): the old song's blocks become garbage for the next compaction whatever ids
+      // the new song uses. The check is a kind-5 download begin + cancel (two exchanges).
+      let replaced=true;
+      try{await this.query(1,[5,song]);}catch(error){if(error.deviceCode!==1)throw error;replaced=false;}
+      finally{if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
+      if(replaced)await this.songDelete(song);progress(0.03);
       // Section 9.6 v0.5: the record goes first so its blocks are live the moment they land,
       // then the blocks in kind-7 batches (firmware with checkpoint e) or one by one (kind 6).
       await this.upload(5,song,record);progress(0.05);
@@ -749,7 +756,7 @@
       else {const list=[...blocks];for(let i=0;i<list.length;i++){await this.uploadBlock(song,list[i][0],list[i][1]);progress(0.05+0.9*(i+1)/list.length);}}
       const saved=await this.download(5,song);
       check(saved.subarray(20,SONG_BODY).every((v,i)=>v===record[20+i]),'歌曲读回校验不一致，请重试');
-      progress(1);return saved;
+      progress(1);return {record:saved,replaced};
     }
     async songDelete(song){check(this.songStorage,'请先更新固件以使用歌曲模式');await this.upload(5,song,new Uint8Array(SONG_RECORD).fill(255));}
     async saveProject(slot,bytes) {
@@ -851,6 +858,7 @@
     check(u32(bytes,12)===crc32(bytes.subarray(20,SONG_BODY)),'歌曲记录校验失败');
     check(u32(bytes,20)===1,'歌曲记录版本不受支持');
     const rows=bytes[40];check(rows>=1&&rows<=128&&bytes[42]<rows&&bytes[36]<16&&!(bytes[37]&~3),'歌曲记录字段无效');
+    check(u16(bytes,38)===0||(u16(bytes,38)>=30&&u16(bytes,38)<=300),'歌曲速度须为 0 或 30–300');   // (f): as the device checks
     const song={name:String.fromCharCode(...bytes.subarray(24,36)).replace(/\s+$/,''),project:bytes[36],loop:!!(bytes[37]&1),jumpRow:!!(bytes[37]&2),
       tempo:u16(bytes,38),loopRow:bytes[42],channel:Array.from(bytes.subarray(48,56)),rows:[]};
     for(let r=0;r<rows;r++){const at=SONG_ROW0+r*SONG_ROW;const block=[];for(let t=0;t<8;t++)block.push(u16(bytes,at+t*2));

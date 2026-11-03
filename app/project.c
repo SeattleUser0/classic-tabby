@@ -690,14 +690,6 @@ int groove_project_export(uint8_t *bytes, unsigned capacity)
     }
     return 0;
 }
-int groove_factory_load(unsigned index)
-{
-    int r = groove_factory_build(index, &record.project);
-    if (r) return r;
-    r = apply_sanitized(&record.project, 0x84000U + index);
-    if (!r) { tuning_zero(); groove_project_touch(); }
-    return r;
-}
 /* BLE MIDI follows the radio master switch. Ignore the old separate MIDI-off
  * preference without changing the stored settings layout or writing at boot. */
 unsigned groove_settings_radio_flags(void) { return (GROOVE_RADIO_ALL ^ settings.radio_off) | GROOVE_RADIO_MIDI; }

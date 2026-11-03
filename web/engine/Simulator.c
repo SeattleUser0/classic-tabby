@@ -495,25 +495,11 @@ EXPORT("sim_frame_changes") unsigned sim_frame_changes(void)
 EXPORT("sim_flash") uint8_t *sim_flash(void) { return flash; }
 EXPORT("sim_flash_revision") uint32_t sim_flash_revision(void) { return flash_revision; }
 EXPORT("sim_file") uint8_t *sim_file(void) { return file_buffer; }
-/* Task 03 a: sim_factory*, sim_sample_* and sim_library_* are gone with the sampler and
- * the DX7 user library. */
+/* Task 03 a: sim_sample_* and sim_library_* are gone with the sampler and the DX7 user
+ * library. */
 EXPORT("sim_export") int sim_export(void) { return groove_project_export(file_buffer, sizeof file_buffer); }
 EXPORT("sim_import") int sim_import(unsigned bytes) { return groove_project_import(file_buffer, bytes); }
-EXPORT("sim_factory_name") const char *sim_factory_name(unsigned index) { return groove_factory_name(index); }
-EXPORT("sim_factory_project") int sim_factory_project(unsigned index)
-{
-    struct groove_project *p = groove_project_scratch();
-    int r = groove_factory_build(index, p);
-    if (!r) {
-        memcpy(file_buffer, p, sizeof *p);
-        uint8_t *tail = file_buffer + sizeof *p;
-        memset(tail, 0, GROOVE_TUNING_BLOCK_BYTES);
-        memcpy(tail, "FM1T", 4);
-        uint32_t crc = ~groove_crc32(~0U, tail, GROOVE_TUNING_BLOCK_BYTES - 4);
-        memcpy(tail + GROOVE_TUNING_BLOCK_BYTES - 4, &crc, sizeof crc);
-    }
-    return r;
-}
+/* Task 03 f: sim_factory_name / sim_factory_project are gone with the factory scenes. */
 EXPORT("sim_patch_export") int sim_patch_export(void)
 { uint8_t v[8]; groove_screen_snapshot(v); return groove_fm_copy(v[0], file_buffer, NULL); }
 EXPORT("sim_patch_import") int sim_patch_import(void)

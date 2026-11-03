@@ -33,9 +33,11 @@
  *   Everything here runs on the control task and is synchronous (a transaction takes
  *   three sector erases). The sequencer (app/song.c) only reads through the directory.
  *
- * Version: 0.3
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-02  Checkpoint (f): song_record_valid rejects a tempo override outside
+ *                     30..300 (0 = project tempo).
  *   v0.3  2026-11-02  Checkpoint (e): song_block_batch, batch journal recovery, pending
  *                     sectors, plain erase when compacting a sector without live records.
  *   v0.2  2026-11-02  Checkpoint (d): records, blocks, staging transactions, recovery,
@@ -278,6 +280,8 @@ int song_record_valid(const struct song_record *r)
 {
     if (r->version != 1 || r->project >= GROOVE_PROJECT_SLOTS || (r->flags & ~3U) ||
         r->rows < 1 || r->rows > SONG_ROWS || r->loop_row >= r->rows) return SONG_INVALID;
+    /* Checkpoint (f), 9.5 v0.5.1: the tempo override is 0 (project tempo) or 30..300 BPM. */
+    if (r->tempo && (r->tempo < 30 || r->tempo > 300)) return SONG_INVALID;
     for (unsigned i = 0; i < 12; ++i) if (r->name[i] < 32 || r->name[i] > 126) return SONG_INVALID;
     for (unsigned t = 0; t < SONG_TRACKS; ++t) if (r->channel[t] > 16) return SONG_INVALID;
     for (unsigned i = 0; i < r->rows; ++i) {
@@ -450,19 +454,38 @@ int song_block_read(unsigned song, unsigned id, uint8_t *payload, unsigned *byte
 /* ---- liveness, reclaim, compaction (9.6) ------------------------------------------- */
 /* Live bytes per block sector over all valid songs. With bits != NULL, also mark the
  * live records of block sector `which` (bit = record offset / 4). Leaves the directory
- * on the last song scanned (callers that need it rebuild on demand). */
+ * on the last song scanned (callers that need it rebuild on demand).
+ *
+ * Live (9.4, v0.5.1 since checkpoint f): the song's record is valid, a row of that record
+ * references the block id, and this is the newest copy of (song, id). A block no row uses
+ * (left behind by a rewrite that renumbered its blocks, or by a re-import after a delete) is
+ * garbage and is reclaimed by the next compaction; it stays readable until then. */
+static uint32_t referenced[SONG_DIRECTORY_MAX / 32];   /* one bit per directory entry */
 static int scan_live(uint16_t live[SONG_BLOCK_SECTORS], uint32_t *bits, unsigned which)
 {
     memset(live, 0, SONG_BLOCK_SECTORS * sizeof live[0]);
     if (bits) memset(bits, 0, 32 * sizeof bits[0]);
     for (unsigned song = 0; song < SONG_SONGS; ++song) {
-        uint8_t head[20];
-        int r = fm1_flash_read(sector_address(SONG_FIRST_SONG_SECTOR + song), head, sizeof head);
+        uint8_t head[48];
+        uint32_t a = sector_address(SONG_FIRST_SONG_SECTOR + song);
+        int r = fm1_flash_read(a, head, sizeof head);
         if (r) return r;
         if (le32(head) != SONG_MAGIC_RECORD || le32(head + 16) != 0) continue; /* deleted: garbage */
         r = song_directory_build(song);
         if (r < 0 && r != SONG_FULL) return r;
+        /* Mark the directory entries a row references: the rows (offset 64, 20 bytes each)
+         * are read into image, which the directory build has finished with. */
+        unsigned rows = head[40] > SONG_ROWS ? SONG_ROWS : head[40];
+        r = fm1_flash_read(a + 64, image, rows * 20U);
+        if (r) return r;
+        memset(referenced, 0, sizeof referenced);
+        for (unsigned row = 0; row < rows; ++row)
+            for (unsigned t = 0; t < SONG_TRACKS; ++t) {
+                unsigned id = le16(image + row * 20U + 2U * t), i;
+                if (id && dir_find(id, &i)) referenced[i >> 5] |= 1U << (i & 31U);
+            }
         for (unsigned i = 0; i < dir_count; ++i) {
+            if (!((referenced[i >> 5] >> (i & 31U)) & 1U)) continue;   /* unreferenced: garbage */
             uint8_t h[SONG_BLOCK_HEADER];
             r = fm1_flash_read(sector_address(SONG_FIRST_BLOCK_SECTOR + dir_sector[i]) + dir_at[i], h, sizeof h);
             if (r) return r;

@@ -1,7 +1,12 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.5
+Version: 0.5.1
 Revision log:
+- v0.5.1, 2026-11-02 (checkpoint f): two rule changes, no byte-layout change. 9.4: a block
+  record is live only while a row of its song's record references its id (unreferenced
+  blocks are garbage for compaction). 9.5: the tempo override must be 0 or 30..300; the
+  device rejects other values like a bad channel or step-length byte. 9.6: the workbench
+  deletes an occupied slot before writing a song. 9.10 notes for (f).
 - v0.5, 2026-11-02: batched block upload after the Task 02 session's import test (98..137
   blocks per song; one block per transaction was too slow). New transfer kind 7 (9.9), the
   batch transaction with its journal in the staging sector (9.6), block-sector header byte 5
@@ -409,8 +414,11 @@ Block record (inside the record area):
 | 6 | L | payload (9.3) |
 
 Records are 4-byte aligned (pad with 0xFF after the payload; the next record starts at the
-next multiple of 4). A record is **live** when its song's record (9.5) is valid and no
-record with the same (song, block id) exists in a sector with a higher generation. The
+next multiple of 4). A record is **live** when its song's record (9.5) is valid, **a row of that record
+references its block id** (v0.5.1; before, any record of a valid song counted), and no
+record with the same (song, block id) exists in a sector with a higher generation. A block
+no row uses, left behind by a rewrite that renumbered its blocks, is garbage for the next
+compaction; it stays readable through the directory (9.7) until then. The
 sector CRC covers stale records too; they are ordinary bytes until compaction.
 
 A sector whose header byte 5 is 0xFF (v0.5) is **pending**: it was programmed by a batch
@@ -436,7 +444,7 @@ directory holds 2048 live blocks (9.7); a song that references more cannot be pl
 | 24 | 12 | name: 12 printable ASCII bytes (32..126), space padded, no terminator |
 | 36 | 1 | project slot 0..15 (timbres, effects, tempo, MIDI channels) |
 | 37 | 1 | flags: bit 0 loop the whole song when the last row ends (else stop); bit 1 jump mode: 0 = queued jumps land at the next bar, 1 = at the end of the current row; bits 2-7 reserved 0 |
-| 38 | 2 | tempo override in BPM (0 = use the project's tempo) |
+| 38 | 2 | tempo override in BPM: 0 = use the project's tempo, else 30..300 (v0.5.1: the device rejects any other value, as it rejects a bad channel or step-length byte) |
 | 40 | 1 | row count 1..128 |
 | 41 | 1 | reserved 0 (v0.4: was the informational block count; the device ignores it) |
 | 42 | 1 | loop row: row index the song returns to when flag bit 0 is set (0..row count-1); 0 by default |
@@ -513,7 +521,10 @@ that has room (first fit by lowest region sector), via a full-sector rewrite thr
 staging; a sector rewrite increments the global generation. Writing a block that already
 exists for that (song, id) makes the old copy stale; it is not erased in place.
 
-Rewriting a song (order changed in v0.5): the workbench uploads the **song record first**
+Rewriting a song (v0.5.1): the workbench **deletes an occupied slot first** (kind 5 upload of
+an all-0xFF image), whether the write comes from the song editor or from the MIDI importer,
+and warns the user beforehand (export a `.tabby` to keep the old song). Then (order changed
+in v0.5) it uploads the **song record first**
 (one sector through staging), then the changed blocks (appends or batches), then reads the
 record back to verify. The record goes first because a block is live only while its song's
 record is valid (9.4): with the record in place every block is live the moment it lands and
@@ -691,3 +702,10 @@ region. Projects, settings, staging (sector 16) and tuning are never touched. Ba
   read back and compared. The browser simulator target follows the same order and uses the
   batch path. Compacting a sector that holds no live record is a plain erase (no staging
   pass), used by the full compaction pass and by the batch's free-sector choice.
+- (v0.5.1, checkpoint f) Liveness by reference (9.4) is implemented in the storage's
+  liveness scan: after a song's directory is built, the record's rows are read and only the
+  directory entries they reference count as live; `song_block_read` and playback still see
+  every record of the song. The device's record validation rejects a tempo override outside
+  30..300 (`SONG_INVALID`), the workbench's parser and the importer's decoder do the same.
+  The workbench's song write deletes an occupied slot first (one kind-5 download begin and
+  cancel to check, then the all-0xFF record); the simulator target does the same.

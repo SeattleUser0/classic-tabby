@@ -194,6 +194,7 @@
     song.name = String.fromCharCode(...r.subarray(24, 36));
     song.projectSlot = r[36]; song.loop = !!(r[37] & 1); song.jumpMode = r[37] & 2 ? 'row' : 'bar';
     song.tempo = v.getUint16(38, true); song.loopRow = r[42];
+    if (song.tempo && (song.tempo < LIMITS.tempoMin || song.tempo > LIMITS.tempoMax)) fail('song record tempo override ' + song.tempo + ' invalid (0 or 30..300)');   /* (f): as the device */
     song.outChannels = Array.from(r.subarray(LIMITS.channelsOffset, LIMITS.channelsOffset + 8), (c, t) => {
       if (c > 16) fail('song record track ' + (t + 1) + ' output channel byte ' + c + ' invalid (0..16)');
       return c ? c - 1 : null;

@@ -17,10 +17,9 @@
  *            or by the browser simulator). The write is the workbench's own path and no
  *            transfer code lives here: song record first (kind 5), then the blocks as
  *            kind-7 batches cut at the device's packing boundaries (section 9.6 v0.5), then
- *            the record is read back and compared (Library.songWrite). When the slot
- *            already holds a song it is deleted first (Library.songDelete) so every old
- *            block becomes garbage for compaction instead of staying live under an id the
- *            new song no longer uses.
+ *            the record is read back and compared (Library.songWrite). Since Task 03 (f)
+ *            that shared path deletes an occupied slot first (the song editor and this
+ *            importer behave alike); the wrapper only reports it.
  *
  *   Interface (every method returns a Promise):
  *     name                         'stub' | 'device'
@@ -32,9 +31,9 @@
  *                                    seconds, warnings }
  *     exists(slot)                 { empty: true | false | 'unknown', name, rows, blocks }
  *     write(slot, song, {progress, signal})   stub: validate + plan, returns the plan with
- *                                             sent:false; backend: deletes an occupied slot,
- *                                             writes (record, batches, read-back), returns the
- *                                             plan with sent:true, replaced and seconds
+ *                                             sent:false; backend: writes through the workbench
+ *                                             path (an occupied slot is deleted there first),
+ *                                             returns the plan with sent:true, replaced, seconds
  *     read(slot)                   stub: rejects; backend: the slot's song as a model, or null
  *
  *   Protocol cost model (for the estimate): the existing transfer path sends 64 payload
@@ -43,9 +42,11 @@
  *
  *   Loading: classic script (globalThis.TabbySongTransfer) and CommonJS.
  *
- * Version: 0.3
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-02  Task 03 (f): the delete-before-replace step moved into the workbench's
+ *                     song write; the wrapper reports `replaced` from the backend's result.
  *   v0.3  2026-11-02  Step 4: createBackend() on the workbench song backend (device or
  *                     simulator), kind-7 batch plan, delete-before-replace, read().
  *   v0.2  2026-11-02  Kind 6 target (song << 16) | id (section 9 v0.4, 16-bit block ids).
@@ -134,7 +135,7 @@
       get name() { return typeof name === 'function' ? name() : name; }, real: true,
       async describe() {
         return { songs: L.songs, rows: L.rowsPerSong, blocks: L.blocksPerSong, blockSectors: L.blockSectors, poolBytes: L.poolBytes, real: true,
-          note: 'Writes through the workbench song path: record first, then the blocks in kind-7 batches, then the record is read back; an occupied slot is deleted first.' };
+          note: 'Writes through the workbench song path: an occupied slot is deleted first, then the record, then the blocks in kind-7 batches, then the record is read back.' };
       },
       async validate(song) { return F.validate(song); },
       async plan(song, slot) { return planSong(F, song, slot, true); },
@@ -151,15 +152,16 @@
         signal?.throwIfAborted();
         const plan = await self.plan(song, slot);
         const backend = getBackend(p => progress(0.05 + 0.9 * p));
-        const was = await self.exists(slot);
-        if (was.empty === false) await backend.remove(slot);            /* delete before replace */
+        const was = await self.exists(slot);                            /* for the message only */
         signal?.throwIfAborted(); progress(0.05);
         const started = Date.now();
-        await backend.write(slot, plan.record.image, new Map(plan.blocks.map(b => [b.id, b.payload])));
+        /* The workbench path deletes an occupied slot first (Task 03 f), then writes. */
+        const done = await backend.write(slot, plan.record.image, new Map(plan.blocks.map(b => [b.id, b.payload])));
         const seconds = (Date.now() - started) / 1000;
+        const replaced = done && typeof done === 'object' && 'replaced' in done ? !!done.replaced : was.empty === false;
         progress(1);
-        return { ...plan, sent: true, slot, replaced: was.empty === false, seconds,
-          message: 'Written to ' + self.name + ' song ' + (slot + 1) + (was.empty === false ? ' (previous "' + was.name + '" deleted first)' : '') + ': record + ' +
+        return { ...plan, sent: true, slot, replaced, seconds,
+          message: 'Written to ' + self.name + ' song ' + (slot + 1) + (replaced ? ' (replaced "' + was.name + '", deleted first by the workbench)' : '') + ': record + ' +
             plan.blocks.length + ' block(s) in ' + plan.batches.length + ' batch(es), ' + plan.totalBytes + ' bytes, ' + seconds.toFixed(1) + ' s' +
             (self.name === 'device' ? '; record read back and verified.' : '.') };
       },

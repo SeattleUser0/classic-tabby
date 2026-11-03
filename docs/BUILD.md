@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.13
+Version: 0.14
 Revision log:
+- v0.14, 2026-11-02 (Task 03 checkpoint f): section 15: factory scenes out, delete-before-
+  replace in the shared song write, tempo range, liveness by reference; 13.4 step 12 (timing
+  against the stock sequencer); 14.5 step 5 wording.
 - v0.13, 2026-11-02 (Task 02 Step 4): section 14: MIDI import build notes folded from
   docs/tasks/TASK-02-notes.md, the Step 4 changes, the simulator check and the hardware
   checklist for the importer.
@@ -925,6 +928,20 @@ DATA IN FLASH" and song storage stays disabled: run step 2 before step 1 there.
     write the 137-block song: stopwatch from the click to "Song written and verified by
     read-back"; note where the audio dips (expected: only in the moment after each batch's
     last chunk, none while chunks stream). Record the time against section 13.3.
+12. **Timing: song mode against the stock pattern sequencer.** Same material both ways: a
+    one-track pattern of a C4 on every 16th at 120 BPM in the stock sequencer (SEQ page,
+    track 1, MIDI out on), and the same thing as a song (TICK from step 1 with repeat 8).
+    Record each on a MIDI monitor with millisecond timestamps (MIDI-OX, Pocket MIDI,
+    Protokol or the like) for at least 32 bars, through the same cable. For each
+    recording, take the note-on timestamps, subtract the first, and compute each note's
+    deviation from n × 125 ms. Report, for each: the mean deviation (a fixed offset), the
+    spread (max − min), and whether the deviation walks (drift) or stays within a band.
+    What the simulator predicts for song mode: a band of about 3 blocks (8.7 ms), no drift
+    over minutes, the mean about one block early relative to the ideal grid. The question
+    for you: is the stock sequencer's band the same (both run from the same per-block
+    clock, so it should be), and is song mode's deviation a fixed offset note to note or
+    does it vary within the band? Write both numbers down; if song mode's band is wider
+    than the stock sequencer's, tell me.
 
 ## 14. Task 02 — MIDI file import (folded from docs/tasks/TASK-02-notes.md at Step 4)
 
@@ -1093,8 +1110,70 @@ the_space_between_wires.mid (64 bars, 104 BPM, 117 blocks, 9 parts). Use spare s
    (strums snapped to their step, as the warning list said).
 5. **Re-import one file to the same slot and check free space after compaction.** Note
    "Storage status" (song editor) before: free F0, reclaimable R0. Write the same file to
-   the same slot again. See: the message says "(previous "NAME" deleted first)"; status now
-   shows reclaimable ≈ R0 + the song's block bytes (the first copy is garbage) and free
-   lower by the second copy. ACTIONS → COMPACT SONG STORAGE on the device, wait for
+   the same slot again. See: the song editor's confirm (or the importer's) warns that the
+   old song is deleted first and suggests a `.tabby` export; the message afterwards says
+   "(replaced "NAME", deleted first by the workbench)"; status now shows reclaimable ≈ R0 +
+   the song's block bytes (the first copy is garbage) and free lower by the second copy. ACTIONS → COMPACT SONG STORAGE on the device, wait for
    "COMPACTING STORAGE..." to clear. See: reclaimable back to R0 and free = F0 (one copy of
    the song in the pool, no leak), and the song still plays through.
+
+## 15. Task 03 — song mode, checkpoint (f) (2026-11-02)
+
+### 15.1 What changed
+
+1. **Factory scenes out.** `app/presets.c` v0.2 keeps only `groove_preset_drum_default()`
+   (the 808 kit a sampler track becomes); the sixteen scene recipes, the pattern generator,
+   the sixteen demo DX7 voices, `groove_factory_name` / `groove_factory_build` /
+   `groove_factory_load` (app/instrument.h, app/project.c) and the FACTORY bank of the HOME
+   preset browser (app/screen.c: no bank encoder, "USER PROJECTS" only, the position word's
+   bank bit is gone) are removed; `web/engine/Simulator.c` loses `sim_factory_*`; the
+   workbench simulator (sdk/Simulator.js, sdk/Update.html.in, sdk/I18n.js) loses the
+   factory picker and "export selected preset"; prev / next step through the USER slots of
+   the simulated flash. The scenes were exported from the checkpoint (e) build as
+   `web/scenes/NN-NAME.fm1` (16 project files, importable through the workbench's project
+   import). Found on the way and fixed: a V01 project with a sampler track failed
+   validation after the (a) conversion to the 808 kit because the preset kept its "8
+   sampler pads" byte; `groove_preset_drum_default` now clears it (host test 6 imports such
+   a project for real; the old test built a scene that no longer had a sampler part).
+2. **Delete-before-replace in the shared write path.** `Library.songWrite` (sdk/WebUpdate.js)
+   checks the slot with a kind-5 download begin and cancel, deletes an occupied slot
+   (`songDelete`), then record, batches, read-back; it returns `{record, replaced}`. The
+   simulator target (sdk/Simulator.js `song-write`) does the same. The song editor's confirm
+   says the old song is deleted first and suggests exporting a `.tabby`; the importer's
+   confirm and warning say the same, and its transfer wrapper (web/import/song-transfer.js
+   v0.4) no longer deletes on its own. Tests: tests/workbench/song-write.mjs (`make
+   workbench-test`, part of `make test`) runs the real `Library.songWrite` against a fake
+   device: command sequence for an empty and for an occupied slot, device state after the
+   replace, `songDelete`, tempo parse; the importer suite (128 checks) keeps passing with
+   its 11c expectations updated; host test 9 covers the device side (a replaced song's old
+   blocks reclaimable, one compaction back to one copy).
+3. **Tempo range.** `song_record_valid` rejects a tempo override outside 30..300 (0 stays
+   the project tempo), like a bad channel or step-length byte; `songRecordParse` (workbench)
+   and `decodeRecord` (importer) do the same. Host test 9: 29 and 301 rejected, 30, 300 and
+   0 accepted.
+4. **Liveness by reference** (assessment 9.4 v0.5.1). Without it, deleting before replacing
+   changed nothing for a song whose new blocks use other ids: the moment the new record was
+   valid, every old record of that song counted as live again (host test 9 showed exactly
+   that before the change). The storage's liveness scan now reads the record's rows after
+   building the song's directory and counts only referenced entries (a 256-byte bitmap of
+   directory entries). Compaction, the status reply and the batch's free-sector choice use
+   it; the directory and playback are unchanged.
+5. Hardware checklist 13.4 gains step 12 (timing against the stock sequencer); 14.5 step 5
+   wording follows the new confirm and message.
+
+### 15.2 Measured
+
+| Quantity | After (e) | After (f) |
+| --- | ---: | ---: |
+| App image (limit 453921) | 450980 | **447588** (margin **6333**) |
+| Static SRAM | 300340 | 299924 |
+| Runtime heap (min 49152) | 223276 | 223692 |
+
+The factory scenes gave back 3392 bytes net (presets.c 2664 → 22, project.c −736, screen.c
+−198, song_storage.c +212 for the liveness references and the tempo check); the 4 KB target
+of decision 1 is met again with 2237 bytes to spare. Track A and Track B byte-identical
+(`make crosscheck`: sdk.elf 099162a9…, .fwsc 2321722b…). `make test`: 112 host checks, the
+wasm smoke test and the workbench song-write test pass, no compiler warnings;
+`make midi-import-test` 128 checks; `make midi-import-sim` passes on the new wasm. The
+rebuilt preview loads in headless Chrome with no console errors, the factory picker gone,
+prev / next present, the import panel mounted.

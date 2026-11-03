@@ -202,9 +202,9 @@ static uint32_t health_output;
 static uint32_t health_at, health_underruns, health_dropped, health_adapted, health_dma;
 static int project_result;
 static unsigned project_reload, project_operation;
-static unsigned project_slot, project_factory, name_cursor;
-static unsigned preset_slot, preset_bank, preset_loaded;
-static unsigned preset_current_slot, preset_current_bank;
+static unsigned project_slot, name_cursor;
+static unsigned preset_slot, preset_loaded;   /* Task 03 f: USER slots only, no factory bank */
+static unsigned preset_current_slot;
 static uint32_t preset_project_revision;
 static unsigned seq_down;
 static uint32_t seq_ms;
@@ -215,19 +215,12 @@ static int project_stored_result;
 static uint32_t project_drawn_revision;
 static void project_refresh(void)
 {
-    if (project_factory) {
-        const char *name = groove_factory_name(project_slot);
-        memset(project_stored, ' ', 12);
-        if (name) memcpy(project_stored, name, strlen(name));
-        project_stored[12] = 0;
-        project_stored_result = name ? 0 : GROOVE_PROJECT_INVALID;
-    } else project_stored_result = groove_project_info(project_slot, project_stored);
+    project_stored_result = groove_project_info(project_slot, project_stored);
     project_drawn_revision = groove_project_revision();
 }
 static void preset_refresh(void)
 {
     project_slot = preset_slot;
-    project_factory = preset_bank;
     project_refresh();
 }
 static char edit_character(char old, int delta)
@@ -836,20 +829,18 @@ static __attribute__((noinline)) void project_draw(void)
 }
 static __attribute__((noinline)) void preset_draw(void)
 {
-    uint32_t sig = signature(preset_slot | (preset_bank << 8),
-                             project_stored, 12);
+    uint32_t sig = signature(preset_slot, project_stored, 12);
     sig = signature(sig, &project_result, sizeof project_result);
     if (cache->middle_cache == sig) return;
     cache->middle_cache = sig;
     erase(0, 30, 240, 210);
-    dim_text(8, 42, preset_bank ? "FACTORY PRESETS" : "USER PROJECTS");
+    dim_text(8, 42, "USER PROJECTS");   /* Task 03 f: no factory bank */
     number(8, 65, preset_slot + 1, 2, 2, ACCENT, BACK);
     text(38, 65, "/16", 2, DIM, BACK);
     text(8, 97, project_stored_result < 0 ? "READ ERROR" : project_stored, 2, TEXT, BACK);
     plain_text(8, 127, "SELECT / PRESETS LOAD");
     plain_text(8, 148, "PLAY LOAD + RUN   SAVE PROJECT");
     dim_text(8, 170, "PADS 1-16 LOAD DIRECTLY");
-    dim_text(8, 191, "K1 BANK: USER / FACTORY");
     color_text(8, 213, project_result == GROOVE_PROJECT_EMPTY ? "EMPTY SLOT - CHOOSE ANOTHER" :
          project_result ? "LOAD FAILED - CURRENT KEPT" : "HOME BACK   HOME+SAVE UNDO", project_result ? AMBER : DIM);
 }
@@ -1476,7 +1467,7 @@ static int release_keys(void) { return release_keys_except(0); }
  * Selecting a preset replaces the workspace without writing a project slot. */
 static int preset_load(unsigned start, uint32_t now)
 {
-    project_result = preset_bank ? groove_factory_load(preset_slot) : groove_project_load_slot(preset_slot);
+    project_result = groove_project_load_slot(preset_slot);
     if (project_result) { page = PRESET_BROWSER; return project_result; }
     unsigned channels = 0; uint32_t keep = 0;
     for (unsigned t = 0; t < GROOVE_TRACKS; ++t)
@@ -1491,7 +1482,7 @@ static int preset_load(unsigned start, uint32_t now)
     blocked_keys |= previous_keys & ~keep;
     preset_loaded = 1;
     preset_project_revision = groove_project_revision();
-    preset_current_slot = preset_slot; preset_current_bank = preset_bank;
+    preset_current_slot = preset_slot;
     writing = cursor = drum = 0; step_follow = 1;
     memset(drum_parts, 0, sizeof drum_parts);
     selected_note = groove_pad_count(track) ? groove_pad_note(track, 0) : 60;
@@ -1550,10 +1541,9 @@ void groove_screen_init(void)
     health_dma = dma.overruns; health_adapted = 0;
     project_result = 0;
     project_reload = project_operation = 0;
-    project_slot = project_factory = name_cursor = 0;
+    project_slot = name_cursor = 0;
     preset_slot = preset_loaded = 0;
-    preset_bank = 1;
-    preset_current_slot = 0; preset_current_bank = 1;
+    preset_current_slot = 0;
     seq_down = 0;
     arp_down = arp_long = 0;
     song_select = song_row_page = 0;
@@ -1830,7 +1820,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         page != SOURCE && page != ACTIONS) {
         project_return = page; page = PROJECT; project_result = 0;
         project_reload = project_operation = 0;
-        project_slot = groove_project_slot(); project_factory = name_cursor = 0;
+        project_slot = groove_project_slot(); name_cursor = 0;
         glo_down = 0; project_refresh();
         goto controls_done;
     }
@@ -1855,7 +1845,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                                         0, GROOVE_PROJECT_SLOTS - 1);
         if (!preset_loaded || slot != preset_current_slot) {
             struct groove_view view; groove_get_view(track, cursor, &view);
-            preset_slot = slot; preset_bank = preset_current_bank; preset_refresh();
+            preset_slot = slot; preset_refresh();
             preset_load(view.playing, now);
         }
         goto controls_done;
@@ -1863,7 +1853,6 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     if (page == PRESET_BROWSER) {
         play_handled = 1;
         int delta = controls->encoders[0] + controls->encoders[6];
-        unsigned bank = (unsigned)clamp((int)preset_bank + controls->encoders[2], 0, 1);
         unsigned slot = (unsigned)clamp((int)preset_slot + delta, 0, GROOVE_PROJECT_SLOTS - 1);
         unsigned load = 0, start = 0;
         for (unsigned i = 0; i < 16; ++i)
@@ -1871,8 +1860,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 struct groove_view view; groove_get_view(track, cursor, &view);
                 slot = i; load = 1; start = view.playing;
             }
-        if (bank != preset_bank || slot != preset_slot) {
-            preset_bank = bank; preset_slot = slot; project_result = 0;
+        if (slot != preset_slot) {
+            preset_slot = slot; project_result = 0;
             preset_refresh();
             struct groove_view view; groove_get_view(track, cursor, &view);
             load = 1; start = view.playing;
@@ -2013,7 +2002,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 project_refresh();
             }
             name_cursor = (unsigned)clamp((int)name_cursor + controls->encoders[2], 0, 11);
-            if (controls->encoders[3] && !project_factory) {
+            if (controls->encoders[3]) {
                 char name[13];
                 groove_project_name(name);
                 groove_project_rename(name_cursor, edit_character(name[name_cursor], controls->encoders[3]));
@@ -2510,13 +2499,13 @@ int groove_screen_preset(unsigned slot)
 {
     if (slot >= GROOVE_PROJECT_SLOTS) return GROOVE_PROJECT_INVALID;
     struct groove_view view; groove_get_view(track, cursor, &view);
-    preset_slot = slot; preset_bank = 1; preset_refresh();
+    preset_slot = slot; preset_refresh();
     return preset_load(view.playing, fm1_millis());
 }
 unsigned groove_screen_preset_position(void)
 {
     unsigned current = preset_loaded && preset_project_revision == groove_project_revision();
-    return preset_current_slot | (preset_current_bank << 8) | (current << 9);
+    return preset_current_slot | (current << 9);   /* bit 8 (factory bank) is gone (Task 03 f) */
 }
 /* Web shortcuts enter the same editor and use the same parameter handlers. */
 int groove_screen_open(unsigned target)

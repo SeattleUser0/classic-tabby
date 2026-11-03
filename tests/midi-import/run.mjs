@@ -298,7 +298,7 @@ const produced = [];
     const fake = progress => ({
       exists: async slot => store.get(slot)?.record ?? null,
       remove: async slot => { log.push('remove ' + slot); store.delete(slot); },
-      write: async (slot, record, blocks) => { log.push('write ' + slot + ' record then ' + blocks.size + ' blocks'); store.set(slot, { record, blocks }); progress?.(1); },
+      write: async (slot, record, blocks) => { const replaced = store.has(slot); log.push('write ' + slot + ' record then ' + blocks.size + ' blocks'); store.set(slot, { record, blocks }); progress?.(1); return { replaced }; },
       read: async slot => store.get(slot) ?? null,
       status: async () => ({ free: 391296, reclaimable: 0, state: 0 }),
     });
@@ -311,7 +311,9 @@ const produced = [];
     check(e.empty === false && e.rows === song.rows.length && e.blocks === new Set(song.rows.flatMap(r => r.blocks).filter(Boolean)).size && e.name === song.name.trim(), 'backend: occupied slot reports name, rows, distinct blocks', JSON.stringify(e));
     log.length = 0;
     const second = await dev.write(3, song, {});
-    check(second.replaced && same(log, ['remove 3', 'write 3 record then ' + song.blocks.length + ' blocks']) && /deleted first/.test(second.message), 'backend: rewrite deletes the slot first, then writes', log.join('; '));
+    check(second.replaced && same(log, ['write 3 record then ' + song.blocks.length + ' blocks']) && /deleted first by the workbench/.test(second.message), 'backend: rewrite goes through the workbench write only (which deletes first); no delete of its own', log.join('; '));
+    const img = Format.encodeRecord(song); img[38] = 20; img[39] = 0; new DataView(img.buffer).setUint32(12, Format.crc32(img.subarray(20, 2624)), true);
+    check(throws(() => Format.decodeRecord(img), /tempo override 20/), 'format: tempo override 20 rejected on decode (as the device does)');
     const back = await dev.read(3);
     check(back && same(Format.encodeFile(back), Format.encodeFile(song)), 'backend: read() returns the written song (identical .tabby bytes)');
     const plan = await dev.plan(bigSong, 0);

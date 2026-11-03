@@ -1,7 +1,10 @@
 # Classic Tabby — Specification
 
-Version: 0.9
+Version: 0.10
 Revision log:
+- v0.10, 2026-11-02: section 6: checkpoint (f) done (factory scenes out, delete-before-replace
+  in the shared song write, tempo range enforced, liveness by reference); section 7 updated
+  to the shared write path; known limits updated.
 - v0.9, 2026-11-02: section 7 added: Task 02 MIDI import (scope, workbench write path,
   mapping rules, layout, differences found at the Step 4 rebase, known limits), folded from
   docs/tasks/TASK-02-notes.md.
@@ -231,6 +234,22 @@ Checkpoints and status:
   target of decision 1 by 1155 bytes**; candidates in FLASH-BUDGET.md section 8.1, the
   choice is open. Host tests cover packing, superseding, rejected streams, both power-cut
   recoveries and playback from batch blocks (tests/host/smoke.c v0.4, 109 checks).
+- **(f) done, 2026-11-02:** the sixteen factory scenes and everything that only served
+  them are out (app/presets.c keeps the 808 default kit; HOME lists USER projects only;
+  the workbench simulator's factory picker and export are gone, prev / next step through
+  the USER slots). The scenes survive as project files in web/scenes/ (exported from the
+  checkpoint (e) build, importable like any backup). Delete-before-replace moved into the
+  workbench's shared song write (Library.songWrite and the simulator target): the song
+  editor and the MIDI importer both delete an occupied slot first and warn beforehand,
+  suggesting a `.tabby` export. The device rejects a song record whose tempo override is
+  outside 30..300 (0 = project tempo), the workbench parser and the importer decoder too.
+  Liveness is now by reference (assessment 9.4 v0.5.1): a block no row uses is garbage for
+  compaction, so a replaced song never leaks pool space. A latent (a) bug fixed on the
+  way: a V01 project with a sampler track failed validation after its conversion to the
+  808 kit (the sampler-pad count stayed 8). App image 447588 bytes, **margin 6333 bytes**,
+  the 4 KB target met again. Host tests: 112 checks (section 9: tempo range, replace via
+  delete, compaction back to one copy); workbench test (tests/workbench/song-write.mjs)
+  for the shared write path.
 
 Formats: section 9 of the assessment, **v0.5** (96c9058): v0.4 (2d4ef83: 16-bit block ids,
 20-byte rows at offset 64, song body CRC over bytes 20..2623, 6-byte block record headers,
@@ -257,9 +276,9 @@ Known limits (v1):
   programs instead of 3 erases and 3 programs per block, so the pauses are fewer and
   clustered at the end of each batch; the chunk phase touches no flash. Uploads are not
   a performance-time operation. Estimated times: BUILD.md section 13.3.
-- A block stays live while its song's record is valid and it is the newest copy of its
-  (song, id), whether or not a row still references it (assessment 9.4). Blocks a rewrite
-  no longer uses are reclaimed only when the song is deleted (then compacted).
+- A block no row of its song references is garbage (9.4 v0.5.1) but keeps its bytes until
+  the next compaction ("COMPACT SONG STORAGE", or the compaction a full pool triggers), so
+  "free" in the status reply rises only after that.
 - The device does not check the 2048-live-blocks-per-song limit at upload time; a song
   over it loads with "TOO MANY BLOCKS" and never plays partially.
 - Note editing is in the workbench only (decision 5); the device shows the row's block ids
@@ -316,12 +335,13 @@ backend (`songBackend()` in sdk/Update.html.in), which is the Library class for 
 device or the browser simulator, following the editor's "target" choice:
 
 1. the slot is checked (kind 5 download of the record only, no blocks);
-2. an occupied slot is **deleted first** (`Library.songDelete`), so every old block becomes
-   garbage for compaction instead of staying live under an id the new song no longer uses
-   (Task 03 liveness rule, 9.4);
-3. the song is written by `Library.songWrite`: the song record first, then the blocks in
-   kind-7 batches cut at the device's packing boundaries (section 9.6 v0.5), then the record
-   is read back and compared;
+2. the song is written by `Library.songWrite`, which since checkpoint (f) deletes an
+   occupied slot first (the same rule for the song editor), then uploads the song record,
+   then the blocks in kind-7 batches cut at the device's packing boundaries (section 9.6
+   v0.5), then reads the record back and compares; the importer's wrapper only reports
+   the replacement;
+3. the replace warning (song editor and importer) says the old song is deleted first and
+   suggests exporting a `.tabby` of it;
 4. the panel shows the elapsed time, the batch plan and the replace note.
 
 With firmware before checkpoint (e) (capability bit 3 clear) the Library class falls back
@@ -411,9 +431,9 @@ at the rebase (Step 4), none of them a byte-layout difference:
 - Transfer: the merged workbench writes the record first and the blocks as kind-7 batches
   (v0.5); the importer's stub planned the v0.4 order (record then kind-6 blocks). The
   importer now uses the workbench path and only plans the batch cut for its estimate.
-- Liveness (9.4): a block stays live while its song's record is valid, whether or not a row
-  references it, so a rewrite that renumbers blocks leaks pool space until the song is
-  deleted. The importer deletes an occupied slot before writing.
+- Liveness (9.4): at the rebase a block stayed live while its song's record was valid,
+  whether or not a row referenced it. Checkpoint (f) changed the rule to liveness by
+  reference (9.4 v0.5.1) and moved delete-before-replace into the shared workbench write.
 - Capability reply bit 3 and command 23 bytes 9..12 are new; the importer reads neither
   (the Library class does).
 - Validation: the device does not range-check the tempo override (any 16-bit value); the

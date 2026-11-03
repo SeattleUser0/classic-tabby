@@ -17,7 +17,10 @@
 #     make web               web workbench local preview (Linux WASI SDK 27) into
 #                            build/preview/index.html                      [Step 6]
 #     make test              host tests: native gcc build of the app + simulator sources
-#                            with FM1_HOST_TEST, plus a Node check of the wasm   [Step 7]
+#                            with FM1_HOST_TEST, a Node check of the wasm, and the
+#                            workbench song-write test                           [Step 7]
+#     make workbench-test    Node test of the workbench's shared song write path
+#                            (sdk/WebUpdate.js Library.songWrite on a fake device) [Task 03 f]
 #     make midi-import-test  Node tests of the MIDI importer (web/import, tests/midi-import)
 #                            against the generated fixture .mid files        [Task 02 MIDI]
 #     make midi-import-sim   plays an imported Renoise export through build/web/simulator.wasm
@@ -47,9 +50,10 @@
 #       make firmware JIELI_LINUX=/opt/jieli
 #       make firmware-ref WINEPREFIX=$HOME/.wine-jieli
 #
-# Version: 0.6
+# Version: 0.7
 #
 # Revision log
+#   v0.7  2026-11-02  Task 03 (f): workbench-test target, part of test.
 #   v0.6  2026-11-02  Task 02 Step 4: midi-import-sim target (Node, needs build/web/simulator.wasm).
 #   v0.5  2026-11-02  Task 02 (MIDI import): midi-import-test target (Node, no build needed).
 #   v0.4  2026-11-02  Task 02: package, hosted, release-assets, publish and release targets;
@@ -99,7 +103,7 @@ NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
-        package hosted release-assets publish release clean midi-import-test midi-import-sim
+        package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -111,7 +115,7 @@ HOST_FLAGS := -std=c11 -O1 -g -fwrapv -fno-fast-math -ffp-contract=off -DFM1_HOS
               -Iweb/engine -Iweb/synth -Ithird_party/synth -Isdk/include -Iapp/synth -Iapp
 
 help:
-	@sed -n '7,47p' Makefile | sed 's/^#   //; s/^#//'
+	@sed -n '7,51p' Makefile | sed 's/^#   //; s/^#//'
 
 verify:
 	$(PYTHON) -I $(BUILD) --verify-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
@@ -151,8 +155,12 @@ build/host/smoke: tests/host/smoke.c $(HOST_SRCS)
 host-smoke: build/host/smoke
 	./build/host/smoke
 
-test: host-smoke web-smoke
-	@echo "test: host-smoke and web-smoke passed"
+# Task 03 (f): the workbench's shared song write path (Node, no build needed).
+workbench-test:
+	$(NODE) tests/workbench/song-write.mjs
+
+test: host-smoke web-smoke workbench-test
+	@echo "test: host-smoke, web-smoke and workbench-test passed"
 
 # Task 02 (MIDI import): pure Node, no toolchain. Regenerates the fixture files first.
 midi-import-test:

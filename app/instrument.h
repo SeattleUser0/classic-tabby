@@ -232,12 +232,8 @@ void groove_project_metadata(const struct groove_project *p); /* audio gate held
 /* File transfers use the current working project, without writing Flash. */
 int groove_project_import(const uint8_t *bytes, unsigned length);
 int groove_project_export(uint8_t *bytes, unsigned capacity);
-/* Read-only factory projects. Building only writes the caller's
- * snapshot; loading changes RAM and supports undo, never writes user slots. */
-enum { GROOVE_FACTORY_PROJECTS = 16 };
-const char *groove_factory_name(unsigned index);
-int groove_factory_build(unsigned index, struct groove_project *project);
-int groove_factory_load(unsigned index);
+/* Classic Tabby (Task 03 f): the read-only factory projects are gone (web/scenes/ holds
+ * them as project files); HOME lists the USER slots only. */
 /* Bluetooth master preserves audio preference and MIDI role while disabled. */
 enum { GROOVE_RADIO_ON = 1, GROOVE_RADIO_AUDIO = 2, GROOVE_RADIO_MIDI = 4,
        GROOVE_RADIO_ALL = 7 };

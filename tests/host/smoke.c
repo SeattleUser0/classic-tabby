@@ -27,14 +27,21 @@
  *        a V01 sample bank magic at 69632 and a DX7 library bank magic at 516096 are
  *        detected as OLD_DATA (2 sectors); the confirmed erase clears exactly those
  *        sectors and leaves the project area and the tuning sector untouched;
- *     6. a factory scene that used the sampler loads with no GROOVE_SAMPLE track.
+ *     6. a project with a sampler track loads with no GROOVE_SAMPLE track (808 instead).
+ *   Task 03 checkpoint (f) (v0.5):
+ *     9. a song record's tempo override outside 30..300 is rejected (0 stays valid), and a
+ *        song replaced through delete-then-write leaves the old blocks reclaimable, so one
+ *        compaction brings the pool back to one copy.
  *
  *   Build and run through the Makefile:  make test   (or make host-smoke)
  *   Exit status is the number of failed checks (0 = pass).
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-02  Task 03 (f): section 6 builds its sampler project from the workspace
+ *                     (the factory scenes are gone); section 9: tempo range, replace via
+ *                     delete, compaction back to one copy.
  *   v0.4  2026-11-02  Task 03 (e): section 8, batched block upload: packing, superseding,
  *                     rejected streams, power-cut recovery before and after the commit,
  *                     playback from batch blocks, plain-erase compaction.
@@ -64,7 +71,7 @@ const void *sim_lcd_targets(void);
 uint8_t *sim_flash(void);
 unsigned sim_song_storage_state(void);
 int sim_song_storage_initialize(void);
-int sim_factory_project(unsigned index);
+int sim_export(void);
 int sim_import(unsigned bytes);
 int sim_song_record_read(unsigned song);
 int sim_song_record_write(unsigned song);
@@ -222,18 +229,26 @@ int main(void)
         CHECK(!memcmp(flash + TUNING, "TUNE", 4), "tuning sector above the region untouched");
         CHECK(sim_song_storage_initialize() != 0, "erase refused when nothing is old");
     }
-    /* ---- 6. sampler removal: factory scene with a former sampler part ------------------- */
+    /* ---- 6. sampler removal: a V01 project with a sampler track loads on the 808 --------- */
     {
-        /* Scene 0 "NEON KEYS" used SA(BEAT) in V01; it must load as an 808 track now. */
-        int r = sim_factory_project(0);
-        CHECK(r == 0, "factory scene 0 built (%d)", r);
-        r = sim_import(4064);
-        CHECK(r == 0, "factory scene 0 imported into the simulator (%d)", r);
+        /* Export the workspace project, mark track 0 as GROOVE_SAMPLE (type byte at offset
+         * 2048 of the 4064-byte image: preset[0].type) and import it back: the sampler is
+         * gone (Task 03 a), so the track must come back as an 808 kit. (Checkpoint (f): the
+         * factory scene this test used to build is gone too; see web/scenes/.) */
+        uint8_t *f = sim_file();
+        int r = sim_export();
+        CHECK(r == 0, "workspace project exported (%d)", r);
+        /* preset[0] becomes a bare sampler preset: type GROOVE_SAMPLE, volume 100, 8 pads,
+         * zeroed parameters (the validator checks the sampler parameter ranges). */
+        memset(f + 2048, 0, 223); f[2048] = 5; f[2048 + 1] = 100; f[2048 + 222] = 8;
+        memset(f, 0, 256);                /* track 0's 64 step cells: a drum track holds pad masks */
+        r = sim_import(4064);             /* the bare project; the exported tuning block is not needed */
+        CHECK(r == 0, "project with a sampler track imported into the simulator (%d)", r);
         const uint8_t *st8 = sim_state();
-        unsigned sampler = 0, drums = 0;
-        for (unsigned t = 0; t < 8; ++t) { sampler |= st8[8 + t * 20] == 5; drums |= st8[8 + t * 20] == 2; }
+        unsigned sampler = 0;
+        for (unsigned t = 0; t < 8; ++t) sampler |= st8[8 + t * 20] == 5;
         CHECK(!sampler, "no track uses the sampler source");
-        CHECK(drums, "the beat part plays on the 808");
+        CHECK(st8[8] == 2, "the former sampler track plays on the 808 (source %u)", st8[8]);
     }
 
     /* ---- 7. song storage and playback (Task 03 d) --------------------------------------- */
@@ -336,8 +351,14 @@ int main(void)
     {
         enum { REGION = 69632, BLOCKS = REGION + 17 * 4096, POOL = 96 * 4076, FULL = 832, REC = 840 };
         uint8_t *flash = sim_flash(), *f = sim_file(), *s = sim_batch_buffer();
-        /* Song 1 record first (9.6 v0.5), one row: track 0 plays block 10. */
-        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "BATCH TEST  ", 12); f[40] = 1; f[64] = 10; f[64 + 16] = 1; f[64 + 18] = 16;
+        /* Song 1 record first (9.6 v0.5): row 0 plays blocks 10..17 on tracks 1..8, row 1
+         * blocks 18..21 on tracks 1..4 (20 and 21 arrive later; a record may reference blocks
+         * that are still to come). Since (f) a block only a row references is live. */
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "BATCH TEST  ", 12); f[40] = 2;
+        for (unsigned t = 0; t < 8; ++t) f[64 + 2 * t] = (uint8_t)(10 + t);
+        f[64 + 16] = 1; f[64 + 18] = 16;
+        for (unsigned t = 0; t < 4; ++t) f[84 + 2 * t] = (uint8_t)(18 + t);
+        f[84 + 16] = 1; f[84 + 18] = 16;
         CHECK(sim_song_record_write(1) == 0, "song 1 record written before its blocks");
         /* Ten full-size blocks (64 steps x 4 notes = 832 bytes, 840 per record): four fit a
          * sector, so the stream must pack into three sectors (4 + 4 + 2). Ids 10..19. */
@@ -448,6 +469,40 @@ int main(void)
         unsigned formatted = 0;
         for (unsigned b = 0; b < 96; ++b) if (!memcmp(flash + BLOCKS + b * 4096, "FM1B", 4)) ++formatted;
         CHECK(r == 0 && formatted == 0 && sim_song_free() == POOL, "compaction erased every garbage-only sector (%d, %u left, free %u)", r, formatted, sim_song_free());
+    }
+
+    /* ---- 9. checkpoint (f): tempo range and delete-before-replace ----------------------- */
+    {
+        uint8_t *f = sim_file();
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "TEMPO TEST  ", 12); f[40] = 1; f[64 + 16] = 1;
+        f[38] = 29; CHECK(sim_song_record_write(4) == -7, "tempo override 29 rejected");
+        f[38] = 301 & 255; f[39] = 301 >> 8; CHECK(sim_song_record_write(4) == -7, "tempo override 301 rejected");
+        f[38] = 30; f[39] = 0; CHECK(sim_song_record_write(4) == 0, "tempo override 30 accepted");
+        f[38] = 300 & 255; f[39] = 300 >> 8; CHECK(sim_song_record_write(4) == 0, "tempo override 300 accepted");
+        f[38] = 0; f[39] = 0; CHECK(sim_song_record_write(4) == 0, "tempo override 0 (project tempo) accepted");
+        CHECK(sim_song_record_delete(4) == 0, "tempo test song deleted");
+        /* Replacing a song the way the workbench's song write does since (f): delete, then
+         * write. Song 5 (A) has blocks 1 and 2; B uses block 3 only. After the delete A's
+         * blocks are garbage (reclaimable), B's block is live, and one compaction leaves the
+         * pool with one copy: free = A's free + 152 (A's two records) - 76 (B's one). */
+        uint8_t blk[67]; memset(blk, 0, sizeof blk); blk[0] = 1; blk[1] = 60; blk[2] = 100; blk[3] = 1;
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "REPLACE A   ", 12); f[40] = 1; f[64] = 1; f[66] = 2; f[64 + 16] = 1;
+        CHECK(sim_song_record_write(5) == 0, "song 5 (A) record written");
+        memcpy(f, blk, sizeof blk);
+        CHECK(sim_block_write(5, 1, sizeof blk) == 0 && sim_block_write(5, 2, sizeof blk) == 0, "song 5 (A) blocks 1 and 2 stored");
+        uint32_t free_a = sim_song_free();
+        CHECK(sim_song_reclaimable() == 0, "nothing reclaimable while A is live");
+        CHECK(sim_song_record_delete(5) == 0, "song 5 deleted before the replacement");
+        CHECK(sim_song_reclaimable() == 2 * 76, "A's two blocks are garbage after the delete (%u)", sim_song_reclaimable());
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "REPLACE B   ", 12); f[40] = 1; f[64] = 3; f[64 + 16] = 1;
+        CHECK(sim_song_record_write(5) == 0, "song 5 (B) record written");
+        memcpy(f, blk, sizeof blk);
+        CHECK(sim_block_write(5, 3, sizeof blk) == 0, "song 5 (B) block 3 stored");
+        CHECK(sim_song_reclaimable() == 2 * 76, "A's blocks stay reclaimable under B (%u)", sim_song_reclaimable());
+        int r = sim_song_compact();
+        CHECK(r == 0 && sim_song_reclaimable() == 0 && sim_song_free() == free_a + 76, "one compaction leaves one copy (free %u, expected %u)", sim_song_free(), free_a + 76);
+        CHECK(sim_block_read(5, 3) == 67 && sim_block_read(5, 1) < 0, "B's block is live, A's block is gone");
+        CHECK(sim_song_record_delete(5) == 0, "song 5 deleted");
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);
