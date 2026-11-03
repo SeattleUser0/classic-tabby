@@ -265,6 +265,12 @@ EXPORT("sim_block_read") int sim_block_read(unsigned song, unsigned id)
     int r = song_block_read(song, id, file_buffer, &bytes);
     return r ? (r > 0 ? -1 : r - 100) : (int)bytes;
 }
+/* Task 03 e: a batch stream (transfer kind 7, up to SONG_BATCH_BYTES) has its own buffer;
+ * file_buffer is too small. The result is song_block_batch()'s (0, or negative). */
+static uint8_t batch_buffer[SONG_BATCH_BYTES];
+EXPORT("sim_batch_buffer") uint8_t *sim_batch_buffer(void) { return batch_buffer; }
+EXPORT("sim_block_batch") int sim_block_batch(unsigned song, unsigned bytes)
+{ return bytes <= sizeof batch_buffer ? song_block_batch(song, batch_buffer, bytes) : SONG_INVALID; }
 EXPORT("sim_song_free") uint32_t sim_song_free(void)
 { uint32_t f = 0, r = 0; (void)song_storage_status(&f, &r); return f; }
 EXPORT("sim_song_reclaimable") uint32_t sim_song_reclaimable(void)

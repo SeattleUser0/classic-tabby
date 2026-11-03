@@ -648,7 +648,7 @@
     }
     async disconnect(){if(this.link)await this.link.close();this.link=null;this.projectBytes=0;this.tuningBytes=0;}
     async extensions(){
-      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;
+      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;this.songBatch=false;
       try {
         const info=await this.query(21);
         check(info.length===7&&(info[0]&~1)===0&&le(info,1,2)===4264&&le(info,3,4)===462848,'设备文件长度无效');
@@ -657,8 +657,8 @@
       try {
         const info=await this.query(22);
         // Classic Tabby (Task 03 a): a device may report no DX7 library (0 banks) and no sample bank (limit 0).
-        check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~7)===0,'设备扩展能力回复无效');
-        this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);this.songStorage=!!(info[8]&4);
+        check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~15)===0,'设备扩展能力回复无效');
+        this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);this.songStorage=!!(info[8]&4);this.songBatch=!!(info[8]&8);
       } catch(error){if(error.deviceCode!==71)throw error;}
     }
     projectPayload(bytes){
@@ -724,6 +724,15 @@
         const c=crc32(bytes);await this.query(5,[c&255,(c>>>8)&255,(c>>>16)&255,c>>>24]);
       } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
     }
+    // Batched block upload (Task 03 e, transfer kind 7, 9.9 v0.5): one stream of block records
+    // lands in whole block sectors under one journal commit, or not at all.
+    async uploadBatch(song,stream){
+      try {
+        await this.query(3,[7,song,stream.length&255,stream.length>>8]);
+        for(let at=0;at<stream.length;at+=64)await this.query(4,[at&255,at>>8,...stream.slice(at,at+64)]);
+        const c=crc32(stream);await this.query(5,[c&255,(c>>>8)&255,(c>>>16)&255,c>>>24]);
+      } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
+    }
     async songRead(song,progress=()=>{}){
       check(this.songStorage,'请先更新固件以使用歌曲模式');
       let record;try{record=await this.download(5,song);}catch(error){if(error.deviceCode===1)return null;throw error;}
@@ -733,8 +742,11 @@
     }
     async songWrite(song,record,blocks,progress=()=>{}){
       check(this.songStorage,'请先更新固件以使用歌曲模式');songRecordParse(record);
-      const list=[...blocks];for(let i=0;i<list.length;i++){await this.uploadBlock(song,list[i][0],list[i][1]);progress((i+1)/(list.length+1));}
-      await this.upload(5,song,record);
+      // Section 9.6 v0.5: the record goes first so its blocks are live the moment they land,
+      // then the blocks in kind-7 batches (firmware with checkpoint e) or one by one (kind 6).
+      await this.upload(5,song,record);progress(0.05);
+      if(this.songBatch){const batches=songBatches(blocks);for(let i=0;i<batches.length;i++){await this.uploadBatch(song,batches[i]);progress(0.05+0.9*(i+1)/batches.length);}}
+      else {const list=[...blocks];for(let i=0;i<list.length;i++){await this.uploadBlock(song,list[i][0],list[i][1]);progress(0.05+0.9*(i+1)/list.length);}}
       const saved=await this.download(5,song);
       check(saved.subarray(20,SONG_BODY).every((v,i)=>v===record[20+i]),'歌曲读回校验不一致，请重试');
       progress(1);return saved;
@@ -912,8 +924,24 @@
       blocks.set(id,payload);at+=6+len;at+=(4-at%4)%4;}
     return {record,blocks};
   }
+  // Batches for transfer kind 7 (9.9 v0.5): the records cut at the device's packing boundaries
+  // (greedy first fit into 4076-byte record areas, a record never splits), at most 8 sectors =
+  // 32608 bytes per batch, so the upload packs exactly as one giant batch would.
+  const BATCH_AREA=4076,BATCH_SECTORS=8;
+  function songBatches(blocks){
+    const batches=[],flush=(parts,total)=>{const out=new Uint8Array(total);let at=0;for(const p of parts){out.set(p,at);at+=p.length;}batches.push(out);};
+    let parts=[],total=0,fill=0,sectors=1;
+    for(const [id,payload] of blocks){
+      const size=6+payload.length+(4-(6+payload.length)%4)%4;
+      if(fill+size>BATCH_AREA){if(sectors===BATCH_SECTORS){flush(parts,total);parts=[];total=0;sectors=0;}sectors++;fill=0;}
+      const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=0;put16(rec,2,id);put16(rec,4,payload.length);rec.set(payload,6);
+      parts.push(rec);total+=size;fill+=size;
+    }
+    if(parts.length)flush(parts,total);
+    return batches;
+  }
   function songBlockIds(song){const ids=new Set();for(const row of song.rows)for(const id of row.block)if(id)ids.add(id);return ids;}
   globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,Updater,
-    songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadBuild,songStepText,songStepParse,tabbyFile,readTabbyFile,songBlockIds,
+    songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadBuild,songStepText,songStepParse,tabbyFile,readTabbyFile,songBlockIds,songBatches,
     crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library};
 })();

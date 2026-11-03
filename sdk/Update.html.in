@@ -286,7 +286,7 @@ main{max-width:1440px}
 <div id="song-steps" class="track-grid"></div>
 <p id="song-blocks" class="sim-help"></p>
 </div>
-<small>写入歌曲会把编辑器中的全部块追加到设备（旧副本在设备 ACTIONS → COMPACT SONG STORAGE 时回收），然后写入歌曲记录并读回校验。恢复原厂 V16 会覆盖歌曲存储的最后 40 KB（块扇区 86–95），请先导出歌曲。</small>
+<small>写入歌曲会先写入歌曲记录，再把编辑器中的全部块分批写入设备（每批最多 8 个扇区，一次提交；旧副本在设备 ACTIONS → COMPACT SONG STORAGE 时回收），最后读回校验。写入期间设备音频会短暂中断。恢复原厂 V16 会覆盖歌曲存储的最后 40 KB（块扇区 86–95），请先导出歌曲。</small>
 </details>
 </details>
 </section>

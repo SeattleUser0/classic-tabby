@@ -85,9 +85,20 @@
             break;
           }
           case 'song-write': {
+            // Task 03 e (9.6 v0.5): the record first, then the blocks as kind-7 batches cut at the
+            // device's packing boundaries (4076-byte record areas, 8 sectors per batch), as the
+            // workbench does against a device.
             const song=message.song>>>0;
-            for(const [id,payload] of message.blocks){new Uint8Array(c.memory.buffer,c.sim_file(),payload.length).set(payload);result=c.sim_block_write(song,id,payload.length);if(result)break;}
-            if(!result){new Uint8Array(c.memory.buffer,c.sim_file(),4096).set(message.record);result=c.sim_song_record_write(song);}
+            new Uint8Array(c.memory.buffer,c.sim_file(),4096).set(message.record);result=c.sim_song_record_write(song);
+            const batches=[];let parts=[],total=0,fill=0,sectors=1;
+            for(const [id,payload] of message.blocks){
+              const size=6+payload.length+(4-(6+payload.length)%4)%4;
+              if(fill+size>4076){if(sectors===8){batches.push([parts,total]);parts=[];total=0;sectors=0;}sectors++;fill=0;}
+              const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=0;rec[2]=id&255;rec[3]=id>>8;rec[4]=payload.length&255;rec[5]=payload.length>>8;rec.set(payload,6);
+              parts.push(rec);total+=size;fill+=size;
+            }
+            if(parts.length)batches.push([parts,total]);
+            for(const [list,bytes] of batches){if(result)break;const buf=new Uint8Array(c.memory.buffer,c.sim_batch_buffer(),bytes);let at=0;for(const p of list){buf.set(p,at);at+=p.length;}result=c.sim_block_batch(song,bytes);}
             break;
           }
           case 'song-delete': result=c.sim_song_record_delete(message.song>>>0); break;

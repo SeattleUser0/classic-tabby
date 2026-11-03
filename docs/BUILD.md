@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.11
+Version: 0.12
 Revision log:
+- v0.12, 2026-11-02 (Task 03 checkpoint e): section 13: batched block upload (transfer
+  kind 7), measured figures, upload time estimate, hardware checklist for the first flash.
 - v0.11, 2026-11-02 (Task 03 checkpoint d): section 12: song mode (storage, sequencer,
   transfer, SONG page, workbench editor); measured figures; host test v0.3.
 - v0.10, 2026-11-02 (Task 03 checkpoint b): section 11: DX7 operator editor pages and the
@@ -748,3 +750,175 @@ hidden, 149 LCD targets and the page-19 shortcut present.
    that row (OCT pages rows 17..128), PLAY stops. The song's output channels apply while it
    plays and the device channels return afterwards.
 3. "COMPACT SONG STORAGE" (ACTIONS) reclaims stale block copies after rewrites.
+
+## 13. Task 03 — song mode, checkpoint (e): batched block upload (2026-11-02)
+
+### 13.1 What changed
+
+Formats: docs/tasks/TASK-03-step1-assessment.md section 9 **v0.5** (96c9058, doc commit on
+its own): transfer kind 7, the batch journal, the pending marker, capability bit 3, the
+record-first upload order. Block, row, song record and `.tabby` layouts unchanged.
+
+- `app/song_storage.c` / `.h` v0.3: `song_block_batch(song, stream, bytes)`. The stream
+  (block records as in the `.tabby` file, up to 32768 bytes) is validated in full, packed
+  in order into whole block sectors (a record never splits; at most 10 sectors), the
+  sectors are chosen among the free ones (erased, or holding no live record; lowest
+  first), each is erased once and programmed with header byte 5 = 0xFF ("pending"), then
+  the journal (`FM1Q`: version, sector count, song, first generation, CRC, sector list)
+  goes into the staging sector with the commit word, and byte 5 of every batch sector is
+  programmed to 0 (a one-byte 1→0 write). `song_storage_prepare` finishes a committed
+  journal and erases pending sectors nobody committed, at boot and before every write;
+  the boot scan marks pending sectors and keeps them invisible. A failed batch leaves its
+  sectors marked pending in the cache and the next prepare erases them (no separate
+  cleanup path). Compacting a sector with no live record is now a plain erase.
+- `app/transfer.c`: kind 7 in `transfer_begin` (upload only, target = song, size 70..32768),
+  the finish calls `song_block_batch` (all or nothing), capability reply out[8] = 15.
+- `web/engine/Simulator.c`: `sim_batch_buffer` (32 KB) and `sim_block_batch`.
+- `tests/host/smoke.c` v0.4: section 8 (39 checks): a 10 × 832-byte batch packs into
+  three sectors and reads back, free space falls by exactly the stream, a second batch
+  supersedes a block and may omit its final padding, bad streams store nothing, a power
+  cut before the commit (planted pending sector, reboot) erases the pending sector and
+  keeps everything else, a power cut after the commit (planted pending sector + committed
+  journal, reboot) finalizes it and the block is live, a song plays from batch blocks,
+  compaction after a delete erases every garbage-only sector.
+- `sdk/WebUpdate.js`: `Library.uploadBatch`, `songBatches` (records cut at the device's
+  packing boundaries, 8 sectors = at most 32608 bytes per batch), `songWrite` = record,
+  batches (or kind 6 one by one on firmware without bit 3), read-back check;
+  `this.songBatch` from capability bit 3. `sdk/Simulator.js`: the simulator target writes
+  the record first and uses `sim_block_batch` with the same cutting rule.
+  `sdk/Update.html.in` + `sdk/I18n.js`: the song editor help text describes the order and
+  the audio pauses. `sdk/manifest.json` re-pinned for the four files.
+
+### 13.2 Measured
+
+| Quantity | After (d) | After (e) |
+| --- | ---: | ---: |
+| App image (limit 453921) | 449572 | **450980** (margin **2941**) |
+| Static SRAM | 300340 | 300340 |
+| Runtime heap (min 49152) | 223276 | 223276 |
+
+Checkpoint (e) costs 1408 bytes of flash and no static RAM (the batch uses the transfer
+buffer and the existing sector image). **The margin is 1155 bytes below the 4 KB target
+of decision 1**; candidates in docs/FLASH-BUDGET.md section 8.1. Track A and Track B are
+byte-identical (`make crosscheck`: sdk.elf 114461b2…, .fwsc ef0a6f43…). `make test`: 109
+host checks (70 + 39) and the wasm smoke test pass, no compiler warnings. The rebuilt
+preview loads in headless Chrome with no console errors, the placeholder hidden, 149 LCD
+targets and the page-19 shortcut present.
+
+### 13.3 Upload time, single-block against batched (estimate; measure on hardware)
+
+Nothing here was timed on a device. Assumptions, to be replaced by the stopwatch figures
+of checklist step 11: one SysEx exchange (request + reply, 64 payload bytes per chunk)
+takes 5 ms (fast) to 20 ms (slow); a 4 KB sector erase 60 ms (typical for 25Q-class
+SPI NOR; the datasheet maximum is 400 ms); a 4 KB program 12 ms. Two 137-block songs:
+"sparse" (average payload 202 bytes, record 208, stream 28496 bytes) and "dense" (every
+payload 832 bytes, record 840, stream 115080 bytes). The song record (4096 bytes, 67
+exchanges, one 3-erase transaction) adds 0.5–1.5 s to every row.
+
+| | Flash operations | Exchanges | Fast link | Slow link |
+| --- | ---: | ---: | ---: | ---: |
+| Sparse, kind 6 (one block per transaction) | 411 erases, 411 programs | 959 | ≈ 31 s | ≈ 46 s |
+| Sparse, kind 7 (1 batch of 8 sectors) | 10 erases, 9 programs, 8 byte writes | 449 | ≈ 3.5 s | ≈ 11 s |
+| Dense, kind 6 | 411 erases, 411 programs | 2192 | ≈ 38 s | ≈ 71 s |
+| Dense, kind 7 (5 batches, 35 sectors) | 45 erases, 40 programs, 35 byte writes | 1814 | ≈ 13 s | ≈ 41 s |
+
+Per block, kind 6 spends about 190 ms in flash (three erases) plus 7–16 exchanges; kind 7
+spends about 90 ms of flash per sector and is then limited by the 64-byte chunk rate of
+the stock protocol, which is the next lever if the batched figure is still too slow.
+
+Audio during an upload: the flash API silences audio briefly on every erase and every
+write (sdk/include/fm1.h), so the device still dips. Kind 6 dips about seven times per
+block (three erases, three programs, the commit word), spread over the whole upload;
+kind 7 dips about 2N + 12 times per batch of N sectors (N erases, N programs, N byte
+writes, the journal's two erases, one program and one commit word), all inside the few
+hundred milliseconds after the batch's last chunk, and not at all while chunks arrive.
+Uploads are not done during a performance; the dips are reported, not avoided.
+
+### 13.4 Hardware checklist for the first flash (in order)
+
+Nothing of Task 03 has run on hardware yet. Preparation: back up with the V01 workbench
+(sample bank, DX7 user library, projects): the migration erases the first two. Flash the
+Classic Tabby package. In the workbench song editor build and export (keep the `.tabby`
+files) three songs: **TICK** (1 row, 16 steps, repeat 1, loop on; track 1 = a block with
+`60:100:1` on every step), **THREE** (3 rows × 16 steps, repeat 1, loop off; row 1 block A =
+C4 on steps 1, 5, 9, 13; row 2 block B = E4 on every other step; row 3 block C = G4 on
+every step; the same block ids on track 1 and track 2), and the importer's 137-block song.
+Project: tempo 120, swing 0, clock source internal; track 1 source FM6 with SEQ on; track
+2 with MIDI out to the M8 (USB or DIN), OUT CH 1, the M8 listening on channel 1 and its own
+sequencer stopped. A MIDI monitor on the same port helps for steps 1, 4 and 7.
+
+On a device that still holds V01 sample or DX7 data the SONG page shows "OLD SAMPLE/DX7
+DATA IN FLASH" and song storage stays disabled: run step 2 before step 1 there.
+
+1. **Song ticks and sends MIDI with the stock sequencer stopped.** Write TICK to slot 1
+   (workbench, device target). Check the stock transport is stopped (SEQ page shows STOP).
+   ACTIONS → SONG MODE, K1 to song 1, PLAY. See: "PLAYING", "ROW 1", "BAR" counting 1..4
+   and wrapping, PLAY LED on. Hear: FM6 plays the note on every 16th at 120 BPM, eight
+   notes per second, evenly. Monitor: Start (FA) once, Clock (F8) 24 per beat, note on /
+   off on channel 1, no pattern notes. PLAY again: "STOPPED - PLAY STARTS", Stop (FC)
+   once, nothing hangs, LED off. If BAR stays at 1 and nothing sounds, the per-block clock
+   hook is not called while the transport is stopped on the real engine (it was verified
+   against the web engine only): stop here and report.
+2. **Migration prompt and erase of old sample / DX7 data.** Boot a device with V01 data.
+   See: the SONG page says "OLD SAMPLE/DX7 DATA IN FLASH" and "ACTIONS: ERASE OLD
+   SAMPLE/DX7"; song slots cannot be used. ACTIONS → "ERASE OLD SAMPLE/DX7" → "ERASE OLD
+   FLASH DATA?" → SAVE confirms (HOME cancels). The erase runs one sector per control
+   poll; if audio is playing it dips briefly per sector. Afterwards the SONG page shows
+   "NO SONG HERE - UPLOAD FROM WORKBENCH", the workbench "Storage status" says 391296
+   bytes free, 0 reclaimable, no "old data" suffix. Projects, tunings and settings are
+   unchanged (load a project; play a tuned scale).
+3. **Three-row song on FM6 and on MIDI out to the M8.** Write THREE to slot 2, K1 to song
+   2, PLAY. See: "ROW 1", then "ROW 2" exactly when BAR wraps, then "ROW 3"; "NEXT ROW 2"
+   / "NEXT ROW 3" during rows 1 and 2, "LAST ROW" during row 3, then "STOPPED - PLAY
+   STARTS" with Stop sent once. Hear: FM6 plays C4 four times in bar 1, E4 eight times in
+   bar 2, G4 sixteen times in bar 3; the M8 plays the same rhythm on channel 1, in step
+   with FM6 for all three bars, and goes silent with it (no hanging note).
+4. **Per-track channel override and release on leaving the song.** In THREE set the
+   song's channel for track 2 to 5 (device OUT CH stays 1), set the M8 to channel 5,
+   write, PLAY. See on the monitor: track 2 notes as 94 / 84 (channel 5), none on channel
+   1. Hold a key on track 2 while the song plays: it sounds on channel 5 too. Keep holding
+   it and press PLAY to stop: the key's note-off arrives on channel 5 (the channel its
+   note-on used), the M8 shows no stuck note. Release, press the key again: channel 1.
+5. **Queued jump at the next bar.** Set every row of THREE to repeat 4 and loop on; PLAY.
+   During row 1, bar 2, press pad 3. See: "JUMP TO ROW 3" in amber at once; when BAR
+   wraps from 4 to 1 the page shows "ROW 3" and "X 1": the change lands on beat 1 of the
+   next bar, never mid-bar, with no stutter. Hear: row 1 finishes its bar, then G4 on
+   every step. K4 → "JUMP: ROW END"; press pad 1: the jump waits for row 3's four repeats
+   to end, then "ROW 1".
+6. **Rapid jumps.** While playing, press pads 1, 2, 3 within one bar: only the last one
+   shows ("JUMP TO ROW 3") and only it lands, at the next bar. Press pad 2 ten times
+   inside one bar: one jump. Press pad 4 (no such row): a short "NO SUCH ROW / NOT
+   PLAYING" notice, nothing queued. Throughout: no "ROW DECODE LATE" and no "BLOCK READ
+   ERROR" on the page, audio continuous, one row change per bar at most.
+7. **Tempo extremes.** Project tempo 30, THREE with repeat 1: a bar takes 8 s (BAR
+   advances every 2 s), row 3's notes come every 0.5 s, Clock at 12 per second, the M8's
+   tempo display (if slaved) reads 30. Project tempo 300: a bar takes 0.8 s, "ROW"
+   changes every 0.8 s, row 3 plays 20 notes per second with none missing, no "ROW
+   DECODE LATE", clean stop with no hanging note. Then set the song's BPM override to 300
+   with the project at 120: the song and the Clock out run at 300; after the stop, the
+   project's own pattern sequencer still runs at 120.
+8. **Power cut during a song write, then recovery.** Write the 137-block song to slot 3
+   and pull the USB cable (or power) while the workbench shows "Writing song NN%" between
+   20 % and 80 % (the block batches). Power up. See: no old-data prompt; slot 3 shows the
+   song's name (the record went first); PLAY starts it, and a row whose blocks were still
+   missing shows "BLOCK READ ERROR" and plays silent for those tracks. "Storage status"
+   answers (no "SONG STORAGE ERROR" on the device): batches that reached their commit are
+   complete, a batch cut before its commit is absent entirely (its sectors were erased at
+   boot). Write the song again: it completes and every row plays. Variant: pull power in
+   the first second (the record write): afterwards slot 3 holds either the old content or
+   the new record, never an error.
+9. **Compaction.** Write the 137-block song to slot 3 twice. "Storage status": reclaimable
+   ≈ the song's block bytes (one stale copy per block). ACTIONS → "COMPACT SONG STORAGE".
+   See: "COMPACTING STORAGE..." on the SONG page for a few seconds (one sector per
+   control poll, an audio dip per sector if something plays), then reclaimable 0 and free
+   up by the same amount; the song still plays every row. With a song playing the action
+   is refused.
+10. **Factory-V16 restore warning.** Workbench firmware tab, choose the stock V16 package,
+    click "Restore factory V16". See: the confirm dialog ends with "Restoring V16 also
+    overwrites the last 40 KB of Classic Tabby song storage (block sectors 86-95). Export
+    your songs first in Projects & sounds > Song mode." (Chinese UI: 恢复 V16 还会覆盖
+    Classic Tabby 歌曲存储的最后 40 KB…). Cancel.
+11. **Upload timing (for the (e) estimate).** Hold a long FM6 note (or play a pattern) and
+    write the 137-block song: stopwatch from the click to "Song written and verified by
+    read-back"; note where the audio dips (expected: only in the moment after each batch's
+    last chunk, none while chunks stream). Record the time against section 13.3.

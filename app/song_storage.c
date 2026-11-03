@@ -7,7 +7,7 @@
  *   V01 (checkpoint a) and, since checkpoint (d), the song records, block sectors, the
  *   staging transactions that make every write power-cut safe, the per-song block
  *   directory and the reclaim (compaction) logic. The byte layouts are final, see
- *   docs/tasks/TASK-03-step1-assessment.md section 9 (v0.4):
+ *   docs/tasks/TASK-03-step1-assessment.md section 9 (v0.5):
  *
  *     region sector 0        staging journal: a complete image of the sector being
  *                            written, plus a commit word at byte 4092 (0 = committed)
@@ -21,12 +21,23 @@
  *   song_storage_prepare() repeats the destination program of a committed staged image
  *   whose destination differs, so a power cut leaves either the old or the new sector.
  *
+ *   Batch writes (9.6 v0.5, checkpoint e): a stream of block records is packed into
+ *   whole block sectors chosen among the free ones (erased, or holding no live record).
+ *   Each is erased once and programmed with header byte 5 = 0xFF ("pending": the scan,
+ *   the directory and the free-space search ignore it). Then one journal (FM1Q, the
+ *   sector list and the first generation) goes into staging with the commit word, and
+ *   byte 5 of every batch sector is programmed to 0 (a 1->0 write, no erase). Recovery:
+ *   a committed journal finishes the byte-5 writes; a pending sector nobody committed
+ *   is erased. The batch is therefore visible as a whole or not at all.
+ *
  *   Everything here runs on the control task and is synchronous (a transaction takes
  *   three sector erases). The sequencer (app/song.c) only reads through the directory.
  *
- * Version: 0.2
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-02  Checkpoint (e): song_block_batch, batch journal recovery, pending
+ *                     sectors, plain erase when compacting a sector without live records.
  *   v0.2  2026-11-02  Checkpoint (d): records, blocks, staging transactions, recovery,
  *                     directory (sorted, 16-bit ids), status, compaction.
  *   v0.1  2026-11-02  Checkpoint (a): scan, classification, confirmed erase.
@@ -43,7 +54,10 @@ static uint8_t image[4096];                  /* the one RAM sector image (transa
 /* Block sector cache, authoritative after the boot scan because every write passes
  * through this file: songs mask, generation and the end of the record area
  * (used = 20 for an erased sector, SONG_USED_UNKNOWN until the sector was walked). */
-enum { SONG_USED_UNKNOWN = 0xffff, SONG_BLOCK_SECTOR_EMPTY = 20 };
+/* used >= SONG_USED_PENDING means "load before use": PENDING (a batch member awaiting
+ * its commit, or left by a failed batch) loads as empty, UNKNOWN as whatever is there. */
+enum { SONG_USED_UNKNOWN = 0xffff, SONG_USED_PENDING = 0xfffe, SONG_BLOCK_SECTOR_EMPTY = 20 };
+enum { SONG_PENDING_BYTE = 0xff };               /* block header byte 5 of a pending batch member */
 static struct { uint16_t songs, used; uint32_t gen; } sectors[SONG_BLOCK_SECTORS];
 static uint32_t block_gen_max;
 /* Directory of one song (9.7): sorted by id. */
@@ -89,7 +103,12 @@ static int classify(unsigned sector)
     if (sector >= SONG_FIRST_BLOCK_SECTOR) {
         unsigned b = sector - SONG_FIRST_BLOCK_SECTOR;
         sectors[b].songs = 0; sectors[b].gen = 0; sectors[b].used = SONG_USED_UNKNOWN;
-        if (magic == SONG_MAGIC_BLOCKS) {
+        if (magic == SONG_MAGIC_BLOCKS && head[5] == SONG_PENDING_BYTE) {
+            /* A batch member whose journal did not commit before a power cut (9.6 v0.5):
+             * invisible; song_storage_prepare() erases it or, with a committed journal
+             * in staging, adopts it. */
+            sectors[b].used = SONG_USED_PENDING;
+        } else if (magic == SONG_MAGIC_BLOCKS) {
             sectors[b].gen = le32(head + 8); sectors[b].songs = (uint16_t)le16(head + 12);
             if (sectors[b].gen > block_gen_max) block_gen_max = sectors[b].gen;
         } else if (erased(head, sizeof head)) sectors[b].used = SONG_BLOCK_SECTOR_EMPTY;
@@ -128,7 +147,7 @@ void song_storage_poll(void)
     } else if (state == SONG_STORAGE_COMPACTING) {
         /* One sector per poll; live_bytes[] was filled when the pass started. */
         while (position < SONG_BLOCK_SECTORS &&
-               (sectors[position].used == SONG_USED_UNKNOWN || sectors[position].used <= SONG_BLOCK_SECTOR_EMPTY + live_bytes[position]))
+               (sectors[position].used >= SONG_USED_PENDING || sectors[position].used <= SONG_BLOCK_SECTOR_EMPTY + live_bytes[position]))
             ++position;
         if (position == SONG_BLOCK_SECTORS) { state = SONG_STORAGE_READY; return; }
         int r = song_storage_compact_sector(position);
@@ -210,29 +229,48 @@ static unsigned staged_target(unsigned *n)
     }
     return 0;
 }
+static int batch_finalize(void);
 int song_storage_prepare(void)
 {
     if (state == SONG_STORAGE_ERROR) return FM1_FLASH_UNAVAILABLE;
     int r = read_sector(SONG_STAGING_SECTOR);
     if (r) return r;
-    if (erased(image, 32) && erased(image + SONG_JOURNAL_COMMIT, 4)) return 0;
-    unsigned n = 0, target = le32(image + SONG_JOURNAL_COMMIT) == 0 ? staged_target(&n) : 0;
-    if (target) {
-        unsigned block = le32(image) == SONG_MAGIC_BLOCKS;
-        if (block) image[5] = 0;
-        if (!same_as_image(target, n, block)) {
-            r = program(target, n);
+    if (!(erased(image, 32) && erased(image + SONG_JOURNAL_COMMIT, 4))) {
+        unsigned committed = le32(image + SONG_JOURNAL_COMMIT) == 0;
+        if (committed && le32(image) == SONG_MAGIC_STAGING) {
+            /* A committed batch journal (9.6 v0.5): repeat the byte-5 writes of step 4. */
+            r = batch_finalize();
             if (r) return r;
-            if (block) {
-                unsigned b = target - SONG_FIRST_BLOCK_SECTOR;
-                sectors[b].gen = le32(image + 8); sectors[b].songs = (uint16_t)le16(image + 12);
-                sectors[b].used = SONG_USED_UNKNOWN;
-                if (sectors[b].gen > block_gen_max) block_gen_max = sectors[b].gen;
+        } else {
+            unsigned n = 0, target = committed ? staged_target(&n) : 0;
+            if (target) {
+                unsigned block = le32(image) == SONG_MAGIC_BLOCKS;
+                if (block) image[5] = 0;
+                if (!same_as_image(target, n, block)) {
+                    r = program(target, n);
+                    if (r) return r;
+                    if (block) {
+                        unsigned b = target - SONG_FIRST_BLOCK_SECTOR;
+                        sectors[b].gen = le32(image + 8); sectors[b].songs = (uint16_t)le16(image + 12);
+                        sectors[b].used = SONG_USED_UNKNOWN;
+                        if (sectors[b].gen > block_gen_max) block_gen_max = sectors[b].gen;
+                    }
+                    dir_song = 255;
+                }
             }
-            dir_song = 255;
         }
+        r = fm1_flash_erase(sector_address(SONG_STAGING_SECTOR));
+        if (r) return r;
     }
-    return fm1_flash_erase(sector_address(SONG_STAGING_SECTOR));
+    /* Pending batch members that no committed journal adopted are garbage (9.6 v0.5). At
+     * boot the scan marked them; at run time none survive song_block_batch(). */
+    for (unsigned b = 0; b < SONG_BLOCK_SECTORS; ++b) {
+        if (sectors[b].used != SONG_USED_PENDING) continue;
+        r = fm1_flash_erase(sector_address(SONG_FIRST_BLOCK_SECTOR + b));
+        if (r) return r;
+        sectors[b].used = SONG_BLOCK_SECTOR_EMPTY; sectors[b].songs = 0; sectors[b].gen = 0;
+    }
+    return 0;
 }
 
 /* ---- song records (9.5) ------------------------------------------------------------ */
@@ -322,7 +360,8 @@ static int load_block_sector(unsigned b)
 {
     int r = read_sector(SONG_FIRST_BLOCK_SECTOR + b);
     if (r) return r;
-    if (le32(image) != SONG_MAGIC_BLOCKS) {
+    if (le32(image) != SONG_MAGIC_BLOCKS || image[5] == SONG_PENDING_BYTE) {
+        /* Unformatted, erased, or a pending batch member (9.6 v0.5): nothing stored. */
         memset(image, 0xff, sizeof image);
         put32(image, SONG_MAGIC_BLOCKS); image[4] = 1; image[5] = 0;
         put16(image + 6, 0); put32(image + 8, 0); put16(image + 12, 0);
@@ -450,6 +489,15 @@ int song_storage_compact_sector(unsigned b)
         if (dest != here) memmove(image + dest, image + here, size);
         dest += size;
     }
+    if (dest == SONG_BLOCK_AREA) {
+        /* Nothing live (v0.5): a plain erase reclaims the sector without a staging pass;
+         * nothing of value can be lost. */
+        r = fm1_flash_erase(sector_address(SONG_FIRST_BLOCK_SECTOR + b));
+        if (r) return r;
+        sectors[b].songs = 0; sectors[b].gen = 0; sectors[b].used = SONG_BLOCK_SECTOR_EMPTY;
+        dir_song = 255;
+        return 0;
+    }
     memset(image + dest, 0xff, 4096 - dest);
     return store_block_sector(b);
 }
@@ -460,7 +508,7 @@ int song_storage_status(uint32_t *free_bytes, uint32_t *reclaimable)
     int r = scan_live(live_bytes, NULL, 0);
     if (r) return r;
     for (unsigned b = 0; b < SONG_BLOCK_SECTORS; ++b) {
-        if (sectors[b].used == SONG_USED_UNKNOWN) { r = load_block_sector(b); if (r) return r; }
+        if (sectors[b].used >= SONG_USED_PENDING) { r = load_block_sector(b); if (r) return r; }
         *free_bytes += 4096U - sectors[b].used;
         *reclaimable += sectors[b].used - SONG_BLOCK_SECTOR_EMPTY - live_bytes[b];
     }
@@ -472,7 +520,7 @@ int song_storage_compact(void)
     int r = scan_live(live_bytes, NULL, 0);
     if (r) return r;
     for (unsigned b = 0; b < SONG_BLOCK_SECTORS; ++b)
-        if (sectors[b].used == SONG_USED_UNKNOWN) { r = load_block_sector(b); if (r) return r; }
+        if (sectors[b].used >= SONG_USED_PENDING) { r = load_block_sector(b); if (r) return r; }
     position = 0; state = SONG_STORAGE_COMPACTING;
     return 0;
 }
@@ -498,7 +546,7 @@ int song_block_append(unsigned song, unsigned id, const uint8_t *payload, unsign
             if (r) return r;
         }
         for (unsigned s = 0; s < SONG_BLOCK_SECTORS; ++s) {
-            if (sectors[s].used == SONG_USED_UNKNOWN) { r = load_block_sector(s); if (r) return r; }
+            if (sectors[s].used >= SONG_USED_PENDING) { r = load_block_sector(s); if (r) return r; }
             if (4096U - sectors[s].used >= need) { b = s; break; }
         }
     }
@@ -510,4 +558,106 @@ int song_block_append(unsigned song, unsigned id, const uint8_t *payload, unsign
     memcpy(rec + SONG_BLOCK_HEADER, payload, bytes);
     memset(rec + SONG_BLOCK_HEADER + bytes, 0xff, need - SONG_BLOCK_HEADER - bytes);
     return store_block_sector(b);
+}
+
+/* ---- batch writes (9.6 v0.5, checkpoint e) ------------------------------------------ */
+/* Validate a batch stream (block records as in 9.4 / the .tabby file) and count the
+ * sectors it packs into with the device's rule: in stream order, a record goes into the
+ * current sector when it fits in the remaining record area, else it starts the next one;
+ * records never split. The last record's padding to a multiple of 4 may be missing. */
+static int batch_parse(unsigned song, const uint8_t *s, unsigned bytes, unsigned *needed)
+{
+    unsigned at = 0, fill = SONG_BLOCK_AREA, n = 1;
+    if (!bytes) return SONG_INVALID;
+    while (at < bytes) {
+        if (bytes - at < SONG_BLOCK_HEADER) return SONG_INVALID;
+        unsigned id = le16(s + at + 2), len = le16(s + at + 4), size = align4(SONG_BLOCK_HEADER + len);
+        if ((s[at] && s[at] != song) || s[at + 1] || !id || len < SONG_PAYLOAD_MIN || len > SONG_PAYLOAD_MAX ||
+            bytes - at < SONG_BLOCK_HEADER + len || song_payload_valid(s + at + SONG_BLOCK_HEADER, len))
+            return SONG_INVALID;
+        if (fill + size > 4096) { ++n; fill = SONG_BLOCK_AREA; }
+        fill += size;
+        at += size;
+    }
+    *needed = n;
+    return n > SONG_BATCH_SECTORS ? SONG_INVALID : 0;
+}
+/* Step 4 of the batch transaction from the journal in image (just built, or read back
+ * from staging by song_storage_prepare): every listed sector that carries this batch's
+ * generation and is still pending gets header byte 5 programmed to 0 and joins the cache.
+ * A journal that fails its checks is ignored (the caller erases staging). */
+static int batch_finalize(void)
+{
+    unsigned n = image[5];
+    if (image[4] != 1 || !n || n > SONG_BATCH_SECTORS || le32(image + 16) != crc(image + 20, SONG_BATCH_LIST)) return 0;
+    uint32_t gen = le32(image + 8);
+    for (unsigned i = 0; i < n; ++i) {
+        unsigned sector = image[20 + i];
+        if (sector < SONG_FIRST_BLOCK_SECTOR || sector >= SONG_REGION_SECTORS) continue;
+        unsigned b = sector - SONG_FIRST_BLOCK_SECTOR;
+        uint8_t head[20];
+        int r = fm1_flash_read(sector_address(sector), head, sizeof head);
+        if (r) return r;
+        if (le32(head) != SONG_MAGIC_BLOCKS || le32(head + 8) != gen + i) continue;
+        if (head[5] == SONG_PENDING_BYTE) {
+            uint8_t zero = 0;
+            r = fm1_flash_write(sector_address(sector) + 5, &zero, 1);
+            if (r) return r;
+        }
+        sectors[b].gen = gen + i; sectors[b].songs = (uint16_t)le16(head + 12); sectors[b].used = SONG_USED_UNKNOWN;
+        if (sectors[b].gen > block_gen_max) block_gen_max = sectors[b].gen;
+    }
+    dir_song = 255;
+    return 0;
+}
+int song_block_batch(unsigned song, const uint8_t *stream, unsigned bytes)
+{
+    if (song >= SONG_SONGS || state != SONG_STORAGE_READY || !stream || bytes > SONG_BATCH_BYTES) return SONG_INVALID;
+    unsigned need = 0;
+    int r = batch_parse(song, stream, bytes, &need);
+    if (!r) r = song_storage_prepare();
+    if (!r) r = scan_live(live_bytes, NULL, 0);
+    if (r) return r;
+    /* Step 1: free sectors, lowest first: erased, or holding no live record (garbage). */
+    uint8_t chosen[SONG_BATCH_SECTORS]; unsigned n = 0;
+    for (unsigned b = 0; b < SONG_BLOCK_SECTORS && n < need; ++b) {
+        if (sectors[b].used >= SONG_USED_PENDING) { r = load_block_sector(b); if (r) return r; }
+        if (sectors[b].used == SONG_BLOCK_SECTOR_EMPTY || live_bytes[b] == 0) chosen[n++] = (uint8_t)b;
+    }
+    if (n < need) return SONG_FULL;
+    /* Step 2: one erase and one program per batch sector, header byte 5 = pending. */
+    uint32_t gen = block_gen_max + 1;
+    unsigned at = 0;
+    for (unsigned i = 0; i < need; ++i) {
+        memset(image, 0xff, sizeof image);
+        put32(image, SONG_MAGIC_BLOCKS); image[4] = 1; image[5] = SONG_PENDING_BYTE;
+        unsigned dest = SONG_BLOCK_AREA, count = 0;
+        while (at < bytes) {
+            unsigned len = le16(stream + at + 4), size = align4(SONG_BLOCK_HEADER + len);
+            if (dest + size > 4096) break;                     /* same rule as batch_parse */
+            memcpy(image + dest, stream + at, SONG_BLOCK_HEADER + len); /* padding stays 0xFF */
+            image[dest] = (uint8_t)song; image[dest + 1] = 0;
+            dest += size; at += size; ++count;
+        }
+        put16(image + 6, count); put32(image + 8, gen + i); put16(image + 12, 1U << song); put16(image + 14, 0xffff);
+        put32(image + 16, crc(image + 20, 4096 - 20));
+        /* Marked pending in the cache first: after a failure anywhere below, the next
+         * song_storage_prepare() (every write starts with one) erases these sectors and
+         * the uncommitted journal, and the batch leaves no trace. */
+        sectors[chosen[i]].used = SONG_USED_PENDING; sectors[chosen[i]].songs = 0; sectors[chosen[i]].gen = 0;
+        r = program(SONG_FIRST_BLOCK_SECTOR + chosen[i], dest);
+        if (r) return r;
+    }
+    /* Step 3: the journal and its commit word, one for the whole batch. */
+    memset(image, 0xff, sizeof image);
+    put32(image, SONG_MAGIC_STAGING); image[4] = 1; image[5] = (uint8_t)need; image[6] = (uint8_t)song; image[7] = 0;
+    put32(image + 8, gen); put32(image + 12, 0xffffffffU);
+    for (unsigned i = 0; i < need; ++i) image[20 + i] = (uint8_t)(SONG_FIRST_BLOCK_SECTOR + chosen[i]);
+    put32(image + 16, crc(image + 20, SONG_BATCH_LIST));
+    r = program(SONG_STAGING_SECTOR, 20 + SONG_BATCH_LIST);
+    if (!r) { uint32_t zero = 0; r = fm1_flash_write(sector_address(SONG_STAGING_SECTOR) + SONG_JOURNAL_COMMIT, &zero, sizeof zero); }
+    /* Steps 4 and 5. Once committed, a failure here is finished by the next prepare(). */
+    if (!r) r = batch_finalize();
+    if (r) return r;
+    return fm1_flash_erase(sector_address(SONG_STAGING_SECTOR));
 }

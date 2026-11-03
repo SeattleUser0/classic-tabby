@@ -32,9 +32,12 @@
  *   Build and run through the Makefile:  make test   (or make host-smoke)
  *   Exit status is the number of failed checks (0 = pass).
  *
- * Version: 0.3
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-02  Task 03 (e): section 8, batched block upload: packing, superseding,
+ *                     rejected streams, power-cut recovery before and after the commit,
+ *                     playback from batch blocks, plain-erase compaction.
  *   v0.3  2026-11-02  Task 03 (d): song storage (records, blocks, rewrite, compaction) and
  *                     song playback (channel override, note timing, end, queued jump).
  *   v0.2  2026-11-02  Task 03 (a): song storage migration and sampler-removal checks.
@@ -76,6 +79,9 @@ int sim_song_play(void);
 void sim_song_stop(void);
 int sim_song_jump(unsigned row);
 uint32_t sim_song_status(unsigned word);
+uint8_t *sim_batch_buffer(void);
+int sim_block_batch(unsigned song, unsigned bytes);
+uint32_t groove_crc32(uint32_t crc, const void *data, unsigned bytes);
 
 enum { SMK37_BUTTON, SMK37_KEY, SMK37_PRESSURE, SMK37_PAD, SMK37_ENCODER, SMK37_COMBINATION, SMK37_PEDAL, SMK37_FADER };
 
@@ -324,6 +330,124 @@ int main(void)
         { struct message m[64]; (void)drain(m, 64); }
         sim_midi_capture(0);
         CHECK(sim_song_record_delete(0) == 0 && sim_song_record_read(0) == 1, "song 0 deleted");
+    }
+
+    /* ---- 8. batched block upload (Task 03 e, assessment 9.6 / 9.9 v0.5) ---------------- */
+    {
+        enum { REGION = 69632, BLOCKS = REGION + 17 * 4096, POOL = 96 * 4076, FULL = 832, REC = 840 };
+        uint8_t *flash = sim_flash(), *f = sim_file(), *s = sim_batch_buffer();
+        /* Song 1 record first (9.6 v0.5), one row: track 0 plays block 10. */
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "BATCH TEST  ", 12); f[40] = 1; f[64] = 10; f[64 + 16] = 1; f[64 + 18] = 16;
+        CHECK(sim_song_record_write(1) == 0, "song 1 record written before its blocks");
+        /* Ten full-size blocks (64 steps x 4 notes = 832 bytes, 840 per record): four fit a
+         * sector, so the stream must pack into three sectors (4 + 4 + 2). Ids 10..19. */
+        unsigned at = 0;
+        for (unsigned id = 10; id < 20; ++id) {
+            memset(s + at, 0, 6); s[at + 2] = (uint8_t)id; s[at + 4] = FULL & 255; s[at + 5] = FULL >> 8;
+            uint8_t *p = s + at + 6;
+            for (unsigned step = 0; step < 64; ++step) {
+                *p++ = 4;
+                for (unsigned n = 0; n < 4; ++n) { *p++ = (uint8_t)(30 + 10 * n + (id - 10)); *p++ = 100; *p++ = 1; }
+            }
+            memset(s + at + 6 + FULL, 0xff, REC - 6 - FULL);
+            at += REC;
+        }
+        uint32_t before = sim_song_free();
+        int r = sim_block_batch(1, at);
+        CHECK(r == 0, "batch of 10 x 832-byte blocks stored (%d)", r);
+        r = sim_block_read(1, 10);
+        CHECK(r == FULL && f[1] == 30 && f[4] == 40, "block 10 reads back from the batch (%d bytes, pitches %u %u)", r, f[1], f[4]);
+        r = sim_block_read(1, 19);
+        CHECK(r == FULL && f[1] == 39, "block 19 (last of the batch) reads back (%d bytes, pitch %u)", r, f[1]);
+        unsigned members = 0, pending = 0, staging_clear = 1;
+        for (unsigned b = 0; b < 96; ++b) {
+            const uint8_t *h = flash + BLOCKS + b * 4096;
+            if (memcmp(h, "FM1B", 4)) continue;
+            if (h[5] == 0xff) ++pending; else if (h[12] & 2) ++members;
+        }
+        for (unsigned i = 0; i < 4096; ++i) staging_clear &= flash[REGION + i] == 0xff;
+        CHECK(members == 3 && pending == 0, "three committed batch sectors, none pending (%u/%u)", members, pending);
+        CHECK(staging_clear, "staging sector erased after the batch");
+        CHECK(sim_song_free() == POOL - 10 * REC && sim_song_reclaimable() == 0,
+              "free space fell by exactly the stream (%u -> %u, reclaimable %u)", before, sim_song_free(), sim_song_reclaimable());
+        /* A second batch supersedes block 10 (pitch 99) and adds block 20; the end padding
+         * may be omitted (9.9 v0.5). */
+        memset(s, 0, 6); s[2] = 10; s[4] = 67; uint8_t *p = s + 6; *p++ = 1; *p++ = 99; *p++ = 100; *p++ = 1;
+        memset(p, 0, 63); at = 6 + 67; memset(s + at, 0xff, 1); at += 1;   /* 74 -> pad to 76 */
+        at += 2; memset(s + at, 0, 6); s[at + 2] = 20; s[at + 4] = 67; p = s + at + 6; *p++ = 1; *p++ = 77; *p++ = 100; *p++ = 1;
+        memset(p, 0, 63); at += 6 + 67;                                     /* no final padding */
+        r = sim_block_batch(1, at);
+        CHECK(r == 0, "second batch (two short records, unpadded end) stored (%d)", r);
+        r = sim_block_read(1, 10);
+        CHECK(r == 67 && f[1] == 99, "newest copy of block 10 is the batch one (pitch %u)", f[1]);
+        CHECK(sim_block_read(1, 20) == 67 && f[1] == 77, "block 20 added by the second batch");
+        CHECK(sim_song_reclaimable() == REC, "the superseded 832-byte block 10 is reclaimable (%u)", sim_song_reclaimable());
+        /* Bad streams change nothing: a zero length, and a record for another song. */
+        before = sim_song_free();
+        memset(s, 0, 6); s[2] = 30;
+        CHECK(sim_block_batch(1, 70) == -7, "stream with payload length 0 rejected");
+        s[0] = 3; s[4] = 67; memset(s + 6, 0, 67);
+        CHECK(sim_block_batch(1, 73) == -7, "record claiming another song rejected");
+        CHECK(sim_song_free() == before, "nothing stored by rejected batches");
+        /* Power cut before the commit: a pending sector (header byte 5 = 0xFF) with no
+         * journal. Planted by copying the committed sector of block 20 (CRC excludes the
+         * header) into an erased sector; a reboot must erase it and keep the rest. */
+        unsigned src = 96, dst = 96;
+        for (unsigned b = 0; b < 96; ++b) {
+            const uint8_t *h = flash + BLOCKS + b * 4096;
+            if (!memcmp(h, "FM1B", 4) && h[6] == 2 && src == 96) src = b;
+            if (h[0] == 0xff && dst == 96) dst = b;
+        }
+        CHECK(src < 96 && dst < 96, "found the two-record batch sector (%u) and an erased sector (%u)", src, dst);
+        memcpy(flash + BLOCKS + dst * 4096, flash + BLOCKS + src * 4096, 4096);
+        flash[BLOCKS + dst * 4096 + 5] = 0xff;
+        sim_boot(0);
+        unsigned st = sim_song_storage_state();
+        CHECK((st & 255U) == 1, "reboot with an uncommitted batch member: storage READY, not old data (%u)", st & 255U);
+        unsigned erased_again = 1;
+        for (unsigned i = 0; i < 4096; ++i) erased_again &= flash[BLOCKS + dst * 4096 + i] == 0xff;
+        CHECK(erased_again, "uncommitted pending sector erased at boot");
+        CHECK(sim_block_read(1, 20) == 67 && f[1] == 77, "committed blocks survive the reboot");
+        /* Power cut after the commit: a pending sector holding block 21 (pitch 55) with a
+         * committed journal listing it. A reboot must finalize it (byte 5 -> 0). */
+        uint8_t *img = flash + BLOCKS + dst * 4096;
+        memset(img, 0xff, 4096); memcpy(img, "FM1B", 4); img[4] = 1; img[5] = 0xff; img[6] = 1; img[7] = 0;
+        img[8] = 1000 & 255; img[9] = 1000 >> 8; img[10] = 0; img[11] = 0; img[12] = 2; img[13] = 0;
+        img[20] = 1; img[21] = 0; img[22] = 21; img[23] = 0; img[24] = 67; img[25] = 0;
+        img[26] = 1; img[27] = 55; img[28] = 100; img[29] = 1; memset(img + 30, 0, 63);
+        uint32_t c = ~groove_crc32(~0U, img + 20, 4096 - 20);
+        for (unsigned i = 0; i < 4; ++i) img[16 + i] = (uint8_t)(c >> (8 * i));
+        uint8_t *j = flash + REGION;
+        memset(j, 0xff, 4096); memcpy(j, "FM1Q", 4); j[4] = 1; j[5] = 1; j[6] = 1; j[7] = 0;
+        j[8] = 1000 & 255; j[9] = 1000 >> 8; j[10] = 0; j[11] = 0; j[20] = (uint8_t)(17 + dst);
+        c = ~groove_crc32(~0U, j + 20, 16);
+        for (unsigned i = 0; i < 4; ++i) j[16 + i] = (uint8_t)(c >> (8 * i));
+        memset(j + 4092, 0, 4);
+        sim_boot(0);
+        st = sim_song_storage_state();
+        CHECK((st & 255U) == 1 && img[5] == 0 && !memcmp(img, "FM1B", 4), "reboot with a committed journal: sector finalized (state %u, byte 5 = %u)", st & 255U, img[5]);
+        staging_clear = 1;
+        for (unsigned i = 0; i < 4096; ++i) staging_clear &= flash[REGION + i] == 0xff;
+        CHECK(staging_clear, "journal erased after recovery");
+        CHECK(sim_block_read(1, 21) == 67 && f[1] == 55, "block 21 from the recovered batch is live (pitch %u)", f[1]);
+        /* The song plays its batch block: row 0 is block 10 (pitch 99 at step 0). */
+        sim_midi_capture(1);
+        CHECK(sim_song_load(1) == 0 && sim_song_play() == 0, "song 1 loads and plays from batch blocks");
+        unsigned on99 = 0;
+        for (unsigned i = 0; i < 64 && !on99; ++i) {
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64), ports;
+            if (count(m, n, 0x90 | sim_midi_setting(0, 1), 99, 100, &ports)) on99 = 1;
+        }
+        CHECK(on99, "block 10's note from the batch sounded");
+        sim_song_stop(); settle(); settle(); { struct message m[64]; (void)drain(m, 64); } sim_midi_capture(0);
+        /* Deleting the song makes every batch sector garbage; the full compaction pass
+         * erases such sectors outright (v0.5) and the pool is empty again. */
+        CHECK(sim_song_record_delete(1) == 0, "song 1 deleted");
+        r = sim_song_compact();
+        unsigned formatted = 0;
+        for (unsigned b = 0; b < 96; ++b) if (!memcmp(flash + BLOCKS + b * 4096, "FM1B", 4)) ++formatted;
+        CHECK(r == 0 && formatted == 0 && sim_song_free() == POOL, "compaction erased every garbage-only sector (%d, %u left, free %u)", r, formatted, sim_song_free());
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

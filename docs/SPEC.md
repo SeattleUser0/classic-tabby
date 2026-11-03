@@ -1,7 +1,10 @@
 # Classic Tabby — Specification
 
-Version: 0.7
+Version: 0.8
 Revision log:
+- v0.8, 2026-11-02: section 6: checkpoint (e) done (batched block upload, transfer kind 7,
+  assessment v0.5), upload order record-first, flash margin below the 4 KB target noted,
+  known limits updated; hardware checklist for the first flash in BUILD.md section 13.4.
 - v0.7, 2026-11-02: section 6: checkpoint (d) done (song mode in firmware and workbench),
   format v0.4 (16-bit block ids) recorded, known limits listed.
 - v0.6, 2026-11-02: section 6: checkpoint (b) done (DX7 operator editor and tone editor
@@ -213,10 +216,25 @@ Checkpoints and status:
   simulator as target) with the factory-V16 warning. App image 449572 bytes, margin
   4349 bytes. Host tests cover storage, rewrite, compaction, playback timing, the
   channel override and queued jumps (tests/host/smoke.c v0.3).
+- **(e) done, 2026-11-02:** batched block upload. Transfer kind 7 stores a stream of block
+  records in whole block sectors: one erase per sector, header byte 5 = 0xFF while
+  pending, one journal (`FM1Q` in the staging sector) and one commit word for the whole
+  batch, byte-5 writes to finalize; recovery at boot and before every write finishes a
+  committed batch or erases an uncommitted one (assessment 9.6 v0.5). Kind 6 keeps
+  working. The workbench writes the song record first, then the blocks in batches cut at
+  the device's packing boundaries (8 sectors, at most 32608 bytes each), then verifies the
+  record; the browser simulator target does the same. Compacting a sector without live
+  records is a plain erase. App image 450980 bytes, **margin 2941 bytes: below the 4 KB
+  target of decision 1 by 1155 bytes**; candidates in FLASH-BUDGET.md section 8.1, the
+  choice is open. Host tests cover packing, superseding, rejected streams, both power-cut
+  recoveries and playback from batch blocks (tests/host/smoke.c v0.4, 109 checks).
 
-Formats: section 9 of the assessment, **v0.4** (2d4ef83): 16-bit block ids, 20-byte rows
-at offset 64, song body CRC over bytes 20..2623, 6-byte block record headers, 2048 live
-blocks per song, transfer kind 6 target = (song << 16) | id.
+Formats: section 9 of the assessment, **v0.5** (96c9058): v0.4 (2d4ef83: 16-bit block ids,
+20-byte rows at offset 64, song body CRC over bytes 20..2623, 6-byte block record headers,
+2048 live blocks per song, transfer kind 6 target = (song << 16) | id) plus the batch
+upload (kind 7, the `FM1Q` batch journal, block-sector byte 5 = 0xFF pending, capability
+bit 3, record-first upload order). The block, row, song record and `.tabby` layouts are
+unchanged since v0.4; the importer needs no change.
 
 Format additions approved after checkpoint (a) (assessment v0.3, section 9): each row has
 a step length of 16, 32, 48 or 64 steps (default 64; a shorter row plays the first N steps
@@ -231,9 +249,16 @@ Known limits (v1):
   to start in MIDI clock mode ("SONG NEEDS INTERNAL CLOCK").
 - The alt-tuning bit of a step (9.3, bit 6) is stored and transferred but not applied by
   the device sequencer (tuning hold is a control-task call; MIDI out has no tuning).
-- Blocks upload one at a time, each through a staging transaction (three sector erases),
-  so a song with hundreds of blocks takes a few minutes to write; audio pauses briefly on
-  every erase. A batched upload command is a candidate for later.
+- Uploads still pause audio briefly: the flash API silences audio on every erase and
+  write (sdk/include/fm1.h). A batch of N sectors costs N + 2 erases and about as many
+  programs instead of 3 erases and 3 programs per block, so the pauses are fewer and
+  clustered at the end of each batch; the chunk phase touches no flash. Uploads are not
+  a performance-time operation. Estimated times: BUILD.md section 13.3.
+- A block stays live while its song's record is valid and it is the newest copy of its
+  (song, id), whether or not a row still references it (assessment 9.4). Blocks a rewrite
+  no longer uses are reclaimed only when the song is deleted (then compacted).
+- The device does not check the 2048-live-blocks-per-song limit at upload time; a song
+  over it loads with "TOO MANY BLOCKS" and never plays partially.
 - Note editing is in the workbench only (decision 5); the device shows the row's block ids
   and plays, it does not edit songs.
 - The SEQ page "OUT CH" readout shows the device setting while a song override is active

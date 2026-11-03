@@ -67,11 +67,14 @@ static int transfer_begin(unsigned kind, unsigned target, unsigned size, unsigne
 {
     /* Kind 4 (DX7 library bank) is gone with the user library (Task 03 a). Kinds 5 (song
      * record, 4096 bytes, target = song) and 6 (one block payload, target = song << 16 |
-     * id) are song storage (Task 03 d, assessment 9.9 v0.4). */
+     * id) are song storage (Task 03 d, assessment 9.9 v0.4). Kind 7 (Task 03 e, 9.9 v0.5)
+     * is a block batch: upload only, target = song, size = stream length. */
     if (kind == 5 && (target >= SONG_SONGS || size != SONG_RECORD_BYTES)) return GROOVE_PROJECT_INVALID;
     if (kind == 6 && ((target >> 16) >= SONG_SONGS || !(target & 0xffffU) ||
                       size < SONG_PAYLOAD_MIN || size > SONG_PAYLOAD_MAX)) return GROOVE_PROJECT_INVALID;
-    if (kind == 4 || kind > 6 || (kind == 1 && (target >= GROOVE_TRACKS || size != 156)) ||
+    if (kind == 7 && (!writing || target >= SONG_SONGS || size < SONG_BLOCK_HEADER + SONG_PAYLOAD_MIN ||
+                      size > SONG_BATCH_BYTES)) return GROOVE_PROJECT_INVALID;
+    if (kind == 4 || kind > 7 || (kind == 1 && (target >= GROOVE_TRACKS || size != 156)) ||
         (kind == 2 && (target >= GROOVE_TRACKS || size != sizeof(struct groove_preset))) ||
         (!kind && (target || (size != GROOVE_PROJECT_BYTES && size != GROOVE_PROJECT_LEGACY_BYTES &&
                               (!writing || size != GROOVE_PROJECT_TUNED_BYTES)))) ||
@@ -106,9 +109,10 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
     /* Additive capability reply; command 21 retains its old exact layout. */
     if (cmd == 22 && !n) {
         /* Classic Tabby (Task 03 a): no DX7 user library (0 banks, unavailable) and no
-         * sample bank (limit 0); bit 2 of out[8] announces song storage (checkpoint d). */
+         * sample bank (limit 0); bit 2 of out[8] announces song storage (checkpoint d),
+         * bit 3 the batched block upload, transfer kind 7 (checkpoint e). */
         out[0]=1; out[1]=128; out[2]=0; out[3]=0;
-        put32(out+4,0); out[8]=7; /* session roles, extended delay, song storage (d) */
+        put32(out+4,0); out[8]=15; /* session roles, extended delay, song storage, batches */
         *count=9; return 0;
     }
     if (cmd == 23 && !n) {
@@ -232,6 +236,8 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
                         : song_record_delete(transfer_target);
             } else if (transfer_kind == 6)
                 r = song_block_append(transfer_target >> 16, transfer_target & 0xffffU, transfer, transfer_size);
+            else if (transfer_kind == 7)
+                r = song_block_batch(transfer_target, transfer, transfer_size); /* all or nothing (9.6 v0.5) */
             else
             r = transfer_kind == 2 ? groove_timbre_import(transfer_target, transfer, transfer_size)
                 : transfer_kind == 1 ? groove_fm_import(transfer_target, transfer)

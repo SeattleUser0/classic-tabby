@@ -880,7 +880,7 @@
   "保存块": "Store block",
   "删除块": "Remove block",
   "每步：音高:力度:长度[r]，多个音符以空格分隔；r = 重触发，@n = 概率 n/8，! = 备用调音（例：60:100:2 64:100:2r @4）。长度以 16 分音符计。": "Per step: pitch:velocity:length[r], several notes separated by spaces; r = retrigger, @n = probability n/8, ! = alt tuning (example: 60:100:2 64:100:2r @4). Lengths are in 16th steps.",
-  "写入歌曲会把编辑器中的全部块追加到设备（旧副本在设备 ACTIONS → COMPACT SONG STORAGE 时回收），然后写入歌曲记录并读回校验。恢复原厂 V16 会覆盖歌曲存储的最后 40 KB（块扇区 86–95），请先导出歌曲。": "Write song appends every block in the editor to the device (old copies are reclaimed by ACTIONS > COMPACT SONG STORAGE on the device), then writes the song record and verifies it by read-back. Restoring factory V16 overwrites the last 40 KB of song storage (block sectors 86-95); export your songs first.",
+  "写入歌曲会先写入歌曲记录，再把编辑器中的全部块分批写入设备（每批最多 8 个扇区，一次提交；旧副本在设备 ACTIONS → COMPACT SONG STORAGE 时回收），最后读回校验。写入期间设备音频会短暂中断。恢复原厂 V16 会覆盖歌曲存储的最后 40 KB（块扇区 86–95），请先导出歌曲。": "Write song stores the song record first, then every block in the editor in batches (up to 8 sectors per batch, one commit each; old copies are reclaimed by ACTIONS > COMPACT SONG STORAGE on the device), then verifies the record by read-back. Device audio pauses briefly while it writes. Restoring factory V16 overwrites the last 40 KB of song storage (block sectors 86-95): export your songs first.",
   "请先启动仿真": "Start the simulator first",
   "请先连接项目库": "Connect the project library first",
   "请先读取或新建歌曲": "Read or create a song first",

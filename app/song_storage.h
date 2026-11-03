@@ -6,15 +6,17 @@
  *   The former sample bank (USER offset 69632, 446464 bytes) and the four DX7 user
  *   library sectors (516096, 16384 bytes) form one contiguous region of 113 sectors
  *   that holds songs and blocks. The byte layouts are FINAL and live in
- *   docs/tasks/TASK-03-step1-assessment.md section 9 (v0.4): a MIDI importer is built
+ *   docs/tasks/TASK-03-step1-assessment.md section 9 (v0.5): a MIDI importer is built
  *   against them in another session. This header declares the region constants, the
  *   record structures (exactly the on-flash byte order, little-endian, packed by
  *   construction), the first-boot migration API (checkpoint a) and the record, block,
  *   directory, reclaim and status API (checkpoint d).
  *
- * Version: 0.2
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-02  Checkpoint (e): batched block write (song_block_batch, section 9.6
+ *                     v0.5: whole sectors, one erase each, one journal commit).
  *   v0.2  2026-11-02  Checkpoint (d): song record / row structures (section 9.5 v0.4,
  *                     16-bit block ids),
  *                     block records (9.4), staging transactions and recovery (9.6),
@@ -52,7 +54,11 @@ enum {
     SONG_BLOCK_AREA = 20, SONG_BLOCK_AREA_BYTES = 4096 - 20,     /* record area 20..4095 */
     SONG_BLOCK_HEADER = 6,                                       /* song, 0, id16, length16 */
     SONG_JOURNAL_COMMIT = 4092,                                  /* staging commit word */
-    SONG_DIRECTORY_MAX = 2048                                    /* live blocks per song */
+    SONG_DIRECTORY_MAX = 2048,                                   /* live blocks per song */
+    /* Batch write (9.6 v0.5): a stream of block records packed into whole sectors. */
+    SONG_BATCH_BYTES = 32768,                                    /* longest stream accepted */
+    SONG_BATCH_SECTORS = 10,                                     /* sectors one batch may fill */
+    SONG_BATCH_LIST = 16                                         /* journal sector list bytes */
 };
 /* Song record, bytes 0..2623 of the 4096-byte sector image (9.5, v0.4 layout). The
  * remaining 1472 bytes are 0xFF. Field order and widths are the on-flash layout. */
@@ -115,6 +121,12 @@ int song_record_delete(unsigned song);
  * payload length; the caller's buffer must hold SONG_PAYLOAD_MAX bytes. */
 int song_payload_valid(const uint8_t *payload, unsigned bytes);
 int song_block_append(unsigned song, unsigned id, const uint8_t *payload, unsigned bytes);
+/* Batch write (9.6 v0.5): `stream` holds block records as in 9.4 / the .tabby file (6-byte
+ * header with song byte 0 or `song`, payload, 0xFF padding to a multiple of 4; the last
+ * record's padding may be missing), at most SONG_BATCH_BYTES. The whole batch lands in
+ * fresh block sectors under one journal commit, or nothing does: 0, SONG_INVALID (bad
+ * stream), SONG_FULL (fewer free sectors than the stream packs into), or a flash error. */
+int song_block_batch(unsigned song, const uint8_t *stream, unsigned bytes);
 int song_block_read(unsigned song, unsigned id, uint8_t *payload, unsigned *bytes);
 /* Directory (9.7) of one song, rebuilt on demand; song_block_read uses it. */
 int song_directory_build(unsigned song);
