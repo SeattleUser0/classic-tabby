@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.14
+Version: 0.15
 Revision log:
+- v0.15, 2026-11-02 (Task 04, firmware part): section 16: row events in firmware, measured
+  figures, host tests, and the device setup list for the hardware checklist.
 - v0.14, 2026-11-02 (Task 03 checkpoint f): section 15: factory scenes out, delete-before-
   replace in the shared song write, tempo range, liveness by reference; 13.4 step 12 (timing
   against the stock sequencer); 14.5 step 5 wording.
@@ -1177,3 +1179,77 @@ wasm smoke test and the workbench song-write test pass, no compiler warnings;
 `make midi-import-test` 128 checks; `make midi-import-sim` passes on the new wasm. The
 rebuilt preview loads in headless Chrome with no console errors, the factory picker gone,
 prev / next present, the import panel mounted.
+
+## 16. Task 04 — row events, firmware part (2026-11-02)
+
+### 16.1 What changed
+
+Format: section 9.11 v0.6 (commit 5542841, doc only, committed first).
+
+- `app/song_storage.h` / `.c` v0.5: `struct song_record` now covers the whole 4096-byte
+  image (`tail` from 2624); event constants, `song_event_count` / `song_event` accessors;
+  `song_record_valid` accepts version 1 or 2 and validates a version-2 table (count,
+  table version, reserved bytes, row index and order, per-row cap of 32, data ranges per
+  type, 0xFF after the last event); read, write and the staging recovery use the CRC range
+  and transaction length of the record's version (20..2623 or 20..4091).
+- `app/song.c` / `.h` v0.2: each row buffer carries the row's events (up to 32, gaps
+  already converted to blocks) and the stream's lead; the tick streams events under the
+  channel owners into router lane 0 and pre-fires the next row's stream `lead` blocks
+  before the boundary (by the same landing rules as the row switch: natural next, queued
+  jump at the next bar or row end); a row entered with events still pending after the
+  boundary tick increments `late`; `song_send_setup` decodes row 0 into buffer 0 while
+  stopped and the tick streams it; status gains `late` and `events`.
+- `app/midi_router.c`: `groove_midi_song_event(channel, status, a, b)` enqueues a channel
+  message under `THRU_OWNER + channel` on all three ports (lane 0).
+- `app/screen.c`: ACTIONS "SEND SETUP" (refused while playing: "STOP THE SONG FIRST";
+  without a song: "NO SONG LOADED"; else "SETUP SENT - ROW 1 EVENTS"); SONG page line
+  "EVENTS n" with "LATE m" in amber when nonzero.
+- `app/transfer.c`: command 23 bytes 13 (late, low byte) and 14 (event count, low byte).
+- `web/engine/Simulator.c`: `sim_song_send_setup`; `sim_song_status(2)` carries late in its
+  high half, `sim_song_status(3)` the event count.
+- `tests/host/smoke.c` v0.6, section 10 (36 checks): a three-row song with PC, CC,
+  bank+PC, two 250 ms gaps and a CC: every event once per row entry, in order, before the
+  row's first note and on its own channel; bank MSB immediately before the PC; the gapped
+  events pre-fired so they land at or just before the boundary (87 blocks between bank
+  select and the gapped PC); a queued jump fires the target row's events and skips the
+  other row's; a jump queued one step before the bar into a gapped row counts as late and
+  its gapped event lands after the note; SEND SETUP sends row 1's events while stopped
+  with no Start and no notes, and is refused while playing; a version-1 record loads with
+  0 events; 293 events, a row index past the row count, unsorted rows, a 0 ms gap, type 4,
+  33 events in a row, a stray byte after the table and table version 2 are rejected at the
+  write; a flipped byte in the stored table fails the version-2 CRC on load.
+
+### 16.2 Measured
+
+| Quantity | After (f) | After Task 04 firmware |
+| --- | ---: | ---: |
+| App image (limit 453921) | 447588 | **449252** (margin **4669**) |
+| Static SRAM | 299924 | 302580 |
+| Runtime heap (min 49152) | 223692 | 221036 |
+
+The firmware part costs 1664 bytes of flash (the Step 1 estimate was 1250: song.c took 1220
+instead of 600, the stream scheduler with pre-firing and the per-row decode being larger
+than guessed) and 2656 bytes of static SRAM (the record's 1472-byte tail now held in RAM,
+the two row buffers' 32-event tables, the stream state). The margin stays above the 2 KB
+floor of the task by 2.6 KB and above the 4 KB target of Task 03 as well. Track A and
+Track B byte-identical (`make crosscheck`: sdk.elf 832f395b…, .fwsc 544cacc2…). `make test`:
+148 host checks (112 + 36), the wasm smoke test and the workbench song-write test pass, no
+compiler warnings; `make midi-import-test` 128 checks and `make midi-import-sim` pass on
+the new wasm (the importer's version-1 songs are unaffected).
+
+### 16.3 Device setup list for the hardware checklist (from the Step 1 research)
+
+Settings on the gear itself, without which row events do nothing; each device JSON carries
+the same text in its `notes`. Sources: docs/tasks/TASK-04-step1-assessment.md section 4.
+
+| Device | Set on the device |
+| --- | --- |
+| E-MU Proteus/2 XR | Master menu MIDI MODE = Multi; per channel "MIDI ENABLE" on and "PRESET CHANGE" on for every channel a song addresses; "MIDI PROG>PRESET" map: identity for presets 0..127, and an explicit mapping (program → preset 128..383) for any preset above 127, because the Proteus has no bank select; leave the Edit menu (program changes are ignored inside it). The manual asks for setup messages before the song starts, so run SEND SETUP before PLAY. |
+| Eventide H90 | System > MIDI: channel (15) or Receive Omni; PC Offset 0 (PC n = Program n as displayed, 1-based) or 1 (PC 0 = Program 1) and the rig profile set to match; the Playlist is the User List the song's program numbers refer to (no bank select exists); CC numbers for bypass / HotSwitch / tap assigned in Global Control and entered in the rig profile; on firmware 1.8.6..1.9.x put the device gap after the program change (a CC with a PC is ignored). |
+| Zoom MS-70CDR+ | MENU > USB MIDI CH = 16 (or OMNI) behind the H4MIDI WC filter; USB host powered and connected before the set; patches 001..100 by program change only (no CC, no bank). Checklist item: send PC 0 and PC 1 and note which patch the display shows, to settle the PC base. |
+| Waldorf Blofeld | Global: MIDI Channel (or per-part channel in Multi mode with the part's "Prg Change" filter on receive); **Ctrl Receive = on** or no CC changes anything; banks by CC 32 = 0..7 (A..H); Multi selection by CC 0 = 127 + PC only when already in Multi mode (secondary); avoid channel 10 in Multi mode (Waldorf FAQ: crashes). Allow a gap after a program change (secondary: slow program changes). |
+| Waldorf Pulse 2 | Global: MIDI Channel; banks by CC 32 = 0..4 (×100 programs; CC 0 ignored; PC clamped to 0..99 inside the bank); no enable switch; program 500 is the random patch. |
+| Dirtywave M8 Model:02 | MIDI Settings: track channels (default track n = channel n), **PG CHANGE = on**; program change selects the track's instrument (INST 00..7F, hex); these settings are stored in the song file. |
+| Korg volca fm2 | MIDI channel (hold MEMORY at power-on, key 1..16); global 7 "MIDI ShortMessage" = on (factory default). No program change at all: a song can only send its CCs (40..50, 91, 93, 64). |
+| Instruo Seashell | MIDI channel in the Seashell Controller app (Settings); no program change in firmware 1.0.x, parameters by MIDI Learn only. |
+| M-VAVE FM-1 (Skiff / Melodee / Orange Cat) | Per the firmware loaded; definitions pending (workbench part). |

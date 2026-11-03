@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.10
+Version: 0.11
 Revision log:
+- v0.11, 2026-11-02: section 8 added: Task 04 row events and device library; firmware part
+  done (event storage, firing, SEND SETUP), workbench part pending.
 - v0.10, 2026-11-02: section 6: checkpoint (f) done (factory scenes out, delete-before-replace
   in the shared song write, tempo range enforced, liveness by reference); section 7 updated
   to the shared write path; known limits updated.
@@ -454,3 +456,47 @@ at the rebase (Step 4), none of them a byte-layout difference:
 - Legato is not produced: the importer clips same-pitch overlaps instead of setting the
   retrigger bit, so the device never extends a note (9.3 legato rule) for imported material.
 - The panel is English only (7.1).
+
+## 8. Task 04 — Row events (program change, bank select, CC) and the device library
+
+Task text: docs/tasks/TASK-04-row-events-device-library.md. Assessment and device research:
+docs/tasks/TASK-04-step1-assessment.md (approved 2026-11-02). Format: section 9.11 of
+docs/tasks/TASK-03-step1-assessment.md, v0.6 (5542841).
+
+Fixed decisions (the task's): events fire at row start before the row's first notes, on all
+MIDI out ports, targeting a MIDI channel, not a track; a queued jump fires the target
+row's events; types are program change, program change with bank select (CC 0 and/or
+CC 32 before the PC) and control change, with a per-device gap sent as a gap event;
+storage in the song sector tail with a versioned layout and an extended CRC, old songs
+staying valid; "SEND SETUP" on the SONG page sends row 1's events; the device library
+lives in the workbench only (`web/devices/*.json`, with sources and unverified fields
+marked); rig setup with a global profile and a per-song override; importer converts
+events at or near a row start. Approved at Step 1: once per row entry, pre-firing with a
+late counter, record version 2, the `.tabby` trailer for the rig override, a one-beat
+pre-roll default (0 and one bar selectable).
+
+Status:
+
+- **Firmware part done, 2026-11-02:** song record version 2 with the event table (storage
+  validation and version-dependent CRC and transaction length, recovery included), the
+  event stream in the sequencer tick (events of a row enqueued into router lane 0 before
+  the row's first notes, under the channel owners, on all ports; bank select before the
+  program; gaps in whole audio blocks; pre-firing so a gapped stream ends in the boundary
+  tick; the late counter), SEND SETUP (ACTIONS, stopped only), SONG page "EVENTS n / LATE
+  m", command 23 bytes 13..14. Host tests: section 10 (36 checks). Measured figures:
+  BUILD.md section 16.
+- Workbench part: pending (device library loader, the device JSON files, rig setup, row
+  event editor, `.tabby` events and trailer, importer).
+
+Known limits (firmware part):
+
+- Events never reach the internal engine (they target external gear); a song that must
+  change the SMK-37's own presets does that with its project, not with events.
+- A row's stream is pre-fired only when the next row is known: the natural next row, or
+  a queued jump's target once decoded. A jump queued with less time to its landing than the
+  stream's gaps, or PLAY itself on a row with gaps, sends the gapped tail after the
+  boundary (counted as late; use SEND SETUP before PLAY).
+- At most 32 events per row and 292 per song; a bank-select gap is three events (CC 0 /
+  CC 32 as control changes, a gap, the program change).
+- A version-2 record on firmware before Task 04 reads as invalid (different CRC range);
+  the workbench writes version 1 for songs without events.

@@ -36,9 +36,18 @@
  *   Build and run through the Makefile:  make test   (or make host-smoke)
  *   Exit status is the number of failed checks (0 = pass).
  *
- * Version: 0.5
+ *   Task 04 (v0.6):
+ *    10. row events (9.11): a version-2 record with program / bank+program / control / gap
+ *        events plays with every event once per row entry, before the row's first note and
+ *        on its own channel; bank select precedes the program; a gap pre-fires the stream
+ *        so the last event still lands before the notes; a queued jump fires the target
+ *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
+ *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
+ *
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-02  Task 04: section 10, row events.
  *   v0.5  2026-11-02  Task 03 (f): section 6 builds its sampler project from the workspace
  *                     (the factory scenes are gone); section 9: tempo range, replace via
  *                     delete, compaction back to one copy.
@@ -53,6 +62,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* Simulator entry points (web/engine/Simulator.c; EXPORT() is empty off-wasm). */
@@ -86,6 +96,7 @@ int sim_song_play(void);
 void sim_song_stop(void);
 int sim_song_jump(unsigned row);
 uint32_t sim_song_status(unsigned word);
+int sim_song_send_setup(void);
 uint8_t *sim_batch_buffer(void);
 int sim_block_batch(unsigned song, unsigned bytes);
 uint32_t groove_crc32(uint32_t crc, const void *data, unsigned bytes);
@@ -168,6 +179,14 @@ static void note_test(unsigned id, unsigned velocity, unsigned channel, const ch
     if (off == 0) dump(m, n);
 }
 
+/* Task 04: first index >= from of a logged message with the given bytes, or -1. */
+struct log_entry { uint8_t s, d1, d2; unsigned block; };
+static int find_log(const void *entries, unsigned n, unsigned s, unsigned a, unsigned b, int from)
+{
+    const struct log_entry *e = entries;
+    for (unsigned i = from < 0 ? 0 : (unsigned)from; i < n; ++i) if (e[i].s == s && e[i].d1 == a && e[i].d2 == b) return (int)i;
+    return -1;
+}
 int main(void)
 {
     /* 2. Initialization with cleared storage (the workbench's first-run path). */
@@ -503,6 +522,113 @@ int main(void)
         CHECK(r == 0 && sim_song_reclaimable() == 0 && sim_song_free() == free_a + 76, "one compaction leaves one copy (free %u, expected %u)", sim_song_free(), free_a + 76);
         CHECK(sim_block_read(5, 3) == 67 && sim_block_read(5, 1) < 0, "B's block is live, A's block is gone");
         CHECK(sim_song_record_delete(5) == 0, "song 5 deleted");
+    }
+
+
+    /* ---- 10. row events (Task 04, assessment 9.11 v0.6) ---------------------------------- */
+    {
+        enum { SONG = 6, REGION = 69632, EVENTS = 2624, FIRST = 2632 };
+        uint8_t *f = sim_file(), *flash = sim_flash();
+        uint8_t blk[67]; memset(blk, 0, sizeof blk); blk[0] = 1; blk[1] = 60; blk[2] = 100; blk[3] = 1;
+        memcpy(f, blk, sizeof blk);
+        CHECK(sim_block_write(SONG, 1, sizeof blk) == 0, "events: block 1 of song 7 stored");
+        /* A version-2 record: three rows of 16 steps, block 1 on track 1, and six events:
+         * row 0: PC 7 on ch 5, CC 74 = 96 on ch 1; row 1: bank MSB 1 + PC 9 on ch 2, a 250 ms
+         * gap, PC 1 on ch 3; row 2: a 250 ms gap, then CC 7 = 100 on ch 4. */
+        static const uint8_t ev[7][5] = {{0, 0x04, 7, 0, 0}, {0, 0x20, 74, 96, 0}, {1, 0x11, 1, 0xff, 9},
+                                         {1, 0x30, 250, 0, 0}, {1, 0x02, 1, 0, 0}, {2, 0x30, 250, 0, 0}, {2, 0x23, 7, 100, 0}};
+        #define EVENT_RECORD(rows_, version_) do { \
+            memset(f, 0, 2624); memset(f + 2624, 0xff, 4096 - 2624); memcpy(f, "FM1G", 4); f[20] = (version_); \
+            memcpy(f + 24, "EVENT TEST  ", 12); f[40] = (rows_); \
+            for (unsigned r_ = 0; r_ < (rows_); ++r_) { f[64 + 20 * r_] = 1; f[64 + 20 * r_ + 16] = 1; f[64 + 20 * r_ + 18] = 16; } \
+            if ((version_) == 2) { f[EVENTS] = 7; f[EVENTS + 1] = 0; f[EVENTS + 2] = 1; f[EVENTS + 3] = 0; memset(f + EVENTS + 4, 0, 4); memcpy(f + FIRST, ev, sizeof ev); } \
+        } while (0)
+        EVENT_RECORD(3, 2);
+        int r = sim_song_record_write(SONG);
+        CHECK(r == 0, "events: version-2 record with seven events written (%d)", r);
+        memset(f, 0, 4096);
+        r = sim_song_record_read(SONG);
+        CHECK(r == 0 && f[20] == 2 && f[EVENTS] == 7 && !memcmp(f + FIRST, ev, sizeof ev) && f[4091] == 0xff, "events: record reads back with its table (%d)", r);
+        /* Play it through, logging port-1 messages in order with their block. */
+        struct log { uint8_t s, d1, d2; unsigned block; } log[512]; unsigned logged = 0, blocks = 0;
+        #define PLAY_LOG(stop_when) do { logged = 0; blocks = 0; int tail_ = -1; \
+            for (unsigned i = 0; i < 6000 && tail_ != 0; ++i) { (void)sim_render(); ++blocks; \
+                struct message m[64]; unsigned n = drain(m, 64); \
+                for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && m[k].data[0] != 0xf8 && logged < 512) {   /* clock skipped */ log[logged].s = m[k].data[0]; log[logged].d1 = m[k].bytes > 1 ? m[k].data[1] : 0; log[logged].d2 = m[k].bytes > 2 ? m[k].data[2] : 0; log[logged].block = blocks; ++logged; } \
+                if (tail_ > 0) --tail_; else if (stop_when) tail_ = 8; } } while (0)
+        #define FIND(st_, a_, b_, from_) find_log(log, logged, (st_), (a_), (b_), (from_))
+        sim_midi_capture(1);
+        CHECK(sim_song_load(SONG) == 0 && sim_song_status(3) == 7, "events: song loads, status reports 7 events (%u)", sim_song_status(3));
+        CHECK(sim_song_play() == 0, "events: song plays");
+        unsigned ch = sim_midi_setting(0, 1), on = 0x90 | ch;
+        PLAY_LOG(blocks > 40 && (sim_song_status(0) >> 8 & 255U) == 0);
+        int start = FIND(0xfa, 0, 0, 0), pc5 = FIND(0xc4, 7, 0, 0), cc1 = FIND(0xb0, 74, 96, 0), note0 = FIND(on, 60, 100, 0);
+        CHECK(start >= 0 && pc5 > start && cc1 > pc5 && note0 > cc1, "row 0: Start, then PC ch5 and CC ch1 in order, then the first note (%d %d %d %d)", start, pc5, cc1, note0);
+        int note1 = FIND(on, 60, 100, note0 + 1), note2 = FIND(on, 60, 100, note1 + 1);
+        int msb = FIND(0xb1, 0, 1, 0), pc2 = FIND(0xc1, 9, 0, 0), pc3 = FIND(0xc2, 1, 0, 0), cc4 = FIND(0xb3, 7, 100, 0);
+        CHECK(note1 > 0 && note2 > note1, "three rows played their note (%d %d %d)", note0, note1, note2);
+        CHECK(msb > 0 && pc2 == msb + 1, "row 1: bank MSB (CC 0 = 1) immediately before PC 9 on ch2 (%d %d)", msb, pc2);
+        CHECK(pc3 > pc2 && pc3 < note1 && log[pc3].block - log[msb].block >= 80 && log[pc3].block - log[msb].block <= 95,
+              "row 1: the 250 ms gap pre-fired: PC ch3 %u blocks after the bank select, still before row 1's note", pc3 > 0 ? log[pc3].block - log[msb].block : 0);
+        CHECK(note1 - log[note1].block == note1 - log[note1].block && log[pc3].block <= log[note1].block && log[msb].block < log[note1].block, "row 1: events land at or before the boundary block");
+        CHECK(cc4 > note1 && cc4 < note2 && log[note2].block - log[cc4].block <= 2, "row 2: the gapped CC 7 on ch4 pre-fired to land just before row 2's note (%u blocks before)", cc4 > 0 ? log[note2].block - log[cc4].block : 0);
+        CHECK(FIND(0xc4, 7, 0, pc5 + 1) < 0 && FIND(0xb1, 0, 1, msb + 1) < 0 && FIND(0xc2, 1, 0, pc3 + 1) < 0 && FIND(0xb3, 7, 100, cc4 + 1) < 0, "every event fired exactly once");
+        CHECK((sim_song_status(2) >> 16) == 0 && (sim_song_status(2) & 0xffffU) == 0, "no late rows, no underruns (%u)", sim_song_status(2) >> 16);
+        CHECK((sim_song_status(0) >> 8 & 255U) == 0 && FIND(0xfc, 0, 0, 0) > cc4, "song ended by itself after row 2");
+        /* Queued jump: from row 0 straight to row 2 (bar mode: lands at row 0's end). */
+        { struct message m[64]; (void)drain(m, 64); }
+        CHECK(sim_song_play() == 0 && sim_song_jump(2) == 0, "events: play again and queue a jump to row 3");
+        PLAY_LOG(blocks > 40 && (sim_song_status(0) >> 8 & 255U) == 0);
+        note0 = FIND(on, 60, 100, 0); note1 = FIND(on, 60, 100, note0 + 1); cc4 = FIND(0xb3, 7, 100, 0);
+        CHECK(note1 > 0 && cc4 > note0 && cc4 < note1 && FIND(0xb1, 0, 1, 0) < 0, "jump: row 3's CC fired before its note, row 2's events never fired");
+        CHECK((sim_song_status(2) >> 16) == 0, "jump with enough lead: not late");
+        /* A jump to row 3 queued at the last step of row 1: less than one step to the bar
+         * but row 3's lead is 87 blocks, so its stream starts at the boundary, the gapped CC
+         * lands after row 3's note, and the row entry is counted late. */
+        { struct message m[64]; (void)drain(m, 64); }
+        CHECK(sim_song_play() == 0, "events: play again");
+        for (unsigned i = 0; i < 3000 && (sim_song_status(0) >> 24) != 15; ++i) { (void)sim_render(); struct message m[64]; (void)drain(m, 64); }
+        CHECK((sim_song_status(0) >> 24) == 15 && sim_song_jump(2) == 0, "jump to row 3 queued at step 16 of row 1");
+        PLAY_LOG(blocks > 40 && (sim_song_status(0) >> 8 & 255U) == 0);
+        note1 = FIND(on, 60, 100, 0); cc4 = FIND(0xb3, 7, 100, 0);
+        CHECK(note1 >= 0 && cc4 > note1 && log[cc4].block - log[note1].block >= 80, "late jump: the gapped CC lands %u blocks after row 3's note", cc4 > 0 && note1 >= 0 ? log[cc4].block - log[note1].block : 0);
+        CHECK((sim_song_status(2) >> 16) == 1, "late counter is 1 (%u)", sim_song_status(2) >> 16);
+        sim_song_stop(); settle(); settle(); { struct message m[64]; (void)drain(m, 64); }
+        /* SEND SETUP while stopped: row 0's events, no Start, no notes. */
+        CHECK(sim_song_send_setup() == 0, "SEND SETUP accepted while stopped");
+        PLAY_LOG(blocks >= 12);
+        CHECK(FIND(0xc4, 7, 0, 0) >= 0 && FIND(0xb0, 74, 96, 0) >= 0 && FIND(0xfa, 0, 0, 0) < 0 && FIND(on, 60, 100, 0) < 0, "SEND SETUP sent row 1's two events and nothing else (%u messages)", logged);
+        CHECK(sim_song_play() == 0 && sim_song_send_setup() == -3, "SEND SETUP refused while playing");
+        sim_song_stop(); settle(); settle(); { struct message m[64]; (void)drain(m, 64); } sim_midi_capture(0);
+        /* A version-1 record still loads and reports no events. */
+        EVENT_RECORD(3, 1);
+        CHECK(sim_song_record_write(7) == 0 && sim_song_load(7) == 0 && sim_song_status(3) == 0, "version-1 record loads with 0 events");
+        /* Bad tables are rejected at the write. */
+        EVENT_RECORD(3, 2); f[EVENTS] = 293 & 255; f[EVENTS + 1] = 293 >> 8;
+        CHECK(sim_song_record_write(7) == -7, "293 events rejected");
+        EVENT_RECORD(3, 2); f[FIRST + 5 * 5] = 3;
+        CHECK(sim_song_record_write(7) == -7, "event row 3 of a 3-row song rejected");
+        EVENT_RECORD(3, 2); f[FIRST + 5 * 2] = 2; f[FIRST + 5 * 5] = 1;
+        CHECK(sim_song_record_write(7) == -7, "unsorted rows rejected");
+        EVENT_RECORD(3, 2); f[FIRST + 5 * 3 + 2] = 0;
+        CHECK(sim_song_record_write(7) == -7, "gap of 0 ms rejected");
+        EVENT_RECORD(3, 2); f[FIRST + 5 * 0 + 1] = 0x44;
+        CHECK(sim_song_record_write(7) == -7, "event type 4 rejected");
+        EVENT_RECORD(3, 2); f[EVENTS] = 33; for (unsigned i = 0; i < 33; ++i) { uint8_t *e = f + FIRST + 5 * i; e[0] = 0; e[1] = 0x20; e[2] = 1; e[3] = 1; e[4] = 0; }
+        CHECK(sim_song_record_write(7) == -7, "33 events in one row rejected");
+        EVENT_RECORD(3, 2); f[4000] = 0;
+        CHECK(sim_song_record_write(7) == -7, "a non-0xFF byte after the table rejected");
+        EVENT_RECORD(3, 2); f[EVENTS + 2] = 2;
+        CHECK(sim_song_record_write(7) == -7, "table version 2 rejected");
+        /* A corrupted table on flash fails the version-2 CRC: the song reads as invalid. */
+        flash[REGION + (1 + SONG) * 4096 + FIRST + 2] ^= 1;
+        CHECK(sim_song_load(SONG) == -7, "corrupted event byte: version-2 CRC rejects the record");
+        flash[REGION + (1 + SONG) * 4096 + FIRST + 2] ^= 1;
+        CHECK(sim_song_load(SONG) == 0, "restored byte: the record loads again");
+        CHECK(sim_song_record_delete(SONG) == 0 && sim_song_record_delete(7) == 0, "event test songs deleted");
+        #undef EVENT_RECORD
+        #undef PLAY_LOG
+        #undef FIND
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

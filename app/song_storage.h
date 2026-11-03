@@ -12,9 +12,13 @@
  *   construction), the first-boot migration API (checkpoint a) and the record, block,
  *   directory, reclaim and status API (checkpoint d).
  *
- * Version: 0.3
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-02  Task 04: song record version 2 with the row event table in the sector
+ *                     tail (section 9.11 v0.6): struct song_record covers the whole 4096-byte
+ *                     image, event constants and accessors.
+ *   v0.4  2026-11-02  Checkpoint (f): tempo override range (via song_record_valid).
  *   v0.3  2026-11-02  Checkpoint (e): batched block write (song_block_batch, section 9.6
  *                     v0.5: whole sectors, one erase each, one journal commit).
  *   v0.2  2026-11-02  Checkpoint (d): song record / row structures (section 9.5 v0.4,
@@ -58,10 +62,20 @@ enum {
     /* Batch write (9.6 v0.5): a stream of block records packed into whole sectors. */
     SONG_BATCH_BYTES = 32768,                                    /* longest stream accepted */
     SONG_BATCH_SECTORS = 10,                                     /* sectors one batch may fill */
-    SONG_BATCH_LIST = 16                                         /* journal sector list bytes */
+    SONG_BATCH_LIST = 16,                                        /* journal sector list bytes */
+    /* Row events (9.11 v0.6, Task 04): the event table of a version-2 record. */
+    SONG_EVENTS_OFFSET = 2624,                                   /* count u16, table version, flags, reserved */
+    SONG_EVENTS_START = 2632,                                    /* first 5-byte event */
+    SONG_EVENT_BYTES = 5,
+    SONG_EVENTS_MAX = 292,                                       /* (4092 - 2632) / 5 */
+    SONG_ROW_EVENTS_MAX = 32,                                    /* kept in RAM per row */
+    SONG_RECORD_V2_END = 4092                                    /* version 2 CRC covers 20..4091 */
 };
-/* Song record, bytes 0..2623 of the 4096-byte sector image (9.5, v0.4 layout). The
- * remaining 1472 bytes are 0xFF. Field order and widths are the on-flash layout. */
+/* Event types (9.11): {row, channel | type << 4, d0, d1, d2}. */
+enum { SONG_EVENT_PC = 0, SONG_EVENT_BANK_PC = 1, SONG_EVENT_CC = 2, SONG_EVENT_GAP = 3 };
+/* Song record: the whole 4096-byte sector image (9.5 v0.4 layout for bytes 0..2623; since
+ * v0.6 a version-2 record carries the row event table in `tail`, bytes 2624..4091, 9.11;
+ * a version-1 record's tail is 0xFF). Field order and widths are the on-flash layout. */
 struct song_row {
     uint16_t block[SONG_TRACKS]; /* block id per track (little-endian), 0 = silent */
     uint8_t repeat;             /* 1..64 */
@@ -75,7 +89,7 @@ struct song_record {
     uint32_t target;            /* region sector 1 + song (staging recovery) */
     uint32_t crc;               /* crc32 over bytes 20..2623 */
     uint32_t commit;            /* 0xFFFFFFFF while writing, 0 once complete */
-    uint32_t version;           /* 1 */
+    uint32_t version;           /* 1 = no events (CRC 20..2623), 2 = event table (CRC 20..4091) */
     char name[12];              /* printable ASCII, space padded */
     uint8_t project;            /* project slot 0..15 */
     uint8_t flags;              /* bit 0 loop song, bit 1 jump mode (0 bar, 1 row) */
@@ -87,9 +101,15 @@ struct song_record {
     uint8_t channel[SONG_TRACKS]; /* 0 = device OUT CH, 1..16 = MIDI channel */
     uint8_t reserved2[8];
     struct song_row row[SONG_ROWS]; /* offset 64, 2560 bytes */
+    uint8_t tail[SONG_RECORD_BYTES - SONG_RECORD_BODY_END]; /* 2624..4095: event table (v2) or 0xFF */
 };
 _Static_assert(sizeof(struct song_row) == 20, "song row layout");
-_Static_assert(sizeof(struct song_record) == SONG_RECORD_BODY_END, "song record layout");
+_Static_assert(sizeof(struct song_record) == SONG_RECORD_BYTES, "song record layout");
+/* Event table accessors (9.11): count 0 for a version-1 record; event i's 5 bytes. */
+static inline unsigned song_event_count(const struct song_record *r)
+{ return r->version == 2 ? (unsigned)(r->tail[0] | r->tail[1] << 8) : 0; }
+static inline const uint8_t *song_event(const struct song_record *r, unsigned i)
+{ return r->tail + (SONG_EVENTS_START - SONG_RECORD_BODY_END) + SONG_EVENT_BYTES * i; }
 enum { SONG_FLAG_LOOP = 1, SONG_FLAG_JUMP_ROW = 2, SONG_ROW_FLAG_LOOP_HERE = 1 };
 
 /* Migration state (control task), checkpoint (a):

@@ -124,7 +124,8 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         out[8] = (uint8_t)(st == SONG_STORAGE_OLD_DATA ? 2 : st == SONG_STORAGE_READY ? 0 : 1);
         struct song_status song; song_status_read(&song);
         out[9] = song.song; out[10] = song.playing; out[11] = song.row; out[12] = song.error;
-        *count = 13; return 0;
+        out[13] = (uint8_t)song.late; out[14] = (uint8_t)song.events;   /* Task 04 (9.11) */
+        *count = 15; return 0;
     }
     if (cmd == 21 && !n) {
         out[0] = groove_tuning_capture && groove_tuning_apply ? 1 : 0;

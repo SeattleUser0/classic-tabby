@@ -285,13 +285,15 @@ EXPORT("sim_song_load") int sim_song_load(unsigned song) { return song_load(song
 EXPORT("sim_song_play") int sim_song_play(void) { return song_play(); }
 EXPORT("sim_song_stop") void sim_song_stop(void) { song_stop(); }
 EXPORT("sim_song_jump") int sim_song_jump(unsigned row) { return song_queue_jump(row); }
+EXPORT("sim_song_send_setup") int sim_song_send_setup(void) { return song_send_setup(); } /* Task 04 */
 /* song | playing << 8 | row << 16 | step << 24; the second word: repeat | next << 8 |
  * queued << 16 | error << 24; underruns in the third. */
 EXPORT("sim_song_status") uint32_t sim_song_status(unsigned word)
 {
     struct song_status st; song_status_read(&st);
     if (word == 1) return st.repeat | (uint32_t)st.next_row << 8 | (uint32_t)st.queued << 16 | (uint32_t)st.error << 24;
-    if (word == 2) return st.underruns;
+    if (word == 2) return st.underruns | (uint32_t)st.late << 16;   /* Task 04: late count in the high half */
+    if (word == 3) return st.events;
     return st.song | (uint32_t)st.playing << 8 | (uint32_t)st.row << 16 | (uint32_t)st.step << 24;
 }
 EXPORT("sim_control") void sim_control(unsigned kind, unsigned index, int value)

@@ -33,9 +33,11 @@
  *   Everything here runs on the control task and is synchronous (a transaction takes
  *   three sector erases). The sequencer (app/song.c) only reads through the directory.
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-02  Task 04: record version 2 (event table 2624..4091 validated, CRC and
+ *                     transaction length by version, recovery reads the version too).
  *   v0.4  2026-11-02  Checkpoint (f): song_record_valid rejects a tempo override outside
  *                     30..300 (0 = project tempo).
  *   v0.3  2026-11-02  Checkpoint (e): song_block_batch, batch journal recovery, pending
@@ -218,9 +220,10 @@ static unsigned staged_target(unsigned *n)
     uint32_t magic = le32(image);
     if (magic == SONG_MAGIC_RECORD) {
         uint32_t target = le32(image + 8);
-        *n = SONG_RECORD_BODY_END;
+        unsigned end = image[20] == 2 ? SONG_RECORD_V2_END : SONG_RECORD_BODY_END; /* 9.11: CRC range by version */
+        *n = end;
         if (target < SONG_FIRST_SONG_SECTOR || target >= SONG_FIRST_BLOCK_SECTOR) return 0;
-        return le32(image + 12) == crc(image + 20, SONG_RECORD_BODY_END - 20) ? target : 0;
+        return le32(image + 12) == crc(image + 20, end - 20) ? target : 0;
     }
     if (magic == SONG_MAGIC_BLOCKS) {
         unsigned target = image[5];
@@ -276,9 +279,36 @@ int song_storage_prepare(void)
 }
 
 /* ---- song records (9.5) ------------------------------------------------------------ */
+/* Row event table of a version-2 record (9.11): count, table version, reserved bytes,
+ * every event's row / type / data ranges, row order, the per-row cap, 0xFF after the last
+ * event. Returns 0 or SONG_INVALID. */
+static int events_valid(const struct song_record *r)
+{
+    const uint8_t *t = r->tail;                  /* t[0] is byte 2624 */
+    unsigned n = t[0] | (unsigned)t[1] << 8;
+    if (n > SONG_EVENTS_MAX || t[2] != 1 || t[3] != 0 || le32(t + 4) != 0) return SONG_INVALID;
+    unsigned last_row = 0, in_row = 0;
+    for (unsigned i = 0; i < n; ++i) {
+        const uint8_t *e = song_event(r, i);
+        unsigned row = e[0], type = e[1] >> 4, d0 = e[2], d1 = e[3], d2 = e[4];
+        if (row >= r->rows || row < last_row) return SONG_INVALID;
+        in_row = row == last_row ? in_row + 1 : 1; last_row = row;
+        if (in_row > SONG_ROW_EVENTS_MAX) return SONG_INVALID;
+        switch (type) {
+        case SONG_EVENT_PC:      if (d0 > 127 || d1 || d2) return SONG_INVALID; break;
+        case SONG_EVENT_BANK_PC: if ((d0 > 127 && d0 != 0xff) || (d1 > 127 && d1 != 0xff) || d2 > 127) return SONG_INVALID; break;
+        case SONG_EVENT_CC:      if (d0 > 127 || d1 > 127 || d2) return SONG_INVALID; break;
+        case SONG_EVENT_GAP:     if (!d0 || d1 || d2) return SONG_INVALID; break;
+        default:                 return SONG_INVALID;
+        }
+    }
+    unsigned end = SONG_EVENTS_START - SONG_RECORD_BODY_END + SONG_EVENT_BYTES * n;
+    for (unsigned i = end; i < SONG_RECORD_V2_END - SONG_RECORD_BODY_END; ++i) if (t[i] != 0xff) return SONG_INVALID;
+    return 0;
+}
 int song_record_valid(const struct song_record *r)
 {
-    if (r->version != 1 || r->project >= GROOVE_PROJECT_SLOTS || (r->flags & ~3U) ||
+    if ((r->version != 1 && r->version != 2) || r->project >= GROOVE_PROJECT_SLOTS || (r->flags & ~3U) ||
         r->rows < 1 || r->rows > SONG_ROWS || r->loop_row >= r->rows) return SONG_INVALID;
     /* Checkpoint (f), 9.5 v0.5.1: the tempo override is 0 (project tempo) or 30..300 BPM. */
     if (r->tempo && (r->tempo < 30 || r->tempo > 300)) return SONG_INVALID;
@@ -289,7 +319,7 @@ int song_record_valid(const struct song_record *r)
         if (row->repeat < 1 || row->repeat > 64 || (row->flags & ~1U) ||
             (row->steps && (row->steps > 64 || row->steps % 16))) return SONG_INVALID;
     }
-    return 0;
+    return r->version == 2 ? events_valid(r) : 0;   /* 9.11 (Task 04) */
 }
 int song_record_read(unsigned song, struct song_record *out)
 {
@@ -297,7 +327,9 @@ int song_record_read(unsigned song, struct song_record *out)
     int r = fm1_flash_read(sector_address(SONG_FIRST_SONG_SECTOR + song), out, sizeof *out);
     if (r) return r;
     if (out->magic != SONG_MAGIC_RECORD || out->commit != 0) return SONG_EMPTY;
-    if (out->crc != crc((const uint8_t *)out + 20, SONG_RECORD_BODY_END - 20)) return SONG_INVALID;
+    if (out->version != 1 && out->version != 2) return SONG_INVALID;
+    unsigned end = out->version == 2 ? SONG_RECORD_V2_END : SONG_RECORD_BODY_END; /* 9.11 */
+    if (out->crc != crc((const uint8_t *)out + 20, end - 20)) return SONG_INVALID;
     return song_record_valid(out);
 }
 int song_record_write(unsigned song, const struct song_record *in)
@@ -310,12 +342,15 @@ int song_record_write(unsigned song, const struct song_record *in)
     r = fm1_flash_read(sector_address(SONG_FIRST_SONG_SECTOR + song), head, sizeof head);
     if (r) return r;
     uint32_t generation = le32(head) == SONG_MAGIC_RECORD ? le32(head + 4) + 1U : 1U;
+    /* Version 2 (9.11): the image runs to 4091 (the event table is inside the CRC); the
+     * staging commit word at 4092 stays outside either way. */
+    unsigned end = in->version == 2 ? SONG_RECORD_V2_END : SONG_RECORD_BODY_END;
     memset(image, 0xff, sizeof image);
-    memcpy(image, in, SONG_RECORD_BODY_END);
+    memcpy(image, in, end);
     put32(image, SONG_MAGIC_RECORD); put32(image + 4, generation);
     put32(image + 8, SONG_FIRST_SONG_SECTOR + song); put32(image + 16, 0);
-    put32(image + 12, crc(image + 20, SONG_RECORD_BODY_END - 20));
-    return transact(SONG_FIRST_SONG_SECTOR + song, SONG_RECORD_BODY_END);
+    put32(image + 12, crc(image + 20, end - 20));
+    return transact(SONG_FIRST_SONG_SECTOR + song, end);
 }
 int song_record_delete(unsigned song)
 {

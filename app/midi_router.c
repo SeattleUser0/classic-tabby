@@ -173,6 +173,15 @@ FM1_AUDIO_CODE void groove_midi_song_note(unsigned track, unsigned note, unsigne
     unsigned ports = ((config.flags & SEQ_OFF) || !groove_midi_mode(track)) ? 0 : config.flags & 7U;
     enqueue(track & 1U, SONG_OWNER + track, ports, (velocity ? 0x90U : 0x80U) | channel(track), note, velocity);
 }
+/* Row events (Task 04, 9.11): a channel message for a MIDI channel, not a track. The
+ * channel's thru owner (24..39) gives the channel back at delivery (owner_channel), every
+ * port is a destination, and lane 0 drains before the note lanes, so an event enqueued in
+ * the tick before play_step() leaves before that tick's notes. Program and control
+ * messages touch no held-note map. No local-engine copy: events target external gear. */
+FM1_AUDIO_CODE void groove_midi_song_event(unsigned channel, unsigned status, unsigned a, unsigned b)
+{
+    enqueue(0, THRU_OWNER + (channel & 15U), 7, status | (channel & 15U), a, b);
+}
 FM1_AUDIO_CODE void groove_midi_arp_note(unsigned track, unsigned note, unsigned velocity)
 {
     enqueue(track & 1U, ARP_OWNER + track, config.flags & 7U,

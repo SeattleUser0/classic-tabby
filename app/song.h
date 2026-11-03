@@ -13,9 +13,11 @@
  *   Transport: song mode owns PLAY while a song plays; the stock pattern sequencer stays
  *   stopped (its transport is never started by song mode). Internal clock only (v1).
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-02  Task 04: row events (9.11): the event stream per row buffer, pre-fired
+ *                     gaps, the late counter, SEND SETUP, status fields.
  *   v0.1  2026-11-02  Initial version.
  */
 #ifndef CT_SONG_H
@@ -34,6 +36,8 @@ struct song_status {
     uint8_t jump_mode;   /* 0 next bar, 1 end of row (RAM copy of the record flag) */
     uint8_t error;       /* last load/decode error (0 none, see song_storage.h) */
     uint16_t underruns;  /* rows replayed because the next one was not decoded in time */
+    uint16_t late;       /* row entries whose event stream ended after the row boundary (9.11) */
+    uint16_t events;     /* events in the loaded song's table */
 };
 void song_init(void);                 /* once, before audio starts */
 void song_poll(void);                 /* control task: decode ahead, finish stops */
@@ -46,6 +50,7 @@ int song_queue_jump(unsigned row);    /* lands at the next bar / row end */
 void song_jump_mode_set(unsigned mode);
 void song_status_read(struct song_status *out);
 unsigned song_playing(void);          /* 1 while playing or stopping */
+int song_send_setup(void);            /* stopped only: send row 0's events now (9.11) */
 /* Audio thread, once per 128-frame block, from groove_midi_clock(0, tempo). song_tempo
  * returns the playing song's BPM override, 0 for the project tempo. */
 FM1_AUDIO_CODE void song_tick(unsigned tempo);

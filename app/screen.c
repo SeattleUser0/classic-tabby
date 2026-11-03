@@ -144,7 +144,7 @@ static const char *const actions[] = {"STEP DETAILS", "RHYTHM / RECORD", "COPY S
     "PASTE STEP", "PASTE PAGE", "PASTE TRACK", "CLEAR STEP", "CLEAR PAGE", "CLEAR TRACK",
     "REPEAT TO 32", "REPEAT TO 48", "REPEAT TO 64", "UNDO / REDO", "COPY TIMBRE", "PASTE TIMBRE",
     "DX7 PATCH NAME", "BLUETOOTH / CLOCK", "STOP ALL / REWIND", "ERASE OLD SAMPLE/DX7",
-    "SONG MODE", "COMPACT SONG STORAGE"};
+    "SONG MODE", "COMPACT SONG STORAGE", "SEND SETUP"};
 enum { ACTION_COUNT = sizeof actions / sizeof actions[0] };
 static unsigned source_preview, action, action_confirm, tone_clip_ready;
 static struct groove_preset tone_clip;
@@ -1071,6 +1071,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             if (st.error) { color_text(8, 158, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS" : "BLOCK READ ERROR", AMBER); }
             else if (st.underruns) color_text(8, 158, "ROW DECODE LATE", AMBER);
             if (rec->tempo) { dim_text(130, 158, "BPM"); small_number(154, 158, rec->tempo, 3, TEXT); }
+            /* Task 04 (9.11): the song's row events and the late count since PLAY. */
+            if (st.events) {
+                dim_text(8, 176, "EVENTS"); small_number(56, 176, st.events, 3, TEXT);
+                if (st.late) { color_text(104, 176, "LATE", AMBER); small_number(140, 176, st.late, 3, AMBER); }
+            }
         } else {
             dim_text(8, 70, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS IN SONG" : "NO SONG HERE - UPLOAD FROM");
             dim_text(8, 88, "THE WEB WORKBENCH");
@@ -1978,6 +1983,12 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             } else if (action == 22) {
                 /* Task 03 d: full compaction pass, one block sector per poll (9.6). */
                 r = song_playing() ? -1 : song_storage_compact();
+            } else if (action == 23) {
+                /* Task 04 (9.11): send row 1's events now, for a set or after power-up. */
+                int e = song_send_setup();
+                announce(e == SONG_BUSY ? "STOP THE SONG FIRST" : e ? "NO SONG LOADED" : "SETUP SENT - ROW 1 EVENTS", now + 2000U);
+                cache->middle_cache = ~0U;
+                goto controls_done;
             }
             else {
                 if (!post(0xff, 0, 0, 1)) return 0;

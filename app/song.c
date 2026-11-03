@@ -28,9 +28,18 @@
  *   Known limits (v1): internal clock only (song mode refuses to start in MIDI clock
  *   mode); the alt-tuning bit of a step is stored but not applied by the device.
  *
- * Version: 0.1
+ *   Row events (Task 04, 9.11): a row buffer also carries the row's events (program
+ *   change, bank + program, control change, gap). The audio tick streams them under the
+ *   router's channel owners: the stream of the next row starts `lead` blocks (the sum of
+ *   its gaps) before the boundary where the row is entered, so its last message leaves in
+ *   the boundary tick, before the row's first notes (lane 0 drains before the note lanes).
+ *   A stream that could not start early enough (a jump queued late) is counted in `late`.
+ *   SEND SETUP streams row 0 while stopped, from the same tick.
+ *
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-02  Task 04: row events, pre-firing, late counter, SEND SETUP.
  *   v0.1  2026-11-02  Initial version.
  */
 #include "song.h"
@@ -38,8 +47,14 @@
 #include <string.h>
 
 enum { CELL = 1 + 3 * SONG_NOTES_PER_STEP }; /* step header + 4 notes × (pitch, velocity, length) */
+enum { PERIOD = FM1_SAMPLE_RATE * 60U / 100U };  /* one 16th in (tempo × 4 × frames) units, per cent */
 struct rowbuf {
     uint8_t cell[SONG_TRACKS][SONG_BLOCK_STEPS][CELL];
+    /* Row events (9.11): {channel | type << 4, d0, d1, d2} in firing order; a gap's d0 is
+     * already converted to audio blocks. lead = the sum of the gaps, in blocks. */
+    uint8_t event[SONG_ROW_EVENTS_MAX][4];
+    uint8_t event_count;
+    uint16_t lead;
     uint8_t row, steps, repeat, loop_here;
     volatile uint8_t ready;
 };
@@ -55,6 +70,12 @@ static volatile unsigned playing, cur, pos, repeat, underruns;
 static struct { uint8_t pitch, remaining; } sounding[SONG_TRACKS][SONG_SOUNDING_MAX];
 static uint8_t sounding_count[SONG_TRACKS];
 static uint32_t phase, rnd = 0x2545f491U;
+/* Row event stream (9.11), audio only: the buffer being streamed, the next event, the
+ * blocks still to wait. armed/streamed/armed_row detect a freshly decoded buffer (ready
+ * 0 -> 1) so that each row entry is streamed exactly once. */
+static struct { uint8_t buf, next, active; uint16_t wait; } stream;
+static uint8_t armed[2], streamed[2], armed_row[2];
+static volatile unsigned late_count, setup_request;   /* audio -> control, control -> audio */
 
 static FM1_AUDIO_CODE void barrier(void)
 {
@@ -98,17 +119,68 @@ static FM1_AUDIO_CODE void play_step(void)
         }
     }
 }
+/* ---- row events (9.11) ------------------------------------------------------------- */
+static FM1_AUDIO_CODE void stream_begin(unsigned buf)
+{
+    stream.buf = (uint8_t)buf; stream.next = 0; stream.wait = 0;
+    stream.active = buffers[buf].event_count != 0;
+    streamed[buf] = 1;
+}
+/* One tick of the stream: send events until a gap (then wait its blocks) or the end. */
+static FM1_AUDIO_CODE void stream_run(void)
+{
+    if (!stream.active) return;
+    if (stream.wait) { --stream.wait; return; }
+    const struct rowbuf *b = &buffers[stream.buf];
+    while (stream.next < b->event_count) {
+        const uint8_t *e = b->event[stream.next++];
+        unsigned ch = e[0] & 15U, type = e[0] >> 4;
+        if (type == SONG_EVENT_GAP) { stream.wait = e[1]; if (stream.wait) return; continue; }
+        if (type == SONG_EVENT_BANK_PC) {
+            if (e[1] != 0xff) groove_midi_song_event(ch, 0xb0, 0, e[1]);
+            if (e[2] != 0xff) groove_midi_song_event(ch, 0xb0, 32, e[2]);
+            groove_midi_song_event(ch, 0xc0, e[3], 0);
+        } else if (type == SONG_EVENT_CC) groove_midi_song_event(ch, 0xb0, e[1], e[2]);
+        else groove_midi_song_event(ch, 0xc0, e[1], 0);
+    }
+    stream.active = 0;
+}
+/* Pre-fire (9.11): start the next row's stream `lead` blocks before the boundary where
+ * that row is entered, by the same landing rules as advance(). Runs on ticks that do not
+ * cross a step (phase < period). */
+static FM1_AUDIO_CODE void prefire(unsigned tempo, unsigned period)
+{
+    unsigned idx = cur ^ 1U;
+    const struct rowbuf *b = &buffers[cur], *n = &buffers[idx];
+    if (!n->ready) { armed[idx] = 0; return; }
+    if (!armed[idx] || armed_row[idx] != n->row) { armed[idx] = 1; armed_row[idx] = n->row; streamed[idx] = 0; }
+    if (streamed[idx] || stream.active || !n->event_count || !n->lead) return;
+    unsigned target = jump_row, steps_left;
+    if (target != SONG_NONE && target == n->row) steps_left = jump_mode ? b->steps - pos : 16U - (pos & 15U);
+    else if (target == SONG_NONE && !b->loop_here) steps_left = (b->repeat - repeat - 1U) * b->steps + (b->steps - pos);
+    else return;
+    unsigned unit = tempo * (FM1_BLOCK_FRAMES * 4U);
+    unsigned blocks = ((period - phase) + (steps_left - 1U) * (PERIOD * 100U)) / unit;
+    if (blocks <= n->lead) stream_begin(idx);
+}
 static FM1_AUDIO_CODE void switch_row(void)
 {
     buffers[cur].ready = 0;
     barrier();
     cur ^= 1U; pos = 0; repeat = 0;
     if (jump_row == buffers[cur].row) jump_row = SONG_NONE;
+    /* Row events: the entered row's stream, started early by prefire() or started now.
+     * A row entered with its gaps unsent (no lead was available) counts as late. */
+    if (!armed[cur] || armed_row[cur] != buffers[cur].row) { armed[cur] = 1; armed_row[cur] = buffers[cur].row; streamed[cur] = 0; }
+    if (stream.active && stream.buf != cur) stream.active = 0;   /* the left row's tail is abandoned */
+    if (!streamed[cur]) stream_begin(cur);
+    stream_run();                      /* the boundary tick's sends, before this tick's notes */
+    if (stream.active) ++late_count;   /* events still pending after the boundary: late */
 }
 static FM1_AUDIO_CODE void stop_now(void)
 {
     release_all();
-    playing = 0;
+    playing = 0; stream.active = 0;
     groove_midi_transport(0, 0xfc);
 }
 static FM1_AUDIO_CODE void advance(void)
@@ -141,18 +213,27 @@ FM1_AUDIO_CODE void song_tick(unsigned tempo)
         phase = 0; pos = 0; repeat = 0;
         playing = 1;
         groove_midi_transport(0, 0xfa);
+        /* Row 0's events go out before its first notes; no lead exists at PLAY (SEND
+         * SETUP is the way to send them early), so this is not counted as late. */
+        stream.active = 0; armed[0] = armed[1] = 0;
+        armed[0] = 1; armed_row[0] = buffers[0].row; stream_begin(0); stream_run();
         play_step();
         return;
     }
-    if (!playing) return;
+    if (!playing) {
+        /* SEND SETUP (9.11): row 0 was decoded into buffer 0 by the control task. */
+        if (setup_request) { setup_request = 0; armed[0] = 1; armed_row[0] = buffers[0].row; stream_begin(0); }
+        stream_run();
+        return;
+    }
     if (stop_request) { stop_request = 0; stop_now(); return; }
+    stream_run();
     /* One 16th = FM1_SAMPLE_RATE * 60 / (4 * tempo) frames; the phase counts
      * tempo * 4 * frames so the period is a constant. Swing (0..50 %) lengthens the
      * even steps and shortens the odd ones by the same share of a step. */
-    enum { PERIOD = FM1_SAMPLE_RATE * 60U / 100U };
     phase += tempo * (FM1_BLOCK_FRAMES * 4U);
     unsigned period = PERIOD * ((pos & 1U) ? 100U - swing : 100U + swing);
-    if (phase < period) return;
+    if (phase < period) { prefire(tempo, period); return; }
     phase -= period;
     advance();
 }
@@ -164,6 +245,8 @@ void song_init(void)
     start_request = stop_request = playing = cur = pos = repeat = underruns = 0;
     jump_row = SONG_NONE; jump_mode = song_end = swing = tempo_override = 0;
     memset(sounding_count, 0, sizeof sounding_count);
+    memset(&stream, 0, sizeof stream); memset(armed, 0, sizeof armed); memset(streamed, 0, sizeof streamed);
+    late_count = setup_request = 0;
 }
 static unsigned natural_next(unsigned row)
 {
@@ -189,6 +272,20 @@ static void decode_row(struct rowbuf *b, unsigned row)
             memcpy(b->cell[t][step], payload + at, 1 + 3 * count);
             at += 1 + 3 * count;
         }
+    }
+    /* Row events (9.11): this row's slice of the sorted table; gaps become blocks here. */
+    b->event_count = 0; b->lead = 0;
+    unsigned n = song_event_count(&record);
+    for (unsigned i = 0; i < n && b->event_count < SONG_ROW_EVENTS_MAX; ++i) {
+        const uint8_t *e = song_event(&record, i);
+        if (e[0] < row) continue;
+        if (e[0] > row) break;
+        uint8_t *d = b->event[b->event_count++];
+        d[0] = e[1];
+        if ((e[1] >> 4) == SONG_EVENT_GAP) {
+            unsigned blocks = (e[2] * FM1_SAMPLE_RATE + 1000U * FM1_BLOCK_FRAMES - 1U) / (1000U * FM1_BLOCK_FRAMES);
+            d[1] = (uint8_t)blocks; d[2] = d[3] = 0; b->lead = (uint16_t)(b->lead + blocks);
+        } else { d[1] = e[2]; d[2] = e[3]; d[3] = e[4]; }
     }
     barrier();
     b->ready = 1;
@@ -237,7 +334,7 @@ int song_play(void)
     if (swing > 50) swing = 50;
     tempo_override = record.tempo;
     buffers[0].ready = buffers[1].ready = 0;
-    cur = 0; jump_row = SONG_NONE; underruns = 0;
+    cur = 0; jump_row = SONG_NONE; underruns = 0; late_count = 0; setup_request = 0;
     decode_row(&buffers[0], 0);
     unsigned next = natural_next(0);
     song_end = next == SONG_NONE && !buffers[0].loop_here;
@@ -263,6 +360,18 @@ int song_queue_jump(unsigned row)
 }
 void song_jump_mode_set(unsigned mode) { jump_mode = mode ? 1U : 0U; }
 unsigned song_playing(void) { return state != 0; }
+/* SEND SETUP (9.11): while stopped, decode row 0 into buffer 0 (the audio thread reads
+ * no buffer while stopped) and let the tick stream it, gaps included. */
+int song_send_setup(void)
+{
+    if (loaded == SONG_NONE) return SONG_EMPTY;
+    if (state || playing || setup_request) return SONG_BUSY;
+    buffers[0].ready = 0;
+    barrier();
+    decode_row(&buffers[0], 0);
+    setup_request = 1;
+    return 0;
+}
 void song_status_read(struct song_status *out)
 {
     memset(out, 0, sizeof *out);
@@ -274,4 +383,6 @@ void song_status_read(struct song_status *out)
     out->jump_mode = (uint8_t)jump_mode;
     out->error = (uint8_t)last_error;
     out->underruns = (uint16_t)underruns;
+    out->late = (uint16_t)late_count;
+    out->events = (uint16_t)(loaded == SONG_NONE ? 0 : song_event_count(&record));
 }
