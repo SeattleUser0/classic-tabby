@@ -20,13 +20,19 @@
 //     tempo-cc-program.mid     tempo changes, CCs, pitch bend, program changes, SysEx, marker
 //     type0-multichannel.mid   type 0, three channels interleaved, running status
 //     long-notes.mid           a 300-step note, same-pitch overlaps, same-pitch duplicates
+//     row-events.mid           program changes, bank selects and CCs at and near row starts
+//     kick-nudge.mid           (Task 05) a kick 3 ticks (3.1 ms at 120 BPM, 480 PPQ) ahead of a bass
+//                              note on the same step, plus a bass note nudged late
+//     ppq-120.mid, ppq-480.mid, ppq-960.mid   (Task 05) the same off-grid phrase at exact PPQs
+//     ppq-100.mid              (Task 05) 100 PPQ: 1920/100 is not whole, times round to units
 //
 //   Run:  /usr/bin/node tests/midi-import/make-fixtures.mjs   (writes the files)
 //   Import: `fixtures()` returns [{name, bytes, expect}] without writing.
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-03  Task 05: kick-nudge, ppq-120/480/960 and ppq-100 fixtures.
 //   v0.1  2026-11-02  Initial version (Task 02, Step 2).
 
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -173,6 +179,36 @@ export function fixtures() {
     t.push({ tick: 64 * step, type: 'programChange', channel: 0, program: 7 }, { tick: 64 * step, type: 'controlChange', channel: 3, controller: 32, value: 3 });
     for (let bar = 0; bar < 8; bar++) note(t, bar * 16 * step, 4 * step, 48 + bar, 100, 0);
     list.push({ name: 'row-events.mid', bytes: write({ format: 1, division: ppq, tracks: [t] }), expect: { events: 5, droppedMidRow: 1, bankWithoutProgram: 1 } });
+  }
+
+  // 11. (Task 05) Kick nudged 3 ticks early against a bass note on the same step (480 PPQ,
+  // 120 BPM: a tick is 1.04 ms, 4 units), and a bass note 5 ticks late two steps on.
+  {
+    const ppq = 480, step = ppq / 4, drums = head('Drums'), bass = [{ tick: 0, type: 'trackName', text: 'Bass' }];
+    for (let bar = 1; bar < 3; bar++) {                           // from bar 2: the first kick must not fall before tick 0
+      const b = bar * 16 * step;
+      note(drums, b + 0 * step - 3, step, 36, 120, 9);            // kick 3 ticks early (-12 units)
+      note(drums, b + 8 * step - 3, step, 36, 120, 9);
+      note(bass, b + 0 * step, 2 * step, 40, 100, 0);              // bass on the grid
+      note(bass, b + 2 * step + 5, 2 * step + 7, 43, 100, 0);      // bass 5 ticks late (+20 units), 2 steps + 7 ticks long
+      note(bass, b + 8 * step, 4 * step, 40, 100, 0);
+    }
+    list.push({ name: 'kick-nudge.mid', bytes: write({ format: 1, division: ppq, tracks: [drums, bass] }),
+      expect: { kickOffset: -12, bassLateOffset: 20, bassLateLength: 2 * 480 + 28, unitsPerTick: 4 } });
+  }
+  // 12. (Task 05) The same phrase at 120, 480, 960 and 100 PPQ: a note every other step, the
+  // odd ones delayed by ppq/24 ticks (1/6 step = 80 units at an exact PPQ), 1.5 steps long
+  // (whole ticks at 120/480/960; at 100 PPQ 4 and 38 ticks, which round to units).
+  for (const ppq of [120, 480, 960, 100]) {
+    const t = head('PPQ ' + ppq), step = ppq / 4, delay = Math.round(ppq / 24), length = Math.round(step * 1.5);
+    const units = ticks => Math.round(ticks * 1920 / ppq);
+    const expected = [];
+    for (let s = 0; s < 16; s += 2) {
+      const delayTicks = s % 4 ? delay : 0;
+      note(t, s * step + delayTicks, length, 60 + s, 100, 0);
+      expected.push({ step: s, offset: units(delayTicks), length: units(length), exactOffset: delayTicks * 1920 / ppq, exactLength: length * 1920 / ppq });
+    }
+    list.push({ name: 'ppq-' + ppq + '.mid', bytes: write({ format: 0, division: ppq, tracks: [t] }), expect: { ppq, exact: 1920 % ppq === 0, notes: expected } });
   }
   return list;
 }

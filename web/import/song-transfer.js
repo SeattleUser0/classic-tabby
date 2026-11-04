@@ -42,9 +42,10 @@
  *
  *   Loading: classic script (globalThis.TabbySongTransfer) and CommonJS.
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-03  Task 05: block records rebuilt from a backend carry payload format 1.
  *   v0.4  2026-11-02  Task 03 (f): the delete-before-replace step moved into the workbench's
  *                     song write; the wrapper reports `replaced` from the backend's result.
  *   v0.3  2026-11-02  Step 4: createBackend() on the workbench song backend (device or
@@ -171,7 +172,7 @@
         /* Rebuild the .tabby byte stream (record + block records) and decode it. */
         const records = [...got.blocks].sort((a, b) => a[0] - b[0]).map(([id, payload]) => {
           const out = new Uint8Array((6 + payload.length + 3) & ~3).fill(0xff);
-          out[0] = 0; out[1] = 0; out[2] = id & 255; out[3] = id >> 8; out[4] = payload.length & 255; out[5] = payload.length >> 8; out.set(payload, 6); return out;
+          out[0] = 0; out[1] = 1; out[2] = id & 255; out[3] = id >> 8; out[4] = payload.length & 255; out[5] = payload.length >> 8; out.set(payload, 6); return out;   /* Task 05: a backend returns format-1 payloads */
         });
         const file = new Uint8Array(4096 + records.reduce((n, r) => n + r.length, 0));
         file.set(got.record, 0); let at = 4096; for (const r of records) { file.set(r, at); at += r.length; }

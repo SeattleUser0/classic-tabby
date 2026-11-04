@@ -12,14 +12,21 @@
  *       length in 16th steps, the total length in bars and the row lengths that stay on bar
  *       lines (16, 32, 48 or 64 steps).
  *
- *   convert(analysis, options) — the mapping rules approved after the Task 02 Step 1 report:
- *       * grid is 16ths; note starts snap to the nearest step, ties toward the earlier step;
- *       * note ends: a rounding rule, 'nearest' (default), 'up' (never shorter) or 'down'
- *         (never longer); the stored length is max(1, end − start) and at most 255;
+ *   convert(analysis, options) — the mapping rules approved after the Task 02 Step 1 report,
+ *   with the Task 05 timing rules (section 9.12):
+ *       * time is kept exactly, in units of 1/480 step (1/1920 quarter): a note belongs to
+ *         the 16th step nearest its start (a start exactly half a step late belongs to the
+ *         earlier step) and carries the signed offset from it; its length is end − start in
+ *         units (at least 1). PPQ values that divide 1920 convert exactly; others are rounded
+ *         to the nearest unit and reported (kind ppqRounded);
+ *       * quantize (option, off by default): 'starts' moves every start to its step (offset
+ *         0, length kept), 'startsEnds' also rounds lengths to whole steps with the length
+ *         rule 'nearest' (default), 'up' (never shorter) or 'down' (never longer); the
+ *         'moved' and 'lengthRounded' warnings then list what changed;
  *       * notes outside the chosen bar range are dropped, notes ending past it are clipped;
  *       * same pitch overlapping on one track: the earlier note is clipped to end where the
- *         next one starts; two same-pitch notes on one step keep the louder (retrigger bit
- *         never set);
+ *         next one starts; two same-pitch notes anchored on one step keep the louder
+ *         (retrigger bit never set);
  *       * more than 4 notes starting on one step on one track: keep the 4 'loudest' (default,
  *         tie → higher pitch), 'highest' or 'lowest';
  *       * tempo: the file's first tempo, rounded to an integer BPM and clamped to 30..300,
@@ -39,9 +46,12 @@
  *   Loading: classic script (globalThis.TabbyMidiSong) and CommonJS; needs song-format.js
  *   (globalThis.TabbySongFormat or require) for block encoding, keys and usage.
  *
- * Version: 0.3
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-03  Task 05: exact timing (offsets and unit lengths), quantize as an option,
+ *                     PPQ rounding report, warnings only for real changes.
+ *   v0.4  2026-11-02  Task 04: controls collected with their file order, row events.
  *   v0.3  2026-11-02  Loose deduplication option (velocity tolerance); block limit 2048
  *                     (section 9 v0.4).
  *   v0.2  2026-11-02  Row step length stored per row (row.steps) instead of song.rowSteps,
@@ -94,6 +104,11 @@
   function analyze(parsed) {
     const division = parsed.division;
     const toStep = tick => tick * 4 / division;                  /* exact position in 16ths */
+    /* Task 05: positions in units (1/1920 quarter). Exact when the PPQ divides 1920; else
+     * rounded to the nearest unit, counted for the ppqRounded warning. */
+    const exactPpq = 1920 % division === 0;
+    const toUnits = tick => Math.round(tick * 1920 / division);
+    const unitError = tick => Math.abs(tick * 1920 / division - toUnits(tick));
     const tempos = [], meters = [], ignored = { controlChange: 0, sustain: 0, pitchBend: 0, polyPressure: 0, channelPressure: 0, programChange: [], sysex: 0, meta: 0, markers: [] };
     const programs = new Map();                                  /* "track:channel" → [programs] */
     const controls = [];                                         /* every CC, for row events (Task 04) */
@@ -158,7 +173,7 @@
       tempo: { exact: bpmExact, rounded: bpmRounded, bpm, present: !!firstTempo, changes: tempoChanges.map(t => ({ ...t, ...steps(t.tick) })) },
       meter: { ...meter, barSteps, changes: meterChanges.map(m => ({ ...m, ...steps(m.tick) })) },
       barSteps, totalBars, totalSteps: Math.ceil(totalStepsExact - EPS), parts, ignored, controls,
-      rowSteps: rowStepsFor(bs), errors, toStep };
+      rowSteps: rowStepsFor(bs), errors, toStep, toUnits, exactPpq, unitError };
   }
 
   /* ---- stage 2: convert ---------------------------------------------------------------- */
@@ -183,13 +198,17 @@
     const rowSteps = options.rowSteps || analysis.rowSteps.default;
     if (!L.rowStepsAllowed.includes(rowSteps)) fail('row length must be 16, 32, 48 or 64 steps', 'options');
     const lengthRule = options.lengthRule || 'nearest', overflowRule = options.overflowRule || 'loudest';
+    const quantize = options.quantize || 'off';                   /* Task 05: 'off' (exact), 'starts', 'startsEnds' */
+    if (!['off', 'starts', 'startsEnds'].includes(quantize)) fail('unknown quantize mode ' + quantize, 'options');
     const loose = !!options.looseDedup, tolerance = Number.isInteger(options.velocityTolerance) ? options.velocityTolerance : 8;
     if (loose && (tolerance < 0 || tolerance > 126)) fail('velocity tolerance must be 0..126', 'options');
     if (!roundEnd[lengthRule]) fail('unknown length rule ' + lengthRule, 'options');
     if (!overflowOrder[overflowRule]) fail('unknown overflow rule ' + overflowRule, 'options');
     const assignments = options.assignments || defaultAssignments(analysis);
     const rangeStart = (barFrom - 1) * barSteps, rangeEnd = barTo * barSteps;
-    const toStep = analysis.toStep;
+    const toStep = analysis.toStep, toUnits = analysis.toUnits, U = L.unitsPerStep, HALF = L.offsetMax;
+    const TN = globalThis.TabbyTimedNote || (typeof require === 'function' ? require('../timed-note/timed-note.js') : fail('timed-note.js not loaded'));
+    const msPerUnit = 60000 / (analysis.tempo.bpm * 4 * U);
     /* Row events (Task 04, 9.11): pre-roll window before a row start, in steps. */
     const preRoll = options.preRoll === 'none' ? 0 : options.preRoll === 'bar' ? barSteps : 4;
     if (!['none', 'beat', 'bar', undefined].includes(options.preRoll)) fail('unknown pre-roll ' + options.preRoll, 'options');
@@ -240,10 +259,11 @@
     if (ig.meta) w.add('metaIgnored', 'info', ig.meta + ' other meta event(s) ignored');
     for (const f of analysis.fileWarnings || []) w.add('file:' + f.kind, 'warn', f.message);
 
-    /* Gather notes per Tabby track. */
+    /* Gather notes per Tabby track, in units (Task 05). */
     const perTrack = Array.from({ length: 8 }, () => []);
     const usedParts = [];
-    let notesIn = 0;
+    let notesIn = 0, ppqRounded = 0, ppqWorst = 0;
+    const timeOf = n => n.start * U + n.offset;                          /* a note's start in units from bar 1 */
     for (const part of analysis.parts) {
       const t = assignments[part.key];
       if (t === null || t === undefined || t === '' || t === 'skip') { w.add('partsSkipped', 'info', 'MIDI parts not assigned to a track were skipped', { text: part.name + ' (' + part.noteCount + ' notes)' }); continue; }
@@ -251,38 +271,49 @@
       usedParts.push({ part, track: Number(t) });
       for (const n of part.notes) {
         notesIn++;
+        if (!analysis.exactPpq) { const e = Math.max(analysis.unitError(n.tick), analysis.unitError(n.endTick)); if (e > 1e-9) { ppqRounded++; ppqWorst = Math.max(ppqWorst, e); } }
+        const su = toUnits(n.tick), eu = toUnits(n.endTick);
+        /* Anchor: the nearest step; exactly half a step late stays with the earlier step (+240). */
+        const anchor = Math.floor((su + HALF - 1) / U);
+        let offset = su - anchor * U, length = Math.max(1, eu - su);
         const xs = toStep(n.tick), xe = toStep(n.endTick);
-        const start = nearest(xs);
-        if (Math.abs(xs - start) > EPS) w.add('moved', 'info', 'Note starts moved to the 16th grid', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) + ' moved ' + ((start - xs) * 0.25).toFixed(3) + ' beats' });
-        let end = roundEnd[lengthRule](xe), length = end - start;
-        if (length < 1) { length = 1; if (xe - xs > EPS) w.add('lengthMin', 'info', 'Notes shorter than a step got length 1', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) }); }
-        else if (Math.abs((xe - xs) - length) > EPS) w.add('lengthRounded', 'info', 'Note lengths rounded to whole steps (' + lengthRule + ')', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) + ': ' + ((xe - xs) * 0.25).toFixed(3) + ' → ' + (length * 0.25).toFixed(2) + ' beats' });
-        if (start < rangeStart || start >= rangeEnd) { w.add('droppedRange', 'info', 'Notes outside bars ' + barFrom + '..' + barTo + ' dropped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) }); continue; }
-        if (start + length > rangeEnd) { length = rangeEnd - start; w.add('clippedRange', 'info', 'Notes ending after bar ' + barTo + ' clipped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) }); }
-        if (length > L.lengthMax) { w.add('lengthClipped', 'warn', 'Notes longer than 255 steps clipped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) + ': ' + length + ' steps' }); length = L.lengthMax; }
-        perTrack[t].push({ start, length, pitch: n.pitch, velocity: n.velocity, part: part.name });
+        if (quantize !== 'off' && offset) { w.add('moved', 'info', 'Note starts moved to the 16th grid', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) + ' moved ' + ((anchor - xs) * 0.25).toFixed(3) + ' beats' }); offset = 0; }
+        if (quantize === 'startsEnds') {
+          let end = roundEnd[lengthRule](xe), steps = end - anchor;
+          if (steps < 1) { steps = 1; if (xe - xs > EPS) w.add('lengthMin', 'info', 'Notes shorter than a step got length 1', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) }); }
+          else if (Math.abs((xe - xs) - steps) > EPS) w.add('lengthRounded', 'info', 'Note lengths rounded to whole steps (' + lengthRule + ')', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) + ': ' + ((xe - xs) * 0.25).toFixed(3) + ' → ' + (steps * 0.25).toFixed(2) + ' beats' });
+          length = steps * U;
+        }
+        if (anchor < rangeStart || anchor >= rangeEnd) { w.add('droppedRange', 'info', 'Notes outside bars ' + barFrom + '..' + barTo + ' dropped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) }); continue; }
+        if (anchor * U + offset + length > rangeEnd * U) { length = Math.max(1, rangeEnd * U - anchor * U - offset); w.add('clippedRange', 'info', 'Notes ending after bar ' + barTo + ' clipped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) }); }
+        if (length > L.lengthMax) { w.add('lengthClipped', 'warn', 'Notes longer than ' + (L.lengthMax / U).toFixed(0) + ' steps clipped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) + ': ' + (length / U).toFixed(2) + ' steps' }); length = L.lengthMax; }
+        const stored = TN.lengthStored(length);
+        if (stored !== length) w.add('lengthScaled', 'info', 'Notes longer than 136 steps are stored to within the exponent scale (2..128 units)', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) + ': ' + length + ' → ' + stored + ' units' });
+        perTrack[t].push({ start: anchor, offset, length: stored, pitch: n.pitch, velocity: n.velocity, part: part.name });
       }
     }
     if (!usedParts.length) fail('No MIDI part is assigned to a track', 'empty');
+    if (!analysis.exactPpq) w.add('ppqRounded', ppqRounded ? 'warn' : 'info', 'The file\'s ' + analysis.division + ' ticks per quarter note do not divide 1920: note times were rounded to the nearest 1/480 step' + (ppqRounded ? ' (' + ppqRounded + ' note(s), at most ' + ppqWorst.toFixed(2) + ' units = ' + (ppqWorst * msPerUnit).toFixed(2) + ' ms)' : ' (no note was affected)'));
 
-    /* Per track: same-pitch overlaps, then the 4-per-step limit. */
+    /* Per track: same-pitch overlaps (in units), then the 4-per-step limit (per anchor step). */
     for (let t = 0; t < 8; t++) {
       const notes = perTrack[t];
-      notes.sort((a, b) => a.start - b.start || a.pitch - b.pitch || b.velocity - a.velocity);
+      notes.sort((a, b) => timeOf(a) - timeOf(b) || a.pitch - b.pitch || b.velocity - a.velocity);
       const byPitch = new Map();
       for (const n of notes) { if (!byPitch.has(n.pitch)) byPitch.set(n.pitch, []); byPitch.get(n.pitch).push(n); }
       const drop = new Set();
       for (const list of byPitch.values()) {
         let prev = null;
         for (const cur of list) {
-          if (prev && cur.start === prev.start) {           /* same step, same pitch: keep the louder */
+          if (prev && cur.start === prev.start) {           /* same anchor step, same pitch: keep the louder (9.12 forbids both) */
             const loser = cur.velocity > prev.velocity ? prev : cur;
             drop.add(loser); w.add('duplicateDropped', 'warn', 'Same pitch twice on one step on one track; the quieter note was dropped', { track: t + 1, text: loser.part + ' pitch ' + loser.pitch + ' at ' + where(loser.start, barSteps) });
             if (loser === prev) prev = cur; continue;
           }
-          if (prev && prev.start + prev.length > cur.start) {
-            w.add('overlapClipped', 'info', 'Same pitch overlapping on one track; the earlier note was shortened', { track: t + 1, text: prev.part + ' pitch ' + prev.pitch + ' at ' + where(prev.start, barSteps) + ': ' + prev.length + ' → ' + (cur.start - prev.start) + ' steps' });
-            prev.length = cur.start - prev.start;
+          if (prev && timeOf(prev) + prev.length > timeOf(cur)) {
+            const clipped = Math.max(1, timeOf(cur) - timeOf(prev));
+            w.add('overlapClipped', 'info', 'Same pitch overlapping on one track; the earlier note was shortened', { track: t + 1, text: prev.part + ' pitch ' + prev.pitch + ' at ' + where(prev.start, barSteps) + ': ' + (prev.length / U).toFixed(3) + ' → ' + (clipped / U).toFixed(3) + ' steps' });
+            prev.length = clipped;
           }
           prev = cur;
         }
@@ -305,7 +336,7 @@
     const grid = Array.from({ length: rowCount }, () => Array.from({ length: 8 }, () => []));
     for (let t = 0; t < 8; t++) for (const n of perTrack[t]) {
       const rel = n.start - rangeStart, row = Math.floor(rel / rowSteps);
-      grid[row][t].push({ step: rel % rowSteps, pitch: n.pitch, velocity: n.velocity, length: n.length, retrigger: false });
+      grid[row][t].push({ step: rel % rowSteps, pitch: n.pitch, velocity: n.velocity, offset: n.offset, length: n.length, retrigger: false });
     }
     /* Deduplicate blocks and build rows. Exact first (identical bytes); then, in loose mode,
      * a block with the same notes whose velocities are all within the tolerance. */
@@ -356,19 +387,22 @@
     song.outChannels = Array.from({ length: 8 }, (_, t) => { const c = (options.outChannels || [])[t]; return Number.isInteger(c) && c >= 0 && c <= 15 ? c : null; });
     song.rows = rows; song.blocks = blocks; song.events = events;
     song.source = { fileName: options.fileName || '', format: analysis.format, division: analysis.division, tempoExact: analysis.tempo.exact,
-      meter: analysis.meter.numerator + '/' + analysis.meter.denominator, barSteps, barFrom, barTo, rowSteps, lengthRule, overflowRule,
+      meter: analysis.meter.numerator + '/' + analysis.meter.denominator, barSteps, barFrom, barTo, rowSteps, quantize, lengthRule, overflowRule, exactPpq: analysis.exactPpq,
       looseDedup: loose, velocityTolerance: loose ? tolerance : null, preRoll: options.preRoll || 'beat',
       parts: usedParts.map(u => ({ key: u.part.key, name: u.part.name, track: u.track + 1 })) };
     const usage = F.usage(song);
+    const allNotes = perTrack.flat();
     const stats = { ...usage, rowsBeforeMerge: rowsExpanded.length, cellsBeforeDedup: rowsExpanded.reduce((n, r) => n + r.filter(Boolean).length, 0),
-      notesIn, notesOut, bars: barTo - barFrom + 1, barsPerRow: rowSteps / barSteps, rowSteps, looseMerges, events: events.length };
+      notesIn, notesOut, bars: barTo - barFrom + 1, barsPerRow: rowSteps / barSteps, rowSteps, looseMerges, events: events.length,
+      offsets: allNotes.filter(n => n.offset).length, fractionalLengths: allNotes.filter(n => n.length % U).length,   /* Task 05 */
+      maxOffsetUnits: allNotes.reduce((m, n) => Math.max(m, Math.abs(n.offset)), 0), ppqRounded, exactPpq: analysis.exactPpq, quantize };
     const result = { song, stats, warnings: w.list(), grid, rowsExpanded };
     song.warnings = result.warnings.map(x => ({ kind: x.kind, severity: x.severity, message: x.message, count: x.count }));
     F.validate(song).errors.forEach(e => fail('internal: produced an invalid song: ' + e, 'internal'));
     return result;
   }
 
-  const TabbyMidiSong = { analyze, convert, defaultAssignments, rowStepsFor, position, where, nearest, version: '0.4' };
+  const TabbyMidiSong = { analyze, convert, defaultAssignments, rowStepsFor, position, where, nearest, version: '0.5' };
   globalThis.TabbyMidiSong = TabbyMidiSong;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyMidiSong;
 })();

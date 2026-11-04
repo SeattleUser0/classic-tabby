@@ -932,7 +932,15 @@
   "恢复 V16 还会覆盖 Classic Tabby 歌曲存储的最后 40 KB（块扇区 86–95）。请先在“项目与音色 → 歌曲模式”导出歌曲。": "Restoring V16 also overwrites the last 40 KB of Classic Tabby song storage (block sectors 86-95). Export your songs first in Projects & sounds > Song mode.",
   "歌曲模式": "Song mode",
   "歌曲模式：K1／PRESETS 选歌曲，PLAY 开始／停止，打击垫 1–16 排队跳转到该行，OCT 翻打击垫页，K4 设置跳转落点。歌曲由网页工作台写入。": "Song mode: K1 / PRESETS select the song, PLAY starts and stops, pads 1-16 queue a jump to that row, OCT pages the pads, K4 sets where jumps land. Songs are written from the web workbench.",
-  "正在编码采样…": "Encoding sample audio…"
+  "正在编码采样…": "Encoding sample audio…",
+  "摇摆跟随项目设置": "Swing follows the project setting",
+  "步进文本：音高:力度:长度/偏移，长度以步为单位（可带小数，精度 1/480 步），偏移为有符号单位（1 单位 = 1/480 步），r = 重触发，@n = 概率 n/8，! = 替代音律。带偏移或非整步长度的步进左侧有橙色标记；点击某一步在下方检查器中按音符编辑。": "Step text: pitch:velocity:length/offset; length in steps (decimals allowed, 1/480 step resolution), offset in signed units (1 unit = 1/480 step), r = retrigger, @n = probability n/8, ! = alt tuning. Steps with an offset or a fractional length carry an orange mark on the left; click a step to edit its notes in the inspector below.",
+  "量化起点到 16 分": "Quantize starts to 16ths",
+  "量化起点与结束到 16 分": "Quantize starts and ends to 16ths",
+  "此步没有音符：在上方文本框中输入，例如 60:100:1/-12": "No note on this step: type one in the box above, for example 60:100:1/-12",
+  "timed-note.js 未加载": "timed-note.js is not loaded",
+  "音符须为 音高 0–127、力度 1–127、偏移 ±240、长度 ≥ 1 单位，且同一步音高不重复": "Notes need pitch 0-127, velocity 1-127, offset within ±240 units, length of at least 1 unit, and no repeated pitch within a step",
+  "设备固件不支持带时值的音符块，请先更新固件": "The device firmware does not accept timed-note blocks; update the firmware first"
 };
   // Only complete UI messages are matched. Captured project, preset and port
   // names are kept verbatim; no blanket replacement of user data is performed.

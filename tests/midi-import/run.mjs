@@ -104,8 +104,8 @@ const produced = [];
   produced.push(r.song);
   check(r.a.totalBars === e.bars && r.a.parts.length === 1, 'bassline: 4 bars, one part', `${r.a.totalBars} bars`);
   check(r.song.rows.length === 1 && r.song.blocks.length === 1 && r.song.rows[0].repeat === 1, 'bassline: one row, one block');
-  const got = r.song.blocks[0].notes.map(n => ({ step: n.step, pitch: n.pitch, velocity: n.velocity, length: n.length }));
-  check(same(got, e.notes), 'bassline: notes exact (step, pitch, velocity, length)');
+  const got = r.song.blocks[0].notes.map(n => ({ step: n.step, pitch: n.pitch, velocity: n.velocity, length: n.length / 480 }));
+  check(same(got, e.notes) && r.song.blocks[0].notes.every(n => n.offset === 0), 'bassline: notes exact (step, pitch, velocity, length in whole steps, offset 0)');
   check(r.song.tempo === 120 && r.warnings.length === 0, 'bassline: tempo 120, no warnings', JSON.stringify(r.warnings.map(w => w.kind)));
 }
 
@@ -134,8 +134,8 @@ const produced = [];
   check(r.song.rows.length === e.rows && r.song.rows[0].repeat === 2 && r.song.blocks.length === 1, 'pad-melody: 8 identical bars → one row ×2, one block');
   const b = r.song.blocks[0].notes, step0 = b.filter(n => n.step === 0);
   check(step0.length === e.notesPerStep0, 'pad-melody: 4 notes on step 0 (3 pad + melody)', `${step0.length}`);
-  check(step0.filter(n => n.length === 16).length === 3 && step0.filter(n => n.length === 2).length === 1, 'pad-melody: pad notes 16 steps, melody 2 steps on the same step');
-  check(b.filter(n => n.step === 16 && n.length === 16).length === 3, 'pad-melody: pad re-struck each bar while the melody runs');
+  check(step0.filter(n => n.length === 16 * 480).length === 3 && step0.filter(n => n.length === 2 * 480).length === 1, 'pad-melody: pad notes 16 steps, melody 2 steps on the same step');
+  check(b.filter(n => n.step === 16 && n.length === 16 * 480).length === 3, 'pad-melody: pad re-struck each bar while the melody runs');
   check(!warning(r, 'overflowDropped') && !warning(r, 'overlapClipped'), 'pad-melody: nothing dropped or clipped');
 }
 
@@ -151,18 +151,27 @@ const produced = [];
   }
 }
 
-// ---- 6. off-grid ------------------------------------------------------------------------
+// ---- 6. off-grid: exact by default (Task 05), quantize as an option -----------------------
 {
-  const e = fx['offgrid.mid'].expect;
-  for (const rule of ['nearest', 'up', 'down']) {
-    const r = importFile('offgrid.mid', { lengthRule: rule });
-    if (rule === 'nearest') produced.push(r.song);
-    const notes = r.song.blocks[0].notes;
-    check(same(notes.map(n => n.step), e.starts), `offgrid: starts snapped (${rule})`, notes.map(n => n.step).join(' '));
-    check(same(notes.map(n => n.length), e.lengths[rule]), `offgrid: lengths with rule ${rule}`, notes.map(n => n.length).join(' '));
-  }
+  const e = fx['offgrid.mid'].expect, parsed = Midi.parse(fx['offgrid.mid'].bytes), src = parsed.tracks[0].notes;   /* 480 PPQ: 4 units a tick */
   const r = importFile('offgrid.mid');
-  check(warning(r, 'moved')?.count === e.moved && warning(r, 'lengthMin')?.count === 1, 'offgrid: 4 moved starts and 1 minimum length reported', JSON.stringify(r.warnings.map(w => [w.kind, w.count])));
+  produced.push(r.song);
+  const notes = r.song.blocks[0].notes;
+  check(same(notes.map(n => n.step), e.starts), 'offgrid: anchored to the nearest step, the exact half-step tie to the earlier step', notes.map(n => n.step).join(' '));
+  check(same(notes.map(n => n.step * 480 + n.offset), src.map(n => n.tick * 4)) && same(notes.map(n => n.length), src.map(n => (n.endTick - n.tick) * 4)), 'offgrid: every start and length exact in units (no quantizing by default)', notes.map(n => n.offset + '/' + n.length).join(' '));
+  check(same(notes.map(n => n.offset), [-160, 120, 240, -236, 0, 0]), 'offgrid: offsets -160, +120, +240 (tie), -236, 0, 0 units', notes.map(n => n.offset).join(' '));
+  check(!warning(r, 'moved') && !warning(r, 'lengthMin') && !warning(r, 'lengthRounded') && r.stats.offsets === 4 && r.stats.fractionalLengths === 2, 'offgrid: nothing reported as moved or rounded; stats count 4 offsets and 2 fractional lengths', JSON.stringify(r.warnings.map(w => [w.kind, w.count])));
+  for (const rule of ['nearest', 'up', 'down']) {
+    const q = importFile('offgrid.mid', { quantize: 'startsEnds', lengthRule: rule });
+    const qn = q.song.blocks[0].notes;
+    check(same(qn.map(n => n.step), e.starts) && qn.every(n => n.offset === 0), `offgrid: quantize starts+ends, rule ${rule}: starts on the grid`);
+    check(same(qn.map(n => n.length / 480), e.lengths[rule]), `offgrid: quantize starts+ends, lengths with rule ${rule}`, qn.map(n => n.length / 480).join(' '));
+  }
+  const q = importFile('offgrid.mid', { quantize: 'startsEnds' });
+  check(warning(q, 'moved')?.count === e.moved && warning(q, 'lengthMin')?.count === 1, 'offgrid: quantize reports 4 moved starts and 1 minimum length', JSON.stringify(q.warnings.map(w => [w.kind, w.count])));
+  const qs = importFile('offgrid.mid', { quantize: 'starts' });
+  check(qs.song.blocks[0].notes.every(n => n.offset === 0) && same(qs.song.blocks[0].notes.map(n => n.length), src.map(n => (n.endTick - n.tick) * 4)) && warning(qs, 'moved')?.count === e.moved && !warning(qs, 'lengthRounded'), 'offgrid: quantize starts only keeps the exact lengths');
+  check(throws(() => importFile('offgrid.mid', { quantize: 'ends' }), /quantize/), 'offgrid: an unknown quantize mode is refused');
 }
 
 // ---- 7. waltz 3/4 -----------------------------------------------------------------------
@@ -198,10 +207,12 @@ const produced = [];
 {
   const r = importFile('long-notes.mid'), e = fx['long-notes.mid'].expect;
   produced.push(r.song);
-  const notes = r.song.blocks[0].notes.map(n => ({ step: n.step, pitch: n.pitch, length: n.length, velocity: n.velocity }));
-  check(same(notes.map(n => [n.step, n.pitch, n.length]), e.notes.map(n => [n.step, n.pitch, n.length])), 'long: 255 clip, overlap clip, duplicate removed', JSON.stringify(notes));
+  const notes = r.song.blocks[0].notes.map(n => ({ step: n.step, pitch: n.pitch, length: n.length / 480, velocity: n.velocity }));
+  /* Task 05: a 300-step note is no longer clipped to 255 (lengths reach 17476 steps; 144000 units is exact at exponent 2). */
+  const want = e.notes.map(n => [n.step, n.pitch, n.length === 255 ? 300 : n.length]);
+  check(same(notes.map(n => [n.step, n.pitch, n.length]), want), 'long: the 300-step note kept, overlap clipped, duplicate removed', JSON.stringify(notes));
   check(notes[3].velocity === 110, 'long: the louder duplicate survives');
-  check(warning(r, 'lengthClipped')?.count === e.clipped && warning(r, 'overlapClipped')?.count === e.overlap && warning(r, 'duplicateDropped')?.count === e.duplicate, 'long: three warnings with count 1');
+  check(!warning(r, 'lengthClipped') && !warning(r, 'lengthScaled') && warning(r, 'overlapClipped')?.count === e.overlap && warning(r, 'duplicateDropped')?.count === e.duplicate, 'long: overlap and duplicate warnings with count 1, no length clip', JSON.stringify(r.warnings.map(w => [w.kind, w.count])));
   check(r.a.totalBars === e.bars && r.song.rows.length === 2 && r.song.rows[0].repeat === 1 && r.song.rows[1].repeat === 4 && r.song.rows[1].blocks.every(id => id === 0), 'long: 19 bars = 5 rows; the 4 silent rows (the 255-step note rings on) merge into one empty row ×4', `${r.song.rows.length} rows: ${r.song.rows.map(x => x.repeat + '×' + x.blocks[0]).join(' ')}`);
 }
 
@@ -216,7 +227,21 @@ const produced = [];
   const file = Format.encodeFile(r.song), decoded = Format.decodeFile(file);
   const strip = s => ({ name: s.name, projectSlot: s.projectSlot, tempo: s.tempo, loop: s.loop, jumpMode: s.jumpMode, loopRow: s.loopRow, outChannels: s.outChannels, rows: s.rows, blocks: s.blocks.map(b => ({ id: b.id, notes: Format.sortNotes(b.notes) })) });
   check(same(strip(decoded), strip(r.song)), 'round trip: .tabby encode → decode reproduces rows and blocks', `${file.length} bytes`);
-  check(file.length === 4096 + r.stats.recordBytes && same(Array.from(file.subarray(4096, 4102)), [0, 0, 1, 0, file[4100], file[4101]]), 'round trip: .tabby size = record + aligned block records; 6-byte record header (song 0, reserved, id u16, length u16)');
+  check(file.length === 4096 + r.stats.recordBytes && same(Array.from(file.subarray(4096, 4102)), [0, 1, 1, 0, file[4100], file[4101]]), 'round trip: .tabby size = record + aligned block records; 6-byte record header (song 0, format 1, id u16, length u16)');
+  /* Task 05: a tabby-song/1 JSON (lengths in steps, no offsets) upgrades on load. */
+  const old = { schema: 'tabby-song/1', name: 'OLD JSON    ', projectSlot: 0, tempo: 0, loop: false, jumpMode: 'bar', loopRow: 0, outChannels: [null, null, null, null, null, null, null, null],
+    rows: [{ blocks: [1, 0, 0, 0, 0, 0, 0, 0], repeat: 1, loopHere: false, steps: 64 }], blocks: [{ id: 1, notes: [[0, 60, 100, 2], [4, 62, 90, 1, 1]] }], events: [] };
+  const up = Format.fromJSON(JSON.stringify(old));
+  check(up.schema === 'tabby-song/2' && up.swing === false && same(up.blocks[0].notes.map(n => [n.step, n.pitch, n.offset, n.length, n.retrigger]), [[0, 60, 0, 960, false], [4, 62, 0, 480, true]]), 'round trip: tabby-song/1 JSON upgrades to units (offset 0, length × 480) and swing off');
+  /* Task 05: a v1 .tabby (format-0 block records) decodes to the same notes; swing flag bit 2 round-trips. */
+  const v1file = Format.encodeFile(up);
+  const v1payload = Uint8Array.from([1, 60, 100, 2, 0, 0, 0, 1, 62, 90 | 128, 1, ...new Array(59).fill(0)]);
+  const v1full = new Uint8Array(4096 + ((6 + v1payload.length + 3) & ~3)).fill(0xff); v1full.set(v1file.subarray(0, 4096)); v1full.set([0, 0, 1, 0, v1payload.length & 255, v1payload.length >> 8], 4096); v1full.set(v1payload, 4102);
+  const fromV1 = Format.decodeFile(v1full);
+  check(same(Format.sortNotes(fromV1.blocks[0].notes), Format.sortNotes(up.blocks[0].notes)), 'round trip: a .tabby with format-0 block records reads as timed notes (offset 0, whole steps)');
+  const sw = Format.fromJSON(JSON.stringify(old)); sw.swing = true;
+  const swFile = Format.encodeFile(sw);
+  check((swFile[37] & 4) === 4 && Format.decodeFile(swFile).swing === true && Format.decodeFile(Format.encodeFile(up)).swing === false, 'round trip: song swing flag is record flags bit 2');
   const v = new DataView(file.buffer);
   check(v.getUint32(0, true) === 0x47314d46 && v.getUint32(16, true) === 0 && file[36] === 3 && (file[37] & 1) === 1 && v.getUint16(38, true) === 120 && file[40] === r.song.rows.length && file[41] === 0, 'round trip: record header fields at the section 9.5 offsets (byte 41 reserved 0)');
   check(same(Array.from(file.subarray(48, 64)), [10, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 'round trip: output channels at offset 48 as 1..16 (0 = device), reserved 56..63 zero', Array.from(file.subarray(48, 64)).join(' '));
@@ -250,11 +275,11 @@ const produced = [];
 {
   check(produced.every(s => Format.validate(s).ok), 'format: every produced song passes validate()', `${produced.length} songs`);
   check(Format.encodeBlock({ notes: [] }).length === 64, 'format: empty block is 64 bytes');
-  const full = { notes: Array.from({ length: 256 }, (_, i) => ({ step: i >> 2, pitch: (i & 3) * 20 + 1, velocity: 100, length: 1 })) };
-  check(Format.encodeBlock(full).length === 832 && Format.decodeBlock(Format.encodeBlock(full)).notes.length === 256, 'format: full block is 832 bytes and decodes');
+  const full = { notes: Array.from({ length: 256 }, (_, i) => ({ step: i >> 2, pitch: (i & 3) * 20 + 1, velocity: 100, offset: (i % 5) - 2, length: 1 + i })) };
+  check(Format.encodeBlock(full).length === 1600 && Format.decodeBlock(Format.encodeBlock(full)).notes.length === 256 && same(Format.sortNotes(Format.decodeBlock(Format.encodeBlock(full)).notes).map(n => [n.offset, n.length]), Format.sortNotes(full.notes.map(n => ({ ...n, retrigger: false }))).map(n => [n.offset, n.length])), 'format: full block is 1600 bytes and decodes with its offsets and lengths');
   check(throws(() => Format.encodeBlock({ notes: [{ step: 0, pitch: 60, velocity: 100, length: 1 }, { step: 0, pitch: 60, velocity: 90, length: 2 }] }), /twice/), 'format: same pitch twice on a step rejected');
   check(throws(() => Format.encodeBlock({ notes: Array.from({ length: 5 }, (_, i) => ({ step: 0, pitch: 60 + i, velocity: 100, length: 1 })) }), /max 4/), 'format: 5 notes on a step rejected');
-  check(throws(() => Format.encodeBlock({ notes: [{ step: 0, pitch: 60, velocity: 0, length: 1 }] }), /velocity/) && throws(() => Format.encodeBlock({ notes: [{ step: 0, pitch: 60, velocity: 1, length: 256 }] }), /length/), 'format: velocity 0 and length 256 rejected');
+  check(throws(() => Format.encodeBlock({ notes: [{ step: 0, pitch: 60, velocity: 0, length: 1 }] }), /velocity/) && throws(() => Format.encodeBlock({ notes: [{ step: 0, pitch: 60, velocity: 1, length: 0 }] }), /length/) && throws(() => Format.encodeBlock({ notes: [{ step: 0, pitch: 60, velocity: 1, length: 1, offset: 241 }] }), /offset/), 'format: velocity 0, length 0 and offset 241 rejected');
   const bad = Format.emptySong('x'); bad.rows = [{ blocks: [7, 0, 0, 0, 0, 0, 0, 0], repeat: 1 }];
   check(!Format.validate(bad).ok && /missing block 7/.test(Format.validate(bad).errors[0]), 'format: row referencing a missing block rejected');
   const stub = Transfer.select({});
@@ -351,6 +376,18 @@ const produced = [];
       check(Format.toJSON(Format.fromJSON(Format.toJSON(r.song))) === Format.toJSON(r.song), `renoise ${name}: JSON round trip`);
       const file = Format.encodeFile(r.song);
       check(same(Format.decodeFile(file).rows, r.song.rows), `renoise ${name}: .tabby round trip`, `${file.length} bytes`);
+      /* Task 05: zero timing changes. Every note of the file (96 PPQ: 20 units a tick) is in
+       * the song at exactly its start and length, found by (track, time, pitch). */
+      const upt = 1920 / p.division, byId = new Map(r.song.blocks.map(b => [b.id, b]));
+      const got = new Map(); let rowStart = 0;
+      for (const row of r.song.rows) for (let rep = 0; rep < row.repeat; rep++) { row.blocks.forEach((id, t) => { if (!id) return; for (const n of byId.get(id).notes) if (n.step < row.steps) got.set(t + ':' + ((rowStart + n.step) * 480 + n.offset) + ':' + n.pitch, n.length); }); rowStart += row.steps; }
+      let mismatched = 0, total = 0;
+      a.parts.slice(0, 8).forEach((part, t) => { for (const n of part.notes) { total++; const L = got.get(t + ':' + n.tick * upt + ':' + n.pitch); if (L === undefined || L !== (n.endTick - n.tick) * upt) mismatched++; } });
+      /* The only timing changes allowed are the reported ones: same-pitch overlaps clipped
+       * (a file bug Renoise exports: a note held into its own retrigger), duplicates, overflow. */
+      const allowed = (warning(r, 'overlapClipped')?.count || 0) + (warning(r, 'duplicateDropped')?.count || 0) + (warning(r, 'overflowDropped')?.count || 0);
+      check(p.division === 96 && mismatched === allowed && total === r.stats.notesOut + (warning(r, 'duplicateDropped')?.count || 0) + (warning(r, 'overflowDropped')?.count || 0), `renoise ${name}: every note start and length exact (96 PPQ) apart from the reported overlap clips`, `${total} notes, ${mismatched} changed = ${allowed} reported, ${r.stats.offsets} with offsets, ${r.stats.fractionalLengths} fractional lengths, largest offset ${r.stats.maxOffsetUnits} units`);
+      check(!warning(r, 'moved') && !warning(r, 'lengthRounded') && !warning(r, 'ppqRounded'), `renoise ${name}: no timing warning`);
     } catch (error) { check(false, `renoise ${name}: ${error.message}`); }
   }
 }
@@ -385,6 +422,30 @@ const produced = [];
   const file = Format.encodeFile(withRig), got = Format.decodeFile(file);
   check(file.length > Format.encodeFile(r.song).length + 9 && got.rig && got.rig.channels[0].device === 'waldorf-blofeld' && same(got.events, ev), 'events: .tabby trailer carries the rig override and reads back');
   check(same(Format.fromJSON(Format.toJSON(withRig)).events, ev), 'events: JSON round trip keeps the events');
+}
+
+// ---- 13. Task 05: nudges, exact PPQs, a rounding PPQ ------------------------------------------
+{
+  const r = importFile('kick-nudge.mid'), e = fx['kick-nudge.mid'].expect;
+  produced.push(r.song);
+  const drums = r.song.blocks.find(b => b.notes.some(n => n.pitch === 36)), bass = r.song.blocks.find(b => b.notes.some(n => n.pitch === 43));
+  const kicks = drums.notes.filter(n => n.pitch === 36), kick = kicks[0], bass0 = bass.notes.find(n => n.step === kick.step && n.pitch === 40), late = bass.notes.find(n => n.pitch === 43);
+  check(kicks.length === 4 && kicks.every(n => n.offset === e.kickOffset) && bass0 && bass0.offset === 0, 'kick-nudge: every kick keeps its -12 units (3 ticks) on the same step as the bass note', `kicks ${kicks.map(n => n.step + '/' + n.offset).join(' ')}, bass ${bass0?.offset}`);
+  check(late && late.step === kick.step + 2 && late.offset === e.bassLateOffset && late.length === e.bassLateLength, 'kick-nudge: the late bass note keeps +20 units and its 2-step-7-tick length', `${late?.step} ${late?.offset} ${late?.length}`);
+  check(r.warnings.length === 0 && r.stats.offsets === 6, 'kick-nudge: no warnings, 6 notes with offsets (4 kicks, 2 late bass notes)', JSON.stringify(r.warnings.map(w => w.kind)) + ' ' + r.stats.offsets);
+  for (const ppq of [120, 480, 960]) {
+    const q = importFile('ppq-' + ppq + '.mid'), x = fx['ppq-' + ppq + '.mid'].expect;
+    produced.push(q.song);
+    check(q.a.exactPpq && same(q.song.blocks[0].notes.map(n => [n.step, n.offset, n.length]), x.notes.map(n => [n.step, n.offset, n.length])) && x.notes[1].offset === 80 && x.notes[1].length === 720 && !warning(q, 'ppqRounded'), `ppq-${ppq}: exact offsets of 80 units and 1.5-step lengths`, q.song.blocks[0].notes.map(n => n.offset + '/' + n.length).join(' '));
+  }
+  const q = importFile('ppq-100.mid'), x = fx['ppq-100.mid'].expect;
+  check(!q.a.exactPpq && warning(q, 'ppqRounded') && /100 ticks per quarter/.test(warning(q, 'ppqRounded').message), 'ppq-100: the rounding is reported', warning(q, 'ppqRounded')?.message);
+  /* Start and end round separately, so a length can be one unit off its own rounding. */
+  check(q.song.blocks[0].notes.every((n, i) => Math.abs(n.offset - x.notes[i].exactOffset) <= 0.5 && Math.abs(n.length - x.notes[i].exactLength) <= 1), 'ppq-100: every start within half a unit and every length within one unit of the exact value (76.8 → 77, 729.6 → 729..730)', q.song.blocks[0].notes.map(n => n.offset + '/' + n.length).join(' '));
+  /* Quantize helper on a song model: starts only, then starts and ends. */
+  const m = Format.fromJSON(Format.toJSON(r.song));
+  check(Format.quantize(m, 'starts') === 6 && m.blocks.every(b => b.notes.every(n => n.offset === 0)) && m.blocks.some(b => b.notes.some(n => n.length % 480)), 'quantize starts: 6 offsets cleared, lengths kept');
+  check(Format.quantize(m, 'startsEnds', 'nearest') > 0 && m.blocks.every(b => b.notes.every(n => n.length % 480 === 0 && n.length >= 480)) && Format.validate(m).ok, 'quantize starts and ends: lengths on whole steps, song valid');
 }
 
 console.log(failures ? `${failures} of ${checks} check(s) FAILED` : `all ${checks} checks passed`);

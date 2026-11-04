@@ -85,7 +85,7 @@
             for(const [id,payload] of message.blocks){
               const size=6+payload.length+(4-(6+payload.length)%4)%4;
               if(fill+size>4076){if(sectors===8){batches.push([parts,total]);parts=[];total=0;sectors=0;}sectors++;fill=0;}
-              const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=0;rec[2]=id&255;rec[3]=id>>8;rec[4]=payload.length&255;rec[5]=payload.length>>8;rec.set(payload,6);
+              const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=1;rec[2]=id&255;rec[3]=id>>8;rec[4]=payload.length&255;rec[5]=payload.length>>8;rec.set(payload,6);   // Task 05: payload format 1 (9.4 v0.7 byte 1)
               parts.push(rec);total+=size;fill+=size;
             }
             if(parts.length)batches.push([parts,total]);

@@ -1,7 +1,13 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.6
+Version: 0.7.1
 Revision log:
+- v0.7.1, 2026-11-04 (Task 05 checkpoints b and c): implementation note at the end of 9.12
+  (measured flash and RAM, the device-side decisions taken while coding). No format change.
+- v0.7, 2026-11-03 (Task 05, approved Step 1): **timed notes**: block payload format v2
+  (9.12) with 6-byte notes (offset −240..+240 units, exact length), block record byte 1 =
+  payload format (9.4), song flags bit 2 = swing for v2 blocks (9.5), decision 10 in 9.1.
+  (The file header was not bumped in that commit; added here.)
 - v0.6, 2026-11-02 (Task 04, approved Step 1): **song record version 2** carries a row event
   table in the sector tail (9.11): program change, program change with bank select, control
   change and gap events, 5 bytes each, up to 292 per song and 32 per row, CRC over
@@ -887,3 +893,20 @@ router lane 0 so the drain keeps that order. The MIDI message leaves at the cont
 next poll (the SDK's control loop; the simulator's 10 ms poll, or every block with its test
 switch). `.tabby` files, kinds 5..7 and command 23 are unchanged apart from the two bytes
 above.
+
+**Implemented (checkpoints b and c, 2026-11-04; docs/BUILD.md section 18, FLASH-BUDGET.md
+section 11).** App image 451364 bytes, margin 2557 to the packaging limit (+2112 for the
+task; the 2 KB floor holds), static SRAM 319252 (+16672, against the +14 KB estimate: row
+buffers with 25-byte cells, the 1600-byte payload buffer, note-off times in units, the
+action list). Decisions taken while coding, none changing a byte above: the look-ahead for
+negative offsets is part of the window scan (`scan` with a `look_from` bound) rather than
+a second pass, and the probability roll is cached per track for the current step and pass
+instead of 64-bit masks (both for flash); the row-event pre-fire of 9.11 is evaluated in
+blocks from the exact position (`blocks <= lead + 1`), so events keep landing one block
+before the notes of the new row; the first block after PLAY advances at the song's tempo
+override (tabby-v02.0 advanced it at the project tempo, a one-block error that would have
+become a permanent 4-unit offset under the exact clock); a stopped song resets its position
+so a restart is exact. Simulator timing (per-block drain, renoise-export.mid at 80 BPM):
+largest error 0 blocks for all 1002 note-ons and their note-offs; under the stock 10 ms
+poll 0..3 blocks late, the poll period. A v1 song plays note for note as on tabby-v02.0
+with swing 0 and 25 (tests/host/smoke.c section 12 against tests/host/v1_reference.inc).

@@ -14,9 +14,11 @@
  *     2. parts table: every MIDI track × channel with name, notes, range and bars; assign
  *        each part to a Classic Tabby track 1..8 or skip it; per-track OUT CH 1..16 or
  *        "device setting";
- *     3. options: bar range, bars per row (only lengths that stay on bar lines), note length
- *        rounding rule (nearest / never shorter / never longer), rule for more than 4 notes on
- *        a step (loudest / highest / lowest), song name, project slot, loop;
+ *     3. options: bar range, bars per row (only lengths that stay on bar lines), quantize
+ *        (off = exact timing, the default; starts; starts and ends) with the note length
+ *        rounding rule (nearest / never shorter / never longer) for the latter, rule for
+ *        more than 4 notes on a step (loudest / highest / lowest), song name, project slot,
+ *        loop;
  *     4. result: rows with repeats and block ids, counts, pool use, and the warning list of
  *        everything dropped or changed, grouped by kind with the positions;
  *     5. browser song: save / load the JSON model, export the .tabby file (Task 03 9.9);
@@ -30,9 +32,11 @@
  *   through FM1I18n; this panel is Classic Tabby only and is shown in English in both
  *   languages (Step 4 decision: no 80-string addition to the shared sdk/I18n.js).
  *
- * Version: 0.6
+ * Version: 0.7
  *
  * Revision log
+ *   v0.7  2026-11-03  Task 05: quantize option (off by default), offsets and fractional lengths
+ *                     in the statistics, the grid note reworded.
  *   v0.6  2026-11-02  Task 04: row events: pre-roll option, event column in the row table,
  *                     event count in the statistics.
  *   v0.5  2026-11-02  Task 03 (f): the replace warning says the old song is deleted first and
@@ -87,6 +91,7 @@
       barTo: h('input', { type: 'number', min: 1, step: 1, value: 1 }),
       rowSteps: h('select'),
       preRoll: h('select', {}, option('beat', 'one beat before (default)'), option('none', 'at the row start only'), option('bar', 'up to one bar before')),
+      quantize: h('select', {}, option('off', 'off: exact timing (default)'), option('starts', 'note starts to 16ths'), option('startsEnds', 'starts and ends to 16ths')),
       lengthRule: h('select', {}, option('nearest', 'nearest step (default)'), option('up', 'never shorter (round up)'), option('down', 'never longer (round down)')),
       overflowRule: h('select', {}, option('loudest', 'keep the 4 loudest'), option('highest', 'keep the 4 highest'), option('lowest', 'keep the 4 lowest')),
       name: h('input', { type: 'text', maxLength: 12, value: 'IMPORTED', spellcheck: false }),
@@ -124,12 +129,13 @@
           h('label', {}, 'Bars from ', ui.barFrom), h('label', {}, 'to ', ui.barTo),
           h('label', {}, 'Bars per row ', ui.rowSteps),
           h('label', {}, 'Row events: PC / bank / CC ', ui.preRoll),
-          h('label', {}, 'Note ends ', ui.lengthRule),
+          h('label', {}, 'Quantize ', ui.quantize),
+          h('label', {}, 'Note ends (quantized) ', ui.lengthRule),
           h('label', {}, 'More than 4 notes on a step ', ui.overflowRule),
           h('label', {}, 'Song name ', ui.name), h('label', {}, 'Project slot ', ui.projectSlot),
           h('label', {}, ui.loop, ' loop the whole song'),
           h('label', {}, ui.loose, ' loose block matching, velocity tolerance ±', ui.tolerance)),
-        h('p', { class: 'ti-muted' }, 'Grid: 16th notes. Starts snap to the nearest step (ties toward the earlier step). The first tempo of the file becomes the song tempo. Loose matching shares a block when the notes are the same and only velocities differ, within the tolerance; the first block\'s velocities are kept and every merge is listed below.')),
+        h('p', { class: 'ti-muted' }, 'Timing is kept exactly (1/480 of a 16th step; 96, 120, 192, 240, 384, 480, 960 and 1920 PPQ are exact, others round and are reported): each note belongs to the nearest step and keeps its offset and length. Quantize is off unless chosen. The first tempo of the file becomes the song tempo. Loose matching shares a block when the notes are the same and only velocities differ, within the tolerance; the first block\'s velocities are kept and every merge is listed below.')),
       h('section', { class: 'ti-step' }, h('h3', {}, '4. Resulting song'), ui.status, ui.stats,
         h('div', { class: 'ti-scroll' }, h('table', { class: 'ti-table ti-rows' }, h('thead', {}, h('tr', {}, h('th', {}, 'Row'), h('th', {}, 'Repeat'), h('th', {}, 'Steps'), h('th', {}, 'Events'), ...Array.from({ length: 8 }, (_, t) => h('th', {}, 'T' + (t + 1))))), ui.rows)),
         h('h4', {}, 'Dropped or changed'), ui.warnings),
@@ -147,7 +153,8 @@
     const enable = () => {
       const have = !!state.song;
       ui.saveJson.disabled = ui.exportTabby.disabled = ui.write.disabled = !have || state.busy;
-      for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.lengthRule, ui.overflowRule]) el.disabled = !state.analysis || state.busy;
+      for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.quantize, ui.overflowRule]) el.disabled = !state.analysis || state.busy;
+      ui.lengthRule.disabled = !state.analysis || state.busy || ui.quantize.value !== 'startsEnds';
     };
     transfer.describe().then(d => { ui.transferInfo.textContent = 'Transfer: ' + (d.real ? d.note : 'stub (validates and reports what it would send; no device is written)') + ' · ' + d.songs + ' songs · ' + d.rows + ' rows · ' + d.blocks + ' blocks per song · pool ' + kb(d.poolBytes) + '.'; });
     const slotInfo = async () => {
@@ -180,7 +187,7 @@
       ui.stats.replaceChildren(h('p', {}, h('strong', {}, song.name.trim() || '(unnamed)'), ' · tempo ' + (song.tempo || 'project') + ' · project ' + (song.projectSlot + 1) + ' · rows ' + song.rows.length +
         (result ? ' (from ' + result.stats.rowsBeforeMerge + ')' : '') + ', ' + usage.repeats + ' with repeats · row ' + [...new Set(song.rows.map(r => r.steps))].join('/') + ' steps · blocks ' + usage.blocks + ' of 2048 (' + usage.idPercent.toFixed(1) + ' %)' +
         (result ? ' from ' + result.stats.cellsBeforeDedup + ' cells' + (result.stats.looseMerges ? ', ' + result.stats.looseMerges + ' loose merge(s)' : '') : '') + ' · block bytes ' + usage.recordBytes + ' (' + usage.poolPercent.toFixed(2) + ' % of the pool, ' + usage.sectors + ' sector(s))' +
-        (result ? ' · notes ' + result.stats.notesOut + ' of ' + result.stats.notesIn : '') + ' · row events ' + (song.events || []).length + ' of 292' + ' · .tabby ' + kb(usage.fileBytes) + '.'),
+        (result ? ' · notes ' + result.stats.notesOut + ' of ' + result.stats.notesIn + ' (' + result.stats.offsets + ' with offsets, largest ' + result.stats.maxOffsetUnits + ' units; ' + result.stats.fractionalLengths + ' fractional lengths)' : '') + ' · row events ' + (song.events || []).length + ' of 292' + ' · .tabby ' + kb(usage.fileBytes) + '.'),
         ...v.warnings.map(w => h('p', { class: 'ti-muted' }, '⚑ ' + w)), ...v.errors.map(e => h('p', { class: 'ti-error' }, e)));
       ui.rows.replaceChildren(...song.rows.map((row, i) => h('tr', {}, h('td', {}, i + 1), h('td', {}, '×' + row.repeat + (row.loopHere ? ' ⟲' : '')), h('td', {}, row.steps),
         h('td', { class: 'ti-muted' }, (song.events || []).filter(e => e.row === i).map(e => e.type === 0 ? 'PC' + e.d0 : e.type === 1 ? 'B/PC' + e.d2 : e.type === 2 ? 'CC' + e.d0 : 'gap').join(' ') || '·'),
@@ -196,7 +203,7 @@
       try {
         const options = { fileName: state.fileName, assignments: state.assignments, outChannels: state.outChannels,
           barFrom: Number(ui.barFrom.value) || 1, barTo: Number(ui.barTo.value) || state.analysis.totalBars, rowSteps: Number(ui.rowSteps.value) || undefined,
-          lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked, preRoll: ui.preRoll.value,
+          quantize: ui.quantize.value, lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked, preRoll: ui.preRoll.value,
           looseDedup: ui.loose.checked, velocityTolerance: Math.max(0, Math.min(126, Math.round(Number(ui.tolerance.value) || 0))) };
         state.result = Song.convert(state.analysis, options); state.song = state.result.song;
         showSong(state.result, state.song);
@@ -207,7 +214,7 @@
       }
       enable();
     }
-    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop, ui.loose, ui.tolerance, ui.preRoll]) el.addEventListener('change', reconvert);
+    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.quantize, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop, ui.loose, ui.tolerance, ui.preRoll]) el.addEventListener('change', reconvert);
     ui.name.addEventListener('input', () => { if (state.song) { state.song.name = Format.padName(ui.name.value); showSong(state.result, state.song); } });
 
     ui.file.addEventListener('change', async () => {
@@ -260,7 +267,7 @@
     return { state, reconvert, ui };
   }
 
-  const TabbyImportUI = { mount, h, version: '0.6' };
+  const TabbyImportUI = { mount, h, version: '0.7' };
   globalThis.TabbyImportUI = TabbyImportUI;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();

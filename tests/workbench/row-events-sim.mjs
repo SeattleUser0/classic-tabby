@@ -37,6 +37,7 @@ Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'node', req
 globalThis.window = globalThis;
 globalThis.document = { addEventListener() {}, querySelector() { return null; }, getElementById() { return null; } };
 globalThis.location = { search: '' };
+(0, eval)(readFileSync(join(root, 'web/timed-note/timed-note.js'), 'utf8'));   /* Task 05: WebUpdate.js uses TabbyTimedNote */
 (0, eval)(readFileSync(join(root, 'sdk/WebUpdate.js'), 'utf8'));
 const W = globalThis.FM1Web;
 const D = require(join(root, 'web/rig/device-library.js')), R = require(join(root, 'web/rig/rig.js'));

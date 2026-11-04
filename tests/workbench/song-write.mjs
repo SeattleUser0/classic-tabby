@@ -38,6 +38,7 @@ Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'node', req
 globalThis.window = globalThis;
 globalThis.document = { addEventListener() {}, querySelector() { return null; }, getElementById() { return null; } };
 globalThis.location = { search: '' };
+(0, eval)(readFileSync(join(root, 'web/timed-note/timed-note.js'), 'utf8'));   /* Task 05: WebUpdate.js uses TabbyTimedNote */
 (0, eval)(readFileSync(join(root, 'sdk/WebUpdate.js'), 'utf8'));
 const W = globalThis.FM1Web;
 
@@ -77,7 +78,7 @@ async function query(cmd, payload = []) {
   throw deviceError(71);
 }
 const lib = Object.create(W.Library.prototype);
-lib.songStorage = true; lib.songBatch = true; lib.link = { lost: false }; lib.query = query;
+lib.songStorage = true; lib.songBatch = true; lib.timedNotes = true; lib.link = { lost: false }; lib.query = query;
 
 /* ---- songs A (blocks 1, 2) and B (block 3) ---------------------------------------------- */
 const song = (name, ids) => Object.assign(W.songEmpty(), { name, rows: [{ block: [...ids, ...Array(8 - ids.length).fill(0)], repeat: 1, loopHere: false, steps: 64 }] });

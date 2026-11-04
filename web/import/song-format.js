@@ -15,13 +15,19 @@
  *     9.9 .tabby file: song record image (generation 0, target 0, commit 0, CRC valid)
  *         followed by block records with song byte 0, 4-byte aligned, to end of file.
  *
- *   The JavaScript song model (what the importer builds and the UI shows):
- *     { schema: 'tabby-song/1', name, projectSlot, tempo (0 = project tempo), loop,
- *       jumpMode: 'bar' | 'row', loopRow,
+ *   The JavaScript song model (what the importer builds and the UI shows), since Task 05
+ *   schema 'tabby-song/2' (a 'tabby-song/1' file loads and is upgraded: offset 0, length in
+ *   steps × 480, swing false):
+ *     { schema: 'tabby-song/2', name, projectSlot, tempo (0 = project tempo), loop,
+ *       jumpMode: 'bar' | 'row', loopRow, swing (bool: v2 blocks follow the project swing),
  *       outChannels: [8 × (null | 0..15)],     // null = use the device setting (byte 0)
  *       rows:   [{ blocks: [8 × id], repeat: 1..64, loopHere: false, steps: 16|32|48|64 }],
- *       blocks: [{ id: 1..65535, notes: [{ step, pitch, velocity, length, retrigger }],
+ *       blocks: [{ id: 1..65535, notes: [{ step, pitch, velocity, offset, length, retrigger }],
  *                  stepFlags: { step: { probability, alt } } (optional) }] }
+ *   A note's offset is −240..240 units from its step and its length 1..8388480 units
+ *   (1 unit = 1/480 step; web/timed-note/timed-note.js, docs/TIMED-NOTE.md). Blocks are
+ *   written as payload format 1 (section 9.12, 6-byte timed notes); format 0 (9.3, 3-byte
+ *   notes) is read from .tabby files and upgraded.
  *
  *   Row step length and output channels (section 9 v0.3, commit b7abb99): a row plays steps
  *   0..N-1 of each of its blocks per repeat; the byte value 0 reads as 64 so zero-filled
@@ -36,9 +42,12 @@
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-03  Task 05: timed notes (section 9.12): model schema tabby-song/2 with offset
+ *                     and length in units, payload format 1 encode, format 0 and 1 decode,
+ *                     block record byte 1, song swing flag, quantize helpers, JSON upgrade.
  *   v0.4  2026-11-02  Task 04: row events (version-2 records), the .tabby trailer.
  *   v0.3  2026-11-02  Section 9 v0.4 (commit 2d4ef83): 16-bit block ids (1..65535, at most
  *                     2048 per song), 6-byte block record header, 20-byte rows, CRC over
@@ -55,13 +64,15 @@
   'use strict';
 
   const fail = text => { throw new Error(text); };
+  const T = () => globalThis.TabbyTimedNote || (typeof require === 'function' ? require('../timed-note/timed-note.js') : fail('timed-note.js not loaded'));
 
-  /* Limits and constants from section 9. */
+  /* Limits and constants from section 9 (v0.7: timed notes). */
   const LIMITS = Object.freeze({
-    steps: 64, notesPerStep: 4, noteBytes: 3,
-    blockMin: 64, blockMax: 832,
+    steps: 64, notesPerStep: 4, noteBytes: 6, noteBytesV1: 3,
+    blockMin: 64, blockMax: 1600, blockMaxV1: 832, formatV1: 0, formatV2: 1,
+    unitsPerStep: 480, offsetMax: 240,
     blocksPerSong: 2048, idMax: 65535, rowsPerSong: 128, songs: 16, tracks: 8,
-    repeatMin: 1, repeatMax: 64, lengthMin: 1, lengthMax: 255,
+    repeatMin: 1, repeatMax: 64, lengthMin: 1, lengthMax: 65535 * 128, lengthStepsV1Max: 255,
     tempoMin: 30, tempoMax: 300, nameLength: 12,
     recordArea: 4076, blockSectors: 96, poolBytes: 96 * 4076,   /* 391296 */
     recordBytes: 4096, rowBytes: 20, rowsOffset: 64, bodyEnd: 2624, channelsOffset: 48, headerBytes: 64, blockHeaderBytes: 6,
@@ -82,7 +93,7 @@
 
   /* ---- model helpers ------------------------------------------------------------------- */
   function emptySong(name = 'IMPORTED') {
-    return { schema: 'tabby-song/1', name: padName(name), projectSlot: 0, tempo: 0, loop: false, jumpMode: 'bar', loopRow: 0,
+    return { schema: 'tabby-song/2', name: padName(name), projectSlot: 0, tempo: 0, loop: false, jumpMode: 'bar', loopRow: 0, swing: false,
       outChannels: [null, null, null, null, null, null, null, null], rows: [], blocks: [], events: [] };
   }
   /* 12 printable ASCII characters, space padded, upper case like the device shows names. */
@@ -90,7 +101,7 @@
     const clean = String(text || '').toUpperCase().replace(/[^\x20-\x7e]/g, '_').slice(0, LIMITS.nameLength);
     return (clean + ' '.repeat(LIMITS.nameLength)).slice(0, LIMITS.nameLength);
   }
-  const sortNotes = notes => notes.slice().sort((a, b) => a.step - b.step || a.pitch - b.pitch || a.velocity - b.velocity || a.length - b.length);
+  const sortNotes = notes => notes.slice().sort((a, b) => a.step - b.step || a.pitch - b.pitch || (a.offset | 0) - (b.offset | 0) || a.velocity - b.velocity || a.length - b.length);
 
   /* ---- block payload (9.3) ------------------------------------------------------------- */
   /* Group a block's notes by step and check every rule the device checks. Returns
@@ -101,7 +112,8 @@
       if (!Number.isInteger(n.step) || n.step < 0 || n.step >= LIMITS.steps) fail(where + ': note step ' + n.step + ' outside 0..63');
       if (!Number.isInteger(n.pitch) || n.pitch < 0 || n.pitch > 127) fail(where + ': pitch ' + n.pitch + ' outside 0..127');
       if (!Number.isInteger(n.velocity) || n.velocity < 1 || n.velocity > 127) fail(where + ': velocity ' + n.velocity + ' outside 1..127');
-      if (!Number.isInteger(n.length) || n.length < LIMITS.lengthMin || n.length > LIMITS.lengthMax) fail(where + ': length ' + n.length + ' outside 1..255');
+      if (!Number.isInteger(n.offset | 0) || (n.offset | 0) < -LIMITS.offsetMax || (n.offset | 0) > LIMITS.offsetMax) fail(where + ': offset ' + n.offset + ' outside -240..240 units');
+      if (!Number.isInteger(n.length) || n.length < LIMITS.lengthMin || n.length > LIMITS.lengthMax) fail(where + ': length ' + n.length + ' outside 1..' + LIMITS.lengthMax + ' units');
       steps[n.step].push(n);
     }
     steps.forEach((list, s) => {
@@ -115,17 +127,22 @@
     });
     return steps;
   }
+  /* Payload format 1 (9.12): step header, then 6-byte timed notes. The length is stored
+   * as the module stores it (exact up to 65535 units, then rounded by the exponent). */
   function encodeBlock(block, where) {
-    const steps = stepsOf(block, where), out = [];
+    const steps = stepsOf(block, where), out = [], TN = T();
     steps.forEach((list, s) => {
       const flags = (block.stepFlags || {})[s] || {};
       out.push(list.length | ((flags.probability || 0) << 3) | (flags.alt ? 64 : 0));
-      for (const n of list) out.push(n.pitch, n.velocity | (n.retrigger ? 128 : 0), n.length);
+      for (const n of list) out.push(...TN.encode({ pitch: n.pitch, velocity: n.velocity, retrigger: !!n.retrigger, offset: n.offset | 0, length: n.length }));
     });
     return Uint8Array.from(out);
   }
-  function decodeBlock(bytes, id = 0) {
-    const notes = [], stepFlags = {};
+  /* A payload of either format (format 0: 9.3, 3-byte notes, upgraded to offset 0 and
+   * whole-step lengths; format 1: 9.12) back to a block. */
+  function decodeBlock(bytes, id = 0, format = LIMITS.formatV2) {
+    const notes = [], stepFlags = {}, TN = T(), size = format === LIMITS.formatV1 ? LIMITS.noteBytesV1 : LIMITS.noteBytes;
+    if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2) fail('block payload format ' + format + ' unknown');
     let at = 0;
     for (let s = 0; s < LIMITS.steps; s++) {
       if (at >= bytes.length) fail('block payload ends inside step ' + s);
@@ -133,9 +150,15 @@
       if (count > 4 || (h & 128)) fail('block payload step ' + s + ' header invalid');
       if (h & 0x78) stepFlags[s] = { probability: (h >> 3) & 7, alt: !!(h & 64) };
       for (let i = 0; i < count; i++) {
-        if (at + 3 > bytes.length) fail('block payload ends inside a note');
-        notes.push({ step: s, pitch: bytes[at] & 127, velocity: bytes[at + 1] & 127, length: bytes[at + 2], retrigger: !!(bytes[at + 1] & 128) });
-        at += 3;
+        if (at + size > bytes.length) fail('block payload ends inside a note');
+        if (format === LIMITS.formatV1) {
+          if (!(bytes[at + 1] & 127) || !bytes[at + 2]) fail('block payload step ' + s + ' note invalid');
+          notes.push({ step: s, pitch: bytes[at] & 127, velocity: bytes[at + 1] & 127, offset: 0, length: bytes[at + 2] * LIMITS.unitsPerStep, retrigger: !!(bytes[at + 1] & 128) });
+        } else {
+          let n; try { n = TN.decode(bytes.subarray(at, at + size)); } catch (e) { fail('block payload step ' + s + ': ' + e.message); }
+          notes.push({ step: s, pitch: n.pitch, velocity: n.velocity, offset: n.offset, length: n.length, retrigger: n.retrigger });
+        }
+        at += size;
       }
     }
     if (at !== bytes.length) fail('block payload has ' + (bytes.length - at) + ' trailing byte(s)');
@@ -148,14 +171,14 @@
   function blockKey(notes) { return String.fromCharCode(...encodeBlock({ notes })); }
   /* Loose deduplication (importer option): the same notes ignoring velocity. Two blocks with
    * equal structural keys differ only in velocities, position for position. */
-  function structuralKey(notes) { return sortNotes(notes).map(n => n.step + ':' + n.pitch + ':' + n.length + (n.retrigger ? 'r' : '')).join(','); }
+  function structuralKey(notes) { return sortNotes(notes).map(n => n.step + ':' + n.pitch + ':' + (n.offset | 0) + ':' + n.length + (n.retrigger ? 'r' : '')).join(','); }
 
   /* ---- block record (9.4) and .tabby file (9.9) --------------------------------------- */
   const align4 = n => (n + 3) & ~3;
   function encodeBlockRecord(block, song = 0) {
     const payload = encodeBlock(block, 'block ' + block.id);
     const out = new Uint8Array(align4(LIMITS.blockHeaderBytes + payload.length)).fill(0xff);
-    out[0] = song; out[1] = 0;                                           /* v0.4: byte 1 reserved */
+    out[0] = song; out[1] = LIMITS.formatV2;                             /* 9.4 v0.7: byte 1 = payload format */
     out[2] = block.id & 255; out[3] = block.id >> 8;                     /* 16-bit id */
     out[4] = payload.length & 255; out[5] = payload.length >> 8;
     out.set(payload, LIMITS.blockHeaderBytes);
@@ -176,7 +199,7 @@
     const name = padName(song.name);
     for (let i = 0; i < LIMITS.nameLength; i++) r[24 + i] = name.charCodeAt(i);
     r[36] = song.projectSlot;
-    r[37] = (song.loop ? 1 : 0) | (song.jumpMode === 'row' ? 2 : 0);
+    r[37] = (song.loop ? 1 : 0) | (song.jumpMode === 'row' ? 2 : 0) | (song.swing ? 4 : 0);   /* bit 2 (9.12): swing for v2 blocks */
     v.setUint16(38, song.tempo, true);
     r[40] = song.rows.length;
     r[41] = 0;                                          /* v0.4: reserved (was the block count) */
@@ -206,7 +229,8 @@
     if (v.getUint32(12, true) !== crc32(r.subarray(20, version === 2 ? LIMITS.recordV2End : LIMITS.bodyEnd))) fail('song record CRC mismatch');
     const song = emptySong('');
     song.name = String.fromCharCode(...r.subarray(24, 36));
-    song.projectSlot = r[36]; song.loop = !!(r[37] & 1); song.jumpMode = r[37] & 2 ? 'row' : 'bar';
+    if (r[37] & ~7) fail('song record flags byte ' + r[37] + ' invalid');
+    song.projectSlot = r[36]; song.loop = !!(r[37] & 1); song.jumpMode = r[37] & 2 ? 'row' : 'bar'; song.swing = !!(r[37] & 4);
     song.tempo = v.getUint16(38, true); song.loopRow = r[42];
     if (song.tempo && (song.tempo < LIMITS.tempoMin || song.tempo > LIMITS.tempoMax)) fail('song record tempo override ' + song.tempo + ' invalid (0 or 30..300)');   /* (f): as the device */
     song.outChannels = Array.from(r.subarray(LIMITS.channelsOffset, LIMITS.channelsOffset + 8), (c, t) => {
@@ -271,11 +295,13 @@
       if (bytes[at] === 0xff) break;                      /* erased filler */
       const H = LIMITS.blockHeaderBytes;
       if (at + H > bytes.length) fail('.tabby block record header truncated');
-      const songByte = bytes[at], id = bytes[at + 2] | bytes[at + 3] << 8, length = bytes[at + 4] | bytes[at + 5] << 8;
+      const songByte = bytes[at], format = bytes[at + 1], id = bytes[at + 2] | bytes[at + 3] << 8, length = bytes[at + 4] | bytes[at + 5] << 8;
       if (songByte !== 0) fail('.tabby block record song byte must be 0');
+      if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2) fail('.tabby block record ' + id + ' payload format ' + format + ' unknown');
       if (!id) fail('.tabby block record id 0 is invalid');
-      if (length < LIMITS.blockMin || length > LIMITS.blockMax || at + H + length > bytes.length) fail('.tabby block record ' + id + ' length invalid');
-      song.blocks.push(decodeBlock(bytes.subarray(at + H, at + H + length), id));
+      const max = format === LIMITS.formatV1 ? LIMITS.blockMaxV1 : LIMITS.blockMax;
+      if (length < LIMITS.blockMin || length > max || at + H + length > bytes.length) fail('.tabby block record ' + id + ' length invalid');
+      song.blocks.push(decodeBlock(bytes.subarray(at + H, at + H + length), id, format));
       at = align4(at + H + length);
     }
     if (at + 9 <= bytes.length && bytes[at] === 0xff && String.fromCharCode(...bytes.subarray(at + 1, at + 5)) === 'TRIG') {
@@ -292,12 +318,13 @@
   function validate(song) {
     const errors = [], warnings = [];
     const err = text => errors.push(text), warn = text => warnings.push(text);
-    if (!song || song.schema !== 'tabby-song/1') err('not a tabby-song/1 model');
+    if (!song || song.schema !== 'tabby-song/2') err('not a tabby-song/2 model');
     if (!song) return { errors, warnings, ok: false };
     if (typeof song.name !== 'string' || song.name.length !== LIMITS.nameLength || /[^\x20-\x7e]/.test(song.name)) err('name must be 12 printable ASCII characters');
     if (!Number.isInteger(song.projectSlot) || song.projectSlot < 0 || song.projectSlot > 15) err('project slot outside 0..15');
     if (!Number.isInteger(song.tempo) || (song.tempo !== 0 && (song.tempo < LIMITS.tempoMin || song.tempo > LIMITS.tempoMax))) err('tempo must be 0 or 30..300');
     if (!['bar', 'row'].includes(song.jumpMode)) err('jump mode must be bar or row');
+    if (typeof song.swing !== 'boolean') err('swing must be true or false');
     if (!Array.isArray(song.rows) || song.rows.length < 1) err('song needs at least one row');
     else if (song.rows.length > LIMITS.rowsPerSong) err('song has ' + song.rows.length + ' rows (max 128)');
     if (!Number.isInteger(song.loopRow) || song.loopRow < 0 || song.loopRow >= Math.max(1, (song.rows || []).length)) err('loop row outside the row list');
@@ -351,16 +378,21 @@
   /* ---- JSON save / load (browser round trip, Task 02 Step 3) --------------------------- */
   function toJSON(song, extra = {}) {
     checkSong(song);
+    /* tabby-song/2: a note is [step, pitch, velocity, length (units), offset, retrigger]. */
     const data = { ...song, ...extra, blocks: song.blocks.map(b => ({ id: b.id, ...(b.stepFlags ? { stepFlags: b.stepFlags } : {}),
-      notes: sortNotes(b.notes).map(n => n.retrigger ? [n.step, n.pitch, n.velocity, n.length, 1] : [n.step, n.pitch, n.velocity, n.length]) })) };
+      notes: sortNotes(b.notes).map(n => n.retrigger ? [n.step, n.pitch, n.velocity, n.length, n.offset | 0, 1] : [n.step, n.pitch, n.velocity, n.length, n.offset | 0]) })) };
     return JSON.stringify(data, null, 1);
   }
   function fromJSON(text) {
     const data = typeof text === 'string' ? JSON.parse(text) : text;
-    if (!data || data.schema !== 'tabby-song/1') fail('not a tabby-song/1 JSON file');
-    const song = { ...emptySong(''), ...data };
+    if (!data || (data.schema !== 'tabby-song/1' && data.schema !== 'tabby-song/2')) fail('not a tabby-song/1 or tabby-song/2 JSON file');
+    const v1 = data.schema === 'tabby-song/1';           /* lengths in steps, no offsets: upgraded here */
+    const song = { ...emptySong(''), ...data, schema: 'tabby-song/2', swing: !v1 && !!data.swing };
     song.blocks = (data.blocks || []).map(b => ({ id: b.id, ...(b.stepFlags ? { stepFlags: b.stepFlags } : {}),
-      notes: (b.notes || []).map(n => Array.isArray(n) ? { step: n[0], pitch: n[1], velocity: n[2], length: n[3], retrigger: !!n[4] } : { ...n, retrigger: !!n.retrigger }) }));
+      notes: (b.notes || []).map(n => Array.isArray(n)
+        ? (v1 ? { step: n[0], pitch: n[1], velocity: n[2], offset: 0, length: n[3] * LIMITS.unitsPerStep, retrigger: !!n[4] }
+              : { step: n[0], pitch: n[1], velocity: n[2], length: n[3], offset: n[4] | 0, retrigger: !!n[5] })
+        : { ...n, offset: v1 ? 0 : n.offset | 0, length: v1 ? n.length * LIMITS.unitsPerStep : n.length, retrigger: !!n.retrigger }) }));
     song.rows = (data.rows || []).map(r => ({ blocks: Array.from(r.blocks || []), repeat: r.repeat, loopHere: !!r.loopHere, steps: r.steps || data.rowSteps || 64 }));
     song.events = (data.events || []).map(e => ({ row: e.row, channel: e.channel, type: e.type, d0: e.d0 | 0, d1: e.d1 | 0, d2: e.d2 | 0 }));
     delete song.rowSteps;                                 /* v0.1 files: the length now lives in each row */
@@ -375,8 +407,28 @@
     return song.rows.map(r => r.blocks.map(id => id ? sortNotes(byId.get(id).notes) : []));
   }
 
+  /* ---- quantize (Task 05: an option, never the default) --------------------------------- */
+  /* 'starts': every offset becomes 0 (the note moves to its step, the length stays).
+   * 'startsEnds': offsets 0 and lengths rounded to whole steps by `rule` ('nearest' with
+   * ties up, 'up', 'down'; at least one step). Returns the number of notes changed. */
+  function quantizeNotes(notes, mode, rule = 'nearest') {
+    let changed = 0;
+    const U = LIMITS.unitsPerStep;
+    for (const n of notes) {
+      let offset = n.offset | 0, length = n.length;
+      if (mode === 'starts' || mode === 'startsEnds') offset = 0;
+      if (mode === 'startsEnds') {
+        const steps = rule === 'up' ? Math.ceil(length / U) : rule === 'down' ? Math.floor(length / U) : Math.floor(length / U + 0.5);
+        length = Math.max(1, steps) * U;
+      }
+      if (offset !== (n.offset | 0) || length !== n.length) { n.offset = offset; n.length = length; changed++; }
+    }
+    return changed;
+  }
+  function quantize(song, mode, rule) { return song.blocks.reduce((n, b) => n + quantizeNotes(b.notes, mode, rule), 0); }
+
   const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, structuralKey, encodeBlockRecord, validateEvents,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, version: '0.3' };
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, version: '0.5' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();

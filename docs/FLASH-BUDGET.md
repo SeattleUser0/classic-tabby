@@ -1,7 +1,9 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.9
+Version: 0.10
 Revision log:
+- v0.10, 2026-11-04 (Task 05): section 11 added: timed notes in firmware (+2112 bytes,
+  margin 2557; static SRAM +16672); Appendix A regenerated with a fresh no-LTO map.
 - v0.9, 2026-11-02 (Task 04, firmware part): section 10 added: row events in firmware
   (+1664 bytes, margin 4669); Appendix A regenerated.
 - v0.8, 2026-11-02 (Task 03 checkpoint f): section 9 added: factory scenes removed (−3392
@@ -616,6 +618,53 @@ RAM: the loaded record now keeps its 1472-byte tail, the two row buffers hold 32
 events each plus a count and lead, and the stream state is a few bytes; the ram0_data
 growth is the sequencer's initialised state moving with the larger structures.
 
+## 11. Task 05: timed notes (measured)
+
+Built with Track B (`make firmware`), byte-identical to Track A under the machine lock
+(`make crosscheck`): sdk.elf 9586ac20…, .fwsc aca56284…, app-image.bin 9b5b9466….
+
+| Quantity | After Task 04 fw | After Task 05 | Change |
+| --- | ---: | ---: | ---: |
+| App image | 449252 | **451364** | +2112 |
+| Margin to the 453921-byte packaging limit | 4669 | **2557** | −2112 |
+| .text | 372064 | 372672 | +608 |
+| .ram0_data | 77156 | 78660 | +1504 |
+| .ram0_bss | 225372 | 240540 | +15168 |
+| Static SRAM (data + bss + boot_info) | 302580 | 319252 | +16672 |
+| Runtime heap (minimum 49152) | 221036 | 204364 | −16672 |
+
+The task's floor of 2 KB holds with 509 bytes to spare. The first song.c rewrite left
+1629 bytes; merging the look-ahead into the window scan and replacing the 64-bit
+probability masks with a one-entry cache per track brought it back (section 9.12 of
+docs/tasks/TASK-03-step1-assessment.md records the decision). The sequencer's tick path
+is `FM1_AUDIO_CODE` (SRAM, counted in .ram0_data), which is where most of the growth
+lands; the flash-resident part is the payload upgrade and the per-format validators in
+song_storage.c. Attribution (post-LTO, `build/pro/nolto.json` regenerated for this
+source state):
+
+| Unit | After Task 04 fw | After Task 05 | Note |
+| --- | ---: | ---: | --- |
+| app/song.c | 3106 | 4662 | +1556: position in units with the exact block advance, window scan with sorted actions (`scan` 380, `tick` 648), swing warp, look-ahead for negative offsets, probability cache, `decode_row` 426 with the in-place v1 upgrade |
+| app/song_storage.c | 5540 | 5972 | +432: `song_payload_upgrade` 186, `song_payload_valid` 276 (v1 and v2 validators through the timed-note decoder), record byte 1 as payload format, 1600-byte payload limit |
+| app/transfer.c | 3118 | 3164 | +46: kind 6 carries the format byte, downloads upgrade, capability bit 4 |
+| app/smk37_controls.c | 2577 | 2605 | +28 (inlined song calls) |
+| app/samples.c | 1384 | 1396 | +12 (inlined poll) |
+| app/project.c | 5834 | 5844 | +10 |
+| app/midi_router.c | 4259 | 4257 | −2: song notes use lane 0 only |
+| app/timed_note.c | — | 0 | no symbol survives LTO: `timed_note_decode` is inlined into the validators and `decode_row` and counted there |
+| app/screen.c | 34570 | 34570 | unchanged |
+| alignment / linker fill | 148 | 178 | +30 |
+| unattributed (LTO) | 748 | 748 | unchanged |
+
+RAM (+16672, against the +14 KB estimate of the Step 1 assessment): the two row buffers
+now hold 25-byte step cells for four 6-byte notes plus the per-track swing, the payload
+buffer grew from 640 to 1600 bytes, the sounding table keeps note-off times in units,
+and the action list and probability cache are new; song.c's standalone .bss went from
+18860 to 34016 bytes. The runtime heap keeps 155 KB above its 48 KB minimum.
+
+Removal candidates for the next task are unchanged from section 2: the BLE page
+(1768), EFFECTS (680) and NAME (parts of 1582) in screen.c are the cheapest 2-4 KB.
+
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 
 ### Flash use by input (from sdk.map; .text includes rodata)
@@ -624,16 +673,16 @@ growth is the sequencer's initialised state moving with the larger structures.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | libfm1_engine.a | 294901 | 0 | 69714 | 32 | 364647 (356.1 KiB) |
 | app/screen.c | 34562 | 0 | 8 | 0 | 34570 (33.8 KiB) |
-| app (LTO-merged units) | 27524 | 0 | 2944 | 0 | 30468 (29.8 KiB) |
+| app (LTO-merged units) | 28074 | 0 | 4432 | 0 | 32506 (31.7 KiB) |
 | app/board/scan.c | 1649 | 0 | 3756 | 0 | 5405 (5.3 KiB) |
-| app/midi_router.c | 3599 | 0 | 660 | 0 | 4259 (4.2 KiB) |
+| app/midi_router.c | 3599 | 0 | 658 | 0 | 4257 (4.2 KiB) |
 | libcompiler_rt.a | 3212 | 0 | 0 | 0 | 3212 (3.1 KiB) |
-| app/transfer.c | 3118 | 0 | 0 | 0 | 3118 (3.0 KiB) |
+| app/transfer.c | 3164 | 0 | 0 | 0 | 3164 (3.1 KiB) |
 | app/board/panel.c | 2697 | 0 | 8 | 0 | 2705 (2.6 KiB) |
 | libc.a | 720 | 0 | 0 | 0 | 720 (0.7 KiB) |
-| **input sections total** | | | | | **449104 (438.6 KiB)** |
-| alignment / linker-script fill (app image − inputs) | | | | | 148 |
-| **app image (firmware-report.json)** | | | | | **449252 (438.7 KiB)** |
+| **input sections total** | | | | | **451186 (440.6 KiB)** |
+| alignment / linker-script fill (app image − inputs) | | | | | 178 |
+| **app image (firmware-report.json)** | | | | | **451364 (440.8 KiB)** |
 
 ### App units after LTO
 
@@ -647,18 +696,18 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | app/board/scan.c | 5405 | map (-fno-lto) | 5471 | 2844 |
 | app/fm_factory.c | 10233 | nm symbols (LTO) | 10063 | 0 |
 | app/fm_library.c | 14 | nm symbols (LTO) | 312 | 0 |
-| app/midi_router.c | 4259 | map (-fno-lto) | 4259 | 4014 |
+| app/midi_router.c | 4257 | map (-fno-lto) | 4257 | 4014 |
 | app/presets.c | 22 | nm symbols (LTO) | 340 | 0 |
-| app/project.c | 5834 | nm symbols (LTO) | 6296 | 4140 |
-| app/samples.c | 1384 | nm symbols (LTO) | 36 | 0 |
+| app/project.c | 5844 | nm symbols (LTO) | 6296 | 4140 |
+| app/samples.c | 1396 | nm symbols (LTO) | 36 | 0 |
 | app/screen.c | 34570 | map (-fno-lto) | 34931 | 10698 |
-| app/smk37_controls.c | 2577 | nm symbols (LTO) | 2849 | 230 |
-| app/transfer.c | 3118 | map (-fno-lto) | 3118 | 1144 |
-| app/song.c | 3106 | nm symbols (LTO) | 3166 | 18860 |
-| app/song_storage.c | 5540 | nm symbols (LTO) | 5640 | 15588 |
+| app/smk37_controls.c | 2605 | nm symbols (LTO) | 2849 | 230 |
+| app/transfer.c | 3164 | map (-fno-lto) | 3164 | 1144 |
+| app/song.c | 4662 | nm symbols (LTO) | 4724 | 34016 |
+| app/song_storage.c | 5972 | nm symbols (LTO) | 5944 | 15588 |
 | generated/build_identity.c | 0 | nm symbols (LTO) | — | — |
-| LTO-merged units, map total | 30468 | map | | |
-| of which traced to a unit above | 29720 | | | |
+| LTO-merged units, map total | 32506 | map | | |
+| of which traced to a unit above | 31758 | | | |
 | of which unattributed (inlined/merged/renamed by LTO) | 748 | | | |
 
 ### Top 40 app symbols by size (post-LTO, from nm --print-size)
@@ -668,20 +717,21 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | 9399 | `factory_tokens` | app/fm_factory.c | t |
 | 6366 | `apply_controls` | app/screen.c | t |
 | 3690 | `edit_page_draw` | app/screen.c | t |
+| 2636 | `groove_transfer_poll` | app/transfer.c | T |
 | 2632 | `draw_page_body` | app/screen.c | t |
-| 2592 | `groove_transfer_poll` | app/transfer.c | T |
 | 1470 | `overview` | app/screen.c | t |
 | 1466 | `groove_screen_control` | app/screen.c | T |
-| 1368 | `smk37_control_event` | app/smk37_controls.c | T |
+| 1398 | `smk37_control_event` | app/smk37_controls.c | T |
 | 1288 | `draw_ble` | app/screen.c | t |
 | 1280 | `pad_velocity` | app/board/scan.c | t |
-| 1192 | `groove_samples_poll` | app/samples.c | T |
+| 1194 | `groove_samples_poll` | app/samples.c | T |
 | 1062 | `header` | app/screen.c | t |
 | 946 | `steps` | app/screen.c | t |
-| 848 | `song_block_batch` | app/song_storage.c | T |
+| 818 | `song_block_batch` | app/song_storage.c | T |
 | 808 | `groove_project_poll` | app/project.c | T |
 | 680 | `effects_draw` | app/screen.c | t |
 | 656 | `groove_midi_poll` | app/midi_router.c | T |
+| 648 | `tick` | app/song.c | t |
 | 638 | `fm1_screen_fill` | app/board/panel.c | T |
 | 636 | `fm1_screen_submit` | app/board/panel.c | T |
 | 610 | `song_storage_prepare` | app/song_storage.c | t |
@@ -694,17 +744,16 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | 512 | `scan_live` | app/song_storage.c | t |
 | 506 | `groove_screen_init` | app/screen.c | T |
 | 484 | `text` | app/screen.c | t |
+| 468 | `song_directory_build` | app/song_storage.c | t |
 | 466 | `groove_project_save_slot` | app/project.c | T |
-| 454 | `song_directory_build` | app/song_storage.c | t |
 | 446 | `groove_midi_config_apply` | app/midi_router.c | T |
 | 442 | `groove_settings_midi` | app/project.c | T |
 | 428 | `mix_draw` | app/screen.c | t |
+| 426 | `decode_row` | app/song.c | t |
 | 400 | `ble_control` | app/screen.c | t |
-| 392 | `decode_row` | app/song.c | t |
 | 388 | `pad_prc` | app/board/scan.c | t |
+| 380 | `scan` | app/song.c | t |
 | 358 | `draw_page` | app/screen.c | t |
-| 342 | `groove_project_load_slot` | app/project.c | T |
-| 342 | `apply_sanitized` | app/project.c | t |
 
 ### screen.c by page (exact: screen.c is linked without LTO, one input section per function)
 
@@ -769,4 +818,4 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | Effects (fm1_fx*) | 698 | 6 |
 | Groove sequencer (groove_*) in SDK | 18652 | 131 |
 
-Package layout: FLASH_BIN_SIZE 466944, VM 466944..503808 (36864 bytes, minimum 32768), BTIF 503808..507904, USER 507904..1044480 (536576 bytes).
+Package layout: FLASH_BIN_SIZE 471040, VM 471040..503808 (32768 bytes, minimum 32768), BTIF 503808..507904, USER 507904..1044480 (536576 bytes).

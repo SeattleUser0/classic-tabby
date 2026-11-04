@@ -247,8 +247,9 @@ def build(args, log):
         "/*FM1_RIG_SCRIPT*/": "\n".join((ROOT / "web/rig" / name).read_text(encoding="utf-8")
                                         for name in ("device-library.js", "rig.js", "rig-ui.js")),
         # Task 02 Step 4: the MIDI importer (web/import/, classic scripts) inlined in load order.
-        "/*FM1_IMPORT_SCRIPT*/": "\n".join((ROOT / "web/import" / name).read_text(encoding="utf-8")
-                                           for name in ("midi-parse.js", "song-format.js", "midi-song.js", "song-transfer.js", "import-ui.js")),
+        # Task 05: the timed note module first (the song editor and the importer both use it).
+        "/*FM1_IMPORT_SCRIPT*/": "\n".join((ROOT / name).read_text(encoding="utf-8")
+                                           for name in ("web/timed-note/timed-note.js", "web/import/midi-parse.js", "web/import/song-format.js", "web/import/midi-song.js", "web/import/song-transfer.js", "web/import/import-ui.js")),
     }
     for name in ("THIRD_PARTY.md", "LICENSE.md"):
         notice = (ROOT / name).read_text(encoding="utf-8")
