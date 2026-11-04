@@ -41,8 +41,9 @@
 #                     pass 1: 11 distinct warnings, none in app/ (web/synth and third_party/synth:
 #                     misleading-indentation, array-parameter); pass 2: 3 (app/board/scan.c:369
 #                     unused variable; app/screen.c:1570 and :2346 missing field initializer);
-#                     cppcheck: app/screen.c:109 arrayIndexOutOfBoundsCond, app/project.c uninitvar;
-#                     clang-tidy: 0.
+#                     cppcheck: app/screen.c:107 arrayIndexOutOfBoundsCond, app/project.c:750 uninitvar;
+#                     clang-tidy: 13 (docs/DEV_CHECKS.md lists them). Line numbers as of linux-build
+#                     8114114 (after Task 06).
 set -u
 cd "$(dirname "$0")/../.."
 MODEL=${MODEL:-pro}
@@ -143,8 +144,9 @@ fi
 if [ $TIDY = 1 ]; then
     if command -v clang-tidy >/dev/null 2>&1; then
         t0=$(date +%s.%N)
-        # bugprone and the static analyzer minus the style checks (the sets Orange Cat's lint.sh settled on)
-        CHECKS='-*,bugprone-*,clang-analyzer-*,-bugprone-easily-swappable-parameters,-bugprone-narrowing-conversions,-bugprone-implicit-widening-of-multiplication-result,-bugprone-reserved-identifier,-bugprone-branch-clone,-bugprone-multi-level-implicit-pointer-conversion,-bugprone-assignment-in-if-condition,-bugprone-macro-parentheses,-bugprone-switch-missing-default-case,-clang-analyzer-optin.*,-clang-analyzer-security.insecureAPI.*'
+        # bugprone and the static analyzer minus the style checks (the sets Orange Cat's lint.sh settled on);
+        # a fixed-address dereference is every memory-mapped register of app/board (SMK_REG, the SFR structs)
+        CHECKS='-*,bugprone-*,clang-analyzer-*,-bugprone-easily-swappable-parameters,-bugprone-narrowing-conversions,-bugprone-implicit-widening-of-multiplication-result,-bugprone-reserved-identifier,-bugprone-branch-clone,-bugprone-multi-level-implicit-pointer-conversion,-bugprone-assignment-in-if-condition,-bugprone-macro-parentheses,-bugprone-switch-missing-default-case,-clang-analyzer-optin.*,-clang-analyzer-security.insecureAPI.*,-clang-analyzer-core.FixedAddressDereference'
         # clang-tidy -p takes a directory and reads its compile_commands.json, so the host database is
         # staged under its own directory (build/host/tidy-db/) where that name means the host one.
         mkdir -p "$OUT/tidy-db" && cp "$HOSTDB" "$OUT/tidy-db/compile_commands.json"

@@ -149,6 +149,23 @@ are never written.
   runs from the internal clock only, decision 4 of Task 03); CC automation inside a row
   (importing Renoise automation that does not fall at a row start; row events fire at row
   entry only).
+- **Warning fixes** (from Task 07's `make lint`, separate work, gate: sdk.elf, .fwsc and
+  app-image.bin identical before and after). The target clang with `-Wall -Wextra`:
+  `app/board/scan.c:369` unused variable `adc_con`; `app/screen.c:1481` and `app/screen.c:2225`
+  missing field `state` initializer. Host gcc, outside app/: 8 misleading-indentation lines in
+  third_party/synth (bass303.c:28, drum808.c:48, 83, 266, dsp_math.h:26, 28, 50, pluck.c:74)
+  and 3 array-parameter mismatches in web/synth/dx7synth.c (117, 401, 406). Line numbers as of
+  linux-build 8114114.
+- **Analyzer findings** (same gate, read before fixing; none is known to be a bug):
+  cppcheck `app/screen.c:107` arrayIndexOutOfBoundsCond (the punctuation glyph table, 32 rows,
+  index up to 93 when `*s <= '~'`; Session A is reading it) and `app/project.c:750` uninitvar
+  (`c->magic`); clang-tidy 13 (docs/DEV_CHECKS.md lists them: `memcmp` used as a boolean in
+  project.c and song_storage.c, `memcpy` into name fields without a terminator in project.c:822
+  and screen.c:2175/2187, two signed-char promotions in screen.c, two "out of bound access to
+  `sectors`" in song_storage.c:263 and :595, one decrement inside a condition in
+  app/board/audio.c:79).
+- **Sanitizer fixes**: none needed; `make host-sanitize` is green (0 findings, leaks included)
+  at linux-build 8114114. Keep it green: it is part of `make suite`.
 
 ### Left to test
 
@@ -249,7 +266,27 @@ make release-assets   # build/release/<TAG>/: .fwsc, offline HTML, SHA256SUMS.tx
 make publish          # package + hosted + commit/push the site to gh-pages (HEAD must carry TAG)
 make release          # gh release create TAG with docs/releases/<TAG>.md and the release assets
 make clean
+# Task 07 (Makefile v0.10, docs/DEV_CHECKS.md): the checks between builds, all opt-in
+make check            # the 16 app units through the native JieLi clang, -fsyntax-only, no link (2 s)
+make lint             # host gcc -Wall -Wextra per file, then the target clang -Wall -Wextra; counts by file
+make lint LINT="--cppcheck --tidy"   # plus the analyzers over build/check/pro/compile_commands.host.json
+make test-fast        # while working: timed-note-test, host-smoke, web-smoke, workbench-test, midi-import-test
+make host-sanitize    # the host tests under ASan+UBSan in build/host-san/ (through the lock)
+make suite            # before a flash or a release: crosscheck, test, midi-import-sim, host-sanitize (through the lock)
+make profile          # build/profile.txt: one timing line per command of every target
 ```
+
+**The standing rules (Task 07, 2026-11-04; the detail is docs/DEV_CHECKS.md):**
+
+1. `make check` and `make lint` before any firmware build.
+2. `make test-fast` while working: the affected tests, no sanitizers, no lock.
+3. `make suite` green (the full suite plus `host-sanitize`) before any flash or release build.
+4. Every full run through Classic Tabby's machine lock. `make suite`, `make crosscheck`,
+   `make firmware-ref` and `make host-sanitize` take it themselves
+   (`flock /tmp/tabby-suite.lock systemd-run --user --scope -p MemoryMax=4G -- ...`, not Orange
+   Cat's /tmp/oc-suite.lock); `make firmware`, `make web`, `make check`, `make lint`, `make test`
+   and `make test-fast` run under `nice -n 19` without it. At most 2 compiles at once. No
+   background wait loops.
 
 The underlying commands:
 
@@ -1866,3 +1903,73 @@ model; the Renoise export (18.3) unchanged: largest error 0 blocks. Host: 258 ch
 which 65 for launching (section 13). The device's control-loop band is the number the
 simulator cannot give (19.5 step 13).
 
+
+## 20. Task 07 — Faster development checks (2026-11-04)
+
+Branch `classic-tabby/dev-checks` (worktree `firmware-devchecks`), rebased onto linux-build
+8114114 (tabby-v03.0). Task text: docs/tasks/TASK-07-dev-checks.md; the measurement series:
+docs/tasks/TASK-07-step1-assessment.md; the page that documents every target and the rules:
+docs/DEV_CHECKS.md.
+
+### 20.1 What changed
+
+- `tools/linux/build.py` v0.6: `--check-only` (the 16 app units through the native JieLi clang
+  with the build's exact per-unit options and `-fsyntax-only`, into build/check/<model>/; no
+  identity unit, no link, no package; build/<model>/ untouched) and the compile database written
+  twice on every build and check: `compile_commands.json` as before, and
+  `compile_commands.host.json` with the pi32v2-only flags removed and a host clang named, for
+  cppcheck, clang-tidy and clangd (a copy at build/compile_commands.json). `invalidate_outputs`
+  is the former inline block, moved unchanged so the check can skip it.
+- `tools/linux/lint.sh` (new): host gcc `-Wall -Wextra` on the 36 host test sources one file at a
+  time (the Makefile's suppressions off except `-Wno-attributes`), the target clang with
+  `-Wall -Wextra` over the 16 units, optional cppcheck and clang-tidy; counts by file and kind;
+  exit 1 only when a file does not compile.
+- `tools/linux/timed.sh` (new): one line per command of every target into build/profile.txt.
+- `tools/linux/crosscheck-compare.sh` (new): the comparison loop out of the Makefile, unchanged.
+- Makefile v0.10: `check`, `lint`, `host-sanitize`, `test-fast`, `suite`, `profile`; the host test
+  build compiles one object per source into build/host/obj/ with `-MMD -MP` depfiles (a header
+  edit rebuilds exactly the units that include it; before, only the .c files were prerequisites,
+  so a warm `make test` after a header edit tested stale code), `JOBS=2`; the sanitizer objects in
+  build/host-san/; `nice -n 19` on single builds; the lock wrapper: `firmware-ref`, `crosscheck`,
+  `host-sanitize` and `suite` run their `-run` twin in a sub-make under
+  `flock /tmp/tabby-suite.lock systemd-run --user --scope -p MemoryMax=4G`, directly when already
+  inside (`TABBY_LOCKED=1`). The flags of every compile and the link lines are unchanged.
+- Not changed: the firmware targets still rewrite build/official-web/<model>/SMK37-Open-Source.html
+  with a placeholder (Build.ps1's invalidation, kept; documented as a trap in DEV_CHECKS.md).
+  app/, sdk/, web/ and tests/ untouched.
+
+### 20.2 Measured
+
+Rebased head, 2026-11-04, load 5 to 7 (an Orange Cat sanitizer suite and Session A beside); the
+quiet-machine numbers are Step 1's (load 2 to 3):
+
+| target | quiet | loaded |
+|---|---|---|
+| make check | 2 s | 3 s |
+| make lint | 2.5 s | 4 s |
+| make lint LINT="--cppcheck --tidy" | +15 s, +55 s | +17 s, +116 s |
+| make test-fast | 20 s cold, 3 s warm | 30 s cold, 4 s warm |
+| make host-sanitize | 27 s cold, 1 s warm | 85 s cold |
+| make firmware-ref (Wine) | 13 s | 53 to 130 s |
+| make suite | about 75 s cold | 3 min 24 s cold |
+
+Warnings: 0 in every build as before; the lint's counts are in the left-to-build list above.
+Sanitizers: 0 findings. `make suite` green at 50bb537 (the rebased Step 2 head).
+
+### 20.3 The gate
+
+linux-build 8114114 and the rebased dev-checks head built at the same path (the ELF carries the
+absolute source paths of app/board, so two builds of one source only compare from one
+directory; crosscheck compares build/ref against build/ in one tree for that reason):
+
+```
+dcc903fe02bd9506a469ad193abf7166eceb978b842d502ae1860f7ded2ab600  build/pro/sdk.elf
+2cb180caab27f4ac5301658244c33f4eb59394e831d7c6319729f486e4ea5bcd  build/pro/generated/SMK37_PRO_OPEN.fwsc
+1cdf1e64c5470d990b42dc39494c8b98942e2d7ea001de94f07f11fc7d281552  build/pro/generated/app-image.bin
+30c8b2ca4c38bbbfaf3a59a13b069b489a0935e46c306337d8d6045db00332c9  build/official-web/pro/SMK37-Open-Source.html
+970fd36c8e2e3a4748213fc7effe6641d788d341eddccca02dda344ca43f7ea8  build/hosted/pro/index.html
+```
+
+identical for both. The same gate on the Task 07 base (linux-build 56b09d3) before the rebase:
+sdk.elf b35aff61…, .fwsc 0fb5c158…, app-image 3436a996…, page 33fb077b…, hosted 206306e2…,
+identical before and after the changes.
