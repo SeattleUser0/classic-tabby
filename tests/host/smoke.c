@@ -47,6 +47,11 @@
  * Version: 0.6
  *
  * Revision log
+ *   v0.7  2026-11-03  Task 05: section 11, timed notes (offsets at the limits, two notes 3 ms
+ *                     apart, a negative offset before a row boundary, the late case, no stuck
+ *                     notes across jumps, 10 minutes without drift), section 12, a v1 song
+ *                     against the tabby-v02.0 capture (tests/host/v1_reference.inc); block
+ *                     read-backs come upgraded to format 1 (sections 7..9).
  *   v0.6  2026-11-02  Task 04: section 10, row events.
  *   v0.5  2026-11-02  Task 03 (f): section 6 builds its sampler project from the workspace
  *                     (the factory scenes are gone); section 9: tempo range, replace via
@@ -59,6 +64,7 @@
  *   v0.2  2026-11-02  Task 03 (a): song storage migration and sampler-removal checks.
  *   v0.1  2026-11-01  Initial version.
  */
+#include "timed_note.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -87,6 +93,9 @@ int sim_song_record_read(unsigned song);
 int sim_song_record_write(unsigned song);
 int sim_song_record_delete(unsigned song);
 int sim_block_write(unsigned song, unsigned id, unsigned bytes);
+int sim_block_write2(unsigned song, unsigned id, unsigned format, unsigned bytes);
+void sim_midi_drain(unsigned on);
+void sim_sequence_setting_edit(unsigned setting, int delta);
 int sim_block_read(unsigned song, unsigned id);
 uint32_t sim_song_free(void);
 uint32_t sim_song_reclaimable(void);
@@ -187,6 +196,67 @@ static int find_log(const void *entries, unsigned n, unsigned s, unsigned a, uns
     for (unsigned i = from < 0 ? 0 : (unsigned)from; i < n; ++i) if (e[i].s == s && e[i].d1 == a && e[i].d2 == b) return (int)i;
     return -1;
 }
+/* ---- Task 05 helpers ---------------------------------------------------------------- */
+/* A v2 block under construction: up to 4 timed notes per step, serialised by v2_put. */
+struct v2b { uint8_t count[64]; uint8_t notes[64][4][6]; };
+static struct v2b vb;
+static void v2_note(unsigned step, unsigned pitch, unsigned vel, int offset, uint32_t length, unsigned retrig)
+{
+    struct timed_note n = { (uint8_t)pitch, (uint8_t)vel, (uint8_t)retrig, (int16_t)offset, length };
+    if (timed_note_encode(&n, vb.notes[step][vb.count[step]])) { printf("FAIL v2_note encodes\n"); ++failures; return; }
+    vb.count[step]++;
+}
+static unsigned v2_put(uint8_t *out)
+{
+    unsigned at = 0;
+    for (unsigned s = 0; s < 64; ++s) { out[at++] = vb.count[s]; for (unsigned i = 0; i < vb.count[s]; ++i) { memcpy(out + at, vb.notes[s][i], 6); at += 6; } }
+    return at;
+}
+/* A song record image: magic, version 1, name, tempo, row count; rows set by the caller. */
+static void make_record(uint8_t *f, const char *name, unsigned tempo, unsigned rows, unsigned flags)
+{
+    memset(f, 0, 2624); memset(f + 2624, 0xff, 4096 - 2624); memcpy(f, "FM1G", 4); f[20] = 1;
+    memcpy(f + 24, name, 12); f[37] = (uint8_t)flags; f[38] = (uint8_t)tempo; f[39] = (uint8_t)(tempo >> 8); f[40] = (uint8_t)rows;
+}
+static void make_row(uint8_t *f, unsigned r, const uint16_t ids[8], unsigned repeat, unsigned steps, unsigned flags)
+{
+    uint8_t *row = f + 64 + 20 * r;
+    for (unsigned t = 0; t < 8; ++t) { row[2 * t] = (uint8_t)ids[t]; row[2 * t + 1] = (uint8_t)(ids[t] >> 8); }
+    row[16] = (uint8_t)repeat; row[17] = (uint8_t)flags; row[18] = (uint8_t)steps;
+}
+/* Render until the song stops by itself (or `max` blocks), logging port-1 messages (clock
+ * excluded) with the block that enqueued them (sim_midi_drain(1) is on). Block 0 is the
+ * first render after sim_song_play. `jump_at` >= 0 queues a jump to `jump_row` at that block. */
+static unsigned play_log(struct log_entry *log, unsigned max_log, unsigned *logged, unsigned max, int jump_at, unsigned jump_row)
+{
+    unsigned blocks = 0, started = 0, tail = 0; *logged = 0;
+    for (; blocks < max; ++blocks) {
+        if ((int)blocks == jump_at) sim_song_jump(jump_row);
+        (void)sim_render();
+        struct message m[64]; unsigned n = drain(m, 64);
+        for (unsigned k = 0; k < n && k < 64; ++k)
+            if (m[k].port == 0 && m[k].data[0] != 0xf8 && *logged < max_log) { log[*logged].s = m[k].data[0]; log[*logged].d1 = m[k].bytes > 1 ? m[k].data[1] : 0; log[*logged].d2 = m[k].bytes > 2 ? m[k].data[2] : 0; log[(*logged)++].block = blocks; }
+        unsigned playing = (sim_song_status(0) >> 8) & 255U;
+        if (playing) started = 1; else if (started) { if (++tail > 4) { ++blocks; break; } }
+    }
+    return blocks;
+}
+/* Note-ons minus note-offs per (channel, pitch) over a log: 0 everywhere = nothing stuck. */
+static int stuck(const struct log_entry *log, unsigned n)
+{
+    static int held[16][128]; memset(held, 0, sizeof held);
+    int bad = 0;
+    for (unsigned i = 0; i < n; ++i) {
+        unsigned st = log[i].s & 0xf0U, ch = log[i].s & 15U;
+        if (st == 0x90 && log[i].d2) ++held[ch][log[i].d1]; else if (st == 0x80 || (st == 0x90 && !log[i].d2)) { if (held[ch][log[i].d1] <= 0) ++bad; else --held[ch][log[i].d1]; }
+    }
+    for (unsigned c = 0; c < 16; ++c) for (unsigned p = 0; p < 128; ++p) if (held[c][p]) ++bad;
+    return bad;
+}
+/* The block whose window holds unit position u at `tempo`: p_k = floor(k * tempo * 1024 / 11025). */
+static unsigned block_of(uint64_t u, unsigned tempo)
+{ return (unsigned)(((u + 1) * 11025 + tempo * 1024 - 1) / (tempo * 1024)) - 1; }
+#include "v1_reference.inc"
 int main(void)
 {
     /* 2. Initialization with cleared storage (the workbench's first-run path). */
@@ -288,12 +358,14 @@ int main(void)
         r = sim_block_write(0, 2, sizeof block2);
         CHECK(r == 0, "block 2 of song 0 appended (%d)", r);
         r = sim_block_read(0, 1);
-        CHECK(r == (int)sizeof block1 && !memcmp(f, block1, sizeof block1), "block 1 reads back (%d bytes)", r);
+        /* Task 05: a stored v1 block reads back upgraded to timed notes (9.12): 6 bytes a note,
+         * offset 0, length L x 480 units; the upgrade is checked field by field in section 11. */
+        CHECK(r == 76 && f[0] == 1 && f[1] == 60 && f[2] == 100 && (f[5] | f[6] << 8) == 960 && f[7] == 0 && f[10] == 1 && f[11] == 62, "block 1 reads back upgraded (%d bytes)", r);
         CHECK(sim_block_read(0, 3) < 0, "a missing block id is reported");
         block1[1] = 61; memcpy(f, block1, sizeof block1); block1[1] = 60;
         CHECK(sim_block_write(0, 1, sizeof block1) == 0, "block 1 rewritten (stale copy left behind)");
         r = sim_block_read(0, 1);
-        CHECK(r == (int)sizeof block1 && f[1] == 61, "the newest copy of block 1 is live (pitch %u)", f[1]);
+        CHECK(r == 76 && f[1] == 61, "the newest copy of block 1 is live (pitch %u)", f[1]);
         /* Song record (9.5 v0.4): two rows of 16 steps, track 0 to MIDI channel 5. */
         memset(f, 0, 4096); memcpy(f, "FM1G", 4);
         f[20] = 1; memcpy(f + 24, "HOST TEST   ", 12); f[36] = 0; f[37] = 0; f[40] = 2; f[42] = 0;
@@ -311,7 +383,7 @@ int main(void)
         r = sim_song_compact();
         CHECK(r == 0 && sim_song_reclaimable() == 0 && sim_song_free() == before + 76, "compaction reclaims it (%d, free %u -> %u)", r, before, sim_song_free());
         r = sim_block_read(0, 1);
-        CHECK(r == (int)sizeof block1 && f[1] == 61, "block 1 still live after compaction");
+        CHECK(r == 76 && f[1] == 61, "block 1 still live after compaction");
         /* Playback: the song moves track 0 from its device channel to channel 5. The
          * factory import above reset the device preferences, so read the channel now. */
         unsigned device_channel = sim_midi_setting(0, 1);
@@ -396,9 +468,9 @@ int main(void)
         int r = sim_block_batch(1, at);
         CHECK(r == 0, "batch of 10 x 832-byte blocks stored (%d)", r);
         r = sim_block_read(1, 10);
-        CHECK(r == FULL && f[1] == 30 && f[4] == 40, "block 10 reads back from the batch (%d bytes, pitches %u %u)", r, f[1], f[4]);
+        CHECK(r == 1600 && f[1] == 30 && f[7] == 40, "block 10 reads back from the batch upgraded (%d bytes, pitches %u %u)", r, f[1], f[7]);
         r = sim_block_read(1, 19);
-        CHECK(r == FULL && f[1] == 39, "block 19 (last of the batch) reads back (%d bytes, pitch %u)", r, f[1]);
+        CHECK(r == 1600 && f[1] == 39, "block 19 (last of the batch) reads back (%d bytes, pitch %u)", r, f[1]);
         unsigned members = 0, pending = 0, staging_clear = 1;
         for (unsigned b = 0; b < 96; ++b) {
             const uint8_t *h = flash + BLOCKS + b * 4096;
@@ -419,8 +491,8 @@ int main(void)
         r = sim_block_batch(1, at);
         CHECK(r == 0, "second batch (two short records, unpadded end) stored (%d)", r);
         r = sim_block_read(1, 10);
-        CHECK(r == 67 && f[1] == 99, "newest copy of block 10 is the batch one (pitch %u)", f[1]);
-        CHECK(sim_block_read(1, 20) == 67 && f[1] == 77, "block 20 added by the second batch");
+        CHECK(r == 70 && f[1] == 99, "newest copy of block 10 is the batch one (pitch %u)", f[1]);
+        CHECK(sim_block_read(1, 20) == 70 && f[1] == 77, "block 20 added by the second batch");
         CHECK(sim_song_reclaimable() == REC, "the superseded 832-byte block 10 is reclaimable (%u)", sim_song_reclaimable());
         /* Bad streams change nothing: a zero length, and a record for another song. */
         before = sim_song_free();
@@ -447,7 +519,7 @@ int main(void)
         unsigned erased_again = 1;
         for (unsigned i = 0; i < 4096; ++i) erased_again &= flash[BLOCKS + dst * 4096 + i] == 0xff;
         CHECK(erased_again, "uncommitted pending sector erased at boot");
-        CHECK(sim_block_read(1, 20) == 67 && f[1] == 77, "committed blocks survive the reboot");
+        CHECK(sim_block_read(1, 20) == 70 && f[1] == 77, "committed blocks survive the reboot");
         /* Power cut after the commit: a pending sector holding block 21 (pitch 55) with a
          * committed journal listing it. A reboot must finalize it (byte 5 -> 0). */
         uint8_t *img = flash + BLOCKS + dst * 4096;
@@ -469,7 +541,7 @@ int main(void)
         staging_clear = 1;
         for (unsigned i = 0; i < 4096; ++i) staging_clear &= flash[REGION + i] == 0xff;
         CHECK(staging_clear, "journal erased after recovery");
-        CHECK(sim_block_read(1, 21) == 67 && f[1] == 55, "block 21 from the recovered batch is live (pitch %u)", f[1]);
+        CHECK(sim_block_read(1, 21) == 70 && f[1] == 55, "block 21 from the recovered batch is live (pitch %u)", f[1]);
         /* The song plays its batch block: row 0 is block 10 (pitch 99 at step 0). */
         sim_midi_capture(1);
         CHECK(sim_song_load(1) == 0 && sim_song_play() == 0, "song 1 loads and plays from batch blocks");
@@ -520,7 +592,7 @@ int main(void)
         CHECK(sim_song_reclaimable() == 2 * 76, "A's blocks stay reclaimable under B (%u)", sim_song_reclaimable());
         int r = sim_song_compact();
         CHECK(r == 0 && sim_song_reclaimable() == 0 && sim_song_free() == free_a + 76, "one compaction leaves one copy (free %u, expected %u)", sim_song_free(), free_a + 76);
-        CHECK(sim_block_read(5, 3) == 67 && sim_block_read(5, 1) < 0, "B's block is live, A's block is gone");
+        CHECK(sim_block_read(5, 3) == 70 && sim_block_read(5, 1) < 0, "B's block is live, A's block is gone");
         CHECK(sim_song_record_delete(5) == 0, "song 5 deleted");
     }
 
@@ -629,6 +701,161 @@ int main(void)
         #undef EVENT_RECORD
         #undef PLAY_LOG
         #undef FIND
+    }
+
+    /* ---- 11. timed notes (Task 05): scheduling at unit resolution ----------------------- */
+    {
+        enum { TEMPO = 120, U = 480, SONG = 9 };
+        uint8_t *f = sim_file();
+        static struct log_entry log[4096]; unsigned logged;
+        sim_midi_drain(1);   /* measure the sequencer, not the simulator's 10 ms control poll */
+        /* Song A: offsets at and inside the limits, two notes 12 units apart, a negative
+         * offset on the first step of row 2. Channels 1, 2, 3 for tracks 1..3. */
+        memset(&vb, 0, sizeof vb);
+        v2_note(2, 65, 100, -240, 480, 0); v2_note(4, 60, 100, 1, 480, 0); v2_note(8, 62, 100, -1, 480, 0); v2_note(12, 64, 100, 240, 240, 0);
+        unsigned n1 = v2_put(f);
+        CHECK(sim_block_write2(SONG, 1, 1, n1) == 0, "timed: block 1 (format 1, %u bytes) stored", n1);
+        memset(&vb, 0, sizeof vb); v2_note(6, 36, 100, 0, 480, 0); v2_note(6, 38, 100, 12, 480, 0);
+        CHECK(sim_block_write2(SONG, 2, 1, v2_put(f)) == 0, "timed: block 2 stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 48, 100, -120, 480, 0);
+        CHECK(sim_block_write2(SONG, 3, 1, v2_put(f)) == 0, "timed: block 3 stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 60, 100, 0, 240, 0);
+        CHECK(sim_block_write2(SONG, 4, 1, v2_put(f)) == 0, "timed: block 4 stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 72, 100, -5, 4000, 0); v2_note(8, 74, 100, 100, 3000, 0); v2_note(3, 76, 100, 0, 6000, 1);
+        CHECK(sim_block_write2(SONG, 5, 1, v2_put(f)) == 0, "timed: block 5 stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 60, 100, 240, 480, 0); unsigned n6 = v2_put(f); f[3] = 0xf1;   /* offset byte: +241 */
+        CHECK(sim_block_write2(SONG, 6, 1, n6) != 0, "timed: a block with offset +241 is refused");
+        f[3] = 0xf0; f[4] = 0x02;                                                                    /* e = 1 with m = 480: non-canonical */
+        CHECK(sim_block_write2(SONG, 6, 1, n6) != 0, "timed: a block with a non-canonical length is refused");
+        { uint16_t r0[8] = {1, 2, 0, 0, 0, 0, 0, 0}, r1[8] = {0, 0, 3, 0, 0, 0, 0, 0};
+          make_record(f, "TIMED A     ", TEMPO, 2, 0); f[48] = 1; f[49] = 2; f[50] = 3;
+          make_row(f, 0, r0, 1, 16, 0); make_row(f, 1, r1, 1, 16, 0); }
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0, "timed: song A written and loaded");
+        sim_midi_capture(1); { struct message m[64]; (void)drain(m, 64); }
+        CHECK(sim_song_play() == 0, "timed: song A plays");
+        unsigned blocks = play_log(log, 4096, &logged, 4000, -1, 0);
+        #define ON_AT(ch_, pitch_) find_log(log, logged, 0x90U | (ch_), (pitch_), 100, 0)
+        #define OFF_AT(ch_, pitch_) find_log(log, logged, 0x80U | (ch_), (pitch_), 0, 0)
+        #define AT(i_) ((i_) >= 0 ? log[i_].block : 999999U)
+        CHECK(AT(ON_AT(0, 65)) == block_of(2 * U - 240, TEMPO), "timed: offset -240 on step 3 plays at block %u (expected %u)", AT(ON_AT(0, 65)), block_of(2 * U - 240, TEMPO));
+        CHECK(AT(ON_AT(0, 60)) == block_of(4 * U + 1, TEMPO), "timed: offset +1 plays at block %u (expected %u)", AT(ON_AT(0, 60)), block_of(4 * U + 1, TEMPO));
+        CHECK(AT(ON_AT(0, 62)) == block_of(8 * U - 1, TEMPO), "timed: offset -1 plays at block %u (expected %u)", AT(ON_AT(0, 62)), block_of(8 * U - 1, TEMPO));
+        CHECK(AT(ON_AT(0, 64)) == block_of(12 * U + 240, TEMPO) && AT(OFF_AT(0, 64)) == block_of(12 * U + 480, TEMPO), "timed: offset +240 plays at block %u and ends 240 units later at %u", AT(ON_AT(0, 64)), AT(OFF_AT(0, 64)));
+        CHECK(AT(OFF_AT(0, 60)) == block_of(5 * U + 1, TEMPO), "timed: a 480-unit note ends 480 units after its own start (block %u)", AT(OFF_AT(0, 60)));
+        { int a = ON_AT(1, 36), b = ON_AT(1, 38); unsigned want = block_of(6 * U + 12, TEMPO) - block_of(6 * U, TEMPO);
+          CHECK(a >= 0 && b > a && AT(b) >= AT(a) && AT(b) - AT(a) + 1 >= want && AT(b) - AT(a) <= want + 1, "timed: two notes 12 units (3.1 ms) apart leave in order, %u block(s) apart (expected %u)", AT(b) - AT(a), want); }
+        CHECK(AT(ON_AT(2, 48)) == block_of(16 * U - 120, TEMPO) && AT(ON_AT(2, 48)) < block_of(16 * U, TEMPO), "timed: offset -120 on row 2's first step plays before the boundary (block %u, boundary %u)", AT(ON_AT(2, 48)), block_of(16 * U, TEMPO));
+        CHECK(AT(OFF_AT(2, 48)) == block_of(16 * U + 360, TEMPO), "timed: and ends 480 units after its start (block %u)", AT(OFF_AT(2, 48)));
+        CHECK(((sim_song_status(2) >> 16) & 0xffffU) == 0 && (sim_song_status(2) & 0xffffU) == 0, "timed: song A: nothing late, no underruns");
+        /* The transport sends Song Position Pointer then Start at PLAY (midi_router.c). */
+        CHECK(stuck(log, logged) == 0 && find_log(log, logged, 0xfa, 0, 0, 0) <= 1 && log[logged - 1].s == 0xfc, "timed: song A: Start first, Stop last, every note-on has its note-off (%u messages, %u blocks)", logged, blocks);
+        if (stuck(log, logged) || find_log(log, logged, 0xfa, 0, 0, 0) > 1 || log[logged - 1].s != 0xfc) for (unsigned i = 0; i < logged; ++i) printf("       %02x %3u %3u at block %u\n", log[i].s, log[i].d1, log[i].d2, log[i].block);
+        /* Song B: row 1 loops here; a jump to row 2 queued inside the last half step lands at
+         * the bar; row 2's step-0 note with offset -120 then plays at the boundary and the
+         * entry counts as late. */
+        { uint16_t r0[8] = {4, 0, 0, 0, 0, 0, 0, 0}, r1[8] = {0, 0, 3, 0, 0, 0, 0, 0};
+          make_record(f, "TIMED B     ", TEMPO, 2, 0); f[48] = 1; f[49] = 2; f[50] = 3;
+          make_row(f, 0, r0, 1, 16, 1); make_row(f, 1, r1, 1, 16, 0); }
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0 && sim_song_play() == 0, "timed: song B (loop-here row) plays");
+        { struct message m[64]; (void)drain(m, 64); }
+        unsigned bar = block_of(16 * U, TEMPO);
+        blocks = play_log(log, 4096, &logged, 4000, (int)bar - 9, 1);
+        CHECK(AT(ON_AT(2, 48)) == bar, "timed: late jump: the -120 note plays at the boundary block %u (expected %u)", AT(ON_AT(2, 48)), bar);
+        CHECK(((sim_song_status(2) >> 16) & 0xffffU) == 1, "timed: late counter is 1 (%u)", (sim_song_status(2) >> 16) & 0xffffU);
+        CHECK(stuck(log, logged) == 0, "timed: song B: no stuck notes");
+        /* Song C: long notes across row changes and jumps, stopped while they sound. */
+        { uint16_t r0[8] = {5, 1, 0, 0, 0, 0, 0, 0}, r1[8] = {1, 5, 0, 0, 0, 0, 0, 0}, r2[8] = {5, 5, 0, 0, 0, 0, 0, 0};
+          make_record(f, "TIMED C     ", TEMPO, 3, 1); f[48] = 1; f[49] = 2;
+          make_row(f, 0, r0, 1, 16, 0); make_row(f, 1, r1, 2, 32, 0); make_row(f, 2, r2, 1, 16, 0); }
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0 && sim_song_play() == 0, "timed: song C (long notes, looping) plays");
+        { struct message m[64]; (void)drain(m, 64); }
+        blocks = play_log(log, 4096, &logged, 900, 300, 2);
+        unsigned part = logged;
+        blocks += play_log(log + part, 4096 - part, &logged, 500, 100, 0); logged += part;
+        sim_song_stop(); { unsigned more; part = logged; (void)play_log(log + part, 4096 - part, &more, 60, -1, 0); logged += more; }
+        CHECK(stuck(log, logged) == 0 && find_log(log, logged, 0xfc, 0, 0, 0) >= 0 && ((sim_song_status(0) >> 8) & 255U) == 0, "timed: song C: jumps and a stop while notes sound leave nothing stuck (%u messages)", logged);
+        /* Song D: ten minutes at 120 BPM, a note every step: every note-on in the block the
+         * exact clock predicts, so no drift. 206719 blocks of audio. */
+        { uint16_t r0[8] = {4, 0, 0, 0, 0, 0, 0, 0};
+          make_record(f, "TIMED D     ", TEMPO, 1, 1); f[48] = 1;
+          make_row(f, 0, r0, 64, 16, 0); }
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0 && sim_song_play() == 0, "timed: song D (10 minutes) plays");
+        { struct message m[64]; (void)drain(m, 64); }
+        /* Block 4 holds one note on step 0: one note-on per 16-step pass, 7680 units apart. */
+        unsigned ons = 0, bad = 0, worst = 0, k = 0;
+        for (blocks = 0; blocks < 206719; ++blocks) {
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned i = 0; i < n && i < 64; ++i) if (m[i].port == 0 && m[i].data[0] == 0x90 && m[i].data[2]) {
+                unsigned want = block_of((uint64_t)k * 16 * U, TEMPO), err = blocks > want ? blocks - want : want - blocks;
+                if (err) ++bad; if (err > worst) worst = err;
+                ++ons; ++k;
+            }
+        }
+        sim_song_stop(); settle(); settle(); { struct message m[64]; (void)drain(m, 64); }
+        unsigned want_ons = (unsigned)((uint64_t)206719 * TEMPO * 1024 / 11025 / (16 * U)) + 1;
+        CHECK(ons == want_ons && bad == 0, "timed: song D: %u note-ons in 10 minutes (expected %u), every one in its predicted block (worst error %u blocks, %u off)", ons, want_ons, worst, bad);
+        sim_midi_capture(0); sim_midi_drain(0);
+        CHECK(sim_song_record_delete(SONG) == 0, "timed: test song deleted");
+        #undef ON_AT
+        #undef OFF_AT
+        #undef AT
+    }
+
+    /* ---- 12. v1 songs play as on tabby-v02.0 (Task 05) ------------------------------------ */
+    {
+        enum { SONG = 10 };
+        uint8_t *f = sim_file();
+        static struct log_entry log[4096]; unsigned logged;
+        for (unsigned i = 0; i < sizeof v1ref_blocks / sizeof v1ref_blocks[0]; ++i) {
+            memcpy(f, v1ref_blocks[i].bytes, v1ref_blocks[i].length);
+            CHECK(sim_block_write(SONG, v1ref_blocks[i].id, v1ref_blocks[i].length) == 0, "v1 reference: block %u stored as format 0", v1ref_blocks[i].id);
+        }
+        memcpy(f, v1ref_record, 2624); memset(f + 2624, 0xff, 4096 - 2624);
+        CHECK(sim_song_record_write(SONG) == 0, "v1 reference: record written");
+        sim_midi_drain(1);
+        for (unsigned swing = 0; swing <= 25; swing += 25) {
+            const struct v1ref_msg *ref = swing ? v1ref_swing25 : v1ref_swing0;
+            unsigned count = swing ? sizeof v1ref_swing25 / sizeof v1ref_swing25[0] : sizeof v1ref_swing0 / sizeof v1ref_swing0[0];
+            sim_sequence_setting_edit(0, -60); if (swing) sim_sequence_setting_edit(0, (int)swing);
+            CHECK(sim_song_load(SONG) == 0, "v1 reference: song loads (swing %u)", swing);
+            sim_midi_capture(1); { struct message m[64]; (void)drain(m, 64); }
+            CHECK(sim_song_play() == 0, "v1 reference: plays (swing %u)", swing);
+            (void)play_log(log, 4096, &logged, 20000, -1, 0);
+            sim_midi_capture(0);
+            /* Note for note: every reference message is matched by one of ours with the same
+             * bytes within one block (tabby-v02.0 interleaved the two router lanes inside a
+             * block; the order inside a block is not musical), nothing is left over, and per
+             * (channel, pitch) the sequence of note-ons and note-offs is identical. */
+            static uint8_t used[4096]; memset(used, 0, sizeof used);
+            unsigned matched = 0, worst = 0, first_bad = count;
+            for (unsigned i = 0; i < count; ++i) {
+                int hit = -1;
+                for (unsigned j = 0; j < logged; ++j) {
+                    unsigned d = log[j].block > ref[i].block ? log[j].block - ref[i].block : ref[i].block - log[j].block;
+                    if (!used[j] && log[j].s == ref[i].s && log[j].d1 == ref[i].d1 && log[j].d2 == ref[i].d2 && d <= 1) { hit = (int)j; if (d > worst) worst = d; break; }
+                }
+                if (hit < 0) { if (first_bad == count) first_bad = i; continue; }
+                used[hit] = 1; ++matched;
+            }
+            unsigned ordered = 1;
+            for (unsigned ch = 0; ch < 16 && ordered; ++ch) for (unsigned pitch = 0; pitch < 128 && ordered; ++pitch) {
+                unsigned a = 0, b = 0;
+                for (;;) {
+                    while (a < count && !((ref[a].s & 0xe0U) == 0x80 && (ref[a].s & 15U) == ch && ref[a].d1 == pitch)) ++a;
+                    while (b < logged && !((log[b].s & 0xe0U) == 0x80 && (log[b].s & 15U) == ch && log[b].d1 == pitch)) ++b;
+                    if (a >= count || b >= logged) { ordered = a >= count && b >= logged; break; }
+                    if (ref[a].s != log[b].s || ref[a].d2 != log[b].d2) { ordered = 0; break; }
+                    ++a; ++b;
+                }
+            }
+            CHECK(matched == count && logged == count, "v1 reference (swing %u): every one of the %u tabby-v02.0 messages matched within one block, none extra (got %u, matched %u)", swing, count, logged, matched);
+            if (first_bad < count) printf("       first unmatched reference message %u: %02x %u %u at block %u\n", first_bad, ref[first_bad].s, ref[first_bad].d1, ref[first_bad].d2, ref[first_bad].block);
+            CHECK(ordered, "v1 reference (swing %u): per pitch, the same sequence of note-ons and note-offs", swing);
+            CHECK(worst <= 1, "v1 reference (swing %u): worst block difference %u", swing, worst);
+        }
+        sim_sequence_setting_edit(0, -60); sim_midi_drain(0);
+        CHECK(sim_song_record_delete(SONG) == 0, "v1 reference: song deleted");
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

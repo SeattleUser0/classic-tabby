@@ -70,6 +70,8 @@ static int transfer_begin(unsigned kind, unsigned target, unsigned size, unsigne
      * id) are song storage (Task 03 d, assessment 9.9 v0.4). Kind 7 (Task 03 e, 9.9 v0.5)
      * is a block batch: upload only, target = song, size = stream length. */
     if (kind == 5 && (target >= SONG_SONGS || size != SONG_RECORD_BYTES)) return GROOVE_PROJECT_INVALID;
+    /* Task 05 (9.12): kind 6 carries payload format 1 (timed notes) both ways; the device
+     * upgrades a stored v1 block on download. v1 payloads travel in kind-7 streams only. */
     if (kind == 6 && ((target >> 16) >= SONG_SONGS || !(target & 0xffffU) ||
                       size < SONG_PAYLOAD_MIN || size > SONG_PAYLOAD_MAX)) return GROOVE_PROJECT_INVALID;
     if (kind == 7 && (!writing || target >= SONG_SONGS || size < SONG_BLOCK_HEADER + SONG_PAYLOAD_MIN ||
@@ -112,7 +114,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
          * sample bank (limit 0); bit 2 of out[8] announces song storage (checkpoint d),
          * bit 3 the batched block upload, transfer kind 7 (checkpoint e). */
         out[0]=1; out[1]=128; out[2]=0; out[3]=0;
-        put32(out+4,0); out[8]=15; /* session roles, extended delay, song storage, batches */
+        put32(out+4,0); out[8]=31; /* session roles, extended delay, song storage, batches, timed notes (Task 05, bit 4) */
         *count=9; return 0;
     }
     if (cmd == 23 && !n) {
@@ -183,9 +185,11 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         if (data[0] == 6) {
             /* The live payload length is only known after reading the block. */
             uint8_t *next = calloc(1, SONG_PAYLOAD_MAX);
+            unsigned format = SONG_FORMAT_V2;
             if (!next) return GROOVE_PROJECT_MEMORY;
-            r = song_block_read(data[1], block_id, next, &size);
+            r = song_block_read(data[1], block_id, next, &size, &format);
             if (r) { free(next); return r > 0 ? GROOVE_PROJECT_EMPTY : r; }
+            if (format == SONG_FORMAT_V1) size = song_payload_upgrade(next, size);   /* Task 05: downloads are v2 */
             transfer_cancel(); transfer = next; transfer_size = size; transferred = 0;
             transfer_kind = 6; transfer_target = data[1] << 16 | block_id; transfer_writing = 0;
             out[0] = (uint8_t)size; out[1] = (uint8_t)(size >> 8); *count = 2;
@@ -236,7 +240,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
                         ? song_record_write(transfer_target, (const struct song_record *)transfer)
                         : song_record_delete(transfer_target);
             } else if (transfer_kind == 6)
-                r = song_block_append(transfer_target >> 16, transfer_target & 0xffffU, transfer, transfer_size);
+                r = song_block_append(transfer_target >> 16, transfer_target & 0xffffU, SONG_FORMAT_V2, transfer, transfer_size);
             else if (transfer_kind == 7)
                 r = song_block_batch(transfer_target, transfer, transfer_size); /* all or nothing (9.6 v0.5) */
             else

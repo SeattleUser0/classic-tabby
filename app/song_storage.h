@@ -12,9 +12,12 @@
  *   construction), the first-boot migration API (checkpoint a) and the record, block,
  *   directory, reclaim and status API (checkpoint d).
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-03  Task 05: block payload format v2 (timed notes, section 9.12): block
+ *                     record byte 1 = payload format, SONG_PAYLOAD_MAX 1600, validators by
+ *                     format, song_payload_upgrade (v1 -> v2 in place), song flags bit 2 (swing).
  *   v0.5  2026-11-02  Task 04: song record version 2 with the row event table in the sector
  *                     tail (section 9.11 v0.6): struct song_record covers the whole 4096-byte
  *                     image, event constants and accessors.
@@ -53,7 +56,9 @@ enum {
 /* Format limits (section 9). */
 enum {
     SONG_ROWS = 128, SONG_TRACKS = 8, SONG_BLOCK_STEPS = 64, SONG_NOTES_PER_STEP = 4,
-    SONG_PAYLOAD_MIN = 64, SONG_PAYLOAD_MAX = 64 + 64 * 12,       /* 832 */
+    SONG_PAYLOAD_MIN = 64, SONG_PAYLOAD_V1_MAX = 64 + 64 * 12,    /* 832: format 0, 3-byte notes */
+    SONG_PAYLOAD_MAX = 64 + 64 * 24,                             /* 1600: format 1, 6-byte timed notes (9.12) */
+    SONG_FORMAT_V1 = 0, SONG_FORMAT_V2 = 1,                      /* block record byte 1 (9.4 v0.7) */
     SONG_RECORD_BYTES = 4096, SONG_RECORD_BODY_END = 2624,       /* CRC covers 20..2623 */
     SONG_BLOCK_AREA = 20, SONG_BLOCK_AREA_BYTES = 4096 - 20,     /* record area 20..4095 */
     SONG_BLOCK_HEADER = 6,                                       /* song, 0, id16, length16 */
@@ -110,7 +115,7 @@ static inline unsigned song_event_count(const struct song_record *r)
 { return r->version == 2 ? (unsigned)(r->tail[0] | r->tail[1] << 8) : 0; }
 static inline const uint8_t *song_event(const struct song_record *r, unsigned i)
 { return r->tail + (SONG_EVENTS_START - SONG_RECORD_BODY_END) + SONG_EVENT_BYTES * i; }
-enum { SONG_FLAG_LOOP = 1, SONG_FLAG_JUMP_ROW = 2, SONG_ROW_FLAG_LOOP_HERE = 1 };
+enum { SONG_FLAG_LOOP = 1, SONG_FLAG_JUMP_ROW = 2, SONG_FLAG_SWING = 4 /* v0.7: v2 blocks follow the project swing */, SONG_ROW_FLAG_LOOP_HERE = 1 };
 
 /* Migration state (control task), checkpoint (a):
  *   SONG_STORAGE_SCANNING  boot scan in progress (a few sectors per poll)
@@ -137,17 +142,21 @@ int song_record_valid(const struct song_record *r); /* 0 valid, SONG_INVALID oth
 int song_record_read(unsigned song, struct song_record *out);
 int song_record_write(unsigned song, const struct song_record *in); /* magic/gen/crc set here */
 int song_record_delete(unsigned song);
-/* Blocks. Payload format: 9.3 (validated on append). On read, *bytes receives the
- * payload length; the caller's buffer must hold SONG_PAYLOAD_MAX bytes. */
-int song_payload_valid(const uint8_t *payload, unsigned bytes);
-int song_block_append(unsigned song, unsigned id, const uint8_t *payload, unsigned bytes);
+/* Blocks. Payload formats: 0 = 9.3 (3-byte notes), 1 = 9.12 (6-byte timed notes); both
+ * are validated on append. On read, *bytes receives the payload length and *format (may be
+ * NULL) the stored format; the caller's buffer must hold SONG_PAYLOAD_MAX bytes. */
+int song_payload_valid(unsigned format, const uint8_t *payload, unsigned bytes);
+/* Rewrite a valid format-0 payload as format 1 in place (offset 0, length L x 480 units,
+ * exact): `buf` must hold SONG_PAYLOAD_MAX bytes; returns the new length. */
+unsigned song_payload_upgrade(uint8_t *buf, unsigned bytes);
+int song_block_append(unsigned song, unsigned id, unsigned format, const uint8_t *payload, unsigned bytes);
 /* Batch write (9.6 v0.5): `stream` holds block records as in 9.4 / the .tabby file (6-byte
  * header with song byte 0 or `song`, payload, 0xFF padding to a multiple of 4; the last
  * record's padding may be missing), at most SONG_BATCH_BYTES. The whole batch lands in
  * fresh block sectors under one journal commit, or nothing does: 0, SONG_INVALID (bad
  * stream), SONG_FULL (fewer free sectors than the stream packs into), or a flash error. */
 int song_block_batch(unsigned song, const uint8_t *stream, unsigned bytes);
-int song_block_read(unsigned song, unsigned id, uint8_t *payload, unsigned *bytes);
+int song_block_read(unsigned song, unsigned id, uint8_t *payload, unsigned *bytes, unsigned *format);
 /* Directory (9.7) of one song, rebuilt on demand; song_block_read uses it. */
 int song_directory_build(unsigned song);
 unsigned song_directory_song(void);   /* song the directory describes, 255 = none */

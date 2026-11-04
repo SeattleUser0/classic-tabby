@@ -257,14 +257,30 @@ EXPORT("sim_song_record_read") int sim_song_record_read(unsigned song)
 EXPORT("sim_song_record_write") int sim_song_record_write(unsigned song)
 { return song_record_write(song, (const struct song_record *)file_buffer); }
 EXPORT("sim_song_record_delete") int sim_song_record_delete(unsigned song) { return song_record_delete(song); }
+/* Task 05 (9.12): sim_block_write stores a v1 payload (format 0, as the tests of the old
+ * format need), sim_block_write2 takes the format; sim_block_read returns the payload as
+ * the device's kind-6 download does: always format 1 (a stored v1 block is upgraded). */
 EXPORT("sim_block_write") int sim_block_write(unsigned song, unsigned id, unsigned bytes)
-{ return song_block_append(song, id, file_buffer, bytes); }
+{ return song_block_append(song, id, SONG_FORMAT_V1, file_buffer, bytes); }
+EXPORT("sim_block_write2") int sim_block_write2(unsigned song, unsigned id, unsigned format, unsigned bytes)
+{ return song_block_append(song, id, format, file_buffer, bytes); }
 EXPORT("sim_block_read") int sim_block_read(unsigned song, unsigned id)
 {
-    unsigned bytes = 0;
-    int r = song_block_read(song, id, file_buffer, &bytes);
+    unsigned bytes = 0, format = SONG_FORMAT_V2;
+    int r = song_block_read(song, id, file_buffer, &bytes, &format);
+    if (!r && format == SONG_FORMAT_V1) bytes = song_payload_upgrade(file_buffer, bytes);
     return r ? (r > 0 ? -1 : r - 100) : (int)bytes;
 }
+/* Task 05: the project's sequencer settings (0 = swing) for the swing tests. */
+EXPORT("sim_sequence_setting_edit") void sim_sequence_setting_edit(unsigned setting, int delta)
+{ groove_sequence_setting_edit(setting, delta); }
+/* Task 05: with the switch on, the MIDI lanes drain every block (the timing tests measure
+ * the sequencer, not the 10 ms control poll below); off by default, as the device's
+ * control loop is modelled by the 10 ms poll. */
+static unsigned midi_drain_every_block;
+EXPORT("sim_midi_drain") void sim_midi_drain(unsigned on) { midi_drain_every_block = on != 0; }
+unsigned song_test_position(unsigned *remainder);
+EXPORT("sim_song_units") unsigned sim_song_units(void) { return song_test_position(NULL); }   /* Task 05 timing tests */
 /* Task 03 e: a batch stream (transfer kind 7, up to SONG_BATCH_BYTES) has its own buffer;
  * file_buffer is too small. The result is song_block_batch()'s (0, or negative). */
 static uint8_t batch_buffer[SONG_BATCH_BYTES];
@@ -469,6 +485,7 @@ EXPORT("sim_render") const float *sim_render(void)
         send(midi[midi_read].data, midi[midi_read].count); midi_read = (midi_read + 1) % MIDI_QUEUE;
     }
     (void)fm1_engine_render(previous, FM1_BLOCK_FRAMES);
+    if (midi_drain_every_block) groove_midi_poll();   /* Task 05 test switch */
     fm1_output_mix(previous);
     frames += FM1_BLOCK_FRAMES; uint32_t next = (uint32_t)(frames * 1000U / 44100U);
     unsigned poll = now_ms / 10U != next / 10U; now_ms = next;

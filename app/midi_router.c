@@ -167,11 +167,13 @@ FM1_AUDIO_CODE void groove_midi_note(unsigned track, unsigned note, unsigned vel
 }
 /* Song sequencer notes (Task 03 d): same SEQ mode rules as pattern notes for MIDI out
  * (mode LOCAL or SEQ OUT off sends nothing); the local engine copy is posted when the
- * lane is drained (song_local), so the event is queued even without ports. */
+ * lane is drained (song_local), so the event is queued even without ports. Task 05: every
+ * song note goes into lane 0 (with the row events), so the drain keeps the tick's
+ * time order across tracks; the stock sequencer's lane split is unchanged. */
 FM1_AUDIO_CODE void groove_midi_song_note(unsigned track, unsigned note, unsigned velocity)
 {
     unsigned ports = ((config.flags & SEQ_OFF) || !groove_midi_mode(track)) ? 0 : config.flags & 7U;
-    enqueue(track & 1U, SONG_OWNER + track, ports, (velocity ? 0x90U : 0x80U) | channel(track), note, velocity);
+    enqueue(0, SONG_OWNER + track, ports, (velocity ? 0x90U : 0x80U) | channel(track), note, velocity);
 }
 /* Row events (Task 04, 9.11): a channel message for a MIDI channel, not a track. The
  * channel's thru owner (24..39) gives the channel back at delivery (owner_channel), every

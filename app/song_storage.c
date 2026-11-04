@@ -33,9 +33,12 @@
  *   Everything here runs on the control task and is synchronous (a transaction takes
  *   three sector erases). The sequencer (app/song.c) only reads through the directory.
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-03  Task 05: payload format v2 (9.12): record byte 1 names the format (0 or
+ *                     1), payloads up to 1600 bytes, validation per format (format 1 through
+ *                     timed_note_decode), song_payload_upgrade, song flags bit 2 allowed.
  *   v0.5  2026-11-02  Task 04: record version 2 (event table 2624..4091 validated, CRC and
  *                     transaction length by version, recovery reads the version too).
  *   v0.4  2026-11-02  Checkpoint (f): song_record_valid rejects a tempo override outside
@@ -47,6 +50,7 @@
  *   v0.1  2026-11-02  Checkpoint (a): scan, classification, confirmed erase.
  */
 #include "song_storage.h"
+#include "timed_note.h"
 #include "instrument.h"
 #include <string.h>
 
@@ -308,7 +312,7 @@ static int events_valid(const struct song_record *r)
 }
 int song_record_valid(const struct song_record *r)
 {
-    if ((r->version != 1 && r->version != 2) || r->project >= GROOVE_PROJECT_SLOTS || (r->flags & ~3U) ||
+    if ((r->version != 1 && r->version != 2) || r->project >= GROOVE_PROJECT_SLOTS || (r->flags & ~7U) ||   /* v0.7: bit 2 swing */
         r->rows < 1 || r->rows > SONG_ROWS || r->loop_row >= r->rows) return SONG_INVALID;
     /* Checkpoint (f), 9.5 v0.5.1: the tempo override is 0 (project tempo) or 30..300 BPM. */
     if (r->tempo && (r->tempo < 30 || r->tempo > 300)) return SONG_INVALID;
@@ -362,21 +366,56 @@ int song_record_delete(unsigned song)
 }
 
 /* ---- block payloads (9.3) ---------------------------------------------------------- */
-int song_payload_valid(const uint8_t *p, unsigned bytes)
+/* Largest payload of a format (9.3: 832, 9.12: 1600); 0 for an unknown format byte. */
+static unsigned payload_max(unsigned format)
+{ return format == SONG_FORMAT_V1 ? SONG_PAYLOAD_V1_MAX : format == SONG_FORMAT_V2 ? SONG_PAYLOAD_MAX : 0; }
+int song_payload_valid(unsigned format, const uint8_t *p, unsigned bytes)
 {
-    if (bytes < SONG_PAYLOAD_MIN || bytes > SONG_PAYLOAD_MAX) return SONG_INVALID;
+    unsigned size = format == SONG_FORMAT_V1 ? 3 : TIMED_NOTE_BYTES;
+    if (bytes < SONG_PAYLOAD_MIN || bytes > payload_max(format)) return SONG_INVALID;
     unsigned at = 0;
     for (unsigned step = 0; step < SONG_BLOCK_STEPS; ++step) {
         if (at >= bytes) return SONG_INVALID;
         unsigned head = p[at++], count = head & 7U;
         if (count > SONG_NOTES_PER_STEP || (head & 0x80U)) return SONG_INVALID;
-        if (at + 3U * count > bytes) return SONG_INVALID;
-        for (unsigned n = 0; n < count; ++n, at += 3) {
-            if ((p[at] & 0x80U) || !(p[at + 1] & 127U) || !p[at + 2]) return SONG_INVALID;
-            for (unsigned m = 0; m < n; ++m) if (p[at - 3U * (n - m)] == p[at]) return SONG_INVALID;
+        if (at + size * count > bytes) return SONG_INVALID;
+        for (unsigned n = 0; n < count; ++n, at += size) {
+            if (format == SONG_FORMAT_V1) {
+                if ((p[at] & 0x80U) || !(p[at + 1] & 127U) || !p[at + 2]) return SONG_INVALID;
+            } else {
+                struct timed_note note;                       /* 9.12: the module's rules, pitch in bits 0-6 */
+                if (timed_note_decode(p + at, &note)) return SONG_INVALID;
+            }
+            for (unsigned m = 0; m < n; ++m) if ((p[at - size * (n - m)] & 127U) == (p[at] & 127U)) return SONG_INVALID;
         }
     }
     return at == bytes ? 0 : SONG_INVALID;
+}
+/* v1 -> v2 in place, from the end so nothing is overwritten before it is read: a 3-byte
+ * note {pitch, velocity | retrigger, L} becomes {pitch | retrigger << 7, velocity, offset 0
+ * with exponent e, mantissa m}, L x 480 = m << e (e = 1 above 136 steps, exact: 480 L is even). */
+unsigned song_payload_upgrade(uint8_t *buf, unsigned bytes)
+{
+    uint16_t at[SONG_BLOCK_STEPS + 1];
+    unsigned a = 0, out;
+    for (unsigned step = 0; step < SONG_BLOCK_STEPS; ++step) { at[step] = (uint16_t)a; a += 1 + 3 * (buf[a] & 7U); }
+    at[SONG_BLOCK_STEPS] = (uint16_t)a;
+    out = 64 + (a - 64) * 2;                                  /* 6 bytes per note instead of 3 */
+    unsigned dest = out;
+    for (unsigned step = SONG_BLOCK_STEPS; step-- > 0;) {
+        const uint8_t *src = buf + at[step];
+        unsigned count = src[0] & 7U;
+        for (unsigned n = count; n-- > 0;) {
+            const uint8_t *v1 = src + 1 + 3 * n;
+            unsigned length = v1[2] * (unsigned)TIMED_NOTE_UNITS_PER_STEP, e = length > 65535U, m = length >> e;
+            uint8_t v2[TIMED_NOTE_BYTES] = { (uint8_t)((v1[0] & 127U) | (v1[1] & 128U)), (uint8_t)(v1[1] & 127U),
+                                             0, (uint8_t)(e << 1), (uint8_t)m, (uint8_t)(m >> 8) };
+            dest -= TIMED_NOTE_BYTES; memcpy(buf + dest, v2, TIMED_NOTE_BYTES);
+        }
+        buf[--dest] = src[0];
+    }
+    (void)bytes;
+    return out;
 }
 
 /* ---- block sectors (9.4) ----------------------------------------------------------- */
@@ -388,7 +427,7 @@ static unsigned next_record(unsigned *at, unsigned *song, unsigned *id, unsigned
     unsigned a = *at;
     if (a + SONG_BLOCK_HEADER > 4096 || image[a] == 0xff) return 0;
     unsigned len = le16(image + a + 4), size = align4(SONG_BLOCK_HEADER + len);
-    if (image[a] >= SONG_SONGS || len < SONG_PAYLOAD_MIN || len > SONG_PAYLOAD_MAX || a + size > 4096) return 0;
+    if (image[a] >= SONG_SONGS || len < SONG_PAYLOAD_MIN || len > payload_max(image[a + 1]) || a + size > 4096) return 0;
     *song = image[a]; *id = le16(image + a + 2); *bytes = len;
     *at = a + size;
     return size;
@@ -468,7 +507,7 @@ int song_directory_build(unsigned song)
     return 0;
 }
 unsigned song_directory_song(void) { return dir_song; }
-int song_block_read(unsigned song, unsigned id, uint8_t *payload, unsigned *bytes)
+int song_block_read(unsigned song, unsigned id, uint8_t *payload, unsigned *bytes, unsigned *format)
 {
     if (song >= SONG_SONGS || !id || id > 0xffffU) return SONG_INVALID;
     if (dir_song != song) { int r = song_directory_build(song); if (r) return r; }
@@ -479,10 +518,11 @@ int song_block_read(unsigned song, unsigned id, uint8_t *payload, unsigned *byte
     int r = fm1_flash_read(a, head, sizeof head);
     if (r) return r;
     unsigned len = le16(head + 4);
-    if (head[0] != song || le16(head + 2) != id || len < SONG_PAYLOAD_MIN || len > SONG_PAYLOAD_MAX) return SONG_INVALID;
+    if (head[0] != song || le16(head + 2) != id || len < SONG_PAYLOAD_MIN || len > payload_max(head[1])) return SONG_INVALID;
     r = fm1_flash_read(a + SONG_BLOCK_HEADER, payload, len);
     if (r) return r;
     *bytes = len;
+    if (format) *format = head[1];
     return 0;
 }
 
@@ -582,10 +622,10 @@ int song_storage_compact(void)
     position = 0; state = SONG_STORAGE_COMPACTING;
     return 0;
 }
-int song_block_append(unsigned song, unsigned id, const uint8_t *payload, unsigned bytes)
+int song_block_append(unsigned song, unsigned id, unsigned format, const uint8_t *payload, unsigned bytes)
 {
     if (song >= SONG_SONGS || !id || id > 0xffffU || state != SONG_STORAGE_READY) return SONG_INVALID;
-    int r = song_payload_valid(payload, bytes);
+    int r = song_payload_valid(format, payload, bytes);
     if (!r) r = song_storage_prepare();
     if (r) return r;
     unsigned need = align4(SONG_BLOCK_HEADER + bytes), b = SONG_BLOCK_SECTORS;
@@ -612,7 +652,7 @@ int song_block_append(unsigned song, unsigned id, const uint8_t *payload, unsign
     r = load_block_sector(b);
     if (r) return r;
     uint8_t *rec = image + sectors[b].used;
-    rec[0] = (uint8_t)song; rec[1] = 0; put16(rec + 2, id); put16(rec + 4, bytes);
+    rec[0] = (uint8_t)song; rec[1] = (uint8_t)format; put16(rec + 2, id); put16(rec + 4, bytes);
     memcpy(rec + SONG_BLOCK_HEADER, payload, bytes);
     memset(rec + SONG_BLOCK_HEADER + bytes, 0xff, need - SONG_BLOCK_HEADER - bytes);
     return store_block_sector(b);
@@ -630,8 +670,8 @@ static int batch_parse(unsigned song, const uint8_t *s, unsigned bytes, unsigned
     while (at < bytes) {
         if (bytes - at < SONG_BLOCK_HEADER) return SONG_INVALID;
         unsigned id = le16(s + at + 2), len = le16(s + at + 4), size = align4(SONG_BLOCK_HEADER + len);
-        if ((s[at] && s[at] != song) || s[at + 1] || !id || len < SONG_PAYLOAD_MIN || len > SONG_PAYLOAD_MAX ||
-            bytes - at < SONG_BLOCK_HEADER + len || song_payload_valid(s + at + SONG_BLOCK_HEADER, len))
+        if ((s[at] && s[at] != song) || s[at + 1] > SONG_FORMAT_V2 || !id || len < SONG_PAYLOAD_MIN || len > payload_max(s[at + 1]) ||
+            bytes - at < SONG_BLOCK_HEADER + len || song_payload_valid(s[at + 1], s + at + SONG_BLOCK_HEADER, len))
             return SONG_INVALID;
         if (fill + size > 4096) { ++n; fill = SONG_BLOCK_AREA; }
         fill += size;
@@ -694,7 +734,7 @@ int song_block_batch(unsigned song, const uint8_t *stream, unsigned bytes)
             unsigned len = le16(stream + at + 4), size = align4(SONG_BLOCK_HEADER + len);
             if (dest + size > 4096) break;                     /* same rule as batch_parse */
             memcpy(image + dest, stream + at, SONG_BLOCK_HEADER + len); /* padding stays 0xFF */
-            image[dest] = (uint8_t)song; image[dest + 1] = 0;
+            image[dest] = (uint8_t)song;                       /* byte 1 (the format) travels with the record */
             dest += size; at += size; ++count;
         }
         put16(image + 6, count); put32(image + 8, gen + i); put16(image + 12, 1U << song); put16(image + 14, 0xffff);
