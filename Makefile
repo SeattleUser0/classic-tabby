@@ -22,6 +22,8 @@
 #     make workbench-test    Node tests of the workbench: the shared song write path on a fake
 #                            device [Task 03 f] and the device library schema [Task 04]
 #     make midi-import-sim   also plays a row-event song through the wasm       [Task 04]
+#     make timed-note-test   the timed note module (app/timed_note.c, web/timed-note) against
+#                            tests/timed-note/vectors.txt, C and JS            [Task 05]
 #     make midi-import-test  Node tests of the MIDI importer (web/import, tests/midi-import)
 #                            against the generated fixture .mid files        [Task 02 MIDI]
 #     make midi-import-sim   plays an imported Renoise export through build/web/simulator.wasm
@@ -106,7 +108,7 @@ NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
-        package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test
+        package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -155,6 +157,15 @@ build/host/smoke: tests/host/smoke.c $(HOST_SRCS)
 	@mkdir -p build/host
 	$(CC) $(HOST_FLAGS) $(HOST_SRCS) tests/host/smoke.c -lm -o $@
 
+# Task 05: the timed note module against the shared vectors, C (gcc, the module alone) and JS.
+build/host/timed_note: tests/host/timed_note_test.c app/timed_note.c app/timed_note.h
+	@mkdir -p build/host
+	$(CC) -std=c11 -O1 -g -Wall -Wextra -Iapp app/timed_note.c tests/host/timed_note_test.c -o $@
+
+timed-note-test: build/host/timed_note
+	./build/host/timed_note tests/timed-note/vectors.txt
+	$(NODE) tests/timed-note/run.mjs
+
 host-smoke: build/host/smoke
 	./build/host/smoke
 
@@ -163,8 +174,8 @@ workbench-test:
 	$(NODE) tests/workbench/song-write.mjs
 	$(NODE) tests/workbench/devices.mjs
 
-test: host-smoke web-smoke workbench-test
-	@echo "test: host-smoke, web-smoke and workbench-test passed"
+test: timed-note-test host-smoke web-smoke workbench-test
+	@echo "test: timed-note-test, host-smoke, web-smoke and workbench-test passed"
 
 # Task 02 (MIDI import): pure Node, no toolchain. Regenerates the fixture files first.
 midi-import-test:
