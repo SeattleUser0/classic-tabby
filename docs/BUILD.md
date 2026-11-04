@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.19
+Version: 0.20
 Revision log:
+- v0.20, 2026-11-04 (Task 06 checkpoint b): section 19.2: per-track playheads in firmware,
+  measured figures, host test section 13, build.py v0.5 (-Oz for the sequencer units).
 - v0.19, 2026-11-04 (Task 06 checkpoint a): section 19: BLE and NAME pages removed, Bluetooth
   settings through the workbench (command 24), build.py v0.4, measured figures; the two
   deferred items in the left-to-build list.
@@ -1605,4 +1607,62 @@ Hardware checklist additions (for the Step 4 list): with the library connected, 
 "Bluetooth settings", switch Bluetooth off, reconnect the library and confirm the box
 reads off after a power cycle; switch it back on; press the BT button on the device and
 read the notice.
+
+### 19.2 Checkpoint (b): per-track playheads in firmware
+
+What changed (section 9.13 of docs/tasks/TASK-03-step1-assessment.md has the behaviour):
+
+- **app/song.c v0.4** (rewritten): `master` (units since PLAY) and `acc` replace the
+  frame-relative position; `tbuf[8][2]` (one decoded block per track and buffer, with the
+  track's event slice, row, purpose, look-ahead coverage, ready flag) and `rowset[2]` (the
+  song playhead's row: step length, repeat, loop flag, the whole event list) replace the two
+  row buffers; `tr[8]` holds each track's frame (start, length, buffer, state, pass,
+  waiting, launched row); `queue_kind / queue_row` carry the per-track queues; `plan[8]`
+  is the tick's per-track boundary, what happens there and the buffer that follows. The
+  tick: late adoption of buffers that became ready, note-offs due, the song playhead's
+  switch as an action, per track the current frame's scan up to its boundary, the switch
+  action (loop or queue landing), the next frame's scan and look-ahead, per-track stream
+  pre-fire; then the sorted actions (`song_switch`, `track_switch`, `note_on`, note-offs).
+  Nine event streams (the song's row list, one slice per track). Control task:
+  `wanted()` decides what each track's free buffer must hold, `decode_track` reads one
+  block and the channel slice (`slice_events`, gaps by their channel bits), `decode_rowinfo`
+  the row and the whole list; `song_track_launch / stop / attach / attach_all`;
+  `song_queue_jump` clears the per-track queues; `song_status_read` fills the per-track
+  fields, the bar and `song_over`.
+- **app/song.h v0.3**: the status fields, the state and queue enums, the API.
+- **app/midi_router.c**: `groove_midi_song_track_channel` (the resolved output channel, for
+  the slices). **app/transfer.c**: command 23 bytes 15..30. **web/engine/Simulator.c**:
+  `sim_song_track`, `sim_song_track_status`, `sim_song_status(4)`; `sim_song_units` now
+  returns the master position.
+- **tools/linux/build.py v0.5**: app/song.c, app/song_storage.c and app/timed_note.c compile
+  at -Oz (at -O2 the first build of the new song.c cost +4000 bytes: the eight-track loops
+  unrolled; at -Oz the same source costs +1888 and song_storage.c shrank by 766).
+- **tests/host/smoke.c v0.8**: section 13 (65 checks, `-DLAUNCH_DEBUG` traces the clock and
+  every message): songs E (three rows with a 48-step row, events with a gapped program
+  change on track 3's channel and a pedal channel), G (one row, no loop) and F (8 rows × 8
+  tracks, block 20 + i holds note 60 + i on step i).
+
+Measured (Track B, crosscheck IDENTICAL, FLASH-BUDGET.md section 13):
+
+| Quantity | After (a) | After (b) | Change |
+| --- | ---: | ---: | ---: |
+| App image | 447140 | **449028** | **+1888** |
+| Margin to the 453921-byte limit | 6781 | **4893** | −1888 |
+| app/song.c (post-LTO) | 4662 | 7396 | +2734 (of which SRAM audio code +2272) |
+| app/song_storage.c | 5972 | 5206 | −766 (-Oz) |
+| app/transfer.c | 3252 | 3288 | +36 |
+| app/midi_router.c | 4257 | 4271 | +14 |
+| Static SRAM | 318932 | 323764 | +4832 (tbuf 27872 against the old 25896, rowset 276, actions 1280 against 1024, plan / tr / streams, the audio code) |
+| Runtime heap (minimum 49152) | 204684 | 199852 | −4832 |
+
+Host results worth knowing: a launch queued in bar 0 lands at bar 1 with its program change
+7 blocks (20 ms) before the downbeat; the other tracks' notes, the bar count and the MIDI
+clock are untouched; the 48-step pattern against 16-step rows holds for 64 bars (21 and
+1024 notes, every one in its predicted block); eight launches at one bar play all eight
+downbeats on time; a press one block before the bar enters the pattern at the next control
+poll with its downbeat skipped and counted late (the window is one control poll, 10 ms in
+the simulator); nothing is left sounding after stops, jumps, the song end or PLAY.
+
+Pending for (c) and (d): the TRACK LAUNCH page, pad LEDs, SCL / ENV routing; the rig's lead
+before bar, the song editor's pattern view, the simulator's scripted 32-bar performance.
 

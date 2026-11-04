@@ -50,6 +50,9 @@ static unsigned channel(unsigned track)
     if (song_channel[track]) return song_channel[track] - 1U;
     return (config.channel[track >> 1] >> (4U * (track & 1U))) & 15U;
 }
+/* Task 06 (9.13): the track's resolved output channel (0..15): the song override or the
+ * device setting, as its notes are sent. Control task, for the per-track event slices. */
+unsigned groove_midi_song_track_channel(unsigned track) { return channel(track & 7U); }
 FM1_AUDIO_CODE unsigned groove_midi_mode(unsigned track)
 { return (config.mode[track >> 2] >> (2U * (track & 3U))) & 3U; }
 void groove_midi_defaults(struct groove_midi_config *c)

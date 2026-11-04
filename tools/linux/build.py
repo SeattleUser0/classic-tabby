@@ -42,9 +42,11 @@ Usage (from the repository root)
     FM1_SOURCE_URL=https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip \
         python3 tools/linux/build.py --model pro --package --toolchain-kind native --toolchain ...
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-04  Classic Tabby Task 06 (b): app/song.c, app/song_storage.c and
+                      app/timed_note.c compile at -Oz like the other control-task units.
     v0.4  2026-11-04  Classic Tabby Task 06 (a): the device's BLE page is gone, so the SDK's
                       BLE client wrappers (fm1_ble_scan / connect / disconnect / get_device)
                       and fm1_bluetooth_get_status are unreferenced and dropped by the
@@ -721,7 +723,11 @@ def build_firmware(args, log):
         options += ["-fwrapv", "-fno-fast-math", "-ffp-contract=off"]
         # Storage and screen run only from control; keep audio DSP on O2.
         if source in ("app/project.c", "app/transfer.c", "app/samples.c", "app/screen.c", "app/presets.c", "app/midi_router.c",
-                      "app/smk37_controls.c", "app/fm_library.c", "app/fm_factory.c"):
+                      "app/smk37_controls.c", "app/fm_library.c", "app/fm_factory.c",
+                      # Classic Tabby Task 06 (b): the song sequencer and its storage. Its audio tick is a
+                      # few hundred instructions per block; at -O2 the eight-track loops were unrolled
+                      # into 4 KB more flash and SRAM than the same code at -Oz.
+                      "app/song.c", "app/song_storage.c", "app/timed_note.c"):
             options.append("-Oz")
         arguments = options + ["-MMD", "-MF", output + ".d", "-c", input_file, "-o", output]
         log("Compile " + source)

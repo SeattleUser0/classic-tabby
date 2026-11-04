@@ -1,7 +1,11 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.7.2
+Version: 0.8
 Revision log:
+- v0.8, 2026-11-04 (Task 06 checkpoint b): section 9.13 added: independent track launching
+  (track states and queues, the master clock and bars, buffers per track, event slices by
+  channel and a gap's channel bits, the song end with detached tracks, late entries, status
+  and command 23 bytes 15..30). No byte of any stored format changes.
 - v0.7.2, 2026-11-04 (Task 06 checkpoint a): 9.9 gains transfer command 24 (Bluetooth
   settings) and capability bit 5. No layout change.
 - v0.7.1, 2026-11-04 (Task 05 checkpoints b and c): implementation note at the end of 9.12
@@ -916,3 +920,89 @@ so a restart is exact. Simulator timing (per-block drain, renoise-export.mid at 
 largest error 0 blocks for all 1002 note-ons and their note-offs; under the stock 10 ms
 poll 0..3 blocks late, the poll period. A v1 song plays note for note as on tabby-v02.0
 with swing 0 and 25 (tests/host/smoke.c section 12 against tests/host/v1_reference.inc).
+
+### 9.13 Independent track launching (v0.8, Task 06)
+
+Approved after the Task 06 Step 1 report (docs/tasks/TASK-06-step1-assessment.md, decisions
+in its section 10 and the approval). No stored byte changes: patterns are rows (pattern N of
+track T is T's block in row N, its loop length row N's step length), the record, the blocks,
+the event table, the `.tabby` file and kinds 5..7 are as in 9.4, 9.5, 9.11 and 9.12.
+
+**Master clock.** One position in units since PLAY (the exact advance of 9.12); a bar is 16
+steps = 7680 units of it. Rows are 16, 32, 48 or 64 steps and start on bars, and `warp()` is
+the identity at every pair of steps, so bars and row ends are the same instants for every
+track whatever its swing. MIDI clock, Start / Stop and the Song Position Pointer come from
+the transport as before; nothing a track does touches them.
+
+**Track states and queues.** A track FOLLOWS the song (the row sequence with repeats,
+loop-here rows, queued scene jumps and the song end, as before), or is LAUNCHED (loops a
+pattern of its own, repeat counts ignored), or is STOPPED (silent). The control task queues
+per track a **launch** of pattern N (refused when row N has no block for the track), a
+**stop**, or **back to song**; a newer queue on the same track replaces the older one. Every
+queue lands on the next bar: the first bar at or after the moment the audio tick sees it,
+except at the song start where the next bar is bar 1. At the landing the track's sounding
+notes get their note-offs on the channel their note-ons used, then: launch: the track's
+frame starts at the bar with the pattern's step 0; stop: nothing more; back to song: the
+track takes the song's current row at the song's position within it (no look-ahead for a
+mid-row entry) and receives its slice of the row's events. A **scene jump** (the SONG page)
+clears every per-track queue when it is queued and, when it lands, releases the notes of
+every detached track, gives every track the row's block (a block id of 0 stops that track)
+and sets every track to FOLLOW.
+
+**Buffers and decode-ahead.** Each track has two buffers of one decoded block (64 steps of
+up to four timed notes) with the track's slice of the row's events and the row it came
+from; the song playhead keeps the row's step length, repeat and loop flag with the whole
+event list in a pair of its own. The control task decodes into a track's free buffer what
+the track needs next: the next row for a following track, the queued pattern for a launch,
+the current row for back-to-song, the jump's row for every track while a scene jump is
+queued; one block read per decode (at most eight per poll, as one row today). A frame
+whose buffer is not ready when it starts (a press inside the last control poll before the
+bar, a block read error) is entered as soon as the buffer is, positioned as if it had
+started at the bar (the notes already passed are skipped), and the entry counts in
+**late**.
+
+**Events by channel.** A track's launch (and back-to-song) stream is the row's events whose
+channel equals the track's resolved output channel (the song's override 9.5, else the
+device's OUT CH setting at the time of the decode), plus the gap events carrying that
+channel in their channel bits, in the row's order. The device's stream rules of 9.11 apply
+to the slice: it starts `lead + 1` blocks before the bar (the slice's gaps), sends events
+until a gap, waits, ends before the pattern's first note; a press that leaves less time than
+the lead sends at once and counts late. Events on channels that belong to no track fire
+only at row entries (scene changes and the song's own row advances), as before. **A gap's
+channel bits name the channel the gap belongs to** (the Task 04 workbench already writes
+them so; the device ignored them before Task 06); a trailing gap on a channel is that
+channel's lead before the bar, set from the rig's per-device "lead before bar". Two tracks
+on one channel each send their own slice; two launches at the same bar send the program
+change twice, last wins.
+
+**Song end.** When the last row ends (no song loop): with no track detached and no queue
+pending the song stops as before (notes released, Stop sent); with any track detached the
+song is **over** for the following tracks (they fall silent, their sounding notes end
+naturally), the detached tracks keep looping, the master clock, MIDI clock and transport run
+on until PLAY stops the song. Stopping every track never stops the transport. A scene jump
+after the end restarts the song at that row with every track following.
+
+**Late counter** (SONG page "LATE n", command 23 byte 13): row entries whose event stream
+ended after the boundary (9.11), frame entries whose negative-offset step-0 notes were not
+fired ahead (9.12), launch streams still pending after the bar, and frames entered after
+their start because the buffer was not ready.
+
+**Status.** `struct song_status` gains the bar count and the step within the bar, `song_over`,
+and per track: state (bits 0-1: 0 follow, 1 launched, 2 stopped; bits 2-3 the pending queue:
+0 none, 1 launch, 2 stop, 3 back to song; bit 4 waiting for its buffer), the row the track
+plays (255 when silent or stopped) and the queued row. **Command 23** grows from 15 to 31
+bytes: bytes 15..22 the eight state bytes, 23..30 the eight row bytes. Simulator exports:
+`sim_song_track(kind, track, row)` (0 launch, 1 stop, 2 back to song, 3 all back to song),
+`sim_song_track_status(track)` (state | row << 8 | queued << 16), `sim_song_status(4)` (bar |
+bar step << 16 | song_over << 24).
+
+**Device-side decisions taken while coding (checkpoint b).** The song playhead's row entry,
+each launched pattern's loop and each queue landing are actions in the tick's sorted list
+(note-offs, then switches, then note-ons at equal times), so a track's release at the bar
+precedes the next pattern's downbeat and the order inside lane 0 is the musical order. The
+tick plans, per track, its next boundary and the buffer that follows before it executes
+anything, so the look-ahead and the switch use the same buffer. A hand-edited note due at or
+past its pattern's end (offset +240 on the last step) fires one unit before the end instead
+of being dropped. app/song.c, app/song_storage.c and app/timed_note.c compile at -Oz: at -O2
+the eight-track loops unrolled into 4 KB more code than the same source at -Oz.
+

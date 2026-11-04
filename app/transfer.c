@@ -138,7 +138,10 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         struct song_status song; song_status_read(&song);
         out[9] = song.song; out[10] = song.playing; out[11] = song.row; out[12] = song.error;
         out[13] = (uint8_t)song.late; out[14] = (uint8_t)song.events;   /* Task 04 (9.11) */
-        *count = 15; return 0;
+        /* Task 06 (9.13): per-track state (bits 0-1 follow / launched / stopped, bits 2-3
+         * the pending queue, bit 4 waiting) and the pattern row each track plays. */
+        for (unsigned t = 0; t < 8; ++t) { out[15 + t] = song.track_state[t]; out[23 + t] = song.track_row[t]; }
+        *count = 31; return 0;
     }
     if (cmd == 21 && !n) {
         out[0] = groove_tuning_capture && groove_tuning_apply ? 1 : 0;

@@ -47,6 +47,10 @@
  * Version: 0.6
  *
  * Revision log
+ *   v0.8  2026-11-04  Task 06: section 13, independent track launching (launch at the next
+ *                     bar, two presses keep the last, quantized stops with every note-off,
+ *                     back to song, scene jumps re-attaching, a late press, polymeter for 64
+ *                     bars, song end with detached tracks, eight launches at one bar).
  *   v0.7  2026-11-03  Task 05: section 11, timed notes (offsets at the limits, two notes 3 ms
  *                     apart, a negative offset before a row boundary, the late case, no stuck
  *                     notes across jumps, 10 minutes without drift), section 12, a v1 song
@@ -105,6 +109,9 @@ int sim_song_play(void);
 void sim_song_stop(void);
 int sim_song_jump(unsigned row);
 uint32_t sim_song_status(unsigned word);
+int sim_song_track(unsigned kind, unsigned track, unsigned row);   /* Task 06 */
+unsigned sim_song_units(void);
+uint32_t sim_song_track_status(unsigned track);
 int sim_song_send_setup(void);
 uint8_t *sim_batch_buffer(void);
 int sim_block_batch(unsigned song, unsigned bytes);
@@ -252,6 +259,19 @@ static int stuck(const struct log_entry *log, unsigned n)
     }
     for (unsigned c = 0; c < 16; ++c) for (unsigned p = 0; p < 128; ++p) if (held[c][p]) ++bad;
     return bad;
+}
+/* Print the (channel, pitch) pairs a log leaves held or over-released (section 13 diagnostics). */
+static void stuck_report(const struct log_entry *log, unsigned n)
+{
+    static int held[16][128]; memset(held, 0, sizeof held);
+    for (unsigned i = 0; i < n; ++i) {
+        unsigned st = log[i].s & 0xf0U, ch = log[i].s & 15U;
+        if (st == 0x90 && log[i].d2) ++held[ch][log[i].d1]; else if (st == 0x80 || (st == 0x90 && !log[i].d2)) --held[ch][log[i].d1];
+    }
+    for (unsigned c = 0; c < 16; ++c) for (unsigned p = 0; p < 128; ++p) if (held[c][p]) {
+        printf("       channel %u pitch %u: %+d\n", c + 1, p, held[c][p]);
+        for (unsigned i = 0; i < n; ++i) if ((log[i].s & 15U) == c && log[i].d1 == p && (log[i].s & 0xe0U) == 0x80) printf("         %02x %u %u at block %u\n", log[i].s, log[i].d1, log[i].d2, log[i].block);
+    }
 }
 /* The block whose window holds unit position u at `tempo`: p_k = floor(k * tempo * 1024 / 11025). */
 static unsigned block_of(uint64_t u, unsigned tempo)
@@ -856,6 +876,235 @@ int main(void)
         }
         sim_sequence_setting_edit(0, -60); sim_midi_drain(0);
         CHECK(sim_song_record_delete(SONG) == 0, "v1 reference: song deleted");
+    }
+
+    /* ---- 13. independent track launching (Task 06, 9.13) ------------------------------- */
+    {
+        /* Build with -DLAUNCH_DEBUG to trace the clock and every message of this section. */
+#ifdef LAUNCH_DEBUG
+        #define DBG13(blocks_) do { if ((blocks_) % 20 == 0) printf("dbg block %u master %u bar %u row %u rep %u step %u T1 %08x T3 %08x late %u\n", (blocks_), sim_song_units(), sim_song_status(4) & 0xffffU, (sim_song_status(0) >> 16) & 255U, sim_song_status(1) & 255U, (sim_song_status(0) >> 24) & 255U, (unsigned)sim_song_track_status(0), (unsigned)sim_song_track_status(2), (sim_song_status(2) >> 16) & 0xffffU); } while (0)
+        #define DBG13M(m_, blocks_) printf("dbg   msg %02x %u %u at %u\n", (m_).data[0], (m_).bytes > 1 ? (m_).data[1] : 0, (m_).bytes > 2 ? (m_).data[2] : 0, (blocks_))
+#else
+        #define DBG13(blocks_) do {} while (0)
+        #define DBG13M(m_, blocks_) do {} while (0)
+#endif
+        enum { TEMPO = 120, U = 480, BARU = 16 * U, SONG = 11 };
+        uint8_t *f = sim_file();
+        static struct log_entry log[8192]; unsigned logged = 0, blocks = 0;
+        sim_midi_drain(1);
+        #define RUN(n_) do { unsigned n__ = (unsigned)(n_); for (unsigned r_ = 0; r_ < n__; ++r_) { (void)sim_render(); \
+            struct message m_[64]; unsigned k_ = drain(m_, 64); \
+            for (unsigned j_ = 0; j_ < k_ && j_ < 64; ++j_) if (m_[j_].port == 0 && m_[j_].data[0] != 0xf8 && logged < 8192) { \
+                log[logged].s = m_[j_].data[0]; log[logged].d1 = m_[j_].bytes > 1 ? m_[j_].data[1] : 0; log[logged].d2 = m_[j_].bytes > 2 ? m_[j_].data[2] : 0; log[logged].block = blocks; ++logged; DBG13M(m_[j_], blocks); } \
+            DBG13(blocks); ++blocks; } } while (0)
+        #define RUN_TO(block_) RUN((block_) > blocks ? (block_) - blocks : 0)
+        #define ON_AT(ch_, pitch_, from_) find_log(log, logged, 0x90U | (ch_), (pitch_), 100, (from_))
+        #define OFF_AT(ch_, pitch_, from_) find_log(log, logged, 0x80U | (ch_), (pitch_), 0, (from_))
+        #define AT(i_) ((i_) >= 0 ? log[i_].block : 999999U)
+        #define BAR(n_) block_of((uint64_t)(n_) * BARU, TEMPO)
+        #define TSTATE(t_) (sim_song_track_status(t_) & 3U)
+        #define TQUEUE(t_) ((sim_song_track_status(t_) >> 2) & 3U)
+        #define TROW(t_) ((sim_song_track_status(t_) >> 8) & 255U)
+        #define LATE() ((sim_song_status(2) >> 16) & 0xffffU)
+        /* Count note-ons of (channel, pitch) whose block is exactly block_of(u) for u in a list. */
+        /* Blocks: 10 hats every step (T1), 11 bass (T2), 12 melody A, 13 melody B with a note
+         * ringing 3 steps past the bar, 14 a step-0 note with offset -120, 15 a 48-step
+         * pattern, 16 a two-bar note. */
+        memset(&vb, 0, sizeof vb); for (unsigned s = 0; s < 64; ++s) v2_note(s, 42, 100, 0, 240, 0);
+        CHECK(sim_block_write2(SONG, 10, 1, v2_put(f)) == 0, "launch: block 10 (hats) stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 36, 100, 0, 480, 0); v2_note(8, 38, 100, 0, 480, 0);
+        CHECK(sim_block_write2(SONG, 11, 1, v2_put(f)) == 0, "launch: block 11 (bass) stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 60, 100, 0, 480, 0); v2_note(4, 64, 100, 0, 480, 0); v2_note(8, 67, 100, 0, 480, 0);
+        CHECK(sim_block_write2(SONG, 12, 1, v2_put(f)) == 0, "launch: block 12 (melody A) stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 72, 100, 0, 480, 0); v2_note(15, 76, 100, 0, 1920, 0);
+        CHECK(sim_block_write2(SONG, 13, 1, v2_put(f)) == 0, "launch: block 13 (melody B) stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 48, 100, -120, 480, 0);
+        CHECK(sim_block_write2(SONG, 14, 1, v2_put(f)) == 0, "launch: block 14 (offset -120) stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 50, 100, 0, 480, 0); v2_note(32, 52, 100, 0, 480, 0);
+        CHECK(sim_block_write2(SONG, 15, 1, v2_put(f)) == 0, "launch: block 15 (48-step pattern) stored");
+        memset(&vb, 0, sizeof vb); v2_note(0, 55, 100, 0, 2 * BARU, 0);
+        CHECK(sim_block_write2(SONG, 16, 1, v2_put(f)) == 0, "launch: block 16 (two-bar note) stored");
+        /* Song E (loops): row 0 x2 (16 steps), row 1 (16), row 2 (48). Channels 10, 2, 3, 4, 5,
+         * 6 for T1..T6. Version-2 record with events: row 1: PC 10 on channel 3 then a 20 ms
+         * gap (track 3's device), PC 20 on channel 7 (no track: a pedal); row 2: PC 5 on
+         * channel 5. */
+        { uint16_t r0[8] = {10, 11, 12, 0, 0, 0, 0, 0}, r1[8] = {10, 11, 13, 14, 0, 16, 0, 0}, r2[8] = {10, 0, 12, 14, 15, 0, 0, 0};
+          make_record(f, "LAUNCH E    ", TEMPO, 3, 1); f[20] = 2;
+          f[48] = 10; f[49] = 2; f[50] = 3; f[51] = 4; f[52] = 5; f[53] = 6;
+          make_row(f, 0, r0, 2, 16, 0); make_row(f, 1, r1, 1, 16, 0); make_row(f, 2, r2, 1, 48, 0);
+          uint8_t ev[4][5] = {{1, 2 | 0 << 4, 10, 0, 0}, {1, 2 | 3 << 4, 20, 0, 0}, {1, 6 | 0 << 4, 20, 0, 0}, {2, 4 | 0 << 4, 5, 0, 0}};
+          f[2624] = 4; f[2625] = 0; f[2626] = 1; f[2627] = 0; memset(f + 2628, 0, 4);
+          for (unsigned i = 0; i < 4; ++i) memcpy(f + 2632 + 5 * i, ev[i], 5); }
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0, "launch: song E written and loaded");
+        sim_midi_capture(1); { struct message m[64]; (void)drain(m, 64); }
+        CHECK(sim_song_play() == 0, "launch: song E plays");
+        /* 1. A launch on T3 (pattern 1 = row 1, block 13) queued in bar 0 lands at bar 1:
+         *    its PC 10 leaves 20 ms (7 blocks) before the bar, the first note at the bar,
+         *    the other tracks' notes are untouched, the bar count and MIDI clock run on. */
+        RUN(20);
+        CHECK(sim_song_track(0, 2, 1) == 0, "launch: T3 pattern 1 queued at block 20");
+        CHECK(TSTATE(2) == 0 && TQUEUE(2) == 1 && ((sim_song_track_status(2) >> 16) & 255U) == 1, "launch: status shows T3 following with pattern 1 queued (%08x)", (unsigned)sim_song_track_status(2));
+        RUN_TO(BAR(2) + 5);
+        { int on72 = ON_AT(2, 72, 0), pc = find_log(log, logged, 0xc2, 10, 0, 0);
+          unsigned gap = (20 * 44100 + 128000 - 1) / 128000;   /* 7 blocks */
+          CHECK(AT(on72) == BAR(1), "launch: T3's first note plays at bar 1 (block %u, expected %u)", AT(on72), BAR(1));
+          CHECK(pc >= 0 && AT(pc) + gap + 1 >= BAR(1) && AT(pc) + gap <= BAR(1) + 1 && pc < on72, "launch: PC 10 on channel 3 left %u block(s) before the note (block %u)", AT(on72) - AT(pc), AT(pc));
+          { int pedal = find_log(log, logged, 0xc6, 20, 0, 0);
+            CHECK(pedal >= 0 && AT(pedal) + 1 >= BAR(2), "launch: the pedal's PC 20 (channel 7) fired for the row entry at bar 2 only (block %u), not for the launch", AT(pedal)); }
+          CHECK(TSTATE(2) == 1 && TQUEUE(2) == 0 && TROW(2) == 1, "launch: T3 is launched on pattern 1 (%08x)", (unsigned)sim_song_track_status(2)); }
+        { unsigned bad = 0, from = 0;
+          for (unsigned k = 0; k < 32; ++k) { int i = ON_AT(9, 42, (int)from); if (AT(i) != block_of((uint64_t)k * U, TEMPO)) ++bad; if (i >= 0) from = (unsigned)i + 1; }
+          CHECK(bad == 0, "launch: T1's 32 hats over bars 0-1 stay in their blocks (%u off)", bad); }
+        { int b36 = ON_AT(1, 36, 0); int b36b = ON_AT(1, 36, b36 + 1);
+          CHECK(AT(b36) == BAR(0) && AT(b36b) == BAR(1), "launch: T2's bass keeps its bars (%u, %u)", AT(b36), AT(b36b)); }
+        CHECK((sim_song_status(4) & 0xffffU) == 2, "launch: the master clock is at bar 2 (%u)", sim_song_status(4) & 0xffffU);
+        CHECK(((sim_song_status(0) >> 16) & 255U) == 1, "launch: the song playhead entered row 1 at bar 2 (row %u)", (sim_song_status(0) >> 16) & 255U);
+        /* 2. The song advanced to row 1 at bar 2; T3 (detached) ignored it: its pattern loops
+         *    (note 72 at bar 2 again), and row 1's own block 13 did not start twice. */
+        RUN_TO(BAR(3) + 5);
+        { int a = ON_AT(2, 72, 0), b = ON_AT(2, 72, a + 1), c = ON_AT(2, 72, b + 1);
+          CHECK(AT(b) == BAR(2) && AT(c) == BAR(3), "launch: the detached T3 loops its pattern at bars 2 and 3 (%u, %u)", AT(b), AT(c)); }
+        /* 3. Two presses before the bar keep the last: T3 pattern 0 (row 0: block 12) then
+         *    pattern 2 (row 2: block 12 too, 48 steps). Then a stop. */
+        CHECK(sim_song_track(0, 2, 0) == 0 && sim_song_track(0, 2, 2) == 0, "launch: two presses queued on T3");
+        CHECK(((sim_song_track_status(2) >> 16) & 255U) == 2, "launch: the later press replaced the earlier one (queued %u)", (sim_song_track_status(2) >> 16) & 255U);
+        RUN_TO(BAR(4) + 5);
+        { int on60 = ON_AT(2, 60, 0); while (on60 >= 0 && AT(on60) < BAR(4)) on60 = ON_AT(2, 60, on60 + 1);
+          int on72 = ON_AT(2, 72, 0), last72 = on72; while (last72 >= 0) { int n = ON_AT(2, 72, last72 + 1); if (n < 0) break; last72 = n; }
+          CHECK(AT(on60) == BAR(4) && AT(last72) == BAR(3), "launch: pattern 2 starts at bar 4 (block %u), pattern 1's last start was bar 3 (%u)", AT(on60), AT(last72));
+          CHECK(TROW(2) == 2, "launch: T3 plays pattern 2 (%u)", TROW(2)); }
+        /* 4. A quantized stop releases every sounding note at the bar: T6 launches the
+         *    two-bar note at bar 5, T4 the -120 note; stops queued in bar 6 land at bar 7 with
+         *    the note-offs at bar 7, including the note that would have been pre-fired. */
+        CHECK(sim_song_track(0, 5, 1) == 0 && sim_song_track(0, 3, 1) == 0 && sim_song_track(1, 2, 0) == 0, "launch: T6 and T4 queued, T3 stop queued");
+        RUN_TO(BAR(6) + 20);
+        { int on55 = ON_AT(5, 55, 0); while (on55 >= 0 && AT(on55) < BAR(4)) on55 = ON_AT(5, 55, on55 + 1);
+          int on48 = ON_AT(3, 48, 0); while (on48 >= 0 && AT(on48) < BAR(4)) on48 = ON_AT(3, 48, on48 + 1);
+          CHECK(AT(on55) == BAR(5) && AT(on48) == block_of(5 * BARU - 120, TEMPO), "launch: T6's long note at bar 5 (%u), T4's -120 note before it (%u)", AT(on55), AT(on48)); }
+        CHECK(TSTATE(2) == 2 && TROW(2) == 255, "launch: T3 stopped at bar 6 (%08x)", (unsigned)sim_song_track_status(2));
+        CHECK(sim_song_track(1, 5, 0) == 0 && sim_song_track(1, 3, 0) == 0, "launch: stops queued on T6 and T4 in bar 6");
+        CHECK(TQUEUE(5) == 2 && TQUEUE(3) == 2, "launch: pending stops shown");
+        RUN_TO(BAR(8) + 5);
+        { int off55 = OFF_AT(5, 55, 0); while (off55 >= 0 && AT(off55) < BAR(5)) off55 = OFF_AT(5, 55, off55 + 1);
+          int on48 = ON_AT(3, 48, 0), last48 = on48; while (last48 >= 0) { int n = ON_AT(3, 48, last48 + 1); if (n < 0) break; last48 = n; }
+          int off48 = OFF_AT(3, 48, last48);
+          CHECK(AT(off55) == BAR(7), "launch: the two-bar note got its note-off at the stop bar (block %u, bar 7 = %u)", AT(off55), BAR(7));
+          CHECK(AT(off48) <= BAR(7) && AT(last48) < BAR(7) + 2, "launch: the -120 note's last note-off is at or before bar 7 (%u), nothing after", AT(off48));
+          CHECK(ON_AT(5, 55, off55) < 0 && ON_AT(3, 48, off48 + 1) < 0, "launch: stopped tracks play nothing after their bar"); }
+        CHECK(TSTATE(5) == 2 && TSTATE(3) == 2 && ((sim_song_status(0) >> 8) & 255U) == 1, "launch: T6 and T4 stopped, the song still plays");
+        /* 5. Back to song: T3 re-attaches at the next bar and plays the song's row from
+         *    where it stands; a scene jump then re-attaches everything. */
+        CHECK(sim_song_track(2, 2, 0) == 0 && TQUEUE(2) == 3, "launch: back to song queued on T3");
+        RUN_TO(BAR(9) + 5);
+        CHECK(TSTATE(2) == 0 && TROW(2) == ((sim_song_status(0) >> 16) & 255U), "launch: T3 follows the song again (row %u)", TROW(2));
+        CHECK(sim_song_track(0, 5, 1) == 0 && sim_song_jump(0) == 0, "launch: a launch on T6 then a scene jump to row 1 queued");
+        CHECK(TQUEUE(5) == 0, "launch: the scene jump cleared T6's queue");
+        RUN_TO(BAR(10) + 5);
+        { unsigned all = 1; for (unsigned t = 0; t < 8; ++t) if (TSTATE(t) != 0 || TQUEUE(t) != 0) all = 0;
+          CHECK(all && ((sim_song_status(0) >> 16) & 255U) == 0, "launch: after the jump every track follows row 1 (row %u)", (sim_song_status(0) >> 16) & 255U); }
+        CHECK(AT(ON_AT(1, 36, (int)logged - 40 > 0 ? (int)logged - 40 : 0)) >= BAR(9), "launch: T2's bass (silent while stopped? no: it followed) plays in the jumped row");
+        /* 6. A late press: T3 pattern 1 queued one block before bar 11: the pattern enters in
+         *    phase at the next control poll, its downbeat is skipped and counted late. */
+        { unsigned late0 = LATE();
+          RUN_TO(BAR(11) - 1);
+          CHECK(sim_song_track(0, 2, 1) == 0, "launch: T3 pattern 1 queued one block before bar 11");
+          RUN_TO(BAR(12) + 5);
+          CHECK(LATE() > late0, "launch: the late press counts late (%u -> %u)", late0, LATE());
+          CHECK(TSTATE(2) == 1 && TROW(2) == 1, "launch: T3 is launched on pattern 1 after the late press");
+          int on72 = ON_AT(2, 72, 0), last = on72; while (last >= 0) { int n = ON_AT(2, 72, last + 1); if (n < 0) break; last = n; }
+          CHECK(AT(last) == BAR(12), "launch: the pattern's next downbeat plays at bar 12 (block %u)", AT(last)); }
+        sim_song_stop(); RUN(12); { struct message m[64]; (void)drain(m, 64); }
+        CHECK(stuck(log, logged) == 0, "launch: song E: nothing stuck across launches, stops, jumps, the late press and the stop (%u messages)", logged);
+        if (stuck(log, logged)) stuck_report(log, logged);
+        /* 7. Polymeter: T5's 48-step pattern (row 2) against T1's 16-step rows for 64 bars: no
+         *    drift on either, every note in its predicted block. */
+        logged = 0; blocks = 0;
+        CHECK(sim_song_load(SONG) == 0 && sim_song_play() == 0, "launch: song E replays for the polymeter run");
+        { struct message m[64]; (void)drain(m, 64); }
+        CHECK(sim_song_track(0, 4, 2) == 0, "launch: T5 pattern 2 (48 steps) queued at once");
+        RUN_TO(BAR(65));
+        { unsigned bad50 = 0, bad52 = 0, bad42 = 0, from = 0, k = 0;
+          for (k = 0; k < 21; ++k) { int i = ON_AT(4, 50, (int)from); if (AT(i) != BAR(1 + 3 * k)) ++bad50; if (i >= 0) from = (unsigned)i + 1; }
+          from = 0;
+          for (k = 0; k < 21; ++k) { int i = ON_AT(4, 52, (int)from); if (AT(i) != block_of((uint64_t)(1 + 3 * k) * BARU + 32 * U, TEMPO)) ++bad52; if (i >= 0) from = (unsigned)i + 1; }
+          from = 0;
+          for (k = 0; k < 64 * 16; ++k) { int i = ON_AT(9, 42, (int)from); if (AT(i) != block_of((uint64_t)k * U, TEMPO)) ++bad42; if (i >= 0) from = (unsigned)i + 1; }
+          CHECK(bad50 == 0 && bad52 == 0, "launch: the 48-step pattern's notes land on bars 1, 4, 7... and 32 steps later for 64 bars (%u / %u off)", bad50, bad52);
+          CHECK(bad42 == 0, "launch: T1's 1024 hats over 64 bars of 16-step rows all in their blocks (%u off)", bad42); }
+        CHECK(stuck(log, logged) == 0, "launch: polymeter run: nothing stuck");
+        sim_song_stop(); RUN(12); { struct message m[64]; (void)drain(m, 64); }
+        /* 8. Song end with detached tracks: song G has one row, no loop; T2 is launched, so at
+         *    the row end the song is over for T1, T2 keeps looping, the clock keeps running and
+         *    PLAY stops everything; stopping T2 alone leaves the transport running. */
+        { uint16_t r0[8] = {10, 11, 0, 0, 0, 0, 0, 0};
+          make_record(f, "LAUNCH G    ", TEMPO, 1, 0); f[48] = 10; f[49] = 2; make_row(f, 0, r0, 1, 16, 0); }
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0 && sim_song_play() == 0, "launch: song G (one row, no loop) plays");
+        { struct message m[64]; (void)drain(m, 64); }
+        logged = 0; blocks = 0;
+        CHECK(sim_song_track(0, 1, 0) == 0, "launch: T2 launched on its pattern 0");
+        RUN_TO(BAR(3) + 5);
+        { unsigned clocks = 0; for (unsigned r = 0; r < 20; ++r) { (void)sim_render(); ++blocks; struct message m[64]; unsigned n = drain(m, 64); for (unsigned j = 0; j < n && j < 64; ++j) if (m[j].port == 0 && m[j].data[0] == 0xf8) ++clocks; }
+          CHECK(((sim_song_status(0) >> 8) & 255U) == 1 && (sim_song_status(4) >> 24) == 1, "launch: after the last row the song is over but still playing (song_over %u)", sim_song_status(4) >> 24);
+          CHECK(clocks > 0, "launch: MIDI clock keeps running after the song's end (%u clocks in 20 blocks)", clocks); }
+        { int h = ON_AT(9, 42, 0), last = h; while (last >= 0) { int n = ON_AT(9, 42, last + 1); if (n < 0) break; last = n; }
+          CHECK(AT(last) < BAR(1), "launch: T1 (attached) fell silent at the song's end (last hat at block %u)", AT(last));
+          int b = ON_AT(1, 36, 0), lastb = b; while (lastb >= 0) { int n = ON_AT(1, 36, lastb + 1); if (n < 0) break; lastb = n; }
+          CHECK(AT(lastb) == BAR(3), "launch: T2 (launched) kept playing (last bass at bar 3 = block %u)", AT(lastb)); }
+        CHECK(find_log(log, logged, 0xfc, 0, 0, 0) < 0, "launch: no Stop was sent at the song's end");
+        CHECK(sim_song_track(1, 1, 0) == 0, "launch: stop queued on T2");
+        RUN_TO(BAR(5));
+        CHECK(((sim_song_status(0) >> 8) & 255U) == 1 && find_log(log, logged, 0xfc, 0, 0, 0) < 0, "launch: all tracks stopped, the transport still runs (no Stop)");
+        sim_song_stop(); RUN(12);
+        CHECK(find_log(log, logged, 0xfc, 0, 0, 0) >= 0 && ((sim_song_status(0) >> 8) & 255U) == 0 && stuck(log, logged) == 0, "launch: PLAY stops the transport: Stop sent, nothing stuck");
+        { struct message m[64]; (void)drain(m, 64); }
+        /* 9. Eight tracks launching eight different rows at one bar. Song F: 8 rows, track t's
+         *    block in row r is 20 + ((t + r) & 7); block 20 + i holds note 60 + i on step i. */
+        for (unsigned i = 0; i < 8; ++i) { memset(&vb, 0, sizeof vb); v2_note(i, 60 + i, 100, 0, 480, 0); if (sim_block_write2(SONG, 20 + i, 1, v2_put(f)) != 0) { CHECK(0, "launch: block %u stored", 20 + i); } }
+        { make_record(f, "LAUNCH F    ", TEMPO, 8, 1); for (unsigned t = 0; t < 8; ++t) f[48 + t] = (uint8_t)(t + 1);
+          for (unsigned r = 0; r < 8; ++r) { uint16_t ids[8]; for (unsigned t = 0; t < 8; ++t) ids[t] = (uint16_t)(20 + ((t + r) & 7)); make_row(f, r, ids, 1, 16, 0); } }
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0 && sim_song_play() == 0, "launch: song F (8 rows x 8 tracks) plays");
+        { struct message m[64]; (void)drain(m, 64); }
+        logged = 0; blocks = 0;
+        RUN_TO(BAR(1) + 10);
+        for (unsigned t = 0; t < 8; ++t) if (sim_song_track(0, t, t) != 0) CHECK(0, "launch: T%u pattern %u queued", t + 1, t);
+        RUN_TO(BAR(3) + 5);
+        { unsigned bad = 0;
+          for (unsigned t = 0; t < 8; ++t) {
+              unsigned step = (2 * t) & 7, pitch = 60 + step;
+              int i = ON_AT(t, pitch, 0); while (i >= 0 && AT(i) < BAR(2)) i = ON_AT(t, pitch, i + 1);
+              if (AT(i) != block_of((uint64_t)2 * BARU + step * U, TEMPO)) { ++bad; printf("       T%u: note %u at block %u, expected %u\n", t + 1, pitch, AT(i), block_of((uint64_t)2 * BARU + step * U, TEMPO)); }
+              if (TSTATE(t) != 1 || TROW(t) != t) ++bad;
+          }
+          CHECK(bad == 0, "launch: all eight tracks launched different rows at bar 2 and played their notes on time (%u off)", bad); }
+        /* 10. A scene jump overrides pending launches and re-attaches all eight. */
+        for (unsigned t = 0; t < 8; ++t) (void)sim_song_track(0, t, (t + 3) & 7);
+        CHECK(sim_song_jump(5) == 0, "launch: scene jump to row 5 queued over eight pending launches");
+        RUN_TO(BAR(5) + 5);
+        { unsigned bad = 0;
+          for (unsigned t = 0; t < 8; ++t) {
+              unsigned step = (t + 5) & 7, pitch = 60 + step;
+              int i = ON_AT(t, pitch, 0); while (i >= 0 && AT(i) < BAR(4)) i = ON_AT(t, pitch, i + 1);
+              if (AT(i) != block_of((uint64_t)4 * BARU + step * U, TEMPO)) ++bad;
+              if (TSTATE(t) != 0 || TQUEUE(t) != 0) ++bad;
+          }
+          CHECK(bad == 0 && ((sim_song_status(0) >> 16) & 255U) == 6, "launch: at bar 4 every track played row 5's block and follows the song (row %u now, %u off)", (sim_song_status(0) >> 16) & 255U, bad); }
+        sim_song_stop(); RUN(12); { struct message m[64]; (void)drain(m, 64); }
+        CHECK(stuck(log, logged) == 0, "launch: song F: nothing stuck after the stop");
+        if (stuck(log, logged)) stuck_report(log, logged);
+        sim_midi_capture(0); sim_midi_drain(0);
+        CHECK(sim_song_record_delete(SONG) == 0, "launch: test song deleted");
+        #undef RUN
+        #undef RUN_TO
+        #undef ON_AT
+        #undef OFF_AT
+        #undef AT
+        #undef BAR
+        #undef TSTATE
+        #undef TQUEUE
+        #undef TROW
+        #undef LATE
+        #undef DBG13
+        #undef DBG13M
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

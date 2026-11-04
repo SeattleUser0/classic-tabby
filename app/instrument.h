@@ -379,5 +379,6 @@ FM1_DSP_CODE void groove_midi_transport(unsigned owner, uint8_t status);
 FM1_DSP_CODE void groove_midi_song_note(unsigned track, unsigned note, unsigned velocity);
 FM1_DSP_CODE void groove_midi_song_event(unsigned channel, unsigned status, unsigned a, unsigned b); /* Task 04: row events */
 void groove_midi_song_channels(const uint8_t *channels);
+unsigned groove_midi_song_track_channel(unsigned track); /* Task 06: the resolved output channel 0..15 */
 FM1_DSP_CODE void groove_midi_clock(unsigned owner, unsigned tempo);
 #endif

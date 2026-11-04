@@ -1,7 +1,9 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.11
+Version: 0.12
 Revision log:
+- v0.12, 2026-11-04 (Task 06 checkpoint b): section 13 added: per-track playheads (+1888
+  bytes, margin 4893; the sequencer units at -Oz); Appendix A regenerated.
 - v0.11, 2026-11-04 (Task 06 checkpoint a): section 12 added: BLE and NAME pages removed
   (−4224 bytes, margin 6781); Appendix A regenerated.
 - v0.10, 2026-11-04 (Task 05): section 11 added: timed notes in firmware (+2112 bytes,
@@ -697,6 +699,48 @@ client wrappers and the string pool account for the rest. The Task 06 code (esti
 +3100, range 2500..3900) fits with ≈ 3.7 KB to spare at the mid point; the EFFECTS page
 (≈ 1400) stays the reserve, taken only if the measured margin after the code is under 2 KB.
 
+## 13. Task 06 checkpoint (b): per-track playheads (measured)
+
+Built with Track B, byte-identical to Track A under the machine lock (`make crosscheck`).
+
+| Quantity | After (a) | After (b) | Change |
+| --- | ---: | ---: | ---: |
+| App image | 447140 | **449028** | +1888 |
+| Margin to the 453921-byte packaging limit | 6781 | **4893** | −1888 |
+| .text | 368448 | 368064 | −384 |
+| .ram0_data | 78660 | 80932 | +2272 |
+| .ram0_bss | 240220 | 242780 | +2560 |
+| Static SRAM (data + bss + boot_info) | 318932 | 323764 | +4832 |
+| Runtime heap (minimum 49152) | 204684 | 199852 | −4832 |
+
+The first build of the new app/song.c at -O2 cost +4000 bytes (image 451140, margin 2781):
+the compiler unrolled the eight-track loops of the tick and the switches. The sequencer
+units (app/song.c, app/song_storage.c, app/timed_note.c) now compile at -Oz like the other
+control-task units (build.py v0.5); the audio tick is a few hundred instructions per block
+and the host timing checks are unchanged. Attribution (post-LTO, `build/pro/nolto.json`
+regenerated):
+
+| Unit | After (a) | After (b) | Note |
+| --- | ---: | ---: | --- |
+| app/song.c | 4662 | 7396 | +2734: `tick` 1854 (the per-track plan, scans, look-ahead and the action loop), `song_switch` 594, `scan` 382, `song_tick` 358, `enter_frame` 308, `track_switch` 302, `song_play` 364, `song_status_read` 332, `decode_track` 264, `release_track` 250, `stream_run_one` 202, `song_next` 194, `prefire` 182, `prefire_track` 154; all of it except the control-task functions in SRAM |
+| app/song_storage.c | 5972 | 5206 | −766: -Oz (`song_block_batch` 818 → 704, `song_storage_prepare` 610 → 494, `song_record_valid` 524 → 346) |
+| app/transfer.c | 3252 | 3288 | +36: command 23 bytes 15..30 |
+| app/midi_router.c | 4257 | 4271 | +14: `groove_midi_song_track_channel` |
+| app/samples.c | 1396 | 1226 | −170 (-Oz inlining) |
+| app/smk37_controls.c | 2605 | 2615 | +10 |
+| app/project.c | 5794 | 5796 | +2 |
+| alignment / linker fill | 177 | 171 | −6 |
+| unattributed (LTO) | 748 | 782 | +34 |
+
+RAM: `tbuf[8][2]` 27872 bytes against the two row buffers' 25896 (the per-track event
+slices, 128 bytes per buffer, are the difference), `rowset[2]` 276, the action list 1280
+(160 entries against 128), `plan` 64, `tr` 128, nine streams 54; the rest is the audio code
+in .ram0_data. The heap keeps 150 KB above its minimum.
+
+Margin for the rest of Task 06: 4893 bytes for the TRACK LAUNCH page, the pad colours and
+the SCL / ENV routing (assessment estimate ≈ 1450); the 2 KB floor holds with the EFFECTS
+page untouched if the page costs less than ≈ 2.8 KB.
+
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 
     --nolto-map build/pro/nolto.json --top 40
@@ -705,17 +749,17 @@ client wrappers and the string pool account for the rest. The Task 06 code (esti
 | Input | .text | .data | .ram0_data | .cache_ram_data | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | libfm1_engine.a | 294314 | 0 | 69714 | 32 | 364060 (355.5 KiB) |
-| app (LTO-merged units) | 28024 | 0 | 4432 | 0 | 32456 (31.7 KiB) |
+| app (LTO-merged units) | 27592 | 0 | 6708 | 0 | 34300 (33.5 KiB) |
 | app/screen.c | 30888 | 0 | 8 | 0 | 30896 (30.2 KiB) |
 | app/board/scan.c | 1649 | 0 | 3756 | 0 | 5405 (5.3 KiB) |
-| app/midi_router.c | 3599 | 0 | 658 | 0 | 4257 (4.2 KiB) |
-| app/transfer.c | 3252 | 0 | 0 | 0 | 3252 (3.2 KiB) |
+| app/midi_router.c | 3613 | 0 | 658 | 0 | 4271 (4.2 KiB) |
+| app/transfer.c | 3288 | 0 | 0 | 0 | 3288 (3.2 KiB) |
 | libcompiler_rt.a | 3212 | 0 | 0 | 0 | 3212 (3.1 KiB) |
 | app/board/panel.c | 2697 | 0 | 8 | 0 | 2705 (2.6 KiB) |
 | libc.a | 720 | 0 | 0 | 0 | 720 (0.7 KiB) |
-| **input sections total** | | | | | **446963 (436.5 KiB)** |
-| alignment / linker-script fill (app image − inputs) | | | | | 177 |
-| **app image (firmware-report.json)** | | | | | **447140 (436.7 KiB)** |
+| **input sections total** | | | | | **448857 (438.3 KiB)** |
+| alignment / linker-script fill (app image − inputs) | | | | | 171 |
+| **app image (firmware-report.json)** | | | | | **449028 (438.5 KiB)** |
 
 ### App units after LTO
 
@@ -729,19 +773,19 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | app/board/scan.c | 5405 | map (-fno-lto) | 5471 | 2844 |
 | app/fm_factory.c | 10233 | nm symbols (LTO) | 10063 | 0 |
 | app/fm_library.c | 14 | nm symbols (LTO) | 312 | 0 |
-| app/midi_router.c | 4257 | map (-fno-lto) | 4257 | 4014 |
+| app/midi_router.c | 4271 | map (-fno-lto) | 4271 | 4014 |
 | app/presets.c | 22 | nm symbols (LTO) | 340 | 0 |
-| app/project.c | 5794 | nm symbols (LTO) | 6296 | 4140 |
-| app/samples.c | 1396 | nm symbols (LTO) | 36 | 0 |
+| app/project.c | 5796 | nm symbols (LTO) | 6296 | 4140 |
+| app/samples.c | 1226 | nm symbols (LTO) | 36 | 0 |
 | app/screen.c | 30896 | map (-fno-lto) | 31192 | 10374 |
-| app/smk37_controls.c | 2605 | nm symbols (LTO) | 2849 | 230 |
-| app/transfer.c | 3252 | map (-fno-lto) | 3252 | 1144 |
-| app/song.c | 4662 | nm symbols (LTO) | 4724 | 34016 |
-| app/song_storage.c | 5972 | nm symbols (LTO) | 5944 | 15588 |
+| app/smk37_controls.c | 2615 | nm symbols (LTO) | 2849 | 230 |
+| app/transfer.c | 3288 | map (-fno-lto) | 3288 | 1144 |
+| app/song.c | 7396 | nm symbols (LTO) | 8016 | 36560 |
+| app/song_storage.c | 5206 | nm symbols (LTO) | 5944 | 15588 |
 | generated/build_identity.c | 0 | nm symbols (LTO) | — | — |
-| LTO-merged units, map total | 32456 | map | | |
-| of which traced to a unit above | 31708 | | | |
-| of which unattributed (inlined/merged/renamed by LTO) | 748 | | | |
+| LTO-merged units, map total | 34300 | map | | |
+| of which traced to a unit above | 33518 | | | |
+| of which unattributed (inlined/merged/renamed by LTO) | 782 | | | |
 
 ### Top 40 app symbols by size (post-LTO, from nm --print-size)
 
@@ -750,43 +794,43 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | 9399 | `factory_tokens` | app/fm_factory.c | t |
 | 6102 | `apply_controls` | app/screen.c | t |
 | 3686 | `edit_page_draw` | app/screen.c | t |
-| 2724 | `groove_transfer_poll` | app/transfer.c | T |
+| 2760 | `groove_transfer_poll` | app/transfer.c | T |
 | 2576 | `draw_page_body` | app/screen.c | t |
+| 1854 | `tick` | app/song.c | t |
 | 1440 | `overview` | app/screen.c | t |
 | 1398 | `smk37_control_event` | app/smk37_controls.c | T |
 | 1388 | `groove_screen_control` | app/screen.c | T |
 | 1280 | `pad_velocity` | app/board/scan.c | t |
-| 1194 | `groove_samples_poll` | app/samples.c | T |
 | 1058 | `header` | app/screen.c | t |
+| 952 | `groove_samples_poll` | app/samples.c | T |
 | 938 | `steps` | app/screen.c | t |
-| 818 | `song_block_batch` | app/song_storage.c | T |
-| 772 | `groove_project_poll` | app/project.c | T |
+| 770 | `groove_project_poll` | app/project.c | T |
+| 704 | `song_block_batch` | app/song_storage.c | T |
 | 680 | `effects_draw` | app/screen.c | t |
 | 656 | `groove_midi_poll` | app/midi_router.c | T |
-| 648 | `tick` | app/song.c | t |
 | 638 | `fm1_screen_fill` | app/board/panel.c | T |
 | 636 | `fm1_screen_submit` | app/board/panel.c | T |
-| 610 | `song_storage_prepare` | app/song_storage.c | t |
 | 610 | `smk37_scan_read` | app/board/scan.c | T |
+| 594 | `song_switch` | app/song.c | t |
 | 594 | `project_draw` | app/screen.c | t |
 | 586 | `deliver` | app/midi_router.c | t |
 | 544 | `fm1_screen_init` | app/board/panel.c | T |
-| 524 | `song_record_valid` | app/song_storage.c | t |
-| 512 | `scan_live` | app/song_storage.c | t |
+| 494 | `song_storage_prepare` | app/song_storage.c | t |
 | 488 | `draw` | app/screen.c | t |
 | 480 | `text` | app/screen.c | t |
-| 468 | `song_directory_build` | app/song_storage.c | t |
 | 468 | `groove_screen_init` | app/screen.c | T |
 | 466 | `groove_project_save_slot` | app/project.c | T |
+| 464 | `scan_live` | app/song_storage.c | t |
 | 446 | `groove_midi_config_apply` | app/midi_router.c | T |
-| 442 | `groove_settings_midi` | app/project.c | T |
-| 426 | `decode_row` | app/song.c | t |
+| 444 | `groove_settings_midi` | app/project.c | T |
 | 424 | `mix_draw` | app/screen.c | t |
 | 388 | `pad_prc` | app/board/scan.c | t |
-| 380 | `scan` | app/song.c | t |
+| 382 | `scan` | app/song.c | t |
+| 364 | `song_play` | app/song.c | T |
+| 358 | `song_tick` | app/song.c | T |
 | 352 | `apply_sanitized` | app/project.c | t |
-| 342 | `groove_project_load_slot` | app/project.c | T |
-| 342 | `draw_page` | app/screen.c | t |
+| 348 | `song_directory_build` | app/song_storage.c | t |
+| 346 | `song_record_valid` | app/song_storage.c | t |
 
 ### screen.c by page (exact: screen.c is linked without LTO, one input section per function)
 

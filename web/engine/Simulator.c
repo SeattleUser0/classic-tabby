@@ -302,6 +302,22 @@ EXPORT("sim_song_play") int sim_song_play(void) { return song_play(); }
 EXPORT("sim_song_stop") void sim_song_stop(void) { song_stop(); }
 EXPORT("sim_song_jump") int sim_song_jump(unsigned row) { return song_queue_jump(row); }
 EXPORT("sim_song_send_setup") int sim_song_send_setup(void) { return song_send_setup(); } /* Task 04 */
+/* Task 06 (9.13): per-track queues (kind 0 launch `row`, 1 stop, 2 back to song, 3 all back
+ * to song) and the per-track status word: state | row << 8 | queued << 16. */
+EXPORT("sim_song_track") int sim_song_track(unsigned kind, unsigned track, unsigned row)
+{
+    if (kind == 0) return song_track_launch(track, row);
+    if (kind == 1) return song_track_stop(track);
+    if (kind == 2) return song_track_attach(track);
+    if (kind == 3) { song_track_attach_all(); return 0; }
+    return -1;
+}
+EXPORT("sim_song_track_status") uint32_t sim_song_track_status(unsigned track)
+{
+    struct song_status st; song_status_read(&st);
+    if (track >= 8) return 0;
+    return st.track_state[track] | (uint32_t)st.track_row[track] << 8 | (uint32_t)st.track_queued[track] << 16;
+}
 /* song | playing << 8 | row << 16 | step << 24; the second word: repeat | next << 8 |
  * queued << 16 | error << 24; underruns in the third. */
 EXPORT("sim_song_status") uint32_t sim_song_status(unsigned word)
@@ -310,6 +326,7 @@ EXPORT("sim_song_status") uint32_t sim_song_status(unsigned word)
     if (word == 1) return st.repeat | (uint32_t)st.next_row << 8 | (uint32_t)st.queued << 16 | (uint32_t)st.error << 24;
     if (word == 2) return st.underruns | (uint32_t)st.late << 16;   /* Task 04: late count in the high half */
     if (word == 3) return st.events;
+    if (word == 4) return st.bar | (uint32_t)st.bar_step << 16 | (uint32_t)st.song_over << 24;   /* Task 06: the master clock */
     return st.song | (uint32_t)st.playing << 8 | (uint32_t)st.row << 16 | (uint32_t)st.step << 24;
 }
 EXPORT("sim_control") void sim_control(unsigned kind, unsigned index, int value)

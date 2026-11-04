@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.14
+Version: 0.14.1
 Revision log:
+- v0.14.1, 2026-11-04: section 10: Task 06 checkpoint (b) done (per-track playheads in
+  firmware, section 9.13).
 - v0.14, 2026-11-04: section 10 added: Task 06 independent track launching; checkpoint (a)
   done (BLE and NAME pages removed, Bluetooth settings moved to the workbench through
   transfer command 24).
@@ -690,8 +692,25 @@ Checkpoints and status:
   drops now that nothing calls them. A Task 05 workbench bug fixed on the way: the
   capability check masked reply byte 8 with ~15, so a Task 05 device (31) would have been
   refused at connect; the mask is ~63. App image 447140 bytes, **margin 6781** (−4224).
-- (b) firmware: per-track playheads, queues, launch / stop / back-to-song, event slices, song
-  end rule, status, command 23 bytes 15..30. Pending.
+- **(b) done, 2026-11-04: per-track playheads in firmware** (app/song.c v0.4, section 9.13
+  of the assessment): one master clock in units with bars of 16 steps, a frame (start,
+  length, buffer) per track, two buffers per track decoded ahead by the control task (next
+  row, queued pattern, current row for back-to-song, the jump's row for every track while
+  a scene jump is queued), queues per track landing on the next bar with every sounding
+  note released on its channel, launched patterns looping independently (polymeter),
+  scene jumps clearing the queues and re-attaching every track, the song end with detached
+  tracks (following tracks silent, transport on until PLAY), late entry in phase when a
+  buffer is not ready, per-track event streams from the row's events on the track's
+  channel (gaps by their channel bits, a trailing gap as the lead before the bar), per-track
+  status, command 23 bytes 15..30, simulator exports. Host tests: section 13 (65 checks:
+  launch at the next bar with the other tracks, the bar count and the clock untouched; the
+  program change `lead` blocks before the note; two presses keep the last; a detached track
+  ignores row advances; quantized stops release the two-bar note and the pre-fired note;
+  back to song; a scene jump over queued launches; a late press counted late; nothing
+  stuck; a 48-step pattern against 16-step rows for 64 bars with no drift; the song end
+  with a launched track, the clock running on, PLAY stopping; eight tracks launching eight
+  rows at one bar). App image 449028 bytes, **margin 4893** (+1888); static SRAM 323764
+  (+4832). Crosscheck IDENTICAL.
 - (c) TRACK LAUNCH page, pad LEDs, SCL / ENV routing. Pending.
 - (d) workbench: rig lead before bar, song editor pattern view, simulator check. Pending.
 
