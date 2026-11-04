@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.22
+Version: 0.23
 Revision log:
+- v0.23, 2026-11-04: section 9: tabby-v03.0 published (9.1 current values, 9.3c verification,
+  the pre-publication sanitizer run and the cppcheck item).
 - v0.22, 2026-11-04 (Task 06 checkpoint d): sections 19.4 (workbench), 19.5 (the Step 4
   hardware checklist) and 19.6 (results for the final report).
 - v0.21, 2026-11-04 (Task 06 checkpoint c): section 19.3: the TRACK LAUNCH page, pad
@@ -491,8 +493,19 @@ nothing was written to any device.
 
 ### 9.1 What is published
 
-Current release **tabby-v02.0** (2026-11-02; the tabby-v01.0 values below stay as the
-record of the first publication):
+Current release **tabby-v03.0** (2026-11-04; the tabby-v02.0 and tabby-v01.0 values below
+stay as the record of the earlier publications):
+
+| Item | Value |
+| --- | --- |
+| Branch and tag | `classic-tabby/linux-build` = bb8c456; tag `tabby-v03.0` (annotated, a407835) → bb8c456 |
+| Firmware package `SMK37_PRO_OPEN.fwsc` | SHA-256 2cb180caab27f4ac5301658244c33f4eb59394e831d7c6319729f486e4ea5bcd, 492084 bytes, build_id 77077ef338a95beffd665da8b003e96929edf29bca840d4166dd3e7fe69e29d4, app image 451396 (margin 2525 to the 453921-byte packaging limit); sdk.elf fe1771353b6849e3b70f10e0e8b6c9806b77501a0e15b0894a4753e5031740f1, app-image.bin 1cdf1e64c5470d990b42dc39494c8b98942e2d7ea001de94f07f11fc7d281552 |
+| Offline workbench `SMK37-Open-Source.html` | SHA-256 3c2a88d9f0cc5749f11d81ff40bc8105f1589245d8c9a67a44b527e2cdcbf0d6, 2921340 bytes |
+| Static site | `gh-pages` = e2e20b5 ("Pages: tabby-v03.0 (build 77077ef338a9, release V01)"), `index.html` 291608 bytes (SHA-256 b9156a4ff3e10d83da6e6b915e626787b907996925fb2de3af580d45385fa0f5), 9 assets under `assets/smk37/` named by SHA-256 (firmware = `2cb180ca….bin`, stock V16 `2d98ce72….bin`, simulator `7f2657c2….wasm`, three scripts) |
+| Source archive | https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v03.0.zip |
+| GitHub release | https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v03.0 (`SMK37_PRO_OPEN.fwsc`, `SMK37-Open-Source.html`, `SHA256SUMS.txt`; notes docs/releases/tabby-v03.0.md) |
+
+Record of tabby-v02.0:
 
 | Item | Value |
 | --- | --- |
@@ -605,11 +618,54 @@ subdirectory (`--site-dir elite`), as HOSTING.md asks for separate directories.
   (2939630 bytes) unpacks to 249 files whose SHA-256 all equal `git archive tabby-v02.0`.
 - This commit is the documentation follow-up; the tag stays on ad73b97.
 
+### 9.3c Verification after publishing tabby-v03.0 (2026-11-04)
+
+- Before tagging, on d2d0c41 (Task 06 checkpoint d), every heavy job through Classic Tabby's
+  own machine lock (`flock /tmp/tabby-suite.lock systemd-run --user --scope -p MemoryMax=4G`,
+  the rule since this day; the earlier runs in sections 18 and 19 used the shared Orange Cat
+  lock): the host suite and the timed-note test built and run under
+  `-fsanitize=address,undefined -fno-omit-frame-pointer` with leak detection on, in a scratch
+  directory outside build/, as docs/tasks/TASK-07-step1-assessment.md section 4 on branch
+  classic-tabby/dev-checks describes. Recoverable run (`halt_on_error=0`): 258 host checks,
+  0 findings, exit 0; strict run (`-fno-sanitize-recover=all`): passes; timed_note 804 checks,
+  0 findings. The last clean sanitizer run before this was on 56b09d3, before Task 05 and
+  Task 06. No fix was needed.
+- cppcheck's `arrayIndexOutOfBoundsCond` at app/screen.c:109 on 56b09d3 (line 107 on head,
+  the `punctuation[32][5]` lookup in draw_text) is a false positive: the subtracted offset is
+  chosen per range by the ternary (33 for '!'..'9', 43 for ':'..'@', 69 for '['..'`', 95 for
+  '{'..'~'), digits and letters are taken by the earlier branches, so the index is 0..31;
+  cppcheck's 93 is '~' (126) minus the first offset, ignoring the condition. Unchanged.
+- Then `make verify`, `make crosscheck` (IDENTICAL: sdk.elf fe177135…, .fwsc 2cb180ca…,
+  app-image.bin 1cdf1e64…, 451396 bytes), `make test` (timed-note 804 C / 806 JS, host 258,
+  wasm smoke, song-write, devices, transfer-radio 12, rig-lead 9), `make midi-import-test`
+  (167) and `make midi-import-sim` (Renoise song per-block drain: Note On and Note Off error
+  0..0 blocks; launch-sim 591/591 note-ons, worst 0) all passed.
+- Pushed: `classic-tabby/linux-build` 73d54e0 → bb8c456 (the release note), tag `tabby-v03.0`
+  (annotated a407835 → bb8c456), `gh-pages` 67968bf → e2e20b5. `classic-tabby/dev-checks` and
+  `classic-tabby/task02-midi-import` stay local.
+- `make publish TAG=tabby-v03.0` rebuilt the package from the tagged tree with the same
+  firmware SHA-256 and build_id as the pre-tag build; the offline HTML differs from the
+  pre-tag build only by the source URL (the tag archive). `make release TAG=tabby-v03.0`
+  created the release; the three assets downloaded back and `sha256sum -c SHA256SUMS.txt`
+  passes; the release `.fwsc` is byte-identical to `build/pro/generated/SMK37_PRO_OPEN.fwsc`.
+- Live site https://seattleuser0.github.io/classic-tabby/ after the Pages build (76 s):
+  `index.html` byte-identical to `build/hosted/pro/index.html` (291608 bytes); the firmware
+  asset `assets/smk37/2cb180ca….bin` served as `application/octet-stream`, 492084 bytes,
+  byte-identical to the local package; the simulator as `application/wasm`, the three scripts
+  as `application/javascript`; `SMK37-Open-Source.html` 2921340 bytes, byte-identical to the
+  local build. Headless Chrome: no console errors, placeholder hidden, 149 LCD targets, the
+  TRACK LAUNCH page shortcut (page 20), the Bluetooth settings group and the rig's "Lead ms"
+  column present; the source link is the tag archive.
+- The archive https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v03.0.zip
+  (3068722 bytes) unpacks to 272 files whose SHA-256 all equal `git archive tabby-v03.0`.
+- This commit is the documentation follow-up; the tag stays on bb8c456.
+
 ### 9.4 What the install screen shows for the SMK-37 Pro
 
 Device update tab, before connecting: Firmware **SMK37 Pro Open**, Version **V01**,
-Firmware details: size **476.6 KiB** and build number **41d72747b0f68867** for tabby-v02.0
-(480.6 KiB and **e3344029ab696c73** were tabby-v01.0; the full build_id is the tooltip; the
+Firmware details: size **480.6 KiB** and build number **77077ef338a95bef** for tabby-v03.0
+(476.6 KiB and **41d72747b0f68867** were tabby-v02.0, 480.6 KiB and **e3344029ab696c73**
+tabby-v01.0; the full build_id is the tooltip; the
 version line stays V01, the Open firmware line the fork builds on). After "Connect device" the identity line shows the device's own name:
 `SMK-37 Pro_016` for factory V16 (status "Device and current firmware recognized. To
 migrate, click Enable force flash and reconnect."), or `SMK-37 Pro_8000001` for an
