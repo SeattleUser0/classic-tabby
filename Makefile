@@ -29,6 +29,18 @@
 #     make midi-import-sim   plays an imported Renoise export through build/web/simulator.wasm
 #                            (after make web) and checks MIDI out            [Task 02 Step 4]
 #     make flash-budget      docs tables from the current build/<MODEL>/ (read only)
+#     make check             Task 07: the 16 app units through the native JieLi clang with the
+#                            build's flags and -fsyntax-only; no link, no package (about 2 s)
+#     make lint              Task 07: host gcc -Wall -Wextra over the host-test sources one file at
+#                            a time, then the target clang with -Wall -Wextra; counts by file and
+#                            kind; LINT="--cppcheck --tidy" adds the analyzers (tools/linux/lint.sh)
+#     make host-sanitize     Task 07: the host tests under ASan+UBSan, built in build/host-san/
+#                            (through the lock)
+#     make test-fast         Task 07: the tests to run while working, no sanitizers, no lock:
+#                            timed-note-test, host-smoke, web-smoke, workbench-test, midi-import-test
+#     make suite             Task 07: the full run before a flash or a release, through the lock:
+#                            crosscheck, test, midi-import-sim, host-sanitize; build/suite-passed.txt
+#     make profile           Task 07: the timing lines of build/profile.txt (every target writes one)
 #     make package-equivalence  Package.cs (pwsh) vs package.py byte comparison; skipped
 #                            with a message when pwsh is not installed
 #     make package           distribution build (= build.bat pro --package): firmware plus
@@ -53,9 +65,24 @@
 #       make firmware JIELI_LINUX=/opt/jieli
 #       make firmware-ref WINEPREFIX=$HOME/.wine-jieli
 #
-# Version: 0.9
+#   Task 07 (v0.10): crosscheck, firmware-ref, host-sanitize and suite run through Classic Tabby's
+#   machine lock, "flock /tmp/tabby-suite.lock systemd-run --user --scope -p MemoryMax=4G", so the
+#   sessions on this NUC queue among themselves (LOCKED below: each of those targets is a wrapper
+#   that runs its "-run" twin in a sub-make under the lock; TABBY_LOCKED=1 marks a make already
+#   inside, so the twin runs directly). Single builds and the fast tests run under nice -n 19 and
+#   never wait. At most JOBS=2 compiles at once. Every command of every target is timed into
+#   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
+#   docs/DEV_CHECKS.md).
+#
+# Version: 0.10
 #
 # Revision log
+#   v0.10 2026-11-04  Task 07: check, lint, host-sanitize, test-fast, suite, profile targets; the host
+#                     test build compiles one object per source into build/host/obj with -MMD depfiles
+#                     (a header edit rebuilds what includes it; before, only the .c files were
+#                     prerequisites), JOBS=2 at once; the lock wrapper (LOCK, LOCKED) and nice (NICE);
+#                     the crosscheck comparison moved to tools/linux/crosscheck-compare.sh; every
+#                     command prefixed with $(T) (tools/linux/timed.sh). Same flags, same outputs.
 #   v0.9  2026-11-04  Task 06: workbench-test runs tests/workbench/transfer-radio.mjs (command 24)
 #                     and tests/workbench/rig-lead.mjs (the rig's lead before the bar);
 #                     midi-import-sim runs tests/workbench/launch-sim.mjs (a scripted 32-bar
@@ -107,27 +134,52 @@ PAGES_URL      ?= https://seattleuser0.github.io/classic-tabby/
 PACKAGE_HTML   := build/official-web/$(MODEL)/SMK37-Open-Source.html
 FWSC           := build/$(MODEL)/generated/SMK37_$(shell echo $(MODEL) | tr a-z A-Z)_OPEN.fwsc
 
+# Task 07: the machine rules. LOCK serialises the heavy runs among the Classic Tabby sessions (not with
+# Orange Cat's /tmp/oc-suite.lock) and caps their memory; NICE keeps single builds out of the way;
+# T times every command into build/profile.txt (tools/linux/timed.sh; `make profile` prints it).
+NICE       ?= nice -n 19
+JOBS       ?= 2
+LOCKFILE   ?= /tmp/tabby-suite.lock
+LOCK       := flock $(LOCKFILE) systemd-run --user --scope -q -p MemoryMax=4G -- env TABBY_LOCKED=1
+T           = tools/linux/timed.sh $@
+# make lint LINT="--cppcheck --tidy": the analyzers (GNU make predefines LINT=lint, hence := not ?=).
+LINT       :=
+# A target that must run through the lock is a wrapper: "$(LOCKED) name-run" runs the twin target in
+# a sub-make, under $(LOCK) when this make is outside the lock, directly when it is already inside
+# (TABBY_LOCKED=1 reaches every sub-make through the environment). The twin is where the work and
+# the prerequisites are, so nothing is built before the lock is held, and nothing runs twice.
+LOCKED      = $(if $(TABBY_LOCKED),$(MAKE) --no-print-directory,@echo "== $@ through $(LOCKFILE) (systemd scope, MemoryMax=4G)"; $(LOCK) $(MAKE) --no-print-directory)
+
 BUILD      := tools/linux/build.py
 NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
-        package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test
+        package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test \
+        check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
 # clang's minsize attribute and warns about third_party indentation, so -Werror is not
 # used here (it stays on in the wasm build). CC=clang works too when clang is installed.
 HOST_SRCS  := $(shell find app web third_party/synth -name '*.c' ! -path 'app/board/*' | sort)
+HOST_WARN_OFF := -Wno-unused-function -Wno-array-parameter -Wno-attributes -Wno-misleading-indentation
 HOST_FLAGS := -std=c11 -O1 -g -fwrapv -fno-fast-math -ffp-contract=off -DFM1_HOST_TEST -DFM1_OPEN_WEB \
-              -Wall -Wextra -Wno-unused-function -Wno-array-parameter -Wno-attributes -Wno-misleading-indentation \
+              -Wall -Wextra $(HOST_WARN_OFF) \
               -Iweb/engine -Iweb/synth -Ithird_party/synth -Isdk/include -Iapp/synth -Iapp
+# Task 07: one object per source (build/host/obj/<path>.o) with a depfile each, so an edited header
+# rebuilds exactly the units that include it; the link line and the flags are the v0.3 ones.
+HOST_OBJS  := $(patsubst %.c,build/host/obj/%.o,$(HOST_SRCS) tests/host/smoke.c)
+# make host-sanitize: the same objects under AddressSanitizer and UndefinedBehaviorSanitizer, stopping
+# at the first finding, in their own directory build/host-san/.
+SAN_FLAGS  := -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+HOST_SAN_OBJS := $(patsubst %.c,build/host-san/obj/%.o,$(HOST_SRCS) tests/host/smoke.c)
 
 help:
-	@sed -n '7,53p' Makefile | sed 's/^#   //; s/^#//'
+	@sed -n '7,66p' Makefile | sed 's/^#   //; s/^#//'
 
 verify:
-	$(PYTHON) -I $(BUILD) --verify-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
+	$(T) $(PYTHON) -I $(BUILD) --verify-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
 	@if [ -f "$(JIELI_WIN)/bin/clang.exe" ]; then \
 	    $(PYTHON) -I $(BUILD) --verify-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"; \
 	else echo "Track A toolchain not present at $(JIELI_WIN); Windows toolchain hashes not checked."; fi
@@ -135,72 +187,130 @@ verify:
 firmware: firmware-native
 
 firmware-native:
-	$(NATIVE)
+	$(T) $(NICE) $(NATIVE)
 
+# Task 07: the Wine build and the crosscheck go through the lock (LOCKED); the -run twins hold the
+# work, and crosscheck-run's two builds are its prerequisites, so they are built inside the lock.
 firmware-ref:
-	$(WINE) --build-root build/ref
+	$(LOCKED) firmware-ref-run
 
-crosscheck: firmware-native firmware-ref
+firmware-ref-run:
+	$(T) $(WINE) --build-root build/ref
+
+crosscheck:
+	$(LOCKED) crosscheck-run
+
+crosscheck-run: firmware-native firmware-ref-run
 	@echo "== Track A (Wine, reference) vs Track B (native)"
-	@for f in sdk.elf generated/SMK37_$(shell echo $(MODEL) | tr a-z A-Z)_OPEN.fwsc generated/app-image.bin; do \
-	    a=$$(sha256sum "build/ref/$(MODEL)/$$f" | cut -c1-64); b=$$(sha256sum "build/$(MODEL)/$$f" | cut -c1-64); \
-	    if [ "$$a" = "$$b" ]; then echo "IDENTICAL  $$f  $$a"; else echo "DIFFERS    $$f  A=$$a  B=$$b"; fail=1; fi; \
-	done; [ -z "$$fail" ] || { echo "crosscheck FAILED"; exit 1; }; echo "crosscheck passed"
+	$(T) tools/linux/crosscheck-compare.sh $(MODEL)
 
 web:
-	FM1_WASI_SDK="$(FM1_WASI_SDK)" $(PYTHON) -I tools/linux/build-web.py --local-preview
+	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --local-preview
 	@echo "Open with: google-chrome \"file://$(CURDIR)/build/preview/index.html\""
 
 build/web/simulator.wasm:
 	$(MAKE) web
 
 web-smoke: build/web/simulator.wasm
-	$(NODE) tests/simulator-wasm-smoke.mjs build/web/simulator.wasm
+	$(T) $(NODE) tests/simulator-wasm-smoke.mjs build/web/simulator.wasm
 
-build/host/smoke: tests/host/smoke.c $(HOST_SRCS)
-	@mkdir -p build/host
-	$(CC) $(HOST_FLAGS) $(HOST_SRCS) tests/host/smoke.c -lm -o $@
+# Host test build (Task 07: per object, with depfiles; was one gcc command over every source).
+build/host/obj/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(NICE) $(CC) $(HOST_FLAGS) -MMD -MP -c $< -o $@
+
+build/host/smoke: $(HOST_OBJS)
+	$(NICE) $(CC) $(HOST_FLAGS) $(HOST_OBJS) -lm -o $@
+
+build/host-san/obj/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(NICE) $(CC) $(HOST_FLAGS) $(SAN_FLAGS) -MMD -MP -c $< -o $@
+
+build/host-san/smoke: $(HOST_SAN_OBJS)
+	$(NICE) $(CC) $(HOST_FLAGS) $(SAN_FLAGS) $(HOST_SAN_OBJS) -lm -o $@
+
+-include $(HOST_OBJS:.o=.d) $(HOST_SAN_OBJS:.o=.d)
 
 # Task 05: the timed note module against the shared vectors, C (gcc, the module alone) and JS.
 build/host/timed_note: tests/host/timed_note_test.c app/timed_note.c app/timed_note.h
 	@mkdir -p build/host
-	$(CC) -std=c11 -O1 -g -Wall -Wextra -Iapp app/timed_note.c tests/host/timed_note_test.c -o $@
+	$(NICE) $(CC) -std=c11 -O1 -g -Wall -Wextra -Iapp app/timed_note.c tests/host/timed_note_test.c -o $@
 
-timed-note-test: build/host/timed_note
-	./build/host/timed_note tests/timed-note/vectors.txt
-	$(NODE) tests/timed-note/run.mjs
+build/host-san/timed_note: tests/host/timed_note_test.c app/timed_note.c app/timed_note.h
+	@mkdir -p build/host-san
+	$(NICE) $(CC) -std=c11 -O1 -g -Wall -Wextra $(SAN_FLAGS) -Iapp app/timed_note.c tests/host/timed_note_test.c -o $@
 
-host-smoke: build/host/smoke
-	./build/host/smoke
+timed-note-test:
+	$(T) $(MAKE) --no-print-directory build/host/timed_note
+	$(T) ./build/host/timed_note tests/timed-note/vectors.txt
+	$(T) $(NODE) tests/timed-note/run.mjs
+
+host-smoke:
+	$(T) $(MAKE) --no-print-directory -j$(JOBS) build/host/smoke
+	$(T) ./build/host/smoke
+
+# Task 07: the host tests under the sanitizers, through the lock.
+host-sanitize:
+	$(LOCKED) host-sanitize-run
+
+host-sanitize-run:
+	$(T) $(MAKE) --no-print-directory -j$(JOBS) build/host-san/smoke build/host-san/timed_note
+	$(T) ./build/host-san/smoke
+	$(T) ./build/host-san/timed_note tests/timed-note/vectors.txt
+	@echo "host-sanitize: smoke and timed_note passed under ASan+UBSan"
 
 # Task 03 (f): the workbench's shared song write path (Node, no build needed).
 workbench-test:
-	$(NODE) tests/workbench/song-write.mjs
-	$(NODE) tests/workbench/devices.mjs
-	$(NODE) tests/workbench/transfer-radio.mjs build/web/simulator.wasm
-	$(NODE) tests/workbench/rig-lead.mjs
+	$(T) $(NODE) tests/workbench/song-write.mjs
+	$(T) $(NODE) tests/workbench/devices.mjs
+	$(T) $(NODE) tests/workbench/transfer-radio.mjs build/web/simulator.wasm
+	$(T) $(NODE) tests/workbench/rig-lead.mjs
 
 test: timed-note-test host-smoke web-smoke workbench-test
 	@echo "test: timed-note-test, host-smoke, web-smoke and workbench-test passed"
 
+# Task 07: the tier to run while working (no sanitizers, no lock, about 20 s cold and 3 s warm),
+# and the full run before a flash or a release (through the lock; writes build/suite-passed.txt).
+test-fast: timed-note-test host-smoke web-smoke workbench-test midi-import-test
+	@echo "test-fast: timed-note-test, host-smoke, web-smoke, workbench-test and midi-import-test passed (no sanitizers; the full run is make suite)"
+
+suite:
+	$(LOCKED) suite-run
+
+suite-run: crosscheck-run test midi-import-sim host-sanitize-run
+	@{ echo "suite passed $$(date -u +%FT%TZ) at $$(git rev-parse --short HEAD) (crosscheck, test, midi-import-sim, host-sanitize)"; \
+	   sha256sum build/$(MODEL)/sdk.elf "$(FWSC)" build/$(MODEL)/generated/app-image.bin; } | tee build/suite-passed.txt
+
+# Task 07: the compile check and the lint (tools/linux/lint.sh reads the check's compile database).
+check:
+	$(T) $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --check-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
+
+lint: check
+	$(T) env MODEL=$(MODEL) LINT_JOBS=$(JOBS) LINT_SRCS="$(HOST_SRCS)" \
+	    LINT_CFLAGS="$(filter-out $(HOST_WARN_OFF),$(HOST_FLAGS)) -Wno-attributes" $(NICE) tools/linux/lint.sh $(LINT)
+
+profile:
+	@tools/linux/timed.sh --report
+
 # Task 02 (MIDI import): pure Node, no toolchain. Regenerates the fixture files first.
 midi-import-test:
-	$(NODE) tests/midi-import/make-fixtures.mjs >/dev/null && $(NODE) tests/midi-import/run.mjs
+	$(T) $(NODE) tests/midi-import/make-fixtures.mjs >/dev/null
+	$(T) $(NODE) tests/midi-import/run.mjs
 
 # Task 02 Step 4: the imported Renoise export played through the wasm simulator (make web first).
 midi-import-sim:
-	$(NODE) tests/midi-import/simulator.mjs build/web/simulator.wasm
-	$(NODE) tests/workbench/row-events-sim.mjs build/web/simulator.wasm
-	$(NODE) tests/workbench/launch-sim.mjs build/web/simulator.wasm
+	$(T) $(NODE) tests/midi-import/simulator.mjs build/web/simulator.wasm
+	$(T) $(NODE) tests/workbench/row-events-sim.mjs build/web/simulator.wasm
+	$(T) $(NODE) tests/workbench/launch-sim.mjs build/web/simulator.wasm
 
 flash-budget:
 	@# The analysis symbol map (per-file attribution of LTO-merged code) is built once per
 	@# source state from a -fno-lto compile with the native toolchain; delete it to refresh.
 	@if [ ! -f build/$(MODEL)/nolto.json ]; then \
-	    $(PYTHON) -I tools/linux/flash-budget.py --model $(MODEL) --make-nolto-map build/$(MODEL)/nolto.json \
+	    $(T) $(NICE) $(PYTHON) -I tools/linux/flash-budget.py --model $(MODEL) --make-nolto-map build/$(MODEL)/nolto.json \
 	        --clang "$(JIELI_LINUX)/common/bin/clang" --nm-native "$(JIELI_LINUX)/pi32v2/bin/nm" \
 	        --objdump "$(JIELI_LINUX)/pi32v2/bin/objdump"; fi
-	$(PYTHON) -I tools/linux/flash-budget.py --build-dir build/$(MODEL) --nm "$(JIELI_LINUX)/pi32v2/bin/nm" \
+	$(T) $(PYTHON) -I tools/linux/flash-budget.py --build-dir build/$(MODEL) --nm "$(JIELI_LINUX)/pi32v2/bin/nm" \
 	    --nolto-map build/$(MODEL)/nolto.json --top 40
 
 package-equivalence:
@@ -211,12 +321,12 @@ package-equivalence:
 
 # ---- Task 02: distribution package, static site, GitHub Pages and release ----------------
 package:
-	FM1_WASI_SDK="$(FM1_WASI_SDK)" $(PYTHON) -I $(BUILD) --model $(MODEL) --package --toolchain-kind native \
+	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --package --toolchain-kind native \
 	    --toolchain "$(JIELI_LINUX)" --source-url "$(FM1_SOURCE_URL)"
 	@echo "Distribution: $(PACKAGE_HTML)  (source link: $(FM1_SOURCE_URL))"
 
 hosted:
-	NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --source-url "$(FM1_SOURCE_URL)"
+	$(T) env NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --source-url "$(FM1_SOURCE_URL)"
 
 release-assets:
 	@test -f "$(FWSC)" -a -f "$(PACKAGE_HTML)" || { echo "run 'make package' first"; exit 1; }

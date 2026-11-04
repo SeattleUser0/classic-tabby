@@ -41,10 +41,22 @@ Usage (from the repository root)
     python3 tools/linux/build.py --verify-only [--toolchain-kind ... --toolchain ...]
     FM1_SOURCE_URL=https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip \
         python3 tools/linux/build.py --model pro --package --toolchain-kind native --toolchain ...
+    python3 tools/linux/build.py --model pro --check-only --toolchain-kind native --toolchain ...   (make check, v0.6)
 
-Version: 0.5
+Version: 0.6
 
 Revision log
+    v0.6  2026-11-04  Task 07 (dev checks). --check-only: the same input checks and the same
+                      per-unit compiler options, but every unit goes through the compiler with
+                      -fsyntax-only (parsed and type-checked, no code, no depfile) into
+                      build/check/<model>/, so build/<model>/ keeps its outputs; no identity unit,
+                      no link, no Test-Firmware, no package. Both modes also write the compile
+                      database twice: compile_commands.json as before (the target compiler's real
+                      commands) and compile_commands.host.json with the pi32v2-only flags removed
+                      and a host compiler named, for cppcheck, clang-tidy and clangd; a copy of
+                      the host one goes to build/compile_commands.json (the editors' place) when
+                      the build root is the default. The default build path, its order and its
+                      outputs are unchanged (Step 2 gate: identical sdk.elf, .fwsc, app-image.bin).
     v0.5  2026-11-04  Classic Tabby Task 06 (b): app/song.c, app/song_storage.c and
                       app/timed_note.c compile at -Oz like the other control-task units.
     v0.4  2026-11-04  Classic Tabby Task 06 (a): the device's BLE page is gone, so the SDK's
@@ -621,17 +633,9 @@ def package_firmware(toolchain, build, model, variant, firmware_product, package
 
 
 # ---- Main build (Build.ps1 L262-L465) -------------------------------------------------------
-def build_firmware(args, log):
-    model = args.model
-    profile = model
-    build = Path(args.build_root).resolve() / profile if args.build_root else ROOT / "build" / profile
-    official = ROOT / "build/official-web" / model
-    native_manifest = load_json(args.toolchain_manifest) if args.toolchain_kind == "native" else None
-    toolchain = Toolchain(args.toolchain_kind, args.toolchain, wine=args.wine, wine_prefix=args.wine_prefix,
-                          native_manifest=native_manifest)
-
-    # Invalidate stale successful output before validating build inputs (L262-L281).
-    build.mkdir(parents=True, exist_ok=True)
+def invalidate_outputs(build, official, model):
+    """Build.ps1 L262-L281: remove the previous build's successful outputs before anything is
+    verified or compiled (v0.6: moved out of build_firmware unchanged, so --check-only can skip it)."""
     write_text(build / "firmware-report.json", '{"passed":false}')
     write_text(build / "package-report.json", '{"board_access":false,"fits":false}')
     write_text(build / "web-package-report.json", '{"integrated":false,"board_access":false}')
@@ -646,6 +650,91 @@ def build_firmware(args, log):
     for name in ("SMK37_%s_OPEN.fwsc" % model.upper(), "SMK37_%s_OPEN.fw" % model.upper()):
         if (build / "generated" / name).exists():
             (build / "generated" / name).unlink()
+
+
+# ---- v0.6: the compile database for host tools (make check, make lint) ---------------------
+# Options only the pi32v2 compiler knows or that mean nothing to a syntax pass on the host. The
+# flag after "-target" and after "-mllvm" goes with it. Everything else (-D, -I, -O, -W, -f...) stays.
+TARGET_ONLY_FLAGS = {"-integrated-as", "-mcpu=r3", "-mfprev1", "-fallow-pointer-null", "-fprefer-gnu-section",
+                     "-femulated-tls", "-cl-single-precision-constant", "-flto"}
+# What the host tools need in addition: the SDK's libc headers choose their byte order from the
+# target's predefined macros (sdk/include/libc/machine/ieeefp.h: "#error Endianess not declared"
+# under cppcheck, which predefines nothing), and app/board's interrupt handlers carry the target's
+# __attribute__((interrupt(""))), which the x86 clang rejects; on the host it becomes "unused".
+HOST_EXTRA_FLAGS = ["-D__IEEE_LITTLE_ENDIAN", "-Dinterrupt(x)=unused"]
+
+
+def host_compiler():
+    """A host clang if there is one (clang-tidy wants a clang driver line), else cc."""
+    import glob
+    found = shutil.which("clang")
+    if found:
+        return found
+    candidates = sorted(glob.glob("/usr/lib/llvm-*/bin/clang"), reverse=True)
+    return candidates[0] if candidates else (shutil.which("cc") or "cc")
+
+
+def host_compile_commands(commands):
+    """The build's compile_commands entries with the target-only flags removed and the host
+    compiler named. The source, output, defines, include paths and warning flags are the build's."""
+    cc = host_compiler()
+    out = []
+    for entry in commands:
+        arguments = [cc]
+        skip = False
+        for flag in entry["arguments"][1:]:
+            if skip:
+                skip = False
+                continue
+            if flag in ("-target", "-mllvm"):
+                skip = True
+                continue
+            if flag in TARGET_ONLY_FLAGS:
+                continue
+            arguments.append(flag)
+        out.append({"directory": entry["directory"], "file": entry["file"], "output": entry["output"],
+                    "arguments": arguments + HOST_EXTRA_FLAGS})
+    return out
+
+
+def write_compile_databases(commands, build, args, log):
+    """compile_commands.json (the real commands, as before v0.6) and compile_commands.host.json next
+    to it; the host one also at build/compile_commands.json when the build root is the default."""
+    write_text(build / "compile_commands.json", to_json(commands))
+    host = to_json(host_compile_commands(commands))
+    write_text(build / "compile_commands.host.json", host)
+    if not args.build_root:
+        write_text(ROOT / "build/compile_commands.json", host)
+    log("Compile database: %s (+ .host.json for cppcheck, clang-tidy, clangd)" % (build / "compile_commands.json"))
+
+
+def build_firmware(args, log):
+    model = args.model
+    profile = model
+    check = bool(getattr(args, "check_only", False))
+    # v0.6: --check-only works in build/check/<model>/ (or under --build-root) so that build/<model>/
+    # keeps the last real build's outputs; it only ever writes the compile databases there.
+    if args.build_root:
+        build = Path(args.build_root).resolve() / profile
+    elif check:
+        build = ROOT / "build/check" / profile
+    else:
+        build = ROOT / "build" / profile
+    official = ROOT / "build/official-web" / model
+    native_manifest = load_json(args.toolchain_manifest) if args.toolchain_kind == "native" else None
+    toolchain = Toolchain(args.toolchain_kind, args.toolchain, wine=args.wine, wine_prefix=args.wine_prefix,
+                          native_manifest=native_manifest)
+
+    # Invalidate stale successful output before validating build inputs (L262-L281).
+    # v0.6: not in --check-only mode, which produces no output to invalidate and must leave the
+    # distribution page alone. (Note for sessions: a real build rewrites build/official-web/<model>/
+    # SMK37-Open-Source.html with a placeholder, as Build.ps1 does, so `make firmware` after
+    # `make package` invalidates the page until the next `make package`; docs/DEV_CHECKS.md.)
+    build.mkdir(parents=True, exist_ok=True)
+    if check:
+        log("Check only: %s" % build)
+    else:
+        invalidate_outputs(build, official, model)
     if args.package:
         validate_source_url(args.source_url)   # L282-L288: fail before compiling anything
 
@@ -686,17 +775,18 @@ def build_firmware(args, log):
         "pluck_active", "sampledrum_active", "synth_dx7_limit", "psg_limit", "pluck_limit", "sampledrum_limit",
         "bass303_advance_idle", "fm1_send128", "fm1_fx_render", "fm1_fx_clear", "fm1_fx_active", "sampledrum_render",
         "sampledrum_trigger", "sampledrum_panic", "psg_active_chips"]
-    (build / "obj").mkdir(parents=True, exist_ok=True)
-    (build / "generated").mkdir(parents=True, exist_ok=True)
-    # All application units are rebuilt. Remove objects for deleted/renamed sources (L363-L365;
-    # the StartsWith($root + '\build\') guard is the third Windows-only path check).
-    object_directory = (build / "obj").resolve()
-    allowed_parent = (Path(args.build_root).resolve() if args.build_root else ROOT / "build")
-    if not str(object_directory).startswith(str(allowed_parent) + os.sep):
-        raise BuildError("Invalid object directory.")
-    for path in object_directory.iterdir():
-        if path.is_file():
-            path.unlink()
+    if not check:   # v0.6: a check writes no objects, so it makes and clears no object directory
+        (build / "obj").mkdir(parents=True, exist_ok=True)
+        (build / "generated").mkdir(parents=True, exist_ok=True)
+        # All application units are rebuilt. Remove objects for deleted/renamed sources (L363-L365;
+        # the StartsWith($root + '\build\') guard is the third Windows-only path check).
+        object_directory = (build / "obj").resolve()
+        allowed_parent = (Path(args.build_root).resolve() if args.build_root else ROOT / "build")
+        if not str(object_directory).startswith(str(allowed_parent) + os.sep):
+            raise BuildError("Invalid object directory.")
+        for path in object_directory.iterdir():
+            if path.is_file():
+                path.unlink()
     flags = ["-target", "pi32v2", "-integrated-as", "-mcpu=r3", "-mfprev1", "-Wuninitialized",
              "-Wno-invalid-noreturn", "-fno-common", "-flto", "-fallow-pointer-null", "-fprefer-gnu-section",
              "-femulated-tls", "-Wno-shift-negative-value", "-Wframe-larger-than=2560", "-fms-extensions",
@@ -730,11 +820,23 @@ def build_firmware(args, log):
                       "app/song.c", "app/song_storage.c", "app/timed_note.c"):
             options.append("-Oz")
         arguments = options + ["-MMD", "-MF", output + ".d", "-c", input_file, "-o", output]
-        log("Compile " + source)
-        toolchain.run("clang", arguments, cwd=build)
+        if check:
+            # v0.6: the same options, the unit parsed and type-checked only (no object, no depfile, no IR).
+            log("Check " + source)
+            toolchain.run("clang", options + ["-fsyntax-only", input_file], cwd=build)
+        else:
+            log("Compile " + source)
+            toolchain.run("clang", arguments, cwd=build)
         objects.append(output)
         commands.append({"directory": str(build), "file": input_file, "output": str(build / output),
                          "arguments": [toolchain.path("clang")] + arguments})
+    if check:
+        # v0.6: the databases record the real build commands (not the -fsyntax-only ones), so the
+        # host tools see what the build sees. Nothing else is written.
+        write_compile_databases(commands, build, args, log)
+        log("Check passed: %d units through %s -fsyntax-only (no identity unit, no link, no package)"
+            % (len(sources), Path(toolchain.path("clang")).name))
+        return {"checked": len(sources)}
     # The device reports this source/SDK build identity after a browser update.
     # It is distinct from the final package SHA-256 (which covers every byte). (L398-L416)
     identity_inputs = [profile, sha256_file(SDK / "manifest.json")]
@@ -775,7 +877,7 @@ def build_firmware(args, log):
         sdk_rel + "/sdk/lib/libc.a", sdk_rel + "/sdk/lib/libcompiler_rt.a",
         "--end-group", "--gc-sections", "-Tgenerated/linker", "-M=sdk.map", "--undefined=connectivity_wl82_bluetooth_start",
         "--undefined=audio_app_bluetooth_open", "--undefined=bt_get_local_name", "--undefined=bt_get_mac_addr"]
-    write_text(build / "compile_commands.json", to_json(commands))
+    write_compile_databases(commands, build, args, log)   # v0.6: was write_text(compile_commands.json) alone
     write_text(build / "link-arguments.json", to_json(link))
     log("Link %s using prebuilt SMK37 SDK" % profile)
     toolchain.run("ld", link, cwd=build)
@@ -864,9 +966,13 @@ def main(argv=None):
     parser.add_argument("--build-root", help="directory that will contain <model>/ (default: <repo>/build)")
     parser.add_argument("--source-root", help="build this source tree instead of the repository containing this script (v0.2)")
     parser.add_argument("--verify-only", action="store_true", help="run the input checks and exit")
+    parser.add_argument("--check-only", action="store_true",
+                        help="v0.4 (make check): every unit through the compiler with -fsyntax-only into build/check/<model>/; no link, no package")
     args = parser.parse_args(argv)
     if args.firmware_only and args.package:
         parser.error("Choose --firmware-only for local hardware tests or --package for distribution, not both.")
+    if args.check_only and (args.firmware_only or args.package):
+        parser.error("--check-only compiles nothing to completion; do not combine it with --firmware-only or --package.")
     if not args.toolchain:
         parser.error("--toolchain (or FM1_PI32_TOOLCHAIN) is required.")
 
