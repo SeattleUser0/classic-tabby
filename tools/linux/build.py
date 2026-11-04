@@ -42,9 +42,14 @@ Usage (from the repository root)
     FM1_SOURCE_URL=https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip \
         python3 tools/linux/build.py --model pro --package --toolchain-kind native --toolchain ...
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-04  Classic Tabby Task 06 (a): the device's BLE page is gone, so the SDK's
+                      BLE client wrappers (fm1_ble_scan / connect / disconnect / get_device)
+                      and fm1_bluetooth_get_status are unreferenced and dropped by the
+                      linker; they left the required-symbol list. The discovery
+                      implementation check (sdp / gatt client) is unchanged.
     v0.3  2026-11-02  --package ported (Build.ps1 -Package, L282-L288 and L439-L463, Task 02):
                       the .fwsc is packaged, the pinned stock V16 restore image is embedded
                       next to it in build/<model>/web-package.json (same key order as the
@@ -397,11 +402,14 @@ def test_firmware(toolchain, build, variant, synth, extra, log):
                 "sdfile_vfs_ops", "sdfile_init", "syscfg_vm_init", "syscfg_btif_init",
                 "wifi_get_xosc", "wifi_get_mcs_dgain", "wifi_get_pa_trim_data",
                 "connectivity_wl82_bluetooth_start", "ble_profile_init", "att_server_init",
-                "fm1_ble_set_role", "fm1_ble_scan", "fm1_ble_connect", "fm1_ble_disconnect", "fm1_ble_get_status", "fm1_ble_get_device",
+                # Classic Tabby Task 06 (a): the BLE page is gone, so the SDK's BLE client wrappers
+                # (fm1_ble_scan / connect / disconnect / get_device) are unreferenced and dropped by
+                # the linker; the real discovery implementation below is still required.
+                "fm1_ble_set_role", "fm1_ble_get_status",
                 "audio_app_usb_microphone_enable", "audio_app_usb_speaker_enable",
                 "connectivity_audio_usb_microphone_enable", "connectivity_audio_usb_speaker_enable",
                 "audio_app_bluetooth_open", "sbc_decoder", "sbc_hwaccel", "avdtp_packet_handler", "bt_get_local_name", "bt_get_mac_addr",
-                "fm1_bluetooth_configure", "fm1_bluetooth_get_status",
+                "fm1_bluetooth_configure",   # fm1_bluetooth_get_status went with the BLE page (Task 06 a)
                 "groove_tuning_capture", "groove_tuning_apply", "groove_project_apply_edit"]
     for name in required:
         if name not in info:

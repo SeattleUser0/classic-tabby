@@ -114,8 +114,19 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
          * sample bank (limit 0); bit 2 of out[8] announces song storage (checkpoint d),
          * bit 3 the batched block upload, transfer kind 7 (checkpoint e). */
         out[0]=1; out[1]=128; out[2]=0; out[3]=0;
-        put32(out+4,0); out[8]=31; /* session roles, extended delay, song storage, batches, timed notes (Task 05, bit 4) */
+        put32(out+4,0); out[8]=63; /* session roles, extended delay, song storage, batches, timed notes (Task 05, bit 4), Bluetooth settings (Task 06, bit 5) */
         *count=9; return 0;
+    }
+    if (cmd == 24) {
+        /* Task 06 (a): the Bluetooth settings that the device's BLE page used to edit.
+         * n = 0 reads {flags, role}: flags bit 0 radio on, bit 1 Bluetooth audio, bit 2 MIDI
+         * (always set), role 0 = DEVICE (peripheral), 1 = HOST (central). n = 2 writes them
+         * (applied and saved by app/project.c as the page did). n = 1 with data[0] = 0x7f
+         * forgets the BLE MIDI pairs. The clock source stays on SEQ page 5/7. */
+        if (!n) { out[0] = (uint8_t)groove_settings_radio_flags(); out[1] = (uint8_t)groove_settings_role_value(); *count = 2; return 0; }
+        if (n == 2) return groove_settings_radio(data[0], data[1]) ? GROOVE_PROJECT_INVALID : 0;
+        if (n == 1 && data[0] == 0x7f) { int fr = fm1_ble_forget_bonds(); return fr ? fr : 0; }
+        return GROOVE_PROJECT_INVALID;
     }
     if (cmd == 23 && !n) {
         /* Song storage status (Task 03 d): free bytes, reclaimable bytes, state. */

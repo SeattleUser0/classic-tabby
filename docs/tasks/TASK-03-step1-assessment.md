@@ -1,7 +1,9 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.7.1
+Version: 0.7.2
 Revision log:
+- v0.7.2, 2026-11-04 (Task 06 checkpoint a): 9.9 gains transfer command 24 (Bluetooth
+  settings) and capability bit 5. No layout change.
 - v0.7.1, 2026-11-04 (Task 05 checkpoints b and c): implementation note at the end of 9.12
   (measured flash and RAM, the device-side decisions taken while coding). No format change.
 - v0.7, 2026-11-03 (Task 05, approved Step 1): **timed notes**: block payload format v2
@@ -680,6 +682,10 @@ region. Projects, settings, staging (sector 16) and tuning are never touched. Ba
   (9.6). Expected cost per batch: N + 2 sector erases for N sectors, against 3 per block.
 - Command 23 (new): song storage status: out[0..3] = free bytes, out[4..7] = reclaimable
   bytes, out[8] = compaction/migration state (0 ready, 1 busy, 2 old data present).
+- Command 24 (v0.7.2, Task 06 a): Bluetooth settings, formerly the device's BLE page. No
+  data: reply {flags, role} (flags bit 0 radio on, bit 1 Bluetooth audio, bit 2 MIDI always
+  set; role 0 DEVICE, 1 HOST). Two data bytes {flags, role}: write them (applied and saved).
+  One data byte 0x7f: forget the BLE MIDI pairs. Capability: command 22 reply byte 8 bit 5.
 - Song file (`.tabby`, produced by the importer and by the workbench "export song"): the
   4096-byte song record image (9.5 v0.4 layout, with generation 0, target 0, commit 0, crc
   valid over 20..2623), followed by block records exactly as in 9.4 (6-byte header with a

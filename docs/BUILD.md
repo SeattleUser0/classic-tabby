@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.18
+Version: 0.19
 Revision log:
+- v0.19, 2026-11-04 (Task 06 checkpoint a): section 19: BLE and NAME pages removed, Bluetooth
+  settings through the workbench (command 24), build.py v0.4, measured figures; the two
+  deferred items in the left-to-build list.
 - v0.18, 2026-11-04 (Task 05): section 18: timed notes (module, firmware, workbench,
   importer), measured figures, the timing results, the test suites, the hardware checklist;
   section 14.2 superseded by 18.4; `make timed-note-test` in `make test`.
@@ -133,7 +136,11 @@ are never written.
   "PowerShell without the apt repo" below. The Python packager is validated meanwhile by
   reproducing the official package byte for byte (Step 4), which exercises every code path
   of Package.cs on the real image.
-- (nothing; Steps 1-7 complete)
+- (nothing of the original port; Steps 1-7 complete)
+- Deferred from Task 06 (2026-11-04): following external MIDI clock in song mode (song mode
+  runs from the internal clock only, decision 4 of Task 03); CC automation inside a row
+  (importing Renoise automation that does not fall at a row start; row events fire at row
+  entry only).
 
 ### Left to test
 
@@ -1539,3 +1546,63 @@ tabby-song/1 JSON and format-0 `.tabby` records load upgraded; the swing flag ro
 7. **Timing band.** Repeat 13.4 step 12 (song mode against the stock sequencer with a
    timestamped monitor): the device's control-loop band is the number the simulator cannot
    give; record it in this section.
+
+## 19. Task 06 — Independent track launching (2026-11-04)
+
+Task text: docs/tasks/TASK-06-track-launching.md; assessment (approved):
+docs/tasks/TASK-06-step1-assessment.md; spec: SPEC.md section 10.
+
+### 19.1 Checkpoint (a): BLE and NAME pages removed, Bluetooth settings in the workbench
+
+What changed:
+
+- **app/screen.c**: `draw_ble`, `radio_line`, `ble_control`, `name_draw`, the BLE state
+  (device list, view, action, forget, stage timer) and the NAME control branch are gone;
+  HOME+GLO, EDIT+REC, ACTIONS "DX7 PATCH NAME" / "BLUETOOTH / CLOCK" and the BT button no
+  longer open a page (the BT button announces "BLUETOOTH: SET IN WORKBENCH"; the ACTIONS
+  entries after them moved up two: 17 STOP ALL, 18 ERASE, 19 SONG MODE, 20 COMPACT, 21 SEND
+  SETUP). `groove_screen_open` rejects pages 7 and 9 like the pages removed in Task 03 (b);
+  page numbers do not shift. The BLE link-loss watch (`ble_was_linked` → `retry_reset`) and
+  the clock source on SEQ page 5/7 stay. `edit_character` stays for project names.
+- **app/transfer.c**: command 24: n = 0 reads {flags, role} (flags bit 0 radio on, bit 1
+  Bluetooth audio, bit 2 MIDI always set; role 0 DEVICE, 1 HOST), n = 2 writes them through
+  `groove_settings_radio` (applied and saved as the page did), n = 1 with 0x7f forgets the
+  BLE MIDI pairs (`fm1_ble_forget_bonds`; the simulator answers "not ready"). Command 22
+  reply byte 8 = 63 (bit 5).
+- **tools/linux/build.py v0.4**: `fm1_ble_scan / connect / disconnect / get_device` and
+  `fm1_bluetooth_get_status` left the required-symbol list: nothing references them now and
+  the linker drops them (that is part of the saving). The sdp / gatt discovery check stays.
+- **Workbench**: sdk/WebUpdate.js `radioRead / radioWrite / radioForget` (command 24) and
+  `radioSettings` (capability bit 5); the capability mask `~15` → `~63` (**Task 05 bug**: a
+  device replying 31 was refused at connect with "设备扩展能力回复无效"; the simulator path
+  never hit it). sdk/Update.html.in: "蓝牙设置" group in the Library tab (hidden when the
+  device lacks bit 5), read on every library refresh, written on every change, "清除 MIDI
+  配对" with a confirm; the simulator shortcuts "DX7 音色改名" (page 9) and "连接设置预览"
+  (page 7) removed; manual chapters 02, 03, 04 and 08 updated. sdk/I18n.js: strings
+  replaced and added. sdk/manifest.json re-pinned.
+
+Measured (Track B, crosscheck IDENTICAL, FLASH-BUDGET.md section 12):
+
+| Quantity | After Task 05 | After (a) | Change |
+| --- | ---: | ---: | ---: |
+| App image | 451364 | **447140** | **−4224** |
+| Margin to the 453921-byte limit | 2557 | **6781** | +4224 |
+| screen.c | 34570 | 30896 | −3674 (functions −2070, string pool −772, controls and dispatch −832) |
+| libfm1_engine.a | 364647 | 364060 | −587 (BLE client wrappers and Bluetooth status dropped) |
+| transfer.c | 3164 | 3252 | +88 (command 24) |
+| project.c | 5844 | 5794 | −50 (inlined callers gone) |
+| Static SRAM | 319252 | 318932 | −320 |
+
+The assessment estimated ≈ 2850 for the two pages; the library's unreferenced wrappers
+and the shorter string pool made it 4224. The Task 06 code (estimate +3100) now fits with
+≈ 3.7 KB to spare; EFFECTS stays the reserve.
+
+Checks: host smoke 193, web smoke, workbench tests, importer suite 167, simulator check,
+headless Chrome preview (no console errors; the Bluetooth group is in the DOM, the two page
+buttons are not).
+
+Hardware checklist additions (for the Step 4 list): with the library connected, open
+"Bluetooth settings", switch Bluetooth off, reconnect the library and confirm the box
+reads off after a power cycle; switch it back on; press the BT button on the device and
+read the notice.
+

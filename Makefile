@@ -173,6 +173,7 @@ host-smoke: build/host/smoke
 workbench-test:
 	$(NODE) tests/workbench/song-write.mjs
 	$(NODE) tests/workbench/devices.mjs
+	$(NODE) tests/workbench/transfer-radio.mjs build/web/simulator.wasm
 
 test: timed-note-test host-smoke web-smoke workbench-test
 	@echo "test: timed-note-test, host-smoke, web-smoke and workbench-test passed"

@@ -191,7 +191,7 @@ main{max-width:1440px}
 <div class="sim-selectors"><label>当前轨道<select id="sim-track" data-sim disabled aria-label="仿真轨道"></select></label><label>音源类型<select id="sim-source" data-sim disabled aria-label="仿真音源类型"></select></label></div>
 
 <div class="edit-shortcuts"><button data-sim data-sim-page="15" disabled>当前轨音色</button><button data-sim data-sim-page="1" disabled>步进编曲</button><button data-sim data-sim-page="6" disabled>混音</button><button data-sim data-sim-page="10" disabled>轨道效果</button></div>
-<details class="editor-more"><summary>更多编辑</summary><div class="edit-shortcuts"><button data-sim data-sim-page="0" disabled>总览</button><button data-sim data-sim-page="17" disabled>琶音参数</button><button data-sim data-sim-page="13" disabled>步进细节</button><button data-sim data-sim-page="14" disabled>节奏与录入</button><button data-sim data-sim-page="12" disabled>复制与更多</button><button data-sim data-sim-page="9" disabled>DX7 音色改名</button><button data-sim data-sim-page="7" disabled>连接设置预览</button><button data-sim data-sim-page="16" disabled>用户项目列表</button><button data-sim data-sim-page="19" disabled>歌曲模式</button></div><p id="sim-context" class="sim-help">面板 PRESETS 旋钮：换整套预设。</p></details>
+<details class="editor-more"><summary>更多编辑</summary><div class="edit-shortcuts"><button data-sim data-sim-page="0" disabled>总览</button><button data-sim data-sim-page="17" disabled>琶音参数</button><button data-sim data-sim-page="13" disabled>步进细节</button><button data-sim data-sim-page="14" disabled>节奏与录入</button><button data-sim data-sim-page="12" disabled>复制与更多</button><button data-sim data-sim-page="16" disabled>用户项目列表</button><button data-sim data-sim-page="19" disabled>歌曲模式</button></div><p id="sim-context" class="sim-help">面板 PRESETS 旋钮：换整套预设。</p></details>
 </aside>
 <div class="performance-stage">
 <div class="sim-toolbar"><button id="sim-start" class="primary" disabled>静音</button><button id="sim-tap-tempo" data-sim disabled title="连按设置 BPM">TAP</button><button id="sim-panic" data-sim disabled>紧急停音</button><div class="sim-health" role="status"><span id="sim-engine-state">正在载入</span><span id="sim-audio-state" hidden>静音编辑</span></div><label class="output-level">输出电平 <meter id="sim-output-meter" min="0" max="100" value="0" aria-label="音频输出电平"></meter></label><label>试听音量 <input id="sim-volume" type="range" min="0" max="100" value="35" aria-label="试听音量"></label></div>
@@ -241,6 +241,11 @@ main{max-width:1440px}
 <p>管理设备项目、音色和采样。备份文件保存在这台电脑。</p>
 <button id="library-connect" disabled>连接项目库</button><button id="library-refresh" data-library disabled>刷新列表</button>
 <p id="library-status" class="library-message" role="status" aria-live="polite">等待连接支持项目库的固件。</p>
+<details class="library-group" id="radio-group" hidden><summary>蓝牙设置</summary>
+<p class="sim-help">机身蓝牙页已移除；这里的改动立即写入设备并保存。时钟来源仍在机身 SEQ 的 SYNC / LOOP 页。</p>
+<div class="field-row"><label><input id="radio-on" type="checkbox" data-library disabled> 蓝牙开启</label><label><input id="radio-audio" type="checkbox" data-library disabled> 蓝牙音频</label></div>
+<div class="field-row"><label>BLE MIDI 角色 <select id="radio-role" data-library disabled><option value="0">DEVICE</option><option value="1">HOST</option></select></label><label>&nbsp;<button id="radio-forget" data-library disabled>清除 MIDI 配对</button></label></div>
+<p id="radio-message" class="library-message" role="status" aria-live="polite"></p></details>
 <details class="library-group" open><summary>设备项目</summary>
 <div class="field-row"><label>设备项目槽 <select id="project-slot" data-library disabled></select></label>
 <label>当前项目名称（最多 12 个英文字母、数字或符号）<input id="project-name" type="text" maxlength="12" placeholder="UNTITLED" data-library disabled></label></div>
@@ -332,7 +337,7 @@ main{max-width:1440px}
 <tr><td>ENV / SHIFT + ENV / FX / SCL</td><td>ENV 打开当前音源包络；SHIFT + ENV 打开当前轨调制；FX 按轨调混响和延迟，SCL 进入缩放细调。</td></tr>
 <tr><td>ARP</td><td>短按开关当前轨琶音／鼓连奏；长按约 0.6 秒打开参数页。SELECT 选轨，PAGE 翻页：分频／方向／音域／门长，Swing／Hold。</td></tr>
 </tbody></table></div>
-<p>37 个力度琴键始终用于演奏。短按 PAD / STEP 切换 KEY／PAD 编辑焦点；SHIFT + PAD / STEP 切换步进编辑；菜单中打击垫用于选择。8 个编码器依次为 K1–K4、SELECT、PAGE、PRESET、MASTER。4 个推子控制轨道音量，FADER BANK 在 1–4／5–8 轨之间切换，推子经过屏幕当前值后才接管。BT 直达蓝牙，SHIFT + HOME / SRC 直达音源页。弯音轮、调制轮和延音踏板跟随 KEY；Pad 触后跟随 PAD。</p>
+<p>37 个力度琴键始终用于演奏。短按 PAD / STEP 切换 KEY／PAD 编辑焦点；SHIFT + PAD / STEP 切换步进编辑；菜单中打击垫用于选择。8 个编码器依次为 K1–K4、SELECT、PAGE、PRESET、MASTER。4 个推子控制轨道音量，FADER BANK 在 1–4／5–8 轨之间切换，推子经过屏幕当前值后才接管。BT 键提示蓝牙设置已移至网页工作台，SHIFT + HOME / SRC 直达音源页。弯音轮、调制轮和延音踏板跟随 KEY；Pad 触后跟随 PAD。</p>
 <p>总览转 K3（STEP）选择当前轨的步位置，录入时可移动写入位置。短按 REC 开关录音。</p>
 <p>同一轨的静音与独奏互斥：开启独奏会取消该轨静音，开启静音会取消该轨独奏；其他轨保持原状态。</p>
 <h4>网页操作</h4><p>选择预设后点“播放”试听。“读取与保存”管理设备读取和浏览器存档，“文件与 MIDI”导入、导出项目和音色。</p><p>常用编辑按钮直接打开音色、步进、混音和效果；其余功能在“更多编辑”。旋钮可拖动或滚轮调节，LCD 数值可点击编辑。电脑键盘 Z、S、X、D…演奏，空格播放，Esc 停音；输入文字和操作菜单时不会演奏。</p>
@@ -343,7 +348,7 @@ main{max-width:1440px}
 <article id="manual-sequence" class="manual-chapter" tabindex="-1"><h3>03 · 步进与录入</h3>
 <p>内置 128 个 DX7 格式预置音色，分为 A–D 四组，每组 32 个。支持标准 DX7 单音色与 32 音色 SysEx，不支持扩展参数。已有用户音色库优先保留。</p><h4>16 个打击垫，一页 16 步</h4><p>SEQ 基础页打击垫开关当前页的步；K3 选音高或鼓声部。PRESETS 在各参数页统一选步，SELECT 选轨，OCT−／OCT+ 每次换 16 步。PAGE 翻底部七页：BASIC、STEP DETAILS、RHYTHM/REC、LOCKS、SYNC / LOOP、MIDI TRACK、MIDI OUTPUT。RHYTHM/REC 的 K4 选本轨 16／32／48／64 步，各轨独立循环。</p><p>播放中修改长度会显示 <strong>NEXT</strong>，到本轨下一轮起点生效。缩短不会删除后面的音符，再加长即可恢复。屏幕 <strong>FOLLOW</strong> 表示跟随播放翻页；手动编辑后显示 <strong>EDIT</strong> 并固定页面，再按 SEQ 返回基础页并恢复跟随。</p>
 <p>SEQ 基础页：旋律轨 K2 选步，K3 改已有音符；空步只设待输入音高，按打击垫写入。鼓轨 K3 选声部，不移动鼓点。K1 调轨道音量，K4 调速度；外部 MIDI 时钟下速度由外部设备控制。</p>
-<p>SEQ 的 SYNC / LOOP 页：K1 选 INT／MIDI，K2 调内部 BPM，K3 调循环长度。切换时钟会停止播放；MIDI 模式需外部 Start／Continue 和 Clock，等待时屏幕提示 WAIT MIDI CLOCK。外部 BPM 只读，蓝牙页的时钟设置仍可使用。</p>
+<p>SEQ 的 SYNC / LOOP 页：K1 选 INT／MIDI，K2 调内部 BPM，K3 调循环长度。切换时钟会停止播放；MIDI 模式需外部 Start／Continue 和 Clock，等待时屏幕提示 WAIT MIDI CLOCK。外部 BPM 只读。</p>
 <p>首次使用时，8 个轨道的 SEQ 默认 BOTH，KEY OUT 默认 ON，同时启用 ALL 和 SEQ OUT ON；已保存的输出模式与 KEY OUT 选择会保留。SEQ 6/7 MIDI TRACK：K1 IN CH 输入通道，K2 OUT CH 发送通道，K3 SEQ 选 LOCAL／BOTH／MIDI，K4 OUT PORT 选 ALL／OFF。SEQ 7/7 MIDI OUTPUT：K1 SEQ OUT 选 OFF（关闭音序音符和主时钟）／ON（音序音符及内部时钟／启停）／CLOCK（仅内部时钟／启停），K2 开关 KEY OUT。SEQ 模式与 SEQ OUT 不影响 ARP；ARP 固定 BOTH（内部发声＋MIDI 输出），按该轨 OUT CH 和公共 OUT PORT 发送。切换 SEQ 设置不打断 ARP，开关 ARP 也不释放 SEQ 音符。ARP 第二页仅保留 SWING、HOLD 和 OUT CH，K3 无功能。只发时钟时，请关闭 KEY OUT 和各轨 ARP。SYNC 页 K4 选时钟来源。USB-C 分轨输出时逐轨设置 OUT CH，启用 BOTH 或 MIDI、ALL 及 SEQ OUT ON；只改 IN CH 不会改变输出通道。升级后本地演奏始终可用，Thru 关闭；旧端口组合只要有输出就转为 ALL，OFF 保留。偏好独立于项目；网页仅预览，实机请通过机身设置。</p><p>录入标记：停止时按 REC 显示 STEP，弹琴逐步写入；播放时显示 REC，按时间录入；启用预备拍后显示 CNT 4→1，下一小节才开始记录。绿色短线表示播放步，白色框表示编辑步；PRESETS 手动选步会结束录入，再按 REC 继续。</p>
 <h4>琶音：速度、方向、Swing 与 Hold</h4><p>短按 ARP 开启后按住音符；长按 ARP 打开参数。PAGE 翻两页：第一页 K1 为 1/4、1/8、1/16、1/32 分频，K2 方向，K3 为 1–4 个八度，K4 为 25%–100% 门长；第二页 K1 为 0%–50% Swing，K2 开关 Hold。Hold 保持松手后的和弦，全部松手后弹新和弦即可替换；关闭 Hold、停止或紧急停音会释放锁住的音符。SELECT 选轨，各轨参数独立。HOME／SEQ 基础页 K4 调 BPM；外部时钟需 Start／Continue 和 Clock，Swing 按 24 PPQN 的精度变化。</p><p>808／SAMPLER 支持分频、方向、Swing 和 Hold；音域与门长显示“--”，不移调鼓声部。ARP 开关与六项参数随项目保存，按住或 Hold 锁住的音符不保存。</p>
 <h4>两种录入方式</h4><p>以下录入仅适用于 PROJECT 轨；LIVE 轨用于现场演奏，不参与录入。</p><ul><li><strong>停止时按 REC：</strong>旋律音符、DRUM 808 和 SAMPLER 都在全部按键松开后前进一步；重叠按下的声音录入同一步。</li><li><strong>播放时按 REC：</strong>面板或 MIDI 演奏按最近的十六分音符量化写入，并保留力度。再次按 REC 结束录入。</li></ul>
@@ -360,7 +365,7 @@ main{max-width:1440px}
 <tr><td>SAMPLER · 采样</td><td>前 8 个打击垫选择并试听 8 槽采样，PRESETS 也可选择。第一页 Level／Tune／Length／Choke；长按 EDIT 后 SELECT 翻到第二页 Variation／Vel LPF。Choke 同组新击打会停止旧声，适合开闭镲。</td></tr>
 </tbody></table></div>
 <h4>各音源包络与 LFO</h4><p>ENV 在所有引擎上可用，显示该音源实际支持的参数。SELECT 选轨；鼓与采样按琴键或打击垫播放并选中对应声部，也可用 PRESETS 选择。未映射的琴键不会改变选择。重新触发音符试听包络变化，空白旋钮表示该音源没有对应参数。</p><p>FM：K1 Attack、K2 Decay、K3 Sustain、K4 Release，调整即启用。303：K1 EnvMod、K2 Decay、K3 AccDec、K4 Cutoff；力度 100 及以上使用重音衰减 AccDec。PSG：K1 Release。Pluck：K1 Decay、K2 Release、K3 Bright。Sampler：K1 Length、K2 Choke。808：K1 Decay、K2 Attack、K3 Tone、K4 Tune，只显示所选鼓声部支持的项目。</p><p>非 FM 引擎按 LFO：K1 速度 0.05–20 Hz，K2 深度 0–100%，K3 音量起伏／左右声像，K4 三角波／方波／上升锯齿／下降锯齿。深度 0 即关闭；参数随项目、轨道音色及用户槽保存。SELECT 选轨，再按 LFO 返回。</p><p>LFO 作用于整个轨道，包括全部鼓／采样声部，也影响轨道效果发送。当前非 FM LFO 不提供音高或滤波目标。FM 保留原有音高／振幅 LFO 和两页参数。效果使用 FX。</p>
-<h4>FM 包络、调制与命名</h4><p>EDIT 的 OP RATES／OP LEVELS 显示同一条包络：RATE 越大，对应阶段越短；LEVEL 改变折点高度。L3 保持到松键，随后按 R4 到达 L4。六个算子和 PITCH 包络均会随参数更新。图形为便于编辑的示意，不是毫秒刻度；实际时长还取决于音符、缩放与电平。</p><p>FM ENV 的 A、D、S、R 都会实时改变曲线；横向按实际包络时间比例绘制，保持段只作示意，持续到松键。ADSR 关闭时曲线变灰并标为预览，实际声音使用各算子的 DX7 包络。</p><p>ENV 打开总 ADSR 页，K1–K4 为 Attack／Decay／Sustain／Release；转动任一参数会自动启用，重新弹键试听。只浏览页面保留原音色；需要回到原 DX7 包络时，PRESETS 向左关闭覆盖层，向右重新启用。LFO 用 SELECT 翻两页，SCL 进入当前算子的键盘缩放。长按 SEQ，选择 DX7 PATCH NAME 并按 SAVE，编辑 10 字符音色名，SELECT 选字符，K1 改字符，保存项目后保留。</p><p>多数调音和包络参数需重新触发音符试听。切换 DX7 内置音色会替换编辑、打开全部算子并关闭总 ADSR。</p>
+<h4>FM 包络、调制与命名</h4><p>EDIT 的 OP RATES／OP LEVELS 显示同一条包络：RATE 越大，对应阶段越短；LEVEL 改变折点高度。L3 保持到松键，随后按 R4 到达 L4。六个算子和 PITCH 包络均会随参数更新。图形为便于编辑的示意，不是毫秒刻度；实际时长还取决于音符、缩放与电平。</p><p>FM ENV 的 A、D、S、R 都会实时改变曲线；横向按实际包络时间比例绘制，保持段只作示意，持续到松键。ADSR 关闭时曲线变灰并标为预览，实际声音使用各算子的 DX7 包络。</p><p>ENV 打开总 ADSR 页，K1–K4 为 Attack／Decay／Sustain／Release；转动任一参数会自动启用，重新弹键试听。只浏览页面保留原音色；需要回到原 DX7 包络时，PRESETS 向左关闭覆盖层，向右重新启用。LFO 用 SELECT 翻两页，SCL 进入当前算子的键盘缩放。机身的 DX7 PATCH NAME 页已随 Classic Tabby Task 06 移除；音色名随网页工作台导入的 .syx 音色一起写入，并随项目保存。</p><p>多数调音和包络参数需重新触发音符试听。切换 DX7 内置音色会替换编辑、打开全部算子并关闭总 ADSR。</p>
 <h4>轨道效果</h4><p>按 FX，SELECT 选轨；K1 混响发送、K2 延迟发送，0 即关闭该轨发送，六种音源均可用。K3 轨道音量、K4 共用效果返回量。转 PRESETS 到第二页细调：K1 混响时间、K2 延迟时间、K3 反馈、K4 返回量，由所有轨道共用。808 在 EDIT 中仍可设置每个鼓声部的额外发送量。轨道发送量随项目和轨道音色保存；共用效果参数仅随项目保存。静音停止新发送，已有尾音自然衰减。</p>
 </article>
 <article id="manual-mix" class="manual-chapter" tabindex="-1"><h3>05 · 音量与混音</h3>
@@ -378,7 +383,7 @@ main{max-width:1440px}
 <p>项目库列表读取失败时，载入、保存和导入按钮保持禁用；点击“刷新列表”重试。只有完整读取成功后才开放操作，重试会保留有效的选中槽位。</p></article>
 <article id="manual-connect" class="manual-chapter" tabindex="-1"><h3>08 · MIDI、蓝牙与时钟</h3>
 <h4>USB 与网页连接</h4><p>下载完整 HTML 后可离线试听和编辑；读写设备需要支持 Web MIDI 的电脑 Chrome／Edge 和 USB 数据线，并允许 MIDI／SysEx。不能连接时先关闭占用 MIDI 的其他网页或软件，再重新连接。外部演奏请选择与目标轨相同的输入通道；SHIFT + SEQ 后用 K2 查看或修改。</p><p>仿真页的“连接 MIDI 输入”用于外部键盘演奏网页。项目库连接用于读写实机项目和音色。USB 音频的输入／输出选择在电脑系统或音乐软件中设置。</p>
-<p>USB MIDI 开机即接收；蓝牙 MIDI 由 BT 页控制，两者使用相同的轨道输入通道设置。当前 Pro／Elite 没有有线 MIDI IN，机身 MIDI OUT 用于输出。</p>
+<p>USB MIDI 开机即接收；蓝牙 MIDI 在网页工作台“项目与音色 → 蓝牙设置”中控制，两者使用相同的轨道输入通道设置。当前 Pro／Elite 没有有线 MIDI IN，机身 MIDI OUT 用于输出。</p>
 <h4>通道与接收规则</h4><p>默认 CH1–7 对应轨道 1–7，CH10 对应轨道 8。SHIFT + SEQ 后用 K2 为各轨选择输入通道 1–16。音符、弯音、调制和控制器按此设置接收，与屏幕选中轨道无关；多轨可共用一个通道叠奏。未分配给任何轨道的通道消息被忽略。更换音源不改变通道，USB MIDI 与 BLE MIDI 使用相同规则。</p><p>例如在默认设置下，键盘 CH2 控制轨 2；将轨 3 的输入也设为 CH2，即可同时演奏轨 2 和轨 3。</p>
 <div class="manual-table"><table><thead><tr><th scope="col">接收消息</th><th scope="col">作用与范围</th></tr></thead><tbody>
 <tr><td>Note On / Off</td><td>全部音源接收 Note On／Off 和力度；Note On 力度 0 等同 Note Off。808／SAMPLER 按鼓音符选择声部。</td></tr>
@@ -392,7 +397,7 @@ main{max-width:1440px}
 </tbody></table></div><p>CC7、CC91、音色切换与音色参数编辑可随项目保存。弯音、表情、声像及实时调制不写入项目；CC121 不撤销已编辑的 303 EnvMod。SMK37 OPEN 保留自己的音色体系，不提供 GM 128 音色表。</p>
 <h4>同步与走带</h4>
 <p>Clock、Start、Continue、Stop、歌曲位置和 MMC 不带 MIDI 通道，控制整机。选择 MIDI 时钟后，外部 Clock 按每四分音符 24 个脉冲同步；仅发送 Clock 不会自行播放。Start 从起点开始，Continue 从当前位置继续，Stop 停止播放并释放音序和琶音音符。</p><p>歌曲位置 SPP（F2）在 MIDI 时钟模式下定位，每单位为一个十六分音符，各轨按自身循环长度取余；随后发送 Continue 与 Clock。Start 会重新回到起点。System Reset（FF）停止、回起点并释放全部音符。</p><p>MMC 支持 Stop（01）、Play（02）、Deferred Play（03）、Record Strobe（06）、Record Exit（07）和 Pause（09）；接收设备 ID 00 或广播 7F。Play／Deferred Play 从当前位置继续，Record Strobe 开始录入并续播，Record Exit 只结束录入，Stop／Pause 同时结束录入。在 MIDI 时钟模式仍需外部 Clock。</p><p>例：F0 7F 7F 06 01 F7 为 MMC Stop；F0 7F 7F 06 02 F7 为 MMC Play。数字均为十六进制。</p><p>同时连接多台 MIDI 设备时只让一台发送时钟和走带，避免重复脉冲。MTC 时间码、MMC 时间码定位／快进／倒带、RPN／NRPN、复音触后、GM Reset、Bank Select、Active Sensing 超时监控及未列出的控制器目前不实现，收到后忽略。</p>
-<h4>蓝牙设置</h4><p>长按 SEQ，SELECT 选 BLUETOOTH / CLOCK，SAVE 打开蓝牙／时钟页。K1 为蓝牙总开关，K2 为蓝牙音频，K3 只选 BLE MIDI 的 DEVICE／HOST 角色，K4 选择时钟。蓝牙打开时 MIDI 服务自动可用；出厂默认蓝牙和音频打开、DEVICE 角色、内部时钟。PRESETS 选择屏幕下方操作，SAVE 执行：主设置页可打开 HOST 设备列表或清除 MIDI 配对；列表中 SELECT 选设备，PRESETS 选连接、扫描、断开或返回设置。清除配对仍需再次 SAVE 确认，HOME 取消。SEQ、EDIT 等上排功能键仍可直接切页。</p><p>网页可以预览设置页面；实际蓝牙扫描、配对和音频输入要在实机上操作。</p>
+<h4>蓝牙设置</h4><p>机身的蓝牙页已随 Classic Tabby Task 06 移除（为独立轨道启动腾出闪存）。蓝牙设置在网页工作台“项目与音色 → 蓝牙设置”：连接项目库后可打开或关闭蓝牙和蓝牙音频，选择 BLE MIDI 的 DEVICE／HOST 角色，并清除 MIDI 配对；改动立即写入设备并保存。蓝牙打开时 MIDI 服务自动可用；出厂默认蓝牙和音频打开、DEVICE 角色。时钟来源在 SEQ 的 SYNC / LOOP 页选择。HOST 模式的设备扫描与连接列表不再提供。</p>
 <h4>INT 与 MIDI 时钟</h4><p><strong>INT：</strong>SMK37 OPEN 使用内部速度，K4 可设 30–300 BPM。<strong>MIDI：</strong>跟随外部 MIDI Clock，需外部发送 Start／Continue 才开始或继续。此时旋转速度不会改变外部速度。超过约两秒收不到时钟，屏幕显示 LOST；检查外部设备是否发送时钟，或切回 INT。</p>
 </article>
 <article id="manual-update" class="manual-chapter" tabindex="-1"><h3>09 · 更新固件</h3><p>下载与机身型号对应的 Pro 或 Elite 工作台。连接 USB，先导出项目与采样备份，再在“设备更新”中连接、勾选备份确认并更新。首次从同型号原厂固件迁移时，使用“启用强制烧录并重新连接”。完成后网页会核对型号、版本哈希与采样区。Pro 与 Elite 固件不可混刷。</p>
@@ -722,6 +727,9 @@ main{max-width:1440px}
     const working=await library.download(0);
     if(working.length!==(library.tuningBytes||(info[3]|info[4]<<8)))throw Error('设备文件长度无效');
     FM1Web.projectVersion(working);
+    // Task 06 (a): the Bluetooth settings panel replaces the device's BLE page.
+    $('radio-group').hidden=!library.radioSettings;
+    if(library.radioSettings){const r=await library.radioRead();$('radio-on').checked=r.on;$('radio-audio').checked=r.audio;$('radio-role').value=r.host?'1':'0';}
     // Publish a complete snapshot only after every query succeeds. A partial
     // list must never enable load/save/import with an empty selection.
     $('project-slot').replaceChildren(...slots);
@@ -758,6 +766,11 @@ main{max-width:1440px}
     finally{await endConnection(attempt);}
   });}
   $('library-connect').addEventListener('click',connectLibrary);
+  // Task 06 (a): Bluetooth settings (transfer command 24). Each change is written at once.
+  const radioMessage=text=>{$('radio-message').textContent=text?FM1I18n.t(text):'';};
+  const radioWrite=async()=>{try{await library.radioWrite({on:$('radio-on').checked,audio:$('radio-audio').checked,host:$('radio-role').value==='1'});radioMessage('蓝牙设置已写入设备。');}catch(error){radioMessage(error.message);}};
+  for(const id of ['radio-on','radio-audio','radio-role'])$(id).addEventListener('change',radioWrite);
+  $('radio-forget').addEventListener('click',async()=>{if(!confirm(FM1I18n.t('清除设备上保存的 BLE MIDI 配对？')))return;try{await library.radioForget();radioMessage('已清除 MIDI 配对；请在电脑或平板上也删除该配对后重新配对。');}catch(error){radioMessage(error.message);}});
   $('library-refresh').addEventListener('click',()=>perform(async()=>{await refreshLibrary();message('项目与轨道列表已刷新。');}));
   $('project-rename').addEventListener('click',()=>perform(async()=>{
     const name=$('project-name').value;if(!/^[\x20-\x7e]{1,12}$/.test(name))throw Error('名称须为 1–12 个可显示的英文字符');

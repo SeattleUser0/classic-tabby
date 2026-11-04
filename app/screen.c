@@ -39,9 +39,7 @@ static uint16_t paint_pixels[FM1_SCREEN_WIDTH * PAINT_ROWS];
 static uint8_t paint_left[PAINT_BANDS], paint_right[PAINT_BANDS];
 static unsigned paint_rendering, paint_top, paint_next, paint_x, paint_end;
 static uint32_t paint_priority;
-static struct fm1_ble_status frame_ble;
-static struct fm1_bluetooth_status frame_radio;
-static unsigned frame_radio_flags, frame_radio_role;
+static struct fm1_ble_status frame_ble; /* Task 06 (a): stays zero; no page reads it since the BLE page went */
 static void paint_mark(unsigned x, unsigned y, unsigned w, unsigned h)
 {
     for (unsigned b = y / PAINT_ROWS; b <= (y + h - 1) / PAINT_ROWS; ++b) {
@@ -130,6 +128,7 @@ static void text(unsigned x, unsigned y, const char *s, unsigned scale, uint16_t
  * in the web workbench. Their numbers stay so the workbench simulator's page ids
  * (sdk/Simulator.js state[1], data-sim-page) do not shift. groove_screen_open rejects
  * them. FM_QUICK (DX7 preset select + ALG/FEEDBACK/TRANSPOSE/LEVEL macros) stays. */
+/* Task 06 (a): BLE (7) and NAME (9) are gone too; their numbers stay for the same reason. */
 enum { OVERVIEW, STEPS, FM_EDIT, FM_ENV, FM_LFO, TONE_EDIT, MIX, BLE, PROJECT, NAME, EFFECTS, SOURCE, ACTIONS, STEP_EDIT, RHYTHM, FM_QUICK, PRESET_BROWSER, ARP_EDIT, STARTUP,
        SONG /* Task 03 d: song mode, page 19 (ACTIONS "SONG MODE", web shortcut 19) */ };
 enum { OCT_DOWN, OCT_UP, FX, SCL, ENV, LFO, EDIT, GLO, HOME, SAVE, ARP, SEQ, PLAY, REC };
@@ -143,8 +142,11 @@ enum { SOURCE_CHOICES = GROOVE_SAMPLE };
 static const char *const actions[] = {"STEP DETAILS", "RHYTHM / RECORD", "COPY STEP", "COPY PAGE", "COPY TRACK",
     "PASTE STEP", "PASTE PAGE", "PASTE TRACK", "CLEAR STEP", "CLEAR PAGE", "CLEAR TRACK",
     "REPEAT TO 32", "REPEAT TO 48", "REPEAT TO 64", "UNDO / REDO", "COPY TIMBRE", "PASTE TIMBRE",
-    "DX7 PATCH NAME", "BLUETOOTH / CLOCK", "STOP ALL / REWIND", "ERASE OLD SAMPLE/DX7",
+    "STOP ALL / REWIND", "ERASE OLD SAMPLE/DX7",
     "SONG MODE", "COMPACT SONG STORAGE", "SEND SETUP"};
+/* Task 06 (a): "DX7 PATCH NAME" and "BLUETOOTH / CLOCK" left with their pages (the clock
+ * source stays on SEQ page 5/7, Bluetooth is set from the workbench): 17 STOP ALL, 18 ERASE,
+ * 19 SONG MODE, 20 COMPACT, 21 SEND SETUP. */
 enum { ACTION_COUNT = sizeof actions / sizeof actions[0] };
 static unsigned source_preview, action, action_confirm, tone_clip_ready;
 static struct groove_preset tone_clip;
@@ -194,10 +196,11 @@ static uint32_t project_keys; /* Held Play pitches across a project remapping. *
 static uint32_t encoder_time[7];
 static int8_t encoder_direction[7];
 static uint8_t encoder_speed[7];
-static unsigned glo_down, glo_used, ble_device, ble_was_linked, ble_view, ble_action;
-static int ble_result, source_result;
-static unsigned ble_forget, ble_stage, ble_seconds;
-static uint32_t ble_stage_since;
+/* Task 06 (a): the BLE page and the NAME page are gone (docs/tasks/TASK-06-step1-assessment.md
+ * section 7; Bluetooth settings are set from the workbench through transfer command 24).
+ * Only the link-loss watch (ble_was_linked) remains of the BLE page state. */
+static unsigned glo_down, glo_used, ble_was_linked;
+static int source_result;
 static uint32_t health_output;
 static uint32_t health_at, health_underruns, health_dropped, health_adapted, health_dma;
 static int project_result;
@@ -249,7 +252,6 @@ static uint8_t frame_step_notes[16], frame_effects[4];
 static uint8_t frame_patch[156];
 static char frame_fm_names[GROOVE_TRACKS][8];
 static struct groove_fm_controls frame_controls;
-static struct fm1_ble_device frame_devices[FM1_BLE_MAX_DEVICES];
 static uint32_t frame_time;
 
 /* Share frequently used control helpers instead of repeating their bodies
@@ -268,7 +270,7 @@ static void move_step(const struct groove_view *view, int delta, int pages)
 }
 static unsigned navigation_mode(void)
 {
-    return page == BLE || page == PROJECT || page == PRESET_BROWSER || page == MIX || page == NAME ||
+    return page == PROJECT || page == PRESET_BROWSER || page == MIX ||
         (page >= SOURCE && page <= RHYTHM) || page == SONG || (page == STEPS && !writing) || glo_down;
 }
 static unsigned encoder_active(const int16_t values[7])
@@ -683,98 +685,6 @@ static __attribute__((noinline)) void mix_draw(const struct groove_view v[8])
         number(x + 37, y + 5, t + 1, 1, 1, on ? BACK : colors[t], bg);
     }
 }
-static void radio_line(unsigned slot, unsigned y, const char *value, uint16_t color)
-{
-    uint32_t sig = signature(color, value, (unsigned)strlen(value));
-    if (cache->tile_cache[slot] == sig) return;
-    cache->tile_cache[slot] = sig;
-    erase(8, y, 224, 7);
-    color_text(8, y, value, color);
-}
-static __attribute__((noinline)) void draw_ble(const struct fm1_ble_status *status)
-{
-    static const char *const states[] = {"OFF", "IDLE", "WAITING FOR DEVICE",
-        "SCANNING", "CONNECTING", "FINDING MIDI", "CONNECTED", "MIDI READY", "DISCONNECTING"};
-    static const char *const errors[] = {
-        "", "STACK BUSY", "TIMED OUT", "NOT BLE MIDI", "GATT FAILED", "LINK LOST",
-        "PAIR FAILED", "KEY MISSING", "PAIR NOT SAVED"};
-    unsigned on = (frame_radio_flags & GROOVE_RADIO_ON) != 0;
-    unsigned midi = frame_radio_flags & GROOVE_RADIO_MIDI ? 1U + frame_radio_role : 0;
-    if (cache->title_cache != ble_view) {
-        cache->title_cache = ble_view;
-        memset(cache->row_cache, 0xff, sizeof cache->row_cache);
-        memset(cache->tile_cache, 0xff, sizeof cache->tile_cache);
-        erase(0, 0, 240, 240);
-        paint_fill(0, 29, 240, 1, PANEL);
-        text(8, 8, ble_view ? "MIDI HOST" : "BLUETOOTH", 2, ACCENT, BACK);
-    }
-    const char *state = !on ? "BLUETOOTH OFF" : !frame_radio.ready ? "RADIO NOT READY"
-        : status->pending ? "APPLYING SETTINGS"
-        : !midi ? "MIDI OFF" : status->state == FM1_BLE_OFF ? "STARTING MIDI"
-        : status->state <= FM1_BLE_DISCONNECTING ? states[status->state] : "UNKNOWN";
-    char progress[40];
-    if (on && frame_radio.ready && (status->pending || status->state == FM1_BLE_SCANNING ||
-        status->state == FM1_BLE_CONNECTING || status->state == FM1_BLE_DISCOVERING)) {
-        unsigned n = (unsigned)strlen(state);
-        memcpy(progress, state, n);
-        progress[n++] = ' ';
-        decimal(progress + n, (int)ble_seconds, 1);
-        n = (unsigned)strlen(progress);
-        progress[n++] = 'S'; progress[n] = 0;
-        state = progress;
-    }
-    radio_line(0, 39, state, on ? GREEN : DIM);
-    if (!ble_view) {
-        static const char *const labels[] = {"K1 BLUETOOTH", "K2 BT AUDIO", "K3 BLE ROLE", "K4 CLOCK"};
-        unsigned values[] = {on, (frame_radio_flags & GROOVE_RADIO_AUDIO) != 0, midi, groove_clock_mode()};
-        const char *const names[] = {on ? "ON" : "OFF", values[1] ? "ON" : "OFF",
-            midi == 2 ? "HOST" : midi == 1 ? "DEVICE" : "OFF", values[3] ? "MIDI" : "INT"};
-        for (unsigned i = 0; i < 4; ++i) {
-            uint32_t sig = values[i] | (on << 8);
-            if (cache->row_cache[i] == sig) continue;
-            cache->row_cache[i] = sig;
-            unsigned y = 61 + i * 30;
-            erase(8, y, 224, 20);
-            plain_text(8, y + 4, labels[i]);
-            text(146, y, names[i], 2, i && i < 3 && !on ? DIM : ACCENT, BACK);
-        }
-        const char *audio = !on || !values[1] ? "AUDIO OFF" : frame_radio.audio_playing ? "AUDIO PLAYING"
-            : frame_radio.audio_connected ? "AUDIO CONNECTED" : "AUDIO WAITING";
-        radio_line(1, 184, audio, frame_radio.audio_playing ? GREEN : DIM);
-        radio_line(2, 196, ble_action ? "> FORGET MIDI PAIRS" : "> MIDI DEVICE LIST (HOST)", ACCENT);
-    } else {
-        for (unsigned i = 0; i < FM1_BLE_MAX_DEVICES; ++i) {
-            const struct fm1_ble_device *device = &frame_devices[i];
-            uint32_t sig = signature(i == ble_device, device, sizeof *device);
-            sig = sig * 33U + (i < status->count);
-            if (!status->count) sig = sig * 33U + status->state;
-            if (cache->row_cache[i] == sig) continue;
-            cache->row_cache[i] = sig;
-            unsigned y = 60 + i * 17;
-            uint16_t bg = i < status->count && i == ble_device ? PANEL : BACK;
-            paint_fill(8, y, 224, 15, bg);
-            if (i < status->count) {
-                number(12, y + 4, i + 1, 1, 1, ACCENT, bg);
-                text(27, y + 4, device->name[0] ? device->name : "UNNAMED MIDI DEVICE", 1, TEXT, bg);
-                char signal[12];
-                decimal(signal, device->rssi, 1);
-                text(204, y + 4, signal, 1, DIM, bg);
-            } else if (!i)
-                text(12, y + 4, status->state == FM1_BLE_SCANNING ? "LOOKING FOR MIDI DEVICES..."
-                    : "NO DEVICES - SELECT SCAN", 1, DIM, bg);
-        }
-        static const char *const actions[] = {"> CONNECT SELECTED", "> SCAN", "> DISCONNECT", "> SETTINGS"};
-        radio_line(1, 200, actions[ble_action], ACCENT);
-    }
-    const char *error = ble_forget == 1 ? "FORGET MIDI PAIRS? SAVE YES / HOME NO"
-        : ble_forget == 2 && !status->pending && !status->error ? "PAIR AGAIN; FORGET ON COMPUTER TOO"
-        : groove_settings_status() ? "SETTINGS NOT SAVED - RETRY"
-        : ble_result == -2 ? "BUSY - RETRY" : ble_result == -3 ? "RADIO NOT READY"
-        : ble_result ? "COMMAND UNAVAILABLE"
-        : status->error <= FM1_BLE_BOND_SAVE_FAILED ? errors[status->error] : "";
-    radio_line(3, 213, error, AMBER);
-    radio_line(4, 229, "PRESETS ACTION  SAVE OK  HOME EXIT", DIM);
-}
 static __attribute__((noinline)) void project_draw(void)
 {
     if (project_drawn_revision != groove_project_revision())
@@ -843,29 +753,6 @@ static __attribute__((noinline)) void preset_draw(void)
     dim_text(8, 170, "PADS 1-16 LOAD DIRECTLY");
     color_text(8, 213, project_result == GROOVE_PROJECT_EMPTY ? "EMPTY SLOT - CHOOSE ANOTHER" :
          project_result ? "LOAD FAILED - CURRENT KEPT" : "HOME BACK   HOME+SAVE UNDO", project_result ? AMBER : DIM);
-}
-static __attribute__((noinline)) void name_draw(void)
-{
-    const uint8_t *patch = frame_patch;
-    uint32_t sig = signature(name_cursor, patch + 145, 10);
-    if (cache->middle_cache == sig)
-        return;
-    cache->middle_cache = sig;
-    if (cache->title_cache != 1U) {
-        cache->title_cache = 1U;
-        plain_text(8, 40, "DX7 PATCH NAME");
-        plain_text(8, 120, "SELECT CURSOR  K1 LETTER");
-        dim_text(8, 145, "SAVE STORES WITH PROJECT");
-        dim_text(8, 171, "WEB IMPORT / EXPORT .SYX");
-        dim_text(8, 225, "HOME EXIT  EDIT SOUND");
-    }
-    erase(8, 76, 120, 19);
-    char name[11];
-    for (unsigned i = 0; i < 10; ++i)
-        name[i] = patch[145 + i] >= 32 && patch[145 + i] <= 126 ? (char)patch[145 + i] : '?';
-    name[10] = 0;
-    text(8, 76, name, 2, ACCENT, BACK);
-    paint_fill(8 + name_cursor * 12, 93, 10, 2, ACCENT);
 }
 static __attribute__((noinline)) void effects_draw(void)
 {
@@ -1174,6 +1061,7 @@ static void hint_draw(const char *hint)
 }
 static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct fm1_ble_status *ble)
 {
+    (void)ble; /* Task 06 (a): the BLE page is gone */
     unsigned visible = boot_active ? STARTUP : glo_down && glo_used ? MIX : page;
     if (visible != cache->shown_page) {
         memset(cache, 0xff, sizeof *cache);
@@ -1194,10 +1082,6 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
         project_draw();
         return;
     }
-    if (visible == BLE) {
-        draw_ble(ble);
-        return;
-    }
     header(v);
     const char *state_hint = notice ? notice : performance_hint(visible, views);
     if (visible >= SOURCE) {
@@ -1205,10 +1089,6 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
         if (visible == FM_QUICK || visible == ARP_EDIT)
             hint_draw(state_hint ? state_hint : visible == FM_QUICK
                 ? "EDIT BACK  SELECT TRACK" : "ARP ON/OFF   HOME BACK");
-        return;
-    }
-    if (visible == NAME) {
-        name_draw();
         return;
     }
     if (visible == EFFECTS) {
@@ -1371,15 +1251,7 @@ static void draw(const struct fm1_ble_status *ble)
         if (n != midi_seen[t]) { midi_seen[t] = n; midi_until[t] = frame_time + 120U; }
         midi_active[t] = (int32_t)(midi_until[t] - frame_time) > 0;
     }
-    frame_ble = *ble;
-    if (visible == BLE) {
-        fm1_bluetooth_get_status(&frame_radio);
-        frame_radio_flags = groove_settings_radio_flags();
-        frame_radio_role = groove_settings_role_value();
-        memset(frame_devices, 0, sizeof frame_devices);
-        for (unsigned i = 0; i < ble->count && i < FM1_BLE_MAX_DEVICES; ++i)
-            fm1_ble_get_device(i, &frame_devices[i]);
-    }
+    (void)ble; /* Task 06 (a): no page shows the BLE status any more */
     /* Bands consume stable names; rasterizing a split row never stops audio.
      * The eighth byte stays NUL in this static buffer. Failed sources show ERROR. */
     for (unsigned t = 0; t < GROOVE_TRACKS; ++t) {
@@ -1404,7 +1276,7 @@ static void draw(const struct fm1_ble_status *ble)
     }
     memset(frame_patch, 0, sizeof frame_patch);
     memset(&frame_controls, 0, sizeof frame_controls);
-    if (visible == NAME || visible == FM_QUICK)
+    if (visible == FM_QUICK)
         groove_fm_copy(track, frame_patch, &frame_controls);
     /* Merge new damage with unfinished bands. Input can replace a pending
      * frame; no stale queue of old encoder positions needs to be displayed. */
@@ -1533,10 +1405,8 @@ void groove_screen_init(void)
     memset(midi_seen, 0, sizeof midi_seen);
     memset(midi_until, 0, sizeof midi_until);
     previous_buttons = previous_keys = blocked_keys = retry_reset = 0;
-    glo_down = glo_used = ble_device = ble_was_linked = ble_view = ble_action = 0;
-    ble_result = source_result = 0;
-    ble_forget = ble_stage = ble_seconds = 0;
-    ble_stage_since = fm1_millis();
+    glo_down = glo_used = ble_was_linked = 0;
+    source_result = 0;
     struct fm1_engine_stats health;
     fm1_engine_stats_read(&health);
     health_output = groove_midi_dropped();
@@ -1603,52 +1473,10 @@ void groove_screen_tap(uint32_t now)
     announce(bpm < 0 ? "TAP: EXTERNAL MIDI CLOCK" : bpm ? "TAP TEMPO APPLIED" : "TAP AGAIN / HOME+SEQ", now + 1500U);
 }
 /* Keep modal editors out of the common key/transport control frame. */
-static __attribute__((noinline)) void ble_control(const struct fm1_controls *controls, uint32_t pressed, const struct fm1_ble_status *ble)
-{
-    if (encoder_active(controls->encoders)) ble_forget = 0;
-    ble_action = (unsigned)clamp((int)ble_action + controls->encoders[6], 0, ble_view ? 3 : 1);
-    if (!ble_view) {
-        unsigned flags = groove_settings_radio_flags(), role = groove_settings_role_value();
-        for (unsigned i = 0; i < 2; ++i) {
-            int delta = controls->encoders[2 + i];
-            if (delta > 0) flags |= 1U << i;
-            else if (delta < 0) flags &= ~(1U << i);
-        }
-        if (controls->encoders[4]) {
-            role = (unsigned)clamp((int)role + controls->encoders[4],
-                                   FM1_BLE_PERIPHERAL, FM1_BLE_CENTRAL);
-        }
-        if (flags != groove_settings_radio_flags() || role != groove_settings_role_value())
-            ble_result = groove_settings_radio(flags, role);
-        if (controls->encoders[5])
-            groove_settings_clock(controls->encoders[5] > 0 ? GROOVE_CLOCK_MIDI : GROOVE_CLOCK_INTERNAL);
-        if (pressed & BUTTON(SAVE)) {
-            if (ble_action) {
-                if (ble_forget != 1) ble_forget = 1;
-                else { ble_result = fm1_ble_forget_bonds(); ble_forget = ble_result ? 0 : 2; }
-            } else if ((flags & (GROOVE_RADIO_ON | GROOVE_RADIO_MIDI)) ==
-                (GROOVE_RADIO_ON | GROOVE_RADIO_MIDI) && role == FM1_BLE_CENTRAL) {
-                ble_view = 1; ble_action = ble->count ? 0 : 1; ble_forget = 0;
-                if (ble->state == FM1_BLE_IDLE) ble_result = fm1_ble_scan();
-            } else ble_result = -1;
-        }
-    } else {
-        unsigned count = ble->count > FM1_BLE_MAX_DEVICES ? FM1_BLE_MAX_DEVICES : ble->count;
-        ble_device = (unsigned)clamp((int)ble_device + controls->encoders[0], 0,
-                                     count ? (int)count - 1 : 0);
-        if (pressed & BUTTON(SAVE)) {
-            if (!ble_action) ble_result = fm1_ble_connect(ble_device);
-            else if (ble_action == 1) {
-                ble_result = fm1_ble_scan();
-                if (!ble_result) ble_device = 0;
-            } else if (ble_action == 2) ble_result = fm1_ble_disconnect();
-            else { ble_view = ble_action = ble_forget = 0; ble_result = 0; }
-        }
-    }
-}
 static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                           const struct fm1_ble_status *ble)
 {
+    (void)ble; /* Task 06 (a): the BLE page is gone */
     uint32_t pressed = controls->buttons & ~previous_buttons;
     uint32_t old_keys = previous_keys, key_down = controls->keys & ~old_keys;
     unsigned play_handled = 0;
@@ -1714,8 +1542,6 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     }
     /* A project received over MIDI can replace the current instrument while
      * its editor is open. Leave editors that cannot apply to the new source. */
-    if (page == NAME && groove_source_type(track) != GROOVE_DX7)
-        page = OVERVIEW;
     if ((controls->buttons & (BUTTON(HOME) | BUTTON(SAVE))) == (BUTTON(HOME) | BUTTON(SAVE)) &&
         (pressed & (BUTTON(HOME) | BUTTON(SAVE)))) {
         int r = groove_edit_undo();
@@ -1728,11 +1554,6 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         groove_screen_tap(now);
         seq_down = 0;
         if (controls->buttons & BUTTON(HOME)) page = music_page;
-        goto controls_done;
-    }
-    if ((controls->buttons & (BUTTON(HOME) | BUTTON(GLO))) == (BUTTON(HOME) | BUTTON(GLO)) &&
-        (pressed & (BUTTON(HOME) | BUTTON(GLO)))) {
-        page = BLE; glo_down = glo_used = ble_view = ble_forget = ble_action = 0; ble_result = 0;
         goto controls_done;
     }
     /* Keep the original HOME+PRESETS shortcut, including after HOME opens
@@ -1767,19 +1588,11 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         blocked_keys |= controls->keys;
         if (tapped) page = page == MIX ? music_page : MIX;
     }
-    if ((controls->buttons & (BUTTON(EDIT) | BUTTON(REC))) == (BUTTON(EDIT) | BUTTON(REC)) &&
-        (pressed & (BUTTON(EDIT) | BUTTON(REC))) && groove_source_type(track) == GROOVE_DX7) {
-        writing = rec_before_press;
-        glo_down = 0;
-        page = NAME; name_cursor = 0;
-        goto controls_done;
-    }
     if (pressed & (BUTTON(HOME) | BUTTON(SEQ) | BUTTON(FX) | BUTTON(SCL) |
                    BUTTON(EDIT) | BUTTON(ENV) | BUTTON(LFO))) {
         glo_down = glo_used = 0;
         if (pressed & BUTTON(HOME)) {
             if (page == ACTIONS && action_confirm) action_confirm = 0;
-            else if (page == BLE && ble_forget == 1) ble_forget = 0;
             else if (page == OVERVIEW) {
                 preset_refresh(); project_result = 0; page = PRESET_BROWSER;
             } else page = OVERVIEW;
@@ -1809,8 +1622,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     if (pressed & BUTTON(REC)) {
         writing ^= 1U;
         glo_down = 0;
-        if (writing && (page == BLE || page == PROJECT || page == PRESET_BROWSER ||
-                       page == MIX || page == NAME || (page >= SOURCE && page <= RHYTHM) ||
+        if (writing && (page == PROJECT || page == PRESET_BROWSER ||
+                       page == MIX || (page >= SOURCE && page <= RHYTHM) ||
                        (page == STEPS && (seq_page == 1 || seq_page == 3)))) {
             page = STEPS; seq_page = 0; step_follow = 1;
         }
@@ -1821,7 +1634,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             int next=clamp(octave + !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN)), -2, 2);
             if(next!=octave) {octave=next;groove_settings_panel_changed();}
         }
-    if ((pressed & BUTTON(SAVE)) && page != PROJECT && page != BLE &&
+    if ((pressed & BUTTON(SAVE)) && page != PROJECT &&
         page != SOURCE && page != ACTIONS) {
         project_return = page; page = PROJECT; project_result = 0;
         project_reload = project_operation = 0;
@@ -1969,21 +1782,17 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             else if (action == 14) r = groove_edit_undo();
             else if (action == 15) { r = groove_timbre_export(track, (uint8_t *)&tone_clip, sizeof tone_clip); tone_clip_ready = !r; }
             else if (action == 16) r = tone_clip_ready ? groove_timbre_import(track, (uint8_t *)&tone_clip, sizeof tone_clip) : -1;
-            else if (action == 17) {
-                if (groove_source_type(track) == GROOVE_DX7) { page = NAME; name_cursor = 0; }
-                else r = -1;
-            } else if (action == 18) { page = BLE; ble_view = ble_forget = ble_action = 0; ble_result = 0; }
-            else if (action == 20) {
+            else if (action == 18) {
                 /* Task 03 a: user-confirmed erase of the V01 sample bank / DX7 library
                  * sectors so the region can become song storage (app/song_storage.c). */
                 r = song_storage_initialize();
-            } else if (action == 21) {
+            } else if (action == 19) {
                 page = SONG;
                 if (song_loaded() == SONG_NONE) (void)song_load(song_select);
-            } else if (action == 22) {
+            } else if (action == 20) {
                 /* Task 03 d: full compaction pass, one block sector per poll (9.6). */
                 r = song_playing() ? -1 : song_storage_compact();
-            } else if (action == 23) {
+            } else if (action == 21) {
                 /* Task 04 (9.11): send row 1's events now, for a set or after power-up. */
                 int e = song_send_setup();
                 announce(e == SONG_BUSY ? "STOP THE SONG FIRST" : e ? "NO SONG LOADED" : "SETUP SENT - ROW 1 EVENTS", now + 2000U);
@@ -2040,18 +1849,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             announce("PROJECT SAVED", now + 2000U);
             project_operation = 0;
         }
-    } else if (page == NAME) {
-        name_cursor = (unsigned)clamp((int)name_cursor + controls->encoders[0], 0, 9);
-        if (controls->encoders[2]) {
-            uint8_t patch[156];
-            if (!groove_fm_copy(track, patch, NULL))
-                groove_fm_name_edit(track, name_cursor,
-                    edit_character((char)patch[145 + name_cursor], controls->encoders[2]));
-        }
-    } else if (page == BLE) {
-        ble_control(controls, pressed, ble);
     } else {
-        if (page != BLE) {
+        {
             unsigned tracks = page == OVERVIEW || page == STEPS || page == FM_QUICK || page == ARP_EDIT ||
                 page == EFFECTS;
             select_track(tracks ? controls->encoders[0] : 0);
@@ -2186,7 +1985,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                         }
                     }
                 }
-                if (controls->encoders[6] && page != FM_QUICK && page != ARP_EDIT && page != STEPS && page != EFFECTS && page != NAME)
+                if (controls->encoders[6] && page != FM_QUICK && page != ARP_EDIT && page != STEPS && page != EFFECTS)
                     groove_control_edit(track, controls->encoders[6], 0, 0);
                 if (controls->encoders[1] && page != FM_QUICK && page != STEPS && page != ARP_EDIT && page != EFFECTS) {
                     if (groove_source_type(track) == GROOVE_DX7)
@@ -2199,7 +1998,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     }
 controls_done:
     if (page != old_page) {
-        glo_down = glo_used = action_confirm = ble_forget = project_reload = 0;
+        glo_down = glo_used = action_confirm = project_reload = 0;
         if (page != STEPS) seq_down = 0;
     }
     if (page != OVERVIEW) rec_down = 0;
@@ -2345,10 +2144,6 @@ void groove_screen_control(void)
     }
     struct fm1_ble_status ble = {0};
     fm1_ble_get_status(&ble);
-    unsigned stage = ble.state | (ble.pending << 8);
-    if (stage != ble_stage) { ble_stage = stage; ble_stage_since = now; }
-    ble_seconds = (now - ble_stage_since) / 1000U;
-    if (ble_seconds > 999) ble_seconds = 999;
     unsigned linked = ble.state == FM1_BLE_CONNECTED || ble.state == FM1_BLE_READY ||
                       ble.state == FM1_BLE_DISCOVERING;
     if (ble_was_linked && !linked)
@@ -2447,7 +2242,7 @@ __attribute__((noinline, cold, minsize)) void smk37_screen_pad_mode(unsigned ste
         octave=instrument_octave[pad_focus];
     }
     glo_down=glo_used=seq_down=arp_down=arp_long=rec_down=0;
-    action_confirm=ble_forget=project_reload=0;
+    action_confirm=project_reload=0;
     page=music_page=steps?STEPS:OVERVIEW;
     if(steps) {seq_page=0;writing=0;groove_edit_record(0,track,cursor);}
     notice=steps?"PAD STEPS - SHIFT+PAD TO PLAY":
@@ -2482,9 +2277,10 @@ void smk37_screen_page(unsigned target)
     if(!release_keys())return;
     blocked_keys|=previous_keys;
     glo_down=glo_used=seq_down=arp_down=arp_long=rec_down=0;
-    page=target==SMK37_PAGE_BLUETOOTH?BLE:target==SMK37_PAGE_MIDI?STEPS:SOURCE;
-    if(page==BLE) {ble_view=ble_forget=ble_action=0;ble_result=0;}
-    else if(page==STEPS) {music_page=STEPS;seq_page=5;}
+    /* Task 06 (a): the BT button has no page any more; Bluetooth is set from the workbench. */
+    if(target==SMK37_PAGE_BLUETOOTH) {announce("BLUETOOTH: SET IN WORKBENCH",fm1_millis()+2000U);boot_active=0;return;}
+    page=target==SMK37_PAGE_MIDI?STEPS:SOURCE;
+    if(page==STEPS) {music_page=STEPS;seq_page=5;}
     else {source_preview=groove_source_type(track);source_result=0;}
     boot_active=0;cache->shown_page=~0U;
 }
@@ -2493,7 +2289,7 @@ void smk37_screen_shortcut(unsigned pad)
     if(pad<8) {
         if(!release_keys())return;
         blocked_keys|=previous_keys;
-        if(page==PROJECT || page==NAME || page==BLE || page==SOURCE || page==PRESET_BROWSER)
+        if(page==PROJECT || page==SOURCE || page==PRESET_BROWSER)
             page=music_page=OVERVIEW;
         select_track((int)pad-(int)track);
         notice="TRACK SELECTED";
@@ -2525,7 +2321,8 @@ int groove_screen_open(unsigned target)
     boot_active = 0;
     /* Task 03 b: the operator and tone editor pages are gone; the DX7 pages need a DX7. */
     if (target == FM_EDIT || target == FM_ENV || target == FM_LFO || target == TONE_EDIT) return -1;
-    if ((target == FM_QUICK || target == NAME) && groove_source_type(track) != GROOVE_DX7) return -1;
+    if (target == BLE || target == NAME) return -1;   /* Task 06 (a): pages removed */
+    if (target == FM_QUICK && groove_source_type(track) != GROOVE_DX7) return -1;
     if (!release_keys()) return -1;
     blocked_keys |= previous_keys;
     glo_down = glo_used = seq_down = arp_down = arp_long = rec_down = 0;
@@ -2545,7 +2342,6 @@ int groove_screen_open(unsigned target)
     if (page == SOURCE) { source_preview = groove_source_type(track); source_result = 0; }
     if (page == PRESET_BROWSER) { project_result = 0; preset_refresh(); }
     if (page == SONG && song_loaded() == SONG_NONE) (void)song_load(song_select);
-    if (page == BLE) { ble_view = ble_forget = ble_action = 0; ble_result = 0; }
     cache->shown_page = ~0U;
     return 0;
 }
@@ -2558,7 +2354,7 @@ static unsigned web_target_count;
 unsigned groove_screen_web_context(void)
 {
     unsigned context[] = {page, track, groove_source_type(track), effects_page,
-        ble_view, glo_down && glo_used,
+        0, glo_down && glo_used,
         (page == STEP_EDIT || (page == STEPS && seq_page)) ? cursor : 0, seq_page, arp_page};
     return signature(2166136261U, context, sizeof context);
 }
@@ -2605,7 +2401,7 @@ const void *groove_screen_web_targets(void)
     web_target_count = 0;
     if (shift_visible || (glo_down && glo_used)) return web_targets;
     struct groove_view v; groove_get_view(track, cursor, &v);
-    if (page != BLE && page != PROJECT && page != PRESET_BROWSER && !v.clock_mode)
+    if (page != PROJECT && page != PRESET_BROWSER && !v.clock_mode)
         web_target(6, 4, 65, 23, 1, 0, track, "BPM", v.tempo, NULL);
     if (page == OVERVIEW) {
         for (unsigned t = 0; t < 8; ++t) {

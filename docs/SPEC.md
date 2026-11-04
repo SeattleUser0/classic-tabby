@@ -1,7 +1,10 @@
 # Classic Tabby — Specification
 
-Version: 0.13
+Version: 0.14
 Revision log:
+- v0.14, 2026-11-04: section 10 added: Task 06 independent track launching; checkpoint (a)
+  done (BLE and NAME pages removed, Bluetooth settings moved to the workbench through
+  transfer command 24).
 - v0.13, 2026-11-04: section 9 added: Task 05 timed notes (exact start offsets and lengths):
   the timed note module, block payload format v2, the sequencer's unit clock and window
   scheduling, per-block swing, the importer's exact conversion with quantize as an option,
@@ -652,3 +655,46 @@ therefore stays in the step it is heard against.
 - A song note cannot be longer than 17476 steps; the importer clips and reports.
 - Transfer kind 6 uploads are format 1 only; v1 payloads reach the device only inside a
   kind-7 stream (the workbench never sends them).
+
+## 10. Task 06 — Independent track launching (2026-11-04)
+
+Task text: docs/tasks/TASK-06-track-launching.md. Assessment: docs/tasks/TASK-06-step1-assessment.md
+(approved 2026-11-04 with the decisions listed in its section 10 and the user's additions:
+the master transport runs until PLAY; stopping every track never stops the transport, MIDI
+clock or Song Position Pointer; song end with detached tracks silences the attached ones and
+keeps the transport running).
+
+Fixed decisions (the task's): a track's patterns are its blocks in the song's rows (pattern N
+of track T = T's block in row N, loop length = row N's step length, no new storage);
+independent per-track queues landing on beat 1 of the next bar (16 steps of the global
+clock); independent looping with polymeter; quantized stop with every sounding note released
+on the channel it was sent on; launch replacing a playing pattern releases its notes at the
+bar; the master transport is never reset by a launch; negative-offset notes of a launched
+pattern pre-fire like a row's; per-track program changes with the rig's gaps and a
+per-device lead before the bar; a scene jump overrides all per-track queues and re-attaches
+every track; detached tracks ignore row advances until "back to song"; pad colours for
+playing / queued / stopped / empty / pending stop; Classic Tabby stays the clock master.
+
+Checkpoints and status:
+
+- **(a) done, 2026-11-04: BLE and NAME pages removed** (the approved removals of the
+  assessment's section 7). The device keeps BLE MIDI, the saved radio settings and the clock
+  source (SEQ page 5/7); the BT button announces "BLUETOOTH: SET IN WORKBENCH". The
+  Bluetooth settings moved to the workbench: transfer **command 24** (read {flags, role},
+  write them, forget BLE MIDI pairs; capability bit 5 of command 22, reply byte 8 = 63) and a
+  "Bluetooth settings" group in the Library tab (radio on, Bluetooth audio, DEVICE / HOST
+  role, forget MIDI pairs; every change is written and saved at once). The HOST-mode device
+  scan list is gone with the page. DX7 patch names come with the .syx voices imported in the
+  workbench. ACTIONS lost "DX7 PATCH NAME" and "BLUETOOTH / CLOCK" (the later entries moved
+  up two). The build tool no longer requires the SDK's BLE client wrappers, which the linker
+  drops now that nothing calls them. A Task 05 workbench bug fixed on the way: the
+  capability check masked reply byte 8 with ~15, so a Task 05 device (31) would have been
+  refused at connect; the mask is ~63. App image 447140 bytes, **margin 6781** (−4224).
+- (b) firmware: per-track playheads, queues, launch / stop / back-to-song, event slices, song
+  end rule, status, command 23 bytes 15..30. Pending.
+- (c) TRACK LAUNCH page, pad LEDs, SCL / ENV routing. Pending.
+- (d) workbench: rig lead before bar, song editor pattern view, simulator check. Pending.
+
+Deferred (BUILD.md left-to-build list): following external MIDI clock in song mode; CC
+automation inside a row.
+
