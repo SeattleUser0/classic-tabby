@@ -299,7 +299,7 @@ field becomes 0). The workbench's capability check (`===446464`) is replaced by 
 4. Internal clock only for v1 song mode; MIDI-clock slave later.
 5. Note editing stays in the workbench for v1.
 
-## 9. Approved decisions and final formats (v0.2, 2026-11-02)
+## 9. Approved decisions and final formats (v0.7, 2026-11-03)
 
 Approved by the user after the Step 1 report. These formats are **final**: a second session
 builds the MIDI importer against this section. Any later change to a byte layout here stops
@@ -340,6 +340,11 @@ the work and goes back to the user first.
    blocks in one transaction (9.6, 9.9): the device packs the records into whole block
    sectors, erases each destination once, commits the batch with one journal and the same
    power-cut guarantee as a single-sector transaction. Kind 6 (one block) keeps working.
+10. (v0.7, Task 05) **Timed notes**: block payload format v2 (9.12) carries, per note, a
+    signed start offset of up to half a step in 1/480-step units and an exact length in
+    the same units; block record byte 1 names the payload format (0 = v1, 1 = v2); song
+    header flags bit 2 turns swing on for v2 blocks (default off). v1 blocks stay readable
+    and play exactly as before, project swing included. CRC and packing rules unchanged.
 
 ### 9.2 Common conventions
 
@@ -364,9 +369,12 @@ the work and goes back to the user first.
 
 The tuning sector at 532480 and everything below 69632 are untouched.
 
-### 9.3 Block payload (the note format, v0.3)
+### 9.3 Block payload (the note format, v0.3; v1 payload format)
 
-A block is one track's 64 steps. The payload is the 64 steps in order, each:
+A block is one track's 64 steps. This is **payload format 0 (v1)**, named by block record
+byte 1 = 0 (9.4, v0.7); format 1 (v2, timed notes) is in 9.12 and shares the step header
+and every rule below except the note's 3 bytes. The payload is the 64 steps in order,
+each:
 
 | Byte | Field |
 | --- | --- |
@@ -391,7 +399,8 @@ Rules:
   at a queued jump or stop. Steps N..63 of the block are never started by that row.
 - Same pitch twice in one step is invalid (the device rejects the block). Chords are N
   notes with the same start.
-- Step resolution is 16ths; swing follows the project's swing setting at playback.
+- Step resolution is 16ths; swing follows the project's swing setting at playback (v0.7:
+  for v1 blocks only; a v2 block follows the song's swing flag, 9.12).
 
 ### 9.4 Block record and block sector
 
@@ -414,10 +423,10 @@ Block record (inside the record area):
 | Offset | Size | Field |
 | ---: | ---: | --- |
 | 0 | 1 | song 0..15 (0xFF = erased filler, stop parsing) |
-| 1 | 1 | reserved 0 |
+| 1 | 1 | payload format (v0.7): 0 = v1 notes (9.3, 64..832 bytes), 1 = v2 timed notes (9.12, 64..1600 bytes); any other value makes the record invalid (reserved 0 before v0.7, so every record written before reads as v1) |
 | 2 | 2 | block id 1..65535 (v0.4; 0 is "silent" in rows and never stored) |
-| 4 | 2 | payload length 64..832 |
-| 6 | L | payload (9.3) |
+| 4 | 2 | payload length 64..832 (format 0) or 64..1600 (format 1) |
+| 6 | L | payload (9.3 or 9.12) |
 
 Records are 4-byte aligned (pad with 0xFF after the payload; the next record starts at the
 next multiple of 4). A record is **live** when its song's record (9.5) is valid, **a row of that record
@@ -434,7 +443,9 @@ batch journal (9.6) lists it, in which case byte 5 is programmed to 0 and it bec
 ordinary block sector. Byte 5 is outside the CRC range for exactly this reason.
 
 Capacity: 96 sectors × 4076 bytes. Worst case (832 + 6 per record, padded to 840) 4 per
-sector = 384 blocks guaranteed; realistic content 1000–3000 blocks. Per song the device
+sector = 384 blocks guaranteed for v1 records; a v2 record is at most 1606 bytes (1608
+aligned), 2 per sector, 192 guaranteed (v0.7). Realistic content 1000–3000 blocks (the
+four Renoise test songs take 14..18 KB each as v2, 3.6..4.5 % of the pool). Per song the device
 directory holds 2048 live blocks (9.7); a song that references more cannot be played.
 
 ### 9.5 Song record (one sector per song, region sectors 1..16)
@@ -449,7 +460,7 @@ directory holds 2048 live blocks (9.7); a song that references more cannot be pl
 | 20 | 4 | version: 1 (no event table, CRC over 20..2623) or 2 (v0.6: event table at 2624, CRC over 20..4091, see 9.11) |
 | 24 | 12 | name: 12 printable ASCII bytes (32..126), space padded, no terminator |
 | 36 | 1 | project slot 0..15 (timbres, effects, tempo, MIDI channels) |
-| 37 | 1 | flags: bit 0 loop the whole song when the last row ends (else stop); bit 1 jump mode: 0 = queued jumps land at the next bar, 1 = at the end of the current row; bits 2-7 reserved 0 |
+| 37 | 1 | flags: bit 0 loop the whole song when the last row ends (else stop); bit 1 jump mode: 0 = queued jumps land at the next bar, 1 = at the end of the current row; bit 2 (v0.7) swing for v2 blocks: 0 = v2 blocks play the straight grid whatever the project's swing, 1 = the project's swing setting applies to them too (v1 blocks always follow the project swing, 9.12); bits 3-7 reserved 0 |
 | 38 | 2 | tempo override in BPM: 0 = use the project's tempo, else 30..300 (v0.5.1: the device rejects any other value, as it rejects a bad channel or step-length byte) |
 | 40 | 1 | row count 1..128 |
 | 41 | 1 | reserved 0 (v0.4: was the informational block count; the device ignores it) |
@@ -803,3 +814,76 @@ merge into one bank+program event. Everything else is listed as dropped. Inside 
 events keep the file's order; a row that receives events is never merged into a repeat
 of the previous row (events fire once per row entry). Implemented in Task 04's workbench
 part (web/import/midi-song.js v0.4, option `preRoll`).
+
+### 9.12 Timed notes: block payload format v2 (v0.7, Task 05)
+
+Approved after the Task 05 Step 1 report (docs/tasks/TASK-05-step1-assessment.md). Nothing
+in the CRC ranges, the record alignment, the sector header, the staging journal, the batch
+stream or the transfer commands changes. The two bytes that gain a meaning are block record
+byte 1 (9.4: payload format) and song header flags bit 2 (9.5: swing).
+
+**Units.** 1 unit = 1/480 of a 16th step = 1/1920 of a quarter note. Offsets and lengths are
+musical: they scale with the tempo. 96, 120, 192, 240, 384, 480, 960 and 1920 PPQ files
+convert exactly; other PPQ values are rounded to the nearest unit by the importer, which
+reports it.
+
+**Payload v2.** 64 steps in order, each: 1 byte step header exactly as 9.3 (bits 0-2 note
+count N 0..4, bits 3-5 probability, bit 6 alt tuning, bit 7 = 0), then N timed notes of 6
+bytes in ascending pitch order. Minimum 64 bytes, maximum 64 + 64 × 24 = 1600 bytes. Same
+pitch twice in one step is invalid. A note's start is `step × 480 + offset` units from the
+row start on the straight grid; its note-off is `length` units after its start, which may
+fall inside a later row (released at a stop, as 9.3). A note anchored on step 0 with a
+negative offset sounds before the row (or repeat) boundary when the row that follows is
+known in time (the decode-ahead); otherwise it plays at the boundary and the row entry
+counts in the LATE counter (9.11 status byte 13 counts both late event streams and late
+note entries). Steps N..63 of a row shorter than 64 steps are never started.
+
+**Timed note, 6 bytes, little-endian fields** (the self-contained module app/timed_note.h,
+web/timed-note/timed-note.js, docs/TIMED-NOTE.md):
+
+| Byte | Bits | Field |
+| --- | --- | --- |
+| 0 | 0..6 | pitch 0..127 |
+| 0 | 7 | retrigger (as 9.3 byte 1 bit 7) |
+| 1 | 0..6 | velocity 1..127 |
+| 1 | 7 | reserved 0 |
+| 2..3 (u16) | 0..8 | offset: 9-bit two's complement, valid −240..+240 units |
+| 2..3 | 9..11 | length exponent e 0..7 |
+| 2..3 | 12..15 | reserved 0 |
+| 4..5 (u16) | 0..15 | length mantissa m 1..65535; length = m << e units |
+
+Canonical rule: e = 0 unless the length exceeds 65535 units; when e > 0, m ≥ 32768. Exactly
+one byte pattern per value, so byte equality is value equality (block deduplication) and C
+and JS encoders agree. The decoder refuses a non-canonical pair, a set reserved bit,
+velocity 0, m = 0 or an offset outside ±240. Lengths are exact up to 65535 units (136.5
+steps, 8.5 bars of 4/4), then to the nearest 2 units up to 273 steps, 4 units to 546, 8 to
+1092, 16 to 2184, 32 to 4369, 64 to 8738 and 128 units (0.27 step) to 17476 steps; every
+whole-step length up to 273 steps is exact, so a v1 length (1..255 steps) converts without
+loss.
+
+**Anchor rule.** A note belongs to the 16th step nearest its start. A start exactly half a
+step after a grid line belongs to the earlier step with offset +240 (the importer's
+long-standing "ties toward the earlier step"); −240 only arises from hand editing.
+
+**Swing.** A v1 block follows the project's swing setting exactly as before v0.7. A v2 block
+follows the song's flag bit 2: 0 (default) plays the straight grid; 1 applies the
+project's swing (0..50 %), which lengthens even steps and shortens odd steps by that share.
+A note with an offset keeps its fraction of the step its time falls in: on an even (long)
+step +120 units sounds a quarter of that longer step after its boundary; on an odd step
+−120 sounds a quarter of the preceding even step before its boundary; a length spans the
+warped time of the steps it covers. The mapping is `warp(t)`: within each pair of steps
+(960 units) the first 480 units scale by (100 + swing)/100 and the next 480 by (100 −
+swing)/100; a negative time (only −240..−1, before a row start) scales by (100 − swing)/100.
+Boundaries are the swung ones.
+
+**v1 blocks on a v0.7 device.** Read as timed notes with offset 0 and length L × 480
+units, with the project swing, so they sound as on tabby-v02.0. The workbench reads both
+formats and writes format 1 only; a rewritten song replaces its v1 records.
+
+**Playback accuracy (firmware).** The tick keeps the song position in units with an exact
+rational advance per 128-frame block (tempo × 1024 / 11025 units: no drift); every note-on
+and note-off is queued in the block that contains its time, in time order, all song notes in
+router lane 0 so the drain keeps that order. The MIDI message leaves at the control task's
+next poll (the SDK's control loop; the simulator's 10 ms poll, or every block with its test
+switch). `.tabby` files, kinds 5..7 and command 23 are unchanged apart from the two bytes
+above.
