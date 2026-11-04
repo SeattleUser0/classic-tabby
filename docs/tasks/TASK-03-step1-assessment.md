@@ -1,7 +1,9 @@
 # Task 03, Step 1 — read-only assessment (song mode)
 
-Version: 0.8
+Version: 0.8.1
 Revision log:
+- v0.8.1, 2026-11-04 (Task 06 checkpoint d): 9.11's gap row says what a gap's channel bits
+  mean (approved sentence); no layout change.
 - v0.8, 2026-11-04 (Task 06 checkpoint b): section 9.13 added: independent track launching
   (track states and queues, the master clock and bars, buffers per track, event slices by
   channel and a gap's channel bits, the song end with detached tracks, late entries, status
@@ -779,7 +781,7 @@ Event (5 bytes):
 | 0 | program change | program 0..127 | 0 | 0 | Cn d0 |
 | 1 | program change with bank select | bank MSB 0..127, or 0xFF = none | bank LSB 0..127, or 0xFF = none | program 0..127 | Bn 00 d0 (if MSB), Bn 20 d1 (if LSB), Cn d2, in one audio block |
 | 2 | control change | controller 0..127 | value 0..127 | 0 | Bn d0 d1 |
-| 3 | gap | milliseconds 1..255 | 0 | 0 | nothing; the next event of the row waits d0 ms, rounded up to whole audio blocks (2.902 ms); the channel bits are ignored |
+| 3 | gap | milliseconds 1..255 | 0 | 0 | nothing; the next event of the row waits d0 ms, rounded up to whole audio blocks (2.902 ms); the channel bits name the channel the gap belongs to (the one of the event it follows; v0.8.1, Task 06: the per-track launch slices of 9.13 take a gap by them; the row stream itself waits whatever the bits say) |
 
 Validation (device `song_record_valid`, workbench `songRecordParse`, importer `decodeRecord`):
 N ≤ 292; table version 1; flags and reserved 0; every row index < rows; type ≤ 3; data

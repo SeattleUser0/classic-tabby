@@ -1,7 +1,10 @@
 # Classic Tabby — Specification
 
-Version: 0.14.2
+Version: 0.15
 Revision log:
+- v0.15, 2026-11-04: section 10: Task 06 checkpoint (d) done (workbench: lead before the bar,
+  pattern view, per-track status; the scripted performance check); Task 06 complete pending
+  the hardware checklist.
 - v0.14.2, 2026-11-04: section 10: Task 06 checkpoint (c) done (TRACK LAUNCH page, pad
   colours, SCL / ENV routing).
 - v0.14.1, 2026-11-04: section 10: Task 06 checkpoint (b) done (per-track playheads in
@@ -736,7 +739,31 @@ Checkpoints and status:
   the right one as soon as it is decoded (counted late). App image 451396 bytes, **margin
   2525** (+2368): the 2 KB floor holds without the EFFECTS page; checkpoint (d) adds no
   firmware.
-- (d) workbench: rig lead before bar, song editor pattern view, simulator check. Pending.
+- **(d) done, 2026-11-04: workbench.** The rig profile gains a per-channel **Lead ms**
+  (web/rig/rig.js v0.2, rig-ui.js v0.2; `tabby-rig/1` with an optional field, old profiles
+  read as 0): when a song is written the channel's last program event of a row is followed
+  by a gap of at least the lead (the larger of the lead and the device's gap after the
+  program), kept even when it ends the row, so the firmware's stream starts that early and
+  the program change leaves before the bar for launches and scene changes alike; gaps carry
+  their event's channel (9.11 v0.8.1). The song editor labels rows as patterns and lists,
+  per track, the pattern numbers the TRACK LAUNCH page offers; the storage status shows
+  every track's state, pattern and pending queue (command 23's 31-byte reply, the same from
+  the browser simulator). The simulator shortcut 20 opens the page. Tests:
+  tests/workbench/rig-lead.mjs (9 checks), tests/workbench/launch-sim.mjs (the scripted
+  32-bar performance, 32 checks: 591 of 591 predicted note-ons within one block, worst
+  error 0, nothing beyond the model, every note-on with its note-off, Start and Stop once);
+  importer suite 167, host 258. No firmware change: app image 451396 bytes, margin 2525.
+
+Known limits (v1 of track launching):
+
+- A press inside the last control poll before the bar (10 ms in the simulator, the device's
+  control-loop period) enters the pattern in phase at the next poll with its downbeat
+  skipped and counts late; the LATE readout on the page shows it.
+- Two tracks on one channel each send their own launch slice; two launches at the same bar
+  send the program change twice, last wins.
+- "Back to song" joins the song's row where it stands; a negative-offset note on the row's
+  step 0 is not pre-fired for that entry.
+- The hardware pad colours and flashing are judged on the device (BUILD.md 19.5).
 
 Deferred (BUILD.md left-to-build list): following external MIDI clock in song mode; CC
 automation inside a row.

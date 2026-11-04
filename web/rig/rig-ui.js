@@ -24,9 +24,10 @@
  *   and export paths call `prepareEvents(song)` to get the list with the rig's gaps
  *   applied (TabbyRig.applyGaps) and `trailer(song)` for the override.
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-04  Task 06: the "Lead ms" column (program change this long before the bar).
  *   v0.1  2026-11-02  Initial version (Task 04, workbench part).
  */
 (() => {
@@ -67,13 +68,16 @@
         const d = c.device ? library.get(c.device) : null;
         const gap = h('input', { type: 'number', min: 0, max: 255, step: 1, value: c.gapMs === null ? '' : String(c.gapMs), placeholder: d ? String(d.programChange.gapMs) : '0' });
         gap.addEventListener('change', () => { c.gapMs = gap.value === '' ? null : Math.max(0, Math.min(255, Math.round(Number(gap.value)))); save(); });
+        /* Task 06: lead before the bar, for slow devices: the program change leaves this long before the downbeat. */
+        const lead = h('input', { type: 'number', min: 0, max: 255, step: 1, value: String(c.leadMs || 0), title: 'Program change this many ms before the bar (track launches and scene changes)' });
+        lead.addEventListener('change', () => { c.leadMs = Math.max(0, Math.min(255, Math.round(Number(lead.value) || 0))); save(); });
         const numbering = d ? (d.programChange.supported === true ? 'programs ' + D.programLabel(d, d.programChange.bankSelect.banks.length ? 0 : null, 0) + '..' +
           D.programLabel(d, d.programChange.bankSelect.banks.length ? d.programChange.bankSelect.banks.length - 1 : null, Math.min(127, Math.max(0, (d.programChange.programs || 128) - 1))) +
           (d.programChange.bankSelect.scheme !== 'none' ? ', bank by ' + d.programChange.bankSelect.scheme.toUpperCase().replace('CC0CC32', 'CC 0 + CC 32').replace('CC', 'CC ') : '') +
           (d.unverified.some(u => /displayBase/.test(u)) ? ' (base unverified)' : '')
           : d.programChange.supported === false ? 'no program change' : 'program change unverified') : '';
         const names = h('button', { type: 'button', textContent: 'Names…', disabled: !d, onclick: () => editPrograms(i) });
-        return h('tr', {}, h('td', {}, i + 1), h('td', {}, dev), h('td', {}, name), h('td', {}, gap), h('td', { class: 'ti-muted' }, numbering), h('td', {}, names));
+        return h('tr', {}, h('td', {}, i + 1), h('td', {}, dev), h('td', {}, name), h('td', {}, gap), h('td', {}, lead), h('td', { class: 'ti-muted' }, numbering), h('td', {}, names));
       }));
       renderEvents();
     }
@@ -104,8 +108,8 @@
         h('button', { type: 'button', textContent: 'Export rig (.json)', onclick: () => download(Rig.rigExport(state.rig), (state.rig.name || 'rig').replace(/[^\w-]+/g, '_') + '.rig.json') }), ' ',
         h('label', {}, 'Import rig ', importFile), ' ',
         h('button', { type: 'button', textContent: 'Reset', onclick: () => { if (confirm('Clear the rig profile?')) { state.rig = Rig.rigEmpty(); save(); } } })),
-      h('table', { class: 'ti-table' }, h('thead', {}, h('tr', {}, ...['Ch', 'Device', 'Name', 'Gap ms', 'Numbering', ''].map(t => h('th', {}, t)))), setupBody),
-      h('p', { class: 'ti-muted' }, 'The profile is saved in this browser. Gap: blank = the definition\'s delay need; it becomes gap events in the song when it is written. Device setup steps (what to set on the gear) are in each definition\'s notes: see BUILD.md section 16.3.'),
+      h('table', { class: 'ti-table' }, h('thead', {}, h('tr', {}, ...['Ch', 'Device', 'Name', 'Gap ms', 'Lead ms', 'Numbering', ''].map(t => h('th', {}, t)))), setupBody),
+      h('p', { class: 'ti-muted' }, 'The profile is saved in this browser. Gap: blank = the definition\'s delay need; it becomes gap events in the song when it is written. Lead: the program change leaves this many ms before the bar when a track launches or a scene changes (0 = with the downbeat). Device setup steps (what to set on the gear) are in each definition\'s notes: see BUILD.md section 16.3.'),
       programsBox);
 
     /* ---- row events ---------------------------------------------------------------------- */

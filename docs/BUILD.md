@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.21
+Version: 0.22
 Revision log:
+- v0.22, 2026-11-04 (Task 06 checkpoint d): sections 19.4 (workbench), 19.5 (the Step 4
+  hardware checklist) and 19.6 (results for the final report).
 - v0.21, 2026-11-04 (Task 06 checkpoint c): section 19.3: the TRACK LAUNCH page, pad
   colours, SCL / ENV routing, measured figures.
 - v0.20, 2026-11-04 (Task 06 checkpoint b): section 19.2: per-track playheads in firmware,
@@ -1723,4 +1725,88 @@ note-off, Start once and Stop once.
 Checks: host smoke 258, web smoke, the performance check (32 checks), headless Chrome
 preview (no console errors, shortcut 20 present). The page's behaviour on the device is in
 the Step 4 checklist (19.5).
+
+### 19.4 Checkpoint (d): workbench
+
+- **web/rig/rig.js v0.2**: `leadMs` per channel (0..255, default 0; `rigNormalize` reads a
+  profile without it as 0), `leadFor`, and in `applyGaps` the trailing gap: after the
+  channel's last program event of a row a gap of max(lead, the device's gap after the
+  program) on that channel, kept by the final filter (other trailing gaps are dropped as
+  before). **web/rig/rig-ui.js v0.2**: the "Lead ms" column with its help text.
+- **sdk/Update.html.in**: the song-mode help explains track launching; the rows table is
+  labelled "rows = patterns"; `#song-patterns` lists each track's pattern numbers after the
+  table; the storage status line appends every track's state, pattern and pending queue.
+  **sdk/Simulator.js**: the `song-status` reply carries the eight track words
+  (`sim_song_track_status`). **sdk/I18n.js**: three strings. sdk/manifest.json re-pinned.
+- **tests/workbench/rig-lead.mjs** (9 checks, in `workbench-test`): profile round trip and
+  clamping, the trailing lead gap after a program change, the larger of lead and device gap
+  on a Blofeld bank + program, a lead gap kept at the row end, a channel without lead
+  losing its trailing gap as before. **tests/workbench/launch-sim.mjs** (in
+  `midi-import-sim`, section 19.3).
+- Checks: `make workbench-test` (song-write, devices, transfer-radio, rig-lead),
+  `make midi-import-sim` (Renoise timing, row events, the performance), `make
+  midi-import-test` 167, headless Chrome preview (no console errors; the pattern list, the
+  Lead column and shortcut 20 in the DOM). No firmware change.
+
+### 19.5 Hardware checklist (Task 06 Step 4, for the user)
+
+Device with the M8 and a timestamped MIDI monitor on the wired MIDI out; a song with at
+least three rows and blocks on several tracks (the Renoise export of 18.4 works), uploaded
+from the workbench; the rig with the Blofeld's channel given a Lead ms (say 30) and the
+song written again so the gaps are in the record.
+
+1. **Bluetooth settings** (19.1): with the library connected, open "Bluetooth settings",
+   switch Bluetooth off, write, power-cycle, reconnect: the box reads off; switch it back on.
+   Press the device's BT button: "BLUETOOTH: SET IN WORKBENCH".
+2. **Page switch.** ACTIONS → SONG MODE, PLAY. Press SCL: the TRACK LAUNCH page, the SCL
+   lamp lit, eight columns FOLLOW with the row's pattern numbers, the bar counter running.
+   SCL again returns to the SONG page.
+3. **Launch while the others play.** On TRACK LAUNCH, SHIFT + pad 3 selects track 3; the
+   pads show its patterns (dim white), the playing one green. Press another pattern's pad:
+   it flashes green on the eighth notes, the column shows "Q n"; at the next bar it turns
+   steady green, the old one dim, the column "PLAY n". On the monitor: track 3's program
+   change `Lead` ms before the bar (when its channel has one), the new pattern's first note
+   on the bar, drums and bass unbroken, the M8 still locked (clock and SPP untouched).
+4. **Stop and restart.** Press the green pad: it flashes red, the column ">STOP"; at the bar
+   every note of that track gets its note-off (monitor: no hanging note on the synth), the
+   column "STOP". Press a pad: the pattern starts at the next bar.
+5. **Two presses before the bar**: press pattern 2 then pattern 3 inside one bar: only 3
+   starts.
+6. **Polymeter.** Launch a 48-step row's pattern on one track while a 16-step row plays on
+   another; over a minute the long pattern's downbeat falls on every third bar of the
+   short one.
+7. **All eight.** SHIFT + pad t, pad n for each track inside one bar (eight presses); at the
+   bar all eight start; every column "PLAY".
+8. **Scene jump.** On the SONG page press a row pad while tracks are launched: at the
+   landing every column reads FOLLOW with that row's patterns, the detached tracks' notes
+   released at the landing (monitor), pedals' program changes sent.
+9. **Back to song.** Launch a pattern on track 2, press ENV: the column ">SONG" then
+   FOLLOW at the next bar with the song's current row; SHIFT+ENV with several tracks
+   launched returns them all.
+10. **Song end with detached tracks.** A song without loop: launch one track, let the last
+    row end: the following tracks go silent ("SONG OVER" on the page), the launched one
+    loops, the M8 stays locked (clock running); stop the track with its pad: silence, still
+    running; PLAY: Stop sent.
+11. **Late press.** Press a pad a hair before the bar: either the pattern starts on the bar
+    or (inside the control-loop window) LATE counts up and the pattern enters in phase at
+    the next bar with its downbeat skipped.
+12. **Pad colours** (assessment 5.3) judged by eye: playing, queued, pending stop, a
+    pattern, empty, and the SHIFT view of the eight tracks; report what to change.
+13. **Timing band.** As 13.4 step 12 with launches in the mix: note the device's
+    control-loop band here.
+
+### 19.6 Results for the Task 06 final report
+
+| Quantity | Before Task 06 | After (a) | After (b) | After (c) = final |
+| --- | ---: | ---: | ---: | ---: |
+| App image | 451364 | 447140 | 449028 | **451396** |
+| Margin to 453921 | 2557 | 6781 | 4893 | **2525** |
+| Static SRAM | 319252 | 318932 | 323764 | **323796** |
+| Runtime heap | 204364 | 204684 | 199852 | **199820** |
+
+Simulator timing: the scripted 32-bar performance (launches, stops, a scene jump, back to
+song): 591 predicted note-ons, all within one block, worst error 0, nothing beyond the
+model; the Renoise export (18.3) unchanged: largest error 0 blocks. Host: 258 checks, of
+which 65 for launching (section 13). The device's control-loop band is the number the
+simulator cannot give (19.5 step 13).
 

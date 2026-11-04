@@ -770,6 +770,9 @@ The assessment's estimate for this part was ≈ 1450. The page is the last firmw
 page untouched. If a later task needs room, EFFECTS (≈ 1400, section 7.2 of the
 assessment) is still the reserve, and the launch page's text could be shortened.
 
+Checkpoint (d) (2026-11-04) changed no firmware: the figures above are Task 06's final ones
+(app image 451396, margin 2525, static SRAM 323796).
+
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 
 ### Flash use by input (from sdk.map; .text includes rodata)

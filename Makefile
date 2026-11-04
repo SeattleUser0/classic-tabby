@@ -56,7 +56,8 @@
 # Version: 0.9
 #
 # Revision log
-#   v0.9  2026-11-04  Task 06: workbench-test runs tests/workbench/transfer-radio.mjs (command 24);
+#   v0.9  2026-11-04  Task 06: workbench-test runs tests/workbench/transfer-radio.mjs (command 24)
+#                     and tests/workbench/rig-lead.mjs (the rig's lead before the bar);
 #                     midi-import-sim runs tests/workbench/launch-sim.mjs (a scripted 32-bar
 #                     performance with launches, stops, a scene jump and back-to-song).
 #   v0.8  2026-11-02  Task 04: workbench-test also runs tests/workbench/devices.mjs;
@@ -177,6 +178,7 @@ workbench-test:
 	$(NODE) tests/workbench/song-write.mjs
 	$(NODE) tests/workbench/devices.mjs
 	$(NODE) tests/workbench/transfer-radio.mjs build/web/simulator.wasm
+	$(NODE) tests/workbench/rig-lead.mjs
 
 test: timed-note-test host-smoke web-smoke workbench-test
 	@echo "test: timed-note-test, host-smoke, web-smoke and workbench-test passed"

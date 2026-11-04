@@ -20,11 +20,20 @@
  *   a record back keeps whatever gaps it holds; the editor shows them greyed and
  *   regenerates them at the next write.
  *
+ *   Lead before the bar (Task 06, 9.13): a channel's `leadMs` (default 0) is how long before
+ *   the bar its program change must have left, for slow devices. It becomes a trailing gap
+ *   event on that channel after the channel's last program event of the row: the firmware
+ *   starts a row's stream (or a track's launch stream) `lead` blocks early, where lead is the
+ *   sum of the gaps, so the program change leaves that long before the downbeat. The trailing
+ *   gap is max(leadMs, the device's gap after the program); gaps carry the channel of the
+ *   event they belong to, which the firmware's per-track slices use.
+ *
  *   Loading: classic script (globalThis.TabbyRig) and CommonJS.
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-04  Task 06: per-channel leadMs, the trailing gap kept for a lead.
  *   v0.1  2026-11-02  Initial version (Task 04, workbench part).
  */
 (() => {
@@ -34,7 +43,7 @@
   const devices = () => globalThis.TabbyDevices || (typeof require === 'function' ? require('./device-library.js') : null);
 
   function rigEmpty() {
-    return { schema: SCHEMA, name: 'My rig', channels: Array.from({ length: 16 }, () => ({ device: null, name: '', gapMs: null, programs: {} })) };
+    return { schema: SCHEMA, name: 'My rig', channels: Array.from({ length: 16 }, () => ({ device: null, name: '', gapMs: null, leadMs: 0, programs: {} })) };
   }
   /* Validate and normalise a profile object (from storage, a file or a trailer). */
   function rigNormalize(data) {
@@ -47,6 +56,7 @@
         ch.device = typeof c.device === 'string' && c.device ? c.device : null;
         ch.name = typeof c.name === 'string' ? c.name.slice(0, 40) : '';
         ch.gapMs = Number.isInteger(c.gapMs) && c.gapMs >= 0 && c.gapMs <= 255 ? c.gapMs : null;
+        ch.leadMs = Number.isInteger(c.leadMs) && c.leadMs >= 0 && c.leadMs <= 255 ? c.leadMs : 0;   /* Task 06: lead before the bar */
         ch.programs = {};
         for (const [k, v] of Object.entries(c.programs || {})) if (/^\d{1,3}$/.test(k) && Number(k) <= 127 && typeof v === 'string') ch.programs[k] = v.slice(0, 40);
       }
@@ -76,6 +86,8 @@
     if (c.gapMs !== null) return c.gapMs;
     return d ? d.programChange.gapMs : 0;
   }
+  /* Task 06: the channel's lead before the bar in ms (0 = none). */
+  function leadFor(rig, channel) { const c = rig.channels[channel]; return c && c.leadMs ? c.leadMs : 0; }
   /* Program name for the editor: the rig's own name first, then the definition's list. */
   function programName(rig, library, channel, bank, program) {
     const c = rig.channels[channel], own = c.programs[String(program)];
@@ -104,8 +116,22 @@
         out.push({ row: e.row, channel: e.channel, type: 3, d0: gap, d1: 0, d2: 0 });
       }
     }
-    /* A gap that ends a row's stream waits for nothing: drop it. */
-    return out.filter((e, i) => !(e.type === 3 && (i === out.length - 1 || out[i + 1].row !== e.row)));
+    /* Task 06: a channel with a lead ends its events of a row with a gap of at least the lead
+     * (after its last program event), kept even when it ends the row's stream. */
+    const kept = new Set();
+    for (let i = 0; i < out.length; i++) {
+      const e = out[i];
+      if (e.type !== 0 && e.type !== 1) continue;
+      const lead = leadFor(rig, e.channel);
+      if (!lead) continue;
+      let last = i;
+      for (let j = i + 1; j < out.length && out[j].row === e.row; j++) if (out[j].channel === e.channel) last = j;
+      if (last !== i && out.slice(i + 1, last + 1).some(x => x.channel === e.channel && (x.type === 0 || x.type === 1))) continue;   /* a later program event of the channel carries the lead */
+      if (out[last].type === 3) { out[last].d0 = Math.max(out[last].d0, lead); kept.add(out[last]); }
+      else { const g = { row: e.row, channel: e.channel, type: 3, d0: lead, d1: 0, d2: 0 }; out.splice(last + 1, 0, g); kept.add(g); }
+    }
+    /* A gap that ends a row's stream waits for nothing unless it is a lead: drop the others. */
+    return out.filter((e, i) => kept.has(e) || !(e.type === 3 && (i === out.length - 1 || out[i + 1].row !== e.row)));
   }
   /* Human text for one event, with the rig's vocabulary. */
   function describe(e, rig, library) {
@@ -122,7 +148,7 @@
     return 'program ' + label + (name ? ' "' + name + '"' : '') + ' [PC ' + program + ']' + bankText;
   }
 
-  const TabbyRig = { SCHEMA, STORAGE_KEY, rigEmpty, rigNormalize, rigLoad, rigSave, rigExport, rigImport, rigClone, deviceOn, channelLabel, gapFor, programName, applyGaps, describe, version: '0.1' };
+  const TabbyRig = { SCHEMA, STORAGE_KEY, rigEmpty, rigNormalize, rigLoad, rigSave, rigExport, rigImport, rigClone, deviceOn, channelLabel, gapFor, leadFor, programName, applyGaps, describe, version: '0.2' };
   globalThis.TabbyRig = TabbyRig;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyRig;
 })();

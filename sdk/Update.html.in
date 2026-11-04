@@ -275,6 +275,7 @@ main{max-width:1440px}
 </details>
 <details class="library-group"><summary>歌曲模式（Classic Tabby）</summary>
 <p class="sim-help">歌曲 = 行的序列；每行给 8 条轨道各指定一个块（64 步、每步最多 4 个音符）。歌曲存放在设备的歌曲存储区，由面板 ACTIONS → SONG MODE 播放。文件格式见 docs/tasks/TASK-03-step1-assessment.md 第 9 节。</p>
+<p class="sim-help">独立轨道启动（Task 06）：机身 SONG 页按 SCL 进入 TRACK LAUNCH 页。某轨的“图案 N”就是该轨在第 N 行的块，循环长度为该行的步数；打击垫 1–16 对应当前页的第 1–16 行（OCT 翻页），按下在下一小节启动该图案，再按正在播放的图案则在下一小节停止；SHIFT + 打击垫 1–8 选轨；ENV 让所选轨回到歌曲，SHIFT + ENV 全部回到歌曲；场景跳转（SONG 页）覆盖所有轨道队列。配置设备的“Lead ms”让音色切换提前于小节发出。</p>
 <div class="field-row"><label>目标 <select id="song-target"><option value="device">设备（项目库）</option><option value="sim">浏览器仿真</option></select></label>
 <label>歌曲槽 <select id="song-slot"></select></label></div>
 <button id="song-read">读取歌曲</button><button id="song-new">新建歌曲</button><button id="song-write">写入歌曲</button><button id="song-delete">删除歌曲</button>
@@ -286,9 +287,10 @@ main{max-width:1440px}
 <div class="field-row"><label><input id="song-loop" type="checkbox"> 整曲循环</label><label><input id="song-swing" type="checkbox"> 摇摆跟随项目设置</label><label>循环起始行 <input id="song-loop-row" type="number" min="1" max="128" step="1"></label>
 <label>跳转落点 <select id="song-jump"><option value="0">下一小节</option><option value="1">行尾</option></select></label></div>
 <label>输出通道（每轨，0 = 设备设置）</label><div id="song-channels" class="sim-file-row"></div>
-<label>行（块编号按轨道 1–8；0 = 该轨静音）</label>
+<label>行 = 图案（轨道启动页的打击垫 N 对应第 N 行；块编号按轨道 1–8；0 = 该轨静音）</label>
 <div class="device-scroll"><table id="song-rows"><thead><tr><th>行</th><th>T1</th><th>T2</th><th>T3</th><th>T4</th><th>T5</th><th>T6</th><th>T7</th><th>T8</th><th>重复</th><th>步数</th><th>行内循环</th></tr></thead><tbody></tbody></table></div>
 <button id="song-row-add">添加行</button><button id="song-row-remove">删除末行</button>
+<p id="song-patterns" class="sim-help"></p>
 <label>行事件（Task 04：行开始时发送的 Program Change / Bank Select / CC，目标为 MIDI 通道；面板为英文）</label>
 <div id="song-events" class="song-events" hidden></div>
 <div class="field-row"><label>块编号 <input id="song-block-id" type="number" min="1" max="65535" step="1" value="1"></label></div>
@@ -896,6 +898,8 @@ main{max-width:1440px}
       cell(row.repeat,{type:'number',min:'1',max:'64',step:'1'},'repeat');cell(row.steps,{type:'number',min:'16',max:'64',step:'16'},'steps');
       const td=document.createElement('td'),c=document.createElement('input');c.type='checkbox';c.checked=row.loopHere;c.dataset.songRow=r;c.dataset.songField='loop';td.append(c);tr.append(td);
       body.append(tr);});
+    // Task 06: per track, the pattern numbers (rows with a block) the TRACK LAUNCH page offers.
+    $('song-patterns').textContent=FM1I18n.t('各轨图案（行号）：')+songEd.song.rows.length?Array.from({length:8},(_,t)=>'T'+(t+1)+' '+(songEd.song.rows.map((row,r)=>row.block[t]?String(r+1):'').filter(Boolean).join(' ')||'-')).join('   '):'';
   }
   function songRender(){
     const s=songEd.song;$('song-editor').hidden=!s;if(!s)return;
@@ -948,7 +952,9 @@ main{max-width:1440px}
   }));
   $('song-status').addEventListener('click',songAct(async()=>{
     const s=await songBackend().status();
-    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (old sample / DX7 data still present)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+'.');
+    const words=['follow','launched','stopped'],queues=['','queued launch','queued stop','queued back to song'];
+    const tracks=s.tracks?'; tracks: '+s.tracks.map((t,i)=>'T'+(i+1)+' '+words[t.state]+(t.row!==255?' r'+(t.row+1):'')+(t.queue?' ('+queues[t.queue]+')':'')+(t.waiting?' waiting':'')).join(', '):'';
+    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (old sample / DX7 data still present)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+tracks+'.');
   }));
   $('song-row-add').addEventListener('click',songAct(async()=>{if(!songEd.song)throw Error('请先读取或新建歌曲');if(songEd.song.rows.length>=128)throw Error('最多 128 行');
     const last=songEd.song.rows[songEd.song.rows.length-1];songEd.song.rows.push({block:last.block.slice(),repeat:last.repeat,loopHere:false,steps:last.steps});songRowsRender();}));
