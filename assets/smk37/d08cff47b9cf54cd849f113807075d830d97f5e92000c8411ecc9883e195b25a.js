@@ -122,9 +122,9 @@
   "正常连接已识别其他固件（相同型号的原有固件）时，点击 启用强制烧录并重新连接。这一步只开启模式并重新连接，不会写入固件。页面会说明接下来缺少哪一步；确认已备份后，再点 强制烧录 并确认兼容风险才会开始。也可点击强制烧录勾选行的任意位置开启。设备仍需支持兼容的 USB-MIDI 升级协议。": "When a normal connection identifies earlier firmware for the same model, click Enable forced update and reconnect. This only enables the mode and reconnects. The page explains the remaining steps; writing starts after you confirm the backup and forced update. You can also click the forced-update checkbox row. The device must support the compatible USB-MIDI update protocol.",
   "下载与机身型号对应的 Pro 或 Elite 工作台。连接 USB，先导出项目与采样备份，再在“设备更新”中连接、勾选备份确认并更新。首次从同型号原厂固件迁移时，使用“启用强制烧录并重新连接”。完成后网页会核对型号、版本哈希与采样区。Pro 与 Elite 固件不可混刷。": "Download the workbench for your Pro or Elite model. Connect USB, export project and sample backups, then connect in Device Update, confirm your backup and update. For the first migration from the same model\u2019s factory firmware, choose Enable forced update and reconnect. The page verifies the model, build hash and sample area afterward. Pro and Elite firmware are not interchangeable.",
 
-  "37 个力度琴键始终用于演奏。短按 PAD / STEP 切换 KEY／PAD 编辑焦点；SHIFT + PAD / STEP 切换步进编辑；菜单中打击垫用于选择。8 个编码器依次为 K1–K4、SELECT、PAGE、PRESET、MASTER。4 个推子控制轨道音量，FADER BANK 在 1–4／5–8 轨之间切换，推子经过屏幕当前值后才接管。BT 直达蓝牙，SHIFT + HOME / SRC 直达音源页。弯音轮、调制轮和延音踏板跟随 KEY；Pad 触后跟随 PAD。": "The 37 velocity keys always play notes. Tap PAD / STEP to switch KEY/PAD editing focus; SHIFT + PAD / STEP switches step editing. Pads select items in menus. Encoders are K1–K4, SELECT, PAGE, PRESET and MASTER. Four faders control track levels; FADER BANK selects tracks 1–4 or 5–8. A fader takes over after crossing the stored value. BT opens Bluetooth; SHIFT + HOME / SRC opens sources. Pitch, modulation and sustain follow KEY; Pad aftertouch follows PAD.",
+  "37 个力度琴键始终用于演奏。短按 PAD / STEP 切换 KEY／PAD 编辑焦点；SHIFT + PAD / STEP 切换步进编辑；菜单中打击垫用于选择。8 个编码器依次为 K1–K4、SELECT、PAGE、PRESET、MASTER。4 个推子控制轨道音量，FADER BANK 在 1–4／5–8 轨之间切换，推子经过屏幕当前值后才接管。BT 键提示蓝牙设置已移至网页工作台，SHIFT + HOME / SRC 直达音源页。弯音轮、调制轮和延音踏板跟随 KEY；Pad 触后跟随 PAD。": "The 37 velocity keys always play notes. Tap PAD / STEP to switch KEY/PAD editing focus; SHIFT + PAD / STEP switches step editing. Pads select items in menus. Encoders are K1–K4, SELECT, PAGE, PRESET and MASTER. Four faders control track levels; FADER BANK selects tracks 1–4 or 5–8. A fader takes over after crossing the stored value. BT reminds you that Bluetooth settings moved to the web workbench; SHIFT + HOME / SRC opens sources. Pitch, modulation and sustain follow KEY; Pad aftertouch follows PAD.",
   "ENV 打开当前音源包络；SHIFT + ENV 打开当前轨调制；FX 按轨调混响和延迟，SCL 进入缩放细调。": "ENV opens the source envelope; SHIFT + ENV opens track modulation. FX edits track reverb and delay; SCL opens scaling.",
-  "USB MIDI 开机即接收；蓝牙 MIDI 由 BT 页控制，两者使用相同的轨道输入通道设置。当前 Pro／Elite 没有有线 MIDI IN，机身 MIDI OUT 用于输出。": "USB MIDI receives at startup; BT controls Bluetooth MIDI. Both use the track input-channel settings. The current Pro / Elite boards have no wired MIDI input; the MIDI OUT connector is for output.",
+  "USB MIDI 开机即接收；蓝牙 MIDI 在网页工作台“项目与音色 → 蓝牙设置”中控制，两者使用相同的轨道输入通道设置。当前 Pro／Elite 没有有线 MIDI IN，机身 MIDI OUT 用于输出。": "USB MIDI receives at startup; Bluetooth MIDI is controlled from the workbench (Projects & sounds → Bluetooth settings). Both use the track input-channel settings. The current Pro / Elite boards have no wired MIDI input; the MIDI OUT connector is for output.",
 
   "正在加载固件…": "Loading firmware…",
   "固件加载失败，请重新打开设备更新页重试。": "Firmware could not be loaded. Reopen Device Update to retry.",
@@ -176,7 +176,7 @@
   "关闭": "Close",
   "采样库必须包含 8 个槽位": "The sample bank must contain 8 slots",
   "MIX 短按（小于 0.6 秒）进入或退出混音；按住 0.6 秒可临时查看混音，松开回原页。MIX、EDIT、SEQ、ARP 的长按过程中，屏幕顶部显示进度条。": "Tap MIX (less than 0.6 seconds) to enter or leave the mixer. Hold for 0.6 seconds for a momentary mixer view; release to return. A progress bar appears at the top while holding MIX, EDIT, SEQ or ARP.",
-  "SEQ 的 SYNC / LOOP 页：K1 选 INT／MIDI，K2 调内部 BPM，K3 调循环长度。切换时钟会停止播放；MIDI 模式需外部 Start／Continue 和 Clock，等待时屏幕提示 WAIT MIDI CLOCK。外部 BPM 只读，蓝牙页的时钟设置仍可使用。": "On SEQ’s SYNC / LOOP page, K1 selects INT / MIDI, K2 sets internal BPM and K3 sets loop length. Switching clocks stops playback. MIDI mode needs external Start / Continue and Clock; WAIT MIDI CLOCK appears while waiting. External BPM is read-only. The clock setting on the Bluetooth page remains available.",
+  "SEQ 的 SYNC / LOOP 页：K1 选 INT／MIDI，K2 调内部 BPM，K3 调循环长度。切换时钟会停止播放；MIDI 模式需外部 Start／Continue 和 Clock，等待时屏幕提示 WAIT MIDI CLOCK。外部 BPM 只读。": "On SEQ’s SYNC / LOOP page, K1 selects INT / MIDI, K2 sets internal BPM and K3 sets loop length. Switching clocks stops playback. MIDI mode needs external Start / Continue and Clock; WAIT MIDI CLOCK appears while waiting. External BPM is read-only.",
   "录入标记：停止时按 REC 显示 STEP，弹琴逐步写入；播放时显示 REC，按时间录入；启用预备拍后显示 CNT 4→1，下一小节才开始记录。绿色短线表示播放步，白色框表示编辑步；PRESETS 手动选步会结束录入，再按 REC 继续。": "Recording indicators: REC while stopped shows STEP for step entry; during playback it shows REC for live recording. With count-in enabled, CNT 4→1 counts down before recording starts on the next bar. A green line marks playback and a white outline marks the edit step. Selecting a step with PRESETS ends recording; press REC to resume.",
   "顶部状态区区分浏览器试听、设备连接和未写入的网页修改。连接不会自动读取或同步；点常用区“读取设备项目”替换网页工作区，误操作可用 HOME＋SAVE 撤销。保存并读回校验一致后才显示已写入；仅存到浏览器不代表写入设备。实机旋钮修改后，请重新读取。": "The top status bar distinguishes browser preview, device connection and browser edits not yet written. Connecting does not read or sync automatically. Read device project in the main controls replaces the browser workspace; HOME+SAVE can undo it. Written status requires matching read-back; saving in the browser does not write SMK37 OPEN. Read again after editing on the device.",
   "设备操作已完成。": "Device operation completed.",
@@ -498,7 +498,7 @@
   "SAMPLER · 采样": "SAMPLER · Samples",
   "前 8 个打击垫选择并试听 8 槽采样，PRESETS 也可选择。第一页 Level／Tune／Length／Choke；长按 EDIT 后 SELECT 翻到第二页 Variation／Vel LPF。Choke 同组新击打会停止旧声，适合开闭镲。": "The first 8 pads select and audition sample slots; PRESETS also selects them. Page one: Level / Tune / Length / Choke. Hold EDIT and use SELECT for Variation / Vel LPF on page two. A new hit in a choke group stops the previous sound, useful for open / closed hi-hats.",
   "FM 包络、调制与命名": "FM envelopes, modulation & naming",
-  "ENV 打开总 ADSR 页，K1–K4 为 Attack／Decay／Sustain／Release；转动任一参数会自动启用，重新弹键试听。只浏览页面保留原音色；需要回到原 DX7 包络时，PRESETS 向左关闭覆盖层，向右重新启用。LFO 用 SELECT 翻两页，SCL 进入当前算子的键盘缩放。长按 SEQ，选择 DX7 PATCH NAME 并按 SAVE，编辑 10 字符音色名，SELECT 选字符，K1 改字符，保存项目后保留。": "ENV opens the global ADSR page. K1–K4 control Attack / Decay / Sustain / Release; turning any parameter enables it automatically. Play a new note to hear the result. Merely viewing the page preserves the original sound. Turn PRESETS left to bypass the override and return to the original DX7 envelope, or right to enable it again. SELECT changes the two LFO pages; SCL opens the current operator’s keyboard scaling. Hold SEQ, select DX7 PATCH NAME, then press SAVE. SELECT chooses a character and K1 changes it in the 10-character name. Save the project to keep it.",
+  "ENV 打开总 ADSR 页，K1–K4 为 Attack／Decay／Sustain／Release；转动任一参数会自动启用，重新弹键试听。只浏览页面保留原音色；需要回到原 DX7 包络时，PRESETS 向左关闭覆盖层，向右重新启用。LFO 用 SELECT 翻两页，SCL 进入当前算子的键盘缩放。机身的 DX7 PATCH NAME 页已随 Classic Tabby Task 06 移除；音色名随网页工作台导入的 .syx 音色一起写入，并随项目保存。": "ENV opens the global ADSR page. K1–K4 control Attack / Decay / Sustain / Release; turning any parameter enables it automatically. Play a new note to hear the result. Merely viewing the page preserves the original sound. Turn PRESETS left to bypass the override and return to the original DX7 envelope, or right to enable it again. SELECT changes the two LFO pages; SCL opens the current operator’s keyboard scaling. The device's DX7 PATCH NAME page was removed with Classic Tabby Task 06; patch names arrive with the .syx voices imported in the workbench and are saved with the project.",
   "多数调音和包络参数需重新触发音符试听。切换 DX7 内置音色会替换编辑、打开全部算子并关闭总 ADSR。": "Retrigger notes to hear most tuning and envelope changes. Loading a factory DX7 patch replaces edits, enables all operators and disables global ADSR.",
   "MASTER 是总输出音量。": "MASTER controls the final output level. ",
   "实机旋钮控制合成器、USB 与蓝牙输入的最终输出，也影响 USB 录音。最小位置静音，切换项目沿用旋钮位置；它不随项目保存。转动时屏幕短暂显示 MASTER 百分比或 MASTER MUTED。": "The physical knob controls the final synthesizer, USB and Bluetooth input output, including USB recording. Minimum mutes. Its position remains in effect when changing projects and is not saved per project. Turning it briefly displays a MASTER percentage or MASTER MUTED.",
@@ -542,8 +542,20 @@
   "仿真页的“连接 MIDI 输入”用于外部键盘演奏网页。项目库连接用于读写实机项目和音色。USB 音频的输入／输出选择在电脑系统或音乐软件中设置。": "“Connect MIDI input” lets an external keyboard play the browser instrument. The project-library connection transfers projects and sounds to the device. Choose USB audio input / output in your computer or music software settings.",
   "蓝牙设置": "Bluetooth settings",
   "上排功能键在所有页面都有效：FX、SCL、ENV、LFO、EDIT、MIX、SEQ 可直接切页，ARP 短按开关、长按调参数，PLAY 控制播放。菜单或步进细节中按 REC，会进入 SEQ 基础页并开始录入；再按结束。SAVE 打开项目保存页，或执行屏幕内的确认；OCT−／OCT+ 在 SEQ 和复制菜单翻步进页，其他页面调八度。离开确认页不会执行待确认操作。": "The upper panel buttons work on every page. FX, SCL, ENV, LFO, EDIT, MIX and SEQ open their pages directly. Tap ARP to toggle it or hold for settings; PLAY controls playback. REC from a menu or step details opens the SEQ basic page and starts recording; press again to finish. SAVE opens project saving or confirms the action shown on screen. OCT− / OCT+ change step pages in SEQ and the copy menu, and octaves elsewhere. Leaving a confirmation page does not execute the pending action.",
-  "长按 SEQ，SELECT 选 BLUETOOTH / CLOCK，SAVE 打开蓝牙／时钟页。K1 为蓝牙总开关，K2 为蓝牙音频，K3 只选 BLE MIDI 的 DEVICE／HOST 角色，K4 选择时钟。蓝牙打开时 MIDI 服务自动可用；出厂默认蓝牙和音频打开、DEVICE 角色、内部时钟。PRESETS 选择屏幕下方操作，SAVE 执行：主设置页可打开 HOST 设备列表或清除 MIDI 配对；列表中 SELECT 选设备，PRESETS 选连接、扫描、断开或返回设置。清除配对仍需再次 SAVE 确认，HOME 取消。SEQ、EDIT 等上排功能键仍可直接切页。": "Hold SEQ, choose BLUETOOTH / CLOCK with SELECT and press SAVE. K1 is the Bluetooth master switch, K2 controls Bluetooth audio, K3 chooses the BLE MIDI DEVICE / HOST role, and K4 selects the clock. MIDI is available whenever Bluetooth is on. Factory defaults are Bluetooth and audio on, DEVICE role and internal clock. PRESETS selects the action at the bottom of the screen; SAVE executes it. The settings page offers the HOST device list or MIDI pairing reset. In the list, SELECT chooses a device; PRESETS chooses connect, scan, disconnect or settings. Pairing reset requires a second SAVE; HOME cancels. SEQ, EDIT and the other upper panel shortcuts still switch pages directly.",
-  "网页可以预览设置页面；实际蓝牙扫描、配对和音频输入要在实机上操作。": "The browser can preview settings pages. Actual Bluetooth scanning, pairing and audio input are operated on the device.",
+  "机身的蓝牙页已随 Classic Tabby Task 06 移除（为独立轨道启动腾出闪存）。蓝牙设置在网页工作台“项目与音色 → 蓝牙设置”：连接项目库后可打开或关闭蓝牙和蓝牙音频，选择 BLE MIDI 的 DEVICE／HOST 角色，并清除 MIDI 配对；改动立即写入设备并保存。蓝牙打开时 MIDI 服务自动可用；出厂默认蓝牙和音频打开、DEVICE 角色。时钟来源在 SEQ 的 SYNC / LOOP 页选择。HOST 模式的设备扫描与连接列表不再提供。": "The device's Bluetooth page was removed with Classic Tabby Task 06 (to free flash for independent track launching). Bluetooth settings live in the workbench under Projects & sounds → Bluetooth settings: with the library connected you can switch Bluetooth and Bluetooth audio on or off, choose the BLE MIDI DEVICE / HOST role and forget MIDI pairs; every change is written to the device and saved at once. MIDI is available whenever Bluetooth is on. Factory defaults are Bluetooth and audio on, DEVICE role. The clock source is chosen on SEQ's SYNC / LOOP page. The HOST-mode device scan and connection list are no longer offered.",
+  "机身蓝牙页已移除；这里的改动立即写入设备并保存。时钟来源仍在机身 SEQ 的 SYNC / LOOP 页。": "The device's Bluetooth page is gone; changes here are written to the device and saved at once. The clock source stays on the device's SEQ SYNC / LOOP page.",
+  "轨道启动": "Track launch",
+  "独立轨道启动（Task 06）：机身 SONG 页按 SCL 进入 TRACK LAUNCH 页。某轨的“图案 N”就是该轨在第 N 行的块，循环长度为该行的步数；打击垫 1–16 对应当前页的第 1–16 行（OCT 翻页），按下在下一小节启动该图案，再按正在播放的图案则在下一小节停止；SHIFT + 打击垫 1–8 选轨；ENV 让所选轨回到歌曲，SHIFT + ENV 全部回到歌曲；场景跳转（SONG 页）覆盖所有轨道队列。配置设备的“Lead ms”让音色切换提前于小节发出。": "Independent track launching (Task 06): on the device's SONG page, SCL opens the TRACK LAUNCH page. A track's pattern N is its block in row N, looping over that row's step count; pads 1-16 are rows 1-16 of the current page (OCT pages); a pad launches its pattern at the next bar, pressing the playing pattern's pad stops it at the next bar; SHIFT + pads 1-8 select the track; ENV sends the selected track back to the song, SHIFT + ENV every track; a scene jump (SONG page) overrides every track queue. A device's \"Lead ms\" makes its program change leave before the bar.",
+  "行 = 图案（轨道启动页的打击垫 N 对应第 N 行；块编号按轨道 1–8；0 = 该轨静音）": "Rows = patterns (pad N of the track launch page is row N; block ids per track 1–8; 0 = that track silent)",
+  "各轨图案（行号）：": "Patterns per track (row numbers): ",
+  "蓝牙开启": "Bluetooth on",
+  "蓝牙音频": "Bluetooth audio",
+  "BLE MIDI 角色": "BLE MIDI role",
+  "清除 MIDI 配对": "Forget MIDI pairs",
+  "蓝牙设置已写入设备。": "Bluetooth settings written to the device.",
+  "蓝牙设置回复无效": "Invalid Bluetooth settings reply",
+  "清除设备上保存的 BLE MIDI 配对？": "Forget the BLE MIDI pairs stored on the device?",
+  "已清除 MIDI 配对；请在电脑或平板上也删除该配对后重新配对。": "MIDI pairs forgotten; remove the pairing on the computer or tablet too, then pair again.",
   "INT 与 MIDI 时钟": "INT & MIDI clock",
   "SMK37 OPEN 使用内部速度，K4 可设 30–300 BPM。": "SMK37 OPEN uses its internal tempo; K4 sets 30–300 BPM. ",
   "跟随外部 MIDI Clock，需外部发送 Start／Continue 才开始或继续。此时旋转速度不会改变外部速度。超过约两秒收不到时钟，屏幕显示 LOST；检查外部设备是否发送时钟，或切回 INT。": "SMK37 OPEN follows external MIDI Clock and waits for Start / Continue. The tempo knob does not change the external tempo. After about two seconds without clock, the screen shows LOST. Check that the external device is sending clock, or return to INT.",
@@ -932,7 +944,15 @@
   "恢复 V16 还会覆盖 Classic Tabby 歌曲存储的最后 40 KB（块扇区 86–95）。请先在“项目与音色 → 歌曲模式”导出歌曲。": "Restoring V16 also overwrites the last 40 KB of Classic Tabby song storage (block sectors 86-95). Export your songs first in Projects & sounds > Song mode.",
   "歌曲模式": "Song mode",
   "歌曲模式：K1／PRESETS 选歌曲，PLAY 开始／停止，打击垫 1–16 排队跳转到该行，OCT 翻打击垫页，K4 设置跳转落点。歌曲由网页工作台写入。": "Song mode: K1 / PRESETS select the song, PLAY starts and stops, pads 1-16 queue a jump to that row, OCT pages the pads, K4 sets where jumps land. Songs are written from the web workbench.",
-  "正在编码采样…": "Encoding sample audio…"
+  "正在编码采样…": "Encoding sample audio…",
+  "摇摆跟随项目设置": "Swing follows the project setting",
+  "步进文本：音高:力度:长度/偏移，长度以步为单位（可带小数，精度 1/480 步），偏移为有符号单位（1 单位 = 1/480 步），r = 重触发，@n = 概率 n/8，! = 替代音律。带偏移或非整步长度的步进左侧有橙色标记；点击某一步在下方检查器中按音符编辑。": "Step text: pitch:velocity:length/offset; length in steps (decimals allowed, 1/480 step resolution), offset in signed units (1 unit = 1/480 step), r = retrigger, @n = probability n/8, ! = alt tuning. Steps with an offset or a fractional length carry an orange mark on the left; click a step to edit its notes in the inspector below.",
+  "量化起点到 16 分": "Quantize starts to 16ths",
+  "量化起点与结束到 16 分": "Quantize starts and ends to 16ths",
+  "此步没有音符：在上方文本框中输入，例如 60:100:1/-12": "No note on this step: type one in the box above, for example 60:100:1/-12",
+  "timed-note.js 未加载": "timed-note.js is not loaded",
+  "音符须为 音高 0–127、力度 1–127、偏移 ±240、长度 ≥ 1 单位，且同一步音高不重复": "Notes need pitch 0-127, velocity 1-127, offset within ±240 units, length of at least 1 unit, and no repeated pitch within a step",
+  "设备固件不支持带时值的音符块，请先更新固件": "The device firmware does not accept timed-note blocks; update the firmware first"
 };
   // Only complete UI messages are matched. Captured project, preset and port
   // names are kept verbatim; no blanket replacement of user data is performed.
@@ -1054,7 +1074,7 @@
   }
 })();
 
-const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","build_id":"41d72747b0f68867dc8f9a8c4457c4558b4399faaca6b3630e52770c8c18f972","sha256":"73c1a5ad11703ca701851ef6de9f2682d7cd9ae629eeebf8c10b0b47957ee34c","bytes":487988,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"url":"./assets/smk37/73c1a5ad11703ca701851ef6de9f2682d7cd9ae629eeebf8c10b0b47957ee34c.bin"};
+const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","build_id":"77077ef338a95beffd665da8b003e96929edf29bca840d4166dd3e7fe69e29d4","sha256":"2cb180caab27f4ac5301658244c33f4eb59394e831d7c6319729f486e4ea5bcd","bytes":492084,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"url":"./assets/smk37/2cb180caab27f4ac5301658244c33f4eb59394e831d7c6319729f486e4ea5bcd.bin"};
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* SMK37 OPEN browser updater.
  * Fixed device protocol: 00 59, 7-bit SysEx packing, USB MIDI only.
@@ -1705,7 +1725,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     }
     async disconnect(){if(this.link)await this.link.close();this.link=null;this.projectBytes=0;this.tuningBytes=0;}
     async extensions(){
-      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;this.songBatch=false;
+      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;this.songBatch=false;this.timedNotes=false;this.radioSettings=false;
       try {
         const info=await this.query(21);
         check(info.length===7&&(info[0]&~1)===0&&le(info,1,2)===4264&&le(info,3,4)===462848,'设备文件长度无效');
@@ -1714,8 +1734,8 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       try {
         const info=await this.query(22);
         // Classic Tabby (Task 03 a): a device may report no DX7 library (0 banks) and no sample bank (limit 0).
-        check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~15)===0,'设备扩展能力回复无效');
-        this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);this.songStorage=!!(info[8]&4);this.songBatch=!!(info[8]&8);
+        check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~63)===0,'设备扩展能力回复无效');   // Task 06 (a): bit 5 = Bluetooth settings; the mask was ~15 and refused a Task 05 device (bit 4)
+        this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);this.songStorage=!!(info[8]&4);this.songBatch=!!(info[8]&8);this.timedNotes=!!(info[8]&16);this.radioSettings=!!(info[8]&32);   // Task 05: payload format 1 accepted; Task 06: command 24
       } catch(error){if(error.deviceCode!==71)throw error;}
     }
     projectPayload(bytes){
@@ -1765,10 +1785,18 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
     }
     // Classic Tabby song mode (Task 03 d): kinds 5 (record) and 6 (block, 16-bit id).
-    async songStatus(){const s=await this.query(23);check(s.length===13||s.length===15,'歌曲存储状态回复无效');return {free:le(s,0,4),reclaimable:le(s,4,4),state:s[8],loaded:s[9],playing:s[10],row:s[11],error:s[12],late:s.length>13?s[13]:0,events:s.length>14?s[14]:0};}
+    // Task 06 (a): Bluetooth settings through transfer command 24 (the device's BLE page is gone).
+    async radioRead(){const r=await this.query(24);check(r.length===2,'蓝牙设置回复无效');return {on:!!(r[0]&1),audio:!!(r[0]&2),host:r[1]===1};}
+    async radioWrite(s){await this.query(24,[(s.on?1:0)|(s.audio?2:0)|4,s.host?1:0]);}
+    async radioForget(){await this.query(24,[0x7f]);}
+    // Task 06 (9.13): a 31-byte reply adds, per track, the state byte (bits 0-1 follow / launched / stopped,
+    // bits 2-3 the pending queue: none / launch / stop / back to song, bit 4 waiting) and the pattern row (255 = none).
+    async songStatus(){const s=await this.query(23);check(s.length===13||s.length===15||s.length===31,'歌曲存储状态回复无效');
+      const tracks=s.length>=31?Array.from({length:8},(_,t)=>({state:s[15+t]&3,queue:(s[15+t]>>2)&3,waiting:!!(s[15+t]&16),row:s[23+t]})):null;
+      return {free:le(s,0,4),reclaimable:le(s,4,4),state:s[8],loaded:s[9],playing:s[10],row:s[11],error:s[12],late:s.length>13?s[13]:0,events:s.length>14?s[14]:0,tracks};}
     async downloadBlock(song,id){
       try {
-        const head=await this.query(1,[6,song,id&255,id>>8]),size=le(head,0,2);check(head.length===2&&size>=64&&size<=832,'块长度无效');
+        const head=await this.query(1,[6,song,id&255,id>>8]),size=le(head,0,2);check(head.length===2&&size>=64&&size<=1600,'块长度无效');   // Task 05: format-1 payloads up to 1600
         const bytes=new Uint8Array(size);
         for(let at=0;at<size;at+=64){const n=Math.min(64,size-at),part=await this.query(2,[at&255,at>>8,n]);check(part.length===n,'文件片段不完整');bytes.set(part,at);}return bytes;
       } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
@@ -1798,7 +1826,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       return {record,blocks};
     }
     async songWrite(song,record,blocks,progress=()=>{}){
-      check(this.songStorage,'请先更新固件以使用歌曲模式');songRecordParse(record);
+      check(this.songStorage,'请先更新固件以使用歌曲模式');check(this.timedNotes,'设备固件不支持带时值的音符块，请先更新固件');songRecordParse(record);
       // Task 03 (f): an occupied slot is deleted first (the shared rule for the song editor and the
       // MIDI importer): the old song's blocks become garbage for the next compaction whatever ids
       // the new song uses. The check is a kind-5 download begin + cancel (two exchanges).
@@ -1935,15 +1963,15 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
   }
   const u16=(b,at)=>b[at]|b[at+1]<<8,u32=(b,at)=>(u16(b,at)|u16(b,at+2)<<16)>>>0;
   const put16=(b,at,v)=>{b[at]=v&255;b[at+1]=(v>>>8)&255;},put32=(b,at,v)=>{put16(b,at,v&65535);put16(b,at+2,v>>>16);};
-  function songEmpty(){return {name:'NEW SONG',project:0,loop:false,jumpRow:false,tempo:0,loopRow:0,channel:[0,0,0,0,0,0,0,0],rows:[{block:[0,0,0,0,0,0,0,0],repeat:1,loopHere:false,steps:64}]};}
+  function songEmpty(){return {name:'NEW SONG',project:0,loop:false,jumpRow:false,swing:false,tempo:0,loopRow:0,channel:[0,0,0,0,0,0,0,0],rows:[{block:[0,0,0,0,0,0,0,0],repeat:1,loopHere:false,steps:64}]};}
   // Parse a 4096-byte record image into an editable object (CRC checked, ranges checked).
   function songRecordParse(bytes){
     check(bytes instanceof Uint8Array&&bytes.length===SONG_RECORD&&u32(bytes,0)===SONG_MAGIC,'不是歌曲记录');
     const version=u32(bytes,20);check(version===1||version===2,'歌曲记录版本不受支持');
     check(u32(bytes,12)===crc32(bytes.subarray(20,version===2?SONG_V2_END:SONG_BODY)),'歌曲记录校验失败');   // (Task 04) CRC range by version
-    const rows=bytes[40];check(rows>=1&&rows<=128&&bytes[42]<rows&&bytes[36]<16&&!(bytes[37]&~3),'歌曲记录字段无效');
+    const rows=bytes[40];check(rows>=1&&rows<=128&&bytes[42]<rows&&bytes[36]<16&&!(bytes[37]&~7),'歌曲记录字段无效');   // Task 05: flags bit 2 = swing
     check(u16(bytes,38)===0||(u16(bytes,38)>=30&&u16(bytes,38)<=300),'歌曲速度须为 0 或 30–300');   // (f): as the device checks
-    const song={name:String.fromCharCode(...bytes.subarray(24,36)).replace(/\s+$/,''),project:bytes[36],loop:!!(bytes[37]&1),jumpRow:!!(bytes[37]&2),
+    const song={name:String.fromCharCode(...bytes.subarray(24,36)).replace(/\s+$/,''),project:bytes[36],loop:!!(bytes[37]&1),jumpRow:!!(bytes[37]&2),swing:!!(bytes[37]&4),
       tempo:u16(bytes,38),loopRow:bytes[42],channel:Array.from(bytes.subarray(48,56)),rows:[]};
     for(let r=0;r<rows;r++){const at=SONG_ROW0+r*SONG_ROW;const block=[];for(let t=0;t<8;t++)block.push(u16(bytes,at+t*2));
       const steps=bytes[at+18]||64;check(bytes[at+16]>=1&&bytes[at+16]<=64&&steps%16===0&&steps<=64,'第 '+(r+1)+' 行无效');
@@ -1961,7 +1989,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     const name=String(song.name||'').toUpperCase().slice(0,12);check(/^[\x20-\x7e]{0,12}$/.test(name),'歌曲名称须为英文字符');
     for(let i=0;i<12;i++)bytes[24+i]=name.charCodeAt(i)||32;
     check(Number.isInteger(song.project)&&song.project>=0&&song.project<16,'项目槽无效');bytes[36]=song.project;
-    bytes[37]=(song.loop?1:0)|(song.jumpRow?2:0);
+    bytes[37]=(song.loop?1:0)|(song.jumpRow?2:0)|(song.swing?4:0);   // Task 05 (9.12): bit 2, swing for v2 blocks
     check(Number.isInteger(song.tempo)&&song.tempo>=0&&song.tempo<=65535,'BPM 无效');put16(bytes,38,song.tempo);
     check(Array.isArray(song.rows)&&song.rows.length>=1&&song.rows.length<=128,'歌曲须有 1–128 行');bytes[40]=song.rows.length;
     check(Number.isInteger(song.loopRow)&&song.loopRow>=0&&song.loopRow<song.rows.length,'循环起始行无效');bytes[42]=song.loopRow;
@@ -1974,27 +2002,45 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     put32(bytes,12,crc32(bytes.subarray(20,events.length?SONG_V2_END:SONG_BODY)));
     return bytes;
   }
-  // Block payload (9.3) <-> 64 steps of {probability, alt, notes:[{pitch,velocity,length,retrigger}]}.
+  // Block payload <-> 64 steps of {probability, alt, notes:[{pitch,velocity,offset,length,retrigger}]}.
+  // Task 05 (section 9.12): payloads are format 1 (6-byte timed notes, web/timed-note/timed-note.js:
+  // offset -240..240 units of 1/480 step, length in units); format 0 (9.3, 3-byte notes) is read
+  // from older .tabby files through songPayloadParseV1 and written back as format 1.
+  const timedNote=()=>{const T=globalThis.TabbyTimedNote;check(T,'timed-note.js 未加载');return T;};
+  const SONG_UNITS=480;
   function songPayloadParse(bytes){
+    const T=timedNote(),steps=[];let at=0;
+    for(let s=0;s<64;s++){check(at<bytes.length,'块数据不完整');const head=bytes[at++],count=head&7;check(count<=4&&!(head&128),'块步进头无效');
+      const step={probability:(head>>3)&7,alt:!!(head&64),notes:[]};
+      for(let n=0;n<count;n++,at+=6){check(at+6<=bytes.length,'块音符无效');let note;try{note=T.decode(bytes.subarray(at,at+6));}catch(e){check(false,'块音符无效：'+e.message);}
+        step.notes.push({pitch:note.pitch,velocity:note.velocity,offset:note.offset,length:note.length,retrigger:note.retrigger});}
+      steps.push(step);}
+    check(at===bytes.length,'块长度不符');return steps;
+  }
+  function songPayloadParseV1(bytes){
     const steps=[];let at=0;
     for(let s=0;s<64;s++){check(at<bytes.length,'块数据不完整');const head=bytes[at++],count=head&7;check(count<=4&&!(head&128),'块步进头无效');
       const step={probability:(head>>3)&7,alt:!!(head&64),notes:[]};
       for(let n=0;n<count;n++,at+=3){check(at+3<=bytes.length&&bytes[at]<128&&(bytes[at+1]&127)>0&&bytes[at+2]>0,'块音符无效');
-        step.notes.push({pitch:bytes[at],velocity:bytes[at+1]&127,length:bytes[at+2],retrigger:!!(bytes[at+1]&128)});}
+        step.notes.push({pitch:bytes[at],velocity:bytes[at+1]&127,offset:0,length:bytes[at+2]*SONG_UNITS,retrigger:!!(bytes[at+1]&128)});}
       steps.push(step);}
     check(at===bytes.length,'块长度不符');return steps;
   }
   function songPayloadBuild(steps){
-    const out=[];check(steps.length===64,'块须有 64 步');
+    const T=timedNote(),out=[];check(steps.length===64,'块须有 64 步');
     for(const step of steps){check(step.notes.length<=4,'每步最多 4 个音符');
       out.push((step.notes.length)|((step.probability&7)<<3)|(step.alt?64:0));
-      const seen=new Set();for(const n of step.notes){check(n.pitch>=0&&n.pitch<128&&n.velocity>=1&&n.velocity<=127&&n.length>=1&&n.length<=255&&!seen.has(n.pitch),'音符须为 音高 0–127、力度 1–127、长度 1–255，且同一步音高不重复');seen.add(n.pitch);
-        out.push(n.pitch,n.velocity|(n.retrigger?128:0),n.length);}}
+      const seen=new Set();for(const n of step.notes){const note={pitch:n.pitch,velocity:n.velocity,retrigger:!!n.retrigger,offset:n.offset|0,length:n.length};
+        check(T.valid(note)&&!seen.has(n.pitch),'音符须为 音高 0–127、力度 1–127、偏移 ±240、长度 ≥ 1 单位，且同一步音高不重复');seen.add(n.pitch);
+        out.push(...T.encode(note));}}
     return Uint8Array.from(out);
   }
-  // Step text: "60:100:2 64:100:2r @3" (pitch:velocity:length, r = retrigger, @n = probability n/8, ! = alt tuning).
+  // Step text (Task 05): "60:100:2 64:100:2.5/-12r @3 !" — pitch:velocity:length[/offset], length in steps
+  // (decimals allowed, stored to 1/480 step), offset in signed units (1/480 step), r = retrigger,
+  // @n = probability n/8, ! = alt tuning. The old form without a slash is read unchanged (offset 0).
+  const songLengthText=u=>{const s=u/SONG_UNITS;return Number.isInteger(s)?String(s):s.toFixed(3).replace(/0+$/,'');};
   function songStepText(step){
-    const parts=step.notes.map(n=>n.pitch+':'+n.velocity+':'+n.length+(n.retrigger?'r':''));
+    const parts=step.notes.map(n=>n.pitch+':'+n.velocity+':'+songLengthText(n.length)+(n.offset?'/'+(n.offset>0?'+':'')+n.offset:'')+(n.retrigger?'r':''));
     if(step.probability)parts.push('@'+step.probability);if(step.alt)parts.push('!');return parts.join(' ');
   }
   function songStepParse(text){
@@ -2002,8 +2048,9 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     for(const token of String(text).trim().split(/\s+/).filter(Boolean)){
       if(token==='!'){step.alt=true;continue;}
       if(token[0]==='@'){step.probability=Number(token.slice(1));check(Number.isInteger(step.probability)&&step.probability>=0&&step.probability<=7,'概率须为 @0–@7');continue;}
-      const m=token.match(/^(\d+)(?::(\d+))?(?::(\d+))?(r)?$/i);check(m,'无法解析音符 '+token);
-      step.notes.push({pitch:Number(m[1]),velocity:m[2]===undefined?100:Number(m[2]),length:m[3]===undefined?1:Number(m[3]),retrigger:!!m[4]});
+      const m=token.match(/^(\d+)(?::(\d+))?(?::(\d+(?:\.\d+)?))?(?:\/([+-]?\d+)(ms)?)?(r)?$/i);check(m,'无法解析音符 '+token);
+      const steps=m[3]===undefined?1:Number(m[3]),length=Math.max(1,Math.round(steps*SONG_UNITS));
+      step.notes.push({pitch:Number(m[1]),velocity:m[2]===undefined?100:Number(m[2]),offset:m[4]===undefined?0:Number(m[4]),length,retrigger:!!m[6],offsetMs:!!m[5]});
     }
     return step;
   }
@@ -2011,7 +2058,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
   // Task 04 (9.11 v0.6): an optional trailer after the records, 0xFF then "TRIG", a u32 length and
   // UTF-8 JSON (workbench-only data: the song's rig override); the device never receives it.
   function tabbyFile(record,blocks,trailer){
-    const parts=[record];for(const [id,payload] of blocks){const head=new Uint8Array(6);put16(head,2,id);put16(head,4,payload.length);
+    const parts=[record];for(const [id,payload] of blocks){const head=new Uint8Array(6);head[1]=1;put16(head,2,id);put16(head,4,payload.length);   // byte 1: payload format 1 (Task 05)
       const pad=new Uint8Array((4-(6+payload.length)%4)%4).fill(255);parts.push(head,payload,pad);}
     if(trailer){const json=new TextEncoder().encode(JSON.stringify(trailer)),head=new Uint8Array(9);head[0]=255;head.set([84,82,73,71],1);put32(head,5,json.length);parts.push(head,json);}
     const total=parts.reduce((n,p)=>n+p.length,0),out=new Uint8Array(total);let at=0;for(const p of parts){out.set(p,at);at+=p.length;}return out;
@@ -2019,8 +2066,9 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
   function readTabbyFile(bytes){
     check(bytes.length>=SONG_RECORD,'不是 .tabby 歌曲文件');const record=bytes.slice(0,SONG_RECORD);songRecordParse(record);
     const blocks=new Map();let at=SONG_RECORD;
-    while(at+6<=bytes.length&&bytes[at]!==255){check(bytes[at]===0,'文件中的块须属于歌曲 0');const id=u16(bytes,at+2),len=u16(bytes,at+4);
-      check(id>=1&&len>=64&&len<=832&&at+6+len<=bytes.length,'块记录无效');const payload=bytes.slice(at+6,at+6+len);songPayloadParse(payload);
+    while(at+6<=bytes.length&&bytes[at]!==255){check(bytes[at]===0,'文件中的块须属于歌曲 0');const format=bytes[at+1],id=u16(bytes,at+2),len=u16(bytes,at+4);
+      check((format===0||format===1)&&id>=1&&len>=64&&len<=(format?1600:832)&&at+6+len<=bytes.length,'块记录无效');let payload=bytes.slice(at+6,at+6+len);
+      if(format===0)payload=songPayloadBuild(songPayloadParseV1(payload));else songPayloadParse(payload);   // Task 05: a format-0 block is upgraded on read
       blocks.set(id,payload);at+=6+len;at+=(4-at%4)%4;}
     let trailer=null;
     if(at+9<=bytes.length&&bytes[at]===255&&String.fromCharCode(...bytes.subarray(at+1,at+5))==='TRIG'){const len=u32(bytes,at+5);check(at+9+len<=bytes.length,'.tabby 附加数据无效');
@@ -2037,7 +2085,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     for(const [id,payload] of blocks){
       const size=6+payload.length+(4-(6+payload.length)%4)%4;
       if(fill+size>BATCH_AREA){if(sectors===BATCH_SECTORS){flush(parts,total);parts=[];total=0;sectors=0;}sectors++;fill=0;}
-      const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=0;put16(rec,2,id);put16(rec,4,payload.length);rec.set(payload,6);
+      const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=1;put16(rec,2,id);put16(rec,4,payload.length);rec.set(payload,6);   // byte 1: payload format 1 (Task 05)
       parts.push(rec);total+=size;fill+=size;
     }
     if(parts.length)flush(parts,total);
@@ -2045,7 +2093,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
   }
   function songBlockIds(song){const ids=new Set();for(const row of song.rows)for(const id of row.block)if(id)ids.add(id);return ids;}
   globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,Updater,
-    songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadBuild,songStepText,songStepParse,tabbyFile,readTabbyFile,songBlockIds,songBatches,songEventsValidate,
+    songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadParseV1,songPayloadBuild,songStepText,songStepParse,songLengthText,tabbyFile,readTabbyFile,songBlockIds,songBatches,songEventsValidate,
     crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library};
 })();
 
@@ -2268,11 +2316,20 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
  *   a record back keeps whatever gaps it holds; the editor shows them greyed and
  *   regenerates them at the next write.
  *
+ *   Lead before the bar (Task 06, 9.13): a channel's `leadMs` (default 0) is how long before
+ *   the bar its program change must have left, for slow devices. It becomes a trailing gap
+ *   event on that channel after the channel's last program event of the row: the firmware
+ *   starts a row's stream (or a track's launch stream) `lead` blocks early, where lead is the
+ *   sum of the gaps, so the program change leaves that long before the downbeat. The trailing
+ *   gap is max(leadMs, the device's gap after the program); gaps carry the channel of the
+ *   event they belong to, which the firmware's per-track slices use.
+ *
  *   Loading: classic script (globalThis.TabbyRig) and CommonJS.
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-04  Task 06: per-channel leadMs, the trailing gap kept for a lead.
  *   v0.1  2026-11-02  Initial version (Task 04, workbench part).
  */
 (() => {
@@ -2282,7 +2339,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
   const devices = () => globalThis.TabbyDevices || (typeof require === 'function' ? require('./device-library.js') : null);
 
   function rigEmpty() {
-    return { schema: SCHEMA, name: 'My rig', channels: Array.from({ length: 16 }, () => ({ device: null, name: '', gapMs: null, programs: {} })) };
+    return { schema: SCHEMA, name: 'My rig', channels: Array.from({ length: 16 }, () => ({ device: null, name: '', gapMs: null, leadMs: 0, programs: {} })) };
   }
   /* Validate and normalise a profile object (from storage, a file or a trailer). */
   function rigNormalize(data) {
@@ -2295,6 +2352,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
         ch.device = typeof c.device === 'string' && c.device ? c.device : null;
         ch.name = typeof c.name === 'string' ? c.name.slice(0, 40) : '';
         ch.gapMs = Number.isInteger(c.gapMs) && c.gapMs >= 0 && c.gapMs <= 255 ? c.gapMs : null;
+        ch.leadMs = Number.isInteger(c.leadMs) && c.leadMs >= 0 && c.leadMs <= 255 ? c.leadMs : 0;   /* Task 06: lead before the bar */
         ch.programs = {};
         for (const [k, v] of Object.entries(c.programs || {})) if (/^\d{1,3}$/.test(k) && Number(k) <= 127 && typeof v === 'string') ch.programs[k] = v.slice(0, 40);
       }
@@ -2324,6 +2382,8 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     if (c.gapMs !== null) return c.gapMs;
     return d ? d.programChange.gapMs : 0;
   }
+  /* Task 06: the channel's lead before the bar in ms (0 = none). */
+  function leadFor(rig, channel) { const c = rig.channels[channel]; return c && c.leadMs ? c.leadMs : 0; }
   /* Program name for the editor: the rig's own name first, then the definition's list. */
   function programName(rig, library, channel, bank, program) {
     const c = rig.channels[channel], own = c.programs[String(program)];
@@ -2352,8 +2412,22 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
         out.push({ row: e.row, channel: e.channel, type: 3, d0: gap, d1: 0, d2: 0 });
       }
     }
-    /* A gap that ends a row's stream waits for nothing: drop it. */
-    return out.filter((e, i) => !(e.type === 3 && (i === out.length - 1 || out[i + 1].row !== e.row)));
+    /* Task 06: a channel with a lead ends its events of a row with a gap of at least the lead
+     * (after its last program event), kept even when it ends the row's stream. */
+    const kept = new Set();
+    for (let i = 0; i < out.length; i++) {
+      const e = out[i];
+      if (e.type !== 0 && e.type !== 1) continue;
+      const lead = leadFor(rig, e.channel);
+      if (!lead) continue;
+      let last = i;
+      for (let j = i + 1; j < out.length && out[j].row === e.row; j++) if (out[j].channel === e.channel) last = j;
+      if (last !== i && out.slice(i + 1, last + 1).some(x => x.channel === e.channel && (x.type === 0 || x.type === 1))) continue;   /* a later program event of the channel carries the lead */
+      if (out[last].type === 3) { out[last].d0 = Math.max(out[last].d0, lead); kept.add(out[last]); }
+      else { const g = { row: e.row, channel: e.channel, type: 3, d0: lead, d1: 0, d2: 0 }; out.splice(last + 1, 0, g); kept.add(g); }
+    }
+    /* A gap that ends a row's stream waits for nothing unless it is a lead: drop the others. */
+    return out.filter((e, i) => kept.has(e) || !(e.type === 3 && (i === out.length - 1 || out[i + 1].row !== e.row)));
   }
   /* Human text for one event, with the rig's vocabulary. */
   function describe(e, rig, library) {
@@ -2370,7 +2444,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     return 'program ' + label + (name ? ' "' + name + '"' : '') + ' [PC ' + program + ']' + bankText;
   }
 
-  const TabbyRig = { SCHEMA, STORAGE_KEY, rigEmpty, rigNormalize, rigLoad, rigSave, rigExport, rigImport, rigClone, deviceOn, channelLabel, gapFor, programName, applyGaps, describe, version: '0.1' };
+  const TabbyRig = { SCHEMA, STORAGE_KEY, rigEmpty, rigNormalize, rigLoad, rigSave, rigExport, rigImport, rigClone, deviceOn, channelLabel, gapFor, leadFor, programName, applyGaps, describe, version: '0.2' };
   globalThis.TabbyRig = TabbyRig;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyRig;
 })();
@@ -2401,9 +2475,10 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
  *   and export paths call `prepareEvents(song)` to get the list with the rig's gaps
  *   applied (TabbyRig.applyGaps) and `trailer(song)` for the override.
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-04  Task 06: the "Lead ms" column (program change this long before the bar).
  *   v0.1  2026-11-02  Initial version (Task 04, workbench part).
  */
 (() => {
@@ -2444,13 +2519,16 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
         const d = c.device ? library.get(c.device) : null;
         const gap = h('input', { type: 'number', min: 0, max: 255, step: 1, value: c.gapMs === null ? '' : String(c.gapMs), placeholder: d ? String(d.programChange.gapMs) : '0' });
         gap.addEventListener('change', () => { c.gapMs = gap.value === '' ? null : Math.max(0, Math.min(255, Math.round(Number(gap.value)))); save(); });
+        /* Task 06: lead before the bar, for slow devices: the program change leaves this long before the downbeat. */
+        const lead = h('input', { type: 'number', min: 0, max: 255, step: 1, value: String(c.leadMs || 0), title: 'Program change this many ms before the bar (track launches and scene changes)' });
+        lead.addEventListener('change', () => { c.leadMs = Math.max(0, Math.min(255, Math.round(Number(lead.value) || 0))); save(); });
         const numbering = d ? (d.programChange.supported === true ? 'programs ' + D.programLabel(d, d.programChange.bankSelect.banks.length ? 0 : null, 0) + '..' +
           D.programLabel(d, d.programChange.bankSelect.banks.length ? d.programChange.bankSelect.banks.length - 1 : null, Math.min(127, Math.max(0, (d.programChange.programs || 128) - 1))) +
           (d.programChange.bankSelect.scheme !== 'none' ? ', bank by ' + d.programChange.bankSelect.scheme.toUpperCase().replace('CC0CC32', 'CC 0 + CC 32').replace('CC', 'CC ') : '') +
           (d.unverified.some(u => /displayBase/.test(u)) ? ' (base unverified)' : '')
           : d.programChange.supported === false ? 'no program change' : 'program change unverified') : '';
         const names = h('button', { type: 'button', textContent: 'Names…', disabled: !d, onclick: () => editPrograms(i) });
-        return h('tr', {}, h('td', {}, i + 1), h('td', {}, dev), h('td', {}, name), h('td', {}, gap), h('td', { class: 'ti-muted' }, numbering), h('td', {}, names));
+        return h('tr', {}, h('td', {}, i + 1), h('td', {}, dev), h('td', {}, name), h('td', {}, gap), h('td', {}, lead), h('td', { class: 'ti-muted' }, numbering), h('td', {}, names));
       }));
       renderEvents();
     }
@@ -2481,8 +2559,8 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
         h('button', { type: 'button', textContent: 'Export rig (.json)', onclick: () => download(Rig.rigExport(state.rig), (state.rig.name || 'rig').replace(/[^\w-]+/g, '_') + '.rig.json') }), ' ',
         h('label', {}, 'Import rig ', importFile), ' ',
         h('button', { type: 'button', textContent: 'Reset', onclick: () => { if (confirm('Clear the rig profile?')) { state.rig = Rig.rigEmpty(); save(); } } })),
-      h('table', { class: 'ti-table' }, h('thead', {}, h('tr', {}, ...['Ch', 'Device', 'Name', 'Gap ms', 'Numbering', ''].map(t => h('th', {}, t)))), setupBody),
-      h('p', { class: 'ti-muted' }, 'The profile is saved in this browser. Gap: blank = the definition\'s delay need; it becomes gap events in the song when it is written. Device setup steps (what to set on the gear) are in each definition\'s notes: see BUILD.md section 16.3.'),
+      h('table', { class: 'ti-table' }, h('thead', {}, h('tr', {}, ...['Ch', 'Device', 'Name', 'Gap ms', 'Lead ms', 'Numbering', ''].map(t => h('th', {}, t)))), setupBody),
+      h('p', { class: 'ti-muted' }, 'The profile is saved in this browser. Gap: blank = the definition\'s delay need; it becomes gap events in the song when it is written. Lead: the program change leaves this many ms before the bar when a track launches or a scene changes (0 = with the downbeat). Device setup steps (what to set on the gear) are in each definition\'s notes: see BUILD.md section 16.3.'),
       programsBox);
 
     /* ---- row events ---------------------------------------------------------------------- */
@@ -2596,6 +2674,93 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
   const TabbyRigUI = { mount, version: '0.1' };
   globalThis.TabbyRigUI = TabbyRigUI;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyRigUI;
+})();
+
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/*
+ * web/timed-note/timed-note.js — the timed note, JavaScript twin of app/timed_note.h
+ *
+ * Purpose
+ *   The same object, the same 6 bytes and the same rules as the C module, for the
+ *   workbench (song editor, .tabby files), the MIDI importer and the tests:
+ *     { pitch 0..127, velocity 1..127, retrigger true|false, offset -240..240 (units),
+ *       length 1..8388480 (units) }
+ *   1 unit = 1/480 of a 16th step. The byte layout, the canonical mantissa/exponent rule
+ *   and the validation are in docs/TIMED-NOTE.md; tests/timed-note/vectors.txt pins this
+ *   file and the C file to identical bytes (tests/timed-note/run.mjs and
+ *   tests/host/timed_note_test.c).
+ *
+ *   Loading: classic script (globalThis.TabbyTimedNote) and CommonJS (module.exports). No
+ *   dependency.
+ *
+ * Version: 0.1
+ *
+ * Revision log
+ *   v0.1  2026-11-03  Initial version (Task 05, checkpoint a).
+ */
+(() => {
+  'use strict';
+
+  const BYTES = 6, UNITS_PER_STEP = 480, UNITS_PER_QUARTER = 1920, OFFSET_MAX = 240;
+  const MANTISSA_MAX = 65535, EXPONENT_MAX = 7, LENGTH_MAX = 65535 * 128;   /* 8388480 */
+
+  const fail = text => { throw new Error(text); };
+
+  /* 1 when every field is inside its range; the length need not be representable. */
+  function valid(n) {
+    return !!n && Number.isInteger(n.pitch) && n.pitch >= 0 && n.pitch <= 127 &&
+      Number.isInteger(n.velocity) && n.velocity >= 1 && n.velocity <= 127 &&
+      (n.retrigger === true || n.retrigger === false || n.retrigger === 0 || n.retrigger === 1 || n.retrigger === undefined) &&
+      Number.isInteger(n.offset) && n.offset >= -OFFSET_MAX && n.offset <= OFFSET_MAX &&
+      Number.isInteger(n.length) && n.length >= 1 && n.length <= LENGTH_MAX;
+  }
+  /* Mantissa and exponent: the smallest exponent whose mantissa fits 16 bits after
+   * rounding to the nearest multiple of 2^e (ties up); a rounded 65536 moves to the next
+   * exponent as 32768. */
+  function split(length) {
+    for (let e = 0; ; e++) {
+      const half = e ? 2 ** (e - 1) : 0, m = Math.floor((length + half) / 2 ** e);
+      if (m <= MANTISSA_MAX || e === EXPONENT_MAX) return { m: Math.min(m, MANTISSA_MAX), e };
+    }
+  }
+  /* The length the encoder stores: itself up to 65535, else the nearest representable
+   * value; 0 stays 0 (invalid), values above the maximum come back as the maximum. */
+  function lengthStored(length) {
+    if (!(length >= 1)) return 0;
+    if (length >= LENGTH_MAX) return LENGTH_MAX;
+    const { m, e } = split(Math.round(length));
+    return m * 2 ** e;
+  }
+  /* Canonical 6 bytes for a valid note (length rounded as above); throws when invalid. */
+  function encode(n) {
+    if (!valid(n)) fail('invalid timed note');
+    const { m, e } = split(n.length);
+    const w = (n.offset & 0x1ff) | (e << 9);
+    return Uint8Array.from([n.pitch | (n.retrigger ? 128 : 0), n.velocity, w & 255, w >> 8, m & 255, m >> 8]);
+  }
+  /* The note from 6 bytes (any array-like of 6 numbers); throws for a reserved bit set,
+   * velocity 0, mantissa 0, a non-canonical exponent or an offset outside the range. */
+  function decode(b) {
+    if (!b || b.length < BYTES) fail('timed note needs 6 bytes');
+    const w = b[2] | (b[3] << 8), e = (w >> 9) & 7, m = b[4] | (b[5] << 8), raw = w & 0x1ff;
+    if ((b[1] & 128) || (w & 0xf000)) fail('timed note: reserved bit set');
+    if (!(b[1] & 127) || !m || (e && m < 32768)) fail('timed note: velocity 0, mantissa 0 or non-canonical exponent');
+    const offset = raw >= 256 ? raw - 512 : raw;
+    if (offset < -OFFSET_MAX || offset > OFFSET_MAX) fail('timed note: offset outside ±240');
+    return { pitch: b[0] & 127, velocity: b[1] & 127, retrigger: !!(b[0] & 128), offset, length: m * 2 ** e };
+  }
+  /* Readable forms for the editor: a reduced fraction of a step and milliseconds at a tempo. */
+  function offsetFraction(units) {
+    if (!units) return '0';
+    const g = (a, b) => b ? g(b, a % b) : a, d = g(Math.abs(units), UNITS_PER_STEP);
+    return (units < 0 ? '-' : '+') + (Math.abs(units) / d) + '/' + (UNITS_PER_STEP / d);
+  }
+  const unitMs = bpm => 60000 / (bpm * 4 * UNITS_PER_STEP);
+
+  const TabbyTimedNote = { BYTES, UNITS_PER_STEP, UNITS_PER_QUARTER, OFFSET_MAX, MANTISSA_MAX, EXPONENT_MAX, LENGTH_MAX,
+    valid, lengthStored, encode, decode, offsetFraction, unitMs, version: '0.1' };
+  globalThis.TabbyTimedNote = TabbyTimedNote;
+  if (typeof module !== 'undefined' && module.exports) module.exports = TabbyTimedNote;
 })();
 
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
@@ -2896,13 +3061,19 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
  *     9.9 .tabby file: song record image (generation 0, target 0, commit 0, CRC valid)
  *         followed by block records with song byte 0, 4-byte aligned, to end of file.
  *
- *   The JavaScript song model (what the importer builds and the UI shows):
- *     { schema: 'tabby-song/1', name, projectSlot, tempo (0 = project tempo), loop,
- *       jumpMode: 'bar' | 'row', loopRow,
+ *   The JavaScript song model (what the importer builds and the UI shows), since Task 05
+ *   schema 'tabby-song/2' (a 'tabby-song/1' file loads and is upgraded: offset 0, length in
+ *   steps × 480, swing false):
+ *     { schema: 'tabby-song/2', name, projectSlot, tempo (0 = project tempo), loop,
+ *       jumpMode: 'bar' | 'row', loopRow, swing (bool: v2 blocks follow the project swing),
  *       outChannels: [8 × (null | 0..15)],     // null = use the device setting (byte 0)
  *       rows:   [{ blocks: [8 × id], repeat: 1..64, loopHere: false, steps: 16|32|48|64 }],
- *       blocks: [{ id: 1..65535, notes: [{ step, pitch, velocity, length, retrigger }],
+ *       blocks: [{ id: 1..65535, notes: [{ step, pitch, velocity, offset, length, retrigger }],
  *                  stepFlags: { step: { probability, alt } } (optional) }] }
+ *   A note's offset is −240..240 units from its step and its length 1..8388480 units
+ *   (1 unit = 1/480 step; web/timed-note/timed-note.js, docs/TIMED-NOTE.md). Blocks are
+ *   written as payload format 1 (section 9.12, 6-byte timed notes); format 0 (9.3, 3-byte
+ *   notes) is read from .tabby files and upgraded.
  *
  *   Row step length and output channels (section 9 v0.3, commit b7abb99): a row plays steps
  *   0..N-1 of each of its blocks per repeat; the byte value 0 reads as 64 so zero-filled
@@ -2917,9 +3088,12 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-03  Task 05: timed notes (section 9.12): model schema tabby-song/2 with offset
+ *                     and length in units, payload format 1 encode, format 0 and 1 decode,
+ *                     block record byte 1, song swing flag, quantize helpers, JSON upgrade.
  *   v0.4  2026-11-02  Task 04: row events (version-2 records), the .tabby trailer.
  *   v0.3  2026-11-02  Section 9 v0.4 (commit 2d4ef83): 16-bit block ids (1..65535, at most
  *                     2048 per song), 6-byte block record header, 20-byte rows, CRC over
@@ -2936,13 +3110,15 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
   'use strict';
 
   const fail = text => { throw new Error(text); };
+  const T = () => globalThis.TabbyTimedNote || (typeof require === 'function' ? require('../timed-note/timed-note.js') : fail('timed-note.js not loaded'));
 
-  /* Limits and constants from section 9. */
+  /* Limits and constants from section 9 (v0.7: timed notes). */
   const LIMITS = Object.freeze({
-    steps: 64, notesPerStep: 4, noteBytes: 3,
-    blockMin: 64, blockMax: 832,
+    steps: 64, notesPerStep: 4, noteBytes: 6, noteBytesV1: 3,
+    blockMin: 64, blockMax: 1600, blockMaxV1: 832, formatV1: 0, formatV2: 1,
+    unitsPerStep: 480, offsetMax: 240,
     blocksPerSong: 2048, idMax: 65535, rowsPerSong: 128, songs: 16, tracks: 8,
-    repeatMin: 1, repeatMax: 64, lengthMin: 1, lengthMax: 255,
+    repeatMin: 1, repeatMax: 64, lengthMin: 1, lengthMax: 65535 * 128, lengthStepsV1Max: 255,
     tempoMin: 30, tempoMax: 300, nameLength: 12,
     recordArea: 4076, blockSectors: 96, poolBytes: 96 * 4076,   /* 391296 */
     recordBytes: 4096, rowBytes: 20, rowsOffset: 64, bodyEnd: 2624, channelsOffset: 48, headerBytes: 64, blockHeaderBytes: 6,
@@ -2963,7 +3139,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
 
   /* ---- model helpers ------------------------------------------------------------------- */
   function emptySong(name = 'IMPORTED') {
-    return { schema: 'tabby-song/1', name: padName(name), projectSlot: 0, tempo: 0, loop: false, jumpMode: 'bar', loopRow: 0,
+    return { schema: 'tabby-song/2', name: padName(name), projectSlot: 0, tempo: 0, loop: false, jumpMode: 'bar', loopRow: 0, swing: false,
       outChannels: [null, null, null, null, null, null, null, null], rows: [], blocks: [], events: [] };
   }
   /* 12 printable ASCII characters, space padded, upper case like the device shows names. */
@@ -2971,7 +3147,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     const clean = String(text || '').toUpperCase().replace(/[^\x20-\x7e]/g, '_').slice(0, LIMITS.nameLength);
     return (clean + ' '.repeat(LIMITS.nameLength)).slice(0, LIMITS.nameLength);
   }
-  const sortNotes = notes => notes.slice().sort((a, b) => a.step - b.step || a.pitch - b.pitch || a.velocity - b.velocity || a.length - b.length);
+  const sortNotes = notes => notes.slice().sort((a, b) => a.step - b.step || a.pitch - b.pitch || (a.offset | 0) - (b.offset | 0) || a.velocity - b.velocity || a.length - b.length);
 
   /* ---- block payload (9.3) ------------------------------------------------------------- */
   /* Group a block's notes by step and check every rule the device checks. Returns
@@ -2982,7 +3158,8 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
       if (!Number.isInteger(n.step) || n.step < 0 || n.step >= LIMITS.steps) fail(where + ': note step ' + n.step + ' outside 0..63');
       if (!Number.isInteger(n.pitch) || n.pitch < 0 || n.pitch > 127) fail(where + ': pitch ' + n.pitch + ' outside 0..127');
       if (!Number.isInteger(n.velocity) || n.velocity < 1 || n.velocity > 127) fail(where + ': velocity ' + n.velocity + ' outside 1..127');
-      if (!Number.isInteger(n.length) || n.length < LIMITS.lengthMin || n.length > LIMITS.lengthMax) fail(where + ': length ' + n.length + ' outside 1..255');
+      if (!Number.isInteger(n.offset | 0) || (n.offset | 0) < -LIMITS.offsetMax || (n.offset | 0) > LIMITS.offsetMax) fail(where + ': offset ' + n.offset + ' outside -240..240 units');
+      if (!Number.isInteger(n.length) || n.length < LIMITS.lengthMin || n.length > LIMITS.lengthMax) fail(where + ': length ' + n.length + ' outside 1..' + LIMITS.lengthMax + ' units');
       steps[n.step].push(n);
     }
     steps.forEach((list, s) => {
@@ -2996,17 +3173,22 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     });
     return steps;
   }
+  /* Payload format 1 (9.12): step header, then 6-byte timed notes. The length is stored
+   * as the module stores it (exact up to 65535 units, then rounded by the exponent). */
   function encodeBlock(block, where) {
-    const steps = stepsOf(block, where), out = [];
+    const steps = stepsOf(block, where), out = [], TN = T();
     steps.forEach((list, s) => {
       const flags = (block.stepFlags || {})[s] || {};
       out.push(list.length | ((flags.probability || 0) << 3) | (flags.alt ? 64 : 0));
-      for (const n of list) out.push(n.pitch, n.velocity | (n.retrigger ? 128 : 0), n.length);
+      for (const n of list) out.push(...TN.encode({ pitch: n.pitch, velocity: n.velocity, retrigger: !!n.retrigger, offset: n.offset | 0, length: n.length }));
     });
     return Uint8Array.from(out);
   }
-  function decodeBlock(bytes, id = 0) {
-    const notes = [], stepFlags = {};
+  /* A payload of either format (format 0: 9.3, 3-byte notes, upgraded to offset 0 and
+   * whole-step lengths; format 1: 9.12) back to a block. */
+  function decodeBlock(bytes, id = 0, format = LIMITS.formatV2) {
+    const notes = [], stepFlags = {}, TN = T(), size = format === LIMITS.formatV1 ? LIMITS.noteBytesV1 : LIMITS.noteBytes;
+    if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2) fail('block payload format ' + format + ' unknown');
     let at = 0;
     for (let s = 0; s < LIMITS.steps; s++) {
       if (at >= bytes.length) fail('block payload ends inside step ' + s);
@@ -3014,9 +3196,15 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
       if (count > 4 || (h & 128)) fail('block payload step ' + s + ' header invalid');
       if (h & 0x78) stepFlags[s] = { probability: (h >> 3) & 7, alt: !!(h & 64) };
       for (let i = 0; i < count; i++) {
-        if (at + 3 > bytes.length) fail('block payload ends inside a note');
-        notes.push({ step: s, pitch: bytes[at] & 127, velocity: bytes[at + 1] & 127, length: bytes[at + 2], retrigger: !!(bytes[at + 1] & 128) });
-        at += 3;
+        if (at + size > bytes.length) fail('block payload ends inside a note');
+        if (format === LIMITS.formatV1) {
+          if (!(bytes[at + 1] & 127) || !bytes[at + 2]) fail('block payload step ' + s + ' note invalid');
+          notes.push({ step: s, pitch: bytes[at] & 127, velocity: bytes[at + 1] & 127, offset: 0, length: bytes[at + 2] * LIMITS.unitsPerStep, retrigger: !!(bytes[at + 1] & 128) });
+        } else {
+          let n; try { n = TN.decode(bytes.subarray(at, at + size)); } catch (e) { fail('block payload step ' + s + ': ' + e.message); }
+          notes.push({ step: s, pitch: n.pitch, velocity: n.velocity, offset: n.offset, length: n.length, retrigger: n.retrigger });
+        }
+        at += size;
       }
     }
     if (at !== bytes.length) fail('block payload has ' + (bytes.length - at) + ' trailing byte(s)');
@@ -3029,14 +3217,14 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
   function blockKey(notes) { return String.fromCharCode(...encodeBlock({ notes })); }
   /* Loose deduplication (importer option): the same notes ignoring velocity. Two blocks with
    * equal structural keys differ only in velocities, position for position. */
-  function structuralKey(notes) { return sortNotes(notes).map(n => n.step + ':' + n.pitch + ':' + n.length + (n.retrigger ? 'r' : '')).join(','); }
+  function structuralKey(notes) { return sortNotes(notes).map(n => n.step + ':' + n.pitch + ':' + (n.offset | 0) + ':' + n.length + (n.retrigger ? 'r' : '')).join(','); }
 
   /* ---- block record (9.4) and .tabby file (9.9) --------------------------------------- */
   const align4 = n => (n + 3) & ~3;
   function encodeBlockRecord(block, song = 0) {
     const payload = encodeBlock(block, 'block ' + block.id);
     const out = new Uint8Array(align4(LIMITS.blockHeaderBytes + payload.length)).fill(0xff);
-    out[0] = song; out[1] = 0;                                           /* v0.4: byte 1 reserved */
+    out[0] = song; out[1] = LIMITS.formatV2;                             /* 9.4 v0.7: byte 1 = payload format */
     out[2] = block.id & 255; out[3] = block.id >> 8;                     /* 16-bit id */
     out[4] = payload.length & 255; out[5] = payload.length >> 8;
     out.set(payload, LIMITS.blockHeaderBytes);
@@ -3057,7 +3245,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     const name = padName(song.name);
     for (let i = 0; i < LIMITS.nameLength; i++) r[24 + i] = name.charCodeAt(i);
     r[36] = song.projectSlot;
-    r[37] = (song.loop ? 1 : 0) | (song.jumpMode === 'row' ? 2 : 0);
+    r[37] = (song.loop ? 1 : 0) | (song.jumpMode === 'row' ? 2 : 0) | (song.swing ? 4 : 0);   /* bit 2 (9.12): swing for v2 blocks */
     v.setUint16(38, song.tempo, true);
     r[40] = song.rows.length;
     r[41] = 0;                                          /* v0.4: reserved (was the block count) */
@@ -3087,7 +3275,8 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     if (v.getUint32(12, true) !== crc32(r.subarray(20, version === 2 ? LIMITS.recordV2End : LIMITS.bodyEnd))) fail('song record CRC mismatch');
     const song = emptySong('');
     song.name = String.fromCharCode(...r.subarray(24, 36));
-    song.projectSlot = r[36]; song.loop = !!(r[37] & 1); song.jumpMode = r[37] & 2 ? 'row' : 'bar';
+    if (r[37] & ~7) fail('song record flags byte ' + r[37] + ' invalid');
+    song.projectSlot = r[36]; song.loop = !!(r[37] & 1); song.jumpMode = r[37] & 2 ? 'row' : 'bar'; song.swing = !!(r[37] & 4);
     song.tempo = v.getUint16(38, true); song.loopRow = r[42];
     if (song.tempo && (song.tempo < LIMITS.tempoMin || song.tempo > LIMITS.tempoMax)) fail('song record tempo override ' + song.tempo + ' invalid (0 or 30..300)');   /* (f): as the device */
     song.outChannels = Array.from(r.subarray(LIMITS.channelsOffset, LIMITS.channelsOffset + 8), (c, t) => {
@@ -3152,11 +3341,13 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
       if (bytes[at] === 0xff) break;                      /* erased filler */
       const H = LIMITS.blockHeaderBytes;
       if (at + H > bytes.length) fail('.tabby block record header truncated');
-      const songByte = bytes[at], id = bytes[at + 2] | bytes[at + 3] << 8, length = bytes[at + 4] | bytes[at + 5] << 8;
+      const songByte = bytes[at], format = bytes[at + 1], id = bytes[at + 2] | bytes[at + 3] << 8, length = bytes[at + 4] | bytes[at + 5] << 8;
       if (songByte !== 0) fail('.tabby block record song byte must be 0');
+      if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2) fail('.tabby block record ' + id + ' payload format ' + format + ' unknown');
       if (!id) fail('.tabby block record id 0 is invalid');
-      if (length < LIMITS.blockMin || length > LIMITS.blockMax || at + H + length > bytes.length) fail('.tabby block record ' + id + ' length invalid');
-      song.blocks.push(decodeBlock(bytes.subarray(at + H, at + H + length), id));
+      const max = format === LIMITS.formatV1 ? LIMITS.blockMaxV1 : LIMITS.blockMax;
+      if (length < LIMITS.blockMin || length > max || at + H + length > bytes.length) fail('.tabby block record ' + id + ' length invalid');
+      song.blocks.push(decodeBlock(bytes.subarray(at + H, at + H + length), id, format));
       at = align4(at + H + length);
     }
     if (at + 9 <= bytes.length && bytes[at] === 0xff && String.fromCharCode(...bytes.subarray(at + 1, at + 5)) === 'TRIG') {
@@ -3173,12 +3364,13 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
   function validate(song) {
     const errors = [], warnings = [];
     const err = text => errors.push(text), warn = text => warnings.push(text);
-    if (!song || song.schema !== 'tabby-song/1') err('not a tabby-song/1 model');
+    if (!song || song.schema !== 'tabby-song/2') err('not a tabby-song/2 model');
     if (!song) return { errors, warnings, ok: false };
     if (typeof song.name !== 'string' || song.name.length !== LIMITS.nameLength || /[^\x20-\x7e]/.test(song.name)) err('name must be 12 printable ASCII characters');
     if (!Number.isInteger(song.projectSlot) || song.projectSlot < 0 || song.projectSlot > 15) err('project slot outside 0..15');
     if (!Number.isInteger(song.tempo) || (song.tempo !== 0 && (song.tempo < LIMITS.tempoMin || song.tempo > LIMITS.tempoMax))) err('tempo must be 0 or 30..300');
     if (!['bar', 'row'].includes(song.jumpMode)) err('jump mode must be bar or row');
+    if (typeof song.swing !== 'boolean') err('swing must be true or false');
     if (!Array.isArray(song.rows) || song.rows.length < 1) err('song needs at least one row');
     else if (song.rows.length > LIMITS.rowsPerSong) err('song has ' + song.rows.length + ' rows (max 128)');
     if (!Number.isInteger(song.loopRow) || song.loopRow < 0 || song.loopRow >= Math.max(1, (song.rows || []).length)) err('loop row outside the row list');
@@ -3232,16 +3424,21 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
   /* ---- JSON save / load (browser round trip, Task 02 Step 3) --------------------------- */
   function toJSON(song, extra = {}) {
     checkSong(song);
+    /* tabby-song/2: a note is [step, pitch, velocity, length (units), offset, retrigger]. */
     const data = { ...song, ...extra, blocks: song.blocks.map(b => ({ id: b.id, ...(b.stepFlags ? { stepFlags: b.stepFlags } : {}),
-      notes: sortNotes(b.notes).map(n => n.retrigger ? [n.step, n.pitch, n.velocity, n.length, 1] : [n.step, n.pitch, n.velocity, n.length]) })) };
+      notes: sortNotes(b.notes).map(n => n.retrigger ? [n.step, n.pitch, n.velocity, n.length, n.offset | 0, 1] : [n.step, n.pitch, n.velocity, n.length, n.offset | 0]) })) };
     return JSON.stringify(data, null, 1);
   }
   function fromJSON(text) {
     const data = typeof text === 'string' ? JSON.parse(text) : text;
-    if (!data || data.schema !== 'tabby-song/1') fail('not a tabby-song/1 JSON file');
-    const song = { ...emptySong(''), ...data };
+    if (!data || (data.schema !== 'tabby-song/1' && data.schema !== 'tabby-song/2')) fail('not a tabby-song/1 or tabby-song/2 JSON file');
+    const v1 = data.schema === 'tabby-song/1';           /* lengths in steps, no offsets: upgraded here */
+    const song = { ...emptySong(''), ...data, schema: 'tabby-song/2', swing: !v1 && !!data.swing };
     song.blocks = (data.blocks || []).map(b => ({ id: b.id, ...(b.stepFlags ? { stepFlags: b.stepFlags } : {}),
-      notes: (b.notes || []).map(n => Array.isArray(n) ? { step: n[0], pitch: n[1], velocity: n[2], length: n[3], retrigger: !!n[4] } : { ...n, retrigger: !!n.retrigger }) }));
+      notes: (b.notes || []).map(n => Array.isArray(n)
+        ? (v1 ? { step: n[0], pitch: n[1], velocity: n[2], offset: 0, length: n[3] * LIMITS.unitsPerStep, retrigger: !!n[4] }
+              : { step: n[0], pitch: n[1], velocity: n[2], length: n[3], offset: n[4] | 0, retrigger: !!n[5] })
+        : { ...n, offset: v1 ? 0 : n.offset | 0, length: v1 ? n.length * LIMITS.unitsPerStep : n.length, retrigger: !!n.retrigger }) }));
     song.rows = (data.rows || []).map(r => ({ blocks: Array.from(r.blocks || []), repeat: r.repeat, loopHere: !!r.loopHere, steps: r.steps || data.rowSteps || 64 }));
     song.events = (data.events || []).map(e => ({ row: e.row, channel: e.channel, type: e.type, d0: e.d0 | 0, d1: e.d1 | 0, d2: e.d2 | 0 }));
     delete song.rowSteps;                                 /* v0.1 files: the length now lives in each row */
@@ -3256,8 +3453,28 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     return song.rows.map(r => r.blocks.map(id => id ? sortNotes(byId.get(id).notes) : []));
   }
 
+  /* ---- quantize (Task 05: an option, never the default) --------------------------------- */
+  /* 'starts': every offset becomes 0 (the note moves to its step, the length stays).
+   * 'startsEnds': offsets 0 and lengths rounded to whole steps by `rule` ('nearest' with
+   * ties up, 'up', 'down'; at least one step). Returns the number of notes changed. */
+  function quantizeNotes(notes, mode, rule = 'nearest') {
+    let changed = 0;
+    const U = LIMITS.unitsPerStep;
+    for (const n of notes) {
+      let offset = n.offset | 0, length = n.length;
+      if (mode === 'starts' || mode === 'startsEnds') offset = 0;
+      if (mode === 'startsEnds') {
+        const steps = rule === 'up' ? Math.ceil(length / U) : rule === 'down' ? Math.floor(length / U) : Math.floor(length / U + 0.5);
+        length = Math.max(1, steps) * U;
+      }
+      if (offset !== (n.offset | 0) || length !== n.length) { n.offset = offset; n.length = length; changed++; }
+    }
+    return changed;
+  }
+  function quantize(song, mode, rule) { return song.blocks.reduce((n, b) => n + quantizeNotes(b.notes, mode, rule), 0); }
+
   const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, structuralKey, encodeBlockRecord, validateEvents,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, version: '0.3' };
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, version: '0.5' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();
@@ -3276,14 +3493,21 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
  *       length in 16th steps, the total length in bars and the row lengths that stay on bar
  *       lines (16, 32, 48 or 64 steps).
  *
- *   convert(analysis, options) — the mapping rules approved after the Task 02 Step 1 report:
- *       * grid is 16ths; note starts snap to the nearest step, ties toward the earlier step;
- *       * note ends: a rounding rule, 'nearest' (default), 'up' (never shorter) or 'down'
- *         (never longer); the stored length is max(1, end − start) and at most 255;
+ *   convert(analysis, options) — the mapping rules approved after the Task 02 Step 1 report,
+ *   with the Task 05 timing rules (section 9.12):
+ *       * time is kept exactly, in units of 1/480 step (1/1920 quarter): a note belongs to
+ *         the 16th step nearest its start (a start exactly half a step late belongs to the
+ *         earlier step) and carries the signed offset from it; its length is end − start in
+ *         units (at least 1). PPQ values that divide 1920 convert exactly; others are rounded
+ *         to the nearest unit and reported (kind ppqRounded);
+ *       * quantize (option, off by default): 'starts' moves every start to its step (offset
+ *         0, length kept), 'startsEnds' also rounds lengths to whole steps with the length
+ *         rule 'nearest' (default), 'up' (never shorter) or 'down' (never longer); the
+ *         'moved' and 'lengthRounded' warnings then list what changed;
  *       * notes outside the chosen bar range are dropped, notes ending past it are clipped;
  *       * same pitch overlapping on one track: the earlier note is clipped to end where the
- *         next one starts; two same-pitch notes on one step keep the louder (retrigger bit
- *         never set);
+ *         next one starts; two same-pitch notes anchored on one step keep the louder
+ *         (retrigger bit never set);
  *       * more than 4 notes starting on one step on one track: keep the 4 'loudest' (default,
  *         tie → higher pitch), 'highest' or 'lowest';
  *       * tempo: the file's first tempo, rounded to an integer BPM and clamped to 30..300,
@@ -3303,9 +3527,12 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
  *   Loading: classic script (globalThis.TabbyMidiSong) and CommonJS; needs song-format.js
  *   (globalThis.TabbySongFormat or require) for block encoding, keys and usage.
  *
- * Version: 0.3
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-03  Task 05: exact timing (offsets and unit lengths), quantize as an option,
+ *                     PPQ rounding report, warnings only for real changes.
+ *   v0.4  2026-11-02  Task 04: controls collected with their file order, row events.
  *   v0.3  2026-11-02  Loose deduplication option (velocity tolerance); block limit 2048
  *                     (section 9 v0.4).
  *   v0.2  2026-11-02  Row step length stored per row (row.steps) instead of song.rowSteps,
@@ -3358,6 +3585,11 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
   function analyze(parsed) {
     const division = parsed.division;
     const toStep = tick => tick * 4 / division;                  /* exact position in 16ths */
+    /* Task 05: positions in units (1/1920 quarter). Exact when the PPQ divides 1920; else
+     * rounded to the nearest unit, counted for the ppqRounded warning. */
+    const exactPpq = 1920 % division === 0;
+    const toUnits = tick => Math.round(tick * 1920 / division);
+    const unitError = tick => Math.abs(tick * 1920 / division - toUnits(tick));
     const tempos = [], meters = [], ignored = { controlChange: 0, sustain: 0, pitchBend: 0, polyPressure: 0, channelPressure: 0, programChange: [], sysex: 0, meta: 0, markers: [] };
     const programs = new Map();                                  /* "track:channel" → [programs] */
     const controls = [];                                         /* every CC, for row events (Task 04) */
@@ -3422,7 +3654,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
       tempo: { exact: bpmExact, rounded: bpmRounded, bpm, present: !!firstTempo, changes: tempoChanges.map(t => ({ ...t, ...steps(t.tick) })) },
       meter: { ...meter, barSteps, changes: meterChanges.map(m => ({ ...m, ...steps(m.tick) })) },
       barSteps, totalBars, totalSteps: Math.ceil(totalStepsExact - EPS), parts, ignored, controls,
-      rowSteps: rowStepsFor(bs), errors, toStep };
+      rowSteps: rowStepsFor(bs), errors, toStep, toUnits, exactPpq, unitError };
   }
 
   /* ---- stage 2: convert ---------------------------------------------------------------- */
@@ -3447,13 +3679,17 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     const rowSteps = options.rowSteps || analysis.rowSteps.default;
     if (!L.rowStepsAllowed.includes(rowSteps)) fail('row length must be 16, 32, 48 or 64 steps', 'options');
     const lengthRule = options.lengthRule || 'nearest', overflowRule = options.overflowRule || 'loudest';
+    const quantize = options.quantize || 'off';                   /* Task 05: 'off' (exact), 'starts', 'startsEnds' */
+    if (!['off', 'starts', 'startsEnds'].includes(quantize)) fail('unknown quantize mode ' + quantize, 'options');
     const loose = !!options.looseDedup, tolerance = Number.isInteger(options.velocityTolerance) ? options.velocityTolerance : 8;
     if (loose && (tolerance < 0 || tolerance > 126)) fail('velocity tolerance must be 0..126', 'options');
     if (!roundEnd[lengthRule]) fail('unknown length rule ' + lengthRule, 'options');
     if (!overflowOrder[overflowRule]) fail('unknown overflow rule ' + overflowRule, 'options');
     const assignments = options.assignments || defaultAssignments(analysis);
     const rangeStart = (barFrom - 1) * barSteps, rangeEnd = barTo * barSteps;
-    const toStep = analysis.toStep;
+    const toStep = analysis.toStep, toUnits = analysis.toUnits, U = L.unitsPerStep, HALF = L.offsetMax;
+    const TN = globalThis.TabbyTimedNote || (typeof require === 'function' ? require('../timed-note/timed-note.js') : fail('timed-note.js not loaded'));
+    const msPerUnit = 60000 / (analysis.tempo.bpm * 4 * U);
     /* Row events (Task 04, 9.11): pre-roll window before a row start, in steps. */
     const preRoll = options.preRoll === 'none' ? 0 : options.preRoll === 'bar' ? barSteps : 4;
     if (!['none', 'beat', 'bar', undefined].includes(options.preRoll)) fail('unknown pre-roll ' + options.preRoll, 'options');
@@ -3504,10 +3740,11 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     if (ig.meta) w.add('metaIgnored', 'info', ig.meta + ' other meta event(s) ignored');
     for (const f of analysis.fileWarnings || []) w.add('file:' + f.kind, 'warn', f.message);
 
-    /* Gather notes per Tabby track. */
+    /* Gather notes per Tabby track, in units (Task 05). */
     const perTrack = Array.from({ length: 8 }, () => []);
     const usedParts = [];
-    let notesIn = 0;
+    let notesIn = 0, ppqRounded = 0, ppqWorst = 0;
+    const timeOf = n => n.start * U + n.offset;                          /* a note's start in units from bar 1 */
     for (const part of analysis.parts) {
       const t = assignments[part.key];
       if (t === null || t === undefined || t === '' || t === 'skip') { w.add('partsSkipped', 'info', 'MIDI parts not assigned to a track were skipped', { text: part.name + ' (' + part.noteCount + ' notes)' }); continue; }
@@ -3515,38 +3752,49 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
       usedParts.push({ part, track: Number(t) });
       for (const n of part.notes) {
         notesIn++;
+        if (!analysis.exactPpq) { const e = Math.max(analysis.unitError(n.tick), analysis.unitError(n.endTick)); if (e > 1e-9) { ppqRounded++; ppqWorst = Math.max(ppqWorst, e); } }
+        const su = toUnits(n.tick), eu = toUnits(n.endTick);
+        /* Anchor: the nearest step; exactly half a step late stays with the earlier step (+240). */
+        const anchor = Math.floor((su + HALF - 1) / U);
+        let offset = su - anchor * U, length = Math.max(1, eu - su);
         const xs = toStep(n.tick), xe = toStep(n.endTick);
-        const start = nearest(xs);
-        if (Math.abs(xs - start) > EPS) w.add('moved', 'info', 'Note starts moved to the 16th grid', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) + ' moved ' + ((start - xs) * 0.25).toFixed(3) + ' beats' });
-        let end = roundEnd[lengthRule](xe), length = end - start;
-        if (length < 1) { length = 1; if (xe - xs > EPS) w.add('lengthMin', 'info', 'Notes shorter than a step got length 1', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) }); }
-        else if (Math.abs((xe - xs) - length) > EPS) w.add('lengthRounded', 'info', 'Note lengths rounded to whole steps (' + lengthRule + ')', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) + ': ' + ((xe - xs) * 0.25).toFixed(3) + ' → ' + (length * 0.25).toFixed(2) + ' beats' });
-        if (start < rangeStart || start >= rangeEnd) { w.add('droppedRange', 'info', 'Notes outside bars ' + barFrom + '..' + barTo + ' dropped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) }); continue; }
-        if (start + length > rangeEnd) { length = rangeEnd - start; w.add('clippedRange', 'info', 'Notes ending after bar ' + barTo + ' clipped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) }); }
-        if (length > L.lengthMax) { w.add('lengthClipped', 'warn', 'Notes longer than 255 steps clipped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(start, barSteps) + ': ' + length + ' steps' }); length = L.lengthMax; }
-        perTrack[t].push({ start, length, pitch: n.pitch, velocity: n.velocity, part: part.name });
+        if (quantize !== 'off' && offset) { w.add('moved', 'info', 'Note starts moved to the 16th grid', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) + ' moved ' + ((anchor - xs) * 0.25).toFixed(3) + ' beats' }); offset = 0; }
+        if (quantize === 'startsEnds') {
+          let end = roundEnd[lengthRule](xe), steps = end - anchor;
+          if (steps < 1) { steps = 1; if (xe - xs > EPS) w.add('lengthMin', 'info', 'Notes shorter than a step got length 1', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) }); }
+          else if (Math.abs((xe - xs) - steps) > EPS) w.add('lengthRounded', 'info', 'Note lengths rounded to whole steps (' + lengthRule + ')', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) + ': ' + ((xe - xs) * 0.25).toFixed(3) + ' → ' + (steps * 0.25).toFixed(2) + ' beats' });
+          length = steps * U;
+        }
+        if (anchor < rangeStart || anchor >= rangeEnd) { w.add('droppedRange', 'info', 'Notes outside bars ' + barFrom + '..' + barTo + ' dropped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) }); continue; }
+        if (anchor * U + offset + length > rangeEnd * U) { length = Math.max(1, rangeEnd * U - anchor * U - offset); w.add('clippedRange', 'info', 'Notes ending after bar ' + barTo + ' clipped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) }); }
+        if (length > L.lengthMax) { w.add('lengthClipped', 'warn', 'Notes longer than ' + (L.lengthMax / U).toFixed(0) + ' steps clipped', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) + ': ' + (length / U).toFixed(2) + ' steps' }); length = L.lengthMax; }
+        const stored = TN.lengthStored(length);
+        if (stored !== length) w.add('lengthScaled', 'info', 'Notes longer than 136 steps are stored to within the exponent scale (2..128 units)', { track: t + 1, text: part.name + ' pitch ' + n.pitch + ' at ' + where(anchor, barSteps) + ': ' + length + ' → ' + stored + ' units' });
+        perTrack[t].push({ start: anchor, offset, length: stored, pitch: n.pitch, velocity: n.velocity, part: part.name });
       }
     }
     if (!usedParts.length) fail('No MIDI part is assigned to a track', 'empty');
+    if (!analysis.exactPpq) w.add('ppqRounded', ppqRounded ? 'warn' : 'info', 'The file\'s ' + analysis.division + ' ticks per quarter note do not divide 1920: note times were rounded to the nearest 1/480 step' + (ppqRounded ? ' (' + ppqRounded + ' note(s), at most ' + ppqWorst.toFixed(2) + ' units = ' + (ppqWorst * msPerUnit).toFixed(2) + ' ms)' : ' (no note was affected)'));
 
-    /* Per track: same-pitch overlaps, then the 4-per-step limit. */
+    /* Per track: same-pitch overlaps (in units), then the 4-per-step limit (per anchor step). */
     for (let t = 0; t < 8; t++) {
       const notes = perTrack[t];
-      notes.sort((a, b) => a.start - b.start || a.pitch - b.pitch || b.velocity - a.velocity);
+      notes.sort((a, b) => timeOf(a) - timeOf(b) || a.pitch - b.pitch || b.velocity - a.velocity);
       const byPitch = new Map();
       for (const n of notes) { if (!byPitch.has(n.pitch)) byPitch.set(n.pitch, []); byPitch.get(n.pitch).push(n); }
       const drop = new Set();
       for (const list of byPitch.values()) {
         let prev = null;
         for (const cur of list) {
-          if (prev && cur.start === prev.start) {           /* same step, same pitch: keep the louder */
+          if (prev && cur.start === prev.start) {           /* same anchor step, same pitch: keep the louder (9.12 forbids both) */
             const loser = cur.velocity > prev.velocity ? prev : cur;
             drop.add(loser); w.add('duplicateDropped', 'warn', 'Same pitch twice on one step on one track; the quieter note was dropped', { track: t + 1, text: loser.part + ' pitch ' + loser.pitch + ' at ' + where(loser.start, barSteps) });
             if (loser === prev) prev = cur; continue;
           }
-          if (prev && prev.start + prev.length > cur.start) {
-            w.add('overlapClipped', 'info', 'Same pitch overlapping on one track; the earlier note was shortened', { track: t + 1, text: prev.part + ' pitch ' + prev.pitch + ' at ' + where(prev.start, barSteps) + ': ' + prev.length + ' → ' + (cur.start - prev.start) + ' steps' });
-            prev.length = cur.start - prev.start;
+          if (prev && timeOf(prev) + prev.length > timeOf(cur)) {
+            const clipped = Math.max(1, timeOf(cur) - timeOf(prev));
+            w.add('overlapClipped', 'info', 'Same pitch overlapping on one track; the earlier note was shortened', { track: t + 1, text: prev.part + ' pitch ' + prev.pitch + ' at ' + where(prev.start, barSteps) + ': ' + (prev.length / U).toFixed(3) + ' → ' + (clipped / U).toFixed(3) + ' steps' });
+            prev.length = clipped;
           }
           prev = cur;
         }
@@ -3569,7 +3817,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     const grid = Array.from({ length: rowCount }, () => Array.from({ length: 8 }, () => []));
     for (let t = 0; t < 8; t++) for (const n of perTrack[t]) {
       const rel = n.start - rangeStart, row = Math.floor(rel / rowSteps);
-      grid[row][t].push({ step: rel % rowSteps, pitch: n.pitch, velocity: n.velocity, length: n.length, retrigger: false });
+      grid[row][t].push({ step: rel % rowSteps, pitch: n.pitch, velocity: n.velocity, offset: n.offset, length: n.length, retrigger: false });
     }
     /* Deduplicate blocks and build rows. Exact first (identical bytes); then, in loose mode,
      * a block with the same notes whose velocities are all within the tolerance. */
@@ -3620,19 +3868,22 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     song.outChannels = Array.from({ length: 8 }, (_, t) => { const c = (options.outChannels || [])[t]; return Number.isInteger(c) && c >= 0 && c <= 15 ? c : null; });
     song.rows = rows; song.blocks = blocks; song.events = events;
     song.source = { fileName: options.fileName || '', format: analysis.format, division: analysis.division, tempoExact: analysis.tempo.exact,
-      meter: analysis.meter.numerator + '/' + analysis.meter.denominator, barSteps, barFrom, barTo, rowSteps, lengthRule, overflowRule,
+      meter: analysis.meter.numerator + '/' + analysis.meter.denominator, barSteps, barFrom, barTo, rowSteps, quantize, lengthRule, overflowRule, exactPpq: analysis.exactPpq,
       looseDedup: loose, velocityTolerance: loose ? tolerance : null, preRoll: options.preRoll || 'beat',
       parts: usedParts.map(u => ({ key: u.part.key, name: u.part.name, track: u.track + 1 })) };
     const usage = F.usage(song);
+    const allNotes = perTrack.flat();
     const stats = { ...usage, rowsBeforeMerge: rowsExpanded.length, cellsBeforeDedup: rowsExpanded.reduce((n, r) => n + r.filter(Boolean).length, 0),
-      notesIn, notesOut, bars: barTo - barFrom + 1, barsPerRow: rowSteps / barSteps, rowSteps, looseMerges, events: events.length };
+      notesIn, notesOut, bars: barTo - barFrom + 1, barsPerRow: rowSteps / barSteps, rowSteps, looseMerges, events: events.length,
+      offsets: allNotes.filter(n => n.offset).length, fractionalLengths: allNotes.filter(n => n.length % U).length,   /* Task 05 */
+      maxOffsetUnits: allNotes.reduce((m, n) => Math.max(m, Math.abs(n.offset)), 0), ppqRounded, exactPpq: analysis.exactPpq, quantize };
     const result = { song, stats, warnings: w.list(), grid, rowsExpanded };
     song.warnings = result.warnings.map(x => ({ kind: x.kind, severity: x.severity, message: x.message, count: x.count }));
     F.validate(song).errors.forEach(e => fail('internal: produced an invalid song: ' + e, 'internal'));
     return result;
   }
 
-  const TabbyMidiSong = { analyze, convert, defaultAssignments, rowStepsFor, position, where, nearest, version: '0.4' };
+  const TabbyMidiSong = { analyze, convert, defaultAssignments, rowStepsFor, position, where, nearest, version: '0.5' };
   globalThis.TabbyMidiSong = TabbyMidiSong;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyMidiSong;
 })();
@@ -3681,9 +3932,10 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
  *
  *   Loading: classic script (globalThis.TabbySongTransfer) and CommonJS.
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-03  Task 05: block records rebuilt from a backend carry payload format 1.
  *   v0.4  2026-11-02  Task 03 (f): the delete-before-replace step moved into the workbench's
  *                     song write; the wrapper reports `replaced` from the backend's result.
  *   v0.3  2026-11-02  Step 4: createBackend() on the workbench song backend (device or
@@ -3810,7 +4062,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
         /* Rebuild the .tabby byte stream (record + block records) and decode it. */
         const records = [...got.blocks].sort((a, b) => a[0] - b[0]).map(([id, payload]) => {
           const out = new Uint8Array((6 + payload.length + 3) & ~3).fill(0xff);
-          out[0] = 0; out[1] = 0; out[2] = id & 255; out[3] = id >> 8; out[4] = payload.length & 255; out[5] = payload.length >> 8; out.set(payload, 6); return out;
+          out[0] = 0; out[1] = 1; out[2] = id & 255; out[3] = id >> 8; out[4] = payload.length & 255; out[5] = payload.length >> 8; out.set(payload, 6); return out;   /* Task 05: a backend returns format-1 payloads */
         });
         const file = new Uint8Array(4096 + records.reduce((n, r) => n + r.length, 0));
         file.set(got.record, 0); let at = 4096; for (const r of records) { file.set(r, at); at += r.length; }
@@ -3846,9 +4098,11 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
  *     2. parts table: every MIDI track × channel with name, notes, range and bars; assign
  *        each part to a Classic Tabby track 1..8 or skip it; per-track OUT CH 1..16 or
  *        "device setting";
- *     3. options: bar range, bars per row (only lengths that stay on bar lines), note length
- *        rounding rule (nearest / never shorter / never longer), rule for more than 4 notes on
- *        a step (loudest / highest / lowest), song name, project slot, loop;
+ *     3. options: bar range, bars per row (only lengths that stay on bar lines), quantize
+ *        (off = exact timing, the default; starts; starts and ends) with the note length
+ *        rounding rule (nearest / never shorter / never longer) for the latter, rule for
+ *        more than 4 notes on a step (loudest / highest / lowest), song name, project slot,
+ *        loop;
  *     4. result: rows with repeats and block ids, counts, pool use, and the warning list of
  *        everything dropped or changed, grouped by kind with the positions;
  *     5. browser song: save / load the JSON model, export the .tabby file (Task 03 9.9);
@@ -3862,9 +4116,11 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
  *   through FM1I18n; this panel is Classic Tabby only and is shown in English in both
  *   languages (Step 4 decision: no 80-string addition to the shared sdk/I18n.js).
  *
- * Version: 0.6
+ * Version: 0.7
  *
  * Revision log
+ *   v0.7  2026-11-03  Task 05: quantize option (off by default), offsets and fractional lengths
+ *                     in the statistics, the grid note reworded.
  *   v0.6  2026-11-02  Task 04: row events: pre-roll option, event column in the row table,
  *                     event count in the statistics.
  *   v0.5  2026-11-02  Task 03 (f): the replace warning says the old song is deleted first and
@@ -3919,6 +4175,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
       barTo: h('input', { type: 'number', min: 1, step: 1, value: 1 }),
       rowSteps: h('select'),
       preRoll: h('select', {}, option('beat', 'one beat before (default)'), option('none', 'at the row start only'), option('bar', 'up to one bar before')),
+      quantize: h('select', {}, option('off', 'off: exact timing (default)'), option('starts', 'note starts to 16ths'), option('startsEnds', 'starts and ends to 16ths')),
       lengthRule: h('select', {}, option('nearest', 'nearest step (default)'), option('up', 'never shorter (round up)'), option('down', 'never longer (round down)')),
       overflowRule: h('select', {}, option('loudest', 'keep the 4 loudest'), option('highest', 'keep the 4 highest'), option('lowest', 'keep the 4 lowest')),
       name: h('input', { type: 'text', maxLength: 12, value: 'IMPORTED', spellcheck: false }),
@@ -3956,12 +4213,13 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
           h('label', {}, 'Bars from ', ui.barFrom), h('label', {}, 'to ', ui.barTo),
           h('label', {}, 'Bars per row ', ui.rowSteps),
           h('label', {}, 'Row events: PC / bank / CC ', ui.preRoll),
-          h('label', {}, 'Note ends ', ui.lengthRule),
+          h('label', {}, 'Quantize ', ui.quantize),
+          h('label', {}, 'Note ends (quantized) ', ui.lengthRule),
           h('label', {}, 'More than 4 notes on a step ', ui.overflowRule),
           h('label', {}, 'Song name ', ui.name), h('label', {}, 'Project slot ', ui.projectSlot),
           h('label', {}, ui.loop, ' loop the whole song'),
           h('label', {}, ui.loose, ' loose block matching, velocity tolerance ±', ui.tolerance)),
-        h('p', { class: 'ti-muted' }, 'Grid: 16th notes. Starts snap to the nearest step (ties toward the earlier step). The first tempo of the file becomes the song tempo. Loose matching shares a block when the notes are the same and only velocities differ, within the tolerance; the first block\'s velocities are kept and every merge is listed below.')),
+        h('p', { class: 'ti-muted' }, 'Timing is kept exactly (1/480 of a 16th step; 96, 120, 192, 240, 384, 480, 960 and 1920 PPQ are exact, others round and are reported): each note belongs to the nearest step and keeps its offset and length. Quantize is off unless chosen. The first tempo of the file becomes the song tempo. Loose matching shares a block when the notes are the same and only velocities differ, within the tolerance; the first block\'s velocities are kept and every merge is listed below.')),
       h('section', { class: 'ti-step' }, h('h3', {}, '4. Resulting song'), ui.status, ui.stats,
         h('div', { class: 'ti-scroll' }, h('table', { class: 'ti-table ti-rows' }, h('thead', {}, h('tr', {}, h('th', {}, 'Row'), h('th', {}, 'Repeat'), h('th', {}, 'Steps'), h('th', {}, 'Events'), ...Array.from({ length: 8 }, (_, t) => h('th', {}, 'T' + (t + 1))))), ui.rows)),
         h('h4', {}, 'Dropped or changed'), ui.warnings),
@@ -3979,7 +4237,8 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     const enable = () => {
       const have = !!state.song;
       ui.saveJson.disabled = ui.exportTabby.disabled = ui.write.disabled = !have || state.busy;
-      for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.lengthRule, ui.overflowRule]) el.disabled = !state.analysis || state.busy;
+      for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.quantize, ui.overflowRule]) el.disabled = !state.analysis || state.busy;
+      ui.lengthRule.disabled = !state.analysis || state.busy || ui.quantize.value !== 'startsEnds';
     };
     transfer.describe().then(d => { ui.transferInfo.textContent = 'Transfer: ' + (d.real ? d.note : 'stub (validates and reports what it would send; no device is written)') + ' · ' + d.songs + ' songs · ' + d.rows + ' rows · ' + d.blocks + ' blocks per song · pool ' + kb(d.poolBytes) + '.'; });
     const slotInfo = async () => {
@@ -4012,7 +4271,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
       ui.stats.replaceChildren(h('p', {}, h('strong', {}, song.name.trim() || '(unnamed)'), ' · tempo ' + (song.tempo || 'project') + ' · project ' + (song.projectSlot + 1) + ' · rows ' + song.rows.length +
         (result ? ' (from ' + result.stats.rowsBeforeMerge + ')' : '') + ', ' + usage.repeats + ' with repeats · row ' + [...new Set(song.rows.map(r => r.steps))].join('/') + ' steps · blocks ' + usage.blocks + ' of 2048 (' + usage.idPercent.toFixed(1) + ' %)' +
         (result ? ' from ' + result.stats.cellsBeforeDedup + ' cells' + (result.stats.looseMerges ? ', ' + result.stats.looseMerges + ' loose merge(s)' : '') : '') + ' · block bytes ' + usage.recordBytes + ' (' + usage.poolPercent.toFixed(2) + ' % of the pool, ' + usage.sectors + ' sector(s))' +
-        (result ? ' · notes ' + result.stats.notesOut + ' of ' + result.stats.notesIn : '') + ' · row events ' + (song.events || []).length + ' of 292' + ' · .tabby ' + kb(usage.fileBytes) + '.'),
+        (result ? ' · notes ' + result.stats.notesOut + ' of ' + result.stats.notesIn + ' (' + result.stats.offsets + ' with offsets, largest ' + result.stats.maxOffsetUnits + ' units; ' + result.stats.fractionalLengths + ' fractional lengths)' : '') + ' · row events ' + (song.events || []).length + ' of 292' + ' · .tabby ' + kb(usage.fileBytes) + '.'),
         ...v.warnings.map(w => h('p', { class: 'ti-muted' }, '⚑ ' + w)), ...v.errors.map(e => h('p', { class: 'ti-error' }, e)));
       ui.rows.replaceChildren(...song.rows.map((row, i) => h('tr', {}, h('td', {}, i + 1), h('td', {}, '×' + row.repeat + (row.loopHere ? ' ⟲' : '')), h('td', {}, row.steps),
         h('td', { class: 'ti-muted' }, (song.events || []).filter(e => e.row === i).map(e => e.type === 0 ? 'PC' + e.d0 : e.type === 1 ? 'B/PC' + e.d2 : e.type === 2 ? 'CC' + e.d0 : 'gap').join(' ') || '·'),
@@ -4028,7 +4287,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
       try {
         const options = { fileName: state.fileName, assignments: state.assignments, outChannels: state.outChannels,
           barFrom: Number(ui.barFrom.value) || 1, barTo: Number(ui.barTo.value) || state.analysis.totalBars, rowSteps: Number(ui.rowSteps.value) || undefined,
-          lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked, preRoll: ui.preRoll.value,
+          quantize: ui.quantize.value, lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked, preRoll: ui.preRoll.value,
           looseDedup: ui.loose.checked, velocityTolerance: Math.max(0, Math.min(126, Math.round(Number(ui.tolerance.value) || 0))) };
         state.result = Song.convert(state.analysis, options); state.song = state.result.song;
         showSong(state.result, state.song);
@@ -4039,7 +4298,7 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
       }
       enable();
     }
-    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop, ui.loose, ui.tolerance, ui.preRoll]) el.addEventListener('change', reconvert);
+    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.quantize, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop, ui.loose, ui.tolerance, ui.preRoll]) el.addEventListener('change', reconvert);
     ui.name.addEventListener('input', () => { if (state.song) { state.song.name = Format.padName(ui.name.value); showSong(state.result, state.song); } });
 
     ui.file.addEventListener('change', async () => {
@@ -4092,12 +4351,12 @@ globalThis.FM1_DEVICES = [{"schema":"tabby-device/1","version":"0.1","id":"dirty
     return { state, reconvert, ui };
   }
 
-  const TabbyImportUI = { mount, h, version: '0.6' };
+  const TabbyImportUI = { mount, h, version: '0.7' };
   globalThis.TabbyImportUI = TabbyImportUI;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();
 
-const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f52193e923613f4e6115007148de318f97c58e9773d4a1d9bb8dde693458114","source_sha256":"c5c208dd22128b92fb72dc6cab59a54d9242a2205a896e3c442138180fb6769a","sample_bank":"synthesized-demo","bytes":286895,"url":"./assets/smk37/7f52193e923613f4e6115007148de318f97c58e9773d4a1d9bb8dde693458114.wasm"};
+const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f2657c2ae9a1a87587275202ede24e1844d74549795acca01f64e71365dcbcf","source_sha256":"1b962539b638627b611887cf017c84fe63fffdd24db1be8180cc7b649cd5e98e","sample_bank":"synthesized-demo","bytes":296547,"url":"./assets/smk37/7f2657c2ae9a1a87587275202ede24e1844d74549795acca01f64e71365dcbcf.wasm"};
 (() => {
   const $=id=>document.getElementById(id);
   $('release-version').textContent=FM1_SIMULATOR.release_version||FM1_PACKAGE?.release_version||'';
@@ -4400,6 +4659,9 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f52193e9236
     const working=await library.download(0);
     if(working.length!==(library.tuningBytes||(info[3]|info[4]<<8)))throw Error('设备文件长度无效');
     FM1Web.projectVersion(working);
+    // Task 06 (a): the Bluetooth settings panel replaces the device's BLE page.
+    $('radio-group').hidden=!library.radioSettings;
+    if(library.radioSettings){const r=await library.radioRead();$('radio-on').checked=r.on;$('radio-audio').checked=r.audio;$('radio-role').value=r.host?'1':'0';}
     // Publish a complete snapshot only after every query succeeds. A partial
     // list must never enable load/save/import with an empty selection.
     $('project-slot').replaceChildren(...slots);
@@ -4436,6 +4698,11 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f52193e9236
     finally{await endConnection(attempt);}
   });}
   $('library-connect').addEventListener('click',connectLibrary);
+  // Task 06 (a): Bluetooth settings (transfer command 24). Each change is written at once.
+  const radioMessage=text=>{$('radio-message').textContent=text?FM1I18n.t(text):'';};
+  const radioWrite=async()=>{try{await library.radioWrite({on:$('radio-on').checked,audio:$('radio-audio').checked,host:$('radio-role').value==='1'});radioMessage('蓝牙设置已写入设备。');}catch(error){radioMessage(error.message);}};
+  for(const id of ['radio-on','radio-audio','radio-role'])$(id).addEventListener('change',radioWrite);
+  $('radio-forget').addEventListener('click',async()=>{if(!confirm(FM1I18n.t('清除设备上保存的 BLE MIDI 配对？')))return;try{await library.radioForget();radioMessage('已清除 MIDI 配对；请在电脑或平板上也删除该配对后重新配对。');}catch(error){radioMessage(error.message);}});
   $('library-refresh').addEventListener('click',()=>perform(async()=>{await refreshLibrary();message('项目与轨道列表已刷新。');}));
   $('project-rename').addEventListener('click',()=>perform(async()=>{
     const name=$('project-name').value;if(!/^[\x20-\x7e]{1,12}$/.test(name))throw Error('名称须为 1–12 个可显示的英文字符');
@@ -4517,7 +4784,41 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f52193e9236
     ?TabbyRigUI.mount({setup:$('rig-setup'),events:$('song-events'),library:TabbyDevices.load(globalThis.FM1_DEVICES||[]),onChange:()=>{},message:text=>songMessage(text)}):null;
   for(let i=0;i<16;i++){$('song-slot').append(option(i,String(i+1)));$('song-project').append(option(i,String(i+1)));}
   for(let t=0;t<8;t++){const l=document.createElement('label');l.textContent='T'+(t+1)+' ';const i=document.createElement('input');i.type='number';i.min='0';i.max='16';i.step='1';i.dataset.songChannel=t;l.append(i);$('song-channels').append(l);}
-  for(let s=0;s<64;s++){const l=document.createElement('label');l.textContent=(s+1)+' ';const i=document.createElement('input');i.type='text';i.dataset.songStep=s;i.placeholder='-';l.append(i);$('song-steps').append(l);}
+  for(let s=0;s<64;s++){const l=document.createElement('label');l.textContent=(s+1)+' ';const i=document.createElement('input');i.type='text';i.dataset.songStep=s;i.placeholder='-';l.append(i);$('song-steps').append(l);
+    i.addEventListener('focus',()=>songInspect(s));i.addEventListener('input',()=>{songMark(i);if(songEd.inspecting===s)songInspect(s);});}
+  // Task 05: a step with an offset or a fractional length is marked; the inspector edits the focused step's notes.
+  const SONG_UNITS=480;
+  function songMark(i){let nudged=false;try{nudged=FM1Web.songStepParse(i.value).notes.some(n=>n.offset||n.length%SONG_UNITS);}catch(_){}i.classList.toggle('nudged',nudged);}
+  function songInspect(s){
+    const box=$('song-inspector'),input=$('song-steps').querySelector('input[data-song-step="'+s+'"]');songEd.inspecting=s;
+    let step;try{step=FM1Web.songStepParse(input.value);}catch(error){box.hidden=false;box.textContent=error.message;return;}
+    const bpm=Number($('song-tempo').value)||120,msPerUnit=TabbyTimedNote.unitMs(bpm);
+    box.hidden=false;box.replaceChildren();
+    const t=document.createElement('table'),head=document.createElement('tr');
+    for(const h of ['步 '+(s+1),'音高','力度','重触发','偏移（单位）','','长度（步 + 单位）','']){const th=document.createElement('th');th.textContent=h;head.append(th);}t.append(head);
+    const write=()=>{input.value=FM1Web.songStepText(step);songMark(input);songInspect(s);};
+    step.notes.forEach((n,k)=>{
+      const tr=document.createElement('tr');const cell=el=>{const td=document.createElement('td');td.append(el);tr.append(td);return td;};
+      const num=(value,min,max,stepv,on)=>{const i=document.createElement('input');i.type='number';i.min=min;i.max=max;i.step=stepv;i.value=value;i.addEventListener('change',()=>{on(Number(i.value));write();});return i;};
+      cell(document.createTextNode(String(k+1)));
+      cell(num(n.pitch,0,127,1,v=>{n.pitch=Math.max(0,Math.min(127,Math.round(v)));}));
+      cell(num(n.velocity,1,127,1,v=>{n.velocity=Math.max(1,Math.min(127,Math.round(v)));}));
+      const r=document.createElement('input');r.type='checkbox';r.checked=!!n.retrigger;r.addEventListener('change',()=>{n.retrigger=r.checked;write();});cell(r);
+      cell(num(n.offset,-240,240,1,v=>{n.offset=Math.max(-240,Math.min(240,Math.round(v)));}));
+      const ro=document.createElement('span');ro.className='readout';ro.textContent=TabbyTimedNote.offsetFraction(n.offset)+' 步 · '+(n.offset*msPerUnit>=0?'+':'')+(n.offset*msPerUnit).toFixed(2)+' ms @ '+bpm;cell(ro);
+      const steps=Math.floor(n.length/SONG_UNITS),rest=n.length%SONG_UNITS,len=document.createElement('span');
+      len.append(num(steps,0,17476,1,v=>{n.length=Math.max(1,Math.max(0,Math.round(v))*SONG_UNITS+(n.length%SONG_UNITS));}),' + ',num(rest,0,479,1,v=>{n.length=Math.max(1,Math.floor(n.length/SONG_UNITS)*SONG_UNITS+Math.max(0,Math.min(479,Math.round(v))));}));cell(len);
+      const rl=document.createElement('span');rl.className='readout';rl.textContent=FM1Web.songLengthText(n.length)+' 步 · '+(n.length*msPerUnit).toFixed(1)+' ms';cell(rl);
+      t.append(tr);});
+    box.append(t);
+    if(!step.notes.length){const p=document.createElement('p');FM1I18n.text(p,'此步没有音符：在上方文本框中输入，例如 60:100:1/-12');box.append(p);}
+  }
+  const songQuantize=mode=>{let changed=0;for(const i of $('song-steps').querySelectorAll('input')){if(!i.value.trim())continue;let step;try{step=FM1Web.songStepParse(i.value);}catch(_){continue;}
+    for(const n of step.notes){const before=n.offset+':'+n.length;if(n.offset)n.offset=0;if(mode==='ends')n.length=Math.max(1,Math.round(n.length/SONG_UNITS))*SONG_UNITS;if(before!==n.offset+':'+n.length)changed++;}
+    i.value=FM1Web.songStepText(step);songMark(i);}
+    if(songEd.inspecting!==undefined)songInspect(songEd.inspecting);songMessage('已量化 '+changed+' 个音符（仅编辑器中的本块；点击“保存块”保留）。');};
+  $('song-quantize-starts').addEventListener('click',()=>songQuantize('starts'));
+  $('song-quantize-ends').addEventListener('click',()=>songQuantize('ends'));
   const songBlockList=()=>FM1I18n.text($('song-blocks'),songEd.blocks.size?'编辑器中的块：'+[...songEd.blocks.keys()].sort((a,b)=>a-b).join(', '):'编辑器中没有块。');
   function songRowsRender(){
     const body=$('song-rows').querySelector('tbody');body.replaceChildren();
@@ -4527,11 +4828,13 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f52193e9236
       cell(row.repeat,{type:'number',min:'1',max:'64',step:'1'},'repeat');cell(row.steps,{type:'number',min:'16',max:'64',step:'16'},'steps');
       const td=document.createElement('td'),c=document.createElement('input');c.type='checkbox';c.checked=row.loopHere;c.dataset.songRow=r;c.dataset.songField='loop';td.append(c);tr.append(td);
       body.append(tr);});
+    // Task 06: per track, the pattern numbers (rows with a block) the TRACK LAUNCH page offers.
+    $('song-patterns').textContent=FM1I18n.t('各轨图案（行号）：')+songEd.song.rows.length?Array.from({length:8},(_,t)=>'T'+(t+1)+' '+(songEd.song.rows.map((row,r)=>row.block[t]?String(r+1):'').filter(Boolean).join(' ')||'-')).join('   '):'';
   }
   function songRender(){
     const s=songEd.song;$('song-editor').hidden=!s;if(!s)return;
     $('song-name').value=s.name;$('song-project').value=String(s.project);$('song-tempo').value=String(s.tempo);$('song-loop').checked=s.loop;
-    $('song-loop-row').value=String(s.loopRow+1);$('song-jump').value=s.jumpRow?'1':'0';
+    $('song-loop-row').value=String(s.loopRow+1);$('song-jump').value=s.jumpRow?'1':'0';$('song-swing').checked=!!s.swing;
     for(const i of $('song-channels').querySelectorAll('input'))i.value=String(s.channel[Number(i.dataset.songChannel)]);
     songRowsRender();songBlockList();
     if(rigUI)rigUI.setSong(s);
@@ -4539,7 +4842,7 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f52193e9236
   function songCollect(){
     const s=songEd.song;if(!s)throw Error('请先读取或新建歌曲');
     s.name=$('song-name').value;s.project=Number($('song-project').value);s.tempo=Number($('song-tempo').value)||0;s.loop=$('song-loop').checked;
-    s.loopRow=Number($('song-loop-row').value)-1;s.jumpRow=$('song-jump').value==='1';
+    s.loopRow=Number($('song-loop-row').value)-1;s.jumpRow=$('song-jump').value==='1';s.swing=$('song-swing').checked;
     for(const i of $('song-channels').querySelectorAll('input'))s.channel[Number(i.dataset.songChannel)]=Number(i.value)||0;
     for(const i of $('song-rows').querySelectorAll('input')){const row=s.rows[Number(i.dataset.songRow)],f=i.dataset.songField;
       if(f==='loop')row.loopHere=i.checked;else if(f==='repeat')row.repeat=Number(i.value);else if(f==='steps')row.steps=Number(i.value);else row.block[Number(f.slice(1))]=Number(i.value)||0;}
@@ -4571,7 +4874,7 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f52193e9236
     const record=songCollect();saveFile(FM1Web.tabbyFile(record,songEd.blocks,rigUI?rigUI.trailer(songEd.song):null),'SMK37 OPEN-'+(songEd.song.name.trim()||'song').replace(/[^A-Za-z0-9-]+/g,'_')+'.tabby');songMessage('已导出 .tabby 文件。');
   }));
   $('song-file').addEventListener('change',songAct(async()=>{
-    const file=$('song-file').files[0];if(!file)return;if(file.size>4096+2048*840)throw Error('.tabby 文件过大');
+    const file=$('song-file').files[0];if(!file)return;if(file.size>4096+2048*1608)throw Error('.tabby 文件过大');
     const got=FM1Web.readTabbyFile(new Uint8Array(await file.arrayBuffer()));songEd.song=FM1Web.songRecordParse(got.record);songEd.blocks=got.blocks;
     if(got.trailer&&got.trailer.rig&&globalThis.TabbyRig){try{songEd.song.rig=TabbyRig.rigNormalize(got.trailer.rig);}catch(_){songEd.song.rig=null;}}   // Task 04: per-song rig override
     songRender();
@@ -4579,7 +4882,9 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f52193e9236
   }));
   $('song-status').addEventListener('click',songAct(async()=>{
     const s=await songBackend().status();
-    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (old sample / DX7 data still present)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+'.');
+    const words=['follow','launched','stopped'],queues=['','queued launch','queued stop','queued back to song'];
+    const tracks=s.tracks?'; tracks: '+s.tracks.map((t,i)=>'T'+(i+1)+' '+words[t.state]+(t.row!==255?' r'+(t.row+1):'')+(t.queue?' ('+queues[t.queue]+')':'')+(t.waiting?' waiting':'')).join(', '):'';
+    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (old sample / DX7 data still present)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+tracks+'.');
   }));
   $('song-row-add').addEventListener('click',songAct(async()=>{if(!songEd.song)throw Error('请先读取或新建歌曲');if(songEd.song.rows.length>=128)throw Error('最多 128 行');
     const last=songEd.song.rows[songEd.song.rows.length-1];songEd.song.rows.push({block:last.block.slice(),repeat:last.repeat,loopHere:false,steps:last.steps});songRowsRender();}));
@@ -4587,7 +4892,8 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","sha256":"7f52193e9236
   $('song-block-load').addEventListener('click',songAct(async()=>{
     const id=Number($('song-block-id').value),payload=songEd.blocks.get(id);
     const steps=payload?FM1Web.songPayloadParse(payload):Array.from({length:64},()=>({probability:0,alt:false,notes:[]}));
-    for(const i of $('song-steps').querySelectorAll('input'))i.value=FM1Web.songStepText(steps[Number(i.dataset.songStep)]);
+    for(const i of $('song-steps').querySelectorAll('input')){i.value=FM1Web.songStepText(steps[Number(i.dataset.songStep)]);songMark(i);}
+    $('song-inspector').hidden=true;songEd.inspecting=undefined;
     songMessage(payload?'块 '+id+' 已载入到步进编辑器。':'块 '+id+' 尚不存在：编辑后点击“保存块”创建。');
   }));
   $('song-block-store').addEventListener('click',songAct(async()=>{

@@ -85,7 +85,7 @@
             for(const [id,payload] of message.blocks){
               const size=6+payload.length+(4-(6+payload.length)%4)%4;
               if(fill+size>4076){if(sectors===8){batches.push([parts,total]);parts=[];total=0;sectors=0;}sectors++;fill=0;}
-              const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=0;rec[2]=id&255;rec[3]=id>>8;rec[4]=payload.length&255;rec[5]=payload.length>>8;rec.set(payload,6);
+              const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=1;rec[2]=id&255;rec[3]=id>>8;rec[4]=payload.length&255;rec[5]=payload.length>>8;rec.set(payload,6);   // Task 05: payload format 1 (9.4 v0.7 byte 1)
               parts.push(rec);total+=size;fill+=size;
             }
             if(parts.length)batches.push([parts,total]);
@@ -93,7 +93,9 @@
             break;
           }
           case 'song-delete': result=c.sim_song_record_delete(message.song>>>0); break;
-          case 'song-status': data={free:c.sim_song_free()>>>0,reclaimable:c.sim_song_reclaimable()>>>0,state:c.sim_song_status(0)>>>0,late:(c.sim_song_status(2)>>>16)&0xffff,events:c.sim_song_status(3)>>>0}; break;
+          case 'song-status': data={free:c.sim_song_free()>>>0,reclaimable:c.sim_song_reclaimable()>>>0,state:c.sim_song_status(0)>>>0,late:(c.sim_song_status(2)>>>16)&0xffff,events:c.sim_song_status(3)>>>0,
+            // Task 06: the same per-track words the device's command 23 carries.
+            tracks:Array.from({length:8},(_,t)=>{const w=c.sim_song_track_status(t)>>>0;return {state:w&3,queue:(w>>2)&3,waiting:!!(w&16),row:(w>>8)&255};})}; break;
           case 'tick': for(let i=0;i<Math.min(32,message.blocks>>>0);i++)c.sim_render();break;
           default: throw Error('未知仿真操作');
         }
