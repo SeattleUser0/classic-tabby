@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.23
+Version: 0.24
 Revision log:
+- v0.24, 2026-11-04: left-to-build list: the Task 07 lint findings read and closed (verdicts
+  per line); the harmless-warning clean-up stays listed as optional separate work.
 - v0.23, 2026-11-04: section 9: tabby-v03.0 published (9.1 current values, 9.3c verification,
   the pre-publication sanitizer run and the cppcheck item).
 - v0.22, 2026-11-04 (Task 06 checkpoint d): sections 19.4 (workbench), 19.5 (the Step 4
@@ -149,21 +151,49 @@ are never written.
   runs from the internal clock only, decision 4 of Task 03); CC automation inside a row
   (importing Renoise automation that does not fall at a row start; row events fire at row
   entry only).
-- **Warning fixes** (from Task 07's `make lint`, separate work, gate: sdk.elf, .fwsc and
-  app-image.bin identical before and after). The target clang with `-Wall -Wextra`:
-  `app/board/scan.c:369` unused variable `adc_con`; `app/screen.c:1481` and `app/screen.c:2225`
-  missing field `state` initializer. Host gcc, outside app/: 8 misleading-indentation lines in
-  third_party/synth (bass303.c:28, drum808.c:48, 83, 266, dsp_math.h:26, 28, 50, pluck.c:74)
-  and 3 array-parameter mismatches in web/synth/dx7synth.c (117, 401, 406). Line numbers as of
-  linux-build 8114114.
-- **Analyzer findings** (same gate, read before fixing; none is known to be a bug):
-  cppcheck `app/screen.c:107` arrayIndexOutOfBoundsCond (the punctuation glyph table, 32 rows,
-  index up to 93 when `*s <= '~'`; Session A is reading it) and `app/project.c:750` uninitvar
-  (`c->magic`); clang-tidy 13 (docs/DEV_CHECKS.md lists them: `memcmp` used as a boolean in
-  project.c and song_storage.c, `memcpy` into name fields without a terminator in project.c:822
-  and screen.c:2175/2187, two signed-char promotions in screen.c, two "out of bound access to
-  `sectors`" in song_storage.c:263 and :595, one decrement inside a condition in
-  app/board/audio.c:79).
+- **Lint findings of Task 07, read and closed (2026-11-04, linux-build fe334c7).** None is a
+  bug; nothing was changed. The verdicts, one per line, line numbers as of 8114114:
+  - clang-tidy `app/song_storage.c:263` "out of bound access to `sectors`": **false positive**.
+    `b = target - SONG_FIRST_BLOCK_SECTOR` is reached only when `block` is set, and `block` is
+    the same `le32(image) == SONG_MAGIC_BLOCKS` test under which `staged_target()` returned
+    `target` only if `SONG_FIRST_BLOCK_SECTOR <= target < SONG_REGION_SECTORS`, so `b` is 0..95
+    for the 96-entry table; the analyzer cannot relate the two reads of the same four bytes
+    (the memset in between touches image+4092 only) and pairs the record branch's target
+    (1..16) with the block branch.
+  - clang-tidy `app/song_storage.c:595` "out of bound access to `sectors`": **harmless**.
+    `song_storage_compact_sector(b)` is exported without a range check and the analyzer
+    reports it for an unbounded `b`; its only callers are the compaction poll (`position <
+    SONG_BLOCK_SECTORS` by the loop above the call) and `song_block_append` (`best` from a loop
+    over 0..95), and nothing outside app/song_storage.c calls it.
+  - cppcheck `app/project.c:750` uninitialized `c->magic`: **false positive**. In
+    `session_settings_load` the struct is read by `session_settings_valid(&c)` only when `r` is
+    0 (short circuit), and `r` is 0 only after `fm1_flash_read` filled it.
+  - cppcheck `app/screen.c:107` arrayIndexOutOfBoundsCond: **false positive** (section 9.3c): the
+    offset is chosen per character range, the index is 0..31 for the 32-row table.
+  - target clang `app/board/scan.c:369` unused `adc_con`: **harmless**, an unused static in the
+    upstream board file; optional clean-up under the identical-output gate.
+  - target clang `app/screen.c:1481` and `:2225` missing field `state` initializer: **harmless**,
+    the `= {0}` idiom; the compiler zero-fills the remaining fields.
+  - clang-tidy `memcmp` without an explicit comparison, `app/project.c:132`, `:416`, `:515`,
+    `app/song_storage.c:188`, `:200`: **harmless**, the C idiom `if (memcmp(...))` for "differs";
+    every use means exactly that (an all-zero MIDI config, a changed tuning entry, a read-back
+    mismatch, a verify mismatch, a staged image comparison).
+  - clang-tidy `memcpy` result not null-terminated, `app/project.c:822`: **false positive**, the
+    project name is a 12-byte space-padded field with no terminator by definition
+    (app/instrument.h); `app/screen.c:2175` and `:2187`: **false positive**, the `memcpy` writes
+    a prefix and the `strcpy` or `decimal()` that follows writes the terminator before the
+    buffer is read.
+  - clang-tidy signed char to int, `app/screen.c:2347` and `:2359`: **false positive**, the
+    per-pad octave is an `int8_t` that holds negative octaves on purpose; sign extension is
+    the intent.
+  - clang-tidy decrement inside a condition, `app/board/audio.c:79`: **harmless**,
+    `if (mute_depth && --mute_depth == 0)` is the guarded decrement of the mute depth; the
+    short circuit keeps it from going below zero.
+- **Warning clean-up** (optional, separate work; gate: sdk.elf, .fwsc and app-image.bin
+  identical before and after): the three target-clang lines above, and outside app/ the 8
+  misleading-indentation lines in third_party/synth (bass303.c:28, drum808.c:48, 83, 266,
+  dsp_math.h:26, 28, 50, pluck.c:74) and 3 array-parameter mismatches in web/synth/dx7synth.c
+  (117, 401, 406). Line numbers as of linux-build 8114114.
 - **Sanitizer fixes**: none needed; `make host-sanitize` is green (0 findings, leaks included)
   at linux-build 8114114. Keep it green: it is part of `make suite`.
 
