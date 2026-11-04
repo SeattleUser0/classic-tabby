@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.20
+Version: 0.21
 Revision log:
+- v0.21, 2026-11-04 (Task 06 checkpoint c): section 19.3: the TRACK LAUNCH page, pad
+  colours, SCL / ENV routing, measured figures.
 - v0.20, 2026-11-04 (Task 06 checkpoint b): section 19.2: per-track playheads in firmware,
   measured figures, host test section 13, build.py v0.5 (-Oz for the sequencer units).
 - v0.19, 2026-11-04 (Task 06 checkpoint a): section 19: BLE and NAME pages removed, Bluetooth
@@ -1665,4 +1667,60 @@ the simulator); nothing is left sounding after stops, jumps, the song end or PLA
 
 Pending for (c) and (d): the TRACK LAUNCH page, pad LEDs, SCL / ENV routing; the rig's lead
 before bar, the song editor's pattern view, the simulator's scripted 32-bar performance.
+
+### 19.3 Checkpoint (c): the TRACK LAUNCH page, pad LEDs, SCL / ENV routing
+
+Control layout as approved (assessment section 5.2):
+
+| Control | SONG page (unchanged) | TRACK LAUNCH page (page 20) |
+| --- | --- | --- |
+| Pads 1-16 | queue a scene jump to row (page × 16 + pad) | the selected track's pattern (page × 16 + pad): launch at the next bar; the pad of the playing pattern queues a stop; an empty pad announces "NO PATTERN ON THIS PAD" |
+| OCT DOWN / UP | pad page | pad page (shared) |
+| SHIFT + pads 1-8 / 9-16 | track select / mute (every page) | the same; the pads show the eight tracks' states while SHIFT is held |
+| SCL | to TRACK LAUNCH | to SONG; the SCL lamp is lit on TRACK LAUNCH |
+| ENV | back to song, selected track | the same |
+| SHIFT + ENV (LFO) | back to song, all tracks | the same |
+| PLAY | start / stop the song | the same |
+| HOME | OVERVIEW | OVERVIEW |
+
+Implementation: `TRACK_LAUNCH` in the page enum (20; `groove_screen_open` accepts it, the
+song is loaded on entry as for SONG), `navigation_mode` routes the pads as keys, the draw
+block in `draw_page_body` (its cache signature takes the song status, the track, the pad
+page and the flash phase), the control block after the SONG block, the SCL / ENV / LFO
+intercept before the generic button block (song pages only), the SCL lamp in the button
+LED word, `smk37_screen_launch_color` (one status snapshot per control read, taken on pad
+0) called first from `smk37_pad_color`. The pad colour of a track under SHIFT is the track's
+RGB565 colour scaled to three levels. web/engine/Simulator.c exports `sim_pad_color`;
+sdk/Update.html.in has the page-20 shortcut; sdk/manifest.json re-pinned.
+
+Measured (Track B, crosscheck IDENTICAL, FLASH-BUDGET.md section 14):
+
+| Quantity | After (b) | After (c) | Change |
+| --- | ---: | ---: | ---: |
+| App image | 449028 | **451396** | **+2368** |
+| Margin to the 453921-byte limit | 4893 | **2525** | −2368 |
+| app/screen.c | 30896 | 32975 | +2079 (`apply_controls` 6102 → 6500, `smk37_screen_launch_color` 340, the draw block and its strings) |
+| app/song.c | 7396 | 7604 | +208 (the launch API now referenced by the device build; the back-to-song fix below) |
+| app/samples.c | 1226 | 1298 | +72 (inlining) |
+| app/smk37_controls.c | 2615 | 2629 | +14 |
+| Static SRAM | 323764 | 323796 | +32 |
+
+The assessment estimated ≈ 1450 for this checkpoint; the page's text and the three-level
+pad colours cost more. The floor of 2 KB holds (2525) and checkpoint (d) adds no firmware,
+so the EFFECTS page stays.
+
+A sequencer fault found by the scripted performance check (tests/workbench/launch-sim.mjs,
+written for (d) and run here first) and fixed in this checkpoint: a track sent back to the
+song on a bar where the song also changed rows adopted the old row's block (its buffer had
+been decoded for the row current when the press came) and kept it until the next row. Now
+the control task decodes, for "back to song", the row the song will be in at the landing bar
+(the next row when the current one ends exactly there), the tick plans the same, and, as a
+safety net, a following track whose playing buffer is not the song's row adopts the right
+buffer as soon as it is decoded (in phase, counted late). The check: 591 of 591 predicted
+note-ons within one block (worst error 0), nothing beyond the model, every note-on with its
+note-off, Start once and Stop once.
+
+Checks: host smoke 258, web smoke, the performance check (32 checks), headless Chrome
+preview (no console errors, shortcut 20 present). The page's behaviour on the device is in
+the Step 4 checklist (19.5).
 

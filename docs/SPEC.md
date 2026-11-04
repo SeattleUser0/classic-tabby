@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.14.1
+Version: 0.14.2
 Revision log:
+- v0.14.2, 2026-11-04: section 10: Task 06 checkpoint (c) done (TRACK LAUNCH page, pad
+  colours, SCL / ENV routing).
 - v0.14.1, 2026-11-04: section 10: Task 06 checkpoint (b) done (per-track playheads in
   firmware, section 9.13).
 - v0.14, 2026-11-04: section 10 added: Task 06 independent track launching; checkpoint (a)
@@ -711,7 +713,29 @@ Checkpoints and status:
   with a launched track, the clock running on, PLAY stopping; eight tracks launching eight
   rows at one bar). App image 449028 bytes, **margin 4893** (+1888); static SRAM 323764
   (+4832). Crosscheck IDENTICAL.
-- (c) TRACK LAUNCH page, pad LEDs, SCL / ENV routing. Pending.
+- **(c) done, 2026-11-04: the TRACK LAUNCH page** (page 20, app/screen.c): SCL switches
+  between the SONG page (scene changes, unchanged) and TRACK LAUNCH, and its lamp is lit on
+  the launch page. On the launch page pads 1-16 are the selected track's patterns of the
+  pad page (OCT pages rows 1-16, 17-32, …; SHIFT + pads 1-8 selects the track as on every
+  page): a pad launches its pattern at the next bar, the pad of the pattern the track plays
+  queues a stop, an empty pad or a stopped song says so. ENV sends the selected track back
+  to the song at the next bar, SHIFT+ENV every track. PLAY starts and stops the song as on
+  the SONG page; HOME returns to the overview. The screen shows the master bar, all eight
+  tracks with the pattern they play and their state (FOLLOW / PLAY / STOP, or the pending Q
+  n / >STOP / >SONG in amber), the pad page's pattern cells (filled where the row has a
+  block, green playing, amber queued), the song row, SONG OVER and LATE. Pad colours
+  (assessment 5.3): green playing, flashing green queued, flashing red a pending stop, dim
+  white a pattern, off empty; under SHIFT pads 1-8 show the eight tracks in their colours
+  (bright playing or following, dim stopped or silent, flashing queued, the selected track
+  brighter). Flashing follows the master clock's eighth notes while the song plays. The
+  workbench simulator has the page as shortcut 20 ("轨道启动"); `sim_pad_color(pad)` reads
+  a pad's colour. The scripted 32-bar performance check (tests/workbench/launch-sim.mjs:
+  launches, stops, a scene jump, back to song) found one sequencer fault, fixed here: a
+  track rejoining the song on a bar where the song also changes rows took the old row; it
+  now takes the new one, and a following track whose buffer is not the song's row adopts
+  the right one as soon as it is decoded (counted late). App image 451396 bytes, **margin
+  2525** (+2368): the 2 KB floor holds without the EFFECTS page; checkpoint (d) adds no
+  firmware.
 - (d) workbench: rig lead before bar, song editor pattern view, simulator check. Pending.
 
 Deferred (BUILD.md left-to-build list): following external MIDI clock in song mode; CC

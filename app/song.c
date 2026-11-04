@@ -494,14 +494,16 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
     unsigned snext = song_next(m0, &sbd);
     prefire(tempo, m0, sbd, snext);
     action_count = 0;
-    /* Late adoption: a frame that began without its buffer takes it as soon as it is ready. */
+    /* Late adoption: a frame that began without its buffer, or a following track whose
+     * buffer is not the song's row (a row change on the bar it rejoined the song), takes
+     * the right buffer as soon as it is ready, in phase, and counts late. */
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
         struct track *k = &tr[t];
-        if (!k->waiting) continue;
         unsigned purpose, row = target(t, &purpose);
         if (row == SONG_NONE) { k->waiting = 0; continue; }
+        if (!k->waiting && holds(&tbuf[t][k->cur], row, purpose)) continue;
         unsigned o = k->cur ^ 1U, nb = holds(&tbuf[t][k->cur], row, purpose) ? k->cur : holds(&tbuf[t][o], row, purpose) ? o : SONG_NONE;
-        if (nb == SONG_NONE) continue;
+        if (nb == SONG_NONE) { k->waiting = 1; continue; }
         if (nb != k->cur) { tbuf[t][k->cur].ready = 0; barrier(); k->cur = (uint8_t)nb; }
         k->waiting = 0; ++k->pass; ++late_count;
         tbuf[t][nb].look_from = LOOK_NONE;
@@ -535,7 +537,11 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         else if (plan[t].what == SW_LOOP) plan[t].nb = k->cur;
         else if (plan[t].what == SW_QUEUE) {
             if (qk == Q_LAUNCH) plan[t].nb = holds(&tbuf[t][k->cur], qr, P_LAUNCH) ? k->cur : holds(&tbuf[t][o], qr, P_LAUNCH) ? o : SONG_NONE;
-            else if (qk == Q_ATTACH && !song_over) plan[t].nb = holds(&tbuf[t][k->cur], rowset[cur].row, P_SONG) ? k->cur : holds(&tbuf[t][o], rowset[cur].row, P_SONG) ? o : SONG_NONE;
+            else if (qk == Q_ATTACH && !song_over) {
+                /* The row the song is in at the bar: the next row when the song changes rows there. */
+                unsigned ar = sbd == bar && snext == NEXT_ROW ? rowset[cur ^ 1U].row : rowset[cur].row;
+                plan[t].nb = holds(&tbuf[t][k->cur], ar, P_SONG) ? k->cur : holds(&tbuf[t][o], ar, P_SONG) ? o : SONG_NONE;
+            }
         } else if (plan[t].tb && k->state == 0) {
             if (snext == NEXT_SAME) plan[t].nb = k->cur;
             else if (snext == NEXT_ROW) { unsigned nr = rowset[cur ^ 1U].row; plan[t].nb = holds(&tbuf[t][k->cur], nr, P_SONG) ? k->cur : holds(&tbuf[t][o], nr, P_SONG) ? o : SONG_NONE; }
@@ -549,7 +555,7 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         if (crossing && plan[t].what != SW_SONG) add_action(tb - m0, 1, 0, t, plan[t].what, qk, 0);
         if (tb && plan[t].nb != SONG_NONE && !(plan[t].what == SW_QUEUE && qk == Q_STOP)) {
             unsigned nb = plan[t].nb;
-            int32_t origin = plan[t].what == SW_QUEUE && qk == Q_ATTACH ? (int32_t)(bar - song_start) : 0;   /* back to song joins mid-row */
+            int32_t origin = plan[t].what == SW_QUEUE && qk == Q_ATTACH && !(sbd == bar && snext != NEXT_NONE) ? (int32_t)(bar - song_start) : 0;   /* back to song joins mid-row */
             if (crossing) scan(t, nb, origin, origin + (int32_t)(m1 - tb), (int32_t)(tb - m0), 0, k->pass + 1U);
             /* Look-ahead: step-0 notes of the next frame whose negative offset lands in this window. */
             if (!origin && m1 + HALF > tb) {
@@ -712,7 +718,16 @@ static unsigned wanted(unsigned t, unsigned *row, unsigned *purpose)
     unsigned qk = queue_kind[t], now = rowset[cur].row;
     if (jump_row != SONG_NONE) { *row = jump_row; *purpose = P_SONG; return 1; }
     if (qk == Q_LAUNCH) { *row = queue_row[t]; *purpose = P_LAUNCH; return 1; }
-    if (qk == Q_ATTACH) { *row = now; *purpose = P_SONG; return !song_over; }
+    if (qk == Q_ATTACH) {
+        /* The row the song is in at the next bar: when the current row ends exactly there,
+         * the one that follows it (a scene jump's target, or the natural next row). */
+        uint32_t m = master, bar = m ? (m + BAR - 1U) / BAR * BAR : BAR;
+        if (!song_over && song_start + song_len == bar) {
+            unsigned next = jump_row != SONG_NONE ? jump_row : natural_next(now);
+            if (next != SONG_NONE) now = next;
+        }
+        *row = now; *purpose = P_SONG; return !song_over;
+    }
     if (k->state == 0) {
         if (song_over) return 0;
         if (k->waiting || !holds(&tbuf[t][k->cur], now, P_SONG)) { *row = now; *purpose = P_SONG; return 1; }   /* catch up with the current row */

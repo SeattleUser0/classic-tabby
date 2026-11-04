@@ -712,7 +712,11 @@
     async radioRead(){const r=await this.query(24);check(r.length===2,'蓝牙设置回复无效');return {on:!!(r[0]&1),audio:!!(r[0]&2),host:r[1]===1};}
     async radioWrite(s){await this.query(24,[(s.on?1:0)|(s.audio?2:0)|4,s.host?1:0]);}
     async radioForget(){await this.query(24,[0x7f]);}
-    async songStatus(){const s=await this.query(23);check(s.length===13||s.length===15,'歌曲存储状态回复无效');return {free:le(s,0,4),reclaimable:le(s,4,4),state:s[8],loaded:s[9],playing:s[10],row:s[11],error:s[12],late:s.length>13?s[13]:0,events:s.length>14?s[14]:0};}
+    // Task 06 (9.13): a 31-byte reply adds, per track, the state byte (bits 0-1 follow / launched / stopped,
+    // bits 2-3 the pending queue: none / launch / stop / back to song, bit 4 waiting) and the pattern row (255 = none).
+    async songStatus(){const s=await this.query(23);check(s.length===13||s.length===15||s.length===31,'歌曲存储状态回复无效');
+      const tracks=s.length>=31?Array.from({length:8},(_,t)=>({state:s[15+t]&3,queue:(s[15+t]>>2)&3,waiting:!!(s[15+t]&16),row:s[23+t]})):null;
+      return {free:le(s,0,4),reclaimable:le(s,4,4),state:s[8],loaded:s[9],playing:s[10],row:s[11],error:s[12],late:s.length>13?s[13]:0,events:s.length>14?s[14]:0,tracks};}
     async downloadBlock(song,id){
       try {
         const head=await this.query(1,[6,song,id&255,id>>8]),size=le(head,0,2);check(head.length===2&&size>=64&&size<=1600,'块长度无效');   // Task 05: format-1 payloads up to 1600

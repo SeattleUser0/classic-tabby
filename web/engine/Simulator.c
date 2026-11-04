@@ -312,6 +312,9 @@ EXPORT("sim_song_track") int sim_song_track(unsigned kind, unsigned track, unsig
     if (kind == 3) { song_track_attach_all(); return 0; }
     return -1;
 }
+/* Task 06 (c): the colour a pad shows now (smk37_pad_color: the TRACK LAUNCH page's view
+ * when that page is open, otherwise the stock view with `lit` = 0). */
+EXPORT("sim_pad_color") uint32_t sim_pad_color(unsigned pad) { return pad < 16 ? smk37_pad_color(pad, 0) : 0; }
 EXPORT("sim_song_track_status") uint32_t sim_song_track_status(unsigned track)
 {
     struct song_status st; song_status_read(&st);

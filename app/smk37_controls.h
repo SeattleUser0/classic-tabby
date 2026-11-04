@@ -30,6 +30,7 @@ void smk37_panel_preferences_apply(const uint8_t data[4]);
 void groove_settings_panel_changed(void);
 int smk37_screen_pad(unsigned pad, unsigned velocity, unsigned steps);
 unsigned smk37_screen_pad_key(unsigned pad);
+int smk37_screen_launch_color(unsigned pad, uint32_t *rgb);   /* Task 06: TRACK LAUNCH page pad colours */
 enum { SMK37_PAGE_BLUETOOTH, SMK37_PAGE_SOURCE, SMK37_PAGE_MIDI };
 void smk37_screen_page(unsigned page);
 void smk37_screen_shortcut(unsigned pad);

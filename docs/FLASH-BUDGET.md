@@ -1,7 +1,9 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.12
+Version: 0.13
 Revision log:
+- v0.13, 2026-11-04 (Task 06 checkpoint c): section 14 added: the TRACK LAUNCH page (+2368
+  bytes with a sequencer fix, margin 2525); Appendix A regenerated.
 - v0.12, 2026-11-04 (Task 06 checkpoint b): section 13 added: per-track playheads (+1888
   bytes, margin 4893; the sequencer units at -Oz); Appendix A regenerated.
 - v0.11, 2026-11-04 (Task 06 checkpoint a): section 12 added: BLE and NAME pages removed
@@ -741,25 +743,51 @@ Margin for the rest of Task 06: 4893 bytes for the TRACK LAUNCH page, the pad co
 the SCL / ENV routing (assessment estimate ≈ 1450); the 2 KB floor holds with the EFFECTS
 page untouched if the page costs less than ≈ 2.8 KB.
 
+## 14. Task 06 checkpoint (c): the TRACK LAUNCH page (measured)
+
+Built with Track B, byte-identical to Track A under the machine lock (`make crosscheck`).
+
+| Quantity | After (b) | After (c) | Change |
+| --- | ---: | ---: | ---: |
+| App image | 449028 | **451396** | +2368 |
+| Margin to the 453921-byte packaging limit | 4893 | **2525** | −2368 |
+| .text | 368064 | 370432 | +2368 |
+| .ram0_data | 80932 | 80932 | 0 |
+| .ram0_bss | 242780 | 242812 | +32 |
+| Static SRAM (data + bss + boot_info) | 323764 | 323796 | +32 |
+| Runtime heap (minimum 49152) | 199852 | 199820 | −32 |
+
+| Unit | After (b) | After (c) | Note |
+| --- | ---: | ---: | --- |
+| app/screen.c | 30896 | 32975 | +2079: `apply_controls` +398 (the page's control block and the SCL / ENV intercept), `smk37_screen_launch_color` 340, the draw block (in `draw_page_body`, cold and minsize) and its strings, `launch_phase` |
+| app/song.c | 7396 | 7604 | +208: the launch API is referenced now (it was dead code in the device build at (b)); the back-to-song row fix (BUILD.md 19.3) |
+| app/samples.c | 1226 | 1298 | +72: inlining |
+| app/smk37_controls.c | 2615 | 2629 | +14: the colour hook |
+| alignment / linker fill | 171 | 166 | −5 |
+
+The assessment's estimate for this part was ≈ 1450. The page is the last firmware of Task
+06 (checkpoint (d) is workbench only), so the 2 KB floor holds at 2525 with the EFFECTS
+page untouched. If a later task needs room, EFFECTS (≈ 1400, section 7.2 of the
+assessment) is still the reserve, and the launch page's text could be shortened.
+
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 
-    --nolto-map build/pro/nolto.json --top 40
 ### Flash use by input (from sdk.map; .text includes rodata)
 
 | Input | .text | .data | .ram0_data | .cache_ram_data | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | libfm1_engine.a | 294314 | 0 | 69714 | 32 | 364060 (355.5 KiB) |
-| app (LTO-merged units) | 27592 | 0 | 6708 | 0 | 34300 (33.5 KiB) |
-| app/screen.c | 30888 | 0 | 8 | 0 | 30896 (30.2 KiB) |
+| app (LTO-merged units) | 27880 | 0 | 6714 | 0 | 34594 (33.8 KiB) |
+| app/screen.c | 32967 | 0 | 8 | 0 | 32975 (32.2 KiB) |
 | app/board/scan.c | 1649 | 0 | 3756 | 0 | 5405 (5.3 KiB) |
 | app/midi_router.c | 3613 | 0 | 658 | 0 | 4271 (4.2 KiB) |
 | app/transfer.c | 3288 | 0 | 0 | 0 | 3288 (3.2 KiB) |
 | libcompiler_rt.a | 3212 | 0 | 0 | 0 | 3212 (3.1 KiB) |
 | app/board/panel.c | 2697 | 0 | 8 | 0 | 2705 (2.6 KiB) |
 | libc.a | 720 | 0 | 0 | 0 | 720 (0.7 KiB) |
-| **input sections total** | | | | | **448857 (438.3 KiB)** |
-| alignment / linker-script fill (app image − inputs) | | | | | 171 |
-| **app image (firmware-report.json)** | | | | | **449028 (438.5 KiB)** |
+| **input sections total** | | | | | **451230 (440.7 KiB)** |
+| alignment / linker-script fill (app image − inputs) | | | | | 166 |
+| **app image (firmware-report.json)** | | | | | **451396 (440.8 KiB)** |
 
 ### App units after LTO
 
@@ -776,15 +804,15 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | app/midi_router.c | 4271 | map (-fno-lto) | 4271 | 4014 |
 | app/presets.c | 22 | nm symbols (LTO) | 340 | 0 |
 | app/project.c | 5796 | nm symbols (LTO) | 6296 | 4140 |
-| app/samples.c | 1226 | nm symbols (LTO) | 36 | 0 |
-| app/screen.c | 30896 | map (-fno-lto) | 31192 | 10374 |
-| app/smk37_controls.c | 2615 | nm symbols (LTO) | 2849 | 230 |
+| app/samples.c | 1298 | nm symbols (LTO) | 36 | 0 |
+| app/screen.c | 32975 | map (-fno-lto) | 31192 | 10374 |
+| app/smk37_controls.c | 2629 | nm symbols (LTO) | 2849 | 230 |
 | app/transfer.c | 3288 | map (-fno-lto) | 3288 | 1144 |
-| app/song.c | 7396 | nm symbols (LTO) | 8016 | 36560 |
+| app/song.c | 7604 | nm symbols (LTO) | 8016 | 36560 |
 | app/song_storage.c | 5206 | nm symbols (LTO) | 5944 | 15588 |
 | generated/build_identity.c | 0 | nm symbols (LTO) | — | — |
-| LTO-merged units, map total | 34300 | map | | |
-| of which traced to a unit above | 33518 | | | |
+| LTO-merged units, map total | 34594 | map | | |
+| of which traced to a unit above | 33812 | | | |
 | of which unattributed (inlined/merged/renamed by LTO) | 782 | | | |
 
 ### Top 40 app symbols by size (post-LTO, from nm --print-size)
@@ -792,17 +820,17 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | Size | Symbol | Unit | Kind |
 | ---: | --- | --- | --- |
 | 9399 | `factory_tokens` | app/fm_factory.c | t |
-| 6102 | `apply_controls` | app/screen.c | t |
-| 3686 | `edit_page_draw` | app/screen.c | t |
+| 6500 | `apply_controls` | app/screen.c | t |
+| 4646 | `edit_page_draw` | app/screen.c | t |
 | 2760 | `groove_transfer_poll` | app/transfer.c | T |
-| 2576 | `draw_page_body` | app/screen.c | t |
-| 1854 | `tick` | app/song.c | t |
-| 1440 | `overview` | app/screen.c | t |
+| 2584 | `draw_page_body` | app/screen.c | t |
+| 1860 | `tick` | app/song.c | t |
+| 1442 | `overview` | app/screen.c | t |
 | 1398 | `smk37_control_event` | app/smk37_controls.c | T |
 | 1388 | `groove_screen_control` | app/screen.c | T |
 | 1280 | `pad_velocity` | app/board/scan.c | t |
 | 1058 | `header` | app/screen.c | t |
-| 952 | `groove_samples_poll` | app/samples.c | T |
+| 1024 | `groove_samples_poll` | app/samples.c | T |
 | 938 | `steps` | app/screen.c | t |
 | 770 | `groove_project_poll` | app/project.c | T |
 | 704 | `song_block_batch` | app/song_storage.c | T |
@@ -841,11 +869,11 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | BLE (Bluetooth page) | 0 |  |
 | PROJECT / NAME / PRESET_BROWSER | 1254 | preset_draw 286, preset_load 312, preset_refresh 24, project_draw 594, project_refresh 38 |
 | EFFECTS | 680 | effects_draw 680 |
-| STEPS / STEP_EDIT / RHYTHM / ARP_EDIT (sequencer editing) | 4960 | edit_page_draw 3686, move_step 86, sequence_length_adjust 80, step_first 38, steps 938, toggle_step 132 |
-| OVERVIEW / MIX | 3174 | header 1058, hint_draw 68, mix_draw 424, overview 1440, performance_hint 184 |
+| STEPS / STEP_EDIT / RHYTHM / ARP_EDIT (sequencer editing) | 5920 | edit_page_draw 4646, move_step 86, sequence_length_adjust 80, step_first 38, steps 938, toggle_step 132 |
+| OVERVIEW / MIX | 3176 | header 1058, hint_draw 68, mix_draw 424, overview 1442, performance_hint 184 |
 | STARTUP | 192 | boot_draw 192 |
-| shared (paint, text, fonts, strings, controls dispatch, web targets, init) | 20628 | apply_controls 6102, str1.1 5218, draw_page_body 2576, groove_screen_control 1388, draw 488, text 480, groove_screen_init 468, draw_page 342, paint_flush 296, smk37_screen_pad_mode 208, knob 198, select_track 192, font 180, punctuation 160, paint_fill 158, smk37_screen_shortcut 146, smk37_screen_page 142, smk37_screen_pad 128, groove_screen_mmc 114, release_keys_except 102, note_name 90, actions 88, frame 80, decimal 78, smk37_panel_preferences_apply 72, paint_mark 62, navigation_mode 60, groove_screen_tap 50, post 50, number 48, smk37_panel_preferences_read 40, effects_draw.division 36, smk37 |
-| **screen.c .text total** | **30888** | |
+| shared (paint, text, fonts, strings, controls dispatch, web targets, init) | 21745 | apply_controls 6500, str1.1 5559, draw_page_body 2584, groove_screen_control 1388, draw 488, text 480, groove_screen_init 468, smk37_screen_launch_color 358, draw_page 342, paint_flush 296, smk37_screen_pad_mode 208, knob 198, select_track 192, font 180, punctuation 160, paint_fill 158, smk37_screen_shortcut 146, smk37_screen_page 142, smk37_screen_pad 128, groove_screen_mmc 114, release_keys_except 102, note_name 90, actions 88, frame 80, decimal 78, smk37_panel_preferences_apply 72, paint_mark 62, navigation_mode 60, groove_screen_tap 50, post 50, number 48, smk37_panel_preferences_read 40,  |
+| **screen.c .text total** | **32967** | |
 
 ### libfm1_engine.a by vendor section family (single object, --whole-archive; not removable piecewise)
 
@@ -895,4 +923,4 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | Effects (fm1_fx*) | 698 | 6 |
 | Groove sequencer (groove_*) in SDK | 18488 | 130 |
 
-Package layout: FLASH_BIN_SIZE 466944, VM 466944..503808 (36864 bytes, minimum 32768), BTIF 503808..507904, USER 507904..1044480 (536576 bytes).
+Package layout: FLASH_BIN_SIZE 471040, VM 471040..503808 (32768 bytes, minimum 32768), BTIF 503808..507904, USER 507904..1044480 (536576 bytes).

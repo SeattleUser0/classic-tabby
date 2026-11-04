@@ -309,6 +309,8 @@ unsigned smk37_pad_aftertouch(void)
 { return channel_pressure[groove_midi_input_channel(smk37_performance_track(1))]; }
 uint32_t smk37_pad_color(unsigned pad,unsigned lit)
 {
+    uint32_t launch;   /* Task 06 (c): the TRACK LAUNCH page colours its pads itself */
+    if(smk37_screen_launch_color(pad,&launch))return launch;
     if(smk37_shift()) {
         if(pad<8)return pad==smk37_screen_track()?0x183030:0x041010;
         if(groove_track_role(pad-8)==GROOVE_TRACK_OFF)return 0x040404;

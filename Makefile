@@ -53,9 +53,12 @@
 #       make firmware JIELI_LINUX=/opt/jieli
 #       make firmware-ref WINEPREFIX=$HOME/.wine-jieli
 #
-# Version: 0.8
+# Version: 0.9
 #
 # Revision log
+#   v0.9  2026-11-04  Task 06: workbench-test runs tests/workbench/transfer-radio.mjs (command 24);
+#                     midi-import-sim runs tests/workbench/launch-sim.mjs (a scripted 32-bar
+#                     performance with launches, stops, a scene jump and back-to-song).
 #   v0.8  2026-11-02  Task 04: workbench-test also runs tests/workbench/devices.mjs;
 #                     midi-import-sim also runs tests/workbench/row-events-sim.mjs.
 #   v0.7  2026-11-02  Task 03 (f): workbench-test target, part of test.
@@ -186,6 +189,7 @@ midi-import-test:
 midi-import-sim:
 	$(NODE) tests/midi-import/simulator.mjs build/web/simulator.wasm
 	$(NODE) tests/workbench/row-events-sim.mjs build/web/simulator.wasm
+	$(NODE) tests/workbench/launch-sim.mjs build/web/simulator.wasm
 
 flash-budget:
 	@# The analysis symbol map (per-file attribution of LTO-merged code) is built once per
