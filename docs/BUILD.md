@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.25
+Version: 0.26
 Revision log:
+- v0.26, 2026-11-04 (Task 08, manual): section 22: the workbench manual rewritten for Classic
+  Tabby; the code-versus-spec disagreements found while writing it.
 - v0.25, 2026-11-04 (Task 08): section 21: the display version (git tag) on the boot screen,
   the workbench badge and the update tab; 9.2 release-note template; 9.4 wording; the
   forced-label gate measured.
@@ -2077,3 +2079,52 @@ device by that identity; the factory V16 restore runs on the same checks. So the
 - `make check`, `make lint` (3 target warnings as before), `make test-fast` green; headless
   Chrome on build/preview/index.html: badge and Version line show the describe string, base
   version V01, no console errors.
+
+## 22. Task 08 — The manual rewritten for Classic Tabby (2026-11-04)
+
+The workbench's manual tab (sdk/Update.html.in, section `#tab-manual`) was rewritten so a
+new user can learn Classic Tabby from it. Chapters 01 to 12 are new, written in English and
+shown in both UI languages (no CJK text, so FM1I18n leaves them alone, as the importer and
+rig panels are): what Classic Tabby is, getting started, songs, scene changes, track
+launching, importing MIDI files, timed notes, program changes and CCs (with the device
+setup checklist of 16.3), FM6 preview, Bluetooth settings, storage, and a quick-reference
+table that prints on its own sheet (`.manual-quickref`, compact cells, `break-before: page`).
+Chapters 13 to 21 are the SMK37 OPEN chapters that still apply, renumbered and corrected:
+every sentence about the sampler, the sample bank, the DX7 user library, the factory scenes,
+the BLE page, the NAME page and the DX7 operator and tone editor pages is removed or
+rewritten; the changed Chinese paragraphs got new entries in sdk/I18n.js (50 strings, with
+their English). tests/workbench/manual-i18n.mjs (in `make workbench-test`) checks that every
+CJK text node and attribute of the manual has a translation, that the manual has 21
+chapters and links, that the English chapters carry no em dash and that the removed-feature
+texts are gone. Every button, page number, pad combination and screen text in the new
+chapters was taken from app/screen.c, app/smk37_controls.c, app/song.c and the workbench
+scripts on this head, not from the plans.
+
+### 22.1 Code against the specification, found while writing
+
+1. **SONG page, song selection.** The page's key line says "K1 SONG" and the code comment
+   and BUILD.md 13.4 say K1; the code reads `encoders[0] + encoders[6]`, which are SELECT and
+   PRESETS (encoder_map: K1..K4 are indexes 2..5). The manual says SELECT or PRESETS. The hint
+   text is wrong, not changed in this release.
+2. **ACTIONS confirmation after the Task 06 (a) renumbering.** `destructive` still names
+   action 20 and the prompt text checks `action == 20`; after "DX7 PATCH NAME" and
+   "BLUETOOTH / CLOCK" left the list, 20 is COMPACT SONG STORAGE and 18 is ERASE OLD
+   SAMPLE/DX7. So the erase runs on the first SAVE with no confirmation and the compaction
+   asks "ERASE OLD FLASH DATA?" first. BUILD.md 13.4 step 2 and SPEC 6 (a) describe the
+   confirmation on the erase. The manual documents the real behaviour (chapters 02 and 11)
+   and warns. Not fixed in this release (the release carries no firmware change beyond the
+   display string); the fix is the two indexes 20 → 18 in app/screen.c, with a host test.
+3. **The song's project slot.** The song record stores a project slot (byte 36, validated
+   0..15, shown in the editor as "Project slot") but nothing in the firmware loads that
+   project when the song plays. The manual says the field is a note only.
+4. **SOUND SOURCE page, pad count.** The page says "K1 / PADS 1-6 CHOOSE" while five sources
+   are selectable (SOURCE_CHOICES = 5); and the overview's PAGE / K2 path into the page
+   wraps with GROOVE_SOURCES (6), so it can preview "SAMPLER"; what SAVE does with it was
+   not exercised. The manual names five sources and pads 1 to 5.
+5. **"EVENTS" and "LATE" on the SONG page** are drawn only when the song has events
+   (`if (st.events)`), while the late counter also counts late note frames of songs without
+   events; the TRACK LAUNCH page shows LATE whenever it is non-zero. The manual says so.
+6. **Stale texts outside the manual, left as they are:** the Projects & sounds intro
+   ("管理设备项目、音色和采样") and the update tab's back-up checkbox ("…工程和采样") still
+   mention samples; the SMK37 Open "Six sound engines" wording in sdk/I18n.js for other UI
+   strings is untouched.

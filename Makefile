@@ -74,9 +74,11 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.11
+# Version: 0.12
 #
 # Revision log
+#   v0.12 2026-11-04  Task 08 (manual): workbench-test runs tests/workbench/manual-i18n.mjs (every
+#                     Chinese text of the manual tab has a translation).
 #   v0.11 2026-11-04  Task 08: DISPLAY_VERSION / $(DV) passed to build.py, build-web.py and the
 #                     check (the display version shown to the user, normally the git tag; the
 #                     forced label for the release gate); web-smoke also runs
@@ -279,6 +281,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/devices.mjs
 	$(T) $(NODE) tests/workbench/transfer-radio.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/rig-lead.mjs
+	$(T) $(NODE) tests/workbench/manual-i18n.mjs
 
 test: timed-note-test host-smoke web-smoke workbench-test
 	@echo "test: timed-note-test, host-smoke, web-smoke and workbench-test passed"

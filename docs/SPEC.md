@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.16
+Version: 0.17
 Revision log:
+- v0.17, 2026-11-04 (Task 08, manual): section 12: the manual tab.
 - v0.16, 2026-11-04 (Task 08): section 11: the display version.
 - v0.15, 2026-11-04: section 10: Task 06 checkpoint (d) done (workbench: lead before the bar,
   pattern view, per-track status; the scripted performance check); Task 06 complete pending
@@ -787,3 +788,13 @@ differs from the label, so a re-tag of unchanged sources is a new build id (not 
 already installed) while a build forced to the label (`DISPLAY_VERSION=V01`) keeps the old
 id. Cost: 0 bytes for a tag (alignment), 32 bytes for the 28-character development string.
 Details and the measured gate: BUILD.md section 21.
+
+## 12. Task 08 — The manual (2026-11-04)
+
+The workbench manual tab documents Classic Tabby in twelve English chapters shown in both UI
+languages, followed by the corrected SMK37 OPEN chapters in Chinese with their translations.
+The source of truth is the code on the linux-build head; the disagreements between the code
+and the earlier sections of this document are listed in BUILD.md 22.1 (the SONG page's song
+knob is SELECT / PRESETS, not K1; the ACTIONS confirmation sits on COMPACT SONG STORAGE
+instead of ERASE OLD SAMPLE/DX7 since Task 06 (a); the song's project slot is not loaded by
+the device). tests/workbench/manual-i18n.mjs guards the translation coverage of the manual.
