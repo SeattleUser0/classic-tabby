@@ -2,6 +2,7 @@
 
 Version: 0.18
 Revision log:
+- v0.18.2, 2026-11-05 (Task 09 checkpoint c): section 13: the generated guide.
 - v0.18.1, 2026-11-05 (Task 09 checkpoint b): section 13: the importer maps by the rig.
 - v0.18, 2026-11-05 (Task 09 checkpoint a): section 13: the Wrong Room rig.
 - v0.17, 2026-11-04 (Task 08, manual): section 12: the manual tab.
@@ -825,3 +826,12 @@ Checkpoints and status:
   mentions; warnings when a part's channel is not in the rig, when notes go to an effects
   channel, when a program number is outside the device's range (or the device takes none), and
   when a CC is not one the definition names. Fixtures and tests: BUILD.md 23.2.
+- **(c) done, 2026-11-05: the generated guide.** docs/MIDI-GUIDE.md is built by
+  tools/linux/midi-guide.mjs (web/rig/guide.js) from the Wrong Room profile, the device
+  definitions and the hand-written template docs/MIDI-GUIDE.template.md: the channel map, one
+  section per channel (connection and port, channel setting, program numbering with the wire
+  value beside the shown number and the bank select, named CCs with ranges, clock, gap and lead,
+  unverified fields), the limits, Appendix A's example channels and Appendix B's checker with the
+  rig's channel, program-range and named-CC checks. The Import MIDI panel downloads the same
+  guide for the active rig. tests/workbench/midi-guide.mjs fails when the committed guide and the
+  profile disagree. BUILD.md 23.3.

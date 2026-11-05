@@ -74,9 +74,10 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.13
+# Version: 0.14
 #
 # Revision log
+#   v0.14 2026-11-05  Task 09 (c): midi-guide target; workbench-test runs tests/workbench/midi-guide.mjs.
 #   v0.13 2026-11-05  Task 09 (a): workbench-test runs tests/workbench/rig-profile.mjs (the built-in
 #                     Wrong Room profile).
 #   v0.12 2026-11-04  Task 08 (manual): workbench-test runs tests/workbench/manual-i18n.mjs (every
@@ -170,7 +171,7 @@ WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
         package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test \
-        check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run
+        check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -285,6 +286,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/rig-lead.mjs
 	$(T) $(NODE) tests/workbench/manual-i18n.mjs
 	$(T) $(NODE) tests/workbench/rig-profile.mjs
+	$(T) $(NODE) tests/workbench/midi-guide.mjs
 
 test: timed-note-test host-smoke web-smoke workbench-test
 	@echo "test: timed-note-test, host-smoke, web-smoke and workbench-test passed"
@@ -338,6 +340,12 @@ package-equivalence:
 	    pwsh -NoProfile -File tools/linux/package-pwsh.ps1 -Model $(MODEL) -Image build/$(MODEL)/generated/app-image.bin -Output build/$(MODEL)/generated/pwsh.fwsc && \
 	    cmp build/$(MODEL)/generated/pwsh.fwsc build/$(MODEL)/generated/SMK37_$(shell echo $(MODEL) | tr a-z A-Z)_OPEN.fwsc && echo "package.py == Package.cs (byte identical)"; \
 	else echo "SKIPPED: pwsh not installed (see docs/BUILD.md, PowerShell without the apt repo)."; fi
+
+# Task 09: the MIDI authoring guide, generated from the Wrong Room profile and the device library
+# (tools/linux/midi-guide.mjs, web/rig/guide.js); run after changing the profile, a definition or
+# docs/MIDI-GUIDE.template.md. tests/workbench/midi-guide.mjs fails when the committed guide is stale.
+midi-guide:
+	$(T) $(NODE) tools/linux/midi-guide.mjs $(if $(DISPLAY_VERSION),--version "$(DISPLAY_VERSION)",)
 
 # ---- Task 02: distribution package, static site, GitHub Pages and release ----------------
 package:

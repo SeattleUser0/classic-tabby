@@ -43,7 +43,9 @@ Version: 0.3
 
 Revision log
     v0.3  2026-11-05  Classic Tabby Task 09: the built-in rig profiles (web/rig/profiles/*.json)
-                      inlined as globalThis.FM1_RIG_PROFILES (placeholder /*FM1_RIG_PROFILES*/).
+                      inlined as globalThis.FM1_RIG_PROFILES (placeholder /*FM1_RIG_PROFILES*/);
+                      web/rig/guide.js in the rig script and docs/MIDI-GUIDE.template.md as
+                      globalThis.FM1_GUIDE_TEMPLATE (placeholder /*FM1_GUIDE_TEMPLATE*/).
     v0.2  2026-11-04  Classic Tabby Task 08 (version display): --display-version (else
                       tools/linux/display_version.py: the git tag) is passed to the simulator
                       compile as -DFM1_DISPLAY_VERSION (the simulated boot screen draws it),
@@ -271,7 +273,9 @@ def build(args, log):
             json.dumps(json.loads((ROOT / "web/rig/profiles" / name).read_text(encoding="utf-8")), separators=(",", ":"), ensure_ascii=False)
             for name in sorted(p.name for p in (ROOT / "web/rig/profiles").glob("*.json"))) + "];",
         "/*FM1_RIG_SCRIPT*/": "\n".join((ROOT / "web/rig" / name).read_text(encoding="utf-8")
-                                        for name in ("device-library.js", "rig.js", "rig-ui.js")),
+                                        for name in ("device-library.js", "rig.js", "rig-ui.js", "guide.js")),   # Task 09: + guide.js
+        # Task 09: the guide template, so the Import MIDI panel can write the guide for the active rig.
+        "/*FM1_GUIDE_TEMPLATE*/": "globalThis.FM1_GUIDE_TEMPLATE = " + json.dumps((ROOT / "docs/MIDI-GUIDE.template.md").read_text(encoding="utf-8")) + ";",
         # Task 02 Step 4: the MIDI importer (web/import/, classic scripts) inlined in load order.
         # Task 05: the timed note module first (the song editor and the importer both use it).
         "/*FM1_IMPORT_SCRIPT*/": "\n".join((ROOT / name).read_text(encoding="utf-8")

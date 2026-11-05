@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.29
+Version: 0.30
 Revision log:
+- v0.30, 2026-11-05 (Task 09 checkpoint c): section 23.3: the generated MIDI guide, its tool,
+  test and download; the hand-written template.
 - v0.29, 2026-11-05 (Task 09 checkpoint b): section 23.2: the importer's rig-aware mapping,
   the four rig warnings, the fixtures; a programIgnored bookkeeping bug fixed on the way.
 - v0.28, 2026-11-05 (Task 09 checkpoint a): section 23: the device library additions and
@@ -2254,3 +2256,34 @@ Firmware unchanged throughout (margin 2525).
   the pin, 22 events on their channels, no warning of warn severity, the v0.5 behaviour without
   a rig, each of the four warnings exactly once (with channel 13 cleared in the test rig). The
   preview checked in headless Chrome.
+
+### 23.3 Checkpoint (c): the generated MIDI guide
+
+- `docs/MIDI-GUIDE.template.md` (new): the hand-written part of the guide, from the user's guide
+  of 2026-11-05 (file rules, timing, notes, row events, song shape, how to produce the file,
+  common mistakes, Appendix A's mido template, Appendix B's checker) with placeholders for
+  everything that comes from the rig: the channel map, the device sections, the effects list in
+  section 6, the pinned-track rule, the profile notes, the limits (from song-format.js LIMITS),
+  Appendix A's three example channels and Appendix B's RIG dict. New hand-written section 10
+  (scene changes against track launches: pedal events in notes-free tracks, instrument presets on
+  the instrument's channel, the FM6 convention). The checker gained the rig checks: a part on a
+  channel with no device, notes on an effects channel, a program the device does not reach (bank
+  bytes seen before the PC are matched against the device's banks), a CC the device does not
+  name, a pinned track claimed twice. `docs/MIDI-GUIDE.md` is now the generated file: never edit
+  it, run `make midi-guide`.
+- `web/rig/guide.js` v0.1 (new): `TabbyGuide.build({ rig, library, template, version, date })`
+  fills the template; deterministic for a given input. The page gets the template as
+  `FM1_GUIDE_TEMPLATE` and the script in the rig bundle (build-web.py v0.3); the Import MIDI
+  panel's "Download the MIDI guide" button writes `Classic-Tabby-MIDI-Guide.md` for the active
+  rig ("My rig", or the song's own copy) with the installed workbench's display version.
+- `tools/linux/midi-guide.mjs` v0.1 (new, `make midi-guide [DISPLAY_VERSION=…]`): writes
+  docs/MIDI-GUIDE.md from the Wrong Room profile with the display version of the tree (or the
+  one given; the release passes the tag). `tests/workbench/midi-guide.mjs` (in
+  `make workbench-test`): the committed guide equals a fresh build apart from the version line,
+  every placeholder is filled, each of the 16 channels has its section and map row with the
+  definition's CC rows, the NightSky / Brothers / Proteus / H90 numbering strings, the FM6 pin,
+  the RIG dict, section 6's effects list, Appendix A's channels; and, with the harness Python
+  that has mido (~/fm1-hw/hwvenv), Appendix B's checker passes wrong-room-all.mid with no
+  warning, shows the effects / range / CC warnings on wrong-room-wrong.mid (plus the no-device
+  one when channel 13 is removed from RIG), and Appendix A's script writes a file the checker
+  passes.
