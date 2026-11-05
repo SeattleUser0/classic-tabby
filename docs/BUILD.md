@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.26
+Version: 0.27
 Revision log:
+- v0.27, 2026-11-05: section 9: tabby-v03.1 published (9.1 current values, 9.3d verification
+  with the forced-label gate and the archive VERSION check); the ACTIONS confirmation index
+  and the two hint texts in the left-to-build list.
 - v0.26, 2026-11-04 (Task 08, manual): section 22: the workbench manual rewritten for Classic
   Tabby; the code-versus-spec disagreements found while writing it.
 - v0.25, 2026-11-04 (Task 08): section 21: the display version (git tag) on the boot screen,
@@ -199,6 +202,14 @@ are never written.
   misleading-indentation lines in third_party/synth (bass303.c:28, drum808.c:48, 83, 266,
   dsp_math.h:26, 28, 50, pluck.c:74) and 3 array-parameter mismatches in web/synth/dx7synth.c
   (117, 401, 406). Line numbers as of linux-build 8114114.
+- **ACTIONS and hint texts** (found while writing the manual, BUILD.md 22.1; a firmware
+  change with the usual suite, not in tabby-v03.1): app/screen.c `destructive` and the
+  confirmation prompt still name action 20 (ERASE before Task 06 (a); COMPACT SONG STORAGE
+  now), so ERASE OLD SAMPLE/DX7 (18) runs on the first SAVE without "ERASE OLD FLASH DATA?"
+  and the compaction asks it instead: change both indexes 20 → 18 and add a host check. The
+  SONG page's "K1 SONG" hint names the wrong knob (SELECT / PRESETS select the song); the
+  SOUND SOURCE page's "K1 / PADS 1-6 CHOOSE" should say 1-5, and the overview's PAGE / K2
+  path into it wraps with GROOVE_SOURCES (6) instead of SOURCE_CHOICES (5).
 - **Sanitizer fixes**: none needed; `make host-sanitize` is green (0 findings, leaks included)
   at linux-build 8114114. Keep it green: it is part of `make suite`.
 
@@ -565,8 +576,19 @@ nothing was written to any device.
 
 ### 9.1 What is published
 
-Current release **tabby-v03.0** (2026-11-04; the tabby-v02.0 and tabby-v01.0 values below
-stay as the record of the earlier publications):
+Current release **tabby-v03.1** (2026-11-05; the earlier releases' values below stay as the
+record of their publications):
+
+| Item | Value |
+| --- | --- |
+| Branch and tag | `classic-tabby/linux-build` = 22018ac; tag `tabby-v03.1` (annotated, 27c92e9) → 22018ac |
+| Firmware package `SMK37_PRO_OPEN.fwsc` | SHA-256 94987db8846ffa30de8db704396f4fa9042aec6f451005af6b40b0be8373b0b2, 492084 bytes, build_id e8d7b7ac4f80c45fb393447f3a260b6288ef854afa23fe507e6a520a558e8f07, app image 451396 (margin 2525); sdk.elf 9908d145700cda0412b0a9378dbb026fa0bc729a834cf25c41606df0a328315a, app-image.bin f06f541afcd364370276d1ac158fac9166001743a9b788b35983d40903a01f29; display version tabby-v03.1 |
+| Offline workbench `SMK37-Open-Source.html` | SHA-256 04e81a827de84c8aa04351f9527f1de259745fa5681544209c29ddaf31433a90, 2981734 bytes |
+| Static site | `gh-pages` = d26dfd6 ("Pages: tabby-v03.1 (build e8d7b7ac4f80, release V01)"), `index.html` 334195 bytes (SHA-256 85aaad0dcbf2504df332c511179d8a1a35729afb20bdd5cee8b58dda2a9adf71), assets.json `"version": "tabby-v03.1"`, 9 assets under `assets/smk37/` named by SHA-256 (firmware = `94987db8….bin`) |
+| Source archive | https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v03.1.zip (its VERSION file expands to `tabby-v03.1`) |
+| GitHub release | https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v03.1 (`SMK37_PRO_OPEN.fwsc`, `SMK37-Open-Source.html`, `SHA256SUMS.txt`; notes docs/releases/tabby-v03.1.md) |
+
+Record of tabby-v03.0:
 
 | Item | Value |
 | --- | --- |
@@ -738,6 +760,43 @@ subdirectory (`--site-dir elite`), as HOSTING.md asks for separate directories.
 - The archive https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v03.0.zip
   (3068722 bytes) unpacks to 272 files whose SHA-256 all equal `git archive tabby-v03.0`.
 - This commit is the documentation follow-up; the tag stays on bb8c456.
+
+### 9.3d Verification after publishing tabby-v03.1 (2026-11-05)
+
+- **The gate, forced label.** On the Task 08 tree (3cba327) `make check`, `make lint` and
+  `make firmware DISPLAY_VERSION=V01`: against the tabby-v03.0 outputs, app-image.bin differs
+  in exactly 32 contiguous bytes (offset 158237..158268, the `fm1_build_id` constant),
+  sdk.elf in the same 32 bytes, the .fwsc in those plus 14 bytes of package checksums
+  (sdk.elf a76b8c87…, .fwsc 3d229c32…, app-image 110e890a… against fe177135…, 2cb180ca…,
+  1cdf1e64…). The build id moves because app/version.h and app/screen.c changed, so the
+  stated gate "byte-identical to tabby-v03.0" cannot hold for any firmware whose app/ differs;
+  the difference is confined to the build id, which is the proof the gate was meant to give.
+- **Suite.** `make suite DISPLAY_VERSION=tabby-v03.1` green on 3cba327 (crosscheck IDENTICAL:
+  sdk.elf 9908d145…, .fwsc 94987db8…, app-image f06f541a…; test, midi-import-sim,
+  host-sanitize; 12 "all checks passed", 804 / 806 timed-note checks, importer 167). The
+  forced display version equals what the tagged tree produces, since the display version is
+  folded into the identity exactly as the tag is; `make publish` from the tagged tree gave
+  the same .fwsc (94987db8…) and build id (e8d7b7ac…).
+- Pushed: `classic-tabby/linux-build` 0c32d69 → 22018ac (Task 08 version display 68cd41d, the
+  manual 3cba327, the release note 22018ac), tag `tabby-v03.1` (annotated 27c92e9 → 22018ac),
+  `gh-pages` e2e20b5 → d26dfd6.
+- `make release TAG=tabby-v03.1` created the release; the three assets downloaded back and
+  `sha256sum -c SHA256SUMS.txt` passes; the release `.fwsc` is byte-identical to
+  `build/pro/generated/SMK37_PRO_OPEN.fwsc`.
+- **The archive.** https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v03.1.zip
+  (3139369 bytes) unpacks to 283 files whose SHA-256 all equal `git archive tabby-v03.1`, and
+  its VERSION file reads `tabby-v03.1`: GitHub applies export-subst with `%(describe:tags)`,
+  so a build from the archive shows the same version (tools/linux/display_version.py run from
+  the unpacked tree prints `tabby-v03.1`).
+- Live site https://seattleuser0.github.io/classic-tabby/ after the Pages build (19 s):
+  `index.html` byte-identical to `build/hosted/pro/index.html` (334195 bytes); the firmware
+  asset `assets/smk37/94987db8….bin` served as `application/octet-stream`, 492084 bytes,
+  byte-identical to the local package; `SMK37-Open-Source.html` 2981734 bytes, byte-identical;
+  assets.json carries `"version": "tabby-v03.1"`. Headless Chrome: no console errors, the
+  simulator placeholder hidden, the badge reads **tabby-v03.1**, the manual tab has 21 chapters
+  ("21 chapters", heading "Classic Tabby manual", the twelve new chapter ids present, no
+  Chinese text left in the English UI), the source link is the tag archive.
+- This commit is the documentation follow-up; the tag stays on 22018ac.
 
 ### 9.4 What the install screen shows for the SMK-37 Pro
 
