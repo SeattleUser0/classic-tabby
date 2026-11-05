@@ -2,6 +2,7 @@
 
 Version: 0.18
 Revision log:
+- v0.18.3, 2026-11-05 (Task 09 checkpoint d): section 13: the simulator check; Task 09 complete pending the hardware checklist.
 - v0.18.2, 2026-11-05 (Task 09 checkpoint c): section 13: the generated guide.
 - v0.18.1, 2026-11-05 (Task 09 checkpoint b): section 13: the importer maps by the rig.
 - v0.18, 2026-11-05 (Task 09 checkpoint a): section 13: the Wrong Room rig.
@@ -835,3 +836,13 @@ Checkpoints and status:
   rig's channel, program-range and named-CC checks. The Import MIDI panel downloads the same
   guide for the active rig. tests/workbench/midi-guide.mjs fails when the committed guide and the
   profile disagree. BUILD.md 23.3.
+- **(d) done, 2026-11-05: the simulator check.** tests/workbench/wrong-room-sim.mjs plays the
+  all-devices fixture: every part on its planned channel, every row's events before its notes,
+  no late row. Learnt: a rig gap stalls the events that follow it in a row's stream (events leave
+  in file order), so a gapped device's track goes last in the file; the guide says so. Hardware
+  checklist: BUILD.md 23.5. Firmware unchanged (margin 2525).
+
+Known limits (Task 09): the rig is one profile per workbench ("My rig") plus the built-ins; a
+song's own copy still overrides it; the importer matches device names in track names by
+substring; the H90 gap is the 255 ms field maximum (users report about 300 ms on the buggy
+firmware); the Royalist's CC numbers and the Zoom's PC base are unverified until the checklist.

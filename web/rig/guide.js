@@ -165,6 +165,7 @@
       TRACKS: L.tracks, ROWS_MAX: L.rowsPerSong, UNITS: L.unitsPerStep, NAME_LENGTH: L.nameLength, TEMPO_MIN: L.tempoMin, TEMPO_MAX: L.tempoMax,
       NOTES_PER_STEP: L.notesPerStep, EVENTS_ROW: L.rowEventsMax, EVENTS_SONG: L.eventsMax, SONGS: L.songs, POOL_KB: Math.round(L.poolBytes / 1024), POOL_BYTES: L.poolBytes, REPEAT_MAX: L.repeatMax,
       EFFECTS_LIST: list(effects), PINNED_LIST: list(pinned), EXAMPLE_TRACK_NAME: firstName,
+      GAP_DEVICES: list(rig.channels.map((c, i) => c.device && Rig.gapFor(rig, library, i) ? (c.name || library.get(c.device).name) + ' on channel ' + (i + 1) + ', ' + Rig.gapFor(rig, library, i) + ' ms' : null).filter(Boolean)),
       INTERNAL_CHANNEL_LIST: list(internal.map(x => String(x.channel))), INTERNAL_TRACK_LIST: list(internal.map(x => String(x.track || '—'))),
       CHANNEL_MAP: channelMap(rig, library), DEVICE_SECTIONS: rig.channels.map((_, i) => deviceSection(rig, library, i)).join('\n\n'),
       RIG_NOTES: (rig.notes || []).map(t => '- ' + t).join('\n'), LIMITS: limitsText(), CHECKER_RIG: checkerRig(rig, library),

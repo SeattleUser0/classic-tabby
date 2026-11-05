@@ -74,9 +74,10 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.14
+# Version: 0.15
 #
 # Revision log
+#   v0.15 2026-11-05  Task 09 (d): midi-import-sim runs tests/workbench/wrong-room-sim.mjs.
 #   v0.14 2026-11-05  Task 09 (c): midi-guide target; workbench-test runs tests/workbench/midi-guide.mjs.
 #   v0.13 2026-11-05  Task 09 (a): workbench-test runs tests/workbench/rig-profile.mjs (the built-in
 #                     Wrong Room profile).
@@ -324,6 +325,7 @@ midi-import-sim: web
 	$(T) $(NODE) tests/midi-import/simulator.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/row-events-sim.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/launch-sim.mjs build/web/simulator.wasm
+	$(T) $(NODE) tests/workbench/wrong-room-sim.mjs build/web/simulator.wasm
 
 flash-budget:
 	@# The analysis symbol map (per-file attribution of LTO-merged code) is built once per

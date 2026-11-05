@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.14
+Version: 0.15
 Revision log:
+- v0.15, 2026-11-05 (Task 09): no firmware change; the app image stays 451396 bytes, margin 2525.
 - v0.14, 2026-11-04 (Task 08): section 15: the display version costs 0 bytes for a tag
   (alignment), 32 for the development string; Appendix A not regenerated (no change for a
   release build).

@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.30
+Version: 0.31
 Revision log:
+- v0.31, 2026-11-05 (Task 09 checkpoint d): sections 23.4 (the simulator check, the two
+  findings) and 23.5 (the Step 4 hardware checklist); the gap-order rule in the guide.
 - v0.30, 2026-11-05 (Task 09 checkpoint c): section 23.3: the generated MIDI guide, its tool,
   test and download; the hand-written template.
 - v0.29, 2026-11-05 (Task 09 checkpoint b): section 23.2: the importer's rig-aware mapping,
@@ -2287,3 +2289,79 @@ Firmware unchanged throughout (margin 2525).
   warning, shows the effects / range / CC warnings on wrong-room-wrong.mid (plus the no-device
   one when channel 13 is removed from RIG), and Appendix A's script writes a file the checker
   passes.
+
+### 23.4 Checkpoint (d): the simulator check
+
+`tests/workbench/wrong-room-sim.mjs` (in `make midi-import-sim`) imports wrong-room-all.mid with
+the Wrong Room profile as the workbench does, writes the song into the simulator and plays it:
+256 note-ons on channels 1, 2, 3, 4, 5, 6, 9 and 10 only, each channel with its part's 32 notes
+and pitches (the FM6 part on channel 9 from track 8), every one of the 17 events of row 1 and
+the 6 of row 2 once, on its channel, before the row's first note (row 1 at PLAY included), the
+NightSky's CC 0 before its PC, Song Position then Start before any channel message, Stop last,
+no late row. Two things learnt on the way:
+
+1. **A gap stalls the events after it in a row's stream.** Events leave in file order; the H90's
+   255 ms gap, placed before the Zoom's track in the first version of the fixture, held the
+   Zoom's program change for 88 blocks after PLAY (row 1 cannot be sent early at PLAY; row 2
+   was pre-fired and fine). The fixture now puts the H90 last, the guide's section 10 states
+   the rule (put a gapped device's track last; SEND SETUP before PLAY), and applyGaps drops the
+   trailing gap because nothing waits on it. Firmware behaviour as designed (Task 04 2.3).
+2. **The simulator's MIDI capture is a test artefact to respect:** it holds 64 messages a block
+   and captures every message once per ready port (three by default); 23 messages in block 0
+   overflowed it, the firmware treated the full capture as a busy port and reset the channels,
+   and four note-ons were lost. The check sets one ready port (`sim_midi_ports(1, 0)`). Not a
+   firmware fault: the device's DIN path has its own buffer (31250 baud, 2.11 of the
+   assessment).
+
+### 23.5 Hardware checklist for Task 09 (Step 4, for the user)
+
+One list of what to set on each unit, then the fixture. The device sections of docs/MIDI-GUIDE.md
+repeat each unit's steps with the sources.
+
+**The CME H4MIDI WC** (HxMIDI Tools over USB-C, one preset, stored in the unit):
+1. DIN IN 1 = Classic Tabby (3.5 mm MIDI OUT adapter; the jack's TRS type is unconfirmed: if a
+   type A adapter is silent, try type B). DIN IN 2 = the second controller.
+2. Routing: IN 1 → OUT 1, OUT 2, USB host 1, 2, 3; IN 2 → OUT 2. Nothing else (DIN IN does not
+   route to DIN OUT by default).
+3. Filters: OUT 2: block channels 1–4 and 9–16 (pass 5–8); USB host 1: block every channel but 2;
+   USB host 2: block every channel but 3; USB host 3: block every channel but 16 and block every
+   message type but Program Change. Realtime (clock, start, stop) stays unfiltered on the FM-1
+   ports.
+4. USB host port reservation: FM-1 A, FM-1 B, Zoom in that order behind the powered hub.
+5. OUT 1 → Thru5 WC → NightSky, H90, Royalist, MIDIbox (Brothers), Seashell (DIN-to-TRS A), M8
+   (DIN-to-TRS A). OUT 2 → Proteus.
+
+**Per device:**
+6. Seashell: Controller app > Settings > MIDI Channel = 1.
+7. FM-1 A and B: Skiff 2.2: MENU > MIDI > T1 CHANNEL = 2 (A) / 3 (B), T2..T6 = OFF, CLOCK = USB
+   (or TRS), CLOCK OUT off. Melodee / Orange Cat: ROUT = CH1-4, CLK = USB; the port filter does
+   the rest (channel 2 plays the unit's track 2, channel 3 its track 3).
+8. M8 (per song, then save as default): track 1 CHAN 04, track 2 CHAN 10, track 3 CHAN 13,
+   tracks 4..8 on a channel nothing sends on (or 13 in POLY); PG CHANGE on; SYNC IN =
+   CLK+TRANSP+SPP.
+9. Proteus/2 XR: Master > MIDI MODE = Multi; MIDI ENABLE on for 05..08 (and the second
+   controller's channels), off elsewhere; PRESET CHANGE on for 05..08; C05..C08 presets; the
+   MIDI PROG>PRESET map for presets above 127. Leave the Edit menu.
+10. SMK-37: SEQ page 6/7, track 8, K3 SEQ = LOCAL (the FM6 part); OUT PORT ALL on the others.
+11. Royalist: Synergy Editor App (USB-C) > MIDI CHANNEL = 11, STORE; open MIDI CC LIST and
+    note the Royalist's CC numbers (replace the SYN-20IR guesses in the definition).
+12. Brothers: MIDIbox powered, jumper RING, TRS patch cable; power up holding both stomp
+    switches, release, run SEND SETUP (row 1 holds PC 3 on channel 12): the channel is learnt.
+13. NightSky: DIN in; power-up channel mode, SPEED to blue, SEND SETUP again (PC on 14),
+    INFINITE to store; TRS MIDI Output OFF; per preset, RESPOND TO MIDI CLOCK as wanted.
+14. H90: System > MIDI > Channel 15, PC Offset off; Tempo Source = MIDI Clock, Clock Source DIN.
+15. Zoom: MENU > USB MIDI CH = 16; USB host connected before the set.
+
+**The fixture:**
+16. Import tests/midi-import/fixtures/wrong-room-all.mid in the workbench with the Wrong Room
+    profile copied to "My rig": the parts table shows every device on its channel, the FM6 part
+    on T8, no warning; write it to a song slot.
+17. ACTIONS → SEND SETUP: every device shows its row-1 preset (Seashell nothing, FM-1 A sound 3,
+    M8 INST 05, Proteus 007 and 012, Royalist 7, Brothers preset 3, NightSky preset 200, H90
+    Program 12, Zoom patch 001 or 002, which settles its PC base).
+18. PLAY: each part on its device (the Seashell bass, the FM-1s, the M8's three tracks on 4, 10
+    and 13, the Proteus parts 1 and 2, the FM6 inside), the M8, H90 and NightSky locked to the
+    clock; at bar 5 the row-2 presets (FM-1 A sound 4, M8 INST 06, Proteus 013, Brothers preset
+    4, H90 Program 13, Zoom patch 2) land before the downbeat; LATE stays 0 on the SONG page.
+19. Record the Zoom's PC base, the Royalist's CC list, the SMK-37 jack's TRS type and whether
+    the NightSky took channel 14 over DIN, and correct the definitions (BUILD.md left-to-build).

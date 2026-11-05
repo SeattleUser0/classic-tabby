@@ -28,7 +28,8 @@
 //     wrong-room-all.mid       (Task 09) the Wrong Room rig: 8 bars, eight instrument parts on
 //                              channels 1, 2, 3, 4, 5, 6, 10 and 9 (the FM6 part third in file
 //                              order, pinned to track 8), program changes and CCs each device
-//                              accepts, and notes-free pedal tracks on 11, 12, 14, 15 and 16
+//                              accepts, and notes-free pedal tracks on 11, 12, 14, 16 and 15 (the
+//                              H90 last: its gap would stall the events after it in the stream)
 //     wrong-room-wrong.mid     (Task 09) one of each rig fault: a part on a channel the rig has no
 //                              device on (13, with that channel cleared in the test rig), notes on
 //                              the Brothers' channel 12, PC 123 to the Brothers, CC 70 to the NightSky
@@ -242,8 +243,8 @@ export function fixtures() {
       [{ tick: 0, type: 'trackName', text: 'Royalist' }, { ...pc(0, 7), channel: 10 }, { ...cc(0, 24, 1), channel: 10 }],
       [{ tick: 0, type: 'trackName', text: 'Brothers' }, { ...pc(0, 3), channel: 11 }, { ...cc(0, 102, 127), channel: 11 }, { ...pc(row, 4), channel: 11 }],
       [{ tick: 0, type: 'trackName', text: 'NightSky' }, { ...cc(0, 0, 1), channel: 13 }, { ...pc(0, 72), channel: 13 }, { ...cc(0, 63, 127), channel: 13 }],
-      [{ tick: 0, type: 'trackName', text: 'H90' }, { ...pc(0, 12), channel: 14 }, { ...pc(row, 13), channel: 14 }],
-      [{ tick: 0, type: 'trackName', text: 'Zoom' }, { ...pc(0, 0), channel: 15 }, { ...pc(row, 1), channel: 15 }]];
+      [{ tick: 0, type: 'trackName', text: 'Zoom' }, { ...pc(0, 0), channel: 15 }, { ...pc(row, 1), channel: 15 }],
+      [{ tick: 0, type: 'trackName', text: 'H90' }, { ...pc(0, 12), channel: 14 }, { ...pc(row, 13), channel: 14 }]];   /* the H90 last: its rig gap stalls the events after it in a row's stream */
     list.push({ name: 'wrong-room-all.mid', bytes: write({ format: 1, division: ppq, tracks }),
       expect: { parts: 8, outChannels: [0, 1, 2, 3, 4, 5, 9, 8], pinned: { key: '3:8', track: 7 }, events: 22, rows: 2 } });
   }
