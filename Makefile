@@ -74,9 +74,14 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.10
+# Version: 0.11
 #
 # Revision log
+#   v0.11 2026-11-04  Task 08: DISPLAY_VERSION / $(DV) passed to build.py, build-web.py and the
+#                     check (the display version shown to the user, normally the git tag; the
+#                     forced label for the release gate); web-smoke also runs
+#                     tests/display-version.mjs; web-smoke and midi-import-sim depend on
+#                     the phony `web` (an existing wasm was never refreshed before).
 #   v0.10 2026-11-04  Task 07: check, lint, host-sanitize, test-fast, suite, profile targets; the host
 #                     test build compiles one object per source into build/host/obj with -MMD depfiles
 #                     (a header edit rebuilds what includes it; before, only the .c files were
@@ -151,8 +156,13 @@ LINT       :=
 LOCKED      = $(if $(TABBY_LOCKED),$(MAKE) --no-print-directory,@echo "== $@ through $(LOCKFILE) (systemd scope, MemoryMax=4G)"; $(LOCK) $(MAKE) --no-print-directory)
 
 BUILD      := tools/linux/build.py
-NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
-WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)"
+# Task 08: the display version (tools/linux/display_version.py: the git tag) is computed by the
+# build scripts themselves. DISPLAY_VERSION=V01 forces the fallback label (the release gate:
+# the firmware must then match the previous release apart from the build id).
+DISPLAY_VERSION ?=
+DV         := $(if $(DISPLAY_VERSION),--display-version "$(DISPLAY_VERSION)",)
+NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV)
+WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV)
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
         package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test \
@@ -205,14 +215,18 @@ crosscheck-run: firmware-native firmware-ref-run
 	$(T) tools/linux/crosscheck-compare.sh $(MODEL)
 
 web:
-	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --local-preview
+	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --local-preview $(DV)
 	@echo "Open with: google-chrome \"file://$(CURDIR)/build/preview/index.html\""
 
 build/web/simulator.wasm:
 	$(MAKE) web
 
-web-smoke: build/web/simulator.wasm
+# Task 08: web-smoke and midi-import-sim depend on `web` (phony) instead of the wasm file, so a
+# source or display-version change rebuilds the simulator before the tests read it; build-web.py's
+# cache makes an unchanged rebuild a 0.6 s hash check. Before, an existing wasm was never refreshed.
+web-smoke: web
 	$(T) $(NODE) tests/simulator-wasm-smoke.mjs build/web/simulator.wasm
+	$(T) $(NODE) tests/display-version.mjs $(DISPLAY_VERSION)
 
 # Host test build (Task 07: per object, with depfiles; was one gcc command over every source).
 build/host/obj/%.o: %.c
@@ -283,7 +297,7 @@ suite-run: crosscheck-run test midi-import-sim host-sanitize-run
 
 # Task 07: the compile check and the lint (tools/linux/lint.sh reads the check's compile database).
 check:
-	$(T) $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --check-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
+	$(T) $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --check-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV)
 
 lint: check
 	$(T) env MODEL=$(MODEL) LINT_JOBS=$(JOBS) LINT_SRCS="$(HOST_SRCS)" \
@@ -298,7 +312,7 @@ midi-import-test:
 	$(T) $(NODE) tests/midi-import/run.mjs
 
 # Task 02 Step 4: the imported Renoise export played through the wasm simulator (make web first).
-midi-import-sim:
+midi-import-sim: web
 	$(T) $(NODE) tests/midi-import/simulator.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/row-events-sim.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/launch-sim.mjs build/web/simulator.wasm
@@ -322,7 +336,7 @@ package-equivalence:
 # ---- Task 02: distribution package, static site, GitHub Pages and release ----------------
 package:
 	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --package --toolchain-kind native \
-	    --toolchain "$(JIELI_LINUX)" --source-url "$(FM1_SOURCE_URL)"
+	    --toolchain "$(JIELI_LINUX)" --source-url "$(FM1_SOURCE_URL)" $(DV)
 	@echo "Distribution: $(PACKAGE_HTML)  (source link: $(FM1_SOURCE_URL))"
 
 hosted:

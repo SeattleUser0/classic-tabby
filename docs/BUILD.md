@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.24
+Version: 0.25
 Revision log:
+- v0.25, 2026-11-04 (Task 08): section 21: the display version (git tag) on the boot screen,
+  the workbench badge and the update tab; 9.2 release-note template; 9.4 wording; the
+  forced-label gate measured.
 - v0.24, 2026-11-04: left-to-build list: the Task 07 lint findings read and closed (verdicts
   per line); the harmless-warning clean-up stays listed as optional separate work.
 - v0.23, 2026-11-04: section 9: tabby-v03.0 published (9.1 current values, 9.3c verification,
@@ -620,6 +623,13 @@ depend on the commit id, so a rebuild from the tagged commit gives the same SHA-
 3. `make release TAG=tabby-v01.1` after writing `docs/releases/tabby-v01.1.md`: gathers
    `build/release/<TAG>/` (`.fwsc`, offline HTML, `SHA256SUMS.txt`) and runs
    `gh release create --verify-tag`.
+   Release-note template (docs/releases/tabby-v02.0.md and tabby-v03.0.md follow it): title
+   with the tag and the headline features; the back-up warning; the build ID and the build
+   number the update tab shows; the app image size and margin; the hardware-validation state
+   and the checklist sections; what is new, removed and compatible; the Files table; the
+   Source section with the tag archive; "Before pressing anything" with the identity line.
+   Since Task 08 the note also states the display version the boot screen and the workbench
+   badge show (the tag itself) and that the version line's Open base label stays V01.
 4. GitHub Pages serves the `gh-pages` branch root (enabled once with
    `gh api -X POST repos/SeattleUser0/classic-tabby/pages -f build_type=legacy -f source[branch]=gh-pages -f source[path]=/`).
    Nothing is built on GitHub; the toolchains stay local.
@@ -729,10 +739,11 @@ subdirectory (`--site-dir elite`), as HOSTING.md asks for separate directories.
 
 ### 9.4 What the install screen shows for the SMK-37 Pro
 
-Device update tab, before connecting: Firmware **SMK37 Pro Open**, Version **V01**,
-Firmware details: size **480.6 KiB** and build number **77077ef338a95bef** for tabby-v03.0
-(476.6 KiB and **41d72747b0f68867** were tabby-v02.0, 480.6 KiB and **e3344029ab696c73**
-tabby-v01.0; the full build_id is the tooltip; the
+Device update tab, before connecting: Firmware **SMK37 Pro Open**, Version **the display
+version** (Task 08: the git tag, `tabby-v03.1` and later; up to tabby-v03.0 the line showed
+the Open label **V01**), Firmware details: size, build number and **Open base version V01**
+(480.6 KiB and build number **77077ef338a95bef** for tabby-v03.0; 476.6 KiB and
+**41d72747b0f68867** were tabby-v02.0, 480.6 KiB and **e3344029ab696c73** tabby-v01.0; the full build_id is the tooltip; the
 version line stays V01, the Open firmware line the fork builds on). After "Connect device" the identity line shows the device's own name:
 `SMK-37 Pro_016` for factory V16 (status "Device and current firmware recognized. To
 migrate, click Enable force flash and reconnect."), or `SMK-37 Pro_8000001` for an
@@ -2003,3 +2014,66 @@ dcc903fe02bd9506a469ad193abf7166eceb978b842d502ae1860f7ded2ab600  build/pro/sdk.
 identical for both. The same gate on the Task 07 base (linux-build 56b09d3) before the rebase:
 sdk.elf b35aff61…, .fwsc 0fb5c158…, app-image 3436a996…, page 33fb077b…, hosted 206306e2…,
 identical before and after the changes.
+
+## 21. Task 08 — The display version (2026-11-04)
+
+The user sees the installed version on the boot screen, in the workbench's header badge and
+on the update tab. Up to tabby-v03.0 all three showed `FM1_RELEASE_VERSION`, upstream's
+label "V01". That label is the firmware's identity: build.py (and Build.ps1) require the
+update product macro to equal "SMK-37 Pro_" + (8000000 + the label's number), the string is
+compiled into `fm1_update_identity` (the device's reply to query 17), and WebUpdate.js
+recognises Open firmware, validates the package, arms the update and waits for the rebooted
+device by that identity; the factory V16 restore runs on the same checks. So the label stays
+"V01" and a separate **display version** is shown instead.
+
+### 21.1 What changed
+
+- `VERSION` (new, root) holds `$Format:%(describe:tags)$`; `.gitattributes` marks it
+  export-subst, so `git archive` and GitHub's tag archives expand it to the tag.
+- `tools/linux/display_version.py` v0.1 (new): the display version is `--display-version` /
+  `FM1_DISPLAY_VERSION` when given; else `git describe --tags --exact-match` (the bare tag,
+  "-dirty" appended when tracked files are modified); else `git describe --tags --long --dirty`
+  (tag-count-hash); else, without a git repository, the expanded VERSION file; an unexpanded
+  placeholder is refused with a message naming `--display-version`.
+- `tools/linux/build.py` v0.7: computes it after the identity check, logs it, passes
+  `-DFM1_DISPLAY_VERSION="…"` to every unit (also in `--check-only`, so the compile
+  databases carry it), folds it into the build identity **only when it differs from the Open
+  label** (a re-tag of unchanged sources is then a new build id and is not refused as already
+  installed; the forced-label gate build keeps the old id), writes `display_version` into
+  build-identity.json, the package JSON (`FM1_PACKAGE`) and web-package-report.json, and
+  passes `--display-version` to build-web.py. `tools/linux/build-web.py` v0.2: the same define
+  for the simulator (the simulated boot screen draws it), the wasm cache record keyed by it
+  (simulator.json schema 3), `display_version` in `FM1_SIMULATOR` and web-report.json, and a
+  check that the package and the page agree.
+- `app/version.h`: `FM1_DISPLAY_VERSION` falls back to `FM1_RELEASE_VERSION` when the build
+  does not define it (sdk/Build.ps1, the host test build). `FM1_RELEASE_VERSION` and the
+  product macros are untouched. `app/screen.c` boot_draw draws `FM1_DISPLAY_VERSION` centred
+  at scale 2 up to 20 characters, else scale 1 (a dirty development string is 28).
+- `sdk/Update.html.in`: the header badge and the update tab's Version line show the display
+  version (falling back to the label); the firmware details block gains "Open base version"
+  (the label). `sdk/I18n.js`: one string. `sdk/manifest.json` re-pinned.
+- `tools/Build-Hosted.cjs`: assets.json gains `"version"` beside `"release"`;
+  `tools/linux/publish-pages.py` v0.2 logs it and writes it into the gh-pages commit body.
+- Makefile v0.11: `DISPLAY_VERSION=…` forces the value (`$(DV)` on build.py, build-web.py and
+  the check); web-smoke runs `tests/display-version.mjs` (the cache record, the wasm bytes and
+  the preview page's `FM1_SIMULATOR.display_version` all equal the module's answer); web-smoke
+  and midi-import-sim now depend on the phony `web` target, so a changed source or display
+  version rebuilds the simulator before the tests read it (an existing wasm was never
+  refreshed before; the cache keeps an unchanged rebuild at 0.6 s).
+
+### 21.2 Measured
+
+- A tag such as "tabby-v03.1" costs 0 bytes of app image (the 8 extra string bytes fall inside
+  .text alignment; measured in a scratch copy with "TABBY-V03.0", 451396 both ways). The
+  28-character development string costs 32 bytes (451428).
+- **The forced-label gate** (`make firmware DISPLAY_VERSION=V01` on the Task 08 tree against
+  the tabby-v03.0 outputs): app-image.bin differs in exactly 32 contiguous bytes at offset
+  158237..158268, the `fm1_build_id` constant (0x02026b3c in sdk.map); the .fwsc differs in
+  those 32 plus 14 bytes of package checksums. Everything else is byte-identical. The build id
+  moves because it hashes every file under app/, and app/version.h and app/screen.c changed;
+  no build whose app/ differs can reproduce an earlier package byte for byte. The gate as
+  stated for tabby-v03.1 ("byte-identical to tabby-v03.0") therefore cannot hold; the nearest
+  proof, that the difference is confined to the build id, is recorded in 9.3d.
+- `make check`, `make lint` (3 target warnings as before), `make test-fast` green; headless
+  Chrome on build/preview/index.html: badge and Version line show the describe string, base
+  version V01, no console errors.

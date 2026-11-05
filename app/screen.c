@@ -1055,14 +1055,19 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         for (unsigned i = 0; i < 4; ++i) { char value[12]; decimal(value, values[i], 1); knob(i, labels[i], value, colors[i]); }
     }
 }
+/* Task 08: the boot screen shows the Classic Tabby display version (FM1_DISPLAY_VERSION, set
+ * by the build from the git tag; app/version.h falls back to the Open label). A tag such as
+ * "tabby-v03.1" draws at scale 2 (12 pixels a character, up to 20 characters on the 240-pixel
+ * screen); a longer development string (tag-count-hash-dirty) draws at scale 1. */
+#define BOOT_VERSION_SCALE (sizeof FM1_DISPLAY_VERSION - 1 <= 20 ? 2 : 1)
 static __attribute__((noinline, cold, minsize)) void boot_draw(void)
 {
     if (cache->title_cache != 0) {
         cache->title_cache = 0;
         text(60, 48, "SMK37", 4, TEXT, BACK);
         accent_text(81, 98, "OFFICIAL OPEN");
-        text((240 - 12 * (sizeof FM1_RELEASE_VERSION - 1)) / 2, 120,
-             FM1_RELEASE_VERSION, 2, TEXT, BACK);
+        text((240 - 6 * BOOT_VERSION_SCALE * (sizeof FM1_DISPLAY_VERSION - 1)) / 2, 120,
+             FM1_DISPLAY_VERSION, BOOT_VERSION_SCALE, TEXT, BACK);
         dim_text(102, 208, "M-VAVE");
     }
     if (cache->middle_cache == boot_phase) return;

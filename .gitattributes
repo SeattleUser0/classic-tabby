@@ -14,3 +14,5 @@ sdk/** -text
 # Keep reviewed vendor/header bytes, including their original whitespace.
 sdk/include/libc/** whitespace=-blank-at-eof
 sdk/synth.json whitespace=cr-at-eol
+# The display version for source archives (tools/linux/display_version.py): git archive expands it.
+VERSION export-subst

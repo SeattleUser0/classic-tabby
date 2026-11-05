@@ -57,6 +57,17 @@ Revision log
                       the host one goes to build/compile_commands.json (the editors' place) when
                       the build root is the default. The default build path, its order and its
                       outputs are unchanged (Step 2 gate: identical sdk.elf, .fwsc, app-image.bin).
+    v0.7  2026-11-04  Classic Tabby Task 08 (version display): --display-version /
+                      FM1_DISPLAY_VERSION, else tools/linux/display_version.py (the git tag,
+                      or the export-subst VERSION file of a source archive). The value is
+                      passed as -DFM1_DISPLAY_VERSION to every unit (the boot screen draws
+                      it), folded into the build identity when it differs from the Open
+                      label FM1_RELEASE_VERSION (so a re-tag of unchanged sources is a new
+                      build id, while the gate build with the label keeps the old id), and
+                      written as display_version into build-identity.json, the package
+                      JSON (FM1_PACKAGE) and web-package-report.json; build-web.py gets
+                      --display-version. FM1_RELEASE_VERSION and the update identity are
+                      untouched.
     v0.5  2026-11-04  Classic Tabby Task 06 (b): app/song.c, app/song_storage.c and
                       app/timed_note.c compile at -Oz like the other control-task units.
     v0.4  2026-11-04  Classic Tabby Task 06 (a): the device's BLE page is gone, so the SDK's
@@ -90,6 +101,11 @@ import struct
 import subprocess
 import sys
 from pathlib import Path
+
+# v0.7: the display version lives in its own module (shared with build-web.py). python -I
+# leaves the script directory off sys.path, so add it explicitly.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from display_version import display_version as compute_display_version, DisplayVersionError  # noqa: E402
 
 # The repository root is two levels above tools/linux/.  (Build.ps1 L13-L14 derive $root
 # from $PSScriptRoot = sdk/; here the script lives in tools/linux/ so we go up twice.)
@@ -753,6 +769,12 @@ def build_firmware(args, log):
     if firmware_product != product_prefix + str(8000000 + int(release_version[1:])):
         raise BuildError("The model update identity and FM1_RELEASE_VERSION must name the same release.")
     log("Build SMK37 Open " + release_version)
+    # v0.7: the Classic Tabby display version (the git tag), separate from the identity above.
+    try:
+        display = compute_display_version(ROOT, args.display_version)
+    except DisplayVersionError as error:
+        raise BuildError(str(error))
+    log("Display version " + display)
 
     manifest, synth = verify_inputs(toolchain, native_manifest, log)
 
@@ -793,6 +815,7 @@ def build_firmware(args, log):
              "-fno-unwind-tables", "-ffunction-sections", "-fdata-sections", "-fmessage-length=0",
              "-cl-single-precision-constant", "-mllvm", "-pi32v2-large-program=true", "-D__GCC_PI32V2__", "-O2"]
     flags.append("-DSMK37_MODEL_%s=1" % model.upper())
+    flags.append('-DFM1_DISPLAY_VERSION="%s"' % display)   # v0.7: the boot screen draws it
     for d in include:
         flags.append("-I" + str(ROOT / d))
     objects = []
@@ -843,6 +866,8 @@ def build_firmware(args, log):
     app_files = [p for p in (ROOT / "app").rglob("*") if p.is_file()]
     for path in sorted_paths(app_files, args.identity_sort):
         identity_inputs.append(path.relative_to(ROOT).as_posix() + ":" + sha256_file(path))
+    if display != release_version:   # v0.7: a re-tag of unchanged sources is a new build id
+        identity_inputs.append("display_version:" + display)
     build_identity = sha256_text("\n".join(identity_inputs))
     id_bytes = ["0x" + build_identity[i:i + 2] for i in range(0, 64, 2)]
     if variant["update_family"] not in (8, 9) or variant["user_bytes"] < 4096 or variant["user_bytes"] % 4096:
@@ -855,8 +880,8 @@ def build_firmware(args, log):
     toolchain.run("clang", flags + ["-c", "generated/build_identity.c", "-o", "obj/build_identity.obj"], cwd=build)
     objects.append("obj/build_identity.obj")
     write_text(build / "build-identity.json", to_json({"profile": profile, "family": variant_name,
-                                                        "release_version": release_version, "build_id": build_identity,
-                                                        "identity_sort": args.identity_sort}))
+                                                        "release_version": release_version, "display_version": display,
+                                                        "build_id": build_identity, "identity_sort": args.identity_sort}))
     # Linker script instantiation (L417-L421).
     sbc_root = "sbc_decoder" + "\n"
     linker = (SDK / "config/linker.ld.in").read_bytes().decode("utf-8")
@@ -886,13 +911,13 @@ def build_firmware(args, log):
         package_firmware(toolchain, build, model, variant, firmware_product, args.packager, log)
     if args.package:
         package_firmware(toolchain, build, model, variant, firmware_product, args.packager, log)
-        package_web(build, model, variant, profile, release_version, firmware_product, build_identity, args, log)
+        package_web(build, model, variant, profile, release_version, display, firmware_product, build_identity, args, log)
     log("Firmware: %s" % (build / "sdk.elf"))
     return report
 
 
 # ---- -Package: workbench with embedded firmware (Build.ps1 L439-L463) ------------------------
-def package_web(build, model, variant, profile, release_version, firmware_product, build_identity, args, log):
+def package_web(build, model, variant, profile, release_version, display, firmware_product, build_identity, args, log):
     """Embed the freshly packaged .fwsc and the pinned stock V16 image into the workbench.
 
     Writes build/<model>/web-package.json (the exact text that becomes `const FM1_PACKAGE`
@@ -914,7 +939,8 @@ def package_web(build, model, variant, profile, release_version, firmware_produc
                   "bytes": len(stock_bytes), "loader_sha256": STOCK_LOADER_SHA256,
                   "data": base64.b64encode(stock_bytes).decode("ascii")}
     web_package = {"schema": 1, "product": firmware_product, "profile": profile, "family": variant["update_family"],
-                   "release_version": release_version, "build_id": build_identity, "sha256": sha256_file(package_file),
+                   "release_version": release_version, "display_version": display,   # v0.7: display_version is Classic Tabby's
+                   "build_id": build_identity, "sha256": sha256_file(package_file),
                    "bytes": len(package_bytes), "loader_sha256": sha256_file(SDK / "tools/pack/ota.bin"),
                    "hardware_validated": False, "data": base64.b64encode(package_bytes).decode("ascii"),
                    "model": model, "stock": stock_meta}
@@ -924,7 +950,7 @@ def package_web(build, model, variant, profile, release_version, firmware_produc
     # Build-Web.ps1 is invoked as a child script upstream (L458); same here, with -I so the
     # interpreter ignores the environment and the current directory.
     command = [sys.executable, "-I", str(HERE / "build-web.py"), "--package-json", str(package_json),
-               "--source-url", args.source_url]
+               "--source-url", args.source_url, "--display-version", display]
     if args.wasi_sdk:
         command += ["--wasi-sdk", args.wasi_sdk]
     log("Run build-web.py --package-json")
@@ -936,7 +962,8 @@ def package_web(build, model, variant, profile, release_version, firmware_produc
         raise BuildError("build-web.py did not report an integrated workbench.")
     write_text(build / "web-package-report.json", to_json({
         "integrated": True, "firmware_sha256": sha256_file(package_file), "web_sha256": web["sha256"],
-        "release_version": release_version, "build_id": build_identity, "simulator_sha256": web["simulator_sha256"],
+        "release_version": release_version, "display_version": display, "build_id": build_identity,
+        "simulator_sha256": web["simulator_sha256"],
         "simulator_source_sha256": web["simulator_source_sha256"], "simulator_bytes": web["simulator_bytes"],
         "hardware_validated": False, "board_access": False}))
     log("Distribution: %s" % web["file"])
@@ -966,6 +993,8 @@ def main(argv=None):
     parser.add_argument("--build-root", help="directory that will contain <model>/ (default: <repo>/build)")
     parser.add_argument("--source-root", help="build this source tree instead of the repository containing this script (v0.2)")
     parser.add_argument("--verify-only", action="store_true", help="run the input checks and exit")
+    parser.add_argument("--display-version", default=os.environ.get("FM1_DISPLAY_VERSION") or None,
+                        help="the version shown to the user (default: the git tag via tools/linux/display_version.py); v0.7")
     parser.add_argument("--check-only", action="store_true",
                         help="v0.4 (make check): every unit through the compiler with -fsyntax-only into build/check/<model>/; no link, no package")
     args = parser.parse_args(argv)

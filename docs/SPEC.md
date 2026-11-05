@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.15
+Version: 0.16
 Revision log:
+- v0.16, 2026-11-04 (Task 08): section 11: the display version.
 - v0.15, 2026-11-04: section 10: Task 06 checkpoint (d) done (workbench: lead before the bar,
   pattern view, per-track status; the scripted performance check); Task 06 complete pending
   the hardware checklist.
@@ -768,3 +769,21 @@ Known limits (v1 of track launching):
 Deferred (BUILD.md left-to-build list): following external MIDI clock in song mode; CC
 automation inside a row.
 
+
+## 11. Task 08 — The display version (2026-11-04)
+
+The installed Classic Tabby version is shown wherever the user sees a version: the boot
+screen ("SMK37 / OFFICIAL OPEN / <version> / M-VAVE"), the workbench's header badge, and the
+update tab's Version line. The value is the git tag of the build (`tabby-v03.1`), computed at
+build time by tools/linux/display_version.py and compiled in as `FM1_DISPLAY_VERSION`; a build
+from a source archive reads the export-subst `VERSION` file; a development build shows
+tag-count-hash with `-dirty` when the tree is modified.
+
+The firmware identity does not change: `FM1_RELEASE_VERSION` stays "V01", the update product
+stays `SMK-37 Pro_8000001`, query 17, the loader handshake, the workbench's Open-firmware
+checks and the factory V16 restore are untouched. The update tab's firmware details keep the
+label as "Open base version". The display version is part of the build id only when it
+differs from the label, so a re-tag of unchanged sources is a new build id (not refused as
+already installed) while a build forced to the label (`DISPLAY_VERSION=V01`) keeps the old
+id. Cost: 0 bytes for a tag (alignment), 32 bytes for the 28-character development string.
+Details and the measured gate: BUILD.md section 21.

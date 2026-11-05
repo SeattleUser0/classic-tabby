@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
 // Static-site packaging. Keep the standalone download intact.
+// Classic Tabby, Task 08 (2026-11-04): assets.json also carries "version", the display version
+// (FM1_SIMULATOR.display_version, the git tag); "release" stays the Open label.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const [input,output]=process.argv.slice(2);assert(input&&output,'Pass the standalone HTML and a new staging directory.');
 assert(!fs.existsSync(output),'Use a new staging directory.');
@@ -45,6 +47,6 @@ for(const name of ['index.html','smk37-workbench.html']){fs.writeFileSync(path.j
 fs.writeFileSync(path.join(output,download),standalone);
 assets.push({name:download,bytes:Buffer.byteLength(standalone),sha256:sha(standalone)});
 const initial=assets.filter(x=>!x.name.endsWith('.bin')&&x.name!=='smk37-workbench.html'&&x.name!==download);
-const report={build:packaged?.build_id,release:simulator.release_version,entryBytes:Buffer.byteLength(html),initialBytes:initial.reduce((n,x)=>n+x.bytes,0),standaloneBytes:fs.statSync(input).size,assets};
+const report={build:packaged?.build_id,release:simulator.release_version,version:simulator.display_version||simulator.release_version,entryBytes:Buffer.byteLength(html),initialBytes:initial.reduce((n,x)=>n+x.bytes,0),standaloneBytes:fs.statSync(input).size,assets};
 fs.writeFileSync(path.join(output,'assets.json'),JSON.stringify(report,null,2)+'\n');
 console.log({entryBytes:report.entryBytes,initialBytes:report.initialBytes,standaloneBytes:report.standaloneBytes,assets:assets.length});

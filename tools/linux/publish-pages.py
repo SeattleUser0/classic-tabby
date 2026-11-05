@@ -39,9 +39,11 @@ Usage (from the repository root)
         --source-url https://github.com/<owner>/<repo>/archive/refs/tags/tabby-v01.0.zip \
         --commit --push                                                   # + gh-pages
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-04  Task 08: the log line and the gh-pages commit body carry the display
+                      version (assets.json "version", from Build-Hosted.cjs).
     v0.1  2026-11-02  Initial version (Task 02, Steps 3 and 5). Static site via
                       tools/Build-Hosted.cjs, gh-pages worktree update, push with the gh
                       credential helper, .nojekyll, tag/clean-tree/source-link checks.
@@ -112,8 +114,8 @@ def build_site(html, staging, node, source_url, log):
     # GitHub Pages runs Jekyll unless told not to; Jekyll would skip nothing here but it
     # is slower and ignores underscore paths, so opt out explicitly.
     (staging / ".nojekyll").write_bytes(b"")
-    log("Site: build %s, release %s, %d assets, entry %d bytes, standalone %d bytes"
-        % (report.get("build"), report.get("release"), len(report.get("assets", [])),
+    log("Site: build %s, release %s, version %s, %d assets, entry %d bytes, standalone %d bytes"
+        % (report.get("build"), report.get("release"), report.get("version"), len(report.get("assets", [])),
            report.get("entryBytes", 0), report.get("standaloneBytes", 0)))
     return staging, report, link.group(1)
 
@@ -202,8 +204,8 @@ def update_branch(staging, report, source_url, args, log):
         return None
     subject = "Pages: %s (build %s, release %s)" % (args.tag or "untagged", (report.get("build") or "")[:12], report.get("release"))
     body = ("Static site from build/official-web/%s/SMK37-Open-Source.html via tools/Build-Hosted.cjs.\n"
-            "Source archive link: %s\nFirmware build_id: %s\nSource commit: %s\n"
-            % (args.model, source_url, report.get("build"), git(["rev-parse", "HEAD"])))
+            "Source archive link: %s\nFirmware build_id: %s\nDisplay version: %s\nSource commit: %s\n"
+            % (args.model, source_url, report.get("build"), report.get("version"), git(["rev-parse", "HEAD"])))
     git(["commit", "-q", "-m", subject, "-m", body], cwd=worktree, env=env)
     sha = git(["rev-parse", "HEAD"], cwd=worktree)
     log("Committed %s on %s: %s" % (sha[:12], branch, subject))

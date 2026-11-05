@@ -1,6 +1,6 @@
 # Development checks (Task 07)
 
-Version 0.1, 2026-11-04. The opt-in checks between builds, what each catches, how long it takes, and
+Version 0.2, 2026-11-04. The opt-in checks between builds, what each catches, how long it takes, and
 the standing rules for every Classic Tabby session on this machine. The default build is unchanged:
 `make firmware`, `make package` and `make hosted` produce the same bytes as before Task 07 (the gate at
 the end). The measurement series that led here is docs/tasks/TASK-07-step1-assessment.md. The shape of
@@ -10,6 +10,8 @@ compiles 16 firmware units and 36 host units separately, its whole test cycle is
 here needed Orange Cat's per-compile profile, dependency database or `--changed` tier.
 
 Revision log
+- v0.2 2026-11-04: Task 08: the display version (DISPLAY_VERSION, tests/display-version.mjs in web-smoke);
+  web-smoke and midi-import-sim depend on `web` (the stale-wasm trap below is closed).
 - v0.1 2026-11-04: first version, Task 07 Steps 2 and 3.
 
 ## The standing rules
@@ -46,7 +48,7 @@ Revision log
 | `make lint` | tools/linux/lint.sh after `make check`. Pass 1: host gcc `-fsyntax-only -Wall -Wextra` on the 36 host test sources one file at a time, with the Makefile's include paths and defines but without its `-Wno-*` suppressions (except `-Wno-attributes`: the clang-only `minsize` attribute alone is 69 lines of noise). Pass 2: the target clang with `-Wall -Wextra` added to the build's options over the 16 units. Counts by file and by kind, the lines in build/host/lint.txt and build/host/lint-target.txt. Exit 1 only when a file does not compile | unused variables, missing field initializers, misleading indentation, mismatched array parameters, everything `-Wall -Wextra` knows, from both compilers | 2.5 s; 4 s |
 | `make lint LINT="--cppcheck --tidy"` | plus cppcheck (warning and portability checks) and clang-tidy (bugprone-* and clang-analyzer-* minus the style checks) over build/check/pro/compile_commands.host.json, 2 at once; build/host/cppcheck.txt, build/host/tidy.txt | out-of-bounds indices, uninitialised reads, null dereferences, suspicious shifts and comparisons; a finding is a report to read, never a gate | cppcheck 15 s; clang-tidy 55 s quiet, 90 s loaded |
 | `make test-fast` | timed-note-test, host-smoke, web-smoke, workbench-test, midi-import-test; no sanitizers, no lock | the host checks (140), the timed note vectors (804, C and JS), the wasm smoke, the workbench song write and device library, the MIDI importer | 20 s cold, 3 s warm; 30 s cold loaded |
-| `make test` | as before: timed-note-test, host-smoke, web-smoke, workbench-test | | 19 s cold, 0.5 s warm |
+| `make test` | as before: timed-note-test, host-smoke, web-smoke, workbench-test; since Task 08 web-smoke first runs `make web` (a 0.6 s cache check when nothing changed) and then tests/display-version.mjs (the display version in the wasm cache record, the wasm bytes and the preview page) | | 19 s cold, 1.2 s warm |
 | `make host-sanitize` | the host suite and timed_note built again in build/host-san/ with `-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer`, run; through the lock | heap and stack overruns, use after free, leaks, signed overflow, shifts of negative values, misaligned or null access, in the app code the simulator exercises | 27 s cold, 1 s warm; 85 s cold loaded |
 | `make crosscheck` | both tracks built (native and Wine) and sdk.elf, the .fwsc and app-image.bin compared by SHA-256 (tools/linux/crosscheck-compare.sh); through the lock | a native-toolchain result that the reference Windows toolchain would not produce | 17 s quiet; the Wine build alone is 13 s quiet and 70 to 130 s with an Orange Cat suite running |
 | `make suite` | crosscheck, test, midi-import-sim, host-sanitize, through the lock; build/suite-passed.txt | everything above, the run before a flash or a release | about 75 s cold quiet; 3 min 24 s loaded (load 5 to 7) |
@@ -100,6 +102,17 @@ silences `-Wunused-function -Warray-parameter -Wattributes -Wmisleading-indentat
 Fixing any of these is separate work with the same gate as Task 07 (identical sdk.elf, .fwsc and
 app-image.bin before and after); BUILD.md's left-to-build list carries them.
 
+## The display version (Task 08)
+
+Every firmware build, check and web build carries `-DFM1_DISPLAY_VERSION="…"` from
+tools/linux/display_version.py: the git tag when HEAD is tagged, else tag-count-hash with `-dirty` when
+tracked files are modified, else the export-subst VERSION file of a source archive. `make <target>
+DISPLAY_VERSION=V01` forces the Open label (the release gate: the firmware then differs from the previous
+release only in the build id when app/ changed, or not at all when it did not). The value is part of the
+build id only when it differs from the label, so a tagged rebuild of unchanged sources is a new build id
+and a forced-label build keeps the old one. A dirty tree therefore gives a different firmware from a clean
+one by the string alone; `make suite` before a release runs on a clean, tagged tree as 9.2 requires.
+
 ## Known traps
 
 - **`make firmware` after `make package` invalidates the distribution page.** Every firmware build first
@@ -108,6 +121,9 @@ app-image.bin before and after); BUILD.md's left-to-build list carries them.
   writes the page again. So `make hosted` after a plain `make firmware` fails on the placeholder. This is
   upstream's protection against distributing a page whose embedded firmware is stale, kept as it is:
   run `make package` (then `make hosted`) when you want the page.
+- **An existing simulator.wasm was never refreshed by `make test`** before Task 08 (web-smoke depended on
+  the file, which has no prerequisites); web-smoke and midi-import-sim now depend on the phony `web`
+  target, whose cache makes an unchanged rebuild a hash check.
 - **`make midi-import-test` rewrites the tracked fixtures** tests/midi-import/fixtures/*.mid on every run,
   byte-identical as long as the generator is unchanged; a generator change dirties the tree by design.
 - **The Wine build is load-sensitive**: 13 s on a quiet machine, 70 to 130 s with an Orange Cat suite

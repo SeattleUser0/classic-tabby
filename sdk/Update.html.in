@@ -221,7 +221,7 @@ main{max-width:1440px}
 <section id="tab-update" role="tabpanel" aria-labelledby="mode-update" hidden>
 <h2>更新固件</h2><p id="update-intro">正在校验本页内置固件。请连接 SMK37 OPEN 的 USB-MIDI 接口。</p>
 <dl><dt>固件</dt><dd id="profile">正在校验…</dd><dt>版本</dt><dd id="firmware-version"></dd></dl>
-<details class="technical-details"><summary>固件详情</summary><dl><dt>文件大小</dt><dd id="size"></dd><dt>构建编号</dt><dd><code id="version"></code></dd></dl></details>
+<details class="technical-details"><summary>固件详情</summary><dl><dt>文件大小</dt><dd id="size"></dd><dt>构建编号</dt><dd><code id="version"></code></dd><dt>Open 基础版本</dt><dd id="base-version"></dd></dl></details>
 <label class="update-choice"><input id="backup" type="checkbox"> 已保存需要保留的音色、工程和采样</label>
 <details id="update-options" class="library-group"><summary>迁移、原厂恢复与强制更新</summary><p><label class="update-choice"><input id="force-update" type="checkbox"> 强制烧录（其他固件迁移）</label></p>
 <button id="stock-restore" disabled>刷回原厂 V16</button><button id="open-firmware" hidden>切回 Open 固件</button></details>
@@ -429,7 +429,8 @@ main{max-width:1440px}
 /*FM1_SIMULATOR*/
 (() => {
   const $=id=>document.getElementById(id);
-  $('release-version').textContent=FM1_SIMULATOR.release_version||FM1_PACKAGE?.release_version||'';
+  // Task 08: the badge shows the Classic Tabby display version (the git tag); the Open label is the fallback.
+  $('release-version').textContent=FM1_SIMULATOR.display_version||FM1_PACKAGE?.display_version||FM1_SIMULATOR.release_version||FM1_PACKAGE?.release_version||'';
   const pages=['sim','library','update','manual'];
   function showPage(name){
     for(const page of pages){const active=page===name;$('tab-'+page).hidden=!active;$('mode-'+page).setAttribute('aria-selected',String(active));$('mode-'+page).tabIndex=active?0:-1;}
@@ -624,7 +625,8 @@ main{max-width:1440px}
   function packageDetails(){
     FM1I18n.text($('update-intro'),pkg.kind==='stock'?'连接当前型号，确认备份后点击“刷入原厂 V16”。':'连接 SMK37 OPEN，确认备份后点击“开始更新”。');
     FM1I18n.text($('profile'),'SMK37 '+(pkg.model==='elite'?'Elite':'Pro')+(pkg.kind==='stock'?' 原厂 V16':' Open'));
-    $('firmware-version').textContent=pkg.release_version||'—';
+    $('firmware-version').textContent=pkg.display_version||pkg.release_version||'—';   // Task 08: the display version
+    $('base-version').textContent=pkg.release_version||'—';                              // the Open label stays in the details
     FM1I18n.text($('version'),pkg.build_id.slice(0,16));$('version').title=pkg.build_id;
     FM1I18n.text($('size'),(pkg.bytes/1024).toFixed(1)+' KiB');
   }
@@ -1001,7 +1003,7 @@ main{max-width:1440px}
       $('sample-bank-note').hidden=FM1_SIMULATOR.sample_bank!=='synthesized-demo';
       if(!FM1_PACKAGE){
         FM1I18n.text($('update-intro'),'本页缺少内置固件，无法烧录。请重新下载完整官方工作台。');
-        FM1I18n.text($('profile'),'网页试听与编辑');$('firmware-version').textContent=FM1_SIMULATOR.release_version||'—';FM1I18n.text($('version'),FM1_SIMULATOR.sha256.slice(0,16));FM1I18n.text($('size'),'未附带设备固件');
+        FM1I18n.text($('profile'),'网页试听与编辑');$('firmware-version').textContent=FM1_SIMULATOR.display_version||FM1_SIMULATOR.release_version||'—';$('base-version').textContent=FM1_SIMULATOR.release_version||'—';FM1I18n.text($('version'),FM1_SIMULATOR.sha256.slice(0,16));FM1I18n.text($('size'),'未附带设备固件');
         status('内置固件不可用，请重新下载完整官方工作台。');
         $('backup').disabled=true;enable();return;
       }

@@ -1,7 +1,10 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.13
+Version: 0.14
 Revision log:
+- v0.14, 2026-11-04 (Task 08): section 15: the display version costs 0 bytes for a tag
+  (alignment), 32 for the development string; Appendix A not regenerated (no change for a
+  release build).
 - v0.13, 2026-11-04 (Task 06 checkpoint c): section 14 added: the TRACK LAUNCH page (+2368
   bytes with a sequencer fix, margin 2525); Appendix A regenerated.
 - v0.12, 2026-11-04 (Task 06 checkpoint b): section 13 added: per-track playheads (+1888
@@ -772,6 +775,21 @@ assessment) is still the reserve, and the launch page's text could be shortened.
 
 Checkpoint (d) (2026-11-04) changed no firmware: the figures above are Task 06's final ones
 (app image 451396, margin 2525, static SRAM 323796).
+
+## 15. Task 08: the display version (measured)
+
+The boot screen draws `FM1_DISPLAY_VERSION` (the git tag) instead of the 3-character Open
+label; the identity constants are unchanged. Measured with Track B at the Task 08 tree:
+
+| Display string | App image | Delta |
+| --- | ---: | ---: |
+| "V01" (forced label, the release gate) | 451396 | 0 |
+| "TABBY-V03.0" (11 characters, a scratch copy of the tabby-v03.0 tree) | 451396 | 0 |
+| "tabby-v03.0-6-g0c32d69-dirty" (28 characters, a development build) | 451428 | +32 |
+
+The 8 extra bytes of a tag fall inside .text alignment; a release build keeps the margin at
+2525 bytes. Appendix A is not regenerated: the release build's section sizes are those of
+section 14.
 
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 

@@ -39,9 +39,15 @@ Usage (from the repository root)
     FM1_WASI_SDK=/path/to/wasi-sdk-27.0-x86_64-linux python3 tools/linux/build-web.py --local-preview
     python3 tools/linux/build-web.py --package-json build/pro/web-package.json --source-url https://...
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-04  Classic Tabby Task 08 (version display): --display-version (else
+                      tools/linux/display_version.py: the git tag) is passed to the simulator
+                      compile as -DFM1_DISPLAY_VERSION (the simulated boot screen draws it),
+                      keyed into the wasm cache (simulator.json schema 3), written as
+                      display_version into FM1_SIMULATOR and web-report.json, and required
+                      to equal the package's display_version. release_version is unchanged.
     v0.1  2026-11-01  Initial port of tools/Build-Web.ps1 (Task 01, Step 6). Local preview
                       and package modes; Linux WASI SDK 27 pinned.
 """
@@ -55,6 +61,10 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+# v0.2: the display version module next to this script (python -I keeps the directory off sys.path).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from display_version import display_version as compute_display_version, DisplayVersionError  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -125,8 +135,8 @@ def ensure_wasi_sdk(explicit, log):
     return sdk
 
 
-def build_simulator(wasi_sdk, log):
-    """Build-Simulator (L13-L95)."""
+def build_simulator(wasi_sdk, display, log):
+    """Build-Simulator (L13-L95). v0.2: `display` is compiled in as FM1_DISPLAY_VERSION."""
     out = ROOT / "build/web"
     out.mkdir(parents=True, exist_ok=True)
     if not (ROOT / "web/engine/Simulator.c").exists():
@@ -160,8 +170,9 @@ def build_simulator(wasi_sdk, log):
             cached = json.loads(metadata.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             cached = None
-        if cached and cached.get("schema") == 2 and cached.get("toolchain_stamp") == tool_stamp and \
-                cached.get("source_sha256") == source_hash and cached.get("wasm_sha256") == sha256_file(wasm):
+        if cached and cached.get("schema") == 3 and cached.get("toolchain_stamp") == tool_stamp and \
+                cached.get("source_sha256") == source_hash and cached.get("display_version") == display and \
+                cached.get("wasm_sha256") == sha256_file(wasm):
             return {"file": wasm, "source_sha256": source_hash, "cache_hit": True}
     for path in (wasm, metadata):
         if path.exists():
@@ -170,7 +181,8 @@ def build_simulator(wasi_sdk, log):
     options = ["--sysroot=" + str(wasi_sdk / "share/wasi-sysroot"),
                "-std=c11", "-O2", "-fwrapv", "-fno-fast-math", "-ffp-contract=off",
                "-DFM1_HOST_TEST", "-DFM1_OPEN_WEB", "-Wall", "-Wextra", "-Werror",
-               "-Wno-unused-function", "-Wno-array-parameter", "-mexec-model=reactor"]
+               "-Wno-unused-function", "-Wno-array-parameter", "-mexec-model=reactor",
+               '-DFM1_DISPLAY_VERSION="%s"' % display]   # v0.2: the simulated boot screen draws it
     for name in ("web/engine", "web/synth", "third_party/synth", "sdk/include", "app/synth", "app"):
         options.append("-I" + str(ROOT / name))
     for name in names:
@@ -181,7 +193,8 @@ def build_simulator(wasi_sdk, log):
     log("Compile the browser application")
     try:
         run([str(wasi_sdk / "bin/clang")] + options, log)
-        record = {"schema": 2, "source_sha256": source_hash, "toolchain_stamp": tool_stamp, "wasm_sha256": sha256_file(wasm)}
+        record = {"schema": 3, "source_sha256": source_hash, "display_version": display,
+                  "toolchain_stamp": tool_stamp, "wasm_sha256": sha256_file(wasm)}
         metadata.write_bytes(json.dumps(record, indent=2).encode("utf-8"))
     except Exception:
         for path in (wasm, metadata):
@@ -216,16 +229,23 @@ def build(args, log):
     if not vm:
         raise WebBuildError("Set FM1_RELEASE_VERSION in app/version.h.")
     release_version = vm.group(1)
+    try:   # v0.2: the Classic Tabby display version, separate from the Open label above
+        display = compute_display_version(ROOT, args.display_version)
+    except DisplayVersionError as error:
+        raise WebBuildError(str(error))
+    log("Display version " + display)
     notices = ["APP: GPLv3 with the SMK37 SDK linking exception. SDK and resource terms: THIRD_PARTY.md. Source: " + source_url]
     if package:
         if package.get("schema") != 1 or package.get("release_version") != release_version:
             raise WebBuildError("Firmware and web release versions differ.")
+        if package.get("display_version") != display:   # v0.2
+            raise WebBuildError("Firmware and web display versions differ (%r vs %r)." % (package.get("display_version"), display))
         if not re.fullmatch(r"[0-9a-f]{64}", str(package.get("build_id", ""))):
             raise WebBuildError("Firmware source identifier is invalid.")
-    compiled = build_simulator(args.wasi_sdk, log)
+    compiled = build_simulator(args.wasi_sdk, display, log)
     wasm_bytes = compiled["file"].read_bytes()
     import base64
-    simulation = json.dumps({"schema": 1, "release_version": release_version,
+    simulation = json.dumps({"schema": 1, "release_version": release_version, "display_version": display,
                              "sha256": sha256_file(compiled["file"]), "source_sha256": compiled["source_sha256"],
                              "sample_bank": "synthesized-demo",
                              "data": base64.b64encode(wasm_bytes).decode("ascii")}, separators=(",", ":"))
@@ -265,7 +285,7 @@ def build(args, log):
     output.write_bytes(web.encode("utf-8"))
     report = {"file": str(output), "simulator_sha256": sha256_file(compiled["file"]),
               "simulator_source_sha256": compiled["source_sha256"], "simulator_bytes": len(wasm_bytes),
-              "cache_hit": compiled["cache_hit"]}
+              "display_version": display, "cache_hit": compiled["cache_hit"]}
     if package:
         h = sha256_file(output)
         (output.parent / "SHA256SUMS.txt").write_bytes(("%s  %s\n" % (h, output.name)).encode("utf-8"))
@@ -284,6 +304,8 @@ def main(argv=None):
     parser.add_argument("--package-json", help="path to the firmware package JSON (Build.ps1 -Package output)")
     parser.add_argument("--source-url", default=os.environ.get("FM1_SOURCE_URL"), help="HTTPS URL of the source archive")
     parser.add_argument("--local-preview", action="store_true", help="build/preview/index.html without a source URL")
+    parser.add_argument("--display-version", default=os.environ.get("FM1_DISPLAY_VERSION") or None,
+                        help="the version shown to the user (default: the git tag via tools/linux/display_version.py); v0.2")
     args = parser.parse_args(argv)
 
     def log(message):

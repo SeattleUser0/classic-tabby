@@ -386,6 +386,7 @@
   "固件": "Firmware",
   "正在校验…": "Verifying…",
   "版本": "Version",
+  "Open 基础版本": "Open base version",
   "构建编号": "Build ID",
   "文件大小": "File size",
   "已保存需要保留的音色、工程和采样": "I have backed up the sounds, projects and samples I want to keep",
