@@ -1,12 +1,25 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "dirtywave-m8",
  "name": "Dirtywave M8 Tracker Model:02",
  "maker": "Dirtywave",
+ "kind": "instrument",
+ "firmware": "M8 firmware 6.6.3 F (changelog 2026-10-20); operation manual v6.5.2 (2026-04-21)",
+ "midiIn": {
+  "connector": "3.5 mm TRS type A in and out; USB-C class-compliant MIDI (behaves like the TRS input)",
+  "trs": "A",
+  "note": "DIN-to-TRS type A adapter from the Thru5 WC, or USB from a host."
+ },
+ "clock": {
+  "receives": true,
+  "syncs": "the song tempo and transport: SYNC IN = CLOCK, TRANSPORT, CLOCK+TRANSP., TRANSPORT+SPP or CLK+TRANSP+SPP",
+  "setting": "MIDI Settings > SYNC IN = CLK+TRANSP+SPP (per song)"
+ },
+ "channelSetting": "MIDI Settings > Track MIDI Input: each M8 track has its own CHAN (default track n = channel n), INST#, PG CHANGE and MODE; stored in the song. Wrong Room: M8 track 1 CHAN 4, track 2 CHAN 10, track 3 CHAN 13, PG CHANGE on; tracks 4..8 on a channel nothing sends on, or on 13 in POLY.",
  "channel": {
   "default": null,
-  "note": "MIDI Settings view: a channel per track 1..8 (default track n = channel n), stored in the song; separate record, control-map (10) and song-row-cue (11) channels."
+  "note": "MIDI Settings view: a channel per track 1..8 (default track n = channel n), stored in the song; separate record (9), control-map (10 or ALL) and song-row-cue (11) channels. Tracks on one channel play together: MONO, LEGATO or POLY (round-robin). Wrong Room: three M8 parts on channels 4, 10 and 13 = M8 tracks 1, 2 and 3."
  },
  "programChange": {
   "supported": true,
@@ -32,13 +45,15 @@
   }
  ],
  "setup": [
-  "MIDI Settings: track channels (default track n = channel n).",
-  "MIDI Settings: PG CHANGE = on.",
+  "MIDI Settings (per song): track 1 CHAN 04, track 2 CHAN 10, track 3 CHAN 13; tracks 4..8 on a channel nothing sends on (or on 13 in POLY to add voices to part 3).",
+  "MIDI Settings: PG CHANGE = ON on tracks 1..3 (a PC on the channel selects that track's INST#).",
+  "MIDI Settings: SYNC IN = CLK+TRANSP+SPP so the M8 follows Classic Tabby's clock, Start, Stop and Song Position.",
+  "Save the song's MIDI settings as the default configuration (MIDI Settings page) so a new M8 song keeps them.",
   "Name the instruments in the song; the rig profile can name INST 00..7F for the editor."
  ],
  "notes": [
   "Instruments are per-song user content (00..7F hex); no factory names.",
-  "Firmware 6.6.3C at research time; manual v6.5.2."
+  "Firmware 6.6.3 F (2026-10-20) at research time; manual v6.5.2 (2026-04-21). The 2023 manual's screenshot gives the defaults (track n = channel n, PG CHANGE ON, LEGATO)."
  ],
  "sources": [
   {
@@ -54,9 +69,10 @@
  ],
  "unverified": [
   "channel.default",
-  "programChange.displayBase",
+  "programChange.displayBase (PC n = INST n is not spelled out)",
   "bank select on receive",
-  "omni"
+  "whether a track's CHAN can be off (the manual lists 1..16)",
+  "CCs on the track channel beyond CC 64 and pitch bend"
  ],
  "presets": []
 }

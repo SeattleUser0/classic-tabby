@@ -1,0 +1,541 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.2",
+ "id": "strymon-nightsky",
+ "name": "Strymon NightSky",
+ "maker": "Strymon",
+ "kind": "effect",
+ "firmware": "NightSky firmware 1.07 (March 2021); user manual Rev F (2021-09-17)",
+ "midiIn": {
+  "connector": "5-pin DIN MIDI IN and OUT, USB mini; optionally the 1/4 inch EXP jack in MIDI mode (Strymon MIDI EXP cable, tip active with an opto-isolator in the cable)",
+  "trs": null,
+  "note": "Use the DIN MIDI IN from the Thru5 WC: no EXP-jack setting needed. Third-party DIN-to-TRS cables do not work on the EXP jack. Set TRS MIDI Output to OFF when only receiving."
+ },
+ "clock": {
+  "receives": true,
+  "syncs": "the sequencer tempo only (no delay or pre-delay sync), enabled per preset",
+  "setting": "Live Edit: hold PRESET BUTTONS 1 and 4, turn SPEED to green (RESPOND TO MIDI CLOCK), or CC 63 = 127; save the preset"
+ },
+ "channelSetting": "Power-up mode: hold INFINITE while connecting power, release when the footswitch LEDs light, turn SPEED until the ON LED blinks blue, send a program change on channel 14, press INFINITE to store. One FAQ says the 4..16 option needs a 1/4 inch MIDI connection to set; the manual does not: if the DIN path does not latch it, set it once over the EXP jack.",
+ "channel": {
+  "default": 1,
+  "note": "Default 1; 1..16 (1..3 by LED colour, 4..16 by the next program change received while blinking blue). Wrong Room: 14."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 0,
+  "programs": 128,
+  "bankFormat": "hundreds",
+  "pad": 0,
+  "programsTotal": 300,
+  "bankSelect": {
+   "scheme": "cc0",
+   "banks": [
+    {
+     "index": 0,
+     "name": "0..127",
+     "msb": 0,
+     "lsb": null
+    },
+    {
+     "index": 1,
+     "name": "128..255",
+     "msb": 1,
+     "lsb": null
+    },
+    {
+     "index": 2,
+     "name": "256..299",
+     "msb": 2,
+     "lsb": null
+    }
+   ]
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "300 presets shown 0..299: CC 0 (bank select MSB) = preset div 128, PC = preset mod 128. The pedal powers up in bank 0, so send CC 0 before every program change. Bank 0 PC 127 is Manual mode, not a preset (bank 2 holds 256..299 only). The 16 front-panel presets 1..16 are bank 0 PC 0..15. Nothing to enable. CC 32 is not mentioned by Strymon."
+ },
+ "controllers": [
+  {
+   "cc": 0,
+   "name": "Bank select",
+   "min": 0,
+   "max": 2
+  },
+  {
+   "cc": 11,
+   "name": "Mix: reverb level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 12,
+   "name": "Mix: dry level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 13,
+   "name": "Mod speed",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 14,
+   "name": "Mod target",
+   "min": 0,
+   "max": 2,
+   "values": {
+    "0": "verb",
+    "1": "pitch",
+    "2": "filter"
+   }
+  },
+  {
+   "cc": 15,
+   "name": "Mod depth",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 16,
+   "name": "Mod shape",
+   "min": 0,
+   "max": 5,
+   "values": {
+    "0": "triangle",
+    "1": "square",
+    "2": "ramp",
+    "3": "saw",
+    "4": "random",
+    "5": "envelope"
+   }
+  },
+  {
+   "cc": 17,
+   "name": "Decay: pre-delay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 18,
+   "name": "Decay: length",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 19,
+   "name": "Decay: texture",
+   "min": 0,
+   "max": 2,
+   "values": {
+    "0": "sparse",
+    "1": "dense",
+    "2": "diffuse"
+   }
+  },
+  {
+   "cc": 20,
+   "name": "Decay: size / pitch",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 21,
+   "name": "Decay: quantize",
+   "min": 0,
+   "max": 2,
+   "values": {
+    "0": "smooth",
+    "1": "half step",
+    "2": "scale"
+   }
+  },
+  {
+   "cc": 22,
+   "name": "Tone: low cut",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 23,
+   "name": "Tone: high cut",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 24,
+   "name": "Tone: filter",
+   "min": 0,
+   "max": 1,
+   "values": {
+    "0": "regen",
+    "1": "lowpass"
+   }
+  },
+  {
+   "cc": 25,
+   "name": "Tone: lowpass Q",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 26,
+   "name": "Voice: interval",
+   "min": 0,
+   "max": 25,
+   "values": {
+    "0": "-octave",
+    "5": "-P5",
+    "7": "-P4",
+    "12": "-detune",
+    "13": "+detune",
+    "18": "+P4",
+    "20": "+P5",
+    "25": "+octave"
+   }
+  },
+  {
+   "cc": 27,
+   "name": "Voice: scale",
+   "min": 0,
+   "max": 7,
+   "values": {
+    "0": "minor pentatonic",
+    "1": "major pentatonic",
+    "2": "major",
+    "3": "dorian",
+    "4": "minor blues",
+    "5": "harmonic minor",
+    "6": "whole tone",
+    "7": "diminished"
+   }
+  },
+  {
+   "cc": 28,
+   "name": "Voice: shimmer source",
+   "min": 0,
+   "max": 1,
+   "values": {
+    "0": "input",
+    "1": "regen"
+   }
+  },
+  {
+   "cc": 29,
+   "name": "Voice: shimmer level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 30,
+   "name": "Voice: glimmer",
+   "min": 0,
+   "max": 2,
+   "values": {
+    "0": "off",
+    "1": "high",
+    "2": "low"
+   }
+  },
+  {
+   "cc": 31,
+   "name": "Voice: glimmer gain",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 33,
+   "name": "Voice: drive",
+   "min": 0,
+   "max": 2,
+   "values": {
+    "0": "off",
+    "1": "pre",
+    "2": "post"
+   }
+  },
+  {
+   "cc": 34,
+   "name": "Voice: drive level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 35,
+   "name": "Freeze",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "1": "on"
+   }
+  },
+  {
+   "cc": 36,
+   "name": "Morph",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "1": "on"
+   }
+  },
+  {
+   "cc": 37,
+   "name": "Morph speed",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 41,
+   "name": "Sequence mode",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "preset",
+    "1": "sequence"
+   }
+  },
+  {
+   "cc": 42,
+   "name": "Sequencer step 1 on",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "1": "on"
+   }
+  },
+  {
+   "cc": 43,
+   "name": "Sequencer step 2 on",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 44,
+   "name": "Sequencer step 3 on",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 45,
+   "name": "Sequencer step 4 on",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 46,
+   "name": "Sequencer step 5 on",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 47,
+   "name": "Sequencer step 6 on",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 48,
+   "name": "Sequencer step 7 on",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 49,
+   "name": "Sequencer step 8 on",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 50,
+   "name": "Sequencer step 1 size",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 51,
+   "name": "Sequencer step 2 size",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 52,
+   "name": "Sequencer step 3 size",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 53,
+   "name": "Sequencer step 4 size",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 54,
+   "name": "Sequencer step 5 size",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 55,
+   "name": "Sequencer step 6 size",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 56,
+   "name": "Sequencer step 7 size",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 57,
+   "name": "Sequencer step 8 size",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 58,
+   "name": "Sequence glide",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 60,
+   "name": "MIDI expression on/off",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "1": "on"
+   }
+  },
+  {
+   "cc": 63,
+   "name": "MIDI clock on/off",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "1": "on"
+   }
+  },
+  {
+   "cc": 80,
+   "name": "Footswitch ON",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "release",
+    "1": "press"
+   }
+  },
+  {
+   "cc": 81,
+   "name": "Footswitch FAVORITE",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "release",
+    "1": "press"
+   }
+  },
+  {
+   "cc": 82,
+   "name": "Footswitch INFINITE",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "release",
+    "1": "press"
+   }
+  },
+  {
+   "cc": 83,
+   "name": "Persist",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "1": "on"
+   }
+  },
+  {
+   "cc": 93,
+   "name": "Sequence tap",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 100,
+   "name": "Expression pedal (MIDI expression on)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 102,
+   "name": "Bypass / on",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "bypass",
+    "1": "on"
+   }
+  }
+ ],
+ "setup": [
+  "DIN cable from the Thru5 WC into MIDI IN; leave the EXP jack in its default (expression) mode; TRS MIDI Output = OFF; DIN MIDI Thru at its default.",
+  "Channel 14: hold INFINITE while powering, release when the footswitch LEDs light, turn SPEED until the ON LED blinks blue, send a program change on channel 14 (SEND SETUP works), press INFINITE to store. If the DIN path does not latch it, do it once over the EXP jack in MIDI mode.",
+  "Presets: the song sends CC 0 = bank then PC; the pedal powers up in bank 0. Never call bank 0 PC 127 (Manual mode).",
+  "Clock: for each preset that should sync its sequencer, hold PRESET BUTTONS 1 and 4, turn SPEED to green, and save the preset (or CC 63 = 127 in the song's row events)."
+ ],
+ "notes": [
+  "Only the sequencer syncs to clock; delay and pre-delay times do not. Start/Stop handling is not documented.",
+  "Firmware 1.07 (March 2021) is current; updated over USB with Strymon Update.",
+  "The TRS MIDI Output default and its knob name differ between the manual and the FAQs; set it to OFF explicitly."
+ ],
+ "sources": [
+  {
+   "title": "NightSky User Manual Rev F (2021-09-17): rear panel, MIDI channel, presets and banks, CC table, clock, power-up modes",
+   "url": "https://www.strymon.net/manuals/Nightsky_UserManual_RevF.pdf",
+   "detail": "pp. 14-15, 19, 26, 28-31, 36-39, 41"
+  },
+  {
+   "title": "Strymon FAQ: How can I control NightSky with MIDI?",
+   "url": "https://www.strymon.net/faq/how-can-i-control-nightsky-with-midi/",
+   "detail": "DIN, USB, EXP jack, channel 4..16 by the next PC"
+  },
+  {
+   "title": "Strymon FAQ: Save and recall presets (CC 0 banks 0..2, PC 0..127, Manual mode at 127)",
+   "url": "https://www.strymon.net/faq/how-do-you-save-and-recall-presets-on-nightsky/",
+   "detail": ""
+  },
+  {
+   "title": "Strymon FAQ: sync the sequencer to MIDI clock (per preset; only the sequencer)",
+   "url": "https://www.strymon.net/faq/how-to-sync-the-nightsky-sequencer-to-midi-clock/",
+   "detail": ""
+  },
+  {
+   "title": "Strymon firmware release notes (1.07)",
+   "url": "https://www.strymon.net/faq/nightsky-firmware-revision-release-notes/",
+   "detail": ""
+  },
+  {
+   "title": "Strymon staff on the TRS MIDI scheme (tip in, ring out, opto in the cable)",
+   "url": "https://www.strymon.net/midi-control-sunset-riverside/",
+   "detail": "2018-2025 comments"
+  }
+ ],
+ "unverified": [
+  "USB class compliance",
+  "MIDI Start / Stop handling",
+  "preset load time",
+  "whether the DIN path latches channels 4..16 (FAQ against manual)",
+  "TRS MIDI Output default",
+  "CC 32"
+ ],
+ "presets": []
+}

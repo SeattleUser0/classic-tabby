@@ -1,0 +1,33 @@
+{
+ "schema": "tabby-rig/1",
+ "name": "Wrong Room",
+ "builtin": true,
+ "version": "0.1",
+ "notes": [
+  "Classic Tabby (SMK-37 Pro) is the clock master and sends on every port; one channel per device.",
+  "Channels 5 to 8 are Classic Tabby's Proteus/2 XR parts 1 to 4. The second controller's Proteus parts use any other channel; the Proteus hears Classic Tabby through H4MIDI WC MIDI OUT 2 filtered to channels 5 to 8.",
+  "Channel 9 is the FM6 internal engine, pinned to Tabby track 8 (SEQ = LOCAL on the device). Nothing external listens on it.",
+  "M8 parts: channel 4 = M8 track 1, 10 = track 2, 13 = track 3 (PG CHANGE on, SYNC IN clock+transport+SPP).",
+  "FM-1 A (channel 2) and FM-1 B (channel 3): each on its own H4MIDI WC USB host port behind the hub, the port filtered to its channel; a Skiff 2.2 unit needs no filter (T1 CHANNEL = its channel, the rest OFF).",
+  "H4MIDI WC: DIN IN 1 = Classic Tabby (3.5 mm MIDI OUT adapter), DIN IN 2 = the second controller, OUT 1 = Thru5 WC (unfiltered), OUT 2 = Proteus (filter: pass channels 5-8 from IN 1; IN 2 unfiltered), USB host 1 = FM-1 A (filter: channel 2), host 2 = FM-1 B (filter: channel 3), host 3 = Zoom (filter: channel 16, program change only). DIN IN does not route to DIN OUT by default: build this preset in HxMIDI Tools.",
+  "Audio-only gear with no MIDI: Boss RE-2 Space Echo (delay time by hand or tap)."
+ ],
+ "channels": [
+  {"device": "instruo-seashell", "name": "Seashell", "gapMs": null, "leadMs": 0, "programs": {}, "port": "Thru5 WC, DIN to TRS type A", "track": null},
+  {"device": "mvave-fm1-skiff", "name": "FM-1 A", "gapMs": null, "leadMs": 0, "programs": {}, "port": "H4MIDI USB host 1 (hub), filter: channel 2 only; firmware chosen by the device field", "track": null},
+  {"device": "mvave-fm1-skiff", "name": "FM-1 B", "gapMs": null, "leadMs": 0, "programs": {}, "port": "H4MIDI USB host 2 (hub), filter: channel 3 only; firmware chosen by the device field", "track": null},
+  {"device": "dirtywave-m8", "name": "M8 part 1 (M8 track 1)", "gapMs": null, "leadMs": 0, "programs": {}, "port": "Thru5 WC, DIN to TRS type A", "track": null},
+  {"device": "emu-proteus-2-xr", "name": "Proteus part 1", "gapMs": null, "leadMs": 0, "programs": {}, "port": "H4MIDI MIDI OUT 2, filter: channels 5-8", "track": null},
+  {"device": "emu-proteus-2-xr", "name": "Proteus part 2", "gapMs": null, "leadMs": 0, "programs": {}, "port": "H4MIDI MIDI OUT 2, filter: channels 5-8", "track": null},
+  {"device": "emu-proteus-2-xr", "name": "Proteus part 3", "gapMs": null, "leadMs": 0, "programs": {}, "port": "H4MIDI MIDI OUT 2, filter: channels 5-8", "track": null},
+  {"device": "emu-proteus-2-xr", "name": "Proteus part 4", "gapMs": null, "leadMs": 0, "programs": {}, "port": "H4MIDI MIDI OUT 2, filter: channels 5-8", "track": null},
+  {"device": "smk37-fm6-internal", "name": "FM6 internal", "gapMs": null, "leadMs": 0, "programs": {}, "port": "internal (Tabby track 8, SEQ = LOCAL)", "track": 8},
+  {"device": "dirtywave-m8", "name": "M8 part 2 (M8 track 2)", "gapMs": null, "leadMs": 0, "programs": {}, "port": "Thru5 WC, DIN to TRS type A", "track": null},
+  {"device": "tone-king-royalist", "name": "Royalist", "gapMs": null, "leadMs": 0, "programs": {}, "port": "Thru5 WC, DIN (channel 11 set in the Synergy editor)", "track": null},
+  {"device": "chase-bliss-brothers", "name": "Brothers", "gapMs": null, "leadMs": 0, "programs": {}, "port": "Thru5 WC > Chase Bliss MIDIbox (RING) > TRS", "track": null},
+  {"device": "dirtywave-m8", "name": "M8 part 3 (M8 track 3)", "gapMs": null, "leadMs": 0, "programs": {}, "port": "Thru5 WC, DIN to TRS type A", "track": null},
+  {"device": "strymon-nightsky", "name": "NightSky", "gapMs": null, "leadMs": 0, "programs": {}, "port": "Thru5 WC, DIN MIDI IN", "track": null},
+  {"device": "eventide-h90", "name": "H90", "gapMs": 255, "leadMs": 0, "programs": {}, "port": "Thru5 WC, DIN MIDI IN (gap 255 ms after a program change, the field maximum: the CC-after-PC bug, users report about 300 ms)", "track": null},
+  {"device": "zoom-ms-70cdr-plus", "name": "Zoom", "gapMs": null, "leadMs": 0, "programs": {}, "port": "H4MIDI USB host 3 (hub), filter: channel 16, program change only", "track": null}
+ ]
+}

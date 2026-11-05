@@ -1,0 +1,57 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.2",
+ "id": "smk37-fm6-internal",
+ "name": "SMK-37 FM6 internal engine",
+ "maker": "M-VAVE SMK-37 Pro running Classic Tabby",
+ "kind": "internal",
+ "firmware": "Classic Tabby (this workbench's version)",
+ "midiIn": {
+  "connector": "none: the internal engine of the SMK-37 itself, not a MIDI device",
+  "trs": null,
+  "note": "A Tabby track plays the engine when its SEQ setting (SEQ page 6/7 MIDI TRACK, K3) is LOCAL or BOTH. Set the pinned track to LOCAL so nothing leaves on this channel."
+ },
+ "clock": {
+  "receives": false,
+  "syncs": "the SMK-37 is the clock master",
+  "setting": ""
+ },
+ "channelSetting": "A convention: channel 9 parts land on the pinned Tabby track (track 8 in the Wrong Room profile); on the device, once, SEQ page 6/7: track 8 K3 SEQ = LOCAL.",
+ "channel": {
+  "default": 9,
+  "note": "Convention only: no external device listens on it. The importer puts a part on this channel on the pinned Tabby track whatever its file order and writes OUT CH 9; with SEQ = LOCAL on that track nothing is sent."
+ },
+ "programChange": {
+  "supported": false,
+  "displayBase": 0,
+  "programs": 0,
+  "bankFormat": "none",
+  "pad": 0,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "Row events never reach the internal engine (SPEC 8): the sound of the pinned track is the project's. A program event on this channel does nothing inside and, with SEQ = LOCAL, leaves on no port."
+ },
+ "controllers": [],
+ "setup": [
+  "On the device, once: SEQ page 6/7 MIDI TRACK, select track 8, K3 SEQ = LOCAL (BOTH would also send the part on channel 9 to every port).",
+  "Give track 8 the sound you want in the project (SHIFT + HOME, SAVE) and save the project.",
+  "In the file, the FM6 part is the track on channel 9; its program changes and CCs are ignored."
+ ],
+ "notes": [
+  "The engine is per Tabby track, not per channel: any track with SEQ LOCAL or BOTH sounds inside. The channel-9 convention and the track pin make an imported part land on the FM6 without hand work.",
+  "FM6 preview timing is one audio block looser than MIDI out (SPEC 9.6)."
+ ],
+ "sources": [
+  {
+   "title": "Classic Tabby SPEC.md sections 6, 8 and 9 (song notes follow the SEQ setting; events never reach the internal engine)",
+   "url": "https://github.com/SeattleUser0/classic-tabby/blob/classic-tabby/linux-build/docs/SPEC.md",
+   "detail": "app/midi_router.c groove_midi_song_note"
+  }
+ ],
+ "unverified": [],
+ "presets": []
+}

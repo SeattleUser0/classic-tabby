@@ -74,9 +74,11 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.12
+# Version: 0.13
 #
 # Revision log
+#   v0.13 2026-11-05  Task 09 (a): workbench-test runs tests/workbench/rig-profile.mjs (the built-in
+#                     Wrong Room profile).
 #   v0.12 2026-11-04  Task 08 (manual): workbench-test runs tests/workbench/manual-i18n.mjs (every
 #                     Chinese text of the manual tab has a translation).
 #   v0.11 2026-11-04  Task 08: DISPLAY_VERSION / $(DV) passed to build.py, build-web.py and the
@@ -282,6 +284,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/transfer-radio.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/rig-lead.mjs
 	$(T) $(NODE) tests/workbench/manual-i18n.mjs
+	$(T) $(NODE) tests/workbench/rig-profile.mjs
 
 test: timed-note-test host-smoke web-smoke workbench-test
 	@echo "test: timed-note-test, host-smoke, web-smoke and workbench-test passed"

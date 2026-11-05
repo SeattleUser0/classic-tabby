@@ -1,9 +1,20 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "korg-volca-fm2",
  "name": "Korg volca fm2",
  "maker": "Korg",
+ "kind": "instrument",
+ "midiIn": {
+  "connector": "3.5 mm TRS type A in and out, no USB",
+  "trs": "A",
+  "note": ""
+ },
+ "clock": {
+  "receives": true,
+  "syncs": "the sequencer and arpeggiator (chart: clock, start, stop, song position)",
+  "setting": "none needed"
+ },
  "channel": {
   "default": null,
   "note": "Hold MEMORY at power-on and press key 1..16; memorised. Mode 3 (omni off). TRS MIDI in/out, no USB. Factory default not stated."

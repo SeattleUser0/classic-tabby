@@ -1,9 +1,22 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "zoom-ms-70cdr-plus",
  "name": "Zoom MS-70CDR+",
  "maker": "Zoom",
+ "kind": "effect",
+ "firmware": "MS-70CDR+ system software 1.20 (January 2025); MIDI implementation chart 1.00 (2024-03-01)",
+ "midiIn": {
+  "connector": "USB-C only (a USB MIDI device, bus-powered); no DIN, no TRS",
+  "trs": null,
+  "note": "Needs a USB host: H4MIDI WC USB-A through the powered hub, port filter: channel 16 only, program change only."
+ },
+ "clock": {
+  "receives": false,
+  "syncs": "nothing (chart: clock x)",
+  "setting": ""
+ },
+ "channelSetting": "MENU > USB MIDI CH = 16 (not OMNI: in OMNI every program change on the chain would switch patches).",
  "channel": {
   "default": 16,
   "note": "MENU > USB MIDI CH = 1..16 or OMNI (memorised). USB MIDI only: the pedal is a USB device and needs a USB host (CME H4MIDI WC in this rig). Factory default not stated; 16 is this rig's setting."
@@ -24,7 +37,8 @@
  },
  "controllers": [],
  "setup": [
-  "MENU > USB MIDI CH = 16 (or OMNI).",
+  "MENU > USB MIDI CH = 16 (set it: the factory default is not documented and OMNI would take every program change).",
+  "H4MIDI WC: the pedal on a USB host port behind the powered hub, that port filtered to channel 16 and program change only.",
   "Connect the USB host before the set; the pedal shows a USB CONNECT prompt on batteries.",
   "Hardware check: send PC 0 and PC 1 and note which patch the display shows; set displayBase accordingly."
  ],
@@ -47,7 +61,8 @@
  "unverified": [
   "channel.default",
   "programChange.displayBase",
-  "class compliance behind a USB host"
+  "class compliance behind a USB host (not in CME's list)",
+  "patch change delay"
  ],
  "presets": [
   {

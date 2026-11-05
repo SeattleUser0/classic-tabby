@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.17
+Version: 0.18
 Revision log:
+- v0.18, 2026-11-05 (Task 09 checkpoint a): section 13: the Wrong Room rig.
 - v0.17, 2026-11-04 (Task 08, manual): section 12: the manual tab.
 - v0.16, 2026-11-04 (Task 08): section 11: the display version.
 - v0.15, 2026-11-04: section 10: Task 06 checkpoint (d) done (workbench: lead before the bar,
@@ -798,3 +799,21 @@ and the earlier sections of this document are listed in BUILD.md 22.1 (the SONG 
 knob is SELECT / PRESETS, not K1; the ACTIONS confirmation sits on COMPACT SONG STORAGE
 instead of ERASE OLD SAMPLE/DX7 since Task 06 (a); the song's project slot is not loaded by
 the device). tests/workbench/manual-i18n.mjs guards the translation coverage of the manual.
+
+## 13. Task 09 — The Wrong Room rig (2026-11-05)
+
+Task text: docs/tasks/TASK-09-wrong-room-rig.md; research and the approved plan:
+docs/tasks/TASK-09-step1-assessment.md. One source of truth for the channel plan: the built-in
+rig profile `web/rig/profiles/wrong-room.json`, built on the device definitions in
+`web/devices/`; the importer's channel mapping, the generated guide and the hardware checklist
+derive from it. Firmware unchanged.
+
+Checkpoints and status:
+
+- **(a) done, 2026-11-05: device library and profile.** Fifteen definitions (four new: Chase
+  Bliss Brothers, Strymon NightSky, Tone King Royalist Preamp, the FM6 internal pseudo-device;
+  the rest rechecked against the current manufacturer documents), the optional definition fields
+  `kind` / `midiIn` / `clock` / `channelSetting` / `firmware` / `programsTotal`, the Wrong Room
+  profile with a port note and an optional pinned Tabby track per channel (channel 9 = FM6 on
+  track 8), the profile selector in the rig panel (built-ins read-only, Copy to my rig; "My rig"
+  stays the stored, editable profile songs use). The plan: see BUILD.md 23.1.

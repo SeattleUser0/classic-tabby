@@ -1,0 +1,123 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.2",
+ "id": "tone-king-royalist",
+ "name": "Tone King Royalist Preamp",
+ "maker": "Tone King (Synergy platform)",
+ "kind": "effect",
+ "firmware": "manual FINAL 01 19 2026 (uploads of 2026-02 and 2026-11); Synergy Editor App 8.9.6; no firmware version published",
+ "midiIn": {
+  "connector": "5-pin DIN MIDI IN only (no out, no thru); USB-C for the Synergy Editor App, firmware updates and USB audio",
+  "trs": null,
+  "note": "Standard DIN cable from the Thru5 WC; last in a chain or on its own Thru5 port."
+ },
+ "clock": {
+  "receives": false,
+  "syncs": "nothing (a preamp)",
+  "setting": ""
+ },
+ "channelSetting": "Synergy Editor App over USB-C: MIDI CHANNEL = 11 (default OMNI). No panel procedure exists. In OMNI the pedal takes every program change on the chain.",
+ "channel": {
+  "default": null,
+  "note": "Default OMNI (all channels); set only in the Synergy Editor App. Wrong Room: 11, set in the editor before the pedal joins the chain. The range is not printed (1..16 plus OMNI presumed)."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 0,
+  "programs": 128,
+  "bankFormat": "none",
+  "pad": 0,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "128 presets; the sibling Imperial manual numbers them 0..127, the Royalist manual says '128 storable MIDI PROGRAM CHANGES' (0- or 1-based display unverified). A preset stores channel, master bypass, IR selection and bypass, loop bypass, reverb bypass and tails. Store from the pedal: select the preset by PC, set the state, long-press REVERB + CHANNEL. No bank select, nothing to enable."
+ },
+ "controllers": [
+  {
+   "cc": 24,
+   "name": "Select channel (SYN-20IR map, unverified for the Royalist)",
+   "min": 0,
+   "max": 2
+  },
+  {
+   "cc": 25,
+   "name": "Select structure (SYN-20IR map, unverified)",
+   "min": 0,
+   "max": 2
+  },
+  {
+   "cc": 27,
+   "name": "IR bypass (SYN-20IR map, unverified)",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "1": "toggle",
+    "127": "on"
+   }
+  },
+  {
+   "cc": 28,
+   "name": "Select IR (SYN-20IR map, unverified)",
+   "min": 0,
+   "max": 3
+  },
+  {
+   "cc": 29,
+   "name": "Lowpass level (SYN-20IR map, unverified)",
+   "min": 0,
+   "max": 2
+  },
+  {
+   "cc": 30,
+   "name": "Highpass level (SYN-20IR map, unverified)",
+   "min": 0,
+   "max": 2
+  }
+ ],
+ "setup": [
+  "Synergy Editor App (USB-C): MIDI CHANNEL = 11; STORE.",
+  "Synergy Editor App: open the MIDI CC LIST tab, read the Royalist's own CC numbers and correct this definition (the numbers here are the SYN-20IR sibling's, unverified).",
+  "Store the presets the song calls: send PC n, set channel / IR / loop / reverb, long-press REVERB + CHANNEL.",
+  "DIN cable from the Thru5 WC into MIDI IN; the pedal has no thru."
+ ],
+ "notes": [
+  "The Royalist MKIII head and combo have no MIDI; this is the Royalist Preamp pedal (Synergy platform, sibling of the Imperial Preamp and the SYN-20IR).",
+  "The CC list is published only inside the editor's MIDI CC LIST tab; the manual does not print it.",
+  "Firmware updates run automatically from the Synergy Editor App; old editors can no longer connect."
+ ],
+ "sources": [
+  {
+   "title": "Tone King Royalist Preamp instruction manual (FINAL 01 19 2026): connections, MIDI IN OMNI default, editor MIDI CHANNEL, 128 program changes, MIDI STORE, MIDI CC LIST",
+   "url": "https://www.toneking.com/wp-content/uploads/2026/11/TONE-KING-ROYALIST-PREAMP-INSTRUCTION-MANUAL-BOOKLET-FINAL-01-19-2026.pdf",
+   "detail": "pp. 4, 6, 7, 9, 10"
+  },
+  {
+   "title": "Tone King Royalist Preamp product page (128 presets via MIDI, Synergy Editor App 8.9.6, firmware update notes)",
+   "url": "https://www.toneking.com/shop/pedals/tone-king-royalist-preamp/",
+   "detail": ""
+  },
+  {
+   "title": "Tone King Imperial Preamp manual (sibling, secondary): program changes 0-127",
+   "url": "https://www.toneking.com/wp-content/uploads/2026/11/TONE-KING-IMPERIAL-PREAMP-WEB.pdf",
+   "detail": "secondary"
+  },
+  {
+   "title": "Synergy SYN-20IR manual (same platform, secondary): CC 24, 25, 27, 28, 29, 30",
+   "url": "https://www.synergyamps.com/wp-content/uploads/2025/02/SYNERGY-SYN-20IR-MANUAL-FINAL-2-13-2025.pdf",
+   "detail": "secondary; the Royalist's own list is in the editor"
+  }
+ ],
+ "unverified": [
+  "every CC number (SYN-20IR sibling map until read from the editor's MIDI CC LIST)",
+  "MIDI channel range and whether 11 is selectable",
+  "0- or 1-based preset display",
+  "preset change latency",
+  "CC acceptance in OMNI",
+  "firmware version"
+ ],
+ "presets": []
+}

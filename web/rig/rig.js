@@ -30,9 +30,19 @@
  *
  *   Loading: classic script (globalThis.TabbyRig) and CommonJS.
  *
- * Version: 0.2
+ *   Built-in profiles (Task 09, v0.3): tools/linux/build-web.py inlines web/rig/profiles/*.json as
+ *   `globalThis.FM1_RIG_PROFILES`; rigBuiltins() returns them normalised with `builtin: true`.
+ *   They are read-only in the panel; "Copy to my rig" makes the editable stored copy. A channel
+ *   carries two optional fields since v0.3: `port` (where the device is cabled, text for the
+ *   guide and the checklist) and `track` (the Tabby track a part on this channel is pinned to by
+ *   the importer, 1..8 or null; the FM6 convention). A profile also carries `notes` (text lines
+ *   the guide prints). Older profiles read with port '', track null and no notes.
+ *
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-05  Task 09: built-in profiles, port / track per channel, profile notes,
+ *                     trackFor() and internalChannels() for the importer.
  *   v0.2  2026-11-04  Task 06: per-channel leadMs, the trailing gap kept for a lead.
  *   v0.1  2026-11-02  Initial version (Task 04, workbench part).
  */
@@ -43,13 +53,15 @@
   const devices = () => globalThis.TabbyDevices || (typeof require === 'function' ? require('./device-library.js') : null);
 
   function rigEmpty() {
-    return { schema: SCHEMA, name: 'My rig', channels: Array.from({ length: 16 }, () => ({ device: null, name: '', gapMs: null, leadMs: 0, programs: {} })) };
+    return { schema: SCHEMA, name: 'My rig', notes: [], channels: Array.from({ length: 16 }, () => ({ device: null, name: '', gapMs: null, leadMs: 0, programs: {}, port: '', track: null })) };
   }
   /* Validate and normalise a profile object (from storage, a file or a trailer). */
   function rigNormalize(data) {
     if (!data || data.schema !== SCHEMA || !Array.isArray(data.channels) || data.channels.length !== 16) throw new Error('not a tabby-rig/1 profile');
     const rig = rigEmpty();
     rig.name = typeof data.name === 'string' ? data.name.slice(0, 40) : rig.name;
+    rig.notes = Array.isArray(data.notes) ? data.notes.filter(t => typeof t === 'string').slice(0, 16).map(t => t.slice(0, 400)) : [];   /* v0.3 */
+    if (data.builtin === true) rig.builtin = true;   /* v0.3: kept in memory for the panel, never stored (rigSave strips it) */
     data.channels.forEach((c, i) => {
       const ch = rig.channels[i];
       if (c && typeof c === 'object') {
@@ -57,6 +69,8 @@
         ch.name = typeof c.name === 'string' ? c.name.slice(0, 40) : '';
         ch.gapMs = Number.isInteger(c.gapMs) && c.gapMs >= 0 && c.gapMs <= 255 ? c.gapMs : null;
         ch.leadMs = Number.isInteger(c.leadMs) && c.leadMs >= 0 && c.leadMs <= 255 ? c.leadMs : 0;   /* Task 06: lead before the bar */
+        ch.port = typeof c.port === 'string' ? c.port.slice(0, 160) : '';                                 /* v0.3 */
+        ch.track = Number.isInteger(c.track) && c.track >= 1 && c.track <= 8 ? c.track : null;           /* v0.3: the pinned Tabby track */
         ch.programs = {};
         for (const [k, v] of Object.entries(c.programs || {})) if (/^\d{1,3}$/.test(k) && Number(k) <= 127 && typeof v === 'string') ch.programs[k] = v.slice(0, 40);
       }
@@ -67,10 +81,26 @@
     try { const text = globalThis.localStorage && localStorage.getItem(STORAGE_KEY); if (text) return rigNormalize(JSON.parse(text)); } catch (_) { /* fall through */ }
     return rigEmpty();
   }
-  function rigSave(rig) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rigNormalize(rig))); } catch (_) { /* private mode: keep in memory */ } }
-  function rigExport(rig) { return JSON.stringify(rigNormalize(rig), null, 1); }
-  function rigImport(text) { return rigNormalize(typeof text === 'string' ? JSON.parse(text) : text); }
-  function rigClone(rig) { return rigNormalize(JSON.parse(JSON.stringify(rig))); }
+  const stored = rig => { const r = rigNormalize(rig); delete r.builtin; return r; };
+  function rigSave(rig) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(stored(rig))); } catch (_) { /* private mode: keep in memory */ } }
+  function rigExport(rig) { return JSON.stringify(stored(rig), null, 1); }
+  function rigImport(text) { return stored(typeof text === 'string' ? JSON.parse(text) : text); }
+  function rigClone(rig) { return stored(JSON.parse(JSON.stringify(rig))); }
+  /* v0.3: the built-in profiles shipped with the page (or passed in by a test), normalised. */
+  function rigBuiltins(list) {
+    const src = list || globalThis.FM1_RIG_PROFILES || [];
+    const out = [];
+    for (const p of src) { try { const r = rigNormalize(p); r.builtin = true; out.push(r); } catch (_) { /* a broken built-in is skipped */ } }
+    return out;
+  }
+  /* v0.3: the Tabby track (1..8) a part on `channel` is pinned to, or null. */
+  function trackFor(rig, channel) { const c = rig.channels[channel]; return c && c.track ? c.track : null; }
+  /* v0.3: channels whose device is internal (the FM6 convention) or an effect, for the importer. */
+  function channelsOfKind(rig, library, kind) {
+    const D = devices(), out = [];
+    for (let ch = 0; ch < 16; ch++) { const d = deviceOn(rig, library, ch); if (d && D.kind(d) === kind) out.push(ch); }
+    return out;
+  }
 
   /* The definition on a channel (0..15), or null. */
   function deviceOn(rig, library, channel) {
@@ -148,7 +178,7 @@
     return 'program ' + label + (name ? ' "' + name + '"' : '') + ' [PC ' + program + ']' + bankText;
   }
 
-  const TabbyRig = { SCHEMA, STORAGE_KEY, rigEmpty, rigNormalize, rigLoad, rigSave, rigExport, rigImport, rigClone, deviceOn, channelLabel, gapFor, leadFor, programName, applyGaps, describe, version: '0.2' };
+  const TabbyRig = { SCHEMA, STORAGE_KEY, rigEmpty, rigNormalize, rigLoad, rigSave, rigExport, rigImport, rigClone, rigBuiltins, trackFor, channelsOfKind, deviceOn, channelLabel, gapFor, leadFor, programName, applyGaps, describe, version: '0.3' };
   globalThis.TabbyRig = TabbyRig;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyRig;
 })();

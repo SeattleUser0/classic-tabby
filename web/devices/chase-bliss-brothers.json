@@ -1,0 +1,187 @@
+{
+ "schema": "tabby-device/1",
+ "version": "0.2",
+ "id": "chase-bliss-brothers",
+ "name": "Chase Bliss Audio Brothers",
+ "maker": "Chase Bliss Audio",
+ "kind": "effect",
+ "firmware": "no firmware versions or updates published (MIDI manual PDF 2018-04-05, pedal manual 2017-03-11)",
+ "midiIn": {
+  "connector": "1/4 inch TRS jack EXT(A)/MIDI: MIDI on the ring, tip floating ('ring active'); no DIN, no USB, no thru",
+  "trs": "ring",
+  "note": "Needs a powered Chase Bliss MIDIbox (DIN in, jumper in RING, TRS patch cable to the jack) or another ring-active TRS MIDI output. A plain TRS type A cable will not drive it. In this rig: Thru5 WC > MIDIbox (RING) > Brothers."
+ },
+ "clock": {
+  "receives": false,
+  "syncs": "nothing (a gain pedal: no tempo, no tap, no ramping)",
+  "setting": ""
+ },
+ "channelSetting": "Hold both stomp switches while powering up, release, then send any program change on channel 12: the first PC seen sets the channel permanently (default 2). No factory reset exists.",
+ "channel": {
+  "default": 2,
+  "note": "Default 2. Learnt from the first program change after a both-switch power-up; any channel 1..16. Wrong Room: 12 (learn it by sending a PC on channel 12, for example SEND SETUP with row 1 holding the Brothers' preset)."
+ },
+ "programChange": {
+  "supported": true,
+  "displayBase": 0,
+  "programs": 123,
+  "bankFormat": "none",
+  "pad": 0,
+  "bankSelect": {
+   "scheme": "none",
+   "banks": []
+  },
+  "gapMs": 0,
+  "gapAfter": "program",
+  "note": "PC 0 = live mode (the preset toggle's middle position); PC 1..122 = presets 1..122 (slot 1 = the toggle's right position, slot 2 = left; 3..122 are MIDI-only and empty until saved). Wire value = displayed number. Save: send the PC while holding both stomp switches. No bank select, nothing to enable. PC 123..127: not documented."
+ },
+ "controllers": [
+  {
+   "cc": 14,
+   "name": "Gain A",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 15,
+   "name": "Master",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 16,
+   "name": "Gain B",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 17,
+   "name": "Tone A",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 18,
+   "name": "Mix / Stack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 19,
+   "name": "Tone B",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 21,
+   "name": "Channel A effect",
+   "min": 1,
+   "max": 3,
+   "values": {
+    "1": "Boost",
+    "2": "Drive",
+    "3": "Fuzz"
+   }
+  },
+  {
+   "cc": 22,
+   "name": "Order",
+   "min": 1,
+   "max": 3,
+   "values": {
+    "1": "PARA",
+    "2": "A>>B",
+    "3": "B>>A"
+   }
+  },
+  {
+   "cc": 23,
+   "name": "Channel B effect",
+   "min": 1,
+   "max": 3,
+   "values": {
+    "1": "Fuzz",
+    "2": "Drive",
+    "3": "Boost"
+   }
+  },
+  {
+   "cc": 100,
+   "name": "Expression",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "pedal up",
+    "127": "fully depressed"
+   }
+  },
+  {
+   "cc": 102,
+   "name": "Bypass switch",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "both channels bypassed",
+    "127": "last saved channels engaged"
+   }
+  },
+  {
+   "cc": 103,
+   "name": "Bypass states",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "both bypassed",
+    "45": "B on, A bypassed",
+    "85": "A on, B bypassed",
+    "127": "both on"
+   }
+  }
+ ],
+ "setup": [
+  "Chase Bliss MIDIbox: power it, jumper in RING, DIN from the Thru5 WC, TRS patch cable to the Brothers' EXT(A)/MIDI jack (a plain TRS type A cable from a DIN out does not work).",
+  "Set channel 12: power up holding both stomp switches, release, send a program change on channel 12 (SEND SETUP with the Brothers' preset in row 1 does it).",
+  "Save the presets the song calls: hold both stomp switches and send PC n (1..122).",
+  "PC 0 in a song means live mode (the toggle's middle position), not a preset."
+ ],
+ "notes": [
+  "Original Brothers (2017, with Resonant Electronic Design). The Brothers AM (2025) is a different pedal with another CC map (14..19 renamed, 27/29 presence, 102/103 as per-channel bypass, 111 preset save, dip switches 61..77).",
+  "CC 102 at 127 restores the last saved channels; CC 103 gives deterministic A / B states.",
+  "No MIDI thru or out; no notes, no SysEx documented; sending clock to it is harmless and useless."
+ ],
+ "sources": [
+  {
+   "title": "Brothers MIDI manual (MIDI CONFIGURATION, 2018-04-05)",
+   "url": "https://cb2k22.squarespace.com/s/Brothers_MIDI-Manual_Pedal_Chase-Bliss.pdf",
+   "detail": "channel learn, PC 0..122, CC table, MIDIbox"
+  },
+  {
+   "title": "Brothers instructions (2017-03-11): the EXT(A)/MIDI jack, dip switches",
+   "url": "https://cb2k22.squarespace.com/s/Brothers_Manual_Pedal_Chase-Bliss.pdf",
+   "detail": ""
+  },
+  {
+   "title": "Chase Bliss support page: ring-active TRS wiring, no factory reset, MIDIbox needs power",
+   "url": "https://www.chasebliss.com/support",
+   "detail": ""
+  },
+  {
+   "title": "Chase Bliss MIDIbox product page",
+   "url": "https://chasebliss.com/shoputility/p/midibox",
+   "detail": "jumpers ring active for Chase Bliss"
+  },
+  {
+   "title": "Morningstar help and forum (secondary): a ring-active Omniport drives Chase Bliss pedals; tip left floating",
+   "url": "https://help.morningstar.io/en/article/connecting-chase-bliss-devices-to-the-morningstar-omniports-8c8wqd/",
+   "detail": "secondary"
+  }
+ ],
+ "unverified": [
+  "electrical level of the ring input (no pinout published)",
+  "PC 123..127",
+  "preset change latency",
+  "learn-state timeout",
+  "omni"
+ ],
+ "presets": []
+}

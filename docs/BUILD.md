@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.27
+Version: 0.28
 Revision log:
+- v0.28, 2026-11-05 (Task 09 checkpoint a): section 23: the device library additions and
+  rechecks, the Wrong Room profile, the profile selector; the Orange Cat cross-project note in
+  the left-to-build list.
 - v0.27, 2026-11-05: section 9: tabby-v03.1 published (9.1 current values, 9.3d verification
   with the forced-label gate and the archive VERSION check); the ACTIONS confirmation index
   and the two hint texts in the left-to-build list.
@@ -210,6 +213,10 @@ are never written.
   SONG page's "K1 SONG" hint names the wrong knob (SELECT / PRESETS select the song); the
   SOUND SOURCE page's "K1 / PADS 1-6 CHOOSE" should say 1-5, and the overview's PAGE / K2
   path into it wraps with GROOVE_SOURCES (6) instead of SOURCE_CHOICES (5).
+- **Cross-project (Orange Cat firmware, not Classic Tabby):** a per-track MIDI input channel with
+  OFF, as Skiff 2.2's T1–T6 CHANNEL, so an Orange Cat FM-1 can take one channel without an
+  H4MIDI WC port filter (today ROUT routes a block of four channels or every channel; Task 09
+  Step 1 assessment section 3). Until then the Wrong Room profile filters the unit's port.
 - **Sanitizer fixes**: none needed; `make host-sanitize` is green (0 findings, leaks included)
   at linux-build 8114114. Keep it green: it is part of `make suite`.
 
@@ -2187,3 +2194,34 @@ scripts on this head, not from the plans.
    ("管理设备项目、音色和采样") and the update tab's back-up checkbox ("…工程和采样") still
    mention samples; the SMK37 Open "Six sound engines" wording in sdk/I18n.js for other UI
    strings is untouched.
+
+## 23. Task 09 — The Wrong Room rig (2026-11-05)
+
+Task text: docs/tasks/TASK-09-wrong-room-rig.md (v0.2: the Boss RE-2 has no MIDI and left the
+plan). Step 1 research and the approved decisions: docs/tasks/TASK-09-step1-assessment.md.
+Firmware unchanged throughout (margin 2525).
+
+### 23.1 Checkpoint (a): device library, the Wrong Room profile, the profile selector
+
+- `tools/linux/devices-from-sources.py` v0.2 writes fifteen definitions: four new (Chase Bliss
+  Brothers, Strymon NightSky, Tone King Royalist Preamp, the SMK-37's FM6 as an internal
+  pseudo-device) and the eleven of Task 04 rechecked (Skiff 2.2 with T CHANNEL OFF and clock,
+  Melodee 1.6.1, Orange Cat read from its source, M8 firmware 6.6.3 / manual 6.5.2, H90 1.12.5
+  with the CC-after-PC bug still open, Zoom 1.20, Seashell 1.0.3, the Proteus's lack of clock).
+  Definitions gained the optional fields `kind`, `midiIn`, `clock`, `channelSetting`,
+  `firmware` and `programChange.programsTotal`; `web/rig/device-library.js` v0.2 validates them
+  when present and adds `kind()`, `isEffect()`, `programInRange()`.
+- `web/rig/profiles/wrong-room.json`: the built-in profile (the approved plan: 1 Seashell, 2 and 3
+  FM-1 A and B, 4 / 10 / 13 M8 parts 1..3, 5..8 Proteus parts 1..4, 9 FM6 pinned to Tabby track
+  8, 11 Royalist, 12 Brothers, 14 NightSky, 15 H90 with a 255 ms gap after the program change,
+  16 Zoom), each channel with its port note (H4MIDI WC port and filter, adapter), and the
+  profile notes (the Proteus reservation, the H4MIDI preset, the RE-2 as audio only).
+  `web/rig/rig.js` v0.3: `port` and `track` per channel, `notes`, `rigBuiltins()`, `trackFor()`,
+  `channelsOfKind()`; old profiles load unchanged. `web/rig/rig-ui.js` v0.3: a Profile select
+  (My rig, each built-in read-only, Copy to my rig), Port and Track columns, the notes under
+  the table. `tools/linux/build-web.py` v0.3 inlines the profiles as `FM1_RIG_PROFILES`.
+- Tests: tests/workbench/devices.mjs v0.2 (fifteen definitions, NightSky and Brothers numbering,
+  kinds, programInRange, the optional-field validation) and tests/workbench/rig-profile.mjs
+  (the plan, the pin, the copy, the old-profile load, the H90 gap). `make test-fast` green;
+  headless Chrome on the preview: the profile select with "Wrong Room (built-in)", the nine
+  columns, fifteen devices inlined, no console errors.

@@ -1,9 +1,20 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "waldorf-pulse-2",
  "name": "Waldorf Pulse 2",
  "maker": "Waldorf",
+ "kind": "instrument",
+ "midiIn": {
+  "connector": "5-pin DIN in/out and USB (MIDI only)",
+  "trs": null,
+  "note": ""
+ },
+ "clock": {
+  "receives": "unverified",
+  "syncs": "arpeggiator clock per the manual (not researched for this rig)",
+  "setting": ""
+ },
  "channel": {
   "default": null,
   "note": "Global MIDI Channel: OMNI or 1..16 (omni receives all, sends on 1)."

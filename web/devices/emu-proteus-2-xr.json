@@ -1,12 +1,25 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "emu-proteus-2-xr",
  "name": "E-MU Proteus/2 XR",
  "maker": "E-mu Systems",
+ "kind": "instrument",
+ "firmware": "Proteus operation manual with the 1992 MIDI addendum (revision 4, 1992-03-04); no later document",
+ "midiIn": {
+  "connector": "5-pin DIN in, out and thru (thru is an exact copy of in)",
+  "trs": null,
+  "note": "Standard DIN cable. In this rig: H4MIDI WC MIDI OUT 2 with a filter passing channels 5..8 only, merged with the second controller from MIDI IN 2."
+ },
+ "clock": {
+  "receives": false,
+  "syncs": "nothing: the manual has no MIDI clock and no realtime messages",
+  "setting": ""
+ },
+ "channelSetting": "Master > MIDI MODE = Multi; Master > MIDI ENABLE channel 05..08 On and every channel you do not use Off; Master > PRESET CHANGE 05..08 On; on the main screen cursor to the channel number, dial C05..C08 and the preset for each.",
  "channel": {
   "default": null,
-  "note": "Multi mode: each of the 16 channels has its own preset; set MIDI ENABLE and PRESET CHANGE on per channel."
+  "note": "Multi mode: each of the 16 channels has its own preset; set MIDI ENABLE and PRESET CHANGE on per channel. Wrong Room: channels 5..8 are Classic Tabby's parts 1..4; every other channel the Proteus hears belongs to the second controller."
  },
  "programChange": {
   "supported": true,
@@ -109,7 +122,8 @@
  ],
  "setup": [
   "Master menu: MIDI MODE = Multi.",
-  "Per channel the song addresses: MIDI ENABLE on and PRESET CHANGE on.",
+  "Per channel the song addresses (5..8): MIDI ENABLE on and PRESET CHANGE on; MIDI ENABLE off on every channel that is neither yours nor the second controller's.",
+  "Feed the Proteus from H4MIDI WC MIDI OUT 2 (filter: channels 5..8 only from MIDI IN 1; MIDI IN 2 unfiltered), so the second controller's channels never meet Classic Tabby's.",
   "Master menu MIDI PROG>PRESET: identity for presets 0..127; map a program number to each preset above 127 the song needs (no bank select exists).",
   "Leave the Edit menu before playing: program changes are ignored inside it.",
   "Run SEND SETUP before PLAY: the manual asks for setup messages before the song starts."

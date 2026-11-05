@@ -1,12 +1,25 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "mvave-fm1-skiff",
  "name": "M-VAVE FM-1 (Skiff firmware)",
  "maker": "M-VAVE (firmware: Skiff by illuminus5, GPL-3.0)",
+ "kind": "instrument",
+ "firmware": "Skiff 2.2 (2026-11-03); the online manual still describes the 1.3-era MIDI menu",
+ "midiIn": {
+  "connector": "USB class-compliant MIDI in/out and a 3.5 mm TRS MIDI in on the FM-1",
+  "trs": null,
+  "note": "TRS type not stated by Skiff or M-VAVE. In this rig a Skiff unit can take its channel directly (T1 CHANNEL = its channel, T2..T6 OFF) on any port; the H4MIDI filter is not needed but harmless."
+ },
+ "clock": {
+  "receives": true,
+  "syncs": "the sequencer: Clock, Start, Continue, Stop and (2.2) Song Position from the chosen input",
+  "setting": "MENU > MIDI > CLOCK = USB or TRS (the port Classic Tabby arrives on); CLOCK OUT off"
+ },
+ "channelSetting": "MENU > MIDI > T1 CHANNEL = the unit's channel (2 for FM-1 A, 3 for FM-1 B), T2..T6 CHANNEL = OFF (2.2); MIDI IN shows TRACK. Older firmware: give T2..T6 channels nothing sends on.",
  "channel": {
   "default": null,
-  "note": "MENU > MIDI: MIDI IN = CH1-6 (channels 1..6 play tracks 1..6; other channels are ignored entirely) or SEL (every channel plays the selected track); T1..T6 CHANNEL 1..16 per track (default 1..6). USB MIDI in/out and TRS in."
+  "note": "MENU > MIDI: T1..T6 CHANNEL = 1..16, OFF or CH n EXT per track (2.2); a channel no track is on is ignored entirely; two tracks on one channel: the first plays it; MIDI IN = SEL makes every channel play the selected track; AUTO CHANNEL (2.2) plays the selected track from one extra channel. Wrong Room: FM-1 A channel 2, FM-1 B channel 3."
  },
  "programChange": {
   "supported": true,
@@ -20,7 +33,7 @@
   },
   "gapMs": 0,
   "gapAfter": "program",
-  "note": "Skiff 1.3+: a PC on a track's channel loads that track's engine's factory sound number n, counted from 0 (0 on an FM6 track = TINE EP); a program past the engine's last preset is ignored, not wrapped; user sounds are not reachable. No bank select (CC 0 / CC 32 ignored). The number means a different sound per engine, so name presets per engine in the rig profile."
+  "note": "Skiff 1.3+ (2.2 unchanged): a PC on a track's channel loads that track's engine's factory sound number n, counted from 0 (the PRESETS list order, aliases skipped; 0 on an FM6 track = TINE EP); a program past the engine's last preset is ignored, not wrapped; user sounds are not reachable; the load happens in the main loop after the message. No bank select (CC 0 / CC 32 ignored). The number means a different sound per engine, so name presets per engine in the rig profile."
  },
  "controllers": [
   {
@@ -131,27 +144,34 @@
   }
  ],
  "setup": [
-  "Load Skiff (web installer); MENU > MIDI: MIDI IN = CH1-6 and the track channels, or SEL.",
-  "Program numbers count the track's engine's factory presets from 0: set each track's engine first.",
-  "A PC is applied by the main loop after the message: keep a small gap before the notes (no published figure)."
+  "Load Skiff 2.2 (web installer); MENU > MIDI > T1 CHANNEL = the unit's channel (2 or 3), T2..T6 CHANNEL = OFF.",
+  "MENU > MIDI > CLOCK = USB or TRS (where Classic Tabby arrives) so the unit follows clock, Start and Stop; CLOCK OUT = off (Classic Tabby is the master).",
+  "Program numbers count the track's engine's factory presets from 0: set track 1's engine first.",
+  "A PC is applied by the main loop after the message: keep a small gap before the notes (no published figure).",
+  "No H4MIDI filter is needed for a Skiff unit; one is harmless."
  ],
  "notes": [
   "148 factory sounds over 14 engines (per-engine order in firmware/src/engines.c); no complete published name list, so presets are named in the rig profile.",
-  "Skiff v2.1.1 (2026-10-31) at research time."
+  "Skiff 2.2 (2026-11-03) at research time: adds T CHANNEL OFF and CH n EXT, AUTO CHANNEL, NOTES OUT, CC OUT, THRU, REMOTE (CC 102..115 on its own channel press the panel buttons), CLOCK OUT, Song Position in."
  ],
  "sources": [
   {
-   "title": "Skiff repository (README: MIDI, CC map)",
-   "url": "https://github.com/illuminus5/skiff",
-   "detail": "v2.1.1"
+   "title": "Skiff release 2.2 (2026-11-03): release notes",
+   "url": "https://github.com/illuminus5/skiff/releases/tag/v2.2",
+   "detail": "OFF / EXT, AUTO CHANNEL, CLOCK OUT, REMOTE, Song Position"
   },
   {
-   "title": "Skiff manual, chapter 19 MIDI and the web editor",
+   "title": "Skiff README: MENU > MIDI and the MIDI implementation (CC map, clock, program change)",
+   "url": "https://github.com/illuminus5/skiff#readme",
+   "detail": "commit db2ce89, read 2026-11-05"
+  },
+  {
+   "title": "Skiff manual, chapter 19 MIDI (1.3-era text)",
    "url": "https://illuminus5.github.io/skiff/learn/",
    "detail": "program change counted from 0, CC table, MIDI LEARN"
   },
   {
-   "title": "Skiff source: firmware/src/midi_control.c, ui.c (midi_pc_load)",
+   "title": "Skiff source: firmware/src/midi_control.c (midi_event drops unmapped channels), seq.c (midi_slot), ui.c (midi_pc_load), midi_clock.c",
    "url": "https://github.com/illuminus5/skiff/blob/main/firmware/src/midi_control.c",
    "detail": "PC per track, no bank select"
   }
@@ -160,7 +180,8 @@
   "channel.default",
   "per-engine preset order and names",
   "PC latency on hardware",
-  "TRS jack polarity"
+  "TRS jack type (A or B)",
+  "the 2.2 items the author lists as not yet tried on a unit"
  ],
  "presets": []
 }

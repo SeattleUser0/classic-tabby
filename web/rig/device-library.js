@@ -25,7 +25,11 @@
  *                 preset has no direct MIDI number (Proteus 128..383: only through its
  *                 program map), number? (the device's own number), name, category? }],
  *     controllers: [{ cc: 0..127 (or -1 = "no fixed map" note), name, min, max, values? }],
- *     setup: [text], notes: [text], sources: [{ title, url, detail }], unverified: [text]
+ *     setup: [text], notes: [text], sources: [{ title, url, detail }], unverified: [text],
+ *     and, optional since v0.2 (Task 09): kind: "instrument" | "effect" | "internal" (default
+ *     instrument), midiIn: { connector, trs: null | "A" | "B" | "ring", note }, clock: { receives:
+ *     true | false | "unverified", syncs, setting }, channelSetting (text), firmware (text),
+ *     programChange.programsTotal (presets reachable over all banks, when a bank is partial)
  *
  *   Display numbering: the device shows a program as
  *     bankLabel + pad(displayBase + program + bankIndex × stride)
@@ -38,9 +42,12 @@
  *   workbench the definitions arrive inlined by tools/linux/build-web.py as
  *   `globalThis.FM1_DEVICES` (an array) and in Node from the files.
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-05  Task 09: the optional kind / midiIn / clock / channelSetting / firmware /
+ *                     programsTotal fields validated when present; kind(), isEffect(),
+ *                     programInRange() for the importer's warnings and the generated guide.
  *   v0.1  2026-11-02  Initial version (Task 04, workbench part).
  */
 (() => {
@@ -48,6 +55,7 @@
 
   const SCHEMA = 'tabby-device/1';
   const BANK_SCHEMES = ['none', 'cc0', 'cc32', 'cc0cc32'], BANK_FORMATS = ['none', 'letter', 'hundreds'];
+  const KINDS = ['instrument', 'effect', 'internal'], TRS = [null, 'A', 'B', 'ring'];   /* v0.2 */
 
   const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
   const isText = v => typeof v === 'string';
@@ -121,6 +129,16 @@
     }
     if (!Array.isArray(d.sources) || !d.sources.length) err('sources must list at least one source');
     else d.sources.forEach((s, i) => { if (!s || !isText(s.title) || !isText(s.url) || !isText(s.detail)) err('source ' + i + ' needs title, url, detail'); });
+    /* v0.2 (Task 09): optional fields, checked only when present. */
+    if (d.kind !== undefined && !KINDS.includes(d.kind)) err('kind must be instrument, effect or internal');
+    if (d.midiIn !== undefined) {
+      if (!d.midiIn || typeof d.midiIn !== 'object' || !isText(d.midiIn.connector) || !isText(d.midiIn.note) || !TRS.includes(d.midiIn.trs)) err('midiIn needs connector, note and trs null / A / B / ring');
+    }
+    if (d.clock !== undefined) {
+      if (!d.clock || typeof d.clock !== 'object' || ![true, false, 'unverified'].includes(d.clock.receives) || !isText(d.clock.syncs) || !isText(d.clock.setting)) err('clock needs receives (true / false / unverified), syncs, setting');
+    }
+    for (const k of ['channelSetting', 'firmware']) if (d[k] !== undefined && !isText(d[k])) err(k + ' must be text');
+    if (p && p.programsTotal !== undefined && !isInt(p.programsTotal, 1, 65535)) err('programChange.programsTotal must be 1..65535');
     return { ok: !errors.length, errors };
   }
 
@@ -169,6 +187,23 @@
     return x ? x.name : null;
   }
   function controller(d, cc) { return d.controllers.find(c => c.cc === cc) || null; }
+  /* v0.2 (Task 09): the device's kind (instrument by default), and whether a program number the
+   * file carries reaches a preset: supported, within the bank's programs and the total. A device
+   * without a bank scheme takes bank null; bankFormat none with programs > 128 (the Skiff's 148)
+   * accepts any PC 0..127. */
+  function kind(d) { return KINDS.includes(d.kind) ? d.kind : 'instrument'; }
+  function isEffect(d) { return kind(d) === 'effect'; }
+  function programInRange(d, bank, program) {
+    const p = d.programChange;
+    if (p.supported !== true || !isInt(program, 0, 127)) return false;
+    const banks = p.bankSelect.banks, stride = p.programs || 128;
+    if (banks.length) {
+      if (bank === null || bank === undefined) bank = 0;
+      if (!isInt(bank, 0, banks.length - 1) || program >= stride) return false;
+      return p.programsTotal ? bank * stride + program < p.programsTotal : true;
+    }
+    return p.programs ? program < p.programs : true;
+  }
   function valueName(d, cc, value) {
     const c = controller(d, cc); if (!c || !c.values) return null;
     const keys = Object.keys(c.values).map(Number).sort((a, b) => a - b);
@@ -189,7 +224,7 @@
       get(id) { return byId.get(id) || null; } };
   }
 
-  const TabbyDevices = { SCHEMA, validateDevice, load, programLabel, programFromLabel, bankBytes, bankFromBytes, presetName, controller, valueName, version: '0.1' };
+  const TabbyDevices = { SCHEMA, validateDevice, load, programLabel, programFromLabel, bankBytes, bankFromBytes, presetName, controller, valueName, kind, isEffect, programInRange, version: '0.2' };
   globalThis.TabbyDevices = TabbyDevices;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyDevices;
 })();

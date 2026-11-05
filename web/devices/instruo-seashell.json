@@ -1,12 +1,25 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "instruo-seashell",
  "name": "Instruo Seashell",
  "maker": "Instruo",
+ "kind": "instrument",
+ "firmware": "Seashell firmware 1.0.3 (the firmware page's latest; no date given); Seashell Controller 1.0.0; firmware 2.0 announced (secondary), not released",
+ "midiIn": {
+  "connector": "3.5 mm TRS type A MIDI in (the included adaptor) and class-compliant USB-C audio + MIDI; input only",
+  "trs": "A",
+  "note": "DIN-to-TRS type A adapter from the Thru5 WC."
+ },
+ "clock": {
+  "receives": false,
+  "syncs": "nothing: no MIDI clock; the only sync is the analogue Gate/Trig input (Tap Tempo menu)",
+  "setting": ""
+ },
+ "channelSetting": "Seashell Controller app > Settings > MIDI Channel Menu = 1 (saved automatically since 1.0.3).",
  "channel": {
   "default": null,
-  "note": "Set in the Seashell Controller software (Settings > MIDI Channel). TRS type A MIDI in and class-compliant USB-C. Default and omni not documented."
+  "note": "Set in the Seashell Controller software (Settings > MIDI Channel). TRS type A MIDI in and class-compliant USB-C. Default and omni not documented. Wrong Room: channel 1."
  },
  "programChange": {
   "supported": "unverified",
@@ -31,8 +44,9 @@
   }
  ],
  "setup": [
-  "Seashell Controller: Settings > MIDI Channel.",
-  "Map the parameters you want to drive with MIDI Learn (the mapping is yours; enter the CC numbers in the rig profile)."
+  "Seashell Controller: Settings > MIDI Channel = 1.",
+  "Map the parameters you want to drive with MIDI Learn (the mapping is yours; enter the CC numbers in the rig profile).",
+  "No program change in firmware 1.0.3: a song can only send CCs you learnt; keep an eye on firmware 2.0 (120 preset slots by program change, announced)."
  ],
  "notes": [
   "No preset names published.",
@@ -40,12 +54,12 @@
  ],
  "sources": [
   {
-   "title": "Seashell user manual (2025-06-10, firmware 1.0.0)",
+   "title": "Seashell user manual (2025, firmware 1.0.0): TRS type A in, USB-C, MIDI Channel Menu, MIDI Learn, no clock",
    "url": "https://instruomodular.com/wp-content/uploads/manuals/Seashell%20Manual.pdf",
-   "detail": "pp. 11, 45, 49-50, 55"
+   "detail": "pp. 4, 11, 45, 49-50, 55; reread 2026-11-05"
   },
   {
-   "title": "Instruo firmware page (1.0.3 notes)",
+   "title": "Instruo firmware page (1.0.3 notes: revised MIDI stack, channel saved automatically)",
    "url": "https://www.instruomodular.com/firmware/",
    "detail": ""
   },

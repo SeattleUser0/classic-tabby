@@ -1,15 +1,28 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "mvave-fm1-orange-cat",
  "name": "M-VAVE FM-1 (Orange Cat firmware)",
  "maker": "M-VAVE (firmware: Orange Cat, in development)",
+ "kind": "instrument",
+ "firmware": "Orange Cat source read at ~/oc-ui 7e7bf40 (2026-11-05); no version string in the sources, no published MIDI document",
+ "midiIn": {
+  "connector": "USB class-compliant MIDI (the device enumerates as 'Orange Cat FM-1') and the FM-1's 3.5 mm TRS MIDI in",
+  "trs": null,
+  "note": "TRS type not stated. In this rig the unit sits on its own H4MIDI WC port (USB host through the hub) with a filter passing only its channel, because Orange Cat listens on a block of four channels."
+ },
+ "clock": {
+  "receives": "unverified",
+  "syncs": "the sequencer when CLOCK is USB or TRS (settings list INT / USB / TRS; behaviour read from the source only)",
+  "setting": "GLO > CLOCK = USB or TRS"
+ },
+ "channelSetting": "GLO > SYSTEM > ROUT = CH1-4 behind an H4MIDI WC port filter that passes only the unit's channel: channel 2 then plays the unit's track 2 (FM-1 A), channel 3 its track 3 (FM-1 B). No per-track input channel exists (a cross-project item for Orange Cat, BUILD.md left-to-build).",
  "channel": {
   "default": null,
-  "note": "Placeholder: Orange Cat's MIDI implementation is not settled. Channel and notes only."
+  "note": "GLO > SYSTEM > ROUT = CH1-4 / SEL / CH5-8 / CH9-12 / CH13-16: a block of four consecutive channels plays tracks 1..4 in order (the DRUM channel, default 10, overrides within the block), SEL makes every channel play the selected track. Read from the source (seq.c midi_track). Wrong Room: behind an H4MIDI channel filter, ROUT = CH1-4."
  },
  "programChange": {
-  "supported": "unverified",
+  "supported": false,
   "displayBase": 0,
   "programs": 0,
   "bankFormat": "none",
@@ -20,24 +33,179 @@
   },
   "gapMs": 0,
   "gapAfter": "program",
-  "note": "Placeholder to fill in when Orange Cat's MIDI implementation is settled."
+  "note": "No program change handler in the source (midi_event dispatches notes, bend, CC and channel pressure only). A program event targeted at this device does nothing."
  },
- "controllers": [],
+ "controllers": [
+  {
+   "cc": 1,
+   "name": "Mod wheel",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 5,
+   "name": "Glide",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 7,
+   "name": "Level",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 10,
+   "name": "Pan",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 12,
+   "name": "DUB TAPE feedback",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 13,
+   "name": "DUB TAPE send",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 14,
+   "name": "DUB TAPE tone",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 15,
+   "name": "DUB TAPE space",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 16,
+   "name": "DUB TAPE throw",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 17,
+   "name": "DUB TAPE cut",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 18,
+   "name": "DUB TAPE kick",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 64,
+   "name": "Sustain",
+   "min": 0,
+   "max": 127,
+   "values": {
+    "0": "off",
+    "64": "on"
+   }
+  },
+  {
+   "cc": 71,
+   "name": "Engine macro (resonance / morph by engine)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 72,
+   "name": "Release",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 73,
+   "name": "Attack",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 74,
+   "name": "Engine macro (cutoff / timbre by engine)",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 75,
+   "name": "Decay",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 91,
+   "name": "Reverb send",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 93,
+   "name": "Chorus send",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 94,
+   "name": "Delay send",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 104,
+   "name": "Distortion",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "cc": 120,
+   "name": "All Sound Off",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 121,
+   "name": "Reset All Controllers",
+   "min": 0,
+   "max": 0
+  },
+  {
+   "cc": 123,
+   "name": "All Notes Off",
+   "min": 0,
+   "max": 0
+  }
+ ],
  "setup": [
-  "Load the Orange Cat firmware; set its MIDI channel per its own documentation."
+  "Load the Orange Cat firmware; GLO > SYSTEM > ROUT = CH1-4; the unit's H4MIDI WC port filtered to its channel (2 or 3), so only that channel reaches it and plays its track 2 or 3.",
+  "GLO > CLOCK = USB (or TRS) if the unit should follow Classic Tabby's clock (behaviour read from the source only).",
+  "No program change: only CC events reach this device."
  ],
  "notes": [
-  "Placeholder definition (Task 04): no program change, no named CCs until the firmware's MIDI implementation is settled."
+  "Facts read from the Orange Cat source (firmware/src/midi_control.c, seq.c midi_track, params.c N_ROUTE / N_CLOCK) at ~/oc-ui 7e7bf40 on 2026-11-05; nothing is copied from it. Not verified on hardware.",
+  "Cross-project item (BUILD.md left-to-build): a per-track input channel with OFF, as Skiff 2.2 has, would let an Orange Cat unit take one channel without a filter."
  ],
  "sources": [
   {
-   "title": "Orange Cat FM-1 firmware (separate project, in development)",
+   "title": "Orange Cat FM-1 firmware source (local checkout ~/oc-ui, 7e7bf40): firmware/src/midi_control.c, seq.c, params.c",
    "url": "",
-   "detail": "no published MIDI implementation yet"
+   "detail": "read 2026-11-05; the project publishes no MIDI implementation document"
   }
  ],
  "unverified": [
-  "everything beyond channel and notes"
+  "everything on hardware (code read only)",
+  "clock receive",
+  "TRS jack type",
+  "the firmware version string"
  ],
  "presets": []
 }

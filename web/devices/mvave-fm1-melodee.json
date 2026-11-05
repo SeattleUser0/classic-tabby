@@ -1,12 +1,25 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "mvave-fm1-melodee",
  "name": "M-VAVE FM-1 (Melodee firmware)",
  "maker": "M-VAVE (firmware: Melodee by keremimo, GPL-3.0)",
+ "kind": "instrument",
+ "firmware": "Melodee 1.6.1 (2026-11-02); no newer tag on 2026-11-05",
+ "midiIn": {
+  "connector": "USB class-compliant MIDI in/out, a 3.5 mm TRS MIDI in (input only) and BLE MIDI",
+  "trs": null,
+  "note": "TRS type not stated. In this rig the unit sits on its own H4MIDI WC port (USB host through the hub) with a filter passing only its channel, because Melodee listens on a block of four channels."
+ },
+ "clock": {
+  "receives": true,
+  "syncs": "the sequencer: clock, Start, Continue, Stop and Song Position from the chosen input",
+  "setting": "GLO > GLOBAL > CLK = USB or TRS (the port Classic Tabby arrives on)"
+ },
+ "channelSetting": "GLO > SYSTEM > ROUT = CH1-4 behind an H4MIDI WC port filter that passes only the unit's channel: channel 2 then plays the unit's track 2 (FM-1 A), channel 3 its track 3 (FM-1 B). There is no per-track input channel.",
  "channel": {
   "default": null,
-  "note": "GLO > SYSTEM > ROUT = CH1-4 / CH5-8 / CH9-12 / CH13-16 (four consecutive channels on tracks 1..4) or SEL (every channel plays the selected track); DRUM channel OFF / 1..16 (default 10); MIDI tracks have their own channel 1..16. USB class-compliant, TRS input, BLE MIDI."
+  "note": "GLO > SYSTEM > ROUT = CH1-4 / CH5-8 / CH9-12 / CH13-16 (four consecutive channels on tracks 1..4) or SEL (every channel plays the selected track); DRUM channel OFF / 1..16 (default 10); MIDI-track engines have an output channel only. USB class-compliant, TRS input, BLE MIDI. Wrong Room: behind an H4MIDI channel filter, ROUT = CH1-4."
  },
  "programChange": {
   "supported": false,
@@ -107,17 +120,24 @@
   }
  ],
  "setup": [
-  "Load Melodee (web installer); GLO > SYSTEM > ROUT to put the tracks on the channels the song uses (or SEL).",
+  "Load Melodee (web installer); GLO > SYSTEM > ROUT = CH1-4; the unit's H4MIDI WC port filtered to its channel (2 or 3), so only that channel reaches it and plays its track 2 or 3.",
+  "GLO > GLOBAL > CLK = USB (or TRS) so the unit follows Classic Tabby's clock, Start and Stop; its own clock out is silent then.",
   "No program change: only CC events reach this device."
  ],
  "notes": [
-  "Melodee 1.6.1 (2026-11-02) at research time; a modified Felucca. FM6 ROM voices: TINE EP, BRASS SECT, SOLID BASS, BELLS, MARIMBA, CLAVINET, DRAWBARS, STRINGS, GLASS PAD, SYNC LEAD, HARP, KALIMBA, FLUTE, STEEL DRUM, SAW BASS, TUBULAR (not selectable by MIDI)."
+  "Melodee 1.6.1 (2026-11-02) at research time; a modified Felucca. FM6 ROM voices: TINE EP, BRASS SECT, SOLID BASS, BELLS, MARIMBA, CLAVINET, DRAWBARS, STRINGS, GLASS PAD, SYNC LEAD, HARP, KALIMBA, FLUTE, STEEL DRUM, SAW BASS, TUBULAR (not selectable by MIDI).",
+  "1.6.1 adds clock out on USB and BLE with CLK = INT (not tried with gear by its author); irrelevant here, Classic Tabby is the master."
  ],
  "sources": [
   {
-   "title": "Melodee repository",
+   "title": "Melodee release 1.6.1 (2026-11-02)",
+   "url": "https://github.com/keremimo/melodee/releases/tag/v1.6.1",
+   "detail": "clock and transport, MIDI tracks"
+  },
+  {
+   "title": "Melodee repository README (ROUT, DRUM, clock, USB)",
    "url": "https://github.com/keremimo/melodee",
-   "detail": "v1.6.1"
+   "detail": "HEAD 165d177, read 2026-11-05"
   },
   {
    "title": "Melodee manual, MIDI section",
@@ -133,6 +153,7 @@
  "unverified": [
   "channel.default",
   "behaviour on hardware (code read only)",
+  "TRS jack type",
   "whether a nightly adds program change"
  ],
  "presets": []

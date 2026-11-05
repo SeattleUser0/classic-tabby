@@ -1,9 +1,20 @@
 {
  "schema": "tabby-device/1",
- "version": "0.1",
+ "version": "0.2",
  "id": "waldorf-blofeld",
  "name": "Waldorf Blofeld",
  "maker": "Waldorf",
+ "kind": "instrument",
+ "midiIn": {
+  "connector": "5-pin DIN in and USB (Desktop: no MIDI out)",
+  "trs": null,
+  "note": ""
+ },
+ "clock": {
+  "receives": "unverified",
+  "syncs": "arpeggiator and LFO sync per the manual's sync settings (not researched for this rig)",
+  "setting": ""
+ },
  "channel": {
   "default": null,
   "note": "Global MIDI Channel (omni, 1..16). In Multi mode each of 16 parts has its own channel and a 'Prg Change' receive filter."

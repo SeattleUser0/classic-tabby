@@ -39,9 +39,11 @@ Usage (from the repository root)
     FM1_WASI_SDK=/path/to/wasi-sdk-27.0-x86_64-linux python3 tools/linux/build-web.py --local-preview
     python3 tools/linux/build-web.py --package-json build/pro/web-package.json --source-url https://...
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-05  Classic Tabby Task 09: the built-in rig profiles (web/rig/profiles/*.json)
+                      inlined as globalThis.FM1_RIG_PROFILES (placeholder /*FM1_RIG_PROFILES*/).
     v0.2  2026-11-04  Classic Tabby Task 08 (version display): --display-version (else
                       tools/linux/display_version.py: the git tag) is passed to the simulator
                       compile as -DFM1_DISPLAY_VERSION (the simulated boot screen draws it),
@@ -264,6 +266,10 @@ def build(args, log):
         "/*FM1_DEVICES*/": "globalThis.FM1_DEVICES = [" + ",".join(
             json.dumps(json.loads((ROOT / "web/devices" / name).read_text(encoding="utf-8")), separators=(",", ":"), ensure_ascii=False)
             for name in sorted(p.name for p in (ROOT / "web/devices").glob("*.json"))) + "];",
+        # Task 09: the built-in rig profiles (web/rig/profiles/*.json), read-only in the panel.
+        "/*FM1_RIG_PROFILES*/": "globalThis.FM1_RIG_PROFILES = [" + ",".join(
+            json.dumps(json.loads((ROOT / "web/rig/profiles" / name).read_text(encoding="utf-8")), separators=(",", ":"), ensure_ascii=False)
+            for name in sorted(p.name for p in (ROOT / "web/rig/profiles").glob("*.json"))) + "];",
         "/*FM1_RIG_SCRIPT*/": "\n".join((ROOT / "web/rig" / name).read_text(encoding="utf-8")
                                         for name in ("device-library.js", "rig.js", "rig-ui.js")),
         # Task 02 Step 4: the MIDI importer (web/import/, classic scripts) inlined in load order.

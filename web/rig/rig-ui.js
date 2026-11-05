@@ -24,9 +24,18 @@
  *   and export paths call `prepareEvents(song)` to get the list with the rig's gaps
  *   applied (TabbyRig.applyGaps) and `trailer(song)` for the override.
  *
- * Version: 0.2
+ *   Profiles (Task 09, v0.3): a "Profile" select shows "My rig" (the stored, editable profile)
+ *   and every built-in profile (TabbyRig.rigBuiltins(), read-only: the table's inputs are
+ *   disabled); "Copy to my rig" replaces the stored profile with a copy of the built-in one
+ *   after a confirmation. Songs always use "My rig" (or their own copy), never the built-in view.
+ *   Two columns were added: "Port" (where the device is cabled) and "Track" (the Tabby track a
+ *   part on this channel is pinned to, the FM6 convention).
+ *
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-05  Task 09: profile select with the built-in profiles, Port and Track columns,
+ *                     the profile's notes shown under the table.
  *   v0.2  2026-11-04  Task 06: the "Lead ms" column (program change this long before the bar).
  *   v0.1  2026-11-02  Initial version (Task 04, workbench part).
  */
@@ -52,35 +61,51 @@
 
   function mount({ setup, events, library, onChange = () => {}, message = () => {} }) {
     const Rig = globalThis.TabbyRig, D = globalThis.TabbyDevices;
-    const state = { rig: Rig.rigLoad(), song: null, row: 0 };
+    const state = { rig: Rig.rigLoad(), song: null, row: 0, builtins: Rig.rigBuiltins(), view: -1 };   /* view: -1 = My rig, else a built-in index */
     const rigInUse = () => (state.song && state.song.rig) ? state.song.rig : state.rig;
+    const viewRig = () => state.view >= 0 && state.builtins[state.view] ? state.builtins[state.view] : state.rig;
 
     /* ---- rig setup ---------------------------------------------------------------------- */
     const setupBody = h('tbody'), rigName = h('input', { type: 'text', maxLength: 40 }), programsBox = h('div', { class: 'ti-muted' });
+    const profileSelect = h('select'), copyButton = h('button', { type: 'button', textContent: 'Copy to my rig' }), notesBox = h('div', { class: 'ti-muted' });
     function renderSetup() {
-      const rig = state.rig;
-      rigName.value = rig.name;
+      const rig = viewRig(), ro = state.view >= 0;   /* v0.3: a built-in profile is shown read-only */
+      profileSelect.replaceChildren(option(-1, 'My rig: ' + state.rig.name, state.view < 0), ...state.builtins.map((b, i) => option(i, b.name + ' (built-in)', state.view === i)));
+      copyButton.hidden = !ro;
+      rigName.value = rig.name; rigName.disabled = ro;
+      notesBox.replaceChildren(...(rig.notes || []).map(t => h('p', {}, t)));
       setupBody.replaceChildren(...rig.channels.map((c, i) => {
-        const dev = h('select', {}, option('', '— none —', !c.device), ...library.list.map(d => option(d.id, d.name, c.device === d.id)));
+        const dev = h('select', { disabled: ro }, option('', '— none —', !c.device), ...library.list.map(d => option(d.id, d.name, c.device === d.id)));
         dev.addEventListener('change', () => { c.device = dev.value || null; save(); });
-        const name = h('input', { type: 'text', maxLength: 40, value: c.name, placeholder: c.device ? (library.get(c.device) || {}).name || '' : '' });
+        const name = h('input', { type: 'text', maxLength: 40, value: c.name, disabled: ro, placeholder: c.device ? (library.get(c.device) || {}).name || '' : '' });
         name.addEventListener('change', () => { c.name = name.value; save(); });
         const d = c.device ? library.get(c.device) : null;
-        const gap = h('input', { type: 'number', min: 0, max: 255, step: 1, value: c.gapMs === null ? '' : String(c.gapMs), placeholder: d ? String(d.programChange.gapMs) : '0' });
+        const gap = h('input', { type: 'number', min: 0, max: 255, step: 1, disabled: ro, value: c.gapMs === null ? '' : String(c.gapMs), placeholder: d ? String(d.programChange.gapMs) : '0' });
         gap.addEventListener('change', () => { c.gapMs = gap.value === '' ? null : Math.max(0, Math.min(255, Math.round(Number(gap.value)))); save(); });
         /* Task 06: lead before the bar, for slow devices: the program change leaves this long before the downbeat. */
-        const lead = h('input', { type: 'number', min: 0, max: 255, step: 1, value: String(c.leadMs || 0), title: 'Program change this many ms before the bar (track launches and scene changes)' });
+        const lead = h('input', { type: 'number', min: 0, max: 255, step: 1, disabled: ro, value: String(c.leadMs || 0), title: 'Program change this many ms before the bar (track launches and scene changes)' });
         lead.addEventListener('change', () => { c.leadMs = Math.max(0, Math.min(255, Math.round(Number(lead.value) || 0))); save(); });
+        /* v0.3: where the device is cabled (text for the guide and the checklist) and the pinned Tabby track. */
+        const port = h('input', { type: 'text', maxLength: 160, value: c.port || '', disabled: ro, placeholder: 'port / cable', title: 'Where this device is cabled (H4MIDI port, filter, adapter); printed in the guide' });
+        port.addEventListener('change', () => { c.port = port.value; save(); });
+        const track = h('select', { disabled: ro, title: 'The Tabby track an imported part on this channel is pinned to (the FM6 convention)' }, option('', '—', !c.track), ...Array.from({ length: 8 }, (_, t) => option(t + 1, 'T' + (t + 1), c.track === t + 1)));
+        track.addEventListener('change', () => { c.track = track.value === '' ? null : Number(track.value); save(); });
         const numbering = d ? (d.programChange.supported === true ? 'programs ' + D.programLabel(d, d.programChange.bankSelect.banks.length ? 0 : null, 0) + '..' +
           D.programLabel(d, d.programChange.bankSelect.banks.length ? d.programChange.bankSelect.banks.length - 1 : null, Math.min(127, Math.max(0, (d.programChange.programs || 128) - 1))) +
           (d.programChange.bankSelect.scheme !== 'none' ? ', bank by ' + d.programChange.bankSelect.scheme.toUpperCase().replace('CC0CC32', 'CC 0 + CC 32').replace('CC', 'CC ') : '') +
           (d.unverified.some(u => /displayBase/.test(u)) ? ' (base unverified)' : '')
           : d.programChange.supported === false ? 'no program change' : 'program change unverified') : '';
-        const names = h('button', { type: 'button', textContent: 'Names…', disabled: !d, onclick: () => editPrograms(i) });
-        return h('tr', {}, h('td', {}, i + 1), h('td', {}, dev), h('td', {}, name), h('td', {}, gap), h('td', {}, lead), h('td', { class: 'ti-muted' }, numbering), h('td', {}, names));
+        const names = h('button', { type: 'button', textContent: 'Names…', disabled: !d || ro, onclick: () => editPrograms(i) });
+        return h('tr', {}, h('td', {}, i + 1), h('td', {}, dev), h('td', {}, name), h('td', {}, gap), h('td', {}, lead), h('td', {}, port), h('td', {}, track), h('td', { class: 'ti-muted' }, numbering), h('td', {}, names));
       }));
       renderEvents();
     }
+    profileSelect.addEventListener('change', () => { state.view = Number(profileSelect.value); renderSetup(); });
+    copyButton.addEventListener('click', () => {
+      const b = state.builtins[state.view]; if (!b) return;
+      if (!confirm('Replace your rig profile with a copy of "' + b.name + '"? Your current profile is overwritten (export it first to keep it).')) return;
+      state.rig = Rig.rigClone(b); state.view = -1; save(); message('Rig profile "' + b.name + '" copied to my rig.');
+    });
     function editPrograms(channel) {
       const c = state.rig.channels[channel], d = library.get(c.device);
       const numberField = h('input', { type: 'text', value: d ? D.programLabel(d, d.programChange.bankSelect.banks.length ? 0 : null, 0) : '0', size: 6 });
@@ -104,11 +129,13 @@
       try { state.rig = Rig.rigImport(await f.text()); save(); message('Rig profile imported.'); } catch (e) { message('Cannot import rig: ' + e.message); }
     });
     setup.replaceChildren(
+      h('p', {}, h('label', {}, 'Profile ', profileSelect), ' ', copyButton),
       h('p', {}, h('label', {}, 'Profile name ', rigName), ' ',
         h('button', { type: 'button', textContent: 'Export rig (.json)', onclick: () => download(Rig.rigExport(state.rig), (state.rig.name || 'rig').replace(/[^\w-]+/g, '_') + '.rig.json') }), ' ',
         h('label', {}, 'Import rig ', importFile), ' ',
         h('button', { type: 'button', textContent: 'Reset', onclick: () => { if (confirm('Clear the rig profile?')) { state.rig = Rig.rigEmpty(); save(); } } })),
-      h('table', { class: 'ti-table' }, h('thead', {}, h('tr', {}, ...['Ch', 'Device', 'Name', 'Gap ms', 'Lead ms', 'Numbering', ''].map(t => h('th', {}, t)))), setupBody),
+      h('table', { class: 'ti-table' }, h('thead', {}, h('tr', {}, ...['Ch', 'Device', 'Name', 'Gap ms', 'Lead ms', 'Port', 'Track', 'Numbering', ''].map(t => h('th', {}, t)))), setupBody),
+      notesBox,
       h('p', { class: 'ti-muted' }, 'The profile is saved in this browser. Gap: blank = the definition\'s delay need; it becomes gap events in the song when it is written. Lead: the program change leaves this many ms before the bar when a track launches or a scene changes (0 = with the downbeat). Device setup steps (what to set on the gear) are in each definition\'s notes: see BUILD.md section 16.3.'),
       programsBox);
 
@@ -214,13 +241,14 @@
       setSong(song) { state.song = song; state.row = 0; renderEvents(); },
       refresh() { renderEvents(); },
       rig() { return rigInUse(); },
+      library() { return library; },
       /* The event list to store: the rig's gaps applied (sorted by row). */
       prepareEvents(song) { return Rig.applyGaps(song.events || [], song.rig || state.rig, library).sort((a, b) => a.row - b.row); },
       trailer(song) { return song.rig ? { rig: song.rig } : null; },
     };
   }
 
-  const TabbyRigUI = { mount, version: '0.1' };
+  const TabbyRigUI = { mount, version: '0.3' };
   globalThis.TabbyRigUI = TabbyRigUI;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyRigUI;
 })();
