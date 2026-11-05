@@ -25,6 +25,13 @@
 //                              note on the same step, plus a bass note nudged late
 //     ppq-120.mid, ppq-480.mid, ppq-960.mid   (Task 05) the same off-grid phrase at exact PPQs
 //     ppq-100.mid              (Task 05) 100 PPQ: 1920/100 is not whole, times round to units
+//     wrong-room-all.mid       (Task 09) the Wrong Room rig: 8 bars, eight instrument parts on
+//                              channels 1, 2, 3, 4, 5, 6, 10 and 9 (the FM6 part third in file
+//                              order, pinned to track 8), program changes and CCs each device
+//                              accepts, and notes-free pedal tracks on 11, 12, 14, 15 and 16
+//     wrong-room-wrong.mid     (Task 09) one of each rig fault: a part on a channel the rig has no
+//                              device on (13, with that channel cleared in the test rig), notes on
+//                              the Brothers' channel 12, PC 123 to the Brothers, CC 70 to the NightSky
 //
 //   Run:  /usr/bin/node tests/midi-import/make-fixtures.mjs   (writes the files)
 //   Import: `fixtures()` returns [{name, bytes, expect}] without writing.
@@ -32,6 +39,7 @@
 // Version: 0.2
 //
 // Revision log
+//   v0.3  2026-11-05  Task 09: wrong-room-all and wrong-room-wrong fixtures.
 //   v0.2  2026-11-03  Task 05: kick-nudge, ppq-120/480/960 and ppq-100 fixtures.
 //   v0.1  2026-11-02  Initial version (Task 02, Step 2).
 
@@ -209,6 +217,47 @@ export function fixtures() {
       expected.push({ step: s, offset: units(delayTicks), length: units(length), exactOffset: delayTicks * 1920 / ppq, exactLength: length * 1920 / ppq });
     }
     list.push({ name: 'ppq-' + ppq + '.mid', bytes: write({ format: 0, division: ppq, tracks: [t] }), expect: { ppq, exact: 1920 % ppq === 0, notes: expected } });
+  }
+  // 13. (Task 09) The Wrong Room: 8 bars of 4/4 at 120 BPM (two 64-step rows), written as the guide
+  // asks: a conductor track, one track per part on its device's channel, program changes and
+  // CCs at row starts, pedal events in notes-free tracks. Channels are 0-based here.
+  {
+    const ppq = 480, step = ppq / 4, bar = 16 * step, row = 4 * bar;
+    const conductor = [{ tick: 0, type: 'trackName', text: 'Wrong Room' }, { tick: 0, type: 'tempo', bpm: 120 }, { tick: 0, type: 'timeSignature', numerator: 4, denominator: 4 }];
+    const part = (name, ch, pitch, events = []) => {
+      const t = [{ tick: 0, type: 'trackName', text: name }, ...events.map(e => ({ ...e, channel: ch }))];
+      for (let b = 0; b < 8; b++) for (let q = 0; q < 4; q++) note(t, b * bar + q * 4 * step, 2 * step, pitch + (q % 2) * 3, 100, ch);
+      return t;
+    };
+    const pc = (tick, program) => ({ tick, type: 'programChange', program }), cc = (tick, controller, value) => ({ tick, type: 'controlChange', controller, value });
+    const tracks = [conductor,
+      part('Seashell bass', 0, 36, [cc(0, 74, 90)]),                                           /* ch 1: notes, a learnt CC (no fixed map: not warned) */
+      part('FM-1 A lead', 1, 60, [pc(0, 3), cc(0, 74, 100), pc(row, 4)]),                      /* ch 2: Skiff sound 3 then 4, brightness */
+      part('FM6 internal pad', 8, 64, []),                                                     /* ch 9: pinned to track 8 although third in the file */
+      part('FM-1 B keys', 2, 67, [pc(0, 1)]),                                                  /* ch 3 */
+      part('M8 breaks', 3, 48, [pc(0, 5), pc(row, 6)]),                                        /* ch 4: M8 track 1, INST 05 then 06 */
+      part('Proteus strings', 4, 55, [pc(0, 7)]),                                              /* ch 5: Proteus part 1, preset 007 */
+      part('Proteus brass', 5, 59, [pc(0, 12), pc(row, 13)]),                                  /* ch 6: Proteus part 2 */
+      part('M8 bass', 9, 40, [pc(0, 2)]),                                                      /* ch 10: M8 track 2 (the drum channel of the file, a part all the same) */
+      [{ tick: 0, type: 'trackName', text: 'Royalist' }, { ...pc(0, 7), channel: 10 }, { ...cc(0, 24, 1), channel: 10 }],
+      [{ tick: 0, type: 'trackName', text: 'Brothers' }, { ...pc(0, 3), channel: 11 }, { ...cc(0, 102, 127), channel: 11 }, { ...pc(row, 4), channel: 11 }],
+      [{ tick: 0, type: 'trackName', text: 'NightSky' }, { ...cc(0, 0, 1), channel: 13 }, { ...pc(0, 72), channel: 13 }, { ...cc(0, 63, 127), channel: 13 }],
+      [{ tick: 0, type: 'trackName', text: 'H90' }, { ...pc(0, 12), channel: 14 }, { ...pc(row, 13), channel: 14 }],
+      [{ tick: 0, type: 'trackName', text: 'Zoom' }, { ...pc(0, 0), channel: 15 }, { ...pc(row, 1), channel: 15 }]];
+    list.push({ name: 'wrong-room-all.mid', bytes: write({ format: 1, division: ppq, tracks }),
+      expect: { parts: 8, outChannels: [0, 1, 2, 3, 4, 5, 9, 8], pinned: { key: '3:8', track: 7 }, events: 22, rows: 2 } });
+  }
+  // 14. (Task 09) One of each rig fault, once: a part on channel 13 (cleared in the test rig), notes on
+  // the Brothers' channel 12, PC 123 to the Brothers (its last preset is 122), CC 70 to the NightSky.
+  {
+    const ppq = 480, step = ppq / 4, bar = 16 * step;
+    const conductor = [{ tick: 0, type: 'trackName', text: 'Wrong' }, { tick: 0, type: 'tempo', bpm: 120 }, { tick: 0, type: 'timeSignature', numerator: 4, denominator: 4 }];
+    const pad = [{ tick: 0, type: 'trackName', text: 'Pad on 13' }], guitar = [{ tick: 0, type: 'trackName', text: 'Guitar on the Brothers' }];
+    for (let b = 0; b < 4; b++) { note(pad, b * bar, 4 * step, 60, 90, 12); note(guitar, b * bar, 2 * step, 52, 90, 11); }
+    guitar.push({ tick: 0, type: 'programChange', channel: 11, program: 123 });
+    const sky = [{ tick: 0, type: 'trackName', text: 'NightSky' }, { tick: 0, type: 'controlChange', channel: 13, controller: 70, value: 64 }];   /* CC 70 is not in the NightSky's table */
+    list.push({ name: 'wrong-room-wrong.mid', bytes: write({ format: 1, division: ppq, tracks: [conductor, pad, guitar, sky] }),
+      expect: { warnings: ['channelNotInRig', 'notesOnEffectsChannel', 'programOutOfRange', 'ccNotNamed'] } });
   }
   return list;
 }

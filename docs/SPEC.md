@@ -2,6 +2,7 @@
 
 Version: 0.18
 Revision log:
+- v0.18.1, 2026-11-05 (Task 09 checkpoint b): section 13: the importer maps by the rig.
 - v0.18, 2026-11-05 (Task 09 checkpoint a): section 13: the Wrong Room rig.
 - v0.17, 2026-11-04 (Task 08, manual): section 12: the manual tab.
 - v0.16, 2026-11-04 (Task 08): section 11: the display version.
@@ -817,3 +818,10 @@ Checkpoints and status:
   profile with a port note and an optional pinned Tabby track per channel (channel 9 = FM6 on
   track 8), the profile selector in the rig panel (built-ins read-only, Copy to my rig; "My rig"
   stays the stored, editable profile songs use). The plan: see BUILD.md 23.1.
+- **(b) done, 2026-11-05: the importer maps by the rig.** Each part's MIDI channel becomes its
+  track's OUT CH (no "device setting" default for imported parts; an explicit choice still
+  overrides); a part on a pinned channel takes its track whatever its file order (channel 9 →
+  track 8); the preview names the rig device on each part's channel and a device the track name
+  mentions; warnings when a part's channel is not in the rig, when notes go to an effects
+  channel, when a program number is outside the device's range (or the device takes none), and
+  when a CC is not one the definition names. Fixtures and tests: BUILD.md 23.2.

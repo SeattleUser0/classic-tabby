@@ -1154,14 +1154,17 @@ main{max-width:1440px}
       remove:song=>library.songDelete(song),status:()=>library.songStatus(),
       exists:song=>library.download(5,song).catch(error=>{if(error.deviceCode===1)return null;throw error;})};
   };
-  // Task 02 Step 4: the MIDI importer (web/import/, inlined by build-web.py) mounts next to the
-  // editor and writes through the same backend, so device and simulator targets behave alike.
-  if(globalThis.TabbyImportUI&&globalThis.TabbySongTransfer&&$('midi-import'))
-    TabbyImportUI.mount($('midi-import'),{transfer:TabbySongTransfer.select({backend:songBackend,name:()=>songSim()?'simulator':'device'})});
   // Task 04: the rig setup and the row event editor (web/rig/, inlined by build-web.py) edit
   // song.events in place; the write and export paths take the list with the rig's gaps applied.
-  const rigUI=globalThis.TabbyRigUI&&globalThis.TabbyRig&&globalThis.TabbyDevices&&$('rig-setup')&&$('song-events')
-    ?TabbyRigUI.mount({setup:$('rig-setup'),events:$('song-events'),library:TabbyDevices.load(globalThis.FM1_DEVICES||[]),onChange:()=>{},message:text=>songMessage(text)}):null;
+  // Task 09: the device library is built once and shared with the importer, which maps parts by the rig.
+  const deviceLibrary=globalThis.TabbyDevices?TabbyDevices.load(globalThis.FM1_DEVICES||[]):null;
+  const rigUI=globalThis.TabbyRigUI&&globalThis.TabbyRig&&deviceLibrary&&$('rig-setup')&&$('song-events')
+    ?TabbyRigUI.mount({setup:$('rig-setup'),events:$('song-events'),library:deviceLibrary,onChange:()=>{},message:text=>songMessage(text)}):null;
+  // Task 02 Step 4: the MIDI importer (web/import/, inlined by build-web.py) mounts next to the
+  // editor and writes through the same backend, so device and simulator targets behave alike.
+  // Task 09: it reads the active rig (My rig, or the song's own copy) and the device library.
+  if(globalThis.TabbyImportUI&&globalThis.TabbySongTransfer&&$('midi-import'))
+    TabbyImportUI.mount($('midi-import'),{transfer:TabbySongTransfer.select({backend:songBackend,name:()=>songSim()?'simulator':'device'}),rig:()=>rigUI?rigUI.rig():null,library:deviceLibrary});
   for(let i=0;i<16;i++){$('song-slot').append(option(i,String(i+1)));$('song-project').append(option(i,String(i+1)));}
   for(let t=0;t<8;t++){const l=document.createElement('label');l.textContent='T'+(t+1)+' ';const i=document.createElement('input');i.type='number';i.min='0';i.max='16';i.step='1';i.dataset.songChannel=t;l.append(i);$('song-channels').append(l);}
   for(let s=0;s<64;s++){const l=document.createElement('label');l.textContent=(s+1)+' ';const i=document.createElement('input');i.type='text';i.dataset.songStep=s;i.placeholder='-';l.append(i);$('song-steps').append(l);

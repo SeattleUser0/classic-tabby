@@ -31,13 +31,20 @@
 //    12. Renoise exports: every .mid in tests/fixtures/ (and renoise*.mid in
 //        tests/midi-import/fixtures/): parses, converts, validates, JSON round trip, and the
 //        file's division, track layout and warnings are printed; SKIPPED when none exists.
+//    15. (Task 09) the Wrong Room rig: wrong-room-all.mid converts with every OUT CH set from
+//        the file, the FM6 part pinned to track 8 whatever its order, every event on its
+//        channel, no warning of warn severity and none of the four rig kinds; without a rig the
+//        v0.5 behaviour (OUT CH null, file order); wrong-room-wrong.mid produces each of the
+//        four rig warnings exactly once (channel 13 cleared in the test rig); partDevice names
+//        the rig device and a device a track name mentions.
 //
 //   Run:  /usr/bin/node tests/midi-import/run.mjs      (or: make midi-import-test)
 //   Exit status 0 on success; every check prints "ok" or "FAIL".
 //
-// Version: 0.5
+// Version: 0.6
 //
 // Revision log
+//   v0.6  2026-11-05  Task 09: section 15, the Wrong Room rig fixtures and warnings.
 //   v0.5  2026-11-02  Task 04: section 13, row events (fixture row-events.mid, pre-roll, version-2
 //                     records, decode rejection, the .tabby trailer).
 //   v0.4  2026-11-02  Step 4: 11c backend transfer (delete-before-replace, record first, kind-7
@@ -198,7 +205,10 @@ const produced = [];
   check(r.song.tempo === e.tempo && Math.abs(r.a.tempo.exact - e.tempoExact) < 0.01, 'events: first tempo 127.5 → 128', `${r.a.tempo.exact} → ${r.song.tempo}`);
   check(warning(r, 'tempoRounded') && warning(r, 'tempoChangesIgnored')?.count === e.tempoChanges, 'events: rounding and 2 real tempo changes reported (repeat of the same tempo not counted)');
   check(warning(r, 'ccIgnored') && r.a.ignored.controlChange === e.cc && r.a.ignored.sustain === e.sustain, 'events: 8 CCs counted, 1 sustain');
-  check(warning(r, 'programIgnored')?.count === e.programs && /program 34/.test(warning(r, 'programIgnored').items[0].text), 'events: 2 program changes listed with numbers');
+  /* v0.6 (Task 09): the PC at tick 0 is a row event; only the mid-row PC 81 is listed as dropped (the
+   * earlier expectation of two listed PCs rested on a bookkeeping bug, fixed in midi-song.js v0.6). */
+  check(r.a.ignored.programChange.length === e.programs && warning(r, 'programIgnored')?.count === 1 && /program 82/.test(warning(r, 'programIgnored').items[0].text) && r.song.events.some(x => x.type === 0 && x.d0 === 33),
+    'events: 2 program changes in the file; the one at the row start became an event, the mid-row one is listed as dropped with its 1-based number', JSON.stringify(warning(r, 'programIgnored') && warning(r, 'programIgnored').items));
   check(r.a.ignored.pitchBend === e.bend && r.a.ignored.channelPressure === e.pressure && r.a.ignored.sysex === e.sysex, 'events: bend, pressure, SysEx counted');
   check(r.stats.notesOut === e.notes && r.song.blocks.length === 1, 'events: all 16 notes kept in one block');
 }
@@ -446,6 +456,40 @@ const produced = [];
   const m = Format.fromJSON(Format.toJSON(r.song));
   check(Format.quantize(m, 'starts') === 6 && m.blocks.every(b => b.notes.every(n => n.offset === 0)) && m.blocks.some(b => b.notes.some(n => n.length % 480)), 'quantize starts: 6 offsets cleared, lengths kept');
   check(Format.quantize(m, 'startsEnds', 'nearest') > 0 && m.blocks.every(b => b.notes.every(n => n.length % 480 === 0 && n.length >= 480)) && Format.validate(m).ok, 'quantize starts and ends: lengths on whole steps, song valid');
+}
+
+// ---- 15. the Wrong Room rig (Task 09) --------------------------------------------------------
+{
+  const D = require(join(root, 'web/rig/device-library.js')), Rig = require(join(root, 'web/rig/rig.js'));
+  const ddir = join(root, 'web/devices');
+  const library = D.load(readdirSync(ddir).filter(n => n.endsWith('.json')).sort().map(n => JSON.parse(readFileSync(join(ddir, n), 'utf8'))));
+  const [rig] = Rig.rigBuiltins([JSON.parse(readFileSync(join(root, 'web/rig/profiles/wrong-room.json'), 'utf8'))]);
+  const all = fx['wrong-room-all.mid'], a = Song.analyze(Midi.parse(all.bytes));
+  check(a.parts.length === 8 && a.parts.map(p => p.channel).join() === '0,1,8,2,3,4,5,9', 'wrong-room-all: eight parts in file order, the FM6 part third', a.parts.map(p => p.channel).join());
+  const asg = Song.defaultAssignments(a, rig);
+  check(asg['3:8'] === 7 && asg['1:0'] === 0 && asg['2:1'] === 1 && asg['4:2'] === 2 && asg['5:3'] === 3 && asg['6:4'] === 4 && asg['7:5'] === 5 && asg['8:9'] === 6, 'wrong-room-all: the FM6 part is pinned to track 8, the others fill 1..7 in file order', JSON.stringify(asg));
+  const r = Song.convert(a, { fileName: 'wrong-room-all.mid', rig, library });
+  check(r.song.outChannels.join() === all.expect.outChannels.join(), 'wrong-room-all: every OUT CH is the part\'s own channel (0-based 0,1,2,3,4,5,9,8)', r.song.outChannels.join());
+  const kinds = new Set(r.warnings.map(w => w.kind)), warnLevel = r.warnings.filter(w => w.severity === 'warn');
+  check(warnLevel.length === 0 && !['channelNotInRig', 'notesOnEffectsChannel', 'programOutOfRange', 'ccNotNamed'].some(k => kinds.has(k)), 'wrong-room-all: no warning of warn severity and none of the four rig kinds', [...kinds].join(' ') + ' / ' + warnLevel.map(w => w.message).join('; '));
+  const ev = r.song.events, chans = ch => ev.filter(e => e.channel === ch);
+  check(ev.length === all.expect.events && r.song.rows.length === 2 && !warning(r, 'programIgnored'), 'wrong-room-all: 22 row events over two rows, no program change dropped', ev.length + ' events, ' + r.song.rows.length + ' rows; ' + JSON.stringify(warning(r, 'programIgnored') && warning(r, 'programIgnored').items));
+  check(chans(13).length === 2 && chans(13)[0].type === 1 && chans(13)[0].d0 === 1 && chans(13)[0].d2 === 72 && chans(11).length === 3 && chans(10).length === 2 && chans(15).length === 2 && chans(14).length === 2,
+    'wrong-room-all: the NightSky bank+program (CC 0 = 1, PC 72 = preset 200), the Brothers\' three, the Royalist\'s two, the Zoom\'s and the H90\'s two, each on its own channel');
+  check(r.song.source.parts.find(p => p.key === '3:8').track === 8 && r.song.source.parts.find(p => p.key === '3:8').rigDevice === 'SMK-37 FM6 internal engine' && r.song.source.rig === 'Wrong Room', 'wrong-room-all: the source record names the rig and the pinned part\'s device');
+  const plain = Song.convert(a, { fileName: 'wrong-room-all.mid' });
+  check(plain.song.outChannels.every(c => c === null) && Song.defaultAssignments(a)['3:8'] === 2, 'without a rig: OUT CH stays "device" and parts take file order (v0.5 behaviour)');
+  const pd = Song.partDevice(a.parts[2], rig, library), pdName = Song.partDevice({ name: 'Brothers riff', channel: 0 }, rig, library);
+  check(pd.device && pd.device.id === 'smk37-fm6-internal' && pd.track === 8 && pd.kind === 'internal' && pdName.byName && pdName.byName.channel === 11 && pdName.device.id === 'instruo-seashell', 'partDevice: the rig device on the channel, the pinned track, and a device the name mentions');
+  const over = Song.convert(a, { fileName: 'x', rig, library, outChannels: [null, 15] });
+  check(over.song.outChannels[0] === null && over.song.outChannels[1] === 15 && over.song.outChannels[2] === 2, 'an explicit OUT CH (null = device, or a channel) overrides the file\'s channel per track');
+  /* the faults, with channel 13 cleared so a part there is "not in the rig" */
+  const testRig = Rig.rigClone(rig); testRig.channels[12].device = null;
+  const wrong = fx['wrong-room-wrong.mid'], wa = Song.analyze(Midi.parse(wrong.bytes)), wr = Song.convert(wa, { fileName: 'wrong-room-wrong.mid', rig: testRig, library });
+  for (const k of wrong.expect.warnings) check(warning(wr, k)?.count === 1, 'wrong-room-wrong: ' + k + ' exactly once', JSON.stringify(warning(wr, k) && warning(wr, k).items));
+  check(wr.song.outChannels[0] === 12 && wr.song.outChannels[1] === 11, 'wrong-room-wrong: the faulty parts still get their channels as OUT CH');
+  const okRig = Song.convert(wa, { fileName: 'wrong-room-wrong.mid', rig, library });
+  check(!warning(okRig, 'channelNotInRig') && warning(okRig, 'notesOnEffectsChannel')?.count === 1, 'with the full Wrong Room (channel 13 = M8 part 3) the pad is in the rig and only the three other faults remain');
 }
 
 console.log(failures ? `${failures} of ${checks} check(s) FAILED` : `all ${checks} checks passed`);

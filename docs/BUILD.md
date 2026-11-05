@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.28
+Version: 0.29
 Revision log:
+- v0.29, 2026-11-05 (Task 09 checkpoint b): section 23.2: the importer's rig-aware mapping,
+  the four rig warnings, the fixtures; a programIgnored bookkeeping bug fixed on the way.
 - v0.28, 2026-11-05 (Task 09 checkpoint a): section 23: the device library additions and
   rechecks, the Wrong Room profile, the profile selector; the Orange Cat cross-project note in
   the left-to-build list.
@@ -2225,3 +2227,30 @@ Firmware unchanged throughout (margin 2525).
   (the plan, the pin, the copy, the old-profile load, the H90 gap). `make test-fast` green;
   headless Chrome on the preview: the profile select with "Wrong Room (built-in)", the nine
   columns, fifteen devices inlined, no console errors.
+
+### 23.2 Checkpoint (b): the importer maps by the rig
+
+- `web/import/midi-song.js` v0.6: `convert()` takes `rig` and `library`. Each part's channel
+  becomes its track's OUT CH (an explicit choice still overrides: a channel, or null for the
+  device setting); `defaultAssignments(analysis, rig)` keeps file order but a part on a channel
+  with a pinned track (channel 9 → track 8) takes that track whatever its position; `partDevice()`
+  names the rig device on the part's channel and a device the track name mentions; four
+  warnings: `channelNotInRig`, `notesOnEffectsChannel`, `programOutOfRange` (also a device that
+  takes no program change, or a bank select that fits no bank), `ccNotNamed` (devices without a
+  fixed CC map are not warned about). Without a rig the v0.5 behaviour holds.
+- Fixed on the way: every program change was listed under `programIgnored` even when it became a
+  row event (the taken-set held spread copies, not the analysis objects, since Task 04; an
+  info-level line, so no song was wrong). The tempo/CC/program test's expectation rested on it
+  and now checks the real behaviour.
+- `web/import/import-ui.js` v0.8: the parts table gains a "Rig device" column (with the pinned
+  track and a name/channel mismatch note), the OUT CH selects follow the parts' channels until
+  the user changes one, the rig name is shown above the table, and a "Download the MIDI guide"
+  button (checkpoint c fills it). `sdk/Update.html.in` builds the device library once and hands
+  the importer the active rig ("My rig", or the song's own copy) and the library.
+- Fixtures (tests/midi-import/make-fixtures.mjs v0.3): `wrong-room-all.mid` (eight instrument
+  parts on 1, 2, 3, 4, 5, 6, 10 and 9 with the FM6 part third in file order, 22 events each
+  device accepts, five notes-free pedal tracks) and `wrong-room-wrong.mid` (one of each fault).
+  Tests (tests/midi-import/run.mjs v0.6, section 15, 183 checks): every OUT CH from the file,
+  the pin, 22 events on their channels, no warning of warn severity, the v0.5 behaviour without
+  a rig, each of the four warnings exactly once (with channel 13 cleared in the test rig). The
+  preview checked in headless Chrome.

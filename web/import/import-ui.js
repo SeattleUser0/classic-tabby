@@ -32,9 +32,17 @@
  *   through FM1I18n; this panel is Classic Tabby only and is shown in English in both
  *   languages (Step 4 decision: no 80-string addition to the shared sdk/I18n.js).
  *
- * Version: 0.7
+ *   Rig-aware preview (Task 09, v0.8): mount() takes `rig` (a function returning the active
+ *   tabby-rig/1 profile) and `library`; the parts table shows the rig device on each part's
+ *   channel (and a device the track name mentions), the OUT CH selects follow the parts'
+ *   channels unless the user changes them, a part on a pinned channel is placed on its track,
+ *   and the four rig warnings of midi-song.js v0.6 appear in "Dropped or changed". A "Download
+ *   the MIDI guide" button writes the guide generated from the active rig (web/rig/guide.js).
+ *
+ * Version: 0.8
  *
  * Revision log
+ *   v0.8  2026-11-05  Task 09: rig device column, OUT CH from the file, pinned track, the guide download.
  *   v0.7  2026-11-03  Task 05: quantize option (off by default), offsets and fractional lengths
  *                     in the statistics, the grid note reworded.
  *   v0.6  2026-11-02  Task 04: row events: pre-roll option, event column in the row table,
@@ -75,10 +83,11 @@
     document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  function mount(container, { transfer } = {}) {
+  function mount(container, { transfer, rig = null, library = null } = {}) {
     const Midi = globalThis.TabbyMidi, Song = globalThis.TabbyMidiSong, Format = globalThis.TabbySongFormat;
     transfer = transfer || globalThis.TabbySongTransfer.select({});
-    const state = { fileName: '', parsed: null, analysis: null, assignments: {}, outChannels: Array(8).fill(null), result: null, song: null, busy: false };
+    const activeRig = () => (typeof rig === 'function' ? rig() : rig) || null;   /* Task 09 */
+    const state = { fileName: '', parsed: null, analysis: null, assignments: {}, outChannels: Array(8).fill(undefined), result: null, song: null, busy: false };
 
     /* ---- static skeleton ------------------------------------------------------------- */
     const ui = {
@@ -111,19 +120,24 @@
       write: h('button', { type: 'button', textContent: 'Write song…' }),
       transferInfo: h('p', { class: 'ti-muted' }),
       plan: h('pre', { class: 'ti-plan', hidden: true }),
+      guide: h('button', { type: 'button', textContent: 'Download the MIDI guide' }),   /* Task 09 */
+      rigNote: h('p', { class: 'ti-muted' }),
     };
     for (let t = 0; t < 8; t++) {
       const sel = h('select', { dataset: { track: t } }, option('', 'device'), ...Array.from({ length: 16 }, (_, c) => option(c, 'ch ' + (c + 1))));
-      sel.addEventListener('change', () => { state.outChannels[t] = sel.value === '' ? null : Number(sel.value); reconvert(); });
+      sel.addEventListener('change', () => { state.outChannels[t] = sel.value === '' ? null : Number(sel.value); reconvert(); });   /* a user choice overrides the file's channel */
       ui.channels.append(h('label', {}, 'T' + (t + 1) + ' ', sel));
     }
+    /* Task 09: the OUT CH selects follow the converted song unless the user changed them. */
+    const showChannels = song => { for (let t = 0; t < 8; t++) { const sel = ui.channels.querySelector('select[data-track="' + t + '"]'); if (state.outChannels[t] === undefined) sel.value = song && Number.isInteger(song.outChannels[t]) ? String(song.outChannels[t]) : ''; } };
     container.replaceChildren(
       h('section', { class: 'ti-step' }, h('h3', {}, '1. MIDI file'),
-        h('p', {}, ui.file), ui.fileSummary, ui.fileWarnings),
+        h('p', {}, ui.file, ' ', ui.guide), ui.fileSummary, ui.fileWarnings),
       h('section', { class: 'ti-step' }, h('h3', {}, '2. Parts → Classic Tabby tracks'),
-        h('table', { class: 'ti-table' }, h('thead', {}, h('tr', {}, ...['MIDI part', 'Channel', 'Notes', 'Range', 'Bars', 'Programs', 'Tabby track'].map(x => h('th', {}, x)))), ui.parts),
-        h('p', { class: 'ti-muted' }, 'Several parts may share one track; the 4-notes-per-step limit then applies to the mix. Drum parts (channel 10) are marked ♩.'),
-        h('div', {}, h('strong', {}, 'OUT CH per track '), h('span', { class: 'ti-muted' }, '(written into the song header; "device" keeps the device OUT CH for that track) '), ui.channels)),
+        ui.rigNote,
+        h('table', { class: 'ti-table' }, h('thead', {}, h('tr', {}, ...['MIDI part', 'Channel', 'Rig device', 'Notes', 'Range', 'Bars', 'Programs', 'Tabby track'].map(x => h('th', {}, x)))), ui.parts),
+        h('p', { class: 'ti-muted' }, 'Several parts may share one track; the 4-notes-per-step limit then applies to the mix. Drum parts (channel 10) are marked ♩. With a rig, each part\'s channel becomes its track\'s OUT CH, and a part on a pinned channel (the FM6 convention) takes its pinned track whatever its order.'),
+        h('div', {}, h('strong', {}, 'OUT CH per track '), h('span', { class: 'ti-muted' }, '(written into the song header; set from the parts\' channels; "device" keeps the device OUT CH for that track) '), ui.channels)),
       h('section', { class: 'ti-step' }, h('h3', {}, '3. Options'),
         h('div', { class: 'ti-grid' },
           h('label', {}, 'Bars from ', ui.barFrom), h('label', {}, 'to ', ui.barTo),
@@ -164,7 +178,8 @@
     ui.slot.addEventListener('change', slotInfo); slotInfo();
 
     function showFile() {
-      const a = state.analysis, p = state.parsed;
+      const a = state.analysis, p = state.parsed, rigNow = activeRig();
+      ui.rigNote.textContent = rigNow ? 'Rig: ' + rigNow.name + '. Each part\'s channel sets its track\'s OUT CH; a part on a pinned channel lands on its track.' : 'No rig profile: channels are not checked and OUT CH stays "device".';
       ui.fileSummary.replaceChildren(h('p', {}, h('strong', {}, state.fileName), ' — format ' + p.format + ', ' + p.division + ' ticks per quarter, ' + p.tracks.length + ' track(s), ' +
         a.parts.length + ' part(s), ' + a.totalBars + ' bar(s) of ' + a.meter.numerator + '/' + a.meter.denominator + ', tempo ' + a.tempo.exact.toFixed(2) + ' BPM → ' + a.tempo.bpm +
         (a.tempo.changes.length ? ' (' + a.tempo.changes.length + ' change(s) ignored)' : '') + '.'));
@@ -173,7 +188,9 @@
         const sel = h('select', {}, option('', 'skip'), ...Array.from({ length: 8 }, (_, t) => option(t, 'track ' + (t + 1))));
         sel.value = state.assignments[part.key] === null || state.assignments[part.key] === undefined ? '' : String(state.assignments[part.key]);
         sel.addEventListener('change', () => { state.assignments[part.key] = sel.value === '' ? null : Number(sel.value); reconvert(); });
-        return h('tr', {}, h('td', {}, (part.drums ? '♩ ' : '') + part.name), h('td', {}, part.channel + 1), h('td', {}, part.noteCount),
+        const pd = Song.partDevice(part, rigNow, library);
+        const rigCell = !rigNow ? '—' : pd.device ? pd.channelName + (pd.track ? ' → T' + pd.track : '') + (pd.byName && pd.byName.channel !== part.channel ? ' (name says ' + pd.byName.name + ', channel ' + (pd.byName.channel + 1) + ')' : '') : 'not in the rig' + (pd.byName ? ' (name says ' + pd.byName.name + ', channel ' + (pd.byName.channel + 1) + ')' : '');
+        return h('tr', {}, h('td', {}, (part.drums ? '♩ ' : '') + part.name), h('td', {}, part.channel + 1), h('td', { class: pd.device && !D_isEffect(pd) ? '' : 'ti-warn' }, rigCell), h('td', {}, part.noteCount),
           h('td', {}, noteName(part.low) + '–' + noteName(part.high)), h('td', {}, part.firstBar + '–' + part.lastBar),
           h('td', {}, part.programs.length ? part.programs.map(x => x + 1).join(', ') : '—'), h('td', {}, sel));
       }));
@@ -181,7 +198,9 @@
       ui.rowSteps.replaceChildren(...a.rowSteps.candidates.map(c => option(c.steps, c.bars + (c.bars === 1 ? ' bar' : ' bars') + ' (' + c.steps + ' steps)' + (a.rowSteps.aligned ? '' : ', not on bar lines'), c.steps === a.rowSteps.default)));
     }
 
+    const D_isEffect = pd => pd.kind === 'effect';
     function showSong(result, song) {
+      showChannels(song);   /* Task 09 */
       const F = Format, usage = result ? result.stats : F.usage(song);
       const v = F.validate(song);
       ui.stats.replaceChildren(h('p', {}, h('strong', {}, song.name.trim() || '(unnamed)'), ' · tempo ' + (song.tempo || 'project') + ' · project ' + (song.projectSlot + 1) + ' · rows ' + song.rows.length +
@@ -201,7 +220,7 @@
     function reconvert() {
       if (!state.analysis) return;
       try {
-        const options = { fileName: state.fileName, assignments: state.assignments, outChannels: state.outChannels,
+        const options = { fileName: state.fileName, assignments: state.assignments, outChannels: state.outChannels.map(c => c === undefined ? undefined : c), rig: activeRig(), library,
           barFrom: Number(ui.barFrom.value) || 1, barTo: Number(ui.barTo.value) || state.analysis.totalBars, rowSteps: Number(ui.rowSteps.value) || undefined,
           quantize: ui.quantize.value, lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked, preRoll: ui.preRoll.value,
           looseDedup: ui.loose.checked, velocityTolerance: Math.max(0, Math.min(126, Math.round(Number(ui.tolerance.value) || 0))) };
@@ -223,7 +242,8 @@
         if (file.size > 16 * 1024 * 1024) throw new Error('MIDI file larger than 16 MiB');
         const bytes = new Uint8Array(await file.arrayBuffer());
         state.parsed = Midi.parse(bytes); state.analysis = Song.analyze(state.parsed); state.fileName = file.name;
-        state.assignments = Song.defaultAssignments(state.analysis);
+        state.assignments = Song.defaultAssignments(state.analysis, activeRig());   /* Task 09: the pinned track */
+        state.outChannels = Array(8).fill(undefined);
         ui.name.value = Format.padName(file.name.replace(/\.[^.]+$/, '')).trim();
         showFile();
         if (state.analysis.errors.length) { state.result = state.song = null; say('Cannot import: ' + state.analysis.errors[0]); enable(); return; }
@@ -263,11 +283,19 @@
       state.busy = false; enable(); slotInfo();
     });
 
+    /* Task 09: the guide generated from the active rig (web/rig/guide.js), as a Markdown download. */
+    ui.guide.addEventListener('click', () => {
+      const G = globalThis.TabbyGuide;
+      if (!G || !library) { say('The guide generator is not loaded on this page.'); return; }
+      const rigNow = activeRig() || (globalThis.TabbyRig ? globalThis.TabbyRig.rigEmpty() : null);
+      try { download(new TextEncoder().encode(G.build({ rig: rigNow, library })), 'Classic-Tabby-MIDI-Guide.md', 'text/markdown'); say('Guide written for the rig "' + rigNow.name + '".'); }
+      catch (error) { say('Cannot build the guide: ' + error.message); }
+    });
     enable();
     return { state, reconvert, ui };
   }
 
-  const TabbyImportUI = { mount, h, version: '0.7' };
+  const TabbyImportUI = { mount, h, version: '0.8' };
   globalThis.TabbyImportUI = TabbyImportUI;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();

@@ -46,9 +46,24 @@
  *   Loading: classic script (globalThis.TabbyMidiSong) and CommonJS; needs song-format.js
  *   (globalThis.TabbySongFormat or require) for block encoding, keys and usage.
  *
- * Version: 0.5
+ *   Rig-aware mapping (Task 09, v0.6): convert() takes options.rig (a tabby-rig/1 profile) and
+ *   options.library (TabbyDevices.load). Then: each part's OUT CH is its own MIDI channel
+ *   (options.outChannels[t] still overrides when it is an integer, or null for "device");
+ *   defaultAssignments() gives file order but a part on a channel whose rig entry pins a Tabby
+ *   track (the FM6 convention, channel 9 → track 8) goes to that track whatever its order;
+ *   partDevice() names the rig device on the part's channel and a device the track name
+ *   mentions, for the preview; and four warnings: channelNotInRig (a part or an event on a
+ *   channel with no device), notesOnEffectsChannel (notes to a pedal), programOutOfRange (a
+ *   program the device cannot reach, or a device that takes no program change), ccNotNamed (a
+ *   CC the device definition does not name; devices without a fixed map are not warned about).
+ *   Without options.rig everything behaves as v0.5.
+ *
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-05  Task 09: rig-aware OUT CH, the pinned track, partDevice(), the four rig warnings;
+ *                     fix: a program change that became a row event was still listed under
+ *                     programIgnored (the taken-set held copies, not the analysis objects).
  *   v0.5  2026-11-03  Task 05: exact timing (offsets and unit lengths), quantize as an option,
  *                     PPQ rounding report, warnings only for real changes.
  *   v0.4  2026-11-02  Task 04: controls collected with their file order, row events.
@@ -183,9 +198,34 @@
     lowest: (a, b) => a.pitch - b.pitch || b.velocity - a.velocity,
   };
 
-  function defaultAssignments(analysis) {
-    const a = {};
-    analysis.parts.forEach((p, i) => { a[p.key] = i < 8 ? i : null; });
+  /* The rig's device on a part's channel, and a device the track name mentions (Task 09). */
+  function rigDevices() { return globalThis.TabbyDevices || (typeof require === 'function' ? require('../rig/device-library.js') : null); }
+  function partDevice(part, rig, library) {
+    if (!rig || !library) return { device: null, byName: null, track: null, kind: null };
+    const c = rig.channels[part.channel], device = c && c.device ? library.get(c.device) : null, D = rigDevices();
+    const text = String(part.name || '').toLowerCase();
+    let byName = null;
+    for (let ch = 0; ch < 16 && !byName; ch++) {
+      const rc = rig.channels[ch], d = rc && rc.device ? library.get(rc.device) : null;
+      if (!d) continue;
+      const names = [rc.name, d.name, d.id].filter(Boolean).map(s => String(s).toLowerCase());
+      if (names.some(n => n.length >= 3 && text.includes(n))) byName = { channel: ch, device: d, name: rc.name || d.name };
+    }
+    return { device, byName, track: c && c.track ? c.track : null, kind: device && D ? D.kind(device) : null, channelName: c ? (c.name || (device ? device.name : '')) : '' };
+  }
+  /* Parts in file order to tracks 1..8; with a rig, a part on a pinned channel takes its pinned
+   * track and the others skip it (Task 09). */
+  function defaultAssignments(analysis, rig) {
+    const a = {}, taken = new Set();
+    if (rig) for (const p of analysis.parts) { const c = rig.channels[p.channel]; if (c && c.track && !taken.has(c.track - 1)) { a[p.key] = c.track - 1; taken.add(c.track - 1); } }
+    let next = 0;
+    for (const p of analysis.parts) {
+      if (p.key in a) continue;
+      while (taken.has(next)) next++;
+      a[p.key] = next < 8 ? next : null;
+      if (next < 8) taken.add(next);
+      next++;
+    }
     return a;
   }
 
@@ -204,7 +244,10 @@
     if (loose && (tolerance < 0 || tolerance > 126)) fail('velocity tolerance must be 0..126', 'options');
     if (!roundEnd[lengthRule]) fail('unknown length rule ' + lengthRule, 'options');
     if (!overflowOrder[overflowRule]) fail('unknown overflow rule ' + overflowRule, 'options');
-    const assignments = options.assignments || defaultAssignments(analysis);
+    const rig = options.rig || null, library = options.library || null, D = rig && library ? rigDevices() : null;   /* Task 09 */
+    const assignments = options.assignments || defaultAssignments(analysis, rig);
+    const deviceOnChannel = ch => { const c = rig && rig.channels[ch]; return c && c.device && library ? library.get(c.device) : null; };
+    const noFixedMap = d => d.controllers.some(c => c.cc === -1);
     const rangeStart = (barFrom - 1) * barSteps, rangeEnd = barTo * barSteps;
     const toStep = analysis.toStep, toUnits = analysis.toUnits, U = L.unitsPerStep, HALF = L.offsetMax;
     const TN = globalThis.TabbyTimedNote || (typeof require === 'function' ? require('../timed-note/timed-note.js') : fail('timed-note.js not loaded'));
@@ -223,7 +266,9 @@
     const rowOf = step => { const rel = step - rangeStart; const R = Math.round(rel / rowStepsExact); const d = rel - R * rowStepsExact; return (d >= -preRoll && d < 0.5 && R >= 0 && R * rowStepsExact < rangeEnd - rangeStart) ? R : -1; };
     const byRow = new Map();
     const pending = new Map();                                       /* channel → { msb, lsb } seen before a PC */
-    const everything = [...analysis.ignored.programChange.map(p => ({ ...p, kind: 'pc' })), ...(analysis.controls || []).map(c => ({ ...c, kind: 'cc' }))].sort((a, b) => a.tick - b.tick || a.seq - b.seq);   /* file order inside a tick */
+    /* v0.6: `src` keeps the analysis object, so the programIgnored check below recognises a PC that
+     * became an event (before, the spread copy never matched and every PC was listed as dropped). */
+    const everything = [...analysis.ignored.programChange.map(p => ({ ...p, kind: 'pc', src: p })), ...(analysis.controls || []).map(c => ({ ...c, kind: 'cc' }))].sort((a, b) => a.tick - b.tick || a.seq - b.seq);   /* file order inside a tick */
     for (const ev of everything) {
       const R = rowOf(toStep(ev.tick));
       if (R < 0) continue;
@@ -238,7 +283,7 @@
         const p = pending.get(ev.channel);
         if (p && p.row === R && (p.msb !== 255 || p.lsb !== 255)) { byRow.get(R).push({ channel: ev.channel, type: 1, d0: p.msb, d1: p.lsb, d2: ev.program, tick: ev.tick }); p.items.forEach(x => eventTaken.add(x)); eventTakenCC += p.items.length; pending.delete(ev.channel); }
         else byRow.get(R).push({ channel: ev.channel, type: 0, d0: ev.program, d1: 0, d2: 0, tick: ev.tick });
-        eventTaken.add(ev);
+        eventTaken.add(ev.src);
       } else { byRow.get(R).push({ channel: ev.channel, type: 2, d0: ev.controller, d1: ev.value, d2: 0, tick: ev.tick }); eventTaken.add(ev); eventTakenCC++; }
     }
     for (const [R, list] of byRow) if (list.length > L.rowEventsMax) { w.add('eventsOverflow', 'warn', 'More than 32 events at one row start; the extra ones were dropped', { text: 'row ' + (R + 1) }); list.length = L.rowEventsMax; }
@@ -269,6 +314,11 @@
       if (t === null || t === undefined || t === '' || t === 'skip') { w.add('partsSkipped', 'info', 'MIDI parts not assigned to a track were skipped', { text: part.name + ' (' + part.noteCount + ' notes)' }); continue; }
       if (!Number.isInteger(Number(t)) || t < 0 || t > 7) fail('part ' + part.name + ' assigned to an invalid track', 'options');
       usedParts.push({ part, track: Number(t) });
+      if (rig) {   /* Task 09: the part's channel against the rig */
+        const d = deviceOnChannel(part.channel);
+        if (!d) w.add('channelNotInRig', 'warn', 'A part plays on a channel the rig has no device on', { track: Number(t) + 1, text: part.name + ' on channel ' + (part.channel + 1) });
+        else if (D.isEffect(d)) w.add('notesOnEffectsChannel', 'warn', 'Notes go to an effects pedal channel (the pedal takes program changes and CCs only)', { track: Number(t) + 1, text: part.name + ' on channel ' + (part.channel + 1) + ' = ' + d.name });
+      }
       for (const n of part.notes) {
         notesIn++;
         if (!analysis.exactPpq) { const e = Math.max(analysis.unitError(n.tick), analysis.unitError(n.endTick)); if (e > 1e-9) { ppqRounded++; ppqWorst = Math.max(ppqWorst, e); } }
@@ -374,6 +424,20 @@
       if (hasEvents) for (const e of byRow.get(expanded)) events.push({ row: rows.length - 1, channel: e.channel, type: e.type, d0: e.d0, d1: e.d1, d2: e.d2 });
     });
     if (events.length > L.eventsMax) fail('The song needs ' + events.length + ' row events; a song holds ' + L.eventsMax + '. Narrow the bar range.', 'events');
+    if (rig) {   /* Task 09: every row event against the device on its channel */
+      for (const e of events) {
+        const d = deviceOnChannel(e.channel), at = 'row ' + (e.row + 1) + ' channel ' + (e.channel + 1);
+        if (!d) { w.add('channelNotInRig', 'warn', 'An event targets a channel the rig has no device on', { text: at + ': ' + (e.type === 2 ? 'CC ' + e.d0 : 'program ' + (e.type === 1 ? e.d2 : e.d0)) }); continue; }
+        if (e.type === 0 || e.type === 1) {
+          const program = e.type === 1 ? e.d2 : e.d0, bank = e.type === 1 ? D.bankFromBytes(d, e.d0 === 255 ? null : e.d0, e.d1 === 255 ? null : e.d1) : null;
+          if (d.programChange.supported !== true) w.add('programOutOfRange', 'warn', 'A program change targets a device that does not receive program changes (it does nothing there)', { text: at + ' = ' + d.name + ': program ' + program });
+          else if (e.type === 1 && (e.d0 !== 255 || e.d1 !== 255) && bank === null) w.add('programOutOfRange', 'warn', 'A bank select does not match the device\'s bank scheme', { text: at + ' = ' + d.name + ': bank ' + (e.d0 === 255 ? '-' : e.d0) + '/' + (e.d1 === 255 ? '-' : e.d1) });
+          else if (!D.programInRange(d, bank, program)) w.add('programOutOfRange', 'warn', 'A program number is outside the device\'s range', { text: at + ' = ' + d.name + ': program ' + program + (bank !== null ? ' in bank ' + bank : '') });
+        } else if (e.type === 2 && !D.controller(d, e.d0) && !noFixedMap(d)) {
+          w.add('ccNotNamed', 'warn', 'A control change is not one the device definition names', { text: at + ' = ' + d.name + ': CC ' + e.d0 + ' = ' + e.d1 });
+        }
+      }
+    }
     for (const e of events) w.add('rowEvents', 'info', 'Program / bank / control change event(s) at row starts became row events (pre-roll ' + (preRoll ? preRoll + ' steps' : 'none') + ')',
       { text: 'row ' + (e.row + 1) + ' channel ' + (e.channel + 1) + ': ' + (e.type === 0 ? 'program ' + e.d0 : e.type === 1 ? 'bank ' + (e.d0 === 255 ? '-' : e.d0) + '/' + (e.d1 === 255 ? '-' : e.d1) + ' program ' + e.d2 : 'CC ' + e.d0 + ' = ' + e.d1) });
     for (const [, p] of pending) if (p.items.some(x => !eventTaken.has(x))) w.add('bankWithoutProgram', 'info', 'Bank select without a following program change dropped', { text: 'row ' + (p.row + 1) + ' channel ' + (p.items[0].channel + 1) });
@@ -384,12 +448,17 @@
     song.projectSlot = Number.isInteger(options.projectSlot) ? options.projectSlot : 0;
     song.tempo = analysis.tempo.bpm;
     song.loop = !!options.loop; song.jumpMode = options.jumpMode === 'row' ? 'row' : 'bar'; song.loopRow = 0;
-    song.outChannels = Array.from({ length: 8 }, (_, t) => { const c = (options.outChannels || [])[t]; return Number.isInteger(c) && c >= 0 && c <= 15 ? c : null; });
+    /* OUT CH per track: an explicit integer wins; else, with a rig, the part's own channel (Task 09);
+     * else the device setting (null). Several parts on one track: the first part's channel. */
+    const partChannel = Array(8).fill(null);
+    for (const u of usedParts) if (partChannel[u.track] === null) partChannel[u.track] = u.part.channel;
+    song.outChannels = Array.from({ length: 8 }, (_, t) => { const c = (options.outChannels || [])[t]; return c === null ? null : Number.isInteger(c) && c >= 0 && c <= 15 ? c : rig ? partChannel[t] : null; });
     song.rows = rows; song.blocks = blocks; song.events = events;
     song.source = { fileName: options.fileName || '', format: analysis.format, division: analysis.division, tempoExact: analysis.tempo.exact,
       meter: analysis.meter.numerator + '/' + analysis.meter.denominator, barSteps, barFrom, barTo, rowSteps, quantize, lengthRule, overflowRule, exactPpq: analysis.exactPpq,
       looseDedup: loose, velocityTolerance: loose ? tolerance : null, preRoll: options.preRoll || 'beat',
-      parts: usedParts.map(u => ({ key: u.part.key, name: u.part.name, track: u.track + 1 })) };
+      parts: usedParts.map(u => ({ key: u.part.key, name: u.part.name, track: u.track + 1, channel: u.part.channel + 1, rigDevice: (partDevice(u.part, rig, library).device || {}).name || null })),
+      rig: rig ? rig.name : null };
     const usage = F.usage(song);
     const allNotes = perTrack.flat();
     const stats = { ...usage, rowsBeforeMerge: rowsExpanded.length, cellsBeforeDedup: rowsExpanded.reduce((n, r) => n + r.filter(Boolean).length, 0),
@@ -402,7 +471,7 @@
     return result;
   }
 
-  const TabbyMidiSong = { analyze, convert, defaultAssignments, rowStepsFor, position, where, nearest, version: '0.5' };
+  const TabbyMidiSong = { analyze, convert, defaultAssignments, partDevice, rowStepsFor, position, where, nearest, version: '0.6' };
   globalThis.TabbyMidiSong = TabbyMidiSong;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyMidiSong;
 })();
