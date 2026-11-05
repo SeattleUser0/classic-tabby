@@ -3,6 +3,11 @@ Start Task 09. First save this whole message as docs/tasks/TASK-09-wrong-room-ri
 Classic Tabby, Task 09: The Wrong Room rig: one channel plan for the firmware, the workbench and the MIDI guide
 Revision log:
 - v0.1 2026-11-05: first draft.
+- v0.2 2026-11-05: the delay is a Boss RE-2 Space Echo (the compact pedal), not an RE-202. The
+  RE-2 has no MIDI: it is removed from the MIDI plan (no device definition, no channel, no
+  program changes, no clock). Channel 13 becomes spare. The guide's rig section lists the RE-2
+  as audio only, with its delay time set by hand or tap. (Two corrections from the user during
+  Step 1; the text below is the v0.1 wording and still names the RE-202.)
 
 GOAL
 An LLM writes a .mid file using the MIDI authoring guide. I import it in the workbench. Every part lands on the right Tabby track with the right output channel, every program change and CC reaches the right device, and I change nothing by hand. The channel plan, the device profiles, the importer and the guide must all come from one source so they never disagree.
