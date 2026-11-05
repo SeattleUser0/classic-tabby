@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.31
+Version: 0.32
 Revision log:
+- v0.32, 2026-11-05: section 9: tabby-v03.2 published (9.1 current values, 9.3e verification
+  with the forced-version gate against tabby-v03.1 and the archive VERSION check); the
+  Task 09 hardware items in the left-to-build list.
 - v0.31, 2026-11-05 (Task 09 checkpoint d): sections 23.4 (the simulator check, the two
   findings) and 23.5 (the Step 4 hardware checklist); the gap-order rule in the guide.
 - v0.30, 2026-11-05 (Task 09 checkpoint c): section 23.3: the generated MIDI guide, its tool,
@@ -219,6 +222,10 @@ are never written.
   SONG page's "K1 SONG" hint names the wrong knob (SELECT / PRESETS select the song); the
   SOUND SOURCE page's "K1 / PADS 1-6 CHOOSE" should say 1-5, and the overview's PAGE / K2
   path into it wraps with GROOVE_SOURCES (6) instead of SOURCE_CHOICES (5).
+- **Task 09 hardware items** (BUILD.md 23.5 step 19): after the checklist, correct the
+  definitions with the Zoom's PC base, the Royalist's own CC list (replacing the SYN-20IR map),
+  the SMK-37 jack's TRS type and whether the NightSky latched channel 14 over DIN; then
+  `make midi-guide` and a release.
 - **Cross-project (Orange Cat firmware, not Classic Tabby):** a per-track MIDI input channel with
   OFF, as Skiff 2.2's T1–T6 CHANNEL, so an Orange Cat FM-1 can take one channel without an
   H4MIDI WC port filter (today ROUT routes a block of four channels or every channel; Task 09
@@ -589,8 +596,19 @@ nothing was written to any device.
 
 ### 9.1 What is published
 
-Current release **tabby-v03.1** (2026-11-05; the earlier releases' values below stay as the
+Current release **tabby-v03.2** (2026-11-05; the earlier releases' values below stay as the
 record of their publications):
+
+| Item | Value |
+| --- | --- |
+| Branch and tag | `classic-tabby/linux-build` = c3454e3; tag `tabby-v03.2` (annotated) → c3454e3 |
+| Firmware package `SMK37_PRO_OPEN.fwsc` | SHA-256 10a88928be02790a13764511b1946f24d1d8f0cc0a4bbf80af5d46200751e61d, 492084 bytes, build_id d842d29d324339e73beb16e984046711d95baf556a777f95ad78cb6d679215f9, app image 451396 (margin 2525); sdk.elf ef71f1325e9921cea00d64fcc363515828011540a86f302f2489b1788660d59f, app-image.bin 7abb861f739118da241dc99ea96ec1fff63b428c441754847273ecbf5021586a; display version tabby-v03.2 |
+| Offline workbench `SMK37-Open-Source.html` | SHA-256 9ffbd973301e738f10d225b438cd5ee3811d7c18272462fece36768675d1a60c, 3078692 bytes |
+| Static site | `gh-pages` = 4c675ae ("Pages: tabby-v03.2 (build d842d29d3243, release V01)"), `index.html` 334195 bytes (SHA-256 a8abaeb063d020f443ae1c0431c4e931d0f192c4d47f60eaae1a78f78c2441a8), assets.json `"version": "tabby-v03.2"`, 9 assets under `assets/smk37/` (firmware = `10a88928….bin`) |
+| Source archive | https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v03.2.zip (VERSION expands to `tabby-v03.2`) |
+| GitHub release | https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v03.2 (`SMK37_PRO_OPEN.fwsc`, `SMK37-Open-Source.html`, `SHA256SUMS.txt`; notes docs/releases/tabby-v03.2.md) |
+
+Record of tabby-v03.1:
 
 | Item | Value |
 | --- | --- |
@@ -810,6 +828,37 @@ subdirectory (`--site-dir elite`), as HOSTING.md asks for separate directories.
   ("21 chapters", heading "Classic Tabby manual", the twelve new chapter ids present, no
   Chinese text left in the English UI), the source link is the tag archive.
 - This commit is the documentation follow-up; the tag stays on 22018ac.
+
+### 9.3e Verification after publishing tabby-v03.2 (2026-11-05)
+
+- **The gate, forced version.** The Task 09 tree (d57fc26) built with `--display-version
+  tabby-v03.1` against the tabby-v03.1 release package: the .fwsc differs in 46 bytes, the
+  32-byte `fm1_build_id` (package offset 175953..175984) plus 14 package checksum bytes; sdk.elf
+  and app-image.bin carry the same 32-byte difference (dc29edce…, 8e6e2536… against 9908d145…,
+  f06f541a…). app/ is unchanged since tabby-v03.1 (`git diff tabby-v03.1 -- app/` is empty); the
+  build id moves because sdk/manifest.json, whose pin of sdk/Update.html.in changed with the
+  workbench, is an identity input (build.py `identity_inputs = [profile, sha256(manifest)] +
+  app files`). So a byte-identical package across a workbench change is impossible by
+  construction; the proof that the firmware sources are unchanged is the empty app/ diff and the
+  difference confined to the id.
+- **Suite.** `make check`, `make lint`, then `make suite DISPLAY_VERSION=tabby-v03.2` green on
+  d57fc26 (crosscheck IDENTICAL: sdk.elf ef71f132…, .fwsc 10a88928…, app-image 7abb861f…; test,
+  midi-import-sim with the Wrong Room simulator check, host-sanitize; 15 "all checks passed",
+  importer 183). `make publish` from the tagged tree gave the same .fwsc and build id.
+- Pushed: `classic-tabby/linux-build` fc6ea29 → c3454e3 (the Task 09 commits 6090f65, 3892ce0,
+  8a4e629, fda8f07, 71cad94, 1f8fdae, 077c210, d57fc26, c3454e3), tag `tabby-v03.2` → c3454e3,
+  `gh-pages` d26dfd6 → 4c675ae.
+- `make release TAG=tabby-v03.2` created the release; the three assets downloaded back and
+  `sha256sum -c SHA256SUMS.txt` passes; the release `.fwsc` is byte-identical to the local package.
+- **The archive** (3254766 bytes) unpacks to 300 files whose SHA-256 all equal `git archive
+  tabby-v03.2`; its VERSION file reads `tabby-v03.2`.
+- Live site after the Pages build (21 s): `index.html` and `SMK37-Open-Source.html` byte-identical
+  to the local build (334195 and 3078692 bytes), the firmware asset `10a88928….bin` byte-identical
+  (492084 bytes, `application/octet-stream`), assets.json `"version": "tabby-v03.2"`. Headless
+  Chrome: no console errors, the simulator placeholder hidden, the badge **tabby-v03.2**, the rig
+  panel's profile select with "Wrong Room (built-in)" and nine columns, the Import MIDI panel's
+  "Rig device" column and "Download the MIDI guide" button, the manual's 21 chapters.
+- This commit is the documentation follow-up; the tag stays on c3454e3.
 
 ### 9.4 What the install screen shows for the SMK-37 Pro
 
