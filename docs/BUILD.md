@@ -2794,7 +2794,55 @@ Findings for the tools: the AUDIO4c's capture must be started explicitly (`snd_p
 readi fails with EIO); a Python busy-wait clock loop starves a capture thread, so audio runs as its
 own process; the page translates its status texts, so the driver accepts both languages.
 
-### 25.3 Results of the 2026-11-07 run (the agent's own run; files in hardware-runs/2026-11-07/)
+### 25.3 Results (2026-11-07 and 2026-11-08; files in hardware-runs/2026-11-07/)
+
+Run continued on 2026-11-08 after the user approved the remote ERASE OLD. The device was found on
+**tabby-v03.0**; tabby-v03.2 was installed first. Installs through the page take about 9 s. Measurements
+are on the local builds tabby-v03.3-diag-r2 (8b7dff80…) and tabby-p0-probe64-r2 (e2abe8ee…): the diag
+and probe plus command 26 and the diag-only screen timing (command 25 page 3); diag image 453892,
+margin **29 bytes** of the 637. Normal build unchanged (gate: 32 bytes of build id).
+
+**DIN (L.9): no adapter type works here.** The firmware sends to DIN: stored ports 7 (DIN, USB, BLE),
+every track's mode BOTH, the SDK reports DIN as a physical output, and song notes use that mask; the
+rig profile sets channels, not ports. While a song played, the SMK-37's USB output carried every note,
+clock, Start, SPP and Stop, but all ten AUDIO4c MIDI inputs, opened together, received 0 bytes. The
+AUDIO4c's internal routing can only be read with iConnectivity's own SysEx protocol (not attempted).
+L.2 and L.3 are therefore **measured on USB out**: kernel receive timestamps at the NUC; USB adds
+host-side timing of its own (1 ms full-speed frames, the host's polling).
+
+| Item | Status | Result |
+| --- | --- | --- |
+| step 1 backup / restore / verify (v03.2) | done; restore refused (old data), verify PASS | see the first run below |
+| step 2 install, verify | done | published tabby-v03.3-diag; verify PASS |
+| ERASE OLD (command 26 {3}) | done (approved) | OLD DATA → READY, 382K free, in 2 s |
+| run A, at rest | done | loop mean 5.484, max 12.293 ms; scan gap 0.34 ms |
+| run B, song 15 + 100 USB notes | substituted (no keys) | loop **mean 6.341, max 19.189 ms**; screen control 79/s, mean 0.543, max 10.817 ms; band paints 17/s, mean 0.272, max 2.805 ms; L.4 needs a person |
+| L.2 one line | measured on USB out | **band 14.7 ms**, std 3.3, p99 7.6, drift −438 ppm (device vs NUC), wander 1.4 ms; loop mean 5.80, max 14.1 |
+| L.2 eight lines | measured on USB out | band 14.4–18.6 ms per channel, std 3.2–3.7; burst mean 5.5 ms (1.6–9.2); loop mean 6.32, max 19.0; LATE 0 |
+| FM6 behind the USB note (track 1 only on FM6) | measured on USB out | one line: mean **23.5 ms**, std 12.2, p05 5.5, p95 39.9 (853 of 960 paired); eight lines: mean 21.8, p05 3.8, p95 39.0 |
+| L.3 save during play | measured on USB out | longest note interval around the save 338 ms (nominal 125): MIDI out held ~213 ms; loop max 223 ms; 5 erases (max 17.6 ms), writes max 29.1 ms; audio gap ≥104 ms starting 23 ms after the save command (held note, earlier run: 220–224 ms) |
+| L.3 song delete during play (kind 5, 1.29 s) | measured on USB out | **no note for 1.35 s** and 15 of ~62 clock pulses during the transfer; one note held 1.46 s; audio gap 24 ms at the record write |
+| L.3 COMPACT | done | refused while playing (code 71), as on the panel; stopped with a held FM6 note: 1 erase 17.6 ms, audio gap 32 ms starting 12 ms after the command; no clicks |
+| L.6 clock follow | substituted (USB out, first run) | lock 9–12 ms, band 11.5–14.3 ms; after 3 s without clock no resume until a new Start |
+| step 4 backup, verify | done | 1 project, 2 songs, 9 blocks, kind 8 included; verify PASS |
+| step 5 probe | done | **SDK accepted USER 471040**: ACTIONS `USER 471040 SONG READY`, `FREE 318K RECLAIM 0K` (80 block sectors); capability reply 397312 |
+| step 5 restore onto the moved layout | done | **Verify PASS, 14 items** |
+| step 5 save + verify | done | verify stops at the changed project only (slot 16, byte 3836 = its name); run D: 20 erases max 18.1 ms, loop max 220.6 ms |
+| Bluetooth, power cycle, L.7 | need a person | |
+| step 6 factory V16 | **skipped** | the V16 restore turns force flash on, and the page then probes every MIDI input (12 here, 10 of them the AUDIO4c's); its 12 s connect timer expires twice and it sends its identity query to ports that are not the SMK-37. Nothing was installed |
+| step 7 way back (local diag-r2) | done | `USER 536576 SONG OLD DATA` as 24.5 says; ERASE OLD; restore + **Verify PASS, 14 items** |
+| final install of the published diag | **STOP** | "Timed out waiting for reconnection": the device enumerates as its update loader ("USB Composite Device MIDI 1", Jieli 4d4a:4155); not retried, nothing sent since (stop-state.txt) |
+
+Readings. MIDI out timing is far outside SPEC 14.3's 2 ms: a 14–19 ms band on USB, a control loop of
+5.5–6.3 ms mean and 12–19 ms worst; the screen takes about 4 % of the time (79 calls/s × 0.54 ms), so
+drawing does not set the 5.5 ms period, though its 10.8 ms worst call adds to the worst loops. Timing is
+Phase 1's first item. A save during play stops MIDI out and audio for about 215–225 ms (the flash erase
+blocks interrupts for up to 17.6 ms each); a song transfer during play starves the USB MIDI output for its
+whole length. Saves and transfers belong to the stopped state. The moved boundary works: the SDK, the
+loader, song storage, the full restore and the way back all passed.
+
+### 25.4 First run (2026-11-07, before the erase approval)
+
 
 Device found on **tabby-v03.0** (build 77077ef3…), not v03.2; tabby-v03.2 was installed first from
 its release page. Every install took about 9 s through the page and came back with its identity

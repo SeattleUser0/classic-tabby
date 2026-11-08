@@ -50,9 +50,12 @@ Run (docs/BUILD.md 24.6)
     --port takes a name substring as `amidi -l` prints it, or hw:CARD,DEVICE[,SUB].
     Stop early with Ctrl-C: the capture so far is written and analysed.
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-08  Task 11B: steps are counted note to note (robust to drift); the clock's tempo
+                      comes from the pulse count over the capture, not the median interval (a device
+                      that sends two pulses per control loop has a bimodal interval).
     v0.2  2026-11-07  Task 11 Step 6: two ports in one capture (--port twice, a port column) and
                       the lag of the second port's note-ons behind the first's.
     v0.1  2026-11-07  Task 11 Step 3: first version (capture, CSV, analysis, --list).
@@ -253,7 +256,7 @@ def analyze(rows, bpm=None, channel=None):
     clocks = [r[0] for r in rows if r[1] == "clock"]
     if len(clocks) > 24:
         iv = [(b - a) / 1e6 for a, b in zip(clocks, clocks[1:])]
-        med = statistics.median(iv)
+        med = (clocks[-1] - clocks[0]) / 1e6 / (len(clocks) - 1)   # v0.3: mean over the run
         result["clock"] = {"pulses": len(clocks), "bpm": 60000.0 / (24 * med), "interval_ms": med,
                            "interval_spread_ms": max(iv) - min(iv), "interval_std_ms": statistics.pstdev(iv)}
     if bpm:
@@ -277,7 +280,12 @@ def analyze(rows, bpm=None, channel=None):
         ts = ons.get(c, [])
         if len(ts) < 8:
             continue
-        ks = [round((t - t0) / period) for t in ts]
+        # v0.3: step from note to note (k_i = k_(i-1) + round(dt / P)), so drift accumulated over a
+        # long run cannot round a note onto its neighbour's step (with -438 ppm on the device the old
+        # rounding against t0 misassigned notes after about a minute).
+        ks = [round((ts[0] - t0) / period)]
+        for prev, t in zip(ts, ts[1:]):
+            ks.append(ks[-1] + max(1, round((t - prev) / period)))
         a, b = fit(ks, ts)
         res = [t - (a + b * k) for k, t in zip(ks, ts)]
         window = 64                                       # 4 bars of 16ths

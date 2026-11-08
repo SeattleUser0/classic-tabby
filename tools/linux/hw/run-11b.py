@@ -24,9 +24,12 @@ Purpose
 
 Rerun: python3 tools/linux/hw/run-11b.py <subcommand> --out DIR   (docs/BUILD.md 25.2)
 
-Version: 0.6
+Version: 0.9
 
 Revision log
+    v0.9  2026-11-08  l3song: save, song delete and COMPACT during song play; COMPACT stopped with a held note.
+    v0.8  2026-11-08  fm6-delay pairs the FM6 track's channel only (--channel).
+    v0.7  2026-11-08  l2: a song played by command 26, measured on the USB output; --notes for run B.
     v0.6  2026-11-07  l3 renames the project before each save so it writes; gaps: envelope detector.
     v0.5  2026-11-07  l3 (saves with a held note and during the clocked pattern) and gaps (audio
                       dropouts and clicks).
@@ -269,7 +272,7 @@ def fm6_delay(a):
     fit = json.load(open(os.path.join(a.out, "%s-audio.json" % a.tag)))["fit"]
     on = onsets(os.path.join(a.out, "%s-audio-in1.wav" % a.tag), fit)
     rows = M.read_csv(a.csv)
-    notes = sorted(r[0] for r in rows if r[1] == "note_on" and (r[5] if len(r) > 5 else "") in ("usb", "2 hw:2,0,0", ""))
+    notes = sorted(r[0] for r in rows if r[1] == "note_on" and r[2] == a.channel and (r[5] if len(r) > 5 else "") in ("usb", "2 hw:2,0,0", ""))   # v0.8: the FM6 track's channel only
     # v0.4: for every note-on, the first onset after it within 50 ms (the patch's beating gives a
     # second rise later in some notes; those are not note starts).
     import bisect
@@ -380,9 +383,110 @@ def gaps(a):
     print(json.dumps({"dropouts": out[:20], "clicks": len(clicks), "first_clicks_ms": clicks[:10]}, indent=1))
 
 
+def l2(a):
+    """v0.7: L.2 on the SMK-37's USB MIDI out (no DIN signal): reset the counters, play song --song
+    (command 26), read the device's USB output with kernel timestamps for --seconds, stop, read the
+    counters; with --notes N also send N notes of mixed velocity into the USB port meanwhile (run B's
+    router load). Writes <tag>-usb.csv (monitor format, port "usb"), <tag>-counters.txt/.json and the
+    monitor's analysis <tag>-report.txt."""
+    l = T.Link(); print("kernel timestamps on USB in:", l.kernel_time)
+    rng = random.Random(7); got = []; sent = []
+    l.diag(1); l.play(a.song)
+    start = time.monotonic_ns(); end = start + int(a.seconds * 1e9)
+    plan = sorted(start + int((i + 0.5) * a.seconds * 1e9 / a.notes) + rng.randint(-200_000_000, 200_000_000) for i in range(a.notes)) if a.notes else []
+    offs = []
+    while time.monotonic_ns() < end:
+        now = time.monotonic_ns()
+        if plan and now >= plan[0]:
+            plan.pop(0); note, vel = 72 + rng.randint(0, 12), rng.choice([20, 45, 70, 95, 120, 127])
+            sent.append((l.send(bytes([0x90 | 15, note, vel])), "note_on", 16, note, vel, "sent")); offs.append((now + rng.randint(60, 300) * 1_000_000, note))
+        if offs and now >= offs[0][0]:
+            _, note = offs.pop(0); sent.append((l.send(bytes([0x80 | 15, note, 0])), "note_off", 16, note, 0, "sent"))
+        got.extend(l.messages(2))
+    for _, note in offs:
+        l.send(bytes([0x80 | 15, note, 0]))
+    l.stop(); time.sleep(0.3); got.extend(l.messages(100))
+    d = l.diag(0); st = l.song_status(); l.close()
+    usb = [r[:5] + ("usb",) for r in M.to_rows(got)]
+    rows = sorted(usb + sent, key=lambda r: r[0])
+    M.write_csv(os.path.join(a.out, "%s-usb.csv" % a.tag), [r[:5] + ("", r[5]) for r in rows], rows[0][0])
+    res = M.analyze([r for r in usb], a.bpm)
+    import io
+    buf = io.StringIO(); M.report(res, buf)
+    text = T.diag_text(d)
+    save(a.out, "%s-counters.txt" % a.tag, text + "\n")
+    save(a.out, "%s-counters.json" % a.tag, json.dumps({"counters": d, "song_status": st, "notes_sent": a.notes}, indent=1))
+    save(a.out, "%s-report.txt" % a.tag, "measured on USB out (kernel timestamps at the NUC)\n" + buf.getvalue())
+    print(buf.getvalue()); print(text); print("late:", st["late"])
+
+
+def l3song(a):
+    """v0.9: L.3 in song mode, measured on the USB out. Song --song plays (the FM6 on track 1);
+    at 10 s the project is renamed and saved to --slot (command 7), at 25 s song slot --scratch is
+    deleted (kind 5, the workbench's delete), at 40 s COMPACT is asked for (command 26 {2}; the
+    firmware refuses it while a song plays); stop at 55 s. Then, stopped, a held FM6 note while
+    COMPACT runs. Every action's send and reply time is logged; run `record` alongside."""
+    l = T.Link(); got = []; log = []
+    def mark(kind, t=None):
+        log.append((t or time.monotonic_ns(), kind, "", "", "", "marker"))
+    def pump(until):
+        while time.monotonic_ns() < until:
+            got.extend(l.messages(2))
+    l.diag(1); start = time.monotonic_ns(); l.play(a.song); mark("play")
+    pump(start + 10_000_000_000)
+    l.query(10, b"L3 SONGSAVE "); mark("save_begin"); l.save_slot(a.slot); mark("save_end"); got.extend(l.other); l.other.clear()
+    pump(start + 25_000_000_000)
+    mark("delete_begin")
+    try:
+        l.song_delete(a.scratch); result = "deleted"
+    except T.DeviceError as e:
+        result = "refused %d" % e.code
+    mark("delete_end"); got.extend(l.other); l.other.clear()
+    pump(start + 40_000_000_000)
+    mark("compact_ask")
+    try:
+        l.compact(); compact = "started"
+    except T.DeviceError as e:
+        compact = "refused %d" % e.code
+    got.extend(l.other); l.other.clear()
+    pump(start + 55_000_000_000); l.stop(); mark("stop"); time.sleep(0.5); got.extend(l.messages(100))
+    d1 = l.diag(0)
+    # Stopped: a held FM6 note while COMPACT runs.
+    l.diag(1)
+    t = l.send(bytes([0x90, 52, 100])); log.append((t, "hold_on", 1, 52, 100, "sent")); time.sleep(1.5)
+    mark("compact_begin")
+    try:
+        l.compact(); stopped_compact = "started"
+    except T.DeviceError as e:
+        stopped_compact = "refused %d" % e.code
+    t0 = time.time()
+    while time.time() - t0 < 30 and l.actions()["storage"] == "COMPACTING":
+        time.sleep(0.2)
+    mark("compact_end"); time.sleep(1.0)
+    t = l.send(bytes([0x80, 52, 0])); log.append((t, "hold_off", 1, 52, 0, "sent"))
+    d2 = l.diag(0); st = l.actions(); l.close()
+    usb = [r[:5] + ("usb",) for r in M.to_rows(got)]
+    rows = sorted(usb + log, key=lambda r: r[0])
+    M.write_csv(os.path.join(a.out, "l3song-midi.csv"), [r[:5] + ("", r[5]) for r in rows], rows[0][0])
+    # The MIDI-out gaps around each action: the longest interval between two USB note-ons.
+    ons = [r[0] for r in usb if r[1] == "note_on"]
+    marks = {r[1]: r[0] for r in log}
+    def gap_near(k):
+        if k not in marks or len(ons) < 2:
+            return None
+        best = max(((b2 - b1) / 1e6, (b1 - marks[k]) / 1e6) for b1, b2 in zip(ons, ons[1:]) if marks[k] - 300e6 < b1 < marks[k] + 600e6) if any(marks[k] - 300e6 < x < marks[k] + 600e6 for x in ons) else None
+        return best
+    rep = {"delete": result, "compact_while_playing": compact, "compact_stopped": stopped_compact, "storage_after": st["line1"],
+           "longest_note_interval_near_save_ms": gap_near("save_begin"), "near_delete_ms": gap_near("delete_begin"),
+           "nominal_interval_ms": 125.0, "counters_play": d1, "counters_compact": d2}
+    text = "song mode, measured on USB out\nduring play (save, delete, compact asked):\n" + T.diag_text(d1) + "\n\nstopped, COMPACT with a held note:\n" + T.diag_text(d2)
+    save(a.out, "runC2-counters.txt", text + "\n"); save(a.out, "l3song-report.json", json.dumps(rep, indent=1, default=str))
+    print(text); print({k: v for k, v in rep.items() if not k.startswith("counters")})
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("cmd", choices=["runA", "runB", "l6", "audio-probe", "record", "clocked", "fm6-delay", "l3", "gaps"])
+    p.add_argument("cmd", choices=["runA", "runB", "l6", "audio-probe", "record", "clocked", "fm6-delay", "l3", "gaps", "l2", "l3song"])
     p.add_argument("--out", required=True)
     p.add_argument("--seconds", type=float, default=60)
     p.add_argument("--bpm", type=float, default=120)
@@ -390,11 +494,15 @@ def main():
     p.add_argument("--usb", action="store_true", help="l6: measure the SMK-37's USB output instead of DIN (v0.2)")
     p.add_argument("--tag", default="", help="suffix / prefix for the output file names (v0.2)")
     p.add_argument("--csv", help="fm6-delay: the MIDI CSV to pair with the audio (v0.3)")
+    p.add_argument("--channel", type=int, default=1, help="fm6-delay: the channel of the track on the FM6 (v0.8)")
+    p.add_argument("--scratch", type=int, default=12, help="l3song: song slot deleted during play (v0.9)")
+    p.add_argument("--song", type=int, default=15, help="l2: song slot 0-15 (v0.7)")
+    p.add_argument("--notes", type=int, default=0, help="l2: notes sent into the USB port meanwhile (v0.7)")
     p.add_argument("--slot", type=int, default=15, help="l3: the project slot saved (v0.5)")
     p.add_argument("--click", type=float, default=0.25, help="gaps: sample step that counts as a click (v0.5)")
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
-    {"runA": run_a, "runB": run_b, "l6": l6, "audio-probe": audio_probe, "record": record, "clocked": clocked, "fm6-delay": fm6_delay, "l3": l3, "gaps": gaps}[a.cmd](a)
+    {"runA": run_a, "runB": run_b, "l6": l6, "audio-probe": audio_probe, "record": record, "clocked": clocked, "fm6-delay": fm6_delay, "l3": l3, "gaps": gaps, "l2": l2, "l3song": l3song}[a.cmd](a)
 
 
 if __name__ == "__main__":

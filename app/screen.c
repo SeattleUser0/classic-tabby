@@ -1355,6 +1355,9 @@ static void draw(const struct fm1_ble_status *ble)
 static void paint_flush(void)
 {
     uint32_t started = fm1_millis();
+#ifdef CT_DIAG
+    uint32_t diag_start = ct_diag_ticks(); unsigned diag_bands = 0;   /* Task 11B: paint timing */
+#endif
     paint_rendering = 1;
     cache = &band_cache;
     for (unsigned visited = 0; visited < PAINT_BANDS; ++visited) {
@@ -1389,12 +1392,18 @@ static void paint_flush(void)
         paint_left[band] = FM1_SCREEN_WIDTH;
         paint_right[band] = 0;
         paint_priority &= ~(1U << band);
+#ifdef CT_DIAG
+        ++diag_bands;
+#endif
         /* The DMA borrows paint_pixels. The next iteration/poll must observe
          * completion before composing another band into that same buffer. */
         if (fm1_millis() - started >= 4U) break;
     }
     paint_rendering = 0;
     cache = &saved_cache;
+#ifdef CT_DIAG
+    ct_diag_paint(ct_diag_ticks() - diag_start, diag_bands);
+#endif
 }
 static int release_keys_except(uint32_t keep)
 {
@@ -2172,7 +2181,19 @@ controls_done:
     return 1;
 }
 
+#ifdef CT_DIAG
+/* Task 11B: the whole screen control call is timed; the body is groove_screen_control_body. */
+static void groove_screen_control_body(void);
 void groove_screen_control(void)
+{
+    uint32_t t = ct_diag_ticks();
+    groove_screen_control_body();
+    ct_diag_screen(ct_diag_ticks() - t);
+}
+static void groove_screen_control_body(void)
+#else
+void groove_screen_control(void)
+#endif
 {
     struct fm1_controls controls;
     fm1_controls_read(&controls);

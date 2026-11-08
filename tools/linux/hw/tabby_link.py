@@ -25,9 +25,11 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.1
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-08  kernel timestamps on the device's USB output (snd_rawmidi_tread).
+    v0.2  2026-11-08  diag page 3 (screen timing) when the firmware has it.
     v0.1  2026-11-07  Task 11B: first version.
 """
 
@@ -123,6 +125,18 @@ class Link:
         self.parser = monitor.Parser()
         self.buf = ctypes.create_string_buffer(4096)
         self.token = 1000
+        # v0.3: kernel receive timestamps (CLOCK_MONOTONIC) on the device's USB output, as the DIN
+        # monitor has, so a measurement on USB out adds no Python scheduling jitter.
+        self.kernel_time = False
+        params = ctypes.c_void_p()
+        if hasattr(LIB, "snd_rawmidi_tread") and LIB.snd_rawmidi_params_malloc(ctypes.byref(params)) == 0:
+            ok = (LIB.snd_rawmidi_params_current(self.inp, params) == 0 and
+                  LIB.snd_rawmidi_params_set_read_mode(self.inp, params, 1) == 0 and
+                  LIB.snd_rawmidi_params_set_clock_type(self.inp, params, 2) == 0 and
+                  LIB.snd_rawmidi_params(self.inp, params) == 0)
+            LIB.snd_rawmidi_params_free(params)
+            self.kernel_time = bool(ok)
+            LIB.snd_rawmidi_tread.restype = ctypes.c_ssize_t
         self.other = []                              # non-SysEx messages seen while waiting
 
     def close(self):
@@ -143,10 +157,15 @@ class Link:
     def messages(self, timeout_ms):
         if not self.poll.poll(timeout_ms):
             return []
-        n = LIB.snd_rawmidi_read(self.inp, self.buf, 4096)
+        if self.kernel_time:
+            ts = Timespec()
+            n = LIB.snd_rawmidi_tread(self.inp, ctypes.byref(ts), self.buf, 4096)
+            t = ts.tv_sec * 1000000000 + ts.tv_nsec if n > 0 else 0
+        else:
+            n = LIB.snd_rawmidi_read(self.inp, self.buf, 4096); t = time.monotonic_ns()
         if n <= 0:
             return []
-        return self.parser.feed(time.monotonic_ns(), self.buf.raw[:n])
+        return self.parser.feed(t or time.monotonic_ns(), self.buf.raw[:n])
 
     def query(self, command, payload=b"", timeout=1.5, attempts=3, empty_ok=False):
         for _ in range(attempts):
@@ -228,7 +247,16 @@ class Link:
         hz = u(a, 0) or 24000000
         ms = lambda t: t * 1000.0 / hz
         secs = u(a, 4) / hz
-        return {"seconds": secs, "loop": {"count": u(a, 8), "max_ms": ms(u(a, 12)), "mean_ms": ms(u(a, 16))},
+        screen = None
+        try:                                  # v0.2: page 3 (screen timing), diag-r2 builds and later
+            c = self.query(25, bytes([3]), attempts=1)
+            if len(c) == 28:
+                screen = {"controls": u(c, 0), "control_mean_ms": ms(u(c, 4)), "control_max_ms": ms(u(c, 8)),
+                          "paints": u(c, 12), "bands": u(c, 16), "paint_mean_ms": ms(u(c, 20)), "paint_max_ms": ms(u(c, 24)),
+                          "paints_per_second": u(c, 12) / secs if secs else 0}
+        except (DeviceError, TimeoutError):
+            pass
+        return {"seconds": secs, "screen": screen, "loop": {"count": u(a, 8), "max_ms": ms(u(a, 12)), "mean_ms": ms(u(a, 16))},
                 "flash": {"erases": u(a, 20), "erase_max_ms": ms(u(a, 24)), "writes": u(a, 28), "write_max_ms": ms(u(a, 32)), "write_max_bytes": u(a, 36)},
                 "keys": {"count": u(a, 40), "max_ms": ms(u(a, 44)), "bins": [a[48 + 2 * i] | a[49 + 2 * i] << 8 for i in range(8)]},
                 "scan": {"count": u(b, 0), "per_second": u(b, 0) / secs if secs else 0, "gap_max_ms": ms(u(b, 4)),
@@ -244,7 +272,10 @@ def diag_text(d):
         "L.1 control loop (groove_midi_poll): %d loops, mean %s ms, max %s ms" % (d["loop"]["count"], f(d["loop"]["mean_ms"]), f(d["loop"]["max_ms"])),
         "L.3 flash: %d erases, longest %s ms; %d writes, longest %s ms (%d bytes)" % (d["flash"]["erases"], f(d["flash"]["erase_max_ms"]), d["flash"]["writes"], f(d["flash"]["write_max_ms"]), d["flash"]["write_max_bytes"]),
         "L.4 key/pad note-on to router: %d notes, max %s ms; <0.5 %d, <1 %d, <2 %d, <4 %d, <8 %d, <16 %d, <32 %d, >=32 %d (ms)" % ((d["keys"]["count"], f(d["keys"]["max_ms"])) + tuple(k)),
-        "L.5 matrix scan: %d scans, %.1f per second, longest gap %s ms; scan ISR peak %s ms, ADC ISR peak %s ms" % (d["scan"]["count"], d["scan"]["per_second"], f(d["scan"]["gap_max_ms"]), f(d["scan"]["isr_peak_ms"]), f(d["scan"]["adc_peak_ms"]))])
+        "L.5 matrix scan: %d scans, %.1f per second, longest gap %s ms; scan ISR peak %s ms, ADC ISR peak %s ms" % (d["scan"]["count"], d["scan"]["per_second"], f(d["scan"]["gap_max_ms"]), f(d["scan"]["isr_peak_ms"]), f(d["scan"]["adc_peak_ms"]))]
+        + (["screen: %d control calls, mean %s ms, max %s ms; %d band paints (%.1f per second, %d bands), mean %s ms, max %s ms" % (
+            d["screen"]["controls"], f(d["screen"]["control_mean_ms"]), f(d["screen"]["control_max_ms"]), d["screen"]["paints"],
+            d["screen"]["paints_per_second"], d["screen"]["bands"], f(d["screen"]["paint_mean_ms"]), f(d["screen"]["paint_max_ms"]))] if d.get("screen") else []))
 
 
 # ---- DIN monitor in a thread (same capture code as midi-monitor.py) ---------------------

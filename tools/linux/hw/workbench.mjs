@@ -29,9 +29,10 @@
 //       info                                         capability and identity readout
 //   Every command prints one JSON line ({ok, ...}) and appends the page's messages to --log.
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-08  stock: wait for the page to settle after switching to V16 before Connect.
 //   v0.1  2026-11-07  Task 11B: first version.
 
 import { createRequire } from 'node:module';
@@ -114,6 +115,8 @@ async function stock(page) {
   await page.click('#update-options summary');
   await page.click('#stock-restore');
   await waitText(page, 'firmware-version', /V16/, 20000);
+  /* v0.2: switching the page to V16 settles before Connect (an immediate Connect timed out). */
+  await waitText(page, 'status', /./, 20000); await sleep(3000);
   const c = await connectAndCheck(page);
   if (!ALLOWED.includes(c.identity)) throw new Error('STOP: device identifies as "' + c.identity + '"');
   await page.check('#backup');

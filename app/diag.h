@@ -30,9 +30,11 @@
  *   radio switches, the MIDI configuration) and the session settings in the tuning sector (track
  *   roles, input channels, panel preferences). docs/BACKUP-FORMAT.md describes it.
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-08  Task 11B: screen timing (command 25 page 3: groove_screen_control calls and
+ *                     paint_flush band painting).
  *   v0.1  2026-11-07  Task 11 Steps 2 and 3: first version.
  */
 #ifndef CT_DIAG_H
@@ -54,6 +56,11 @@ extern volatile uint32_t ct_diag_scan_count, ct_diag_scan_last, ct_diag_scan_gap
 /* Hooks. Control task unless marked. */
 void ct_diag_loop(void);                         /* groove_midi_poll(): one control loop */
 void ct_diag_key(uint32_t queued_ticks);         /* smk37_scan_read(): a note-on dequeued */
+/* Task 11B: screen timing. ct_diag_ticks() is TIMER4; ct_diag_screen() records one
+ * groove_screen_control() call, ct_diag_paint() one paint_flush() that sent `bands` bands. */
+uint32_t ct_diag_ticks(void);
+void ct_diag_screen(uint32_t ticks);
+void ct_diag_paint(uint32_t ticks, unsigned bands);
 int ct_diag_read(unsigned reset, uint8_t out[CT_DIAG_REPLY_BYTES]);   /* command 25 */
 int ct_diag_flash_erase(uint32_t offset);        /* fm1_flash_erase() with its time kept */
 int ct_diag_flash_write(uint32_t offset, const void *data, size_t bytes);

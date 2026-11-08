@@ -231,6 +231,8 @@ check(mverify.pass, 'after the move the file restores and verifies', mverify.dif
   check(d2.loop.count > 0 && d2.loop.mean_ms > 0 && d2.seconds > 0, 'diagnostic counters count control loops after a reset', W.diagText(d2).split('\n')[1]);
   check(d1.flash.erases === 0 && d2.keys.count === 0, 'the reset clears the counters');
   check(/L\.5 matrix scan/.test(W.diagText(d2)), 'the counter text names the L items');
+  const p3 = await rebooted.query(25, [3]);   /* Task 11B: the screen page */
+  check(p3.length === 28 && (p3[0] | p3[1] << 8) > 0, 'command 25 page 3 counts screen control calls', p3.length);
 }
 
 /* ---- 7. Task 11B: command 26 (ACTIONS status, play, stop, compact, erase old) on DIAG ---------- */

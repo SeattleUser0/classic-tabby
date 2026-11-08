@@ -156,7 +156,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         if (n == 1 && data[0] == 3) return song_storage_initialize() ? GROOVE_PROJECT_INVALID : 0;
         return GROOVE_PROJECT_INVALID;
     }
-    if (cmd == 25 && n <= 1 && (!n || data[0] <= 2)) {
+    if (cmd == 25 && n <= 1 && (!n || data[0] <= 3)) {   /* Task 11B: 3 = the screen page */
         /* Task 11 (diagnostic build): the timing counters; data byte 1 resets them first,
          * 2 asks for the scan page (app/diag.c lists the fields). */
         *count = (unsigned)ct_diag_read(n ? data[0] : 0, out);

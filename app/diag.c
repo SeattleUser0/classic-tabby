@@ -26,9 +26,12 @@
  *   Control-loop timing is taken at groove_midi_poll() because that call sends MIDI out: its
  *   period is the MIDI-out quantum during playback (SPEC 9.6, SPEC 14.3).
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-08  Task 11B: page 3 (request 3), the screen timing: groove_screen_control()
+ *                     calls (count, mean, longest) and paint_flush() band paints (count, bands,
+ *                     mean, longest), to see whether drawing sets the control loop's period.
  *   v0.1  2026-11-07  Task 11 Step 3: first version.
  */
 #define CT_DIAG_IMPL
@@ -56,7 +59,18 @@ static struct {
     uint32_t key_count, key_max;
     uint16_t key_bins[CT_DIAG_KEY_BINS];
     uint8_t loop_started;
+    /* v0.2: the screen. */
+    uint32_t screen_count, screen_max, paint_count, paint_bands, paint_max;
+    uint64_t screen_sum, paint_sum;
 } d;
+uint32_t ct_diag_ticks(void) { return ticks(); }
+void ct_diag_screen(uint32_t t)
+{ ++d.screen_count; d.screen_sum += t; if (t > d.screen_max) d.screen_max = t; }
+void ct_diag_paint(uint32_t t, unsigned bands)
+{
+    if (!bands) return;
+    ++d.paint_count; d.paint_bands += bands; d.paint_sum += t; if (t > d.paint_max) d.paint_max = t;
+}
 
 void ct_diag_loop(void)
 {
@@ -107,6 +121,15 @@ int ct_diag_read(unsigned request, uint8_t out[CT_DIAG_REPLY_BYTES])
         smk37_scan_peak_ticks = 0; smk37_adc_peak_ticks = 0;
 #endif
         d.reset_at = now;
+    }
+    if (request == 3) {
+        /* v0.2: page 3: screen control calls, their mean and longest; band paints (flushes that
+         * sent at least one band), bands sent, mean and longest paint (24 bytes). */
+        put32(out, d.screen_count); put32(out + 4, d.screen_count ? (uint32_t)(d.screen_sum / d.screen_count) : 0);
+        put32(out + 8, d.screen_max); put32(out + 12, d.paint_count); put32(out + 16, d.paint_bands);
+        put32(out + 20, d.paint_count ? (uint32_t)(d.paint_sum / d.paint_count) : 0);
+        put32(out + 24, d.paint_max);
+        return 28;
     }
     if (request == 2) {
         put32(out, ct_diag_scan_count); put32(out + 4, ct_diag_scan_gap_max);
