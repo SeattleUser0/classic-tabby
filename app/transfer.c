@@ -128,6 +128,34 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         *count=9; return 0;
     }
 #ifdef CT_DIAG
+    if (cmd == 26 && n <= 2) {
+        /* Task 11B (diagnostic build only): what the ACTIONS page shows, and the song
+         * transport, for the unattended hardware run (docs/BUILD.md 25). No data: reply
+         * {fm1_flash_size u32, song storage state u8, playing u8, loaded song u8, free u32,
+         * reclaimable u32} (15 bytes). {0}: stop the song. {1, song}: load it if needed and
+         * play it, as PLAY on the SONG page does. {2}: COMPACT SONG STORAGE, refused while a
+         * song plays, as the ACTIONS entry is. {3}: ERASE OLD SAMPLE/DX7 (the confirmed ACTIONS
+         * entry; refused unless the storage reports OLD DATA). */
+        if (!n) {
+            uint32_t free_bytes = 0, reclaim = 0;
+            unsigned st = song_storage_state();
+            if (st == SONG_STORAGE_READY) (void)song_storage_status(&free_bytes, &reclaim);
+            put32(out, fm1_flash_size()); out[4] = (uint8_t)st;
+            out[5] = (uint8_t)song_playing(); out[6] = (uint8_t)song_loaded();
+            put32(out + 7, free_bytes); put32(out + 11, reclaim);
+            *count = 15; return 0;
+        }
+        if (n == 1 && !data[0]) { song_stop(); return 0; }
+        if (n == 2 && data[0] == 1 && data[1] < SONG_SONGS) {
+            if (song_playing()) return GROOVE_PROJECT_INVALID;
+            if (song_loaded() != data[1]) { r = song_load(data[1]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
+            r = song_play();
+            return r < 0 ? r : 0;
+        }
+        if (n == 1 && data[0] == 2) return song_playing() ? GROOVE_PROJECT_INVALID : song_storage_compact();
+        if (n == 1 && data[0] == 3) return song_storage_initialize() ? GROOVE_PROJECT_INVALID : 0;
+        return GROOVE_PROJECT_INVALID;
+    }
     if (cmd == 25 && n <= 1 && (!n || data[0] <= 2)) {
         /* Task 11 (diagnostic build): the timing counters; data byte 1 resets them first,
          * 2 asks for the scan page (app/diag.c lists the fields). */

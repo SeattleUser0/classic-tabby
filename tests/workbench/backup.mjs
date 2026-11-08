@@ -25,14 +25,17 @@
 //        file restores and verifies;
 //     5. NORMAL: backup / wipe / restore / verify round trip without kind 8, with the note that
 //        settings are not in the file; the capability reply keeps bits 6 and 7 clear;
-//     6. DIAG: command 25 reads and resets the counters (loop count and mean after a reset).
+//     6. DIAG: command 25 reads and resets the counters (loop count and mean after a reset);
+//     7. DIAG: command 26 (Task 11B): ACTIONS status, play / stop, COMPACT refused while playing,
+//        ERASE OLD refused without old data.
 //
 //   Run:  /usr/bin/node tests/workbench/backup.mjs NORMAL.wasm DIAG.wasm PROBE.wasm
 //         (or: make backup-test, which builds the three)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-07  Task 11B: command 26 checks.
 //   v0.1  2026-11-07  Initial version (Task 11 Step 2).
 
 import { readFileSync } from 'node:fs';
@@ -228,6 +231,23 @@ check(mverify.pass, 'after the move the file restores and verifies', mverify.dif
   check(d2.loop.count > 0 && d2.loop.mean_ms > 0 && d2.seconds > 0, 'diagnostic counters count control loops after a reset', W.diagText(d2).split('\n')[1]);
   check(d1.flash.erases === 0 && d2.keys.count === 0, 'the reset clears the counters');
   check(/L\.5 matrix scan/.test(W.diagText(d2)), 'the counter text names the L items');
+}
+
+/* ---- 7. Task 11B: command 26 (ACTIONS status, play, stop, compact, erase old) on DIAG ---------- */
+{
+  const st = await rebooted.query(26);
+  const size = st[0] | st[1] << 8 | st[2] << 16 | st[3] * 16777216;
+  check(st.length === 15 && size === 536576 && st[4] === 1 && st[5] === 0, 'command 26 reports USER 536576, storage READY, stopped', Array.from(st.slice(0, 7)).join(','));
+  check((await rebooted.query(26, [1, 2])).length === 0, 'command 26 {1, 2} plays song 3');
+  for (let i = 0; i < 200; i++) diag.sim_render();
+  const playing = await rebooted.query(26);
+  check(playing[5] === 1 && playing[6] === 2, 'song 3 is loaded and playing', playing[5] + ',' + playing[6]);
+  await refused(rebooted.query(26, [2]), 'COMPACT is refused while the song plays, as on the panel', /71|无效|invalid/i);
+  await rebooted.query(26, [0]);
+  for (let i = 0; i < 400; i++) diag.sim_render();
+  check((await rebooted.query(26))[5] === 0, 'command 26 {0} stops it');
+  check((await rebooted.query(26, [2])).length === 0, 'COMPACT starts when stopped');
+  await refused(rebooted.query(26, [3]), 'ERASE OLD is refused when there is no old data', /71|无效|invalid/i);
 }
 
 /* ---- 5. NORMAL: no kind 8 ------------------------------------------------------------------- */
