@@ -19,6 +19,10 @@
 //     node tools/linux/hw/workbench.mjs <command> --url URL [options]
 //       install   [--expect VERSION] [--force]       Device update: connect, check identity, update
 //       stock     (factory V16)                      Device update: Restore factory V16, connect, restore
+//       resume    [--expect VERSION]                 Device update from the update loader (the page's
+//                                                    loader resume path; the identity must be ota-...)
+//     install, stock and resume take --port NAME: if the page lists ports to pick from (code
+//     CHOOSE_PORT, Task 11B), pick the one whose name starts with NAME and connect once more.
 //       backup    --file OUT.json                    Projects & sounds > Full backup
 //       restore   --file IN.json                     Full restore (ends with the page's verify)
 //       verify    --file IN.json                     Verify against file
@@ -29,9 +33,11 @@
 //       info                                         capability and identity readout
 //   Every command prints one JSON line ({ok, ...}) and appends the page's messages to --log.
 //
-// Version: 0.2
+// Version: 0.3
 //
 // Revision log
+//   v0.3  2026-11-08  Task 11B port fix: resume command (loader resume, model confirm dialog
+//                     accepted only for "SMK-37 Pro"); --port picks from the page's port list.
 //   v0.2  2026-11-08  stock: wait for the page to settle after switching to V16 before Connect.
 //   v0.1  2026-11-07  Task 11B: first version.
 
@@ -79,12 +85,21 @@ async function updateTab(page) {
   await page.click('#mode-update');
   await waitText(page, 'status', /固件校验通过|等待连接|Firmware verified/, 60000, [['error', /./]]);
 }
-async function connectAndCheck(page) {
+const PORT = (() => { const i = process.argv.indexOf('--port'); return i > 0 ? process.argv[i + 1] : null; })();
+async function connectAndCheck(page, picked = false) {
   await page.click('#connect');
   const end = Date.now() + 60000;
   for (;;) {
     const id = await text(page, 'device-identity'), err = await text(page, 'error'), st = await text(page, 'status');
     if (id) { log('identity: ' + id + ' / status: ' + st); return { identity: id, status: st }; }
+    if (err && PORT && !picked && await page.isVisible('#port-pick')) {
+      /* v0.3: the page asks for a port (CHOOSE_PORT); pick the named one, once. */
+      const value = await page.$$eval('#update-port option', (o, n) => (o.find(x => x.value && x.textContent.startsWith(n)) || {}).value || '', PORT);
+      log('port list shown (' + err + '); picking ' + (value ? PORT : 'nothing: no match'));
+      if (!value) throw new Error('connect failed: ' + err);
+      await page.selectOption('#update-port', value);
+      return connectAndCheck(page, true);
+    }
     if (err) throw new Error('connect failed: ' + err);
     if (Date.now() > end) throw new Error('connect timeout: ' + st);
     await sleep(250);
@@ -126,6 +141,24 @@ async function stock(page) {
   return { identity: c.identity, status: done, seconds: (Date.now() - started) / 1000 };
 }
 
+/* v0.3: resume an update the device's loader is waiting for (the page's loader path). The
+   loader cannot name the hardware model, so the page asks the user to confirm it; the script
+   accepts only the "SMK-37 Pro" question, and only after the identity is a loader identity. */
+async function resume(page, { expect }) {
+  await updateTab(page);
+  const shown = await text(page, 'firmware-version');
+  if (expect && shown !== expect) throw new Error('page carries ' + shown + ', expected ' + expect);
+  const c = await connectAndCheck(page);
+  if (!/^ota-/.test(c.identity) || !/升级程序|[Ll]oader/.test(c.status))
+    throw new Error('STOP: not the update loader ("' + c.identity + '" / ' + c.status + '); nothing sent');
+  page.once('dialog', d => { log('dialog: ' + d.message()); return /SMK-37 Pro\?$/.test(d.message()) ? d.accept() : d.dismiss(); });
+  await page.check('#backup');
+  const started = Date.now();
+  await page.click('#install');
+  const done = await waitText(page, 'status', /固件已就绪|Firmware ready/, 8 * 60000, [['error', /./]]);
+  return { identity: c.identity, installed: true, status: done, version: shown, seconds: (Date.now() - started) / 1000 };
+}
+
 /* ---- Projects & sounds tab ------------------------------------------------------------- */
 async function library(page) {
   await page.click('#mode-library');
@@ -145,6 +178,7 @@ async function run() {
     let result;
     if (command === 'install') result = await install(page, { expect: opt('expect'), force: flag('force') });
     else if (command === 'stock') result = await stock(page);
+    else if (command === 'resume') result = await resume(page, { expect: opt('expect') });
     else if (command === 'backup') {
       await library(page);
       const [download] = await Promise.all([page.waitForEvent('download', { timeout: 15 * 60000 }), page.click('#backup-make')]);

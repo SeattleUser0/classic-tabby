@@ -229,6 +229,7 @@ main{max-width:1440px}
 <p id="stock-warning" role="alert" hidden>将恢复当前型号的原厂 V16 固件和原厂音色资源。Open 项目与采样不能在原厂固件中使用，恢复可能覆盖这些数据；请先分别备份。完成后请重新开机。</p>
 <p id="force-warning" role="alert" hidden>警告：内置固件可能与当前设备不兼容。强制烧录可能清除数据、导致无法开机，并需要专用工具恢复。请只连接目标 SMK37 OPEN；不支持 USB-MIDI 升级协议的固件仍无法通过本页烧录。</p>
 <p id="device-identity"></p>
+<p id="port-pick" hidden><label>选择设备的 MIDI 端口 <select id="update-port"><option value="">自动（只连接名称相符的端口）</option></select></label></p>
 <button id="connect" disabled>连接设备</button><button id="install" class="primary" disabled>开始更新</button>
 <button id="force-activate" hidden>启用强制烧录并重新连接</button><p id="update-next" aria-live="polite"></p>
 <p id="status" role="status" aria-live="polite">正在检查网页内容…</p>
@@ -904,6 +905,15 @@ main{max-width:1440px}
   $('force-update').addEventListener('change',()=>setForceMode($('force-update').checked));
   $('patch-track').addEventListener('change',enable);
   window.addEventListener('beforeunload',event=>{if(writing){event.preventDefault();event.returnValue='';}});
+  /* Task 11B: when no port is named like the SMK-37, or several answered, the updater sends
+     nothing more and the user picks the device's input here; the next Connect uses only it. */
+  function showPortChoices(choices=[]){
+    const select=$('update-port'),keep=select.value;
+    while(select.options.length>1)select.remove(1);
+    for(const choice of choices){const option=document.createElement('option');option.value=choice.id;
+      option.textContent=choice.name+(choice.identity?' — '+choice.identity:'');select.append(option);}
+    select.value=choices.some(choice=>choice.id===keep)?keep:'';$('port-pick').hidden=!choices.length;
+  }
   function showConnectionDetails(diagnostics){
     const box=$('connection-details');box.hidden=!diagnostics;box.open=!!diagnostics;
     for(const kind of ['inputs','outputs','identities','expected','attempts']){
@@ -935,11 +945,12 @@ main{max-width:1440px}
         pkg.kind!=='stock'&&value===100?'固件已写入，正在检查采样区…':text,
         pkg.kind!=='stock'&&typeof value==='number'?value*0.8:value));
       attemptUpdater=updater;
-      const device=await updater.connect({force:$('force-update').checked,signal}); connected=true;same=!!device.same;migration=!!device.migration;forceSuggested=migration;
+      /* Task 11B: the port the user picked from #update-port, if any (CHOOSE_PORT below). */
+      const device=await updater.connect({force:$('force-update').checked,signal,pick:$('update-port').value||null}); connected=true;same=!!device.same;migration=!!device.migration;forceSuggested=migration;
       $('device-identity').textContent=device.identity;
       status(migration?'已识别设备和当前固件；迁移请点击“启用强制烧录并重新连接”。':same?'已是当前版本，无需更新。':device.resume?'已连接升级程序，机型尚未核实；写入前需核对机身型号。':pkg.kind==='stock'?'已连接设备，可恢复原厂 V16。':$('force-update').checked?'已连接；开始强制烧录前将再次确认设备和兼容风险。':'已连接 SMK37 OPEN，可开始更新');
       connectionNotice=undefined;
-    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=error.code==='FIRMWARE_MISMATCH';FM1I18n.text($('error'),error.message);status('尚未连接');if(error.identity)$('device-identity').textContent=error.identity;}
+    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=error.code==='FIRMWARE_MISMATCH';if(error.code==='CHOOSE_PORT')showPortChoices(error.choices);FM1I18n.text($('error'),error.message);status('尚未连接');if(error.identity)$('device-identity').textContent=error.identity;}
     finally{await endConnection(attempt);busy=false;enable();}
   }
   $('connect').addEventListener('click',connectDevice);

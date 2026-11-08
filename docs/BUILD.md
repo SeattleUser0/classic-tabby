@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.33
+Version: 0.34
 Revision log:
+- v0.34, 2026-11-08 (Task 11B continuation): 25.2 the resume, --port and trs-watch commands and
+  the update-ports test; 25.3a the device state, the workbench port fix, the failed loader
+  resume and why the published-diag install timed out (a stale loader tag).
 - v0.33, 2026-11-07 (Task 11): sections 9.1 and 9.3f (tabby-v03.3-diag and tabby-p0-probe64
   published) and 24: the build options (DIAG, USER_BYTES), the full backup,
   the diagnostic build and its counters, the MIDI monitor, the probe and the way back, the
@@ -2788,7 +2791,18 @@ node tools/linux/hw/workbench.mjs settings --patch '{"6":1}' --url URL   # kind 
 python3 tools/linux/hw/run-11b.py runA|runB|l6 [--usb --tag=-usb]|l3 --out run/   # browser closed
 python3 tools/linux/hw/run-11b.py record --seconds 30 --keep 0 --tag X --out run/  # audio, own process
 python3 tools/linux/hw/run-11b.py fm6-delay|gaps --tag X [--csv run/X-midi.csv] --out run/
+node tools/linux/hw/workbench.mjs resume --url URL --expect VERSION     # update from the loader (v0.3)
+node tools/linux/hw/workbench.mjs install|stock|resume --port NAME ...  # pick NAME if the page asks
+python3 tools/linux/hw/run-11b.py trs-watch --clock|--passive --seconds 60 [--port NAME] --tag T --out run/
+node tests/workbench/update-ports.mjs                                   # the updater's port selection
 ```
+
+trs-watch (run-11b v0.10) opens all ten AUDIO4c MIDI inputs and the SMK-37's USB output at once. It
+either sends 120 BPM clock and Start (`--clock`; the stock sequencer plays with nobody at the device)
+or sends nothing (`--passive`; a person plays keys). It reports the messages per port and the AUDIO4c's
+kernel Rx counters. A page carrying another firmware image with the fixed workbench is built from
+that page's FM1_PACKAGE (whose image hash is checked first) with
+`build-web.py --package-json PKG.json --display-version V --user-bytes 536576`.
 
 Findings for the tools: the AUDIO4c's capture must be started explicitly (`snd_pcm_start`; a plain
 readi fails with EIO); a Python busy-wait clock loop starves a capture thread, so audio runs as its
@@ -2840,6 +2854,53 @@ Phase 1's first item. A save during play stops MIDI out and audio for about 215�
 blocks interrupts for up to 17.6 ms each); a song transfer during play starves the USB MIDI output for its
 whole length. Saves and transfers belong to the stopped state. The moved boundary works: the SDK, the
 loader, song storage, the full restore and the way back all passed.
+
+### 25.3a Continuation (2026-11-08 afternoon): port fix done, the loader resume refused, stopped
+
+**Step 1, state.** The SMK-37 was **not** running Classic Tabby. It was still in its update loader:
+USB 4d4a:4155 "USB Composite Device", the same device number since 16:50:07Z. Over ALSA rawmidi from
+Python the loader answered nothing (identity request, command 0, command 17; Rx stayed at 2706). In
+Chrome it answered command 17 with **`ota-SMK378b7dff801f1b0876`**, a tagged loader. The tag is
+the build id of **tabby-v03.3-diag-r2**, the build the step 4 backup was made on.
+
+The one authorized resume ran at 18:29:30Z with `workbench.mjs resume` and the fixed page
+(pages/diag-r3, build 3276f3c6…). It was **refused at Connect**: "Connected hardware does not match
+this SMK37 model". No image byte was sent. **Stop rule: not retried, not force-flashed, not
+power-cycled.** The state is in stop-state-2.txt and loader-identity.txt.
+
+**Why the final install of 16:50 timed out.** For a tagged update the page sends the target's build
+id with command 50. After the hand-off it waits only for `ota-FM-1_015`, `ota-<old identity>` or
+`ota-SMK37<its own build[0:16]>`. The published diag (6ada2215…) waited for `ota-SMK376ada2215…`.
+The loader came up with the tag of the **previous** update (diag-r2), so waitFor never matched. The
+page closed the link and gave up after 40 s. Today's Connect fails on the same check. Not yet
+explained: why the loader kept the old tag. It is set by the vendor loader or SDK code, not app/.
+Two ways out, the user's decision:
+- the fixed workbench carrying the diag-r2 image, whose tag the loader reports;
+- a page change that accepts any `ota-SMK37…` tag after the model has been confirmed.
+
+**Step 2, workbench port fix (done; sdk/WebUpdate.js, sdk/Update.html.in, sdk/I18n.js).**
+- The update, force-flash and V16 flows open only ports named like the SMK-37 or its Jieli loader
+  (`UPDATE_PORT`: smk37, sinco, usb midi, composite, jieli). The FM-1 names and the loose "ota"
+  match are gone.
+- Force flash no longer widens the search to every input.
+- When no port name matches, or more than one port answers, connect() sends nothing more and fails
+  with code CHOOSE_PORT. The page then lists the candidates (#update-port), and the next Connect uses
+  only the picked input.
+- tests/workbench/update-ports.mjs covers 7 scenarios, each with 12 fake ports, 10 of which are the
+  AUDIO4c. Results: 18 ok on the fix; 10 of 16 fail on the old code, including force and V16.
+- make check, lint and suite passed (suite at d9e83f0 plus these changes, 2026-11-08 18:28Z).
+- On the real rig, the fixed page made two Connects (12 inputs) and queried only the loader port.
+  The AUDIO4c's kernel Tx counters stay at 40 bytes on DIN to HST6 and 0 on HST7/HST8. That is
+  exactly what the two unfixed V16 Connects of the morning sent (2 Connects × 2 identity queries ×
+  10 bytes, before the timer ran out), so the fixed page sent the AUDIO4c nothing.
+- Pages built locally, not published:
+  - pages/diag-r3: tabby-v03.3-diag from the current source.
+  - pages/v01-fixed: the fixed workbench carrying the official Open V01 image, SHA-256 09fc9346…,
+    checked byte-for-byte against official-release/.
+
+**Steps 3 to 5 not run** (the stop rule): the TRS test on Open V01 and V16, the source comparison,
+and the final restore. One fact from the source: app/board/panel.c's `fm1_io_trs_midi_enabled()`
+returns 0 in upstream V01 and here alike. By the SDK header it gates the TRS **receiver** only.
 
 ### 25.4 First run (2026-11-07, before the erase approval)
 

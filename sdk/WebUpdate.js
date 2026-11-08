@@ -5,6 +5,12 @@
  * layout setting (capability reply 21), reads capability bits 6 (diagnostic counters) and 7
  * (device settings kind 8), and carries the full backup and restore (fullBackup, fullRestore,
  * fullVerify; docs/BACKUP-FORMAT.md) and the counters (diagRead).
+ * Classic Tabby Task 11B (2026-11-08): port selection for the update, force-flash and factory V16
+ * flows. Only ports named like the SMK-37 or its Jieli update loader are opened (UPDATE_PORT);
+ * force flash no longer widens the search to every MIDI input. When no port name matches, or
+ * more than one port answers, connect() fails with code CHOOSE_PORT and the candidates, and the
+ * page lets the user pick one input; a picked port is the only way any other port is opened.
+ * Test: tests/workbench/update-ports.mjs (12 fake ports, 10 of them not the SMK-37).
  * The bundled vendor loader controls the Flash layout. A successful transfer
  * does not guarantee data preservation or recovery from interrupted power. */
 (() => {
@@ -238,14 +244,21 @@
     check(data[7]===1,'设备使用未知的升级程序');
     return {family:data[5],state:data[6],build:hex(data.subarray(14,46)),error:data[46]};
   }
-  function pairs(access,loader=false,force=false) {
-    // Windows can retain SINCO-MIDI after the updater re-enumerates. Names
-    // only nominate candidates; identity/capability or project replies must
-    // still match before a connection can be used.
-    const name=loader ? /smk.?37|felucca|sloop|clipper|ota|sinco|usb.?midi|composite/i
+  // Port names the SMK-37 can enumerate under, on any firmware the updater talks to:
+  //   "SMK37 Open ..." (Classic Tabby and Open V01), "SINCO-MIDI" / "USB MIDI ..." (M-VAVE
+  //   firmware; Windows can retain SINCO-MIDI after the updater re-enumerates), and the Jieli
+  //   update loader ("USB Composite Device", manufacturer Jieli Technology).
+  // Task 11B: the FM-1 names (Felucca, Sloop, Clipper) and the loose "ota" match are gone, so
+  // an FM-1 or an audio interface on the same computer is never sent the identity query.
+  const UPDATE_PORT=/smk.?37|sinco|^usb.?midi\b|composite|jieli/i;
+  function pairs(access,loader=false,pick=null) {
+    // Names only nominate candidates; identity/capability or project replies must
+    // still match before a connection can be used. pick (Task 11B): the id of one input
+    // the user chose from the page's list; then only that input is used, whatever its name.
+    const name=loader ? UPDATE_PORT
                       : /smk.?37|^(?:usb|sinco).?midi(?:\s+\d+)?$/i;
     const connectedInputs=[...access.inputs.values()].filter(p=>p.state==='connected');
-    const inputs=connectedInputs.filter(p=>force || name.test(p.name||''));
+    const inputs=pick ? connectedInputs.filter(p=>p.id===pick) : connectedInputs.filter(p=>name.test(p.name||''));
     const outputs=[...access.outputs.values()].filter(p=>p.state==='connected');
     return inputs.flatMap(input=>{
       const named=outputs.filter(output=>output.name===input.name);
@@ -275,11 +288,18 @@
       }
       catch(e) { await link.close(); throw e; }
     }
-    async discover(force=false,signal) {
+    // Task 11B: discover(signal,pick) replaces discover(force,signal). Force flash no longer
+    // changes which ports are opened; see UPDATE_PORT and pairs().
+    async discover(signal,pick=null) {
       signal?.throwIfAborted();
-      const ports=pairs(this.access,true,force),found=[];let lastError;
-      this.diagnostics={inputs:[...this.access.inputs.values()].filter(p=>p.state==='connected').map(p=>p.name||'?'),
-        outputs:[...this.access.outputs.values()].filter(p=>p.state==='connected').map(p=>p.name||'?'),attempts:[]};
+      const ports=pairs(this.access,true,pick),found=[];let lastError;
+      const connectedInputs=[...this.access.inputs.values()].filter(p=>p.state==='connected');
+      this.diagnostics={inputs:connectedInputs.map(p=>p.name||'?'),
+        outputs:[...this.access.outputs.values()].filter(p=>p.state==='connected').map(p=>p.name||'?'),attempts:[],
+        candidates:ports.map(pair=>pair.input.name||'?'),
+        // What the page offers to pick from: the inputs that answered when several did,
+        // otherwise every connected input (filled in by connect() when none matched).
+        choices:[]};
       if(ports.length>16)throw Object.assign(Error('MIDI 端口过多，请断开不相关设备后重试'),{code:'AMBIGUOUS'});
       for(const pair of ports){
         try {signal?.throwIfAborted();found.push(await this.open(pair,signal));}
@@ -289,18 +309,32 @@
         }
       }
       this.diagnostics.identities=found.map(device=>device.identity);
-      if(found.length>1){await Promise.allSettled(found.map(device=>device.link.close()));throw Object.assign(Error('检测到多台可能的升级设备，无法确认目标'),{code:'AMBIGUOUS'});}
+      if(found.length>1){
+        await Promise.allSettled(found.map(device=>device.link.close()));
+        // Task 11B: several SMK-37-named ports answered. The user picks one; nothing is sent
+        // to any of them until then.
+        const choices=found.map(device=>({id:device.link.input.id,name:device.link.input.name||'?',identity:device.identity}));
+        this.diagnostics.choices=choices;
+        throw Object.assign(Error('检测到多台可能的升级设备。请在下方选择目标设备的 MIDI 端口，再重新连接。'),{code:'CHOOSE_PORT',choices});
+      }
       if(found.length)return found[0];
       if(lastError&&lastError.code!=='TIMEOUT')throw lastError;
       return null;
     }
-    async connect({force=false,signal}={}) {
+    async connect({force=false,signal,pick=null}={}) {
       check(!this.busy,'正在更新'); await this.disconnect();
-      this.force=force;this.mode=null;
-      const device=await this.discover(force,signal);
+      this.force=force;this.mode=null;this.pick=pick||null;
+      const device=await this.discover(signal,this.pick);
       if(!device){
         const d=this.diagnostics;
         if(!d?.inputs.length||!d.outputs.length)fail('浏览器未发现完整的 MIDI 输入和输出。请连接开机的 SMK37 OPEN USB-MIDI 接口，再重新连接。');
+        if(!d.candidates.length&&!this.pick){
+          // Task 11B: no port is named like the SMK-37 or its loader. Nothing was sent; the
+          // user may pick the device's port from every connected input.
+          const choices=[...this.access.inputs.values()].filter(p=>p.state==='connected').map(p=>({id:p.id,name:p.name||'?'}));
+          d.choices=choices;
+          throw Object.assign(Error('没有名称与 SMK37 或其升级程序相符的 MIDI 端口，未向任何端口发送数据。如确认设备已连接，请在下方选择它的 MIDI 端口，再重新连接。'),{code:'CHOOSE_PORT',choices});
+        }
         if(!d.attempts.length)fail('已发现 MIDI 端口，但无法匹配 SMK37 OPEN 输入和输出。请查看连接详情，只保留目标 SMK37 OPEN 后重试。');
         fail('已找到 MIDI 端口，但设备未回复型号。请关闭其他 MIDI 软件和更新网页，重新开机并插拔 USB 后重试；强制烧录也需要设备先响应。');
       }
@@ -344,8 +378,11 @@
       while(Date.now()<end) {
         {
           let device;
-          try {device=await this.discover(this.force);}
-          catch(error){if(error.code==='AMBIGUOUS')throw error;}
+          // Task 11B: a picked port is kept while it is still connected; once the device
+          // re-enumerates (loader or new firmware) the name filter finds it again.
+          const pick=this.pick&&[...this.access.inputs.values()].some(p=>p.id===this.pick&&p.state==='connected')?this.pick:null;
+          try {device=await this.discover(undefined,pick);}
+          catch(error){if(error.code==='AMBIGUOUS'||error.code==='CHOOSE_PORT')throw error;}
           if(device)observed.add(device.identity);
           this.diagnostics={...this.diagnostics,expected,identities:[...observed]};
           if(device) {

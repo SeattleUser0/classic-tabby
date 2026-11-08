@@ -76,9 +76,10 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.16
+# Version: 0.17
 #
 # Revision log
+#   v0.17 2026-11-08  Task 11B: workbench-test runs tests/workbench/update-ports.mjs (updater port selection).
 #   v0.16 2026-11-07  Task 11: DIAG=1 (the diagnostic build, build.py --diag) and USER_BYTES=N (the USER
 #                     size, build.py --user-bytes) reach build.py and build-web.py through $(OPTS); unset,
 #                     nothing is added and every output is as before. web-probe64 builds the simulator
@@ -323,6 +324,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/manual-i18n.mjs
 	$(T) $(NODE) tests/workbench/rig-profile.mjs
 	$(T) $(NODE) tests/workbench/midi-guide.mjs
+	$(T) $(NODE) tests/workbench/update-ports.mjs
 	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
 
 test: timed-note-test host-smoke web-smoke workbench-test backup-test

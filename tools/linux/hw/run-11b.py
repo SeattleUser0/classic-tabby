@@ -16,6 +16,11 @@ Purpose
                   machine, Start, clock loss (3 s without clock, no Stop), resume, Stop, a
                   restart; the DIN monitor runs throughout; lock time, band, behaviour  (L.6)
       audio-probe short capture of all 8 AUDIO4c inputs with a note sent, RMS per channel
+      trs-watch   (v0.10) the TRS MIDI out test: every AUDIO4c MIDI input and the SMK-37's USB
+                  output open at once; with --clock, 120 BPM clock and Start from this machine
+                  (the stock sequencer plays with no hands), else --passive: nothing is sent and
+                  a person plays keys for --seconds. Counts per port, every message, and the
+                  kernel Rx counters of the AUDIO4c before and after.
 
     The clock is sent with a busy-wait to each pulse's due time (20.833 ms apart at 120 BPM);
     every sent byte's time (time.monotonic_ns() just before the write) is logged, so the analysis
@@ -24,9 +29,10 @@ Purpose
 
 Rerun: python3 tools/linux/hw/run-11b.py <subcommand> --out DIR   (docs/BUILD.md 25.2)
 
-Version: 0.9
+Version: 0.10
 
 Revision log
+    v0.10 2026-11-08  trs-watch (Task 11B continuation, TRS out on M-VAVE firmware); --port.
     v0.9  2026-11-08  l3song: save, song delete and COMPACT during song play; COMPACT stopped with a held note.
     v0.8  2026-11-08  fm6-delay pairs the FM6 track's channel only (--channel).
     v0.7  2026-11-08  l2: a song played by command 26, measured on the USB output; --notes for run B.
@@ -484,9 +490,76 @@ def l3song(a):
     print(text); print({k: v for k, v in rep.items() if not k.startswith("counters")})
 
 
+AUDIO4C_PORTS = ["AUDIO4c DIN", "AUDIO4c USB2"] + ["AUDIO4c HST%d" % i for i in range(1, 9)]
+
+
+def audio4c_rx():
+    """Kernel receive byte counters of the AUDIO4c's ten MIDI inputs (/proc/asound)."""
+    import glob, re
+    for path in glob.glob("/proc/asound/card*/midi0"):
+        text = open(path).read()
+        if text.startswith("AUDIO4c"):
+            return [int(x) for x in re.findall(r"Rx bytes\s*:\s*(\d+)", text)]
+    return []
+
+
+def trs_watch(a):
+    """v0.10: watch every AUDIO4c MIDI input and the SMK-37's USB output together."""
+    global USB_IN
+    tag = a.tag or "trs"
+    rx_before = audio4c_rx()
+    mons = {}
+    for name in AUDIO4C_PORTS:
+        m = T.Monitor(name); m.start(); mons[name] = m
+    l = T.Link(a.port)
+    USB_IN = l
+    sent = []
+    t_start = time.monotonic_ns()
+    if a.passive:
+        print("LISTENING %d s: play keys now" % a.seconds, flush=True)
+        end = time.monotonic_ns() + int(a.seconds * 1e9)
+        while time.monotonic_ns() < end:
+            for t, m in l.messages(100):
+                l.other.append((t, m))
+    else:
+        period = int(60e9 / (a.bpm * 24)); per_s = int(a.bpm * 24 / 60)
+        t0 = time.monotonic_ns() + 300_000_000; k = 0
+        def pulse():
+            nonlocal k
+            wait_until(t0 + k * period); sent.append((l.send(b"\xf8"), "clock")); k += 1
+        for _ in range(2 * per_s): pulse()
+        wait_until(t0 + k * period - period // 2); sent.append((l.send(b"\xfa"), "start"))
+        for _ in range(int(a.seconds * per_s)): pulse()
+        wait_until(t0 + k * period - period // 2); sent.append((l.send(b"\xfc"), "stop"))
+        for _ in range(per_s): pulse()
+    time.sleep(0.5)
+    for t, m in l.messages(100):
+        l.other.append((t, m))
+    usb_rows = M.to_rows(l.other)
+    l.close()
+    rx_after = audio4c_rx()
+    rows, counts = [], {}
+    for name, m in mons.items():
+        r = m.finish(); counts[name] = len(r)
+        rows += [x[:6] + (name,) for x in r]
+    rows += [x[:6] + ("SMK-37 USB out",) for x in usb_rows]
+    rows.sort(key=lambda r: r[0])
+    if rows:
+        M.write_csv(os.path.join(a.out, tag + "-midi.csv"), rows, t_start)
+    kinds = {}
+    for r in usb_rows:
+        kinds[r[1]] = kinds.get(r[1], 0) + 1
+    rep = {"mode": "passive (keys by a person)" if a.passive else "clock %g BPM + Start from the NUC over USB" % a.bpm,
+           "seconds": a.seconds, "smk37_port": l.name, "sent": {k: sum(1 for x in sent if x[1] == k) for k in ("clock", "start", "stop")},
+           "smk37_usb_out": kinds, "audio4c_messages": counts, "audio4c_rx_bytes_before": rx_before,
+           "audio4c_rx_bytes_after": rx_after, "audio4c_any": any(counts.values()) or rx_before != rx_after}
+    save(a.out, tag + "-report.json", json.dumps(rep, indent=1))
+    print(json.dumps(rep, indent=1))
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("cmd", choices=["runA", "runB", "l6", "audio-probe", "record", "clocked", "fm6-delay", "l3", "gaps", "l2", "l3song"])
+    p.add_argument("cmd", choices=["runA", "runB", "l6", "audio-probe", "record", "clocked", "fm6-delay", "l3", "gaps", "l2", "l3song", "trs-watch"])
     p.add_argument("--out", required=True)
     p.add_argument("--seconds", type=float, default=60)
     p.add_argument("--bpm", type=float, default=120)
@@ -500,9 +573,11 @@ def main():
     p.add_argument("--notes", type=int, default=0, help="l2: notes sent into the USB port meanwhile (v0.7)")
     p.add_argument("--slot", type=int, default=15, help="l3: the project slot saved (v0.5)")
     p.add_argument("--click", type=float, default=0.25, help="gaps: sample step that counts as a click (v0.5)")
+    p.add_argument("--port", default="SMK37", help="trs-watch: the SMK-37's ALSA port name (v0.10)")
+    p.add_argument("--passive", action="store_true", help="trs-watch: send nothing; a person plays (v0.10)")
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
-    {"runA": run_a, "runB": run_b, "l6": l6, "audio-probe": audio_probe, "record": record, "clocked": clocked, "fm6-delay": fm6_delay, "l3": l3, "gaps": gaps, "l2": l2, "l3song": l3song}[a.cmd](a)
+    {"runA": run_a, "runB": run_b, "l6": l6, "audio-probe": audio_probe, "record": record, "clocked": clocked, "fm6-delay": fm6_delay, "l3": l3, "gaps": gaps, "l2": l2, "l3song": l3song, "trs-watch": trs_watch}[a.cmd](a)
 
 
 if __name__ == "__main__":
