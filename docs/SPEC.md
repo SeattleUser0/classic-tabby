@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.18
+Version: 0.19
 Revision log:
+- v0.19, 2026-11-07 (Task 11 Step 1): section 14: the Task 10 decisions recorded, the event cap
+  rule (768 events per clip, CC thinning) and the MIDI-out timing rule.
 - v0.18.3, 2026-11-05 (Task 09 checkpoint d): section 13: the simulator check; Task 09 complete pending the hardware checklist.
 - v0.18.2, 2026-11-05 (Task 09 checkpoint c): section 13: the generated guide.
 - v0.18.1, 2026-11-05 (Task 09 checkpoint b): section 13: the importer maps by the rig.
@@ -846,3 +848,92 @@ Known limits (Task 09): the rig is one profile per workbench ("My rig") plus the
 song's own copy still overrides it; the importer matches device names in track names by
 substring; the H90 gap is the 255 ms field maximum (users report about 300 ms on the buggy
 firmware); the Royalist's CC numbers and the Zoom's PC base are unverified until the checklist.
+
+## 14. Task 10 / Task 11 — MC-707 workflow port: decisions and design rules (2026-11-07)
+
+Task texts: docs/tasks/TASK-10-mc707-workflow.md (assessment:
+docs/tasks/TASK-10-step1-assessment.md, parity matrix docs/MC707-PARITY.md) and
+docs/tasks/TASK-11-phase0-prep.md. Section and item numbers below refer to the Task 10
+assessment.
+
+### 14.1 Decisions (the assessment's section M, decided 2026-11-07)
+
+1. **Clip format: the event list v3** (C.3): a 16-byte clip header and sorted 6-byte events
+   (note with its length, CC, PC, bank, pitch bend). The 16-pad step grid is a view of it.
+2. **USER move: 64 KiB** (user_bytes 471040, USER base 0x8C000), and only after the probe build
+   (tabby-p0-probe64, Task 11 Step 4) passes on the user's device. 96 KiB is held in reserve.
+3. **Migration: a full workbench backup before the move and a full restore after**, through the
+   transfer kinds only (Task 11 Step 2, docs/BACKUP-FORMAT.md). No relocating build.
+4. **Clips per track: 16 per bank on the pads, 64 stored per track**; the importer groups an
+   arrangement into clips of up to 8 bars (C.1).
+5. **The factory DX7 bank stays** unless Phase 4 or 5 overruns the flash budget.
+6. **Drums: the 808 engine only.** No sample region.
+7. **Metronome: two clicks, selectable.** An internal 808 click through the preview path, which
+   can be turned off, and a MIDI-note click: a note on a chosen channel and note number, sent on
+   MIDI out like any song note. Either, both or none. The SMK-37's audio out may feed the house
+   mix, so the MIDI click is the one for the stage.
+8. **Undo: 4 levels** per clip being edited.
+9. **Scenes: rows become scenes**, 128 per song, shown as 8 banks of 16 pads.
+10. **External clock follow in Phase 1**: Start, Stop, Continue and Song Position Pointer, and
+    clock loss (D.4).
+11. **The probe runs on the user's device after a full backup**, before any Phase 0 code
+    depends on the move.
+12. **The arpeggiator page stays.**
+13. **The 4-notes-per-step limit is superseded** by the event list's per-clip event cap (14.2).
+    The importer keeps exact timing.
+
+### 14.2 Design rule: the event cap
+
+A clip holds at most **768 events** (notes, CC, PC, bank, pitch bend, aftertouch together;
+raised from the assessment's 512).
+
+Why 768. Eight bars of four-note chords on every 16th are 128 × 4 = 512 note events, which
+fills a 512 cap with no room for a single CC. One controller swept without a break for eight
+bars, thinned as below, adds at most 128 × 2 = 256 events. 512 + 256 = 768. Real material is far
+below that: the densest fixture track (tests/fixtures/meridian_fault.mid, track 10) has 516
+notes in 80 bars, about 52 per 8 bars. RAM at 768 (6 bytes per event, 16-byte header, 4624 bytes
+per clip buffer), against C.2: two decode buffers per track × 8 tracks = 73984 B, the edit copy
+4624 B, 4 undo levels 18496 B; total 97104 B of the 150668 B measured headroom (heap 199820 B
+less the SDK minimum 49152 B), leaving 53564 B. 1024 events would take 129360 B (86 % of the
+headroom) and is not taken.
+
+When real-time recording or overdub reaches the cap:
+
+- The recorder counts the events in the clip plus the notes being held (each held note has a
+  reserved entry for the note it will become at its note-off). A new note-on, CC or other event
+  is accepted only while that sum is below 768.
+- When the sum reaches 768, recording into that clip stops: no further events are taken from
+  the keys, pads, encoders or MIDI in for that clip. Notes already held keep their reserved
+  entries; each is written to the clip at its note-off with its length, and its note-off is
+  sent on MIDI out as usual. Playback continues.
+- The screen shows `CLIP FULL - 768 EVENTS - REC STOPPED` for 2 s, the REC lamp goes out, and
+  the clip's pad flashes red once. Nothing already in the clip is changed or lost; undo still
+  holds the state before the take.
+- Step entry and the event editor refuse an insert into a full clip with `CLIP FULL` and change
+  nothing.
+
+Controller thinning while recording (CC from the encoders and from MIDI in, pitch bend, channel
+pressure, polyphonic aftertouch per note). Per controller and per clip, with 1 unit = 1/480 of a
+16th:
+
+- A value is written only if at least **240 units** (a 1/32 step) have passed since the last
+  written event of the same controller. Values that arrive inside the window replace a single
+  pending value.
+- A gesture ends when no new value of that controller arrives for **480 units** (one 16th), or
+  when the encoder is released, recording stops or the transport stops. At the end of a gesture
+  the pending value is written at the time it arrived, even inside the 240-unit window: the
+  last value of a gesture is never lost.
+- A value equal to the last written value of that controller is not written.
+
+So one controller cannot add more than two events per 16th in a continuous sweep (one per 1/32),
+and a sweep's final value always lands.
+
+### 14.3 Design rule: MIDI out timing first
+
+MIDI out timing is the top priority. The control loop sends MIDI (SPEC 9.6: the send call is
+control-task only and untimestamped), so the control loop's period sets the output jitter during
+playback, not only the timestamp error while recording. The Task 11 diagnostic build measures
+the period on the device (BUILD.md 24, the hardware checklist). If those numbers show a band
+wider than about **2 ms** (the spread of MIDI out against the song's grid, or the control loop's
+maximum period under load), reducing it becomes the first item of Phase 1, ahead of external
+clock follow.
