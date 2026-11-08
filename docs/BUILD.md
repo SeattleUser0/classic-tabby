@@ -2749,3 +2749,26 @@ on the probe (take step 7, send); no boot after step 6 (stop, send).
   `adc_con`, screen.c's two missing-initializer lines; closed in the left-to-build list).
 - `make package-equivalence` is skipped (no pwsh on this machine), so sdk/Package.cs v0.2 is
   checked only by reading: it is the same change as package.py v0.2, line for line.
+
+## 25. Task 11B — the Task 11 checklist run unattended (2026-11-07)
+
+Task text: docs/tasks/TASK-11B-automated-hardware-tests.md. The agent runs BUILD.md 24.6 itself,
+with the SMK-37 Pro on USB, its TRS MIDI out on the AUDIO4c's DIN input and its audio out on the
+AUDIO4c's inputs. Results: 25.3 and ~/Documents/Classic Tabby/hardware-runs/2026-11-07/.
+
+### 25.1 What runs without hands (written before the run)
+
+| 24.6 item | Unattended? | How |
+| --- | --- | --- |
+| Installs, factory V16, force flash | yes | the real pages (published, or the release's offline page served on localhost) driven by tools/linux/hw/workbench.mjs (playwright-core + the installed Chrome, midi and midi-sysex granted); identity checked before every "Start update" |
+| Full backup, restore, verify | yes | the same driver, the page's own buttons |
+| Starting and stopping songs | **not on any released build**: PLAY on the SONG page is the only way (MIDI Start is ignored while the device sends clock; MMC only drives the stock transport) | a diag-only transfer command 26 (play / stop / compact / erase old / the ACTIONS status), 288 bytes, inside the 637-byte margin (diag image 453572, margin 349); the normal build is unchanged (gate 24.1). It is in the locally built diag and probe used for the measurements, not in the published ones |
+| ACTIONS page lines | yes, on that build | command 26 returns fm1_flash_size(), the storage state, free and reclaimable: everything on the page except the clipboard line. On the published probe the capability reply 21 gives the compiled layout only, so 26 is what tells whether the SDK accepted the size |
+| ERASE OLD SAMPLE/DX7 (24.5, 24.6 step 7) | on that build | command 26 {3}, the confirmed ACTIONS entry. The device still reported OLD DATA before the run, so this is needed before any song can be written |
+| Run B load | substituted | about 100 MIDI notes over 2 minutes with mixed velocities sent into the USB port (the router load) instead of key and pad presses. L.4 (key scan to router) **needs a person**; the scan ISR counters (L.5) are still read |
+| L.2 MIDI out on DIN | yes | tools/linux/midi-monitor.py's capture code on the AUDIO4c DIN input while command 26 plays the test songs; one song track also on the internal FM6, recorded through the AUDIO4c for the FM6-versus-DIN delay |
+| L.3 flash stalls | yes | counters, plus a project save (command 7) and a song delete (kind 5) during play with DIN and audio recorded; COMPACT during play is refused by the firmware as on the panel, so it runs stopped, with a held FM6 note sounding |
+| L.6 clock follow | substituted | the NUC sends MIDI clock, Start and Stop at 120 BPM from a script (busy-wait timing, send times logged); the stock sequencer follows (song mode refuses MIDI clock); clock loss = 3 s without clock and without Stop, then restart |
+| Power cycle (step 5) | **needs a person** | no per-port power switching: the root hub port is not switchable without root and uhubctl is not installed, and the SMK-37 has a battery, so USB power does not power-cycle it |
+| Bluetooth pairing, L.7 pad colours | **need a person** | skipped |
+| L.9 the TRS adapter | yes | if MIDI from the SMK-37 arrives on the AUDIO4c DIN input, the fitted adapter works |
