@@ -316,6 +316,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/manual-i18n.mjs
 	$(T) $(NODE) tests/workbench/rig-profile.mjs
 	$(T) $(NODE) tests/workbench/midi-guide.mjs
+	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
 
 test: timed-note-test host-smoke web-smoke workbench-test backup-test
 	@echo "test: timed-note-test, host-smoke, web-smoke, workbench-test and backup-test passed"

@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.32
+Version: 0.33
 Revision log:
+- v0.33, 2026-11-07 (Task 11): section 24: the build options (DIAG, USER_BYTES), the full backup,
+  the diagnostic build and its counters, the MIDI monitor, the probe and the way back, the
+  hardware checklist; publication of tabby-v03.3-diag and tabby-p0-probe64.
 - v0.32, 2026-11-05: section 9: tabby-v03.2 published (9.1 current values, 9.3e verification
   with the forced-version gate against tabby-v03.1 and the archive VERSION check); the
   Task 09 hardware items in the left-to-build list.
@@ -2414,3 +2417,106 @@ repeat each unit's steps with the sources.
     4, H90 Program 13, Zoom patch 2) land before the downbeat; LATE stays 0 on the SONG page.
 19. Record the Zoom's PC base, the Royalist's CC list, the SMK-37 jack's TRS type and whether
     the NightSky took channel 14 over DIN, and correct the definitions (BUILD.md left-to-build).
+
+## 24. Task 11 — Phase 0 preparation: backup, diagnostic build, USER probe (2026-11-07)
+
+Task text: docs/tasks/TASK-11-phase0-prep.md. Decisions recorded in SPEC 14. Nothing here
+changes song playback; the normal build compiles to the same code as before (24.1).
+
+### 24.1 The two build options
+
+| Option | Makefile | build.py | Effect |
+| --- | --- | --- | --- |
+| Diagnostic build | `DIAG=1` | `--diag` | `-DCT_DIAG=1`: the counters (24.3), transfer kind 8 (24.2), the ACTIONS storage lines; capability bits 6 and 7 |
+| USER size | `USER_BYTES=N` | `--user-bytes N` | the one layout setting: `fm1_layout.user_bytes`, both packagers' USER record and BTIF/VM placement, `-DCT_USER_BYTES=N` for the app constants (app/ct_layout.h), the simulator's flash size |
+
+Both work on every firmware, check, package and web target (`make firmware DIAG=1`,
+`make package DIAG=1 USER_BYTES=471040 ...`). Unset, nothing is added to any command line.
+A non-default option is folded into the build identity (`diag:1`, `user_bytes:N`), so a diag or
+probe package never shares a build id with the normal build of the same sources;
+build-identity.json and the package JSON name both. `make web-diag` and `make web-probe64` build
+the two extra simulators into build/web-diag/ and build/web-probe64/ (for the backup test).
+
+The gate (measured 2026-11-07, both built with DISPLAY_VERSION=tabby-v03.2 at one path): the
+normal build of this tree against head 0274b81 differs in 32 bytes of app-image.bin (the build
+id) and 46 bytes of the .fwsc (the id and checksums), as for every app/ change (the build id
+hashes app/ and sdk/manifest.json; section 9.3d). `make crosscheck`: 24.7.
+
+### 24.2 Full backup and restore
+
+Workbench library tab, "Full backup and restore (Classic Tabby)". File format and rules:
+docs/BACKUP-FORMAT.md (version 1). What goes in: the 16 project slots (slot 16 with the device
+settings), the workspace and current slot, transfer kind 8 (device MIDI settings, BLE role, radio
+switches, clock mode, track roles, input channels, panel preferences; on the diagnostic build and
+later), the Bluetooth switches (command 24), every song record and block, the firmware identity,
+build id and USER size, and the browser's "My rig". What does not: Bluetooth pairings, staging
+(transient), the built-in rig profiles. On tabby-v03.2 the file has no kind 8 and says so in its
+`not_included` list; note the MIDI page settings, track roles and input channels by hand.
+
+Restore checks the whole file first (every CRC, length, project and song structure, every
+referenced block, the counts and the end marker), then the device (song storage READY, playback
+stopped), and only then writes, in the order settings, projects, songs, current slot and
+workspace, through the transfer commands only. Song slots empty in the file are deleted. It ends
+with a read-back verify: PASS with the number of items compared, or FAIL with the first
+difference. "Verify against file" does the read-back alone.
+
+Test: `make backup-test` (tests/workbench/backup.mjs, also in `make test` and `test-fast`), 28
+checks on three simulators: round trip byte-identical on the diagnostic simulator (projects in
+slots 1, 4 and 16, changed settings, an unsaved workspace, two songs with 15 blocks and row
+events), the settings stored across a reboot, five kinds of damaged file refused with the flash
+revision unchanged, the 536576 file restored and verified on the 471040 simulator, an emulated
+move (the probe simulator booted on the stock simulator's flash shifted by 64 KiB: song storage
+READY, no old project visible, restore and verify PASS), the round trip on the normal simulator
+without kind 8, and the counters through command 25.
+
+### 24.3 The diagnostic build (tabby-v03.3-diag)
+
+`make firmware DIAG=1` (or `make package DIAG=1 ...`). The current firmware and layout, no
+behaviour change, plus (app/diag.c, app/board/scan.c under `CT_DIAG`):
+
+| Counter | Where | Assessment item |
+| --- | --- | --- |
+| control loop: count, mean and longest period | `groove_midi_poll()`, the call that sends MIDI out | L.1 |
+| flash: erase count and longest erase, write count, longest write and its size | wrappers around every app `fm1_flash_erase` / `fm1_flash_write` | L.3 |
+| key and pad note-on latency: 8-bin histogram (<0.5, <1, <2, <4, <8, <16, <32, ≥32 ms) and maximum | TIMER4 stamp when the scan ISR queues the event, read when `smk37_scan_read()` hands it to the router | L.4 |
+| matrix scans: count (rate), longest gap; scan and ADC ISR peak time | `scan_soft_isr()` (one full 16-row scan) | L.5 |
+
+Times are TIMER4 ticks (24 MHz). Transfer command 25 reads them (page 1, 64 bytes; page 2, 20
+bytes; data byte 1 resets first); the workbench shows them in the library tab's "Diagnostics"
+group (Read, Reset, Copy as text), visible when the device reports capability bit 6. The ACTIONS
+page shows two extra lines: `USER <fm1_flash_size()> SONG <state>` at the top and
+`FREE <n>K  RECLAIM <n>K` at the bottom (the size reads `0 INVALID` if the SDK refused the layout).
+
+Size (measured, DISPLAY_VERSION=tabby-v03.3-diag): app image 453284 bytes against the normal
+build's 451396 with the same string: the diagnostic code is 1888 bytes; the hard limit is 453921,
+so the diagnostic build's margin is **637 bytes**. It fits; nothing was removed.
+
+### 24.4 The MIDI monitor (tools/linux/midi-monitor.py)
+
+Replaces a DAW for L.2 (MIDI out jitter) and L.6 (clock follow). It opens one ALSA raw MIDI input
+read-only (it never sends), stamps each chunk with the kernel's receive time (ALSA timestamp read
+mode, CLOCK_MONOTONIC; `--user-time` falls back to time.monotonic_ns()), writes a CSV and prints
+the analysis: the clock (pulses, BPM, pulse spread), per channel the note-on residuals against a
+least-squares 16th grid (spread = the band, std, p99, drift in ppm, 4-bar wander, end against the
+nominal grid) and, for the 8-channel song, the burst width per 16th. The last line is
+`BAND (largest per-channel spread): x ms`, the number SPEC 14.3 compares with 2 ms.
+
+```
+python3 tools/linux/midi-monitor.py --list                    # the ALSA ports; the AUDIO4c's DIN input is "AUDIO4c DIN" (hw:2,0,0 here)
+python3 tools/linux/midi-monitor.py --port "AUDIO4c DIN" --seconds 150 --csv l2-8x16.csv
+python3 tools/linux/midi-monitor.py --analyze l2-8x16.csv --bpm 120      # again, from the file
+python3 tools/linux/midi-monitor.py --analyze l2-8x16.csv --channel 1    # one channel only
+```
+
+Start the capture, then PLAY on the SMK-37 within a few seconds; stop the capture with Ctrl-C after
+the song or let `--seconds` run out. The measurement floor is the AUDIO4c's USB timing (high speed,
+125 µs microframes) and DIN's 0.32 ms per byte: eight note-ons on one 16th take at least 7.7 ms on
+the wire, which the burst line shows; the per-channel spread is the jitter.
+
+The test songs (tests/midi-import/fixtures, generated by make-fixtures.mjs): `timing-8x16.mid`
+(16ths on channels 1-8, one pitch each, 1/32 long, 120 BPM, 60 bars = 2 minutes) and
+`timing-1x16.mid` (the same on channel 1 only). The importer test checks that each imports as one
+16th-note block per track over 960 steps. tests/linux/midi-monitor-test.py (in
+`make workbench-test`) checks the parser and the analysis on synthetic captures with known jitter
+and drift. Smoke run on this machine: `--port "AUDIO4c DIN" --seconds 1` opened hw:2,0,0 with
+kernel timestamps and read nothing (nothing connected).

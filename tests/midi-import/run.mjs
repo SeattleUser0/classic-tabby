@@ -492,5 +492,16 @@ const produced = [];
   check(!warning(okRig, 'channelNotInRig') && warning(okRig, 'notesOnEffectsChannel')?.count === 1, 'with the full Wrong Room (channel 13 = M8 part 3) the pad is in the rig and only the three other faults remain');
 }
 
+// ---- Task 11: the measurement songs import as one block per track, 60 bars, exact grid ----------
+for (const name of ['timing-8x16.mid', 'timing-1x16.mid']) {
+  const r = importFile(name), e = fx[name].expect;
+  produced.push(r.song);
+  const steps = r.song.rows.reduce((n, row) => n + row.repeat * row.steps, 0);
+  check(r.a.totalBars === e.bars && r.a.parts.length === e.channels, name + ': ' + e.bars + ' bars, ' + e.channels + ' part(s)', r.a.totalBars + ' bars');
+  check(steps === e.bars * 16 && r.song.blocks.length === e.channels && r.song.blocks.every(b => b.notes.length === 64 && b.notes.every(n => n.offset === 0 && n.length === 240)),
+    name + ': ' + e.bars * 16 + ' steps of one 16th-note block per track, on the grid, 1/32 long', steps + ' steps, ' + r.song.blocks.length + ' blocks');
+  check(r.song.tempo === 120 && r.warnings.filter(w => w.severity === 'warn').length === 0, name + ': 120 BPM, no warning');
+}
+
 console.log(failures ? `${failures} of ${checks} check(s) FAILED` : `all ${checks} checks passed`);
 process.exit(failures ? 1 : 0);

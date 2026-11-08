@@ -34,12 +34,18 @@
 //                              device on (13, with that channel cleared in the test rig), notes on
 //                              the Brothers' channel 12, PC 123 to the Brothers, CC 70 to the NightSky
 //
+//     timing-8x16.mid          (Task 11) the measurement song for docs/BUILD.md 24.6: 16ths on all eight
+//                              tracks (channels 1-8, one pitch each, 1/32 long, velocity 100), 120 BPM,
+//                              60 bars = 2 minutes; tools/linux/midi-monitor.py analyses it
+//     timing-1x16.mid          (Task 11) the same, one steady 16th line on channel 1 only
+//
 //   Run:  /usr/bin/node tests/midi-import/make-fixtures.mjs   (writes the files)
 //   Import: `fixtures()` returns [{name, bytes, expect}] without writing.
 //
-// Version: 0.2
+// Version: 0.4
 //
 // Revision log
+//   v0.4  2026-11-07  Task 11: timing-8x16 and timing-1x16 (the measurement songs).
 //   v0.3  2026-11-05  Task 09: wrong-room-all and wrong-room-wrong fixtures.
 //   v0.2  2026-11-03  Task 05: kick-nudge, ppq-120/480/960 and ppq-100 fixtures.
 //   v0.1  2026-11-02  Initial version (Task 02, Step 2).
@@ -259,6 +265,20 @@ export function fixtures() {
     const sky = [{ tick: 0, type: 'trackName', text: 'NightSky' }, { tick: 0, type: 'controlChange', channel: 13, controller: 70, value: 64 }];   /* CC 70 is not in the NightSky's table */
     list.push({ name: 'wrong-room-wrong.mid', bytes: write({ format: 1, division: ppq, tracks: [conductor, pad, guitar, sky] }),
       expect: { warnings: ['channelNotInRig', 'notesOnEffectsChannel', 'programOutOfRange', 'ccNotNamed'] } });
+  }
+  // 15./16. (Task 11) The measurement songs: a 16th on every step for 2 minutes at 120 BPM (60 bars),
+  // on channels 1-8 (one pitch per channel, 36 + 7 * channel) and on channel 1 alone. Each note is a
+  // 1/32 long so a note-off always falls between two note-ons.
+  for (const [name, channels] of [['timing-8x16.mid', 8], ['timing-1x16.mid', 1]]) {
+    const ppq = 480, step = ppq / 4, bars = 60;
+    const tracks = [[{ tick: 0, type: 'trackName', text: 'Timing' }, { tick: 0, type: 'tempo', bpm: 120 }, { tick: 0, type: 'timeSignature', numerator: 4, denominator: 4 }]];
+    for (let ch = 0; ch < channels; ch++) {
+      const t = [{ tick: 0, type: 'trackName', text: 'Line ' + (ch + 1) }];
+      for (let i = 0; i < bars * 16; i++) note(t, i * step, step / 2, 36 + 7 * ch, 100, ch);
+      tracks.push(t);
+    }
+    list.push({ name, bytes: write({ format: 1, division: ppq, tracks }),
+      expect: { bars, channels, notesPerChannel: bars * 16, seconds: 120 } });
   }
   return list;
 }
