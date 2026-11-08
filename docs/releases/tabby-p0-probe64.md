@@ -1,4 +1,4 @@
-# Classic Tabby tabby-p0-probe64 — TEST BUILD that moves the device storage
+# tabby-p0-probe64: TEST BUILD — moves the device storage; make a full backup first
 
 **This test build moves the device's storage (USER 64 KiB smaller). Make a Full backup on
 tabby-v03.3-diag first and keep it; do not use this build for anything but the Task 11 hardware

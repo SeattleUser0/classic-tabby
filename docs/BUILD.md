@@ -2,7 +2,8 @@
 
 Version: 0.33
 Revision log:
-- v0.33, 2026-11-07 (Task 11): section 24: the build options (DIAG, USER_BYTES), the full backup,
+- v0.33, 2026-11-07 (Task 11): sections 9.1 and 9.3f (tabby-v03.3-diag and tabby-p0-probe64
+  published) and 24: the build options (DIAG, USER_BYTES), the full backup,
   the diagnostic build and its counters, the MIDI monitor, the probe and the way back, the
   hardware checklist; publication of tabby-v03.3-diag and tabby-p0-probe64.
 - v0.32, 2026-11-05: section 9: tabby-v03.2 published (9.1 current values, 9.3e verification
@@ -599,8 +600,22 @@ nothing was written to any device.
 
 ### 9.1 What is published
 
-Current release **tabby-v03.2** (2026-11-05; the earlier releases' values below stay as the
-record of their publications):
+Current release **tabby-v03.3-diag** (2026-11-07, Task 11: the diagnostic build at the site root),
+and the test pre-release **tabby-p0-probe64** in the site's `probe64/` directory; the earlier
+releases' values below stay as the record of their publications.
+
+| Item | tabby-v03.3-diag | tabby-p0-probe64 (pre-release) |
+| --- | --- | --- |
+| Tag | `tabby-v03.3-diag` (annotated, f661dd9) → a47a51b | `tabby-p0-probe64` (annotated, baca50b) → 0b0c41b |
+| Build options | `DIAG=1` | `DIAG=1 USER_BYTES=471040` |
+| `SMK37_PRO_OPEN.fwsc` | SHA-256 969a8f7ccfaac0aff4b345c64ede53a5a5b80d669b5c4e1a49aef42b329a5770, 492084 bytes, build_id 6ada221504309d10f544a5d9743791e385f60fe2e88b7bc6570b32d2060c78a1 | SHA-256 f99e461cbba7da398a974dbb8691bd3f10f026b22647a60789a7fc7dd150995c, build_id 2525715294cc33a7d14ec1285d6f8c7f1102e911aa395af8e1af625417dcc73c |
+| App image, margin | 453284, 637 to 453921 | 453284, 66173 to 519457 |
+| `SMK37-Open-Source.html` | SHA-256 4d9b9fde883a6282d51b25e2ada1f103e1ac1265cdbe62a9c43f3d039b8f4344, 3111456 bytes | SHA-256 fceb8a4557781976fac8fb3fbd2a6c7b4c382e454ddea8b8a8d80e1d825ef676, 3111520 bytes |
+| Static site | https://seattleuser0.github.io/classic-tabby/ — `gh-pages` e0811fa, `index.html` 336380 bytes (SHA-256 b12e9d4ed3f02fc26e1bce5493d7fd1c9906e453ba0ae439719634c52aa46a16) | https://seattleuser0.github.io/classic-tabby/probe64/ — `gh-pages` 6b0b485, `probe64/index.html` 336380 bytes (SHA-256 348e0065cc8dee79eeb03400d1945ce32deff740757d4fd21979545138a5b8bb) |
+| Source archive | …/archive/refs/tags/tabby-v03.3-diag.zip (VERSION expands to `tabby-v03.3-diag`) | …/archive/refs/tags/tabby-p0-probe64.zip (VERSION `tabby-p0-probe64`) |
+| GitHub release | https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v03.3-diag | https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-p0-probe64 (marked pre-release, title "tabby-p0-probe64 (TEST BUILD: moves storage)") |
+
+Record of tabby-v03.2:
 
 | Item | Value |
 | --- | --- |
@@ -862,6 +877,29 @@ subdirectory (`--site-dir elite`), as HOSTING.md asks for separate directories.
   panel's profile select with "Wrong Room (built-in)" and nine columns, the Import MIDI panel's
   "Rig device" column and "Download the MIDI guide" button, the manual's 21 chapters.
 - This commit is the documentation follow-up; the tag stays on c3454e3.
+
+### 9.3f Verification after publishing tabby-v03.3-diag and tabby-p0-probe64 (2026-11-07)
+
+- Before: `make suite DIAG=1 DISPLAY_VERSION=tabby-v03.3-diag` and `make suite DIAG=1
+  USER_BYTES=471040 DISPLAY_VERSION=tabby-p0-probe64` passed (crosscheck identical on both tracks,
+  the tests on the diagnostic and probe simulators, the sanitizers); the suites' .fwsc hashes are
+  the released ones.
+- The two tags sit on different commits (release notes only between them), so each archive's
+  VERSION names its own tag; display_version.py on each tagged HEAD printed that tag.
+- Both releases downloaded: `sha256sum -c SHA256SUMS.txt` OK for both files of each.
+- Live site: `/index.html`, `/assets.json`, `/probe64/index.html`, `/probe64/assets.json` fetched
+  over HTTPS are byte-identical to the gh-pages branch; assets.json names build 6ada2215… /
+  tabby-v03.3-diag at the root and 2525715294cc… / tabby-p0-probe64 in probe64/. The root page
+  does not contain the string `probe64`; each page's source link is its own tag's archive.
+- Headless Chrome on both offline pages: no script error; the root shows the "Diagnostic build"
+  note, the probe page the "TEST BUILD: this firmware moves the device storage" note and a title
+  starting "TEST BUILD (moves storage)".
+- The probe's release body was edited once after creation so its first line names all three
+  points (test build, moves storage, full backup first); docs/releases/tabby-p0-probe64.md on the
+  branch carries that line, the tagged copy the earlier title line.
+- Known limit of the probe page: the MIDI importer's pool estimate (web/import/song-format.js)
+  assumes 96 block sectors; on the probe the device has 80 and refuses a batch that does not fit
+  (code 74), as it would on any full storage.
 
 ### 9.4 What the install screen shows for the SMK-37 Pro
 
