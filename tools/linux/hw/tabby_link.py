@@ -299,6 +299,7 @@ class Capture(threading.Thread):
     def run(self):
         period = 480
         buf = (ctypes.c_int32 * (period * self.channels))()
+        LIB.snd_pcm_start(self.h)          # the AUDIO4c's capture does not auto-start on readi (-EIO)
         while self.running:
             n = LIB.snd_pcm_readi(self.h, buf, period)
             if n < 0:

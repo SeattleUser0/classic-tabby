@@ -2772,3 +2772,48 @@ AUDIO4c's inputs. Results: 25.3 and ~/Documents/Classic Tabby/hardware-runs/2026
 | Power cycle (step 5) | **needs a person** | no per-port power switching: the root hub port is not switchable without root and uhubctl is not installed, and the SMK-37 has a battery, so USB power does not power-cycle it |
 | Bluetooth pairing, L.7 pad colours | **need a person** | skipped |
 | L.9 the TRS adapter | yes | if MIDI from the SMK-37 arrives on the AUDIO4c DIN input, the fitted adapter works |
+
+### 25.2 How to rerun
+
+playwright-core 1.49.1 is installed outside the repository (`~/Documents/Classic Tabby/hw-tools`,
+`npm install playwright-core@1.49.1`); it drives /usr/bin/google-chrome. Local pages are served with
+`python3 -m http.server 8711 --bind 127.0.0.1` from the run's pages/ directory (the page needs a
+secure origin; localhost is one).
+
+```
+node tools/linux/hw/workbench.mjs install --url URL --expect tabby-v03.3-diag --log run/workbench.log
+node tools/linux/hw/workbench.mjs backup|restore|verify --url URL --file run/backup-N.json --log ...
+node tools/linux/hw/workbench.mjs workspace --steps16 0 --url URL       # 16 steps on track 1 (L.6)
+node tools/linux/hw/workbench.mjs settings --patch '{"6":1}' --url URL   # kind 8 byte 6: clock MIDI (0 = INT)
+python3 tools/linux/hw/run-11b.py runA|runB|l6 [--usb --tag=-usb]|l3 --out run/   # browser closed
+python3 tools/linux/hw/run-11b.py record --seconds 30 --keep 0 --tag X --out run/  # audio, own process
+python3 tools/linux/hw/run-11b.py fm6-delay|gaps --tag X [--csv run/X-midi.csv] --out run/
+```
+
+Findings for the tools: the AUDIO4c's capture must be started explicitly (`snd_pcm_start`; a plain
+readi fails with EIO); a Python busy-wait clock loop starves a capture thread, so audio runs as its
+own process; the page translates its status texts, so the driver accepts both languages.
+
+### 25.3 Results of the 2026-11-07 run (the agent's own run; files in hardware-runs/2026-11-07/)
+
+Device found on **tabby-v03.0** (build 77077ef3…), not v03.2; tabby-v03.2 was installed first from
+its release page. Every install took about 9 s through the page and came back with its identity
+`SMK-37 Pro_8000001`. Song storage reported **OLD DATA** (the V01 sample bank was never erased).
+
+| Item | Status | Result |
+| --- | --- | --- |
+| step 1 backup on v03.2 | done | 0 projects, 0 songs, 0 blocks, USER 536576, no kind 8 |
+| step 1 restore | refused (precondition) | "Song storage holds old data … Run ACTIONS > ERASE OLD SAMPLE/DX7 on the device first. Nothing was changed." The restore checks song storage even when the file holds no songs; that check is stricter than it needs to be |
+| step 1 verify | done | Verify PASS, 2 items |
+| step 2 install main page | done | tabby-v03.3-diag (6ada2215…) installed; verify against the step-1 file PASS. Then the local diag with command 26 (tabby-v03.3-diag-r, 2f82301b…) for the measurements |
+| ERASE OLD (needed for every song step) | **blocked** | command 26 {3} was refused by the agent's permission system (irreversible deletion); waiting for the user |
+| run A (60 s at rest) | done | loop 10941, **mean 5.484 ms, max 12.293 ms**; scans 14727/s, longest gap 0.337 ms |
+| run B (100 USB notes / 2 min) | substituted | loop **mean 5.507 ms, max 13.266 ms**; scans 14452/s, gap 0.400 ms; L.4 needs a person |
+| L.9 TRS adapter | **fails** | the device plays (FM6 audible; 48 note-ons on USB in 12 beats) but the AUDIO4c DIN input has received 0 bytes (kernel counter). Adapter type, cable or the AUDIO4c's DIN routing: needs a person. DIN steps stopped |
+| L.2 (DIN band) | not run | no DIN signal, and no song storage |
+| L.6 clock follow | substituted (USB out) | lock 9.0 ms (first run) and 11.5 ms (restart) after the first clock after Start; lag behind the master's 16th mean 7.2 ms, **band 14.3 ms** and 11.5 ms; after 3 s without clock the sequencer **did not resume** when the clock came back (0 notes until the next Start); Stop stops it |
+| FM6 vs MIDI out (user's addition) | substituted (USB out) | FM6 onset after the same note on USB: mean 7.2 ms, std 5.1, p05 1.2 ms, p95 15.6 ms (188 of 240 notes paired; indicative) |
+| L.3 save with a held FM6 note | done | 5 erases (longest **17.8 ms**), 8 writes (longest **29.1 ms**, 4096 B); control loop max **217 ms**; scan ISR gap 17.6 ms; audio **silent for 220–224 ms**, starting 7–10 ms after the save command; no clicks |
+| L.3 save during play, COMPACT | not run | needs song storage (COMPACT) or a clock thread through the save; COMPACT is refused while playing, as on the panel |
+| L.7, Bluetooth, power cycle | need a person | no per-port power switch; the SMK-37 has a battery |
+| steps 4–7 (probe, restore, V16, way back) | waiting | every restore onto the moved layout and the way back needs ERASE OLD |
