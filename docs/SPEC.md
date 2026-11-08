@@ -2,6 +2,8 @@
 
 Version: 0.19
 Revision log:
+- v0.19.1, 2026-11-07 (Task 11 Steps 2-4): section 14.4: the backup, the diagnostic build and the
+  probe as built.
 - v0.19, 2026-11-07 (Task 11 Step 1): section 14: the Task 10 decisions recorded, the event cap
   rule (768 events per clip, CC thinning) and the MIDI-out timing rule.
 - v0.18.3, 2026-11-05 (Task 09 checkpoint d): section 13: the simulator check; Task 09 complete pending the hardware checklist.
@@ -937,3 +939,17 @@ the period on the device (BUILD.md 24, the hardware checklist). If those numbers
 wider than about **2 ms** (the spread of MIDI out against the song's grid, or the control loop's
 maximum period under load), reducing it becomes the first item of Phase 1, ahead of external
 clock follow.
+
+### 14.4 Task 11 as built (Phase 0 preparation, no feature code)
+
+- **Full backup and restore** in the workbench (docs/BACKUP-FORMAT.md, format version 1; BUILD.md
+  24.2): one file, transfer commands only, validated before any write, verified after.
+- **The diagnostic build** (`DIAG=1`, tabby-v03.3-diag; BUILD.md 24.3): counters for the
+  assessment's L.1, L.3, L.4 and L.5 read over USB (command 25), transfer kind 8 for the device
+  and session settings, the storage lines on ACTIONS. 1888 bytes; margin 637.
+- **The layout setting and the probe** (`USER_BYTES=N`, tabby-p0-probe64 = DIAG=1 +
+  USER_BYTES=471040; BUILD.md 24.5, FLASH-BUDGET 3.5): the USER size comes from one build option for
+  the packagers, the SDK layout record, the app and the simulator. The normal build keeps 536576
+  and the same code.
+- **tools/linux/midi-monitor.py** and the timing test songs (BUILD.md 24.4).
+- The hardware checklist that decides Phase 0: BUILD.md 24.6.

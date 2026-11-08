@@ -1,7 +1,10 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.15
+Version: 0.16
 Revision log:
+- v0.16, 2026-11-07 (Task 11): section 3.5: the USER size as one build setting, today's layout
+  and the 471040 probe layout, what moves and what does not; section 16: the diagnostic build
+  (+1888 bytes, margin 637) and the probe (margin 66173); the normal build unchanged.
 - v0.15, 2026-11-05 (Task 09): no firmware change; the app image stays 451396 bytes, margin 2525.
 - v0.14, 2026-11-04 (Task 08): section 15: the display version costs 0 bytes for a tag
   (alignment), 32 for the development string; Appendix A not regenerated (no change for a
@@ -307,6 +310,61 @@ The smallest USER that keeps every current feature with an empty sample bank is
 
 Nothing above touches `key_mac` (0xFF000–0xFFFFF, factory calibration/MAC) or the boot
 area; neither Package.cs nor the loader ever writes them.
+
+### 3.5 Task 11: the USER size as one setting, and the 471040 probe layout (measured 2026-11-07)
+
+Since Task 11 the USER size is one build option (BUILD.md 24.1: `USER_BYTES=N`, build.py
+`--user-bytes`). It feeds `fm1_layout.user_bytes`, both packagers (sdk/Package.cs v0.2 and
+tools/linux/package.py v0.2 no longer refuse a size other than 536576; they check a multiple of
+4096 from 90112 to 536576, build.py accepts 405504 to 536576), the app constants (app/ct_layout.h:
+`GROOVE_SAMPLE_BYTES = CT_USER_BYTES - 69632`, the song region `(CT_USER_BYTES - 73728) / 4096`
+sectors) and the simulator. The capability reply 21 reports the song region, so the workbench
+reads the layout from the device.
+
+Today's layout (the Task 03 song region replaced the sample bank and the DX7 library; section 3.3
+describes V01) and the probe's, from build/pro/package-report.json:
+
+| | Stock (every release) | Probe (tabby-p0-probe64) |
+| --- | ---: | ---: |
+| user_bytes | 536576 | 471040 |
+| image (PRCT) | 0x00000–0x72FFF (471040) | 0x00000–0x72FFF (471040, unchanged) |
+| VM | 0x73000–0x7AFFF (32768) | 0x73000–0x8AFFF (98304) |
+| BTIF | 0x7B000 | 0x8B000 |
+| USER | 0x7C000–0xFEFFF | 0x8C000–0xFEFFF |
+| projects 1–16 (16 sectors), project staging | 0x7C000–0x8CFFF | 0x8C000–0x9CFFF |
+| song region | 0x8D000–0xFDFFF: 113 sectors (staging, 16 records, 96 block sectors) | 0x9D000–0xFDFFF: 97 sectors (staging, 16 records, 80 block sectors) |
+| tuning and session sector | 0xFE000 | 0xFE000 (same place) |
+| key_mac | 0xFF000, never written | same |
+| hard app limit | 453921 | 519457 |
+
+The probe moves only USER; the code image stays where it is, so the extra 64 KiB go to VM until a
+later build needs them for code. What the move does to data already on the device (the probe sees
+the old bytes 64 KiB further on):
+
+- The old VM, BTIF and the first 15 project sectors become the new VM, and the old slot-16 sector
+  the new BTIF: the vendor runtime owns them now (it may format them), so treat the old projects
+  1–16 and the old device settings as gone (the backup has them).
+  Bluetooth pairings are lost once.
+- The new project sectors hold the old project staging sector and the old song staging and song
+  records 1–14: none has a project magic, so every slot reads empty.
+- The new song region starts at the old song record 16 and then the old block sectors 1–96 (all
+  song-formatted), so song storage scans READY with no song (the records sit at block positions)
+  and old blocks as garbage. The probe's first boot may erase the new song staging sector (old song
+  16's record) as a stale journal. The simulator's emulated move (tests/workbench/backup.mjs)
+  shows exactly this and then restores and verifies.
+- The tuning and session sector does not move: track roles, input channels and panel preferences
+  survive (and the backup has them too).
+
+Going back to the stock layout (BUILD.md 24.5) the stock firmware sees the probe's data 64 KiB
+earlier: its project area holds the probe's VM, its song region starts with the probe's project
+sectors, which have no song magic, so song storage reports OLD DATA until ACTIONS > ERASE OLD
+SAMPLE/DX7 runs; then the full restore.
+
+The paths of the Task 10 assessment's H.4, after Task 11: packagers, build.py, the app
+constants, the capability reply, WebUpdate.js (the region check) and Simulator.js now follow the
+setting (were "needs change"); the SDK boot check and BTIF/VM rebuilding stay unverified until the
+hardware checklist (BUILD.md 24.6 step 5); restore of factory V16 writes 0xF4000–0xFDFFF in either
+layout, inside the song region (24.6 step 6 checks the probe boots after it).
 
 ## 4. Phase 1 re-estimate under the SPEC v0.2 decision (Track A numbers, Checkpoint A)
 
@@ -791,6 +849,23 @@ label; the identity constants are unchanged. Measured with Track B at the Task 0
 The 8 extra bytes of a tag fall inside .text alignment; a release build keeps the margin at
 2525 bytes. Appendix A is not regenerated: the release build's section sizes are those of
 section 14.
+
+## 16. Task 11: the diagnostic build and the probe (measured)
+
+All three built from the same tree on 2026-11-07 with DISPLAY_VERSION=tabby-v03.3-diag
+(the published builds use their own tags; a 16- and a 17-character string give the same image
+size after alignment):
+
+| Build | Options | App image | .ram0_data | .ram0_bss | Heap | Hard limit | Margin |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| normal | none | 451396 | 80932 | 242812 | 199820 | 453921 | 2525 |
+| tabby-v03.3-diag | DIAG=1 | 453284 | 80996 | 243900 | 198668 | 453921 | **637** |
+| tabby-p0-probe64 | DIAG=1 USER_BYTES=471040 | 453284 | 80996 | 243740 | 198828 | 519457 | **66173** |
+
+The diagnostic code is 1888 bytes of flash (counters, command 25, transfer kind 8 with its
+validation, the ACTIONS lines) and 1152 bytes of static RAM (the 1 KB stamp ring beside the scan
+queue, the counters). The probe's .bss is 160 bytes smaller (16 fewer song-region sectors in the
+storage tables). The normal build is the same code as before Task 11 (BUILD.md 24.1 gate).
 
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 
