@@ -23,8 +23,10 @@
           c.memory.grow((snapshot.byteLength - c.memory.buffer.byteLength) / 65536);
           new Uint8Array(c.memory.buffer).set(new Uint8Array(snapshot));
         } else {
-          const saved = flash?.length === 536576;
-          if (saved) new Uint8Array(c.memory.buffer,c.sim_flash(),536576).set(flash);
+          // Classic Tabby Task 11: the size comes from the wasm (sim_flash_size, the build's USER
+          // size: 536576 stock, 471040 in the probe layout); a stored image of another size is not loaded.
+          const size = c.sim_flash_size ? c.sim_flash_size() : 536576, saved = flash?.length === size;
+          if (saved) new Uint8Array(c.memory.buffer,c.sim_flash(),size).set(flash);
           c.sim_boot(saved ? 0 : 1);
         }
         this.lastFrame = this.lastFlash = -1;
@@ -152,7 +154,7 @@
           message.pixelBands=bands;this.lastFrame=revision;
         }
         const flash=c.sim_flash_revision();
-        if(flash!==this.lastFlash){message.flash=new Uint8Array(c.memory.buffer,c.sim_flash(),536576).slice();this.lastFlash=flash;}
+        if(flash!==this.lastFlash){message.flash=new Uint8Array(c.memory.buffer,c.sim_flash(),c.sim_flash_size?c.sim_flash_size():536576).slice();this.lastFlash=flash;}   // Task 11
         return message;
       }
     };
