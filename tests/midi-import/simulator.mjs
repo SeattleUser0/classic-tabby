@@ -27,9 +27,10 @@
 //         (or: make midi-import-sim, after make web)
 //   Exit status 0 on success; every check prints "ok" or "FAIL".
 //
-// Version: 0.2
+// Version: 0.3
 //
 // Revision log
+//   v0.3  2026-11-07  Task 11: the empty pool size comes from the simulator's layout (sim_flash_size).
 //   v0.2  2026-11-04  Task 05: exact times from the file in units, the per-block drain, note-offs
 //                     checked to one block, the 10 ms-poll band reported.
 //   v0.1  2026-11-02  Initial version (Task 02, Step 4).
@@ -100,6 +101,9 @@ function play(drainEveryBlock) {
     out.batchResult = c.sim_block_batch(SLOT, total); if (out.batchResult !== 0) break; out.stored += parts.length;
   }
   out.free = c.sim_song_free() >>> 0;
+  /* v0.3 (Task 11): the empty pool follows the layout: (block sectors) x 4076 bytes, 96 x 4076 = 391296 stock. */
+  out.pool = ((c.sim_flash_size ? c.sim_flash_size() : 536576) - 73728) / 4096 - 17;
+  out.pool *= 4076;
   c.sim_midi_drain(drainEveryBlock ? 1 : 0);
   c.sim_midi_capture(1);
   out.loaded = c.sim_song_load(SLOT) === 0; out.started = c.sim_song_play() === 0;
@@ -153,7 +157,7 @@ function compare(run) {
 
 const exact = play(true);
 check(exact.ready && exact.fm6 && exact.recordResult === 0 && exact.batchResult === 0 && exact.stored === song.blocks.length, `song written: record and ${song.blocks.length} blocks in ${exact.batches} batch(es) (format 1)`, `results ${exact.recordResult}/${exact.batchResult}, stored ${exact.stored}`);
-check(exact.free === 391296 - song.blocks.reduce((n, b) => n + Format.encodeBlockRecord(b, 0).length, 0), 'free space fell by the block records', exact.free + ' free');
+check(exact.free === exact.pool - song.blocks.reduce((n, b) => n + Format.encodeBlockRecord(b, 0).length, 0), 'free space fell by the block records', exact.free + ' free');
 check(exact.loaded && exact.started && exact.playedToEnd, 'song loads, plays to its end and stops by itself', `${exact.blocks} blocks = ${(exact.blocks * exact.frames / 44100).toFixed(1)} s of audio`);
 check(exact.underruns === 0 && exact.late === 0, 'no row underruns, nothing late', `${exact.underruns} underruns, ${exact.late} late`);
 check(exact.rms > 0.001, 'FM6 produced audio', `mean RMS ${exact.rms.toFixed(4)}`);

@@ -7,7 +7,7 @@
 //   real device code (app/transfer.c, app/project.c, app/song_storage.c) compiled into the
 //   simulator wasm, through a fake MIDI link that feeds the workbench's own SysEx frames to
 //   sim_midi and parses the replies with demoParse. Three simulators:
-//     NORMAL  build/web/simulator.wasm            stock layout, no kind 8 (as tabby-v03.2)
+//     NORMAL  build/web-normal/simulator.wasm     stock layout, no kind 8 (as tabby-v03.2)
 //     DIAG    build/web-diag/simulator.wasm       stock layout, diagnostic build (kind 8)
 //     PROBE   build/web-probe64/simulator.wasm    USER 471040, diagnostic build (the probe)
 //   Checks:
@@ -41,7 +41,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const [normalPath, diagPath, probePath] = [2, 3, 4].map((i, k) => process.argv[i] ||
-  join(root, ['build/web/simulator.wasm', 'build/web-diag/simulator.wasm', 'build/web-probe64/simulator.wasm'][k]));
+  join(root, ['build/web-normal/simulator.wasm', 'build/web-diag/simulator.wasm', 'build/web-probe64/simulator.wasm'][k]));
 
 Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'node', requestMIDIAccess: () => Promise.reject(new Error('no midi')) }, configurable: true });
 globalThis.window = globalThis;

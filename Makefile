@@ -187,7 +187,7 @@ WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
         package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test \
         check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide \
-        web-diag web-probe64 backup-test
+        web-normal web-diag web-probe64 backup-test
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -252,9 +252,15 @@ web-probe64:
 	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --simulator-only \
 	    --diag --user-bytes 471040 --wasm-out build/web-probe64 $(DV)
 
-# Task 11 Step 2: full backup and restore end to end on the three simulators.
-backup-test: web web-diag web-probe64
-	$(T) $(NODE) tests/workbench/backup.mjs build/web/simulator.wasm build/web-diag/simulator.wasm build/web-probe64/simulator.wasm
+# Task 11 Step 2: full backup and restore end to end on the three simulators. The normal one is
+# built here without DIAG/USER_BYTES (build/web-normal), so the test means the same whatever
+# options the surrounding make (a DIAG=1 suite) was given.
+web-normal:
+	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --simulator-only \
+	    --wasm-out build/web-normal $(DV)
+
+backup-test: web-normal web-diag web-probe64
+	$(T) $(NODE) tests/workbench/backup.mjs build/web-normal/simulator.wasm build/web-diag/simulator.wasm build/web-probe64/simulator.wasm
 
 # Task 08: web-smoke and midi-import-sim depend on `web` (phony) instead of the wasm file, so a
 # source or display-version change rebuilds the simulator before the tests read it; build-web.py's
