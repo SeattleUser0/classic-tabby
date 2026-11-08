@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.35
+Version: 0.36
 Revision log:
+- v0.36, 2026-11-08: 25.3c the approved resume: the write looped and never finished; stopped,
+  the manual resume steps handed to the user.
 - v0.35, 2026-11-08 (Task 11B, the first way out): 25.3b the reproduced diag-r2 tag and the
   resume stopped by a driver bug; left-to-build: a safe resume path for a stale loader tag.
 - v0.34, 2026-11-08 (Task 11B continuation): 25.2 the resume, --port and trs-watch commands and
@@ -2931,6 +2933,23 @@ returns 0 in upstream V01 and here alike. By the SDK header it gates the TRS **r
 - The driver is fixed (v0.4: one handler that accepts the model question only for "SMK-37 Pro").
   Checked on a dummy page: Pro accepted, Elite refused, the restore confirmations accepted.
 - The device is in its loader as before. Steps 3 to 6 are not run.
+
+### 25.3c The approved resume: the write never finished (2026-11-08 19:53Z)
+
+- **Checked before sending:**
+  - the loader reported `ota-SMK378b7dff801f1b0876`;
+  - the page (pages/diag-r2-fixed) carried image 4141e7ad….
+- **What happened:**
+  - Connect entered resume mode and the model question was confirmed (SMK-37 Pro). Then Start
+    update.
+  - The page showed "Writing firmware" for 8 minutes, with no error and no reboot. workbench.mjs
+    gave up after 8 minutes and closed the browser.
+  - On the loader's port: 125 MB sent and 6.9 MB received, for a 492084-byte image. The loader
+    kept re-requesting blocks and never completed.
+  - The kernel logged `urb status -115` twice on usb 1-1.
+- The device is still the loader (4d4a:4155, device 12). **Stop rule: not retried.** By the
+  user's instruction, the resume was handed to the user as manual steps in Chrome (the same page
+  from localhost:8711). Steps 3 to 6 are not run.
 
 ### 25.4 First run (2026-11-07, before the erase approval)
 
