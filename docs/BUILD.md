@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.34
+Version: 0.35
 Revision log:
+- v0.35, 2026-11-08 (Task 11B, the first way out): 25.3b the reproduced diag-r2 tag and the
+  resume stopped by a driver bug; left-to-build: a safe resume path for a stale loader tag.
 - v0.34, 2026-11-08 (Task 11B continuation): 25.2 the resume, --port and trs-watch commands and
   the update-ports test; 25.3a the device state, the workbench port fix, the failed loader
   resume and why the published-diag install timed out (a stale loader tag).
@@ -237,6 +239,14 @@ are never written.
   OFF, as Skiff 2.2's T1–T6 CHANNEL, so an Orange Cat FM-1 can take one channel without an
   H4MIDI WC port filter (today ROUT routes a block of four channels or every channel; Task 09
   Step 1 assessment section 3). Until then the Wrong Room profile filters the unit's port.
+- **Safe resume for a loader with a stale build tag** (Task 11B, 25.3a/b; not built). Today the
+  page accepts only `ota-SMK37<its own build[0:16]>` and refuses any other tagged loader with
+  "does not match this model". The page should:
+  - read the tag, name the build the loader is waiting for (match it against the builds it knows:
+    its own, the release list, the user's local files), and offer that image;
+  - or require an explicit confirm, with the model checked, before writing another image to it.
+  - Never accept silently. Also find out why the loader kept the previous update's tag when the
+    page armed a new one with command 50 (the cause of the 2026-11-08 16:50 timeout).
 - **Sanitizer fixes**: none needed; `make host-sanitize` is green (0 findings, leaks included)
   at linux-build 8114114. Keep it green: it is part of `make suite`.
 
@@ -2901,6 +2911,26 @@ Two ways out, the user's decision:
 **Steps 3 to 5 not run** (the stop rule): the TRS test on Open V01 and V16, the source comparison,
 and the final restore. One fact from the source: app/board/panel.c's `fm1_io_trs_midi_enabled()`
 returns 0 in upstream V01 and here alike. By the SDK header it gates the TRS **receiver** only.
+
+### 25.3b The first way out: diag-r2's image, resume stopped by a driver bug (2026-11-08 19:05Z)
+
+- **The tag reproduced.** diag-r2 was rebuilt at d9e83f0, the commit of the tree it was built
+  from at 08:33, in its own worktree with `DIAG=1 DISPLAY_VERSION=tabby-v03.3-diag-r2`. Results:
+  - build id 8b7dff801f1b0876…, which gives the tag `ota-SMK378b7dff801f1b0876`, the one the loader
+    reports;
+  - the image (SHA-256 4141e7ad…) and every package field are identical to what pages/diag-r2
+    carried.
+- The page tag check is unchanged. pages/diag-r2-fixed is the fixed workbench, built from the
+  current source around that package.
+- **The resume (once) failed before it started.**
+  - Connect found the loader and entered resume mode, and the page showed its model question.
+  - workbench.mjs v0.3 had two dialog handlers. Both accepted the question, the second accept
+    threw, and the script ended and closed the browser before the update's first query.
+  - The loader received 10 bytes, the Connect's identity query, and no image byte.
+  - **Stop rule: not retried.**
+- The driver is fixed (v0.4: one handler that accepts the model question only for "SMK-37 Pro").
+  Checked on a dummy page: Pro accepted, Elite refused, the restore confirmations accepted.
+- The device is in its loader as before. Steps 3 to 6 are not run.
 
 ### 25.4 First run (2026-11-07, before the erase approval)
 

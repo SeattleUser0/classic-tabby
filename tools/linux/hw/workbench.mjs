@@ -33,9 +33,10 @@
 //       info                                         capability and identity readout
 //   Every command prints one JSON line ({ok, ...}) and appends the page's messages to --log.
 //
-// Version: 0.3
+// Version: 0.4
 //
 // Revision log
+//   v0.4  2026-11-08  one dialog handler (v0.3's second handler crashed the resume before it started).
 //   v0.3  2026-11-08  Task 11B port fix: resume command (loader resume, model confirm dialog
 //                     accepted only for "SMK-37 Pro"); --port picks from the page's port list.
 //   v0.2  2026-11-08  stock: wait for the page to settle after switching to V16 before Connect.
@@ -62,7 +63,16 @@ async function open() {
   const context = await browser.newContext({ locale: 'zh-CN', acceptDownloads: true });
   await context.grantPermissions(['midi', 'midi-sysex'], { origin: new URL(url).origin });
   const page = await context.newPage();
-  page.on('dialog', async d => { log('dialog: ' + d.message().replace(/\n/g, ' | ')); await d.accept(); });
+  /* v0.4: the one dialog handler. The loader's model question (resume) is accepted only when it
+     names "SMK-37 Pro"; every other page dialog (restore confirmations) is accepted as before.
+     v0.3 added a second handler for the model question; both accepted the same dialog and the
+     second accept threw, which ended the script before the update started (2026-11-08 19:05Z). */
+  page.on('dialog', async d => {
+    const m = d.message(); log('dialog: ' + m.replace(/\n/g, ' | '));
+    const model = /hardware model is:|确认机身型号为/.test(m);
+    try { if (model && !/SMK-37 Pro\?$/.test(m)) await d.dismiss(); else await d.accept(); }
+    catch (e) { log('dialog handling failed: ' + e.message); }
+  });
   page.on('console', m => { if (m.type() === 'error') log('console error: ' + m.text()); });
   page.on('pageerror', e => log('page error: ' + e.message));
   await page.goto(url, { waitUntil: 'load' });
@@ -151,7 +161,6 @@ async function resume(page, { expect }) {
   const c = await connectAndCheck(page);
   if (!/^ota-/.test(c.identity) || !/升级程序|[Ll]oader/.test(c.status))
     throw new Error('STOP: not the update loader ("' + c.identity + '" / ' + c.status + '); nothing sent');
-  page.once('dialog', d => { log('dialog: ' + d.message()); return /SMK-37 Pro\?$/.test(d.message()) ? d.accept() : d.dismiss(); });
   await page.check('#backup');
   const started = Date.now();
   await page.click('#install');
