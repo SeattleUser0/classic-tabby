@@ -19,9 +19,10 @@
 //   Run:  /usr/bin/node tests/workbench/transfer-radio.mjs build/web/simulator.wasm
 //         (or: make workbench-test, after make web)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-07  Task 11: the capability byte may also be 255 (diagnostic build).
 //   v0.1  2026-11-04  Initial version (Task 06, checkpoint a).
 
 import { readFileSync } from 'node:fs';
@@ -72,7 +73,8 @@ function send(cmd, payload = []) {
 
 const caps = send(22);
 check(caps[0] === 0 && caps.length === 10, 'command 22 answers with 9 bytes', Array.from(caps).join(','));
-check(caps[9] === 63, 'capability byte 8 = 63 (bit 5: Bluetooth settings)', caps[9]);
+/* v0.2 (Task 11): the diagnostic build adds bits 6 and 7 (255); bits 0..5 are the same in every build. */
+check((caps[9] & 63) === 63 && (caps[9] === 63 || caps[9] === 255), 'capability byte 8: bits 0..5 set (bit 5: Bluetooth settings); 63, or 255 on the diagnostic build', caps[9]);
 
 let r = send(24);
 check(r[0] === 0 && r.length === 3, 'command 24 read answers {flags, role}', Array.from(r).join(','));

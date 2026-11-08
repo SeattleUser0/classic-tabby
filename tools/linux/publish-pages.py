@@ -39,9 +39,13 @@ Usage (from the repository root)
         --source-url https://github.com/<owner>/<repo>/archive/refs/tags/tabby-v01.0.zip \
         --commit --push                                                   # + gh-pages
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-07  Task 11: a site can live in a subdirectory of gh-pages (--site-dir probe64:
+                      the probe's own page); publishing the root site keeps the subdirectories
+                      named by --keep (default: probe64), so the main page never deletes, links
+                      to or offers the probe, and the probe never replaces the main page.
     v0.2  2026-11-04  Task 08: the log line and the gh-pages commit body carry the display
                       version (assets.json "version", from Build-Hosted.cjs).
     v0.1  2026-11-02  Initial version (Task 02, Steps 3 and 5). Static site via
@@ -191,9 +195,10 @@ def update_branch(staging, report, source_url, args, log):
     site_dir = (worktree / args.site_dir).resolve()
     if worktree not in site_dir.parents and site_dir != worktree:
         raise PublishError("--site-dir must stay inside the worktree.")
+    keep = set(args.keep or []) if site_dir == worktree else set()   # v0.3: other sites under the root
     if site_dir.exists():
         for child in list(site_dir.iterdir()):
-            if child.name == ".git":
+            if child.name == ".git" or child.name in keep:
                 continue
             shutil.rmtree(child) if child.is_dir() else child.unlink()
     shutil.copytree(staging, site_dir, dirs_exist_ok=True)
@@ -202,7 +207,8 @@ def update_branch(staging, report, source_url, args, log):
     if not git(["status", "--porcelain"], cwd=worktree):
         log("gh-pages already holds this site; nothing to commit.")
         return None
-    subject = "Pages: %s (build %s, release %s)" % (args.tag or "untagged", (report.get("build") or "")[:12], report.get("release"))
+    where = "" if site_dir == worktree else " in %s/" % args.site_dir.strip("/")   # v0.3
+    subject = "Pages: %s%s (build %s, release %s)" % (args.tag or "untagged", where, (report.get("build") or "")[:12], report.get("release"))
     body = ("Static site from build/official-web/%s/SMK37-Open-Source.html via tools/Build-Hosted.cjs.\n"
             "Source archive link: %s\nFirmware build_id: %s\nDisplay version: %s\nSource commit: %s\n"
             % (args.model, source_url, report.get("build"), report.get("version"), git(["rev-parse", "HEAD"])))
@@ -232,7 +238,11 @@ def main(argv=None):
     parser.add_argument("--branch", default="gh-pages")
     parser.add_argument("--worktree", default=str(ROOT / "build/gh-pages"), help="worktree path (must be under build/)")
     parser.add_argument("--site-dir", default=".", help="directory inside the branch that receives the site (default root)")
+    parser.add_argument("--keep", action="append", default=None,
+                        help="v0.3: a top-level directory a root publish leaves alone (repeatable; default probe64)")
     args = parser.parse_args(argv)
+    if args.keep is None:
+        args.keep = ["probe64"]
     if args.push:
         args.commit = True
     html = args.html or str(ROOT / "build/official-web" / args.model / "SMK37-Open-Source.html")

@@ -85,7 +85,8 @@
 #                     (diagnostic) with the 471040 layout into build/web-probe64/, web-diag the diagnostic
 #                     simulator on the stock layout into build/web-diag/; backup-test (part of test and
 #                     test-fast) runs tests/workbench/backup.mjs on the three simulators; workbench-test
-#                     runs tests/linux/midi-monitor-test.py (the monitor's analysis).
+#                     runs tests/linux/midi-monitor-test.py (the monitor's analysis); SITE_DIR for publish
+#                     (the probe's page in gh-pages/probe64/); PRERELEASE=1 and RELEASE_TITLE for release.
 #   v0.15 2026-11-05  Task 09 (d): midi-import-sim runs tests/workbench/wrong-room-sim.mjs.
 #   v0.14 2026-11-05  Task 09 (c): midi-guide target; workbench-test runs tests/workbench/midi-guide.mjs.
 #   v0.13 2026-11-05  Task 09 (a): workbench-test runs tests/workbench/rig-profile.mjs (the built-in
@@ -393,15 +394,21 @@ release-assets:
 	cp "$(FWSC)" "$(PACKAGE_HTML)" "build/release/$(TAG)/"
 	cd "build/release/$(TAG)" && sha256sum SMK37_*_OPEN.fwsc SMK37-Open-Source.html > SHA256SUMS.txt && cat SHA256SUMS.txt
 
+# Task 11: SITE_DIR=probe64 publishes into that subdirectory of gh-pages (the probe's page); a root
+# publish keeps probe64/ (publish-pages.py v0.3).
+SITE_DIR ?= .
 publish: package hosted
 	NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --tag "$(TAG)" \
-	    --source-url "$(FM1_SOURCE_URL)" --push
+	    --source-url "$(FM1_SOURCE_URL)" --site-dir "$(SITE_DIR)" --push
 	@echo "Pages: $(PAGES_URL)  (GitHub deploys the gh-pages branch within a minute or two)"
 
+# Task 11: PRERELEASE=1 marks the release a pre-release (the probe); RELEASE_TITLE overrides the title.
+PRERELEASE ?=
+RELEASE_TITLE ?= $(TAG)
 release: release-assets
 	@test -f "docs/releases/$(TAG).md" || { echo "write docs/releases/$(TAG).md first"; exit 1; }
-	gh release create "$(TAG)" --repo "$(GITHUB_REPO)" --verify-tag --title "$(TAG)" \
-	    --notes-file "docs/releases/$(TAG).md" "build/release/$(TAG)/"*
+	gh release create "$(TAG)" --repo "$(GITHUB_REPO)" --verify-tag --title "$(RELEASE_TITLE)" \
+	    $(if $(filter 1,$(PRERELEASE)),--prerelease,) --notes-file "docs/releases/$(TAG).md" "build/release/$(TAG)/"*
 
 clean:
 	git worktree remove --force build/gh-pages 2>/dev/null || true

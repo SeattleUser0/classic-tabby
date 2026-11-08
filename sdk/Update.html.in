@@ -152,6 +152,7 @@ main{max-width:1440px}
 <div class="lcd-adjust"><button id="sim-lcd-minus" aria-label="减少参数">−</button><button id="sim-lcd-plus" aria-label="增加参数">＋</button></div>
 <p>滚轮、＋／−或方向键按最小步长调节，网页试听实时生效。工程参数用“保存到设备”写入；MIDI 路由与时钟来源请在机身设置。</p><button id="sim-lcd-close">完成</button></dialog>
 <dialog id="device-save-dialog" class="save-dialog" aria-labelledby="device-save-title"><h2 id="device-save-title">保存到设备</h2><p id="device-save-source"></p><label>保存位置<select id="device-save-slot" disabled aria-label="保存到哪个设备项目槽"></select></label><p>保存会替换所选槽位，并载入该项目进行校验。完成后重启设备仍可恢复；采样库单独管理。</p><p id="device-save-status" role="status" aria-live="polite"></p><button id="device-save-confirm" class="primary" disabled>保存并校验</button><button id="device-save-cancel">取消</button></dialog>
+<p id="layout-warning" role="alert" hidden style="margin:8px 0;padding:10px 14px;border:2px solid #c0392b;border-radius:6px;font-weight:600"></p>
 <div class="navigation-row"><nav class="app-nav" role="tablist" aria-label="工作台功能"><button id="mode-sim" role="tab" aria-selected="true" aria-controls="tab-sim">演奏与编辑</button><button id="mode-library" role="tab" aria-selected="false" aria-controls="tab-library" tabindex="-1">项目与音色</button><button id="mode-update" role="tab" aria-selected="false" aria-controls="tab-update" tabindex="-1">设备更新</button><button id="mode-manual" role="tab" aria-selected="false" aria-controls="tab-manual" tabindex="-1">使用说明</button></nav><button id="quick-connect">连接设备</button></div>
 <div class="device-status" id="device-sync-status" role="status" aria-live="polite" data-state="preview"><strong id="device-sync-title">网页试听 · 未连接设备</strong><span id="device-sync-detail"></span></div>
 <noscript><div class="boot-warning">JavaScript is required. Open this page in desktop Chrome or Edge. / 需要启用 JavaScript，请用电脑 Chrome 或 Edge 打开此页面。</div></noscript>
@@ -1031,6 +1032,14 @@ main{max-width:1440px}
   saveDialog.addEventListener('close',()=>{FM1I18n.text($('device-save-cancel'),'取消');});
   $('quick-connect').addEventListener('click',()=>connecting?cancelConnection():$('tab-update').hidden?connectLibrary():connectDevice());
   $('about-open').onclick=()=>$('about-dialog').showModal();
+  // Classic Tabby Task 11: a package whose USER size is not the stock 536576 (the probe) or a
+  // diagnostic build says so at the top of the update tab and in the page title.
+  if(typeof FM1_PACKAGE==='object'&&FM1_PACKAGE&&(FM1_PACKAGE.user_bytes&&FM1_PACKAGE.user_bytes!==536576||FM1_PACKAGE.diag)){
+    const moved=FM1_PACKAGE.user_bytes&&FM1_PACKAGE.user_bytes!==536576,w=$('layout-warning');
+    w.textContent=moved?'TEST BUILD: this firmware moves the device storage (USER '+FM1_PACKAGE.user_bytes+' bytes instead of 536576). Make a Full backup first (Projects & sounds tab), and keep it: your projects, settings and songs are restored from it after the install, and again after going back. See docs/BUILD.md 24.5 and 24.6.'
+      :'Diagnostic build: the current firmware and storage layout with timing counters (Projects & sounds > Diagnostics) and the settings transfer for the full backup.';
+    w.hidden=false;if(moved)document.title='TEST BUILD (moves storage) · '+document.title;
+  }
   /* Classic Tabby (Task 03 a): no sample bank on the device. The post-update sample check
      is a no-op that reports the firmware as ready. */
   globalThis.FM1Workbench={state:()=>deviceState,read:()=>deviceProject(l=>l.download(0)),write:bytes=>deviceProject(l=>l.upload(0,0,bytes)),save:openSave};
