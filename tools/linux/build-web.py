@@ -39,9 +39,16 @@ Usage (from the repository root)
     FM1_WASI_SDK=/path/to/wasi-sdk-27.0-x86_64-linux python3 tools/linux/build-web.py --local-preview
     python3 tools/linux/build-web.py --package-json build/pro/web-package.json --source-url https://...
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-07  Classic Tabby Task 11: --user-bytes N and --diag, passed by build.py from its
+                      build options, compile the simulator with -DCT_USER_BYTES=N (only when N is
+                      not 536576) and -DCT_DIAG=1, so the simulated flash has the layout of the
+                      firmware the page carries; both are keyed into the wasm cache (simulator.json
+                      schema 4) and written into FM1_SIMULATOR (user_bytes, diag).
+                      --simulator-only --wasm-out DIR builds just the wasm into DIR (the 471040
+                      layout simulator of the backup test: make web-probe64).
     v0.3  2026-11-05  Classic Tabby Task 09: the built-in rig profiles (web/rig/profiles/*.json)
                       inlined as globalThis.FM1_RIG_PROFILES (placeholder /*FM1_RIG_PROFILES*/);
                       web/rig/guide.js in the rig script and docs/MIDI-GUIDE.template.md as
@@ -139,9 +146,11 @@ def ensure_wasi_sdk(explicit, log):
     return sdk
 
 
-def build_simulator(wasi_sdk, display, log):
-    """Build-Simulator (L13-L95). v0.2: `display` is compiled in as FM1_DISPLAY_VERSION."""
-    out = ROOT / "build/web"
+def build_simulator(wasi_sdk, display, log, user_bytes=536576, diag=False, out=None):
+    """Build-Simulator (L13-L95). v0.2: `display` is compiled in as FM1_DISPLAY_VERSION.
+    v0.4: user_bytes / diag become -DCT_USER_BYTES / -DCT_DIAG (defaults add nothing); out
+    is the wasm directory (build/web unless --wasm-out)."""
+    out = Path(out) if out else ROOT / "build/web"
     out.mkdir(parents=True, exist_ok=True)
     if not (ROOT / "web/engine/Simulator.c").exists():
         raise WebBuildError("Missing browser sources. Download the complete source tree.")
@@ -174,8 +183,9 @@ def build_simulator(wasi_sdk, display, log):
             cached = json.loads(metadata.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             cached = None
-        if cached and cached.get("schema") == 3 and cached.get("toolchain_stamp") == tool_stamp and \
+        if cached and cached.get("schema") == 4 and cached.get("toolchain_stamp") == tool_stamp and \
                 cached.get("source_sha256") == source_hash and cached.get("display_version") == display and \
+                cached.get("user_bytes") == user_bytes and cached.get("diag") == bool(diag) and \
                 cached.get("wasm_sha256") == sha256_file(wasm):
             return {"file": wasm, "source_sha256": source_hash, "cache_hit": True}
     for path in (wasm, metadata):
@@ -187,6 +197,10 @@ def build_simulator(wasi_sdk, display, log):
                "-DFM1_HOST_TEST", "-DFM1_OPEN_WEB", "-Wall", "-Wextra", "-Werror",
                "-Wno-unused-function", "-Wno-array-parameter", "-mexec-model=reactor",
                '-DFM1_DISPLAY_VERSION="%s"' % display]   # v0.2: the simulated boot screen draws it
+    if user_bytes != 536576:   # v0.4: the probe layout
+        options.append("-DCT_USER_BYTES=%d" % user_bytes)
+    if diag:                   # v0.4: the diagnostic build
+        options.append("-DCT_DIAG=1")
     for name in ("web/engine", "web/synth", "third_party/synth", "sdk/include", "app/synth", "app"):
         options.append("-I" + str(ROOT / name))
     for name in names:
@@ -197,7 +211,8 @@ def build_simulator(wasi_sdk, display, log):
     log("Compile the browser application")
     try:
         run([str(wasi_sdk / "bin/clang")] + options, log)
-        record = {"schema": 3, "source_sha256": source_hash, "display_version": display,
+        record = {"schema": 4, "source_sha256": source_hash, "display_version": display,
+                  "user_bytes": user_bytes, "diag": bool(diag),
                   "toolchain_stamp": tool_stamp, "wasm_sha256": sha256_file(wasm)}
         metadata.write_bytes(json.dumps(record, indent=2).encode("utf-8"))
     except Exception:
@@ -246,12 +261,13 @@ def build(args, log):
             raise WebBuildError("Firmware and web display versions differ (%r vs %r)." % (package.get("display_version"), display))
         if not re.fullmatch(r"[0-9a-f]{64}", str(package.get("build_id", ""))):
             raise WebBuildError("Firmware source identifier is invalid.")
-    compiled = build_simulator(args.wasi_sdk, display, log)
+    compiled = build_simulator(args.wasi_sdk, display, log, args.user_bytes, args.diag)
     wasm_bytes = compiled["file"].read_bytes()
     import base64
     simulation = json.dumps({"schema": 1, "release_version": release_version, "display_version": display,
                              "sha256": sha256_file(compiled["file"]), "source_sha256": compiled["source_sha256"],
                              "sample_bank": "synthesized-demo",
+                             "user_bytes": args.user_bytes, "diag": bool(args.diag),   # v0.4
                              "data": base64.b64encode(wasm_bytes).decode("ascii")}, separators=(",", ":"))
     web = (ROOT / "sdk/Update.html.in").read_text(encoding="utf-8")
     if args.local_preview:
@@ -316,6 +332,11 @@ def main(argv=None):
     parser.add_argument("--local-preview", action="store_true", help="build/preview/index.html without a source URL")
     parser.add_argument("--display-version", default=os.environ.get("FM1_DISPLAY_VERSION") or None,
                         help="the version shown to the user (default: the git tag via tools/linux/display_version.py); v0.2")
+    # v0.4 (Task 11): the layout and the diagnostic build, as build.py passes them.
+    parser.add_argument("--user-bytes", type=int, default=536576, help="USER size the simulator models (v0.4)")
+    parser.add_argument("--diag", action="store_true", help="compile the simulator with -DCT_DIAG=1 (v0.4)")
+    parser.add_argument("--simulator-only", action="store_true", help="build only the wasm (v0.4)")
+    parser.add_argument("--wasm-out", help="directory for the wasm with --simulator-only (v0.4)")
     args = parser.parse_args(argv)
 
     def log(message):
@@ -324,6 +345,14 @@ def main(argv=None):
     try:
         args.wasi_sdk = ensure_wasi_sdk(args.wasi_sdk, log)
         log("WASI SDK: %s" % args.wasi_sdk)
+        if args.simulator_only:   # v0.4
+            try:
+                display = compute_display_version(ROOT, args.display_version)
+            except DisplayVersionError as error:
+                raise WebBuildError(str(error))
+            result = build_simulator(args.wasi_sdk, display, log, args.user_bytes, args.diag, args.wasm_out)
+            log("Simulator: %s (cache hit %s)" % (result["file"], result["cache_hit"]))
+            return 0
         build(args, log)
         return 0
     except WebBuildError as error:

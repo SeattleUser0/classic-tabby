@@ -2,6 +2,14 @@
 // Copyright (c) 2023 Andrey Grigoryev (kagaimiq), 2026 M-VAVE.
 // JieLi formats and ciphers: jl-misctools 0a5b12d. FM1 layout and writer: M-VAVE.
 // Full MIT terms and source links: THIRD_PARTY.md.
+//
+// Classic Tabby revision log (this file is otherwise the upstream M-VAVE writer)
+//   v0.2  2026-11-07  Task 11 Step 4: the USER size is the build variant's setting (userBytes,
+//                     536576 by default) instead of the constant UserSize that every other
+//                     value was refused against. Create checks it (a multiple of 4096 between
+//                     UserMinimum and UserSize) and uses it for the fit formula, the BTIF / VM
+//                     placement and the USER record. Same change as tools/linux/package.py v0.2;
+//                     at 536576 the package is byte for byte the upstream output.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,6 +19,7 @@ namespace FM1 {
 public static class Package {
     const int Area = 0x4000, EntryPoint = 0x02000120, AppData = 0x120;
     const int FlashLimit = 0xff000, UserSize = 536576, BtSize = 4096, MinimumVm = 32768;
+    const int UserMinimum = 90112; // v0.2: 16 projects + staging + the tuning sector (docs/FLASH-BUDGET.md 3.4)
     const ushort PublicCode = 0x980f;
     static readonly ushort[] CrcTable = MakeCrcTable();
     static ushort[] MakeCrcTable() {
@@ -70,7 +79,7 @@ public static class Package {
         }
         return result;
     }
-    static Image BuildFlash(byte[] application, string directory, int end, int vmEnd) {
+    static Image BuildFlash(byte[] application, string directory, int end, int vmEnd, int userBytes) { // v0.2: + userBytes
         byte[] boot = ReadResource(directory,"uboot.boot",14488);
         byte[] config = ReadResource(directory,"boot-config.bin",721);
         byte[] tool = ReadResource(directory,"cfg_tool.bin",383);
@@ -102,7 +111,7 @@ public static class Package {
         image.Record(Area+160,"BTIF",65535,(uint)vmEnd,BtSize,0x8192,1,0x4f545541);
         image.Record(Area,"app_area_head",Crc(image.Bytes,Area+32,payloadSize-32),EntryPoint,(uint)payloadSize,0xff83,0,null);
         int reserved = Area+payloadSize;
-        image.Record(reserved+32,"USER",65535,FlashLimit-UserSize,UserSize,0x8192,1,0x4f545541);
+        image.Record(reserved+32,"USER",65535,(uint)(FlashLimit-userBytes),(uint)userBytes,0x8192,1,0x4f545541); // v0.2
         image.Record(reserved,"EXT_RESERVED",Crc(image.Bytes,reserved+32,32),32,64,0xff93,1,null);
         for (int p = 0; p < payloadSize+64; p += 32)
             Cipher(image.Bytes,Area+p,Math.Min(32,payloadSize+64-p),PublicCode^(p>>2));
@@ -138,11 +147,14 @@ public static class Package {
     public static Dictionary<string,object> Create(byte[] app, string resources, string output, int userBytes, string product) {
         if (product == null || !System.Text.RegularExpressions.Regex.IsMatch(product,"\\ASMK-37 (?:Pro|Elite)_8[0-9]{6}\\z"))
             throw new InvalidDataException("Invalid SMK37 Open update identity.");
-        if (app == null || app.Length == 0 || app.Length > FlashLimit-UserSize-BtSize-MinimumVm-Area-AppData-383-64 || userBytes != UserSize)
+        // v0.2: the USER size is a setting, checked here (it was refused unless it equalled UserSize).
+        if (userBytes % 4096 != 0 || userBytes < UserMinimum || userBytes > UserSize)
+            throw new InvalidDataException("Invalid FM1 user region size.");
+        if (app == null || app.Length == 0 || app.Length > FlashLimit-userBytes-BtSize-MinimumVm-Area-AppData-383-64)
             throw new InvalidDataException("Application does not fit the FM1 layout.");
-        int imageSize = RoundUp(Area+AppData+app.Length+383+64,4096),userAt = FlashLimit-UserSize,vmEnd = userAt-BtSize;
+        int imageSize = RoundUp(Area+AppData+app.Length+383+64,4096),userAt = FlashLimit-userBytes,vmEnd = userAt-BtSize;
         if (imageSize > vmEnd-MinimumVm) throw new InvalidDataException("Insufficient FM1 settings space.");
-        Image image = BuildFlash(app,resources,imageSize,vmEnd);
+        Image image = BuildFlash(app,resources,imageSize,vmEnd,userBytes);
         byte[] package = Wrap(image,File.ReadAllBytes(Path.Combine(resources,"ota.bin")),product);
         File.WriteAllBytes(output,package);
         return new Dictionary<string,object> {
@@ -150,7 +162,7 @@ public static class Package {
             {"FLASH_BIN_SIZE",imageSize},{"FLASH_NEED_SIZE",FlashLimit},{"VM_START_ADDR",imageSize},{"VM_END_ADDR",vmEnd},
             {"VM_REAL_SIZE",vmEnd-imageSize},{"BTIF_RESERVED_START",vmEnd},{"BTIF_RESERVED_END",userAt},
             {"USER_RESERVED_START",userAt},{"USER_RESERVED_END",FlashLimit},{"vm_minimum_bytes",MinimumVm},
-            {"vm_extra_gap_bytes",vmEnd-imageSize-MinimumVm},{"btif_bytes",BtSize},{"user_bytes",UserSize}
+            {"vm_extra_gap_bytes",vmEnd-imageSize-MinimumVm},{"btif_bytes",BtSize},{"user_bytes",userBytes}
         };
     }
 }

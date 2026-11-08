@@ -6,6 +6,7 @@
 #include "version.h"
 #include "fm1_engine_control.h"
 #include "smk37_controls.h"
+#include "diag.h"   /* Classic Tabby Task 11: the ACTIONS storage lines, diagnostic build only */
 #include <string.h>
 enum {
     BACK = 0x0000,
@@ -861,6 +862,12 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         sig = sig * 33U + groove_sequence_count_in();
         sig = sig * 33U + frame_views[track].volume;
         if (notice) sig = signature(sig, notice, (unsigned)strlen(notice));
+#ifdef CT_DIAG
+        if (visible == ACTIONS) {   /* Task 11: redraw when the storage lines change */
+            char a[40], b[40]; ct_diag_storage_lines(a, b);
+            sig = signature(sig, a, (unsigned)strlen(a)); sig = signature(sig, b, (unsigned)strlen(b));
+        }
+#endif
         if (visible == FM_QUICK) {
             sig = signature(sig, frame_patch, 156);
             sig = sig * 33U + frame_views[track].program;
@@ -901,8 +908,19 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         color_text(8, 216, source_result ? "NOT ENOUGH MEMORY - RETRY" : "K1 / PADS 1-6 CHOOSE", source_result ? AMBER : TEXT);
         dim_text(8, 231, role == GROOVE_TRACK_OFF ? "K2 ENABLE TRACK   HOME BACK" : "SAVE APPLY SOUND   HOME BACK");
     } else if (visible == ACTIONS) {
+#ifdef CT_DIAG
+        /* Task 11 (diagnostic and probe builds): the USER size the SDK validated and the song
+         * storage state replace the clipboard line; free / reclaimable storage replaces the
+         * hint, so the probe's result can be read on the device without a monitor. */
+        char diag_user[40], diag_song[40];
+        ct_diag_storage_lines(diag_user, diag_song);
+        if (action_confirm) color_text(8, 38, action == 20 ? "ERASE OLD FLASH DATA?" : "REPLACE PATTERN DATA?", AMBER);
+        else color_text(8, 38, diag_user, ACCENT);
+        if (0) {
+#else
         if (action_confirm) color_text(8, 38, action == 20 ? "ERASE OLD FLASH DATA?" : "REPLACE PATTERN DATA?", AMBER);
         else {
+#endif
             dim_text(8, 38, "T"); small_number(16, 38, track + 1, 1, TEXT);
             dim_text(36, 38, "STEP"); small_number(68, 38, cursor + 1, 2, ACCENT);
             dim_text(94, 38, "PAGE"); small_number(126, 38, cursor / 16 + 1, 1, ACCENT);
@@ -916,7 +934,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             paint_fill(6, y, 228, 17, bg);
             text(10, y + 5, actions[at], 1, at == action ? ACCENT : DIM, bg);
         }
+#ifdef CT_DIAG
+        plain_text(8, 213, notice ? notice : diag_song);
+#else
         plain_text(8, 213, notice ? notice : "K1 / SELECT ACTION  SAVE EXECUTE");
+#endif
         dim_text(8, 231, action_confirm ? "SAVE CONFIRM   HOME CANCEL" : "PRESETS STEP  OCT PAGE  SAVE DO");
     } else if (visible == SONG) {
         /* Task 03 d: song mode. Row = song record row, pads queue jumps. */

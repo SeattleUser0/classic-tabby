@@ -246,6 +246,18 @@ main{max-width:1440px}
 <div class="field-row"><label><input id="radio-on" type="checkbox" data-library disabled> 蓝牙开启</label><label><input id="radio-audio" type="checkbox" data-library disabled> 蓝牙音频</label></div>
 <div class="field-row"><label>BLE MIDI 角色 <select id="radio-role" data-library disabled><option value="0">DEVICE</option><option value="1">HOST</option></select></label><label>&nbsp;<button id="radio-forget" data-library disabled>清除 MIDI 配对</button></label></div>
 <p id="radio-message" class="library-message" role="status" aria-live="polite"></p></details>
+<details class="library-group" id="backup-group"><summary>Full backup and restore (Classic Tabby)</summary>
+<p class="sim-help">One file holds everything on the device: the 16 project slots (slot 16 carries the device settings), the unsaved workspace and the current slot, the device and session settings (MIDI configuration, track roles, input channels, panel preferences: on the diagnostic build and later), the Bluetooth switches, every song record and block, and the firmware's build ID and layout. Your "My rig" profile from this browser goes in too. Not in the file: Bluetooth pairings, the built-in rig profiles (they come with the workbench). Stop song playback first. A backup loads each project slot in turn and puts your workspace back at the end. Format: docs/BACKUP-FORMAT.md (version 1).</p>
+<button id="backup-make" data-library disabled>Full backup</button>
+<label>Backup file <input id="backup-file" type="file" accept=".json,application/json" data-library disabled></label>
+<button id="backup-restore" data-library disabled>Full restore</button><button id="backup-verify" data-library disabled>Verify against file</button>
+<div class="field-row"><label><input id="backup-rig" type="checkbox" checked data-library disabled> Also put the file's "My rig" into this browser</label></div>
+<p id="backup-message" class="library-message" role="status" aria-live="polite"></p>
+<ul id="backup-notes" class="sim-help"></ul></details>
+<details class="library-group" id="diag-group" hidden><summary>Diagnostics (Classic Tabby diagnostic build)</summary>
+<p class="sim-help">Timing counters of the diagnostic firmware (docs/BUILD.md 24.6). Reset, play the test song for the time the checklist says, then Read. Times in milliseconds; the counter runs at 24 MHz.</p>
+<button id="diag-read" data-library disabled>Read counters</button><button id="diag-reset" data-library disabled>Reset counters</button><button id="diag-copy" data-library disabled>Copy as text</button>
+<pre id="diag-output" class="sim-help"></pre></details>
 <details class="library-group" open><summary>设备项目</summary>
 <div class="field-row"><label>设备项目槽 <select id="project-slot" data-library disabled></select></label>
 <label>当前项目名称（最多 12 个英文字母、数字或符号）<input id="project-name" type="text" maxlength="12" placeholder="UNTITLED" data-library disabled></label></div>
@@ -1042,6 +1054,7 @@ main{max-width:1440px}
     FM1Web.projectVersion(working);
     // Task 06 (a): the Bluetooth settings panel replaces the device's BLE page.
     $('radio-group').hidden=!library.radioSettings;
+    $('diag-group').hidden=!library.diagCounters;   // Task 11: the diagnostic build's counters
     if(library.radioSettings){const r=await library.radioRead();$('radio-on').checked=r.on;$('radio-audio').checked=r.audio;$('radio-role').value=r.host?'1':'0';}
     // Publish a complete snapshot only after every query succeeds. A partial
     // list must never enable load/save/import with an empty selection.
@@ -1085,6 +1098,57 @@ main{max-width:1440px}
   for(const id of ['radio-on','radio-audio','radio-role'])$(id).addEventListener('change',radioWrite);
   $('radio-forget').addEventListener('click',async()=>{if(!confirm(FM1I18n.t('清除设备上保存的 BLE MIDI 配对？')))return;try{await library.radioForget();radioMessage('已清除 MIDI 配对；请在电脑或平板上也删除该配对后重新配对。');}catch(error){radioMessage(error.message);}});
   $('library-refresh').addEventListener('click',()=>perform(async()=>{await refreshLibrary();message('项目与轨道列表已刷新。');}));
+  // Classic Tabby Task 11 (Step 2): full backup, restore and verify (FM1Web Library.fullBackup /
+  // fullRestore / fullVerify; docs/BACKUP-FORMAT.md). Restore validates the whole file before it
+  // writes anything and writes only through the transfer commands.
+  const backupMessage=text=>{$('backup-message').textContent=text||'';};
+  const backupNotes=list=>{$('backup-notes').replaceChildren(...(list||[]).map(t=>{const li=document.createElement('li');li.textContent=t;return li;}));};
+  let backupText=null;
+  const backupProgress=label=>value=>backupMessage(label+' '+Math.round(value*100)+' %');
+  $('backup-make').addEventListener('click',()=>perform(async()=>{
+    backupNotes([]);
+    const rig=globalThis.TabbyRig?TabbyRig.rigLoad():null;
+    const file=await library.fullBackup(backupProgress('Reading the device…'),{workbench:FM1_SIMULATOR&&FM1_SIMULATOR.display_version||null,rig});
+    const stamp=file.created.replace(/[:]/g,'-').replace(/\..*/,'');
+    saveFile(new TextEncoder().encode(JSON.stringify(file)),'classic-tabby-backup-'+stamp+'.json');
+    backupMessage('Full backup saved: '+file.counts.projects+' projects, '+file.counts.songs+' songs, '+file.counts.blocks+' blocks (USER '+file.device.user_bytes+'). Keep this file.');
+    backupNotes(['Not in the file:'].concat(file.not_included));
+    await refreshLibrary();
+  }));
+  $('backup-file').addEventListener('change',async()=>{
+    backupText=null;backupNotes([]);const file=$('backup-file').files[0];if(!file)return;
+    try{const text=await file.text();const b=FM1Web.backupParse(text);backupText=text;
+      backupMessage('File checked: '+b.file.counts.projects+' projects, '+b.file.counts.songs+' songs, '+b.file.counts.blocks+' blocks, made '+b.file.created+' on USER '+b.device.user_bytes+(b.device.build_id?' (build '+b.device.build_id.slice(0,12)+')':'')+'.');}
+    catch(error){backupMessage('Refused: '+error.message);}
+  });
+  $('backup-restore').addEventListener('click',()=>perform(async()=>{
+    if(!backupText)throw Error('Choose a full backup file first.');
+    const b=FM1Web.backupParse(backupText);
+    const plan='Replace the device contents with this backup?\n\n- Project slots written: '+b.projects.filter(p=>p.bytes).map(p=>p.slot+1).join(', ')+
+      '\n- Songs written: '+(b.songs.filter(s=>!s.empty).map(s=>s.slot+1).join(', ')||'none')+'; song slots empty in the file are deleted on the device'+
+      '\n- Device settings: '+(b.settings.kind8?'yes':'not in the file')+'\n\nThe file was made on USER '+b.device.user_bytes+'; this device runs USER '+library.userBytes+'.';
+    if(!confirm(plan))return;
+    const result=await library.fullRestore(b,backupProgress('Restoring…'));
+    if($('backup-rig').checked&&b.rig&&globalThis.TabbyRig){try{TabbyRig.rigSave(TabbyRig.rigNormalize(b.rig));result.notes.push('"My rig" from the file is saved in this browser; reload the page to see it in the rig panel.');}catch(error){result.notes.push('The file\'s rig could not be read: '+error.message);}}
+    backupMessage('Restore written. Verifying…');
+    const v=await library.fullVerify(b,backupProgress('Verifying…'));
+    backupMessage(v.pass?'Verify PASS: '+v.checked+' items identical to the file.':'Verify FAIL: '+v.difference);
+    backupNotes(result.notes.concat(v.notes));
+    await refreshLibrary();
+  }));
+  $('backup-verify').addEventListener('click',()=>perform(async()=>{
+    if(!backupText)throw Error('Choose a full backup file first.');
+    const v=await library.fullVerify(backupText,backupProgress('Verifying…'));
+    backupMessage(v.pass?'Verify PASS: '+v.checked+' items identical to the file.':'Verify FAIL: '+v.difference);backupNotes(v.notes);
+    await refreshLibrary();
+  }));
+  // Task 11 (Step 3): the diagnostic build's counters (transfer command 25).
+  let diagText='';
+  const diagShow=d=>{diagText=FM1Web.diagText(d);$('diag-output').textContent=diagText;};
+  $('diag-read').addEventListener('click',()=>perform(async()=>{diagShow(await library.diagRead(false));}));
+  $('diag-reset').addEventListener('click',()=>perform(async()=>{diagShow(await library.diagRead(true));message('Counters reset.');}));
+  $('diag-copy').addEventListener('click',()=>{if(diagText&&navigator.clipboard)navigator.clipboard.writeText(diagText).catch(()=>{});});
+
   $('project-rename').addEventListener('click',()=>perform(async()=>{
     const name=$('project-name').value;if(!/^[\x20-\x7e]{1,12}$/.test(name))throw Error('名称须为 1–12 个可显示的英文字符');
     await library.query(10,Array.from(name.padEnd(12),c=>c.charCodeAt(0)));message('名称已修改，请保存项目以保留修改。');

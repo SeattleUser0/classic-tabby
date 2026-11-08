@@ -43,9 +43,24 @@ Usage (from the repository root)
         python3 tools/linux/build.py --model pro --package --toolchain-kind native --toolchain ...
     python3 tools/linux/build.py --model pro --check-only --toolchain-kind native --toolchain ...   (make check, v0.6)
 
-Version: 0.6
+Version: 0.8
 
 Revision log
+    v0.8  2026-11-07  Classic Tabby Task 11 (Phase 0 preparation). Two build options, both off by
+                      default so the normal build is unchanged:
+                        --user-bytes N (Makefile USER_BYTES=N, default 536576): the USER region
+                          size, the one setting the layout comes from. It goes into the variant
+                          (fm1_layout.user_bytes and both packagers), into the app compile as
+                          -DCT_USER_BYTES=N (only when it is not 536576, app/instrument.h derives
+                          every region constant from it) and into build-web.py for the simulator.
+                        --diag (Makefile DIAG=1): -DCT_DIAG=1 for the diagnostic build
+                          (app/diag.c: the timing counters, the device-settings transfer kind of
+                          the full backup, the storage line on the ACTIONS page).
+                      Either option, when not the default, is folded into the build identity
+                      (as the display version is), so a diag or probe build never shares a
+                      build id with the normal build of the same sources; build-identity.json
+                      and the package JSON name both. The probe build is --diag --user-bytes
+                      471040 (tabby-p0-probe64).
     v0.6  2026-11-04  Task 07 (dev checks). --check-only: the same input checks and the same
                       per-unit compiler options, but every unit goes through the compiler with
                       -fsyntax-only (parsed and type-checked, no code, no depfile) into
@@ -113,6 +128,10 @@ from display_version import display_version as compute_display_version, DisplayV
 # such as the official source kit, can be built with this script unchanged.
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
+# v0.8 (Task 11): the stock USER size, and the smallest one accepted: a 128 KiB move, the
+# largest the Task 10 assessment analysed (docs/tasks/TASK-10-step1-assessment.md H.3).
+DEFAULT_USER_BYTES = 536576
+USER_BYTES_MINIMUM = 405504
 SDK = ROOT / "sdk"
 
 
@@ -779,7 +798,8 @@ def build_firmware(args, log):
     manifest, synth = verify_inputs(toolchain, native_manifest, log)
 
     variant_name = "release"
-    variant = {"user_bytes": 536576, "frozen": "sdk/lib/libfm1_engine.a", "update_family": 8 if model == "pro" else 9}
+    # v0.8: user_bytes is the build option (536576, the stock layout, by default).
+    variant = {"user_bytes": args.user_bytes, "frozen": "sdk/lib/libfm1_engine.a", "update_family": 8 if model == "pro" else 9}
     include = ["sdk/include", "sdk/include/libc", "app/synth", "sdk/config", "app", "app/board"]
     # Sources: app/**/*.c and *.S, excluding app/synth/ (L356-L357; the exclusion is another
     # Windows-only '\' path check upstream). Sorted by full name.
@@ -816,6 +836,12 @@ def build_firmware(args, log):
              "-cl-single-precision-constant", "-mllvm", "-pi32v2-large-program=true", "-D__GCC_PI32V2__", "-O2"]
     flags.append("-DSMK37_MODEL_%s=1" % model.upper())
     flags.append('-DFM1_DISPLAY_VERSION="%s"' % display)   # v0.7: the boot screen draws it
+    # v0.8: the two Task 11 options. Each define is added only when the option is not the
+    # default, so the normal build's command lines (and so its objects) stay as they were.
+    if variant["user_bytes"] != DEFAULT_USER_BYTES:
+        flags.append("-DCT_USER_BYTES=%d" % variant["user_bytes"])
+    if args.diag:
+        flags.append("-DCT_DIAG=1")
     for d in include:
         flags.append("-I" + str(ROOT / d))
     objects = []
@@ -868,6 +894,10 @@ def build_firmware(args, log):
         identity_inputs.append(path.relative_to(ROOT).as_posix() + ":" + sha256_file(path))
     if display != release_version:   # v0.7: a re-tag of unchanged sources is a new build id
         identity_inputs.append("display_version:" + display)
+    if variant["user_bytes"] != DEFAULT_USER_BYTES:   # v0.8: a probe layout is a different build
+        identity_inputs.append("user_bytes:%d" % variant["user_bytes"])
+    if args.diag:                                     # v0.8: so is the diagnostic build
+        identity_inputs.append("diag:1")
     build_identity = sha256_text("\n".join(identity_inputs))
     id_bytes = ["0x" + build_identity[i:i + 2] for i in range(0, 64, 2)]
     if variant["update_family"] not in (8, 9) or variant["user_bytes"] < 4096 or variant["user_bytes"] % 4096:
@@ -881,7 +911,8 @@ def build_firmware(args, log):
     objects.append("obj/build_identity.obj")
     write_text(build / "build-identity.json", to_json({"profile": profile, "family": variant_name,
                                                         "release_version": release_version, "display_version": display,
-                                                        "build_id": build_identity, "identity_sort": args.identity_sort}))
+                                                        "build_id": build_identity, "identity_sort": args.identity_sort,
+                                                        "user_bytes": variant["user_bytes"], "diag": bool(args.diag)}))   # v0.8
     # Linker script instantiation (L417-L421).
     sbc_root = "sbc_decoder" + "\n"
     linker = (SDK / "config/linker.ld.in").read_bytes().decode("utf-8")
@@ -943,14 +974,16 @@ def package_web(build, model, variant, profile, release_version, display, firmwa
                    "build_id": build_identity, "sha256": sha256_file(package_file),
                    "bytes": len(package_bytes), "loader_sha256": sha256_file(SDK / "tools/pack/ota.bin"),
                    "hardware_validated": False, "data": base64.b64encode(package_bytes).decode("ascii"),
-                   "model": model, "stock": stock_meta}
+                   "model": model, "stock": stock_meta,
+                   "user_bytes": variant["user_bytes"], "diag": bool(args.diag)}   # v0.8: the page shows and checks the layout
     package_json = build / "web-package.json"
     package_json.write_bytes(json.dumps(web_package, separators=(",", ":")).encode("ascii"))
     log("Package metadata: %s (firmware %d bytes, stock V16 %d bytes)" % (package_json, len(package_bytes), len(stock_bytes)))
     # Build-Web.ps1 is invoked as a child script upstream (L458); same here, with -I so the
     # interpreter ignores the environment and the current directory.
     command = [sys.executable, "-I", str(HERE / "build-web.py"), "--package-json", str(package_json),
-               "--source-url", args.source_url, "--display-version", display]
+               "--source-url", args.source_url, "--display-version", display,
+               "--user-bytes", str(variant["user_bytes"])] + (["--diag"] if args.diag else [])   # v0.8
     if args.wasi_sdk:
         command += ["--wasi-sdk", args.wasi_sdk]
     log("Run build-web.py --package-json")
@@ -995,6 +1028,11 @@ def main(argv=None):
     parser.add_argument("--verify-only", action="store_true", help="run the input checks and exit")
     parser.add_argument("--display-version", default=os.environ.get("FM1_DISPLAY_VERSION") or None,
                         help="the version shown to the user (default: the git tag via tools/linux/display_version.py); v0.7")
+    # v0.8 (Task 11): the layout and the diagnostic build.
+    parser.add_argument("--user-bytes", type=int, default=int(os.environ.get("FM1_USER_BYTES") or DEFAULT_USER_BYTES),
+                        help="USER region size in bytes (default 536576, the stock layout; the probe is 471040); v0.8")
+    parser.add_argument("--diag", action="store_true", default=os.environ.get("FM1_DIAG") == "1",
+                        help="diagnostic build: timing counters, settings transfer kind, ACTIONS storage line (-DCT_DIAG=1); v0.8")
     parser.add_argument("--check-only", action="store_true",
                         help="v0.4 (make check): every unit through the compiler with -fsyntax-only into build/check/<model>/; no link, no package")
     args = parser.parse_args(argv)
@@ -1004,6 +1042,8 @@ def main(argv=None):
         parser.error("--check-only compiles nothing to completion; do not combine it with --firmware-only or --package.")
     if not args.toolchain:
         parser.error("--toolchain (or FM1_PI32_TOOLCHAIN) is required.")
+    if args.user_bytes % 4096 or not (USER_BYTES_MINIMUM <= args.user_bytes <= DEFAULT_USER_BYTES):   # v0.8
+        parser.error("--user-bytes must be a multiple of 4096 from %d to %d." % (USER_BYTES_MINIMUM, DEFAULT_USER_BYTES))
 
     def log(message):
         print(message, flush=True)

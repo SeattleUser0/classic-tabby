@@ -18,9 +18,16 @@ Purpose
 
     Nothing here touches device flash. The package is a file on disk only.
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-07  Classic Tabby Task 11 Step 4: the USER size is the build variant's setting
+                      (build.py --user-bytes; 536576 by default) instead of a fixed constant
+                      that every other value was refused against. create() checks it (a
+                      multiple of 4096 between USER_MINIMUM and USER_SIZE) and uses it for the
+                      fit formula, the BTIF/VM placement and the USER record in EXT_RESERVED.
+                      sdk/Package.cs v0.2 does the same. At 536576 the package is byte for
+                      byte the v0.1 output.
     v0.1  2026-11-01  Initial port of Package.cs. Constants, CRC-16/XMODEM table, cipher,
                       Image helper, EncodeBoot, BuildFlash, Wrap and Create reproduced in
                       the same order and with the same integer widths as the C# original.
@@ -36,7 +43,8 @@ AREA = 0x4000            # start of the app area inside flash.bin
 ENTRY_POINT = 0x02000120  # fixed ROM entry; Build.ps1 also checks the ELF entry equals this
 APP_DATA = 0x120         # app.bin offset inside the app area (after the area directory)
 FLASH_LIMIT = 0xFF000    # usable flash for the package (1 MiB minus the key_mac sector)
-USER_SIZE = 536576       # fixed USER region (projects/samples/settings) at the top
+USER_SIZE = 536576       # the stock USER region (projects/samples/settings) at the top, and the largest allowed
+USER_MINIMUM = 90112     # v0.2: smallest USER that keeps 16 projects + staging + the tuning sector (FLASH-BUDGET 3.4)
 BT_SIZE = 4096           # BTIF region
 MINIMUM_VM = 32768       # minimum VM (settings) region between image end and BTIF
 PUBLIC_CODE = 0x980F     # jl-misctools public chip key used by the deterministic cipher
@@ -146,8 +154,9 @@ def encode_boot(plain):
     return bytes(result)
 
 
-def build_flash(application, directory, end, vm_end):
-    """static Image BuildFlash(byte[] application, string directory, int end, int vmEnd)."""
+def build_flash(application, directory, end, vm_end, user_bytes=USER_SIZE):
+    """static Image BuildFlash(byte[] application, string directory, int end, int vmEnd, int userBytes).
+    v0.2: user_bytes sizes the USER record (it was the constant USER_SIZE)."""
     boot = read_resource(directory, "uboot.boot", 14488)
     config = read_resource(directory, "boot-config.bin", 721)
     tool = read_resource(directory, "cfg_tool.bin", 383)
@@ -183,7 +192,7 @@ def build_flash(application, directory, end, vm_end):
     image.record(AREA + 160, "BTIF", 65535, vm_end, BT_SIZE, 0x8192, 1, 0x4F545541)
     image.record(AREA, "app_area_head", crc(image.bytes, AREA + 32, payload_size - 32), ENTRY_POINT, payload_size, 0xFF83, 0, None)
     reserved = AREA + payload_size
-    image.record(reserved + 32, "USER", 65535, FLASH_LIMIT - USER_SIZE, USER_SIZE, 0x8192, 1, 0x4F545541)
+    image.record(reserved + 32, "USER", 65535, FLASH_LIMIT - user_bytes, user_bytes, 0x8192, 1, 0x4F545541)   # v0.2
     image.record(reserved, "EXT_RESERVED", crc(image.bytes, reserved + 32, 32), 32, 64, 0xFF93, 1, None)
     for p in range(0, payload_size + 64, 32):
         cipher(image.bytes, AREA + p, min(32, payload_size + 64 - p), PUBLIC_CODE ^ (p >> 2))
@@ -240,16 +249,19 @@ def create(app, resources, output, user_bytes, product):
     layout dictionary that Build.ps1 stores as package-report.json."""
     if product is None or not re.fullmatch(r"SMK-37 (?:Pro|Elite)_8[0-9]{6}", product):
         raise PackageError("Invalid SMK37 Open update identity.")
+    # v0.2: the USER size is a setting, checked here (it was refused unless it equalled USER_SIZE).
+    if (not isinstance(user_bytes, int) or isinstance(user_bytes, bool) or user_bytes % 4096
+            or user_bytes < USER_MINIMUM or user_bytes > USER_SIZE):
+        raise PackageError("Invalid FM1 user region size.")
     if (app is None or len(app) == 0
-            or len(app) > FLASH_LIMIT - USER_SIZE - BT_SIZE - MINIMUM_VM - AREA - APP_DATA - 383 - 64
-            or user_bytes != USER_SIZE):
+            or len(app) > FLASH_LIMIT - user_bytes - BT_SIZE - MINIMUM_VM - AREA - APP_DATA - 383 - 64):
         raise PackageError("Application does not fit the FM1 layout.")
     image_size = round_up(AREA + APP_DATA + len(app) + 383 + 64, 4096)
-    user_at = FLASH_LIMIT - USER_SIZE
+    user_at = FLASH_LIMIT - user_bytes
     vm_end = user_at - BT_SIZE
     if image_size > vm_end - MINIMUM_VM:
         raise PackageError("Insufficient FM1 settings space.")
-    image = build_flash(app, resources, image_size, vm_end)
+    image = build_flash(app, resources, image_size, vm_end, user_bytes)
     package = wrap(image, Path(resources, "ota.bin").read_bytes(), product)
     Path(output).write_bytes(package)
     # Same keys, same order as the C# dictionary initializer.
@@ -258,7 +270,7 @@ def create(app, resources, output, user_bytes, product):
         "FLASH_BIN_SIZE": image_size, "FLASH_NEED_SIZE": FLASH_LIMIT, "VM_START_ADDR": image_size, "VM_END_ADDR": vm_end,
         "VM_REAL_SIZE": vm_end - image_size, "BTIF_RESERVED_START": vm_end, "BTIF_RESERVED_END": user_at,
         "USER_RESERVED_START": user_at, "USER_RESERVED_END": FLASH_LIMIT, "vm_minimum_bytes": MINIMUM_VM,
-        "vm_extra_gap_bytes": vm_end - image_size - MINIMUM_VM, "btif_bytes": BT_SIZE, "user_bytes": USER_SIZE,
+        "vm_extra_gap_bytes": vm_end - image_size - MINIMUM_VM, "btif_bytes": BT_SIZE, "user_bytes": user_bytes,
     }
 
 

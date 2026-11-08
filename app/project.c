@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
-/* Modified 2026-10-17: bind tuning to project contents, not device settings;
+/* Classic Tabby Task 11 (2026-11-07): in the diagnostic build (CT_DIAG) the device and session
+ * settings travel as transfer kind 8 (groove_settings_export / groove_settings_import, at the
+ * end of this file) for the workbench's full backup, and every flash call is timed (app/diag.h).
+ * The normal build is unchanged.
+ * Modified 2026-10-17: bind tuning to project contents, not device settings;
  * preserve valid version-1 entries before rewriting their project records;
  * defer edit checkpoints until allocation succeeds; reject tuned saves that
  * overlap a legacy sample bank before changing Flash. */
@@ -7,6 +11,7 @@
 #include "tuning_hook.h"
 #include "fm_patch.h"
 #include "song_storage.h"
+#include "diag.h"   /* Task 11: timed flash calls and transfer kind 8 in the diagnostic build only */
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -910,3 +915,63 @@ void groove_project_poll(void)
             settings_changed = fm1_millis();
     }
 }
+
+#ifdef CT_DIAG
+/* ---- Classic Tabby Task 11: device and session settings as transfer kind 8 ---------------
+ * Wire layout v1, 40 bytes, little-endian (docs/BACKUP-FORMAT.md 4):
+ *    0  magic "TBS1"           4  version 1          5  BLE role (0 DEVICE, 1 HOST)
+ *    6  clock mode (0 INT, 1 MIDI)                   7  radio_off bits (GROOVE_RADIO_*)
+ *    8  struct groove_midi_config (channel[4], mode[2], flags, thru)
+ *   16  track roles[8] (0 PROJECT, 1 LIVE, 2 OFF)   24  input channels[8] (0..15)
+ *   32  panel preferences[4] (as app/board/smk37_controls.c stores them; 0xFF x 4 = none)
+ *   36  ~CRC-32 of bytes 0..35
+ * Export reads the settings in RAM (what the device runs with). Import validates every field
+ * first and changes nothing on any error; then it applies them the way the panel and command 24
+ * do, and the poll above stores them (the slot-15 sector and the tuning sector) 1.5 s later.
+ * The current slot is not part of the wire form: the full restore loads it at the end. */
+static void put32le(uint8_t *p, uint32_t v) { for (unsigned i = 0; i < 4; ++i) p[i] = (uint8_t)(v >> (8U * i)); }
+static uint32_t get32le(const uint8_t *p) { return p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
+int groove_settings_export(uint8_t out[CT_SETTINGS_BYTES])
+{
+    memset(out, 0, CT_SETTINGS_BYTES);
+    put32le(out, CT_SETTINGS_MAGIC); out[4] = CT_SETTINGS_VERSION;
+    out[5] = settings.role; out[6] = settings.clock; out[7] = settings.radio_off;
+    memcpy(out + 8, &settings.midi, sizeof settings.midi);
+    for (unsigned t = 0; t < 8; ++t) { out[16 + t] = (uint8_t)groove_track_role(t); out[24 + t] = (uint8_t)groove_midi_input_channel(t); }
+    memset(out + 32, 0xff, 4);
+    if (smk37_panel_preferences_read) smk37_panel_preferences_read(out + 32);
+    put32le(out + 36, ~groove_crc32(~0U, out, 36));
+    return 0;
+}
+int groove_settings_import(const uint8_t *in, unsigned bytes)
+{
+    _Static_assert(sizeof(struct groove_midi_config) == 8, "settings wire layout");
+    if (!in || bytes != CT_SETTINGS_BYTES || get32le(in) != CT_SETTINGS_MAGIC || in[4] != CT_SETTINGS_VERSION ||
+        get32le(in + 36) != ~groove_crc32(~0U, in, 36) || in[5] > FM1_BLE_CENTRAL || in[6] > GROOVE_CLOCK_MIDI ||
+        (in[7] & ~GROOVE_RADIO_ALL))
+        return GROOVE_PROJECT_INVALID;
+    struct groove_midi_config midi;
+    memcpy(&midi, in + 8, sizeof midi);
+    if (!groove_midi_config_valid(&midi)) return GROOVE_PROJECT_INVALID;
+    for (unsigned t = 0; t < 8; ++t)
+        if (in[16 + t] > GROOVE_TRACK_OFF || in[24 + t] > 15) return GROOVE_PROJECT_INVALID;
+    unsigned panel = !(in[32] == 0xff && in[33] == 0xff && in[34] == 0xff && in[35] == 0xff);
+    if (panel && (in[32] >= 8 || in[33] >= 8 || in[34] > 4 || in[35] > 4)) return GROOVE_PROJECT_INVALID;
+    /* Everything is valid: apply. */
+    int r = groove_settings_radio((GROOVE_RADIO_ALL ^ in[7]) & GROOVE_RADIO_ALL, in[5]);
+    if (r) return GROOVE_PROJECT_INVALID;
+    groove_settings_clock(in[6]);
+    if (memcmp(&settings.midi, &midi, sizeof midi)) { groove_midi_config_apply(&midi); settings.midi = midi; settings_mark(0); }
+    for (unsigned t = 0; t < 8; ++t) {
+        /* Off first releases its engine; the order is the one session_settings_load uses. */
+        if (groove_track_role(t) != in[16 + t]) { r = groove_track_role_set(t, in[16 + t]); if (r) return r; settings_mark(1); }
+        if (groove_midi_input_channel(t) != in[24 + t]) { r = groove_midi_input_set(t, in[24 + t]); if (r) return r; settings_mark(1); }
+    }
+    if (panel && smk37_panel_preferences_apply) {
+        uint8_t now[4] = {0xff, 0xff, 0xff, 0xff};
+        if (smk37_panel_preferences_read) smk37_panel_preferences_read(now);
+        if (memcmp(now, in + 32, 4)) { smk37_panel_preferences_apply(in + 32); settings_mark(1); }
+    }
+    return 0;
+}
+#endif

@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* SMK37 OPEN browser updater.
  * Fixed device protocol: 00 59, 7-bit SysEx packing, USB MIDI only.
+ * Classic Tabby Task 11 (2026-11-07): the project library accepts any song region size of the
+ * layout setting (capability reply 21), reads capability bits 6 (diagnostic counters) and 7
+ * (device settings kind 8), and carries the full backup and restore (fullBackup, fullRestore,
+ * fullVerify; docs/BACKUP-FORMAT.md) and the counters (diagRead).
  * The bundled vendor loader controls the Flash layout. A successful transfer
  * does not guarantee data preservation or recovery from interrupted power. */
 (() => {
@@ -648,16 +652,23 @@
     }
     async disconnect(){if(this.link)await this.link.close();this.link=null;this.projectBytes=0;this.tuningBytes=0;}
     async extensions(){
-      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;this.songBatch=false;this.timedNotes=false;this.radioSettings=false;
+      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.songRegion=462848;this.userBytes=536576;this.diagCounters=false;this.settingsTransfer=false;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;this.songBatch=false;this.timedNotes=false;this.radioSettings=false;
       try {
         const info=await this.query(21);
-        check(info.length===7&&(info[0]&~1)===0&&le(info,1,2)===4264&&le(info,3,4)===462848,'设备文件长度无效');
+        // Classic Tabby Task 11 (Step 4): bytes 3..6 are the song region, which follows the firmware's
+        // USER size (user_bytes = region + 73728: projects 69632 + the tuning sector 4096): 462848 in the
+        // stock 536576 layout, 397312 in the 471040 probe layout. Any multiple of 4096 from a 128 KiB
+        // move up to the stock size is accepted; the layout is kept for the full backup.
+        const region=le(info,3,4);
+        check(info.length===7&&(info[0]&~1)===0&&le(info,1,2)===4264&&region%4096===0&&region>=331776&&region<=462848,'设备文件长度无效');
+        this.songRegion=region;this.userBytes=region+73728;
         if(info[0]&1)this.tuningBytes=4264;
       } catch(error){if(error.deviceCode!==71)throw error;}
       try {
         const info=await this.query(22);
         // Classic Tabby (Task 03 a): a device may report no DX7 library (0 banks) and no sample bank (limit 0).
-        check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~63)===0,'设备扩展能力回复无效');   // Task 06 (a): bit 5 = Bluetooth settings; the mask was ~15 and refused a Task 05 device (bit 4)
+        check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~255)===0,'设备扩展能力回复无效');   // Task 11: bit 6 = diagnostic counters (command 25), bit 7 = device settings transfer kind 8 (full backup)
+        this.diagCounters=!!(info[8]&64);this.settingsTransfer=!!(info[8]&128);   // (earlier) Task 06 (a): bit 5 = Bluetooth settings; the mask was ~15 and refused a Task 05 device (bit 4)
         this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);this.songStorage=!!(info[8]&4);this.songBatch=!!(info[8]&8);this.timedNotes=!!(info[8]&16);this.radioSettings=!!(info[8]&32);   // Task 05: payload format 1 accepted; Task 06: command 24
       } catch(error){if(error.deviceCode!==71)throw error;}
     }
@@ -701,7 +712,7 @@
       if(kind===0&&this.tuningBytes)kind=3;
       // The device may have begun even if every start ACK was lost.
       try {
-        const head=await this.query(1,[kind,target]),size=le(head,0,2);check(head.length===2&&(kind?size===(kind===5?4096:kind===4?4096:kind===3?4264:kind===2?223:156):[4048,4064].includes(size)),'设备文件长度无效');
+        const head=await this.query(1,[kind,target]),size=le(head,0,2);check(head.length===2&&(kind?size===(kind===8?40:kind===5?4096:kind===4?4096:kind===3?4264:kind===2?223:156):[4048,4064].includes(size)),'设备文件长度无效');   // Task 11: kind 8 = device settings (40)
         const bytes=new Uint8Array(size);
         for(let at=0;at<size;at+=64){const n=Math.min(64,size-at),part=await this.query(2,[at&255,at>>8,n]);check(part.length===n,'文件片段不完整');bytes.set(part,at);}return bytes;
       }
@@ -843,6 +854,7 @@
       }
       else if(kind===4){check(this.programs===128,'请先更新固件以使用 128 音色库');bankFile(bytes);}
       else if(kind===5){check(bytes.length===SONG_RECORD,'歌曲记录长度无效');}
+      else if(kind===8){check(this.settingsTransfer&&bytes.length===40,'设备设置长度无效');}   // Task 11: device settings, sent as they are
       else {
         bytes=this.projectPayload(bytes);
         if(bytes.length===4264)kind=3;
@@ -1015,7 +1027,211 @@
     return batches;
   }
   function songBlockIds(song){const ids=new Set();for(const row of song.rows)for(const id of row.block)if(id)ids.add(id);return ids;}
+  // ---- Classic Tabby Task 11 (Step 2): full backup, restore and verify -------------------------
+  // docs/BACKUP-FORMAT.md is the file format (version 1). Everything goes through the project
+  // library's transfer commands (project slots: load 8 / save 7 + kind 0/3; songs: kinds 5/6/7;
+  // device and session settings: kind 8 on a diagnostic or later build; radio: command 24),
+  // never through flash offsets, so one file restores onto the stock layout and onto the
+  // 471040 probe layout alike. Reading a backup loads each slot into the workspace in turn and
+  // puts the workspace back at the end; nothing is written except, when a slot loads, the
+  // device's "current slot" setting (the device saves that itself 1.5 s later).
+  const BACKUP_FORMAT='classic-tabby-full-backup',BACKUP_VERSION=1;
+  const b64=bytes=>{let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);};
+  const unb64=text=>{check(typeof text==='string'&&/^[A-Za-z0-9+/]*={0,2}$/.test(text),'备份文件内容无效 (base64)');const s=atob(text),out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i);return out;};
+  const sameBytes=(a,b)=>a&&b&&a.length===b.length&&a.every((v,i)=>v===b[i]);
+  const firstDiff=(a,b)=>{const n=Math.min(a.length,b.length);for(let i=0;i<n;i++)if(a[i]!==b[i])return i;return a.length===b.length?-1:n;};
+  // What a backup cannot hold, said in the file and in the UI.
+  const BACKUP_NOT_INCLUDED=[
+    'Bluetooth pairings (the BTIF area): the vendor runtime owns them; pair again after a layout change.',
+    'Staging/journal sectors: transient. A committed journal is finished by the device before any transfer write, an uncommitted one is discarded, so the backup reads the settled state.',
+    'Rig profiles other than "My rig" stay in this browser (export them from the rig panel).',
+    'The FM-1 / external devices themselves.'];
+  Library.prototype.songStoragePlaying=async function(){if(!this.songStorage)return false;const s=await this.songStatus();return s.playing!==0;};
+  // The update-protocol identity (command 17) and build id (capability 49) through a second
+  // listener on the same ports; the project library's own link stays open. null when unavailable.
+  Library.prototype.firmwareIdentity=async function(){
+    const link=this.link;if(!link||!link.input||!link.output||typeof link.input.addEventListener!=='function')return null;
+    const probe=new Link(link.input,link.output,parse);
+    try{let identity=null,build=null;
+      try{identity=ascii(await probe.query(17,[],1200));}catch(_){}
+      try{build=capability(await probe.query(49,[],1200)).build;}catch(_){}
+      return {identity,build};
+    } finally {probe.closed=true;link.input.removeEventListener('midimessage',probe.receive);}
+  };
+  // Read everything into memory (no file yet). Shared by fullBackup and fullVerify.
+  Library.prototype.fullRead=async function(progress=()=>{}){
+    check(this.link&&!this.link.lost,'请先连接项目库');
+    check(!(await this.songStoragePlaying()),'Stop song playback before a full backup or verify.');
+    const info=await this.query(0);check(info.length===14,'设备信息回复无效');
+    const current=info[2],clock=info[5];
+    const workspace=await this.download(0);progress(0.02);
+    const projects=[];
+    for(let slot=0;slot<16;slot++){
+      let name=null;
+      try{const r=await this.query(9,[slot]);name=ascii(r.slice(0,12)).trimEnd();}
+      catch(error){if(error.deviceCode===1){projects.push({slot,empty:true});progress(0.02+0.4*(slot+1)/16);continue;}throw error;}
+      try{await this.query(8,[slot]);projects.push({slot,name,bytes:await this.download(0)});}
+      catch(error){if(!error.deviceCode)throw error;projects.push({slot,name,error:error.deviceCode});}
+      progress(0.02+0.4*(slot+1)/16);
+    }
+    // Put the workspace back: the current slot, then the unsaved edits if they differ from it.
+    const home=projects[current];
+    if(home&&home.bytes){await this.query(8,[current]);if(!sameBytes(home.bytes,workspace))await this.upload(0,0,workspace);}
+    else await this.upload(0,0,workspace);
+    const settings={clock,kind8:null,radio:null};
+    if(this.settingsTransfer)settings.kind8=await this.download(8);
+    if(this.radioSettings)settings.radio=await this.radioRead();
+    const songs=[];
+    for(let slot=0;slot<16;slot++){
+      if(!this.songStorage){songs.push({slot,empty:true});continue;}
+      const song=await this.songRead(slot);
+      songs.push(song?{slot,record:song.record,blocks:song.blocks}:{slot,empty:true});
+      progress(0.45+0.55*(slot+1)/16);
+    }
+    return {current,workspace,projects,settings,songs};
+  };
+  // The backup file (an object; JSON.stringify it to save).
+  Library.prototype.fullBackup=async function(progress=()=>{},extra={}){
+    const identity=await this.firmwareIdentity().catch(()=>null);
+    const data=await this.fullRead(progress);
+    const enc=bytes=>({size:bytes.length,crc32:crc32(bytes),data:b64(bytes)});
+    let blocks=0;
+    const file={format:BACKUP_FORMAT,version:BACKUP_VERSION,created:new Date().toISOString(),
+      workbench:extra.workbench||null,
+      device:{identity:identity&&identity.identity,build_id:identity&&identity.build,
+        user_bytes:this.userBytes,song_region:this.songRegion,project_bytes:this.projectBytes,tuning:!!this.tuningBytes,
+        song_storage:!!this.songStorage,settings_kind8:!!this.settingsTransfer,radio:!!this.radioSettings},
+      current_slot:data.current,workspace:enc(data.workspace),
+      projects:data.projects.map(p=>p.empty?{slot:p.slot,empty:true}:p.error?{slot:p.slot,name:p.name,error:p.error}:{slot:p.slot,name:p.name,...enc(p.bytes)}),
+      settings:{clock:data.settings.clock,kind8:data.settings.kind8?enc(data.settings.kind8):null,radio:data.settings.radio},
+      songs:data.songs.map(s=>{if(s.empty)return {slot:s.slot,empty:true};const list=[...s.blocks].sort((a,b)=>a[0]-b[0]);blocks+=list.length;
+        return {slot:s.slot,record:enc(s.record),blocks:list.map(([id,bytes])=>({id,...enc(bytes)}))};}),
+      rig:extra.rig===undefined?null:extra.rig,
+      not_included:BACKUP_NOT_INCLUDED.concat(this.settingsTransfer?[]:['Device MIDI settings, track roles, input channels and panel preferences: this firmware has no settings transfer (kind 8). Note them by hand; the diagnostic build and later carry them.']),
+      counts:{projects:data.projects.filter(p=>p.bytes).length,songs:data.songs.filter(s=>!s.empty).length,blocks},
+      end:BACKUP_FORMAT};
+    return file;
+  };
+  // Parse and validate a backup file completely (text or object). Throws on anything unknown,
+  // truncated or inconsistent; returns the decoded form. Nothing on the device is touched.
+  function backupParse(input){
+    let f=input;
+    if(typeof input==='string'){try{f=JSON.parse(input);}catch(_){fail('Backup file is not complete JSON (truncated or damaged); nothing was changed.');}}
+    check(f&&typeof f==='object'&&f.format===BACKUP_FORMAT,'Not a Classic Tabby full backup file.');
+    check(f.version===BACKUP_VERSION,'Backup file version '+f.version+' is not supported by this workbench (it reads version '+BACKUP_VERSION+').');
+    check(f.end===BACKUP_FORMAT,'Backup file is incomplete (no end marker); nothing was changed.');
+    const dec=(e,what,sizes)=>{check(e&&Number.isInteger(e.size)&&Number.isInteger(e.crc32),what+': entry damaged');const bytes=unb64(e.data);
+      check(bytes.length===e.size&&(!sizes||sizes.includes(bytes.length)),what+': wrong length');check(crc32(bytes)===e.crc32,what+': checksum mismatch');return bytes;};
+    check(f.device&&Number.isInteger(f.device.user_bytes)&&f.device.user_bytes%4096===0,'Backup file: device layout missing');
+    check(Number.isInteger(f.current_slot)&&f.current_slot>=0&&f.current_slot<16,'Backup file: current slot invalid');
+    const workspace=dec(f.workspace,'workspace',[4048,4064,4264]);projectVersion(workspace);
+    check(Array.isArray(f.projects)&&f.projects.length===16&&f.projects.every((p,i)=>p&&p.slot===i),'Backup file: project list incomplete');
+    const projects=f.projects.map(p=>{if(p.empty)return {slot:p.slot,empty:true};if(p.error)return {slot:p.slot,name:p.name,error:p.error};
+      const bytes=dec(p,'project slot '+(p.slot+1),[4048,4064,4264]);projectVersion(bytes);return {slot:p.slot,name:p.name,bytes};});
+    check(f.settings&&Number.isInteger(f.settings.clock),'Backup file: settings missing');
+    const kind8=f.settings.kind8?dec(f.settings.kind8,'device settings',[40]):null;
+    if(kind8)check(le(kind8,0,4)===0x31534254&&kind8[4]===1&&le(kind8,36,4)===crc32(kind8.subarray(0,36)),'Backup file: device settings damaged');
+    check(Array.isArray(f.songs)&&f.songs.length===16&&f.songs.every((s,i)=>s&&s.slot===i),'Backup file: song list incomplete');
+    let blockCount=0;
+    const songs=f.songs.map(s=>{if(s.empty)return {slot:s.slot,empty:true};
+      const record=dec(s.record,'song '+(s.slot+1)+' record',[SONG_RECORD]);const parsed=songRecordParse(record);
+      check(Array.isArray(s.blocks),'song '+(s.slot+1)+': block list missing');const blocks=new Map();
+      for(const b of s.blocks){check(Number.isInteger(b.id)&&b.id>0&&b.id<65536&&!blocks.has(b.id),'song '+(s.slot+1)+': block id invalid');
+        const bytes=dec(b,'song '+(s.slot+1)+' block '+b.id);songPayloadParse(bytes);blocks.set(b.id,bytes);}
+      for(const id of songBlockIds(parsed))check(blocks.has(id),'song '+(s.slot+1)+': block '+id+' is referenced but missing');
+      blockCount+=blocks.size;return {slot:s.slot,record,blocks};});
+    check(f.counts&&f.counts.projects===projects.filter(p=>p.bytes).length&&f.counts.songs===songs.filter(s=>!s.empty).length&&f.counts.blocks===blockCount,'Backup file: counts do not match its contents');
+    return {file:f,current:f.current_slot,workspace,projects,settings:{clock:f.settings.clock,kind8,radio:f.settings.radio||null},songs,rig:f.rig||null,device:f.device};
+  }
+  // Restore a parsed backup. Validates the whole file and the device first; erases nothing before.
+  Library.prototype.fullRestore=async function(input,progress=()=>{},{settleMs=2500}={}){
+    const b=input&&input.projects&&input.workspace instanceof Uint8Array?input:backupParse(input);
+    check(this.link&&!this.link.lost,'请先连接项目库');
+    const notes=[],songsWanted=b.songs.some(s=>!s.empty);
+    check(!songsWanted||(this.songStorage&&this.timedNotes),'This firmware has no song storage; the backup holds songs. Nothing was changed.');
+    if(this.songStorage){const st=await this.songStatus();
+      check(st.state!==2,'Song storage holds old data (ACTIONS shows OLD SAMPLE/DX7 DATA). Run ACTIONS > ERASE OLD SAMPLE/DX7 on the device first. Nothing was changed.');
+      check(st.state===0,'Song storage is not ready (state '+st.state+'). Wait for the scan or the compaction, then retry. Nothing was changed.');
+      check(st.playing===0,'Stop song playback before a restore. Nothing was changed.');}
+    // Device and session settings first: track roles decide how the projects load.
+    if(b.settings.kind8){if(this.settingsTransfer)await this.upload(8,0,b.settings.kind8);else notes.push('Device settings are in the file but this firmware cannot take them (no kind 8): not restored.');}
+    else notes.push('The file holds no device MIDI settings, track roles or panel preferences (made on firmware without kind 8).');
+    if(!b.settings.kind8&&b.settings.radio&&this.radioSettings)await this.radioWrite(b.settings.radio);
+    progress(0.03);
+    // Project slots.
+    for(const p of b.projects){
+      if(p.bytes)await this.saveProject(p.slot,p.bytes);
+      else if(p.error)notes.push('Project slot '+(p.slot+1)+' was unreadable when the backup was made (code '+p.error+'): left as it is.');
+      else{try{await this.query(9,[p.slot]);notes.push('Project slot '+(p.slot+1)+' is empty in the file but holds a project on the device; there is no command to clear a slot, so it was left as it is.');}catch(error){if(error.deviceCode!==1)throw error;}}
+      progress(0.03+0.4*(p.slot+1)/16);
+    }
+    // Songs: written (an occupied slot is deleted first by songWrite), or deleted when the file's slot is empty.
+    for(const s of b.songs){
+      if(this.songStorage){
+        if(!s.empty)await this.songWrite(s.slot,s.record,s.blocks);
+        else{let present=true;try{await this.query(1,[5,s.slot]);}catch(error){if(error.deviceCode!==1)throw error;present=false;}finally{if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
+          if(present)await this.songDelete(s.slot);}
+      }
+      progress(0.45+0.5*(s.slot+1)/16);
+    }
+    // The current slot and the workspace, as they were.
+    const home=b.projects[b.current];
+    if(home&&home.bytes){await this.query(8,[b.current]);const now=await this.download(0);if(!sameBytes(now,b.workspace))await this.upload(0,0,b.workspace);}
+    else await this.upload(0,0,b.workspace);
+    if(settleMs)await sleep(settleMs);   // the device stores changed settings 1.5 s after the last change
+    progress(1);
+    return {notes};
+  };
+  // Read everything back and compare with the file. {pass, difference, notes, checked}.
+  Library.prototype.fullVerify=async function(input,progress=()=>{}){
+    const b=input&&input.projects&&input.workspace instanceof Uint8Array?input:backupParse(input);
+    const d=await this.fullRead(progress),notes=[];let checked=0;
+    const report=difference=>({pass:false,difference,notes,checked});
+    const cmp=(what,a,c)=>{const at=firstDiff(a,c);checked++;return at<0?null:what+': first difference at byte '+at+' (file '+(a[at]??'end')+', device '+(c[at]??'end')+')';};
+    for(let i=0;i<16;i++){const f=b.projects[i],g=d.projects[i];
+      if(f.bytes){if(!g.bytes)return report('Project slot '+(i+1)+': in the file, '+(g.empty?'empty':'unreadable')+' on the device');const x=cmp('Project slot '+(i+1),f.bytes,g.bytes);if(x)return report(x);}
+      else if(f.empty&&!g.empty)return report('Project slot '+(i+1)+': empty in the file, holds a project on the device (no command can clear a slot)');}
+    if(d.current!==b.current)return report('Current slot: file '+(b.current+1)+', device '+(d.current+1));
+    {const x=cmp('Workspace',b.workspace,d.workspace);if(x)return report(x);}
+    if(b.settings.kind8){if(d.settings.kind8){const x=cmp('Device settings',b.settings.kind8,d.settings.kind8);if(x)return report(x);}else notes.push('Device settings not compared: this firmware has no kind 8.');}
+    else if(b.settings.radio&&d.settings.radio){checked++;if(JSON.stringify(b.settings.radio)!==JSON.stringify(d.settings.radio))return report('Bluetooth settings differ');}
+    if(d.settings.clock!==b.settings.clock)return report('Clock mode: file '+b.settings.clock+', device '+d.settings.clock);
+    for(let i=0;i<16;i++){const f=b.songs[i],g=d.songs[i];
+      if(!!f.empty!==!!g.empty)return report('Song slot '+(i+1)+': '+(f.empty?'empty in the file, present on the device':'in the file, empty on the device'));
+      if(f.empty)continue;
+      // Bytes 0..19 are storage bookkeeping (magic, generation, target, CRC, commit word); 20.. is the song.
+      {const x=cmp('Song '+(i+1)+' record',f.record.subarray(20),g.record.subarray(20));if(x)return report(x);}
+      if(f.blocks.size!==g.blocks.size)return report('Song '+(i+1)+': '+f.blocks.size+' blocks in the file, '+g.blocks.size+' on the device');
+      for(const [id,bytes] of f.blocks){if(!g.blocks.has(id))return report('Song '+(i+1)+': block '+id+' missing on the device');const x=cmp('Song '+(i+1)+' block '+id,bytes,g.blocks.get(id));if(x)return report(x);}
+    }
+    if(b.device.user_bytes!==this.userBytes)notes.push('Layout: the file came from USER '+b.device.user_bytes+', this device runs USER '+this.userBytes+'.');
+    return {pass:true,difference:null,notes,checked};
+  };
+  // ---- Classic Tabby Task 11 (Step 3): the diagnostic build's counters (transfer command 25) ----
+  // Page 1 (64 bytes) and page 2 (20 bytes) as app/diag.c lists them; times in 24 MHz ticks,
+  // returned here in milliseconds.
+  Library.prototype.diagRead=async function(reset=false){
+    check(this.diagCounters,'This firmware has no diagnostic counters (install tabby-v03.3-diag).');
+    const a=await this.query(25,[reset?1:0]),b=await this.query(25,[2]);
+    check(a.length===64&&b.length===20,'Diagnostic reply has the wrong length');
+    const u=(p,i)=>le(p,i,4),hz=u(a,0)||24000000,ms=t=>t*1000/hz;
+    const bins=[];for(let i=0;i<8;i++)bins.push(a[48+2*i]|a[49+2*i]<<8);
+    const seconds=u(a,4)/hz;
+    return {seconds,loop:{count:u(a,8),max_ms:ms(u(a,12)),mean_ms:ms(u(a,16))},
+      flash:{erases:u(a,20),erase_max_ms:ms(u(a,24)),writes:u(a,28),write_max_ms:ms(u(a,32)),write_max_bytes:u(a,36)},
+      keys:{count:u(a,40),max_ms:ms(u(a,44)),bins},
+      scan:{count:u(b,0),per_second:seconds?u(b,0)/seconds:0,gap_max_ms:ms(u(b,4)),isr_peak_ms:ms(u(b,8)),adc_peak_ms:ms(u(b,12))}};
+  };
+  function diagText(d){
+    const f=v=>v.toFixed(3);
+    return ['Classic Tabby diagnostic counters, '+f(d.seconds)+' s since reset',
+      'L.1 control loop (groove_midi_poll): '+d.loop.count+' loops, mean '+f(d.loop.mean_ms)+' ms, max '+f(d.loop.max_ms)+' ms',
+      'L.3 flash: '+d.flash.erases+' erases, longest '+f(d.flash.erase_max_ms)+' ms; '+d.flash.writes+' writes, longest '+f(d.flash.write_max_ms)+' ms ('+d.flash.write_max_bytes+' bytes)',
+      'L.4 key/pad note-on to router: '+d.keys.count+' notes, max '+f(d.keys.max_ms)+' ms; <0.5 '+d.keys.bins[0]+', <1 '+d.keys.bins[1]+', <2 '+d.keys.bins[2]+', <4 '+d.keys.bins[3]+', <8 '+d.keys.bins[4]+', <16 '+d.keys.bins[5]+', <32 '+d.keys.bins[6]+', >=32 '+d.keys.bins[7]+' (ms)',
+      'L.5 matrix scan: '+d.scan.count+' scans, '+d.scan.per_second.toFixed(1)+' per second, longest gap '+f(d.scan.gap_max_ms)+' ms; scan ISR peak '+f(d.scan.isr_peak_ms)+' ms, ADC ISR peak '+f(d.scan.adc_peak_ms)+' ms'].join('\n');
+  }
   globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,Updater,
     songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadParseV1,songPayloadBuild,songStepText,songStepParse,songLengthText,tabbyFile,readTabbyFile,songBlockIds,songBatches,songEventsValidate,
-    crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library};
+    crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library,
+    backupParse,BACKUP_FORMAT,BACKUP_VERSION,diagText};   // Task 11
 })();

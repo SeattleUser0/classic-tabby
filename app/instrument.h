@@ -324,8 +324,12 @@ void groove_sequence_keep_transport(unsigned restore);
 unsigned groove_lock_parameter_count(unsigned track);
 const char *groove_lock_parameter_name(unsigned track, unsigned parameter);
 struct groove_project *groove_project_scratch(void); /* control-only, transient */
-/* Project sectors stay at 0..68 KiB; a single shared 456 KiB sample bank follows. */
-enum { GROOVE_SAMPLE_OFFSET = 69632, GROOVE_SAMPLE_BYTES = 466944,
+/* Project sectors stay at 0..68 KiB; a single shared 456 KiB sample bank follows.
+ * Classic Tabby Task 11 (2026-11-07): the span after the project sectors is the USER size
+ * (app/ct_layout.h, the build's one layout setting) less 69632; 466944 in the stock layout,
+ * 401408 in the 471040 probe layout. Everything below derives from it. */
+#include "ct_layout.h"
+enum { GROOVE_SAMPLE_OFFSET = 69632, GROOVE_SAMPLE_BYTES = CT_USER_BYTES - 69632,
        GROOVE_FLASH_BYTES = GROOVE_SAMPLE_OFFSET + GROOVE_SAMPLE_BYTES };
 /* Five final sectors hold the four DX7 banks and tuning/session preferences.
  * New sample transfers stop before them. Larger legacy banks stay readable;

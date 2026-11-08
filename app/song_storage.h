@@ -12,9 +12,13 @@
  *   construction), the first-boot migration API (checkpoint a) and the record, block,
  *   directory, reclaim and status API (checkpoint d).
  *
- * Version: 0.6
+ * Version: 0.7
  *
  * Revision log
+ *   v0.7  2026-11-07  Task 11 Step 4: the region's sector count follows the USER size
+ *                     (app/ct_layout.h): (CT_USER_BYTES - 69632 - 4096) / 4096 sectors, 113 in the
+ *                     stock layout and 97 in the 471040 probe layout; block sectors = that - 17
+ *                     (96 / 80). The byte layouts are unchanged.
  *   v0.6  2026-11-03  Task 05: block payload format v2 (timed notes, section 9.12): block
  *                     record byte 1 = payload format, SONG_PAYLOAD_MAX 1600, validators by
  *                     format, song_payload_upgrade (v1 -> v2 in place), song flags bit 2 (swing).
@@ -33,17 +37,22 @@
 #ifndef CT_SONG_STORAGE_H
 #define CT_SONG_STORAGE_H
 #include <stdint.h>
+#include "ct_layout.h"
 
 enum {
     SONG_REGION_OFFSET = 69632,          /* = GROOVE_SAMPLE_OFFSET */
-    SONG_REGION_SECTORS = 113,           /* 446464 + 16384 bytes, up to the tuning sector */
-    SONG_REGION_BYTES = SONG_REGION_SECTORS * 4096, /* 462848 */
+    /* v0.7: up to the tuning sector, the last USER sector: 113 sectors (446464 + 16384 bytes)
+     * in the stock 536576 layout, 97 in the 471040 probe layout. */
+    SONG_REGION_SECTORS = (CT_USER_BYTES - 69632 - 4096) / 4096,
+    SONG_REGION_BYTES = SONG_REGION_SECTORS * 4096, /* 462848 stock */
     SONG_STAGING_SECTOR = 0,             /* region sector of the song staging journal */
     SONG_FIRST_SONG_SECTOR = 1,          /* region sectors 1..16: song records */
     SONG_SONGS = 16,
-    SONG_FIRST_BLOCK_SECTOR = 17,        /* region sectors 17..112: block sectors 0..95 */
-    SONG_BLOCK_SECTORS = 96
+    SONG_FIRST_BLOCK_SECTOR = 17,        /* region sectors 17..112: block sectors 0..95 (stock) */
+    SONG_BLOCK_SECTORS = SONG_REGION_SECTORS - 17   /* v0.7: 96 stock, 80 in the probe layout */
 };
+/* v0.7: song_storage.c keeps one bit per region sector in four words. */
+_Static_assert(SONG_REGION_SECTORS <= 128 && SONG_BLOCK_SECTORS >= 16, "song region size");
 /* Little-endian magics (assessment 9.2). */
 enum {
     SONG_MAGIC_RECORD = 0x47314d46U,     /* "FM1G" song record */

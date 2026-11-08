@@ -2,6 +2,7 @@
 #include "instrument.h"
 #include "song.h"
 #include "fm1_engine_control.h"
+#include "diag.h"   /* Classic Tabby Task 11: CT_DIAG_LOOP(), empty outside the diagnostic build */
 #include <string.h>
 #ifdef FM1_HOST_TEST
 #include <stdatomic.h>
@@ -330,6 +331,7 @@ void groove_midi_song_channels(const uint8_t *channels)
 }
 void groove_midi_poll(void)
 {
+    CT_DIAG_LOOP();   /* Task 11 (L.1): this call sends MIDI out; its period is the control loop's */
     unsigned ready = fm1_midi_ready_ports();
     for (unsigned p = 0; p < 3; ++p) {
         if ((ready_seen & ~ready) & (1U << p)) recover(p);

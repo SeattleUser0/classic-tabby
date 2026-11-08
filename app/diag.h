@@ -1,0 +1,76 @@
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/*
+ * app/diag.h — Classic Tabby diagnostic build (Task 11 Step 3): timing counters, the device
+ *              settings transfer kind of the full backup, the ACTIONS storage line
+ *
+ * Purpose
+ *   Everything here exists only when the build defines CT_DIAG (tools/linux/build.py --diag,
+ *   Makefile DIAG=1: the tabby-v03.3-diag and tabby-p0-probe64 builds). In the normal build
+ *   this header declares nothing and every hook below is an empty macro, so the normal build
+ *   compiles to the same code as before (the gate: app image identical except the build id).
+ *
+ *   What the diagnostic build measures, for the hardware checklist (docs/BUILD.md 24.6) and the
+ *   Task 10 assessment's section L:
+ *     L.1  the control loop's period, taken at groove_midi_poll() (the call that sends MIDI
+ *          out, so its period is the MIDI-out quantum): count, maximum and mean;
+ *     L.3  the longest fm1_flash_erase() and fm1_flash_write() (one call each, any size),
+ *          with their counts: what a save does to the control loop;
+ *     L.4  key and pad note-on latency from the scan ISR (app/board/scan.c, the moment the
+ *          event is queued) to the control task taking it (smk37_scan_read, which hands it to
+ *          the router at once): an 8-bin histogram and the maximum;
+ *     L.5  the full-matrix scan rate (scan_soft_isr, once per 16 SPI rows) and its longest gap.
+ *   All times are TIMER4 ticks (fm1_device_ticks(), 24 MHz, wraps every 179 s; every interval
+ *   is a difference, so the wrap is harmless). Transfer command 25 reads them: no data or data
+ *   byte 0 = page 1 (64 bytes), 1 = reset everything and then page 1, 2 = page 2 (the scan ISR
+ *   counters, 20 bytes); app/diag.c lists the fields. The workbench's Diagnostics panel shows
+ *   them with a reset button.
+ *
+ *   The device settings transfer kind 8 (40 bytes, wire layout CT_SETTINGS_*) carries what no
+ *   other transfer kind does: the device settings stored with slot 15 (BLE role, clock mode,
+ *   radio switches, the MIDI configuration) and the session settings in the tuning sector (track
+ *   roles, input channels, panel preferences). docs/BACKUP-FORMAT.md describes it.
+ *
+ * Version: 0.1
+ *
+ * Revision log
+ *   v0.1  2026-11-07  Task 11 Steps 2 and 3: first version.
+ */
+#ifndef CT_DIAG_H
+#define CT_DIAG_H
+#include <stdint.h>
+#include <stddef.h>
+
+#ifdef CT_DIAG
+enum {
+    CT_DIAG_TICK_HZ = 24000000,      /* TIMER4 */
+    CT_DIAG_REPLY_BYTES = 64,        /* command 25's reply, the protocol's maximum */
+    CT_DIAG_KEY_BINS = 8,            /* <0.5, <1, <2, <4, <8, <16, <32, >=32 ms */
+    CT_SETTINGS_BYTES = 40,          /* transfer kind 8 */
+    CT_SETTINGS_MAGIC = 0x31534254U, /* "TBS1", little-endian */
+    CT_SETTINGS_VERSION = 1
+};
+/* Written by the scan ISRs (app/board/scan.c), read by command 25. */
+extern volatile uint32_t ct_diag_scan_count, ct_diag_scan_last, ct_diag_scan_gap_max;
+/* Hooks. Control task unless marked. */
+void ct_diag_loop(void);                         /* groove_midi_poll(): one control loop */
+void ct_diag_key(uint32_t queued_ticks);         /* smk37_scan_read(): a note-on dequeued */
+int ct_diag_read(unsigned reset, uint8_t out[CT_DIAG_REPLY_BYTES]);   /* command 25 */
+int ct_diag_flash_erase(uint32_t offset);        /* fm1_flash_erase() with its time kept */
+int ct_diag_flash_write(uint32_t offset, const void *data, size_t bytes);
+/* The ACTIONS page's two storage lines: "USER 536576 SONG READY" / "FREE 123K  RECLAIM 4K"
+ * (at most 31 characters each; the buffers are 40). */
+void ct_diag_storage_lines(char user_line[40], char song_line[40]);
+/* Transfer kind 8 (app/project.c). */
+int groove_settings_export(uint8_t out[CT_SETTINGS_BYTES]);
+int groove_settings_import(const uint8_t *in, unsigned bytes);
+/* Every flash erase and write of the app goes through the timed wrappers. diag.c defines
+ * CT_DIAG_IMPL so that it calls the SDK functions themselves. */
+#ifndef CT_DIAG_IMPL
+#define fm1_flash_erase(offset) ct_diag_flash_erase(offset)
+#define fm1_flash_write(offset, data, bytes) ct_diag_flash_write(offset, data, bytes)
+#endif
+#define CT_DIAG_LOOP() ct_diag_loop()
+#else
+#define CT_DIAG_LOOP() ((void)0)
+#endif
+#endif

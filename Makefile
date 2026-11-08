@@ -55,6 +55,8 @@
 #     make release           GitHub release for TAG with the release assets attached
 #                            (needs docs/releases/<TAG>.md as the notes)
 #     make clean             remove build/ (also detaches the gh-pages worktree)
+#     DIAG=1 / USER_BYTES=N  Task 11: the diagnostic build / the USER size (any firmware, check,
+#                            package or web target); make web-probe64: the 471040-layout simulator
 #
 #   Nothing here touches device flash. Factory calibration and protected flash regions
 #   are never written. Flashing is done by the user through the workbench.
@@ -74,9 +76,16 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.15
+# Version: 0.16
 #
 # Revision log
+#   v0.16 2026-11-07  Task 11: DIAG=1 (the diagnostic build, build.py --diag) and USER_BYTES=N (the USER
+#                     size, build.py --user-bytes) reach build.py and build-web.py through $(OPTS); unset,
+#                     nothing is added and every output is as before. web-probe64 builds the simulator
+#                     (diagnostic) with the 471040 layout into build/web-probe64/, web-diag the diagnostic
+#                     simulator on the stock layout into build/web-diag/; backup-test (part of test and
+#                     test-fast) runs tests/workbench/backup.mjs on the three simulators; workbench-test
+#                     runs tests/linux/midi-monitor-test.py (the monitor's analysis).
 #   v0.15 2026-11-05  Task 09 (d): midi-import-sim runs tests/workbench/wrong-room-sim.mjs.
 #   v0.14 2026-11-05  Task 09 (c): midi-guide target; workbench-test runs tests/workbench/midi-guide.mjs.
 #   v0.13 2026-11-05  Task 09 (a): workbench-test runs tests/workbench/rig-profile.mjs (the built-in
@@ -167,12 +176,17 @@ BUILD      := tools/linux/build.py
 # the firmware must then match the previous release apart from the build id).
 DISPLAY_VERSION ?=
 DV         := $(if $(DISPLAY_VERSION),--display-version "$(DISPLAY_VERSION)",)
-NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV)
-WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV)
+# Task 11 (v0.16): the build options; empty unless DIAG=1 or USER_BYTES is given.
+DIAG       ?=
+USER_BYTES ?=
+OPTS       := $(if $(filter 1,$(DIAG)),--diag,) $(if $(USER_BYTES),--user-bytes $(USER_BYTES),)
+NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV) $(OPTS)
+WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV) $(OPTS)
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
         package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test \
-        check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide
+        check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide \
+        web-diag web-probe64 backup-test
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -192,7 +206,7 @@ SAN_FLAGS  := -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-f
 HOST_SAN_OBJS := $(patsubst %.c,build/host-san/obj/%.o,$(HOST_SRCS) tests/host/smoke.c)
 
 help:
-	@sed -n '7,66p' Makefile | sed 's/^#   //; s/^#//'
+	@sed -n '7,68p' Makefile | sed 's/^#   //; s/^#//'
 
 verify:
 	$(T) $(PYTHON) -I $(BUILD) --verify-only --toolchain-kind native --toolchain "$(JIELI_LINUX)"
@@ -221,11 +235,25 @@ crosscheck-run: firmware-native firmware-ref-run
 	$(T) tools/linux/crosscheck-compare.sh $(MODEL)
 
 web:
-	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --local-preview $(DV)
+	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --local-preview $(DV) $(OPTS)
 	@echo "Open with: google-chrome \"file://$(CURDIR)/build/preview/index.html\""
 
 build/web/simulator.wasm:
 	$(MAKE) web
+
+# Task 11: the simulators of the two Task 11 builds, for tests/workbench/backup.mjs: the diagnostic
+# build on the stock layout (build/web-diag) and the probe (diagnostic, USER 471040; build/web-probe64).
+web-diag:
+	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --simulator-only \
+	    --diag --wasm-out build/web-diag $(DV)
+
+web-probe64:
+	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --simulator-only \
+	    --diag --user-bytes 471040 --wasm-out build/web-probe64 $(DV)
+
+# Task 11 Step 2: full backup and restore end to end on the three simulators.
+backup-test: web web-diag web-probe64
+	$(T) $(NODE) tests/workbench/backup.mjs build/web/simulator.wasm build/web-diag/simulator.wasm build/web-probe64/simulator.wasm
 
 # Task 08: web-smoke and midi-import-sim depend on `web` (phony) instead of the wasm file, so a
 # source or display-version change rebuilds the simulator before the tests read it; build-web.py's
@@ -289,13 +317,13 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/rig-profile.mjs
 	$(T) $(NODE) tests/workbench/midi-guide.mjs
 
-test: timed-note-test host-smoke web-smoke workbench-test
-	@echo "test: timed-note-test, host-smoke, web-smoke and workbench-test passed"
+test: timed-note-test host-smoke web-smoke workbench-test backup-test
+	@echo "test: timed-note-test, host-smoke, web-smoke, workbench-test and backup-test passed"
 
 # Task 07: the tier to run while working (no sanitizers, no lock, about 20 s cold and 3 s warm),
 # and the full run before a flash or a release (through the lock; writes build/suite-passed.txt).
-test-fast: timed-note-test host-smoke web-smoke workbench-test midi-import-test
-	@echo "test-fast: timed-note-test, host-smoke, web-smoke, workbench-test and midi-import-test passed (no sanitizers; the full run is make suite)"
+test-fast: timed-note-test host-smoke web-smoke workbench-test midi-import-test backup-test
+	@echo "test-fast: timed-note-test, host-smoke, web-smoke, workbench-test, midi-import-test and backup-test passed (no sanitizers; the full run is make suite)"
 
 suite:
 	$(LOCKED) suite-run
@@ -306,7 +334,7 @@ suite-run: crosscheck-run test midi-import-sim host-sanitize-run
 
 # Task 07: the compile check and the lint (tools/linux/lint.sh reads the check's compile database).
 check:
-	$(T) $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --check-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV)
+	$(T) $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --check-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV) $(OPTS)
 
 lint: check
 	$(T) env MODEL=$(MODEL) LINT_JOBS=$(JOBS) LINT_SRCS="$(HOST_SRCS)" \
@@ -352,7 +380,7 @@ midi-guide:
 # ---- Task 02: distribution package, static site, GitHub Pages and release ----------------
 package:
 	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --package --toolchain-kind native \
-	    --toolchain "$(JIELI_LINUX)" --source-url "$(FM1_SOURCE_URL)" $(DV)
+	    --toolchain "$(JIELI_LINUX)" --source-url "$(FM1_SOURCE_URL)" $(DV) $(OPTS)
 	@echo "Distribution: $(PACKAGE_HTML)  (source link: $(FM1_SOURCE_URL))"
 
 hosted:

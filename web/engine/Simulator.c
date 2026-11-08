@@ -532,6 +532,9 @@ EXPORT("sim_frame_revision") uint32_t sim_frame_revision(void) { return frame_re
 EXPORT("sim_frame_changes") unsigned sim_frame_changes(void)
 { unsigned dirty = frame_dirty; frame_dirty = 0; return dirty; }
 EXPORT("sim_flash") uint8_t *sim_flash(void) { return flash; }
+/* Classic Tabby Task 11: the simulated USER size (CT_USER_BYTES: 536576 stock, 471040 in the
+ * probe layout), so Simulator.js and the tests never assume it. */
+EXPORT("sim_flash_size") uint32_t sim_flash_size(void) { return sizeof flash; }
 EXPORT("sim_flash_revision") uint32_t sim_flash_revision(void) { return flash_revision; }
 EXPORT("sim_file") uint8_t *sim_file(void) { return file_buffer; }
 /* Task 03 a: sim_sample_* and sim_library_* are gone with the sampler and the DX7 user

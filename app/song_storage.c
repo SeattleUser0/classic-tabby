@@ -33,9 +33,12 @@
  *   Everything here runs on the control task and is synchronous (a transaction takes
  *   three sector erases). The sequencer (app/song.c) only reads through the directory.
  *
- * Version: 0.6
+ * Version: 0.7
  *
  * Revision log
+ *   v0.7  2026-11-07  Task 11: the region size follows the layout setting (song_storage.h v0.7);
+ *                     app/diag.h is included so a diagnostic build times every flash erase and
+ *                     write. No behaviour change.
  *   v0.6  2026-11-03  Task 05: payload format v2 (9.12): record byte 1 names the format (0 or
  *                     1), payloads up to 1600 bytes, validation per format (format 1 through
  *                     timed_note_decode), song_payload_upgrade, song flags bit 2 allowed.
@@ -52,6 +55,7 @@
 #include "song_storage.h"
 #include "timed_note.h"
 #include "instrument.h"
+#include "diag.h"   /* Task 11: the diagnostic build times every flash erase and write (CT_DIAG only) */
 #include <string.h>
 
 /* ---- region lifecycle (checkpoint a) ----------------------------------------------- */
@@ -95,7 +99,9 @@ void song_storage_init(void)
     old_count = position = 0;
     dir_song = 255; dir_count = 0; block_gen_max = 0;
     for (unsigned s = 0; s < SONG_BLOCK_SECTORS; ++s) { sectors[s].songs = 0; sectors[s].gen = 0; sectors[s].used = SONG_USED_UNKNOWN; }
-    /* The region must sit exactly below the tuning sector of a 536576-byte partition. */
+    /* The region must sit exactly below the tuning sector of a partition of the layout's size
+     * (Task 11: CT_USER_BYTES, 536576 in the stock layout; fm1_flash_size() reports the size
+     * the SDK validated, 0 when it could not). */
     state = fm1_flash_size() == GROOVE_FLASH_BYTES &&
             SONG_REGION_OFFSET + SONG_REGION_BYTES == GROOVE_TUNING_OFFSET ? SONG_STORAGE_SCANNING
                                                                            : SONG_STORAGE_ERROR;

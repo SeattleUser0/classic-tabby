@@ -2,6 +2,7 @@
  * Pro/Elite matrix wiring, key contacts and Pad pressure scanning.
  * IRQs only scan and enqueue; FM1 control task owns all musical operations. */
 #include "smk37_hw.h"
+#include "diag.h"   /* Classic Tabby Task 11: the diagnostic build's scan counters (CT_DIAG only) */
 
 static struct {u16 pad[16][5],key[37][5],pedal[5];} trim_vm_cfg;
 static const u16 keytrim_init[5]={5,640,800,920,980};
@@ -9,6 +10,12 @@ static const u16 padtrim_init[5]={50,550,720,850,950};
 static const u16 pedaltrim_init[5]={20,850,920,980,1010};
 static volatile unsigned hw_wr, hw_rd, hw_overflow;
 static u32 hw_msg[256];
+#ifdef CT_DIAG
+/* Task 11 (diagnostic build): the TIMER4 time each queued message was written, for the key
+ * and pad note-on latency to the control task (app/diag.c), and the full-scan counters. */
+static u32 hw_stamp[256];
+volatile u32 ct_diag_scan_count, ct_diag_scan_last, ct_diag_scan_gap_max;
+#endif
 static unsigned scan_started;
 volatile u32 smk37_queue_overflows;
 volatile u32 smk37_scan_peak_ticks, smk37_adc_peak_ticks;
@@ -17,7 +24,12 @@ static FM1_AUDIO_CODE void kbd_hw_msg_wr_atom(u32 message)
     unsigned flags=fm1_device_irq_save();
     unsigned next=(hw_wr+1)&255;
     if(next==hw_rd){hw_overflow=1;++smk37_queue_overflows;}
-    else {hw_msg[hw_wr]=message;__asm__ volatile("csync" ::: "memory");hw_wr=next;}
+    else {
+        hw_msg[hw_wr]=message;
+#ifdef CT_DIAG
+        hw_stamp[hw_wr]=fm1_device_ticks();   /* Task 11: when the ISR queued it */
+#endif
+        __asm__ volatile("csync" ::: "memory");hw_wr=next;}
     fm1_device_irq_restore(flags);
 }
 static u8   *io_inbuf_cur;
@@ -275,6 +287,11 @@ ___interrupt static void scan_soft_isr()
 {
     SMK_SOFT_CLEAR |= BIT(2);
     u32 started=fm1_device_ticks();
+#ifdef CT_DIAG
+    /* Task 11: one full matrix scan; its rate and the longest gap between two (L.5). */
+    if(ct_diag_scan_count && started-ct_diag_scan_last>ct_diag_scan_gap_max)ct_diag_scan_gap_max=started-ct_diag_scan_last;
+    ct_diag_scan_last=started;++ct_diag_scan_count;
+#endif
     key_scan();
     encoder_scan();
     led_scan();
@@ -813,9 +830,17 @@ void smk37_scan_read(void)
     for(unsigned count=0;count<256;++count) {
         flags=fm1_device_irq_save();
         if(hw_rd==hw_wr){fm1_device_irq_restore(flags);break;}
-        u32 message=hw_msg[hw_rd];hw_rd=(hw_rd+1)&255;
+        u32 message=hw_msg[hw_rd];
+#ifdef CT_DIAG
+        u32 stamp=hw_stamp[hw_rd];
+#endif
+        hw_rd=(hw_rd+1)&255;
         fm1_device_irq_restore(flags);
         unsigned kind=message>>24,id=(message>>16)&255,value=message&65535;
+#ifdef CT_DIAG
+        /* Task 11 (L.4): a key or pad note-on is handed to the router below, in this call. */
+        if((kind==SMK37_KEY||kind==SMK37_PAD)&&value)ct_diag_key(stamp);
+#endif
         if(kind==SMK37_KEY||kind==SMK37_PAD||kind==SMK37_PEDAL)
             value=value?(value*127+511)/1023:0;
         if((kind==SMK37_KEY||kind==SMK37_PAD) && (message&65535) && !value)value=1;
