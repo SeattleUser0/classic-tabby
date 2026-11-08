@@ -2050,9 +2050,10 @@ song written again so the gaps are in the record.
 11. **Late press.** Press a pad a hair before the bar: either the pattern starts on the bar
     or (inside the control-loop window) LATE counts up and the pattern enters in phase at
     the next bar with its downbeat skipped.
-12. **Pad colours** (assessment 5.3) judged by eye: playing, queued, pending stop, a
+12. *(Moved to 24.6 step 3, L.7, on 2026-11-07.)* **Pad colours** (assessment 5.3) judged by eye: playing, queued, pending stop, a
     pattern, empty, and the SHIFT view of the eight tracks; report what to change.
-13. **Timing band.** As 13.4 step 12 with launches in the mix: note the device's
+13. *(Superseded by 24.6 step 3, L.1/L.2, on 2026-11-07; the launch mix of this step is still
+    wanted.)* **Timing band.** As 13.4 step 12 with launches in the mix: note the device's
     control-loop band here.
 
 ### 19.6 Results for the Task 06 final report
@@ -2371,7 +2372,7 @@ One list of what to set on each unit, then the fixture. The device sections of d
 repeat each unit's steps with the sources.
 
 **The CME H4MIDI WC** (HxMIDI Tools over USB-C, one preset, stored in the unit):
-1. DIN IN 1 = Classic Tabby (3.5 mm MIDI OUT adapter; the jack's TRS type is unconfirmed: if a
+1. *(The TRS type question moved to 24.6 step 3, L.9, on 2026-11-07.)* DIN IN 1 = Classic Tabby (3.5 mm MIDI OUT adapter; the jack's TRS type is unconfirmed: if a
    type A adapter is silent, try type B). DIN IN 2 = the second controller.
 2. Routing: IN 1 → OUT 1, OUT 2, USB host 1, 2, 3; IN 2 → OUT 2. Nothing else (DIN IN does not
    route to DIN OUT by default).
@@ -2563,6 +2564,141 @@ If the probe install leaves the device without a boot screen or without its USB 
 Do not retry the update, do not force-flash anything, and send me what the screen shows and what
 `amidi -l` (or the workbench's connection details) lists. A device that boots but reads
 `USER 0 INVALID` is fine: take the way back above.
+
+### 24.6 Hardware checklist for Task 11 (for the user, in this order)
+
+Pages: **main** = https://seattleuser0.github.io/classic-tabby/ (tabby-v03.3-diag), **probe** =
+https://seattleuser0.github.io/classic-tabby/probe64/ (tabby-p0-probe64, a test build that moves
+storage). Everything is done from Chrome on the computer the SMK-37 is plugged into by USB. Keep
+every backup file; name them as below. "Library tab" = Projects & sounds, then Connect project
+library. This list takes over the overlapping items of 19.5 (steps 12 and 13) and 23.5 (step 1);
+the rest of those lists stays where it is.
+
+**What you need:** the SMK-37 with tabby-v03.2 on it; the AUDIO4c with its DIN input wired from the
+SMK-37's MIDI out (3.5 mm adapter); this repository on the computer
+(`tools/linux/midi-monitor.py`, the test songs `tests/midi-import/fixtures/timing-8x16.mid` and
+`timing-1x16.mid`); the MC-101.
+
+**Step 1. Full backup and restore on tabby-v03.2.**
+1. Open the main page. Library tab, Connect project library. Stop any song.
+2. Full backup and restore > Full backup. The page saves `classic-tabby-backup-<time>.json`;
+   rename it `backup-1-v03.2.json`. The message shows the counts (projects, songs, blocks) and USER
+   536576.
+3. Write down by hand what this firmware cannot put in the file (the page lists it): the SEQ page
+   6/7 MIDI settings per track, the track roles and input channels (SOURCE page), the clock mode.
+4. Backup file: choose `backup-1-v03.2.json`. Full restore, OK. You should see `Verify PASS: <n>
+   items identical to the file`.
+5. **Stop** if you see `Verify FAIL` or any error: install nothing; send me the message line.
+
+**Step 2. Install tabby-v03.3-diag from the main page.**
+1. Device update tab > Connect device > tick the backup box > Start update. Wait for the reboot.
+2. The boot screen shows tabby-v03.3-diag. Library tab: the project list and Song mode > song slots
+   show your projects and songs as before. ACTIONS (hold SEQ 0.6 s): the top line reads
+   `USER 536576 SONG READY`.
+3. **Stop** if projects or songs are missing: do not save anything on the device; send me what is
+   missing. (Your step-1 file restores them.)
+
+**Step 3. The measurements.** Write the two test songs to the device first: Import MIDI file >
+`timing-8x16.mid` > write to song slot 15; `timing-1x16.mid` > song slot 16. Library tab > the
+Diagnostics group must be visible (it is, on the diag build).
+
+- **L.5 and L.1 at rest (run A).** Diagnostics > Reset counters. Leave the device on the SONG page,
+  stopped, for 60 s. Read counters > Copy as text. Keep the text as `run A`.
+- **L.1, L.4 and L.5 under load (run B).** ACTIONS > SONG MODE, select song 15 (timing-8x16), Reset
+  counters, PLAY. For the 2 minutes it plays: play keys and pads on the keyboard (about 100 notes,
+  hard and soft), turn K1–K4 and SELECT now and then (stay on the SONG page; do not press the row
+  pads, they queue jumps). After it stops: Read counters > Copy as text = `run B`.
+- **L.2, MIDI out jitter on DIN.** On the computer: `python3 tools/linux/midi-monitor.py --list`
+  must show `AUDIO4c DIN`. Then
+  `python3 tools/linux/midi-monitor.py --port "AUDIO4c DIN" --seconds 150 --csv l2-1x16.csv`
+  and within 10 s start song 16 (timing-1x16) on the device. When it ends, copy everything the
+  tool printed = `L.2 one line`. Again with song 15 and `--csv l2-8x16.csv` = `L.2 eight lines`.
+  Keep both CSV files.
+- **L.3, flash stalls (run C).** Reset counters. With the device stopped: SAVE the current project
+  to its slot once, then ACTIONS > COMPACT SONG STORAGE, SAVE to confirm, wait until it is done.
+  Read counters = `run C`. Then start the monitor as for L.2 (`--csv l3-save.csv`), play song 16,
+  and after about 30 s press SAVE (save the project) while it plays; if the device refuses, note
+  the message. Copy the tool's output = `L.3 during play`.
+- **L.6, external clock follow (MC-101 master over USB).** Plug the MC-101 into the computer by
+  USB. On the MC-101: MIDI Sync Out USB = ON, a clip of 16ths playing, 120 BPM. On the computer:
+  `aconnect -l`, then `aconnect '<MC-101 client>:0' '<SMK37 client>:0'` with the numbers it lists.
+  On the SMK-37, song mode refuses MIDI clock, so use the stock sequencer: SEQ page 5/7 SYNC = MIDI,
+  track 1 with all 16 steps on (STEPS page, pads 1–16). Start the monitor
+  (`--port "AUDIO4c DIN" --seconds 150 --csv l6.csv`), then START on the MC-101; after about 60 s
+  STOP on the MC-101 and watch the SMK-37's tempo field for 3 s (it should show LOST after about
+  2 s); START again. Copy the tool's output = `L.6`, and note: how long until the SMK-37 played after
+  START, what the screen showed after STOP. Afterwards set SYNC back to INT and `aconnect -x`.
+  (Optional, if the AUDIO4c can route its USB host port to two computer ports: plug the MC-101 into
+  the AUDIO4c's USB host jack, capture both with `--port "AUDIO4c HST1" --port "AUDIO4c DIN"`,
+  master first, and the tool also prints the SMK-37's lag behind the MC-101.)
+- **L.7, pad colours by eye** (was 19.5 step 12). Song 15, PLAY, SCL for TRACK LAUNCH: judge
+  playing, queued, pending stop, a pattern, empty, and the SHIFT view of the eight tracks; note what
+  you would change. Press pads soft and hard on the keyboard page and note whether velocity follows.
+- **L.9, the jack** (was 23.5 step 1). Note which TRS adapter type (A or B) works on the SMK-37's
+  MIDI out with the AUDIO4c.
+
+**Step 4. Full backup on the diag build.** Library tab > Full backup. Rename the file
+`backup-4-diag.json`. Its message must say the settings are in it (no "no settings transfer" note)
+and the counts must equal step 1's (plus the two test songs). This is the file for steps 5 and 7.
+
+**Step 5. The probe.**
+1. Open the probe page (its banner says it moves storage). Device update > Connect device > tick the
+   backup box > Start update.
+2. **Stop** if the device shows no boot screen or no longer appears as a USB MIDI device: do not
+   retry, do not force-flash; send me what the screen shows and what the page's Connection details
+   list.
+3. ACTIONS: write down both lines exactly (expected: `USER 471040 SONG READY` and `FREE ...K
+   RECLAIM ...K`). If the top line says `USER 0 INVALID`: go to step 7 and send me the lines.
+4. L.8: Library tab > Full restore with `backup-4-diag.json` (on the probe page). Expected `Verify
+   PASS`. If FAIL: go to step 7 and send me the difference line.
+5. Change and SAVE one project on the device; pair Bluetooth MIDI with your phone or computer;
+   power the SMK-37 off and on. ACTIONS lines again; the saved project is still there; Bluetooth
+   reconnects. Library tab > Verify against file (`backup-4-diag.json`): the only difference may be
+   the project you changed.
+6. Diagnostics > Read counters = `run D` (any time on the probe).
+
+**Step 6. Factory V16 and the probe again.**
+1. Probe page > Device update > Migration, factory restore and forced updates > Restore factory V16;
+   follow the page. The device boots the stock firmware.
+2. Probe page > Device update: the page will offer Enable force flash and reconnect (the stock
+   firmware does not speak the Open protocol); do that, tick the boxes, Start update.
+3. It must boot to tabby-p0-probe64; ACTIONS lines again (expected `USER 471040`; the song
+   storage may read OLD DATA because V16 wrote its resource into the song area: then ACTIONS > ERASE
+   OLD SAMPLE/DX7, SAVE). **Stop** as in step 5.2 if it does not boot.
+
+**Step 7. Back to tabby-v03.3-diag** (BUILD.md 24.5).
+1. Main page > Device update > Connect device > Start update.
+2. ACTIONS shows `USER 536576 SONG OLD DATA`: ACTIONS > ERASE OLD SAMPLE/DX7, SAVE. Top line then
+   `SONG READY`.
+3. Library tab > Full restore with `backup-4-diag.json`. Expected `Verify PASS`.
+
+**Send me back** (paste as text, in this order):
+
+```
+TASK 11 RESULTS
+step 1  backup counts line: ...            verify line: ...
+step 2  projects and songs all there: yes/no     ACTIONS top line: ...
+run A   <Copy as text output>
+run B   <Copy as text output>
+L.2 one line     <monitor output>
+L.2 eight lines  <monitor output>
+run C   <Copy as text output>
+L.3 during play  <monitor output>   device message if SAVE was refused: ...
+L.6     <monitor output>   time from START to first note: ...   screen after STOP: ...
+L.7     notes on the pad colours and velocity: ...
+L.9     adapter type that works: A / B
+step 4  backup counts line: ...
+step 5  ACTIONS lines after install: ... / ...   verify line: ...
+        after save + Bluetooth + power cycle: ACTIONS lines ... / verify line ...
+run D   <Copy as text output>
+step 6  boots after V16 and reinstall: yes/no   ACTIONS lines: ...
+step 7  ACTIONS lines before and after ERASE OLD: ...   verify line: ...
+anything else you saw
+```
+
+Stop rules in one place: a verify FAIL in step 1 (stop, send); missing data after step 2 (stop,
+send); no boot or no USB after the probe (stop, no retry, send); `USER 0 INVALID` or a verify FAIL
+on the probe (take step 7, send); no boot after step 6 (stop, send).
 
 ### 24.7 Gates run for Task 11
 

@@ -36,6 +36,13 @@ Analysis (printed at the end of a capture, or with --analyze FILE.csv)
       the last channel's note-on. On DIN, eight note-ons take at least 7.7 ms to send (24 bytes at
       31250 baud), so the burst is mostly the wire; its spread from step to step is the jitter.
 
+Two ports at once (L.6)
+    --port can be given twice (the MC-101's own USB output and the AUDIO4c's DIN input from the
+    SMK-37): both are captured into one CSV (column `port`) on the same clock, analysed per port
+    and channel, and the second port's note-ons are paired with the first port's nearest note-on:
+    the lag (mean, min, max, spread) is how far the follower sits behind the master. Give the
+    master first: the CSV labels the ports "1 ..." and "2 ...".
+
 Run (docs/BUILD.md 24.6)
     python3 tools/linux/midi-monitor.py --list
     python3 tools/linux/midi-monitor.py --port "AUDIO4c DIN" --seconds 150 --csv l2-8x16.csv
@@ -43,9 +50,11 @@ Run (docs/BUILD.md 24.6)
     --port takes a name substring as `amidi -l` prints it, or hw:CARD,DEVICE[,SUB].
     Stop early with Ctrl-C: the capture so far is written and analysed.
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-07  Task 11 Step 6: two ports in one capture (--port twice, a port column) and
+                      the lag of the second port's note-ons behind the first's.
     v0.1  2026-11-07  Task 11 Step 3: first version (capture, CSV, analysis, --list).
 """
 
@@ -235,8 +244,12 @@ def percentile(values, q):
 
 
 def analyze(rows, bpm=None, channel=None):
-    """rows: [(t_ns, kind, channel, data1, data2)]. Returns a dict of results (times in ms)."""
-    result = {"messages": len(rows)}
+    """rows: [(t_ns, kind, channel, data1, data2[, port])]. Returns a dict of results (times in ms).
+    With more than one port, the per-channel keys are "port:channel" and "lag" pairs the second
+    port's note-ons with the first port's."""
+    ports = sorted({r[5] for r in rows if len(r) > 5 and r[5]})
+    multi = len(ports) > 1
+    result = {"messages": len(rows), "ports": ports}
     clocks = [r[0] for r in rows if r[1] == "clock"]
     if len(clocks) > 24:
         iv = [(b - a) / 1e6 for a, b in zip(clocks, clocks[1:])]
@@ -251,10 +264,12 @@ def analyze(rows, bpm=None, channel=None):
         period = 125.0
     result["step_ms"] = period
     ons = {}
-    for t, kind, ch, d1, d2 in rows:
-        if kind == "note_on":
-            ons.setdefault(ch, []).append(t / 1e6)
-    channels = sorted(ons) if channel is None else [channel]
+    for r in rows:
+        t, kind, ch = r[0], r[1], r[2]
+        if kind == "note_on" and (channel is None or ch == channel):
+            key = "%s:%s" % (r[5], ch) if multi else ch
+            ons.setdefault(key, []).append(t / 1e6)
+    channels = sorted(ons, key=str)
     result["channels"] = {}
     t0 = min(ons[c][0] for c in channels if c in ons) if any(c in ons for c in channels) else 0.0
     burst_steps = {}
@@ -275,6 +290,19 @@ def analyze(rows, bpm=None, channel=None):
             "end_vs_nominal_ms": (ts[-1] - ts[0]) - (ks[-1] - ks[0]) * period, "same_step_twice": dup}
         for k, t in zip(ks, ts):
             burst_steps.setdefault(k, []).append(t)
+    if multi:
+        first = sorted(t for k, v in ons.items() if str(k).startswith(ports[0] + ":") for t in v)
+        second = sorted(t for k, v in ons.items() if str(k).startswith(ports[1] + ":") for t in v)
+        lags, j = [], 0
+        for t in second:
+            while j + 1 < len(first) and abs(first[j + 1] - t) <= abs(first[j] - t):
+                j += 1
+            if first and abs(first[j] - t) <= period / 2:
+                lags.append(t - first[j])
+        if lags:
+            result["lag"] = {"from": ports[0], "to": ports[1], "pairs": len(lags), "mean_ms": statistics.fmean(lags),
+                             "min_ms": min(lags), "max_ms": max(lags), "spread_ms": max(lags) - min(lags)}
+        burst_steps = {}                                   # bursts mix ports: not meaningful
     widths = [max(v) - min(v) for v in burst_steps.values() if len(v) == len(result["channels"]) and len(v) > 1]
     if widths:
         result["burst"] = {"steps": len(widths), "width_mean_ms": statistics.fmean(widths),
@@ -290,13 +318,17 @@ def report(result, out=sys.stdout):
         w("clock: %d pulses, %.3f BPM, pulse %.4f ms, pulse spread %.3f ms (std %.3f)\n"
           % (c["pulses"], c["bpm"], c["interval_ms"], c["interval_spread_ms"], c["interval_std_ms"]))
     w("%-4s %7s %10s %9s %9s %11s %10s %10s\n" % ("ch", "notes", "spread_ms", "std_ms", "p99_ms", "drift_ppm", "wander_ms", "end_ms"))
-    for ch, r in sorted(result["channels"].items()):
+    for ch, r in sorted(result["channels"].items(), key=lambda x: str(x[0])):
         w("%-4s %7d %10.3f %9.3f %9.3f %11.1f %10.3f %10.3f%s\n" % (ch, r["notes"], r["spread_ms"], r["std_ms"], r["p99_ms"],
           r["drift_ppm"], r["wander_ms"], r["end_vs_nominal_ms"], "   (%d steps doubled)" % r["same_step_twice"] if r["same_step_twice"] else ""))
     if "burst" in result:
         b = result["burst"]
         w("8-channel burst (first to last note-on of a 16th): mean %.3f ms, min %.3f, max %.3f over %d steps\n"
           % (b["width_mean_ms"], b["width_min_ms"], b["width_max_ms"], b["steps"]))
+    if "lag" in result:
+        g = result["lag"]
+        w("lag of %s behind %s: %d pairs, mean %.3f ms, min %.3f, max %.3f, spread %.3f ms\n"
+          % (g["to"], g["from"], g["pairs"], g["mean_ms"], g["min_ms"], g["max_ms"], g["spread_ms"]))
     if result["channels"]:
         worst = max(result["channels"].values(), key=lambda r: r["spread_ms"])
         w("BAND (largest per-channel spread): %.3f ms   (SPEC 14.3: wider than about 2 ms makes it Phase 1's first item)\n" % worst["spread_ms"])
@@ -305,9 +337,10 @@ def report(result, out=sys.stdout):
 def write_csv(path, rows, origin):
     with open(path, "w", newline="") as f:
         out = csv.writer(f)
-        out.writerow(["t_ns", "t_ms", "kind", "channel", "data1", "data2", "bytes"])
-        for t, kind, ch, d1, d2, raw in rows:
-            out.writerow([t, "%.4f" % ((t - origin) / 1e6), kind, ch, d1, d2, raw])
+        out.writerow(["t_ns", "t_ms", "kind", "channel", "data1", "data2", "bytes", "port"])
+        for row in rows:
+            t, kind, ch, d1, d2, raw = row[:6]
+            out.writerow([t, "%.4f" % ((t - origin) / 1e6), kind, ch, d1, d2, raw, row[6] if len(row) > 6 else ""])
 
 
 def read_csv(path):
@@ -317,24 +350,24 @@ def read_csv(path):
             ch = int(r["channel"]) if r["channel"] else ""
             d1 = int(r["data1"]) if r["data1"] else ""
             d2 = int(r["data2"]) if r["data2"] else ""
-            rows.append((int(r["t_ns"]), r["kind"], ch, d1, d2))
+            rows.append((int(r["t_ns"]), r["kind"], ch, d1, d2, r.get("port") or ""))
     return rows
 
 
-def to_rows(messages):
+def to_rows(messages, port=""):
     rows = []
     for t, m in messages:
         kind, ch = describe(m)
         d1 = m[1] if len(m) > 1 and m[0] != 0xF0 else ""
         d2 = m[2] if len(m) > 2 and m[0] != 0xF0 else ""
-        rows.append((t, kind, ch, d1, d2, " ".join("%02X" % b for b in m)))
+        rows.append((t, kind, ch, d1, d2, " ".join("%02X" % b for b in m), port))
     return rows
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description="Timestamped MIDI capture and timing analysis (read only).")
     p.add_argument("--list", action="store_true", help="list the ALSA raw MIDI ports")
-    p.add_argument("--port", help='input port: a name substring from --list ("AUDIO4c DIN") or hw:C,D[,S]')
+    p.add_argument("--port", action="append", help='input port: a name substring from --list ("AUDIO4c DIN") or hw:C,D[,S]; twice for two ports')
     p.add_argument("--seconds", type=float, default=150.0, help="capture length (default 150: the 2-minute song and margin)")
     p.add_argument("--csv", help="write the capture to this CSV file")
     p.add_argument("--analyze", help="analyse an earlier CSV instead of capturing")
@@ -352,25 +385,32 @@ def main(argv=None):
         return 0
     if not a.port:
         p.error("give --port (see --list), or --analyze FILE")
-    name = resolve(a.port)
-    port = AlsaInput(name, a.user_time)
+    if len(a.port) > 2:
+        p.error("at most two ports")
+    names = [resolve(x) for x in a.port]
+    inputs = [AlsaInput(n, a.user_time) for n in names]
     print("capturing %s for %.0f s (%s timestamps); start the song now, Ctrl-C ends early" %
-          (name, a.seconds, "kernel" if port.kernel_time else "user-space"), file=sys.stderr)
-    parser, messages = Parser(), []
+          (" and ".join(names), a.seconds, "kernel" if all(i.kernel_time for i in inputs) else "user-space"), file=sys.stderr)
+    parsers, messages = [Parser() for _ in inputs], [[] for _ in inputs]
     end = time.monotonic() + a.seconds
     try:
         while time.monotonic() < end:
-            t, chunk = port.read()
-            messages.extend(parser.feed(t, chunk))
+            for i, port in enumerate(inputs):
+                t, chunk = port.read(20 if len(inputs) > 1 else 200)
+                if chunk:
+                    messages[i].extend(parsers[i].feed(t, chunk))
     except KeyboardInterrupt:
         pass
     finally:
-        port.close()
-    rows = to_rows(messages)
+        for port in inputs:
+            port.close()
+    # Port labels "1 hw:...", "2 hw:...": their sort order is the command line's, so the first --port
+    # is the reference (the master) for the lag, also when a CSV is analysed later.
+    rows = sorted((r for i, n in enumerate(names) for r in to_rows(messages[i], "%d %s" % (i + 1, n) if len(names) > 1 else "")), key=lambda r: r[0])
     if a.csv:
         write_csv(a.csv, rows, rows[0][0] if rows else 0)
         print("wrote %d messages to %s" % (len(rows), a.csv), file=sys.stderr)
-    report(analyze([r[:5] for r in rows], a.bpm, a.channel))
+    report(analyze([r[:5] + (r[6],) for r in rows], a.bpm, a.channel))
     return 0
 
 

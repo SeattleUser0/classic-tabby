@@ -14,13 +14,15 @@ Purpose
       3. eight channels sent as DIN would (each 0.96 ms after the one before) with +-0.25 ms jitter
          per step: per-channel spread close to 0.5 ms, burst width close to 6.7 ms;
       4. a MIDI clock at 120 BPM gives the tempo and the step when --bpm is not given;
-      5. the CSV written and read back gives the same analysis.
+      5. the CSV written and read back gives the same analysis;
+      6. two ports in one capture: the second port's lag behind the first.
 
     Run:  python3 tests/linux/midi-monitor-test.py     (or: make workbench-test)
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-07  Two-port lag (monitor v0.2).
     v0.1  2026-11-07  Initial version (Task 11 Step 3).
 """
 import importlib.util
@@ -93,6 +95,14 @@ with tempfile.TemporaryDirectory() as d:
     mm.write_csv(path, raw, raw[0][0])
     back = mm.analyze(mm.read_csv(path), bpm=120)
     check(abs(back["channels"][3]["spread_ms"] - r8["channels"][3]["spread_ms"]) < 1e-9, "CSV written and read back: the same analysis")
+
+# 6. two ports: the follower 3 ms behind the master, +-0.2 ms
+master = [r + ("1 MC-101",) for r in line(1, n=400, jitter_ms=0.05)]
+follower = [(t + 3_000_000 + int(rng.uniform(-0.2, 0.2) * 1e6), k, ch, d1, d2, "2 AUDIO4c DIN") for t, k, ch, d1, d2, _ in master]
+rl = mm.analyze(sorted(master + follower), bpm=120)
+g = rl.get("lag", {})
+check(g and abs(g["mean_ms"] - 3.0) < 0.05 and 0.3 < g["spread_ms"] <= 0.4 and g["pairs"] == 400, "two ports: lag 3 ms with a 0.4 ms spread, per-port channels", g)
+check(set(rl["channels"]) == {"1 MC-101:1", "2 AUDIO4c DIN:1"}, "two ports: channels keyed by port", list(rl["channels"]))
 
 print("%s" % ("FAILED" if failed else "all checks passed"))
 sys.exit(1 if failed else 0)
