@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-09T04:41:13Z",
+  "updated": "2026-11-09T09:03:26Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -51,6 +51,16 @@
       "published": "2026-11-09",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.0.zip",
       "note": ""
+    },
+    {
+      "tag": "tabby-v04.0-recover",
+      "build": "b6e9590223446363dff53a2190bd80eb020233c63dd2d90cfa778e361ce0f708",
+      "loader": "ota-SMK37b6e9590223446363",
+      "version": "tabby-v04.0",
+      "page": "builds/tabby-v04.0-recover/",
+      "published": "2026-11-09",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/95ec02bff774cb1c59af29c51542082593adc41d.zip",
+      "note": "Recovery page for tabby-v04.0 (same firmware, build b6e9590223446363). Use it only if an install leaves the SMK-37 in its update loader named ota-SMK370000000000000000 (all zeros) and a power cycle does not boot it. It resumes after you confirm SMK-37 Pro and never uses force flash. For a normal install use builds/tabby-v04.0/."
     }
   ]
 }
