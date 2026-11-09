@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.44
+Version: 0.45
 Revision log:
+- v0.45, 2026-11-08 (Task 12 A6): 26.6 the tabby-v04.0 release build and the install steps for the
+  user (also ~/Documents/Classic Tabby/INSTALL-tabby-v04.0.txt).
 - v0.44, 2026-11-08 (Task 12 A5): 26.5 permanent build pages (builds/<tag>/, builds/index.json) and
   the safe resume for a stale loader; 9.1 and 9.2 updated.
 - v0.43, 2026-11-08 (Task 12 A4): 26.4 the counters and the loop profile in the normal build.
@@ -3307,9 +3309,57 @@ an unknown tag; no index, failing fetch, throwing lookup; waitFor ends at once; 
 buildsLookup over candidates with a 404 and a malformed index; every message translates; the page
 wiring). make test-fast passes (the two new tests are in workbench-test, Makefile v0.19).
 
-**What this does not cover.** The pages of the historic builds carry their own, older workbench:
+**What this does not cover (A5).** The pages of the historic builds carry their own, older workbench:
 tabby-v03.2 and tabby-v03.3-diag refuse a mismatched loader with the old generic message, and the
 diag-r2 page (c80c166) with the Task 11C messages; only pages published from here on (tabby-v04.0
 and later, and the root page) have the lookup. A loader can be in the list only if its build was
 published; a private build's tag reads `unknown`, and the message says to use the page that built
 it or to power-cycle.
+
+### 26.6 A6: the tabby-v04.0 release and the install steps
+
+**Release build.** `make check`, `make lint` (the same 3 warnings as after A2: two
+missing-field-initializers in screen.c, one unused variable in scan.c; a report, not a gate),
+`make suite DISPLAY_VERSION=tabby-v04.0` passed at 40fdd71 (crosscheck identical on both tracks,
+test, midi-import-sim, host-sanitize; 4 min 59 s with Orange Cat work beside). `make package
+TAG=tabby-v04.0 DISPLAY_VERSION=tabby-v04.0`: build id
+b6e9590223446363dff53a2190bd80eb020233c63dd2d90cfa778e361ce0f708, `.fwsc` SHA-256
+368c613022672f8918cb990cd886970edc771014afba2dd93a736577e29f24af (487988 bytes; the package tracks
+FLASH_BIN_SIZE, now 466944 with the slack given to VM), offline workbench SHA-256
+fe7d9604786551081b00e59d16f3fd16028c2e191b9ea5b5bb74774e426122e8 (3126358 bytes). App image
+447716 bytes, **margin 71741** to the 519457-byte limit of the moved layout (FLASH-BUDGET 17);
+heap 198636. The loader tag of this build is `ota-SMK37b6e9590223446363`. Publication record: 9.1
+and 9.3g.
+
+**Install steps for the user** (MacBook, Chrome, the SMK-37 plugged straight into the Mac; SPEC 15;
+the full text with every screen is ~/Documents/Classic Tabby/INSTALL-tabby-v04.0.txt):
+
+1. **Full backup on the current firmware** (tabby-v03.3-diag-r2, build 8b7dff801f1b0876): open
+   https://seattleuser0.github.io/classic-tabby/builds/tabby-v03.3-diag-r2/ (the old `/recover/`
+   address redirects there), Projects & sounds > Connect project library (identity `SMK-37
+   Pro_8000001`), Full backup, save the file, then Verify with it: PASS. Keep the file.
+2. **Install from the main page** https://seattleuser0.github.io/classic-tabby/ : Device update
+   shows Version tabby-v04.0, build number b6e9590223446363 and the storage-move note. Connect
+   device (identity `SMK-37 Pro_8000001`), tick the backup box, Start update, keep the tab open:
+   preparing the loader, waiting for the device to reconnect, writing firmware, restart and verify,
+   done.
+3. **What ACTIONS shows**: boot screen tabby-v04.0; expected OLD DATA IN SONG STORAGE - SEE ACTIONS
+   for six seconds; ACTIONS (hold SEQ 0.6 s) reads `USER 471040` with `OLD DATA IN SONG STORAGE`
+   (expected) or `SONG READY` (nothing to erase). `USER 0 INVALID` or `USER 536576`: stop and
+   report.
+4. **ERASE OLD DATA if offered**: ACTIONS > ERASE OLD DATA > SAVE > "ERASE OLD DATA?" > SAVE
+   (HOME cancels); or the workbench's "Erase old data…" after connecting the library, which asks
+   first. Afterwards the SONG page says NO SONG HERE - UPLOAD FROM THE WEB WORKBENCH.
+5. **Full restore and Verify** on the main page: Connect project library (badge tabby-v04.0), Full
+   restore with the file from step 1, Verify PASS. Check projects, MIDI TRACK channels, SYNC / MIDI;
+   pair Bluetooth again.
+6. **If the install stalls**: close the tab, power-cycle the SMK-37 (USB stays), open the page of
+   the build the loader waits for (for this install the main page or builds/tabby-v04.0/; any
+   other build's page names the right one and links to it), Connect, Start update, confirm the model
+   SMK-37 Pro. If the device boots normally after the power-cycle, read its version: tabby-v04.0
+   continues at step 3, tabby-v03.3-diag-r2 starts again at step 2. No USB device at all: stop and
+   report.
+
+Going back to tabby-v03.x: full backup on v04.0, install from builds/tabby-v03.2/ or
+builds/tabby-v03.3-diag/, erase old data if offered, restore, verify (26.1).
+
