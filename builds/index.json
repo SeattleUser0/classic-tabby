@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "updated": "2026-11-09T04:14:25Z",
+  "builds": [
+    {
+      "tag": "tabby-v03.2",
+      "build": "d842d29d324339e73beb16e984046711d95baf556a777f95ad78cb6d679215f9",
+      "loader": "ota-SMK37d842d29d324339e7",
+      "version": "tabby-v03.2",
+      "page": "builds/tabby-v03.2/",
+      "published": "2026-11-05",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v03.2.zip",
+      "note": "Last release on the 536576 layout (USER at 0x7C000); the way back from tabby-v04.0 (BUILD.md 26.1)."
+    },
+    {
+      "tag": "tabby-p0-probe64",
+      "build": "2525715294cc33a7d14ec1285d6f8c7f1102e911aa395af8e1af625417dcc73c",
+      "loader": "ota-SMK372525715294cc33a7",
+      "version": "tabby-p0-probe64",
+      "page": "builds/tabby-p0-probe64/",
+      "published": "2026-11-07",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-p0-probe64.zip",
+      "note": "TEST BUILD: the storage probe (DIAG=1 USER_BYTES=471040); also at probe64/."
+    },
+    {
+      "tag": "tabby-v03.3-diag",
+      "build": "6ada221504309d10f544a5d9743791e385f60fe2e88b7bc6570b32d2060c78a1",
+      "loader": "ota-SMK376ada221504309d10",
+      "version": "tabby-v03.3-diag",
+      "page": "builds/tabby-v03.3-diag/",
+      "published": "2026-11-07",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v03.3-diag.zip",
+      "note": "Task 11 diagnostic build (DIAG=1), 536576 layout; was the main page until tabby-v04.0."
+    },
+    {
+      "tag": "tabby-v03.3-diag-r2",
+      "build": "8b7dff801f1b08768bb95855ed11b92e894a65cd284caff07bbf204da06f9449",
+      "loader": "ota-SMK378b7dff801f1b0876",
+      "version": "tabby-v03.3-diag-r2",
+      "page": "builds/tabby-v03.3-diag-r2/",
+      "published": "2026-11-08",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/c80c166.zip",
+      "note": "Untagged resume page (Task 11B/11C): tabby-v03.3-diag rebuilt at commit d9e83f0 (DIAG=1, 536576 layout) inside the workbench of commit c80c166 (port-name fixes); installed on the device on 2026-11-08. Was /recover/."
+    }
+  ]
+}
