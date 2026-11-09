@@ -2,6 +2,10 @@
 (() => {
   'use strict';
   const messages={
+  // Classic Tabby Task 12 (2026-11-09): no force suggestion after a timeout; force only by hand.
+  "设备连续 4 次未回复版本查询，未写入任何内容。请将 SMK-37 断电重启，关闭其他 MIDI 软件和更新网页，再点击“连接设备”。": "The device did not answer the version query after 4 tries. Nothing was written. Power-cycle the SMK-37, close other MIDI apps and workbench tabs, then click Connect device again.",
+  "已识别设备和当前固件（不是 Open 固件）。如需迁移，请展开“迁移、原厂恢复与强制更新”，手动勾选“强制烧录”，再重新连接。": "Device and current firmware recognized (not Open firmware). To migrate, open Migration, factory restore and forced updates, tick Force flash by hand, then connect again.",
+  "检测到其他固件：如需迁移，请在“迁移、原厂恢复与强制更新”中手动勾选“强制烧录”。": "Different firmware detected. To migrate, tick Force flash by hand under Migration, factory restore and forced updates.",
   // Classic Tabby Task 12 A5: the stale-loader hint under the error (the sentences with the build
   // numbers are patterns, below).
   "该固件的页面：": "That build's page:",
@@ -1034,7 +1038,7 @@
   "项目保存各轨 ARP 开关与参数。": "Projects save each track’s ARP settings.",
   "完整八轨项目：音源、参数、轨道音量、循环长度、步进等；不含歌曲。": "A complete eight-track project: engines, parameters, track levels, loop lengths, steps and more. Does not include songs.",
   "一首歌曲：歌曲记录与全部块，可带该歌曲自己的设备配置副本。见第 11 章。": "One song: the song record and all of its blocks, with the song's own rig copy when it has one. See chapter 11.",
-  "下载与机身型号对应的 Pro 工作台。连接 USB，先导出项目与歌曲备份（.tabby），再在“设备更新”中连接、勾选备份确认并更新。首次从同型号原厂固件迁移时，使用“启用强制烧录并重新连接”。完成后网页会核对型号与版本哈希。Pro 与 Elite 固件不可混刷。": "Download the Pro workbench for your device. Connect USB, export project and song (.tabby) backups, then connect in Device update, confirm your backup and update. For the first migration from the same model’s factory firmware, choose Enable force flash and reconnect. The page verifies the model and the build hash afterward. Pro and Elite firmware are not interchangeable.",
+  "下载与机身型号对应的 Pro 工作台。连接 USB，先导出项目与歌曲备份（.tabby），再在“设备更新”中连接、勾选备份确认并更新。首次从同型号原厂固件迁移时，在“迁移、原厂恢复与强制更新”中手动勾选“强制烧录”。完成后网页会核对型号与版本哈希。Pro 与 Elite 固件不可混刷。": "Download the Pro workbench for your device. Connect USB, export project and song (.tabby) backups, then connect in Device update, confirm your backup and update. For the first migration from the same model’s factory firmware, tick Force flash by hand under Migration, factory restore and forced updates. The page verifies the model and the build hash afterward. Pro and Elite firmware are not interchangeable.",
   "在“项目与音色”备份当前项目，其他需要保留的项目槽也逐一载入并备份；歌曲用“导出 .tabby”逐首备份。LIVE 轨的音色修改另行导出轨道音色。": "In Projects & sounds, back up the current project, then load and back up any other project slots you need; back up each song with Export .tabby. Export LIVE timbre edits separately as track sounds.",
   "等待重启及版本核对。首次从 V01 迁移时，机身会提示旧的采样／DX7 数据仍在闪存，见第 02 章。": "Wait for restart and version verification. On the first migration from V01 the device reports old sample / DX7 data still in flash; see chapter 02.",
   "正常完成的同布局更新会保留有效项目槽和歌曲存储；刷写前仍请分别备份工程、音色和歌曲。设备重启后，未保存的内存编辑不会自动恢复。固件更新也不会自动把网页仿真中的项目传到设备。": "A successfully completed update using the same storage layout preserves valid project slots and the song storage. Still back up projects, voices and songs separately before flashing. Unsaved memory edits are not restored after restart. Updating firmware does not transfer the browser project to the device automatically.",

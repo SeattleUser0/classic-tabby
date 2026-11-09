@@ -49,12 +49,16 @@ Usage
         <out>/site/ (tools/Build-Hosted.cjs), and checks the site's firmware asset and package
         metadata against the published tabby-v04.0 site.
     python3 -I tools/linux/recover-page.py webupdate --out FILE
-        writes sdk/WebUpdate.js with the Z/F patches applied (tests/workbench/recover-page.mjs).
+        writes tabby-v04.0's sdk/WebUpdate.js (from the tag) with the Z/F patches applied
+        (tests/workbench/recover-page.mjs).
 
-Version: 0.1
+Version: 0.2
 
 Revision log
     v0.1  2026-11-09  Initial version (Task 12, the install incident of 2026-11-09).
+    v0.2  2026-11-09  Both commands read sdk/WebUpdate.js from the tabby-v04.0 tag (the working file now
+                      carries the same fixes in source form, BUILD.md 26.8, so the patches no longer
+                      apply to it). The published page was built with v0.1; v0.2 rebuilds it identically.
 """
 import argparse
 import hashlib
@@ -190,6 +194,12 @@ def apply(text, patches, what):
     return text
 
 
+def tagged_webupdate():
+    """sdk/WebUpdate.js as released in tabby-v04.0 (the text inside the published page)."""
+    return subprocess.run(["git", "show", "tabby-v04.0:sdk/WebUpdate.js"], cwd=str(ROOT), capture_output=True,
+                          text=True, check=True).stdout
+
+
 def patched_webupdate(source):
     return apply(source, WEBUPDATE_PATCHES, "WebUpdate.js")
 
@@ -200,10 +210,7 @@ def build(args, log=print):
     if sha256(raw) != PUBLISHED_HTML_SHA256:
         raise RecoverError("%s is not the published tabby-v04.0 page (SHA-256 %s)." % (html_path, sha256(raw)))
     html = raw.decode("utf-8")
-    source = (ROOT / "sdk/WebUpdate.js").read_text(encoding="utf-8")
-    tagged = subprocess.run(["git", "show", "tabby-v04.0:sdk/WebUpdate.js"], cwd=str(ROOT), capture_output=True, text=True, check=True).stdout
-    if source != tagged:
-        raise RecoverError("sdk/WebUpdate.js differs from tabby-v04.0; the patches are written against that version.")
+    source = tagged_webupdate()
     if html.count(source) != 1:
         raise RecoverError("The published page does not carry sdk/WebUpdate.js verbatim exactly once.")
     web = patched_webupdate(source)
@@ -277,7 +284,7 @@ def main():
         if args.cmd == "build":
             build(args)
         else:
-            pathlib.Path(args.out).write_text(patched_webupdate((ROOT / "sdk/WebUpdate.js").read_text(encoding="utf-8")), encoding="utf-8")
+            pathlib.Path(args.out).write_text(patched_webupdate(tagged_webupdate()), encoding="utf-8")
     except (RecoverError, subprocess.CalledProcessError, OSError) as e:
         print("recover-page: %s" % e, file=sys.stderr)
         return 1

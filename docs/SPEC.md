@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.25
+Version: 0.26
 Revision log:
+- v0.26, 2026-11-09 (Task 12, install incident): 16.5 items 4 and 5: the all-zero loader tag resumes
+  after the model confirmation; a query timeout never leads to force flash.
 - v0.25, 2026-11-08 (Task 12 A5): section 16.5: permanent build pages, builds/index.json, and the
   rule for a loader that waits for another build.
 - v0.24, 2026-11-08 (Task 12 A4): section 16.4: the counters and the loop profile in every build.
@@ -1106,3 +1108,15 @@ router flushes) so the old numbers stay comparable; the pass period is the profi
 3. The install page of a build is therefore the way to finish that build's interrupted install:
    close the other tab, power-cycle the device if the loader does not answer, open the page the
    message links to, Connect, Start update (BUILD.md 26.6, the install steps).
+4. A loader reporting `ota-SMK37` + 16 zeros (entered without command 50, e.g. by a forced
+   write) names no build. Every page from the next release on treats it as the vendor's
+   unidentified loader: the model-confirmed resume ("SMK-37 Pro" asked before writing), then the
+   build id check after the restart. Any nonzero tag that is not the page's build is still rule 2.
+   tabby-v04.0's own page predates this; `builds/tabby-v04.0-recover/` is its recovery page
+   (BUILD.md 26.7).
+5. Force flash is only ever turned on by the user, with the checkbox inside "Migration, factory
+   restore and forced updates". The page never offers it after a timeout: the identity and
+   capability queries are retried (4 tries) and, on an Open identity that still does not answer,
+   Connect says the device did not answer and to power-cycle it (`NO_REPLY`). Migration is
+   offered only for a non-Open identity (factory V16), and then as that checkbox, not a button
+   (BUILD.md 26.8).

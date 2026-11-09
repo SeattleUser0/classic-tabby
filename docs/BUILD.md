@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.48
+Version: 0.49
 Revision log:
+- v0.49, 2026-11-09 (Task 12, install incident): 26.8 the record of the night and the update page fix
+  (zero tag resumes, no force after a timeout); left-to-build updated; tabby-v04.0-recover listed on builds/.
 - v0.48, 2026-11-09 (Task 12, install incident): 26.7 the tabby-v04.0 recovery page
   (builds/tabby-v04.0-recover/, tools/linux/recover-page.py, tests/workbench/recover-page.mjs).
 - v0.47, 2026-11-09 (Task 12, install incident, read only): left-to-build: the all-zero loader tag
@@ -285,26 +287,11 @@ understood (25.5); installs are done from the user's MacBook.
     tag after the reboot and timed out ("Timed out waiting for reconnection") instead of naming
     the tag it saw. The waiting page must report the tag it sees and stop, not wait it out. A
     power cycle (on the Mac) left the loader and booted the image already in flash (diag-r2).
-- **The all-zero loader tag** (2026-11-09, the user's tabby-v04.0 install from the Mac; not built).
-  The SMK-37 came up as `ota-SMK370000000000000000` and the A5 check refused it ("not in the list
-  of published builds"); nothing was written. From the SDK disassembly (build/pro/sdk.elf,
-  `update_state`, the command handler at 0x200f8e2): the tag is a 32-byte RAM buffer
-  (`target_id`) that only command 50 writes (payload `1, family, size, build id`, accepted when
-  idle and the family matches); the handoff writes `ota-SMK37` + the hex of its first 8 bytes
-  into the 112-byte block at UPDATA_BEG+8 that names the loader. All zeros = no command 50 since
-  power-on = the page's forced ("legacy") path, which skips command 50 (sdk/WebUpdate.js
-  install(): only mode `tagged` sends it). That path is reached only with Force flash on: ticked
-  by hand, or through "Enable force flash and reconnect" after the capability query (49) timed
-  out on an Open identity. No published page accepts the zero tag (A5 refuses it; older pages fail
-  the model check; force does not bypass connect()); the way out is a power cycle, which boots the
-  image in flash (seen 2026-11-08, 25.5). To build: (1) recognise the all-zero tag as "untagged
-  loader, forced path" with its own message (power-cycle, then update without Force flash) instead
-  of the build-list text, and offer the resume with the model confirmation, as for
-  `ota-FM-1_015`; (2) send command 50 on the forced path too when the identity is Open, so the
-  loader carries the right tag; (3) after a capability timeout on an Open identity, retry once
-  before suggesting migration. Also revisit 25.5's reading of the 11B tag: the only writer is
-  command 50, so the diag-r2 tag came from a command 50 that carried 8b7dff…, not from a kept
-  earlier value. INSTALL-tabby-v04.0.txt STEP 6 does not cover this case yet.
+- **The all-zero loader tag** (2026-11-09; 26.8). Built in source, ships with the next release:
+  the zero tag resumes after the model confirmation, and a query timeout never leads to force
+  flash. Left: send command 50 on the forced (legacy) path when the identity is Open, so a
+  forced write still names its build; and revisit 25.5's reading of the 11B tag (the SDK writes
+  the tag only from command 50, so the diag-r2 tag came from a command 50 that carried 8b7dff…).
 - **Metronome and count-in** (Task 12 A2 removed CLICK and COUNT IN with the step editor; not built).
   They come back in Phase 5 under SPEC 14 decision 7: an internal 808 click that can be turned off,
   and a MIDI-note click to a chosen channel and note, selectable.
@@ -3477,3 +3464,44 @@ firmware asset 368c6130….bin and FM1_PACKAGE identical to tabby-v04.0; the pag
 passes on that asset. All 10 live files are byte-identical to the local build; the main page,
 assets.json, builds/index.json and builds/tabby-v04.0/ are unchanged. Headless Chrome: no console
 error, the notice shown, the force checkbox disabled, the force button and the migration group hidden.
+
+### 26.8 The night of 2026-11-08/09: what happened, and the update page fix
+
+**What happened (the user's install of tabby-v04.0 on the MacBook).**
+- On the main page, Connect read the identity `SMK-37 Pro_8000001` (diag-r2), but the capability
+  query (49) timed out. The page took that for other firmware: it reported "Device and current
+  firmware recognized. To migrate, click Enable force flash and reconnect", and force flash was
+  turned on from that offer.
+- The forced (legacy) install skips command 50, so the SDK's loader tag (`target_id`, written
+  only by command 50) stayed all zeros, and the device came up in its loader as
+  `ota-SMK370000000000000000`. The page refused it ("waiting for build 0000000000000000, not in
+  the list of published builds") and sent no image. No image byte was written.
+- A power cycle on the Mac did **not** clear it: the device came back in the loader with the same
+  name (on 2026-11-08 a power cycle had booted the image in flash).
+- The recovery page `builds/tabby-v04.0-recover/` (26.7) connected to the zero-tag loader, asked
+  for the "SMK-37 Pro" confirmation, wrote the image and passed the build id check after the
+  restart. The SMK-37 runs tabby-v04.0; ACTIONS read USER 471040; ERASE OLD DATA was run; no
+  restore was needed. It is back on the NUC (USB, back port; TRS out to the H4MIDI WC DIN in 1
+  through the type A adapter).
+
+**The fix (sdk/WebUpdate.js, sdk/Update.html.in, sdk/I18n.js; SPEC 16.5 items 4 and 5).**
+- The zero tag (`ZERO_TAG`) takes the model-confirmed resume in connect() and is accepted by
+  waitFor() while it waits for a loader; any other foreign tag is still LOADER_MISMATCH.
+- The identity query is tried 4 times when a port opens (was 2); the capability query 4 times
+  (`queryRetry`); on an Open identity that still does not answer, Connect fails with code
+  NO_REPLY: "The device did not answer the version query after 4 tries. Nothing was written.
+  Power-cycle the SMK-37 ... then click Connect device again." No migration, no force offer.
+  Force ticked by hand beforehand keeps the old legacy path (the manual choice).
+- The page's "Enable force flash and reconnect" button is always hidden and has no handler; an
+  error never sets the force suggestion; for a non-Open identity (factory V16) the page says to
+  tick Force flash by hand in "Migration, factory restore and forced updates". The manual's
+  install chapter says the same, in both languages.
+- Tests: tests/workbench/update-safety.mjs (30 checks, in workbench-test): zero-tag resume with
+  and without the confirmation, the write without command 50 and the restart check; nonzero
+  tags refused; 4 capability queries then NO_REPLY, never migration or legacy; a retry that
+  succeeds; force by hand keeps legacy; V16 still migration; 4 identity tries; the page's
+  static force paths; the English texts. make check, lint (the same three warnings), test-fast
+  and workbench-test pass. recover-page.py v0.2 reads tabby-v04.0's WebUpdate.js from the tag and
+  rebuilds the published recovery page identically.
+- Publication: with the next release only; tabby-v04.0 is not republished.
+  `builds/tabby-v04.0-recover/` is now listed on builds/ with a note on when to use it.

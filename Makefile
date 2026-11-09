@@ -76,9 +76,11 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.20
+# Version: 0.21
 #
 # Revision log
+#   v0.21 2026-11-09  workbench-test runs tests/workbench/update-safety.mjs (no force flash after a timeout; the
+#                     zero-tag loader resumes; sdk/WebUpdate.js, BUILD.md 26.8).
 #   v0.20 2026-11-09  workbench-test runs tests/workbench/recover-page.mjs (the tabby-v04.0 recovery page:
 #                     zero-tag resume, no force flash; tools/linux/recover-page.py).
 #   v0.19 2026-11-08  Task 12 A5: workbench-test runs tests/workbench/loader-tag.mjs (stale-loader resume) and
@@ -336,6 +338,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/update-ports.mjs
 	$(T) $(NODE) tests/workbench/loader-tag.mjs
 	$(T) $(NODE) tests/workbench/recover-page.mjs
+	$(T) $(NODE) tests/workbench/update-safety.mjs
 	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
 	$(T) $(PYTHON) -I tests/linux/builds-index-test.py
 

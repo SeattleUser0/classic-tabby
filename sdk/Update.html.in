@@ -235,6 +235,7 @@ main{max-width:1440px}
 <p id="status" role="status" aria-live="polite">正在检查网页内容…</p>
 <progress id="progress" value="0" max="100" aria-label="更新进度"></progress>
 <p id="error" role="alert"></p>
+<!-- Task 12 (2026-11-09): the force-activate button stays hidden for good; force flash is only the checkbox in the migration section. -->
 <!-- Task 12 A5: when the update loader waits for another build, the build's name and the link to its page. -->
 <p id="loader-hint" hidden></p>
 <details id="connection-details" hidden><summary>连接详情</summary><p>以下是浏览器本次检测到的端口；信息仅显示在本页。</p><p><strong>MIDI IN</strong></p><ul id="connection-inputs"></ul><p><strong>MIDI OUT</strong></p><ul id="connection-outputs"></ul><p><strong>设备回复的身份</strong></p><ul id="connection-identities"></ul><p><strong>等待的设备身份</strong></p><ul id="connection-expected"></ul><ul id="connection-attempts"></ul></details>
@@ -374,7 +375,7 @@ main{max-width:1440px}
 <li>Open the Device update tab. The page shows Firmware SMK37 Pro Open and the version. Check that the version is the one you downloaded.</li>
 <li>Connect the SMK-37 Pro by USB. Tick the back-up box. Click Connect device and allow MIDI with SysEx.</li>
 <li>Read the identity line. SMK-37 Pro_8000001 is an Open firmware. SMK-37 Pro_016 is the factory firmware. Anything else is not this device, so stop.</li>
-<li>From an Open firmware, click Start update. From the factory firmware, click Enable force flash and reconnect first, confirm the warning, then Start update.</li>
+<li>From an Open firmware, click Start update. From the factory firmware, open Migration, factory restore and forced updates, tick Force flash, wait for the page to reconnect, confirm the warning, then Start update. If the device does not answer, power-cycle it and connect again; never use force flash on an Open firmware.</li>
 <li>Keep power and USB connected until the page reports the restart and the version check.</li>
 </ol>
 <p class="manual-note">Songs written by tabby-v02.0 keep playing as before, including swing. Reflashing from tabby-v03.0 to tabby-v03.1 is optional. Both have the same sequencer.</p>
@@ -729,7 +730,7 @@ main{max-width:1440px}
 <h4>蓝牙设置</h4><p>机身的蓝牙页已随 Classic Tabby Task 06 移除（为独立轨道启动腾出闪存）。蓝牙设置在网页工作台“项目与音色 → 蓝牙设置”：连接项目库后可打开或关闭蓝牙和蓝牙音频，选择 BLE MIDI 的 DEVICE／HOST 角色，并清除 MIDI 配对；改动立即写入设备并保存。蓝牙打开时 MIDI 服务自动可用；出厂默认蓝牙和音频打开、DEVICE 角色。时钟来源在 SYNC / MIDI 页（按 SEQ）选择。HOST 模式的设备扫描与连接列表不再提供。</p>
 <h4>INT 与 MIDI 时钟</h4><p><strong>INT：</strong>SMK37 OPEN 使用内部速度，K4 可设 30–300 BPM。<strong>MIDI：</strong>跟随外部 MIDI Clock，需外部发送 Start／Continue 才开始或继续。此时旋转速度不会改变外部速度。超过约两秒收不到时钟，屏幕显示 LOST；检查外部设备是否发送时钟，或切回 INT。</p>
 </article>
-<article id="manual-update" class="manual-chapter" tabindex="-1"><h3>20 · 更新固件</h3><p>下载与机身型号对应的 Pro 工作台。连接 USB，先导出项目与歌曲备份（.tabby），再在“设备更新”中连接、勾选备份确认并更新。首次从同型号原厂固件迁移时，使用“启用强制烧录并重新连接”。完成后网页会核对型号与版本哈希。Pro 与 Elite 固件不可混刷。</p>
+<article id="manual-update" class="manual-chapter" tabindex="-1"><h3>20 · 更新固件</h3><p>下载与机身型号对应的 Pro 工作台。连接 USB，先导出项目与歌曲备份（.tabby），再在“设备更新”中连接、勾选备份确认并更新。首次从同型号原厂固件迁移时，在“迁移、原厂恢复与强制更新”中手动勾选“强制烧录”。完成后网页会核对型号与版本哈希。Pro 与 Elite 固件不可混刷。</p>
 <p>选择“迁移、原厂恢复与强制更新”中的“刷回原厂 V16”，核对型号、备份后确认恢复。固件和原厂资源完成写入、读回校验后，请重新开机。需要返回 Open 时点击“切回 Open 固件”，重新连接并更新；项目与采样再从各自备份恢复。</p><ol><li>在“项目与音色”备份当前项目，其他需要保留的项目槽也逐一载入并备份；歌曲用“导出 .tabby”逐首备份。LIVE 轨的音色修改另行导出轨道音色。</li><li>打开最新版工作台的“设备更新”，通过 USB 数据线连接 SMK37 OPEN。固件已内置。</li><li>勾选“已保存需要保留的音色、工程和采样”，点击“连接设备”，允许 MIDI／SysEx。</li><li>核对设备提示，点击“开始更新”，保持供电和 USB 连接直到完成。</li><li>等待重启及版本核对。首次从 V01 迁移时，机身会提示旧的采样／DX7 数据仍在闪存，见第 02 章。</li></ol>
 <p>正常完成的同布局更新会保留有效项目槽和歌曲存储；刷写前仍请分别备份工程、音色和歌曲。设备重启后，未保存的内存编辑不会自动恢复。固件更新也不会自动把网页仿真中的项目传到设备。</p><p>若更新中断或设备停在升级界面，保留<strong>同一版本的这张网页</strong>，检查连接后重新连接并按提示继续。从其他固件迁移时，开启“强制烧录”，重新连接并确认兼容风险。固件不支持 USB-MIDI 升级协议时，请使用该版本配套的恢复工具。跨固件迁移可能清除项目和采样，务必先备份。</p>
 <p>正常连接已识别其他固件（相同型号的原有固件）时，点击 启用强制烧录并重新连接。这一步只开启模式并重新连接，不会写入固件。页面会说明接下来缺少哪一步；确认已备份后，再点 强制烧录 并确认兼容风险才会开始。也可点击强制烧录勾选行的任意位置开启。设备仍需支持兼容的 USB-MIDI 升级协议。</p><p>拔插 USB 后重新点击连接即可；页面会清除旧设备信息。烧录与项目库切换时按提示重新连接。</p><p>连接失败时，展开“连接详情”查看本次浏览器检测到的 MIDI IN／OUT。未发现端口、端口无法配对、设备未回复型号是不同的问题。先关闭其他 MIDI 软件和更新网页，再重新开机、插拔 USB 并连接；强制烧录不能跳过设备握手。</p></article>
@@ -854,13 +855,13 @@ main{max-width:1440px}
     $('stock-restore').disabled=locked||!openPkg||!FM1_PACKAGE?.stock;
     $('stock-restore').hidden=pkg?.kind==='stock';$('open-firmware').hidden=pkg?.kind!=='stock';
     $('open-firmware').disabled=locked;$('stock-warning').hidden=pkg?.kind!=='stock';
-    $('force-activate').hidden=!forceSuggested||$('force-update').checked;
+    $('force-activate').hidden=true;   /* Task 12 (2026-11-09): force is never offered as a button; only the checkbox in the migration section */
     $('force-activate').disabled=locked||!pkg;
     FM1I18n.text($('update-next'),SMK37Boot.blocked?'页面资源不完整，请重新载入。':!pkg?'':finishingUpdate?'固件已更新，正在检查采样区…':busy?'设备操作进行中，请稍候。':updateResult==='stock'?'原厂固件与资源已恢复，读回校验通过。请重新开机后使用。':updateResult==='ready'?
       '更新已完成，可以开始使用 SMK37 OPEN，无需再次烧录。':updateResult==='samples'?
       '采样区尚未就绪：可重新检查；若提示校验失败，请在“项目与音色 → 8 槽采样库”恢复备份或确认写入内置库，无需重刷固件。':updateResult==='checked'?
       '采样区检查完成；已有有效采样保留，空采样区已补齐内置库。':!connected||migration?
-      (forceSuggested?'检测到其他固件：可点击“启用强制烧录并重新连接”。':'下一步：连接设备。'):
+      (forceSuggested?'检测到其他固件：如需迁移，请在“迁移、原厂恢复与强制更新”中手动勾选“强制烧录”。':'下一步：连接设备。'):
       same?'已是当前版本；设备显示 EMPTY 时可点击“检查 / 初始化采样”，无需重刷。':!$('backup').checked?'下一步：勾选已备份确认，才能开始烧录。':pkg.kind==='stock'?'下一步：恢复当前型号的原厂 V16，确认后开始写入。':$('force-update').checked?
       '下一步：点击“强制烧录”，阅读并确认兼容风险。':'下一步：点击“开始更新”。');
     FM1I18n.text($('install'),pkg?.kind==='stock'?'刷入原厂 V16':$('force-update').checked?'强制烧录':'开始更新');
@@ -972,13 +973,13 @@ main{max-width:1440px}
       /* Task 11B: the port the user picked from #update-port, if any (CHOOSE_PORT below). */
       const device=await updater.connect({force:$('force-update').checked,signal,pick:$('update-port').value||null}); connected=true;same=!!device.same;migration=!!device.migration;forceSuggested=migration;
       $('device-identity').textContent=device.identity;
-      status(migration?'已识别设备和当前固件；迁移请点击“启用强制烧录并重新连接”。':same?'已是当前版本，无需更新。':device.resume?'已连接升级程序，机型尚未核实；写入前需核对机身型号。':pkg.kind==='stock'?'已连接设备，可恢复原厂 V16。':$('force-update').checked?'已连接；开始强制烧录前将再次确认设备和兼容风险。':'已连接 SMK37 OPEN，可开始更新');
+      status(migration?'已识别设备和当前固件（不是 Open 固件）。如需迁移，请展开“迁移、原厂恢复与强制更新”，手动勾选“强制烧录”，再重新连接。':same?'已是当前版本，无需更新。':device.resume?'已连接升级程序，机型尚未核实；写入前需核对机身型号。':pkg.kind==='stock'?'已连接设备，可恢复原厂 V16。':$('force-update').checked?'已连接；开始强制烧录前将再次确认设备和兼容风险。':'已连接 SMK37 OPEN，可开始更新');
       connectionNotice=undefined;
-    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=error.code==='FIRMWARE_MISMATCH';if(error.code==='CHOOSE_PORT')showPortChoices(error.choices);FM1I18n.text($('error'),error.message);showLoaderHint(error);status('尚未连接');if(error.identity)$('device-identity').textContent=error.identity;}
+    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=false;   /* Task 12 (2026-11-09): an error never suggests force */if(error.code==='CHOOSE_PORT')showPortChoices(error.choices);FM1I18n.text($('error'),error.message);showLoaderHint(error);status('尚未连接');if(error.identity)$('device-identity').textContent=error.identity;}
     finally{await endConnection(attempt);busy=false;enable();}
   }
   $('connect').addEventListener('click',connectDevice);
-  $('force-activate').addEventListener('click',()=>setForceMode(true,true));
+  /* Task 12 (2026-11-09): the "Enable force flash and reconnect" button is gone (it was offered after a query timeout on 2026-11-09). */
   function packageDetails(){
     FM1I18n.text($('update-intro'),pkg.kind==='stock'?'连接当前型号，确认备份后点击“刷入原厂 V16”。':'连接 SMK37 OPEN，确认备份后点击“开始更新”。');
     FM1I18n.text($('profile'),'SMK37 '+(pkg.model==='elite'?'Elite':'Pro')+(pkg.kind==='stock'?' 原厂 V16':' Open'));

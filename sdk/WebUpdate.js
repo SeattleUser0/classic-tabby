@@ -19,6 +19,15 @@
  * Classic Tabby Task 12 A3 (2026-11-08): writeGuard() before every flash write (project slot save,
  * song uploads and deletes, settings kind 8, Bluetooth writes, ERASE OLD DATA, full restore): it
  * reads command 27's live transport byte and sends nothing while the device plays.
+ * Classic Tabby Task 12, install incident (2026-11-09, BUILD.md 26.7 and 26.8): (1) a loader named
+ * ota-SMK37 + 16 zeros (entered without command 50) takes the model-confirmed resume, as the vendor's
+ * unidentified loader does (ZERO_TAG); any other foreign tag is still LOADER_MISMATCH. (2) Connect
+ * never leads to force flash after a timeout: the identity query is tried 4 times when a port opens,
+ * the capability query (49) 4 times, and if 49 still does not answer on an Open identity Connect
+ * fails with code NO_REPLY ("did not answer; power-cycle") instead of offering migration. Migration
+ * and force stay for a non-Open identity (factory V16), and force is a manual choice on the page.
+ * The identity re-check in install() is retried too (queryRetry). Test: tests/workbench/loader-tag.mjs
+ * scenarios X-Z.
  * Classic Tabby Task 12 A5 (2026-11-08): safe resume for a stale loader. The Jieli loader's USB name
  * carries the build it waits for (ota-SMK37 + the first 16 hex digits of the build id, taggedLoader).
  * When connect() or waitFor() meets a loader whose tag is not this page's build, the page never
@@ -99,6 +108,19 @@
   const LOADER_TAG=/^ota-SMK37([0-9a-fA-F]{16})$/;
   const loaderTag = identity => { const m=LOADER_TAG.exec(identity||''); return m?m[1].toLowerCase():null; };
   const ownTag = pkg => String(pkg.build_id||'').slice(0,16).toLowerCase();
+  // Task 12 (2026-11-09): the tag of a loader entered without command 50 (the SDK's target_id is
+  // all zeros until command 50 writes it). It names no build, so it is treated like the vendor's
+  // unidentified loader: the resume needs the explicit model confirmation, and the build id is
+  // checked after the restart.
+  const ZERO_TAG='0000000000000000';
+  // Task 12 (2026-11-09): a query tried up to `tries` times on a timeout (never on another error,
+  // never after the port was lost). Used where a single missed reply used to end in migration.
+  async function queryRetry(link,command,payload=[],tries=4) {
+    for(let attempt=0;;attempt++) {
+      try { return await link.query(command,payload); }
+      catch(error) { if(error.code!=='TIMEOUT'||link.lost||attempt>=tries-1) throw error; }
+    }
+  }
   // Task 12 A5: find a loader tag in a builds index (builds/index.json, schema 1). The entry's page
   // path is relative to the site root; indexUrl (where the index was read from) resolves it.
   function matchBuild(index,tag,indexUrl) {
@@ -362,9 +384,9 @@
       const link=new Link(pair.input,pair.output,parse,signal);
       try {
         let reply;
-        for(let attempt=0;attempt<2;attempt++){
+        for(let attempt=0;attempt<4;attempt++){   // Task 12 (2026-11-09): 4 tries (was 2)
           try {reply=await link.query(17,[],750);break;}
-          catch(error){if(error.code!=='TIMEOUT'||attempt||link.lost)throw error;}
+          catch(error){if(error.code!=='TIMEOUT'||attempt>=3||link.lost)throw error;}
         }
         check(reply.length===27 && /^[\x20-\x7e]{1,27}$/.test(ascii(reply)),'设备身份响应无效');
         return {link,identity:ascii(reply)};
@@ -430,8 +452,9 @@
       try {
         // Task 12 A5: a loader waiting for another build is named, never accepted, never silent.
         const stale=loaderTag(this.identity);
-        if(stale && stale!==ownTag(this.pkg)) throw await this.loaderMismatch(stale,this.identity);
-        if(this.identity===this.pkg.loaderIdentity || this.identity===taggedLoader(this.pkg) ||
+        if(stale && stale!==ownTag(this.pkg) && stale!==ZERO_TAG) throw await this.loaderMismatch(stale,this.identity);
+        // Task 12 (2026-11-09): the zero tag joins the unidentified-loader resume (model confirmation).
+        if(this.identity===this.pkg.loaderIdentity || this.identity===taggedLoader(this.pkg) || stale===ZERO_TAG ||
            modelLoader(this.identity,this.pkg.model)) {
           // Stock firmware passes ota- plus its current identity to the loader.
           // Resume still needs physical-model confirmation: the shared loader
@@ -448,13 +471,18 @@
           return {identity:this.identity,...(force?{legacy:true}:{migration:true})};
         }
         let cap;
-        try {cap=capability(await this.link.query(49));}
+        try {cap=capability(await queryRetry(this.link,49));}   // Task 12 (2026-11-09): 4 tries
         catch(error) {
           // Some third-party identities share Open's numeric prefix. A missing
           // capability reply requires explicit migration, never a silent flash.
           // Malformed replies and disconnected ports remain errors.
           if(error.code!=='TIMEOUT' || this.link.lost)throw error;
-          if(!force){this.mode='migration';return {identity:this.identity,migration:true};}
+          // Task 12 (2026-11-09): after 4 unanswered tries the page no longer offers migration (it
+          // used to, and on 2026-11-09 force flash was turned on from that offer; the forced write
+          // skipped command 50 and left the loader with a zero tag). Without force it says the
+          // device did not answer. Force ticked by the user beforehand (the manual choice in the
+          // migration section) keeps the old legacy path.
+          if(!force)throw Object.assign(Error('设备连续 4 次未回复版本查询，未写入任何内容。请将 SMK-37 断电重启，关闭其他 MIDI 软件和更新网页，再点击“连接设备”。'),{code:'NO_REPLY'});
           this.mode='legacy';return {resume:false,identity:this.identity,legacy:true};
         }
         check(cap.family===this.pkg.family,'Firmware family does not match this SMK37 model');
@@ -496,13 +524,13 @@
             // Task 12 A5: a loader with another build's tag ends the wait at once with its name,
             // instead of being skipped until the timeout.
             const stale=loaderTag(device.identity);
-            if(stale && stale!==ownTag(this.pkg) && !expected.includes(device.identity)) {
+            if(stale && stale!==ownTag(this.pkg) && stale!==ZERO_TAG && !expected.includes(device.identity)) {
               await device.link.close();
               const ports=portList(this.access);
               this.diagnostics={...this.diagnostics,inputs:ports.inputs,outputs:ports.outputs,expected,identities:[...observed]};
               throw await this.loaderMismatch(stale,device.identity);
             }
-            if(expected.includes(device.identity) || (loaderModel && modelLoader(device.identity,loaderModel))) {
+            if(expected.includes(device.identity) || (loaderModel && (modelLoader(device.identity,loaderModel) || stale===ZERO_TAG))) {
               this.link=device.link; this.identity=device.identity; return;
             }
             await device.link.close();
@@ -591,7 +619,7 @@
         check(this.mode!=='loader' || confirmedModel===this.pkg.model,
           '升级模式无法自动识别机型，请先核对机身型号');
         const original=this.identity;
-        const reply=await this.link.query(17);
+        const reply=await queryRetry(this.link,17);   // Task 12 (2026-11-09): retried on a timeout
         check(reply.length===27 && ascii(reply)===original,'设备身份已改变，请重新连接');
         if(this.pkg.kind==='stock')await factoryCheck(this.pkg.factory);
         if(this.mode!=='loader') {
