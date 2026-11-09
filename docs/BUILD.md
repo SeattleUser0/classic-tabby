@@ -3468,3 +3468,12 @@ and fails for another; nonzero other tags are refused with and without force; fo
 the capability timeout is retried and never leads to migration or legacy; the built page carries
 the tested WebUpdate.js verbatim and the published FM1_PACKAGE, and every write to the force
 checkbox sets false.
+
+Published 2026-11-09 08:48 UTC: gh-pages 953c3a9 adds only `builds/tabby-v04.0-recover/` (10
+files); made at 95ec02b with the source link to that commit's archive. Standalone SHA-256
+c4ef289ad6433f5f4da362135a52596e7f9dab6cc6b8c1dcf43d53a161d6d9c3 (3127637 bytes), index.html
+24c3a033c98de69b03a31f7cae2ed56c5fe9d2c0229b2d027a0450b6a1296e87, patched script d06f5c09….js;
+firmware asset 368c6130….bin and FM1_PACKAGE identical to tabby-v04.0; the page's own prepare()
+passes on that asset. All 10 live files are byte-identical to the local build; the main page,
+assets.json, builds/index.json and builds/tabby-v04.0/ are unchanged. Headless Chrome: no console
+error, the notice shown, the force checkbox disabled, the force button and the migration group hidden.
