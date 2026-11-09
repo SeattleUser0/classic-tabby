@@ -25,9 +25,11 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-09  Task 12 B1: diag() reads the control-loop profile (command 25 pages 4 and 5, every build
+                      from tabby-v04.0; decoded as sdk/WebUpdate.js diagRead), diag_text() prints it.
     v0.3  2026-11-08  kernel timestamps on the device's USB output (snd_rawmidi_tread).
     v0.2  2026-11-08  diag page 3 (screen timing) when the firmware has it.
     v0.1  2026-11-07  Task 11B: first version.
@@ -256,7 +258,21 @@ class Link:
                           "paints_per_second": u(c, 12) / secs if secs else 0}
         except (DeviceError, TimeoutError):
             pass
-        return {"seconds": secs, "screen": screen, "loop": {"count": u(a, 8), "max_ms": ms(u(a, 12)), "mean_ms": ms(u(a, 16))},
+        profile = None
+        try:                                  # v0.4: pages 4 and 5 (the loop profile, app/diag.c ct_prof_read)
+            p4 = self.query(25, bytes([4]), attempts=1); p5 = self.query(25, bytes([5]), attempts=1)
+            if len(p4) == 60 and len(p5) == 56:
+                names = ["router", "song", "storage", "screen", "panel", "transfer", "project", "sdk"]
+                sec = {names[i]: {"max_ms": ms(u(p4, 12 + 8 * i)), "mean_ms": ms(u(p4, 16 + 8 * i))} for i in range(6)}
+                for i in range(2):
+                    sec[names[6 + i]] = {"max_ms": ms(u(p5, 8 * i)), "mean_ms": ms(u(p5, 4 + 8 * i))}
+                for i in range(7):
+                    sec[names[i]]["calls"] = u(p5, 28 + 4 * i)
+                profile = {"passes": u(p4, 0), "pass_mean_ms": ms(u(p4, 4)), "pass_max_ms": ms(u(p4, 8)), "sections": sec,
+                           "midi_in": {"calls": u(p5, 16), "mean_ms": ms(u(p5, 20)), "max_ms": ms(u(p5, 24))}}
+        except (DeviceError, TimeoutError):
+            pass
+        return {"seconds": secs, "screen": screen, "profile": profile, "loop": {"count": u(a, 8), "max_ms": ms(u(a, 12)), "mean_ms": ms(u(a, 16))},
                 "flash": {"erases": u(a, 20), "erase_max_ms": ms(u(a, 24)), "writes": u(a, 28), "write_max_ms": ms(u(a, 32)), "write_max_bytes": u(a, 36)},
                 "keys": {"count": u(a, 40), "max_ms": ms(u(a, 44)), "bins": [a[48 + 2 * i] | a[49 + 2 * i] << 8 for i in range(8)]},
                 "scan": {"count": u(b, 0), "per_second": u(b, 0) / secs if secs else 0, "gap_max_ms": ms(u(b, 4)),
@@ -275,7 +291,27 @@ def diag_text(d):
         "L.5 matrix scan: %d scans, %.1f per second, longest gap %s ms; scan ISR peak %s ms, ADC ISR peak %s ms" % (d["scan"]["count"], d["scan"]["per_second"], f(d["scan"]["gap_max_ms"]), f(d["scan"]["isr_peak_ms"]), f(d["scan"]["adc_peak_ms"]))]
         + (["screen: %d control calls, mean %s ms, max %s ms; %d band paints (%.1f per second, %d bands), mean %s ms, max %s ms" % (
             d["screen"]["controls"], f(d["screen"]["control_mean_ms"]), f(d["screen"]["control_max_ms"]), d["screen"]["paints"],
-            d["screen"]["paints_per_second"], d["screen"]["bands"], f(d["screen"]["paint_mean_ms"]), f(d["screen"]["paint_max_ms"]))] if d.get("screen") else []))
+            d["screen"]["paints_per_second"], d["screen"]["bands"], f(d["screen"]["paint_mean_ms"]), f(d["screen"]["paint_max_ms"]))] if d.get("screen") else [])
+        + (profile_lines(d["profile"]) if d.get("profile") else []))
+
+
+PROFILE_LABELS = [("router", "router (MIDI out sends)"), ("song", "song scheduling"), ("storage", "song storage (scan / erase / compact)"),
+                  ("screen", "screen (panel input, pages, LCD)"), ("panel", "panel and LEDs (key queue, LEDs)"),
+                  ("transfer", "transfer (workbench protocol)"), ("project", "project (restores, settings saves)"), ("sdk", "SDK between the hooks")]
+
+
+def profile_lines(p):
+    """v0.4: the profile lines of the workbench's text (sdk/WebUpdate.js diagText)."""
+    f = lambda v: "%.3f" % v
+    out = ["control pass (SDK call of groove_midi_poll to the next): %d passes, mean %s ms, max %s ms; per section, per pass (mean / max, exclusive):"
+           % (p["passes"], f(p["pass_mean_ms"]), f(p["pass_max_ms"]))]
+    for k, label in PROFILE_LABELS:
+        s = p["sections"][k]
+        calls = (", %.2f calls per pass" % (s["calls"] / p["passes"])) if "calls" in s and p["passes"] else ""
+        out.append("  %s: %s / %s ms%s" % (label, f(s["mean_ms"]), f(s["max_ms"]), calls))
+    m = p["midi_in"]
+    out.append("  MIDI input callback (routing task, not in the pass): %d calls, mean %s ms, max %s ms" % (m["calls"], f(m["mean_ms"]), f(m["max_ms"])))
+    return out
 
 
 # ---- DIN monitor in a thread (same capture code as midi-monitor.py) ---------------------
