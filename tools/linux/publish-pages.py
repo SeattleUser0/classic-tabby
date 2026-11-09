@@ -39,9 +39,13 @@ Usage (from the repository root)
         --source-url https://github.com/<owner>/<repo>/archive/refs/tags/tabby-v01.0.zip \
         --commit --push                                                   # + gh-pages
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-08  Task 12 A5: every tagged publish also lands in builds/<tag>/ and in builds/index.json
+                      (tools/linux/builds-index.py), the permanent build pages the workbench's stale-loader
+                      message links to; a root publish keeps builds/ and recover/ too (--keep default).
+                      --no-builds skips that step.
     v0.3  2026-11-07  Task 11: a site can live in a subdirectory of gh-pages (--site-dir probe64:
                       the probe's own page); publishing the root site keeps the subdirectories
                       named by --keep (default: probe64), so the main page never deletes, links
@@ -54,6 +58,7 @@ Revision log
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -64,6 +69,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
+
+
+def builds_index():
+    """tools/linux/builds-index.py as a module (its file name has a hyphen, so importlib loads it)."""
+    spec = importlib.util.spec_from_file_location("builds_index", HERE / "builds-index.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 SITE_LINK = re.compile(r'<a href="([^"]+)"[^>]*>源码与 SDK</a>')   # same pattern as Build-Hosted.cjs
 
 
@@ -203,6 +216,11 @@ def update_branch(staging, report, source_url, args, log):
             shutil.rmtree(child) if child.is_dir() else child.unlink()
     shutil.copytree(staging, site_dir, dirs_exist_ok=True)
     (worktree / ".nojekyll").write_bytes(b"")
+    # v0.4 (Task 12 A5): the permanent page of this build and the index the workbench reads.
+    permanent = ""
+    if args.tag and not args.no_builds:
+        builds_index().add_site(worktree, args.tag, staging, note=args.note, log=log)
+        permanent = "Permanent page: builds/%s/ (builds/index.json updated)\n" % args.tag
     git(["add", "-A"], cwd=worktree)
     if not git(["status", "--porcelain"], cwd=worktree):
         log("gh-pages already holds this site; nothing to commit.")
@@ -210,8 +228,8 @@ def update_branch(staging, report, source_url, args, log):
     where = "" if site_dir == worktree else " in %s/" % args.site_dir.strip("/")   # v0.3
     subject = "Pages: %s%s (build %s, release %s)" % (args.tag or "untagged", where, (report.get("build") or "")[:12], report.get("release"))
     body = ("Static site from build/official-web/%s/SMK37-Open-Source.html via tools/Build-Hosted.cjs.\n"
-            "Source archive link: %s\nFirmware build_id: %s\nDisplay version: %s\nSource commit: %s\n"
-            % (args.model, source_url, report.get("build"), report.get("version"), git(["rev-parse", "HEAD"])))
+            "Source archive link: %s\nFirmware build_id: %s\nDisplay version: %s\nSource commit: %s\n%s"
+            % (args.model, source_url, report.get("build"), report.get("version"), git(["rev-parse", "HEAD"]), permanent))
     git(["commit", "-q", "-m", subject, "-m", body], cwd=worktree, env=env)
     sha = git(["rev-parse", "HEAD"], cwd=worktree)
     log("Committed %s on %s: %s" % (sha[:12], branch, subject))
@@ -239,10 +257,12 @@ def main(argv=None):
     parser.add_argument("--worktree", default=str(ROOT / "build/gh-pages"), help="worktree path (must be under build/)")
     parser.add_argument("--site-dir", default=".", help="directory inside the branch that receives the site (default root)")
     parser.add_argument("--keep", action="append", default=None,
-                        help="v0.3: a top-level directory a root publish leaves alone (repeatable; default probe64)")
+                        help="v0.3: a top-level directory a root publish leaves alone (repeatable; default probe64, builds, recover)")
+    parser.add_argument("--no-builds", action="store_true", help="v0.4: do not add the build to builds/<tag>/ and builds/index.json")
+    parser.add_argument("--note", help="v0.4: a short note for the build's index entry")
     args = parser.parse_args(argv)
     if args.keep is None:
-        args.keep = ["probe64"]
+        args.keep = ["probe64", "builds", "recover"]
     if args.push:
         args.commit = True
     html = args.html or str(ROOT / "build/official-web" / args.model / "SMK37-Open-Source.html")

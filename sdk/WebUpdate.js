@@ -19,6 +19,14 @@
  * Classic Tabby Task 12 A3 (2026-11-08): writeGuard() before every flash write (project slot save,
  * song uploads and deletes, settings kind 8, Bluetooth writes, ERASE OLD DATA, full restore): it
  * reads command 27's live transport byte and sends nothing while the device plays.
+ * Classic Tabby Task 12 A5 (2026-11-08): safe resume for a stale loader. The Jieli loader's USB name
+ * carries the build it waits for (ota-SMK37 + the first 16 hex digits of the build id, taggedLoader).
+ * When connect() or waitFor() meets a loader whose tag is not this page's build, the page never
+ * treats it as its own and never waits for the timeout: it looks the tag up in builds/index.json
+ * (the permanent build pages, tools/linux/builds-index.py), says which build the loader waits for
+ * and links to that build's page (code LOADER_MISMATCH: loaderTag, build {tag, page, url} or null,
+ * indexState found | unknown | unavailable). Updater takes {builds} (buildsLookup) as a 5th argument.
+ * Test: tests/workbench/loader-tag.mjs.
  * Classic Tabby Task 11C (2026-11-08): port names are normalized before matching (portName):
  * macOS CoreMIDI reported the SMK-37 as "SMK37 Open" plus 3 or 4 spaces, with different padding on
  * the input and output endpoints, so no input/output pair formed and the page connected to
@@ -87,6 +95,46 @@
     /^(SMK-37 Elite_\d+|SMK37E_OPEN_\d{3})$/.test(value)?'elite':undefined;
   const taggedLoader = pkg => 'ota-SMK37'+pkg.build_id.slice(0,16);
   const modelLoader = (identity,model) => identity.startsWith('ota-') && identityModel(identity.slice(4))===model;
+  // Task 12 A5: the 16 hex digits of the build a Jieli loader waits for, or null for any other name.
+  const LOADER_TAG=/^ota-SMK37([0-9a-fA-F]{16})$/;
+  const loaderTag = identity => { const m=LOADER_TAG.exec(identity||''); return m?m[1].toLowerCase():null; };
+  const ownTag = pkg => String(pkg.build_id||'').slice(0,16).toLowerCase();
+  // Task 12 A5: find a loader tag in a builds index (builds/index.json, schema 1). The entry's page
+  // path is relative to the site root; indexUrl (where the index was read from) resolves it.
+  function matchBuild(index,tag,indexUrl) {
+    if(!index || index.schema!==1 || !Array.isArray(index.builds)) return null;
+    const want=String(tag).toLowerCase();
+    const entry=index.builds.find(b=>b && (String(b.loader||'').toLowerCase()==='ota-smk37'+want || String(b.build||'').toLowerCase().startsWith(want)));
+    if(!entry) return null;
+    let url=entry.page||'';
+    try { if(indexUrl) url=new URL('../'+String(entry.page||'').replace(/^\/+/,''),indexUrl).href; } catch(_) {}
+    return {tag:entry.tag,build:entry.build,loader:entry.loader,version:entry.version,page:entry.page,published:entry.published,url};
+  }
+  // Task 12 A5: a lookup over an index object already in hand (tests, or a page that embeds it).
+  const buildsLookupFromIndex = (index,indexUrl=null) => async tag => {
+    if(!index || index.schema!==1 || !Array.isArray(index.builds)) return {state:'unavailable',entry:null,indexUrl:null};
+    const entry=matchBuild(index,tag,indexUrl);
+    return {state:entry?'found':'unknown',entry,indexUrl};
+  };
+  // Task 12 A5: a lookup that fetches the first readable index among candidate URLs (the page passes
+  // ./builds/index.json, ../index.json and ../builds/index.json resolved against its own address, so
+  // the main page, a builds/<tag>/ page and the probe64/ or recover/ pages all find the same file).
+  // file:// pages and network failures give 'unavailable'; the message still names the tag.
+  const buildsLookup = (urls,fetcher=(typeof fetch==='function'?fetch.bind(globalThis):null)) => async tag => {
+    if(!fetcher) return {state:'unavailable',entry:null,indexUrl:null};
+    for(const url of urls) {
+      try {
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+        let index;
+        try { const r=await fetcher(url,{cache:'no-store',signal:controller.signal}); if(!r.ok) continue; index=await r.json(); }
+        finally { clearTimeout(timer); }
+        if(!index || index.schema!==1 || !Array.isArray(index.builds)) continue;
+        const entry=matchBuild(index,tag,url);
+        return {state:entry?'found':'unknown',entry,indexUrl:url};
+      } catch(_) { /* try the next address */ }
+    }
+    return {state:'unavailable',entry:null,indexUrl:null};
+  };
   async function sha256(bytes) { return hex(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))); }
   // Official M-VAVE V016 downloads (2026-08-12), preserved byte-for-byte.
   const stockHashes={pro:'2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0',
@@ -302,9 +350,11 @@
     });
   }
   class Updater {
-    constructor(access,pkg,status=()=>{},timing={}) {
+    constructor(access,pkg,status=()=>{},timing={},options={}) {
       this.access=access; this.pkg=pkg; this.status=status; this.link=null; this.identity=null; this.busy=false;
       this.timing={idle:10000,writeIdle:180000,reconnect:40000,settle:600,pace:0,...timing};
+      // Task 12 A5: builds(tag16) -> {state, entry, indexUrl}; null means no index (the message still names the tag).
+      this.builds=options.builds||null;
     }
     async open(pair,signal) {
       try { await portOperation(pair.input,'open',signal); await portOperation(pair.output,'open',signal); }
@@ -378,6 +428,9 @@
       }
       this.link=device.link; this.identity=device.identity;
       try {
+        // Task 12 A5: a loader waiting for another build is named, never accepted, never silent.
+        const stale=loaderTag(this.identity);
+        if(stale && stale!==ownTag(this.pkg)) throw await this.loaderMismatch(stale,this.identity);
         if(this.identity===this.pkg.loaderIdentity || this.identity===taggedLoader(this.pkg) ||
            modelLoader(this.identity,this.pkg.model)) {
           // Stock firmware passes ota- plus its current identity to the loader.
@@ -411,6 +464,22 @@
       } catch(e) { await this.disconnect(); throw e; }
     }
     async disconnect() { if(this.link) await this.link.close(); this.link=null; this.identity=null; }
+    // Task 12 A5: the error for a loader that waits for another build. Nothing has been sent to the
+    // loader but the identity query. The message names the tag, this page's build, and (when the
+    // builds index lists it) the build's own tag; the page adds the link from error.build.url.
+    async loaderMismatch(tag,identity) {
+      let found={state:'unavailable',entry:null,indexUrl:null};
+      if(this.builds) { try { found={state:'unavailable',entry:null,indexUrl:null,...(await this.builds(tag))}; } catch(_) {} }
+      const own=this.pkg.display_version||this.pkg.release_version||ownTag(this.pkg);
+      let message;
+      if(found.state==='found' && found.entry)
+        message='升级程序正在等待另一个固件：构建 '+tag+'（'+found.entry.tag+'），不是本页的 '+own+'。本页没有发送固件。请打开该固件的页面继续安装。';
+      else if(found.state==='unknown')
+        message='升级程序正在等待构建 '+tag+'，它不在已发布固件列表中，也不是本页的 '+own+'。本页没有发送固件。如果这是自己编译的固件，请用编译它的网页继续；否则请断电重启设备后再连接。';
+      else
+        message='升级程序正在等待另一个固件：构建 '+tag+'，不是本页的 '+own+'。本页没有发送固件，也无法读取已发布固件列表（离线页面或网络问题）。请在线打开 builds/ 页面，按这个构建编号找到对应固件的页面继续。';
+      return Object.assign(Error(message),{code:'LOADER_MISMATCH',loaderTag:tag,identity,build:found.entry||null,indexState:found.state,indexUrl:found.indexUrl||null});
+    }
     async waitFor(identity,alternatives=[],loaderModel) {
       const end=Date.now()+this.timing.reconnect,expected=[...new Set([identity,...alternatives])],observed=new Set();
       while(Date.now()<end) {
@@ -424,6 +493,15 @@
           if(device)observed.add(device.identity);
           this.diagnostics={...this.diagnostics,expected,identities:[...observed]};
           if(device) {
+            // Task 12 A5: a loader with another build's tag ends the wait at once with its name,
+            // instead of being skipped until the timeout.
+            const stale=loaderTag(device.identity);
+            if(stale && stale!==ownTag(this.pkg) && !expected.includes(device.identity)) {
+              await device.link.close();
+              const ports=portList(this.access);
+              this.diagnostics={...this.diagnostics,inputs:ports.inputs,outputs:ports.outputs,expected,identities:[...observed]};
+              throw await this.loaderMismatch(stale,device.identity);
+            }
             if(expected.includes(device.identity) || (loaderModel && modelLoader(device.identity,loaderModel))) {
               this.link=device.link; this.identity=device.identity; return;
             }
@@ -1362,6 +1440,7 @@
     return lines.join('\n');
   }
   globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,portName,Updater,
+    loaderTag,matchBuild,buildsLookup,buildsLookupFromIndex,
     songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadParseV1,songPayloadBuild,songStepText,songStepParse,songLengthText,tabbyFile,readTabbyFile,songBlockIds,songBatches,songEventsValidate,
     crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library,
     backupParse,BACKUP_FORMAT,BACKUP_VERSION,diagText};   // Task 11

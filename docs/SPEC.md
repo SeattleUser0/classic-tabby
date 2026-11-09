@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.24
+Version: 0.25
 Revision log:
+- v0.25, 2026-11-08 (Task 12 A5): section 16.5: permanent build pages, builds/index.json, and the
+  rule for a loader that waits for another build.
 - v0.24, 2026-11-08 (Task 12 A4): section 16.4: the counters and the loop profile in every build.
 - v0.23, 2026-11-08 (Task 12 A3): section 16.3: no flash write while the transport runs.
 - v0.22, 2026-11-08 (Task 12 A2): section 16.2: the step editor removed; SYNC / MIDI and MIDI TRACK;
@@ -1086,3 +1088,21 @@ the hooks it calls, summed per pass, kept as mean and longest per pass, with its
 MIDI input arrives in the SDK's routing task (`fm1_app_midi_received`), outside the pass; it is
 counted apart (calls, mean, longest). L.1 keeps its Task 11 meaning (the period between any two
 router flushes) so the old numbers stay comparable; the pass period is the profile's.
+
+### 16.5 Permanent build pages and the stale-loader rule (A5)
+
+1. Every published build has a page at `https://seattleuser0.github.io/classic-tabby/builds/<tag>/`
+   that is never removed, and `builds/index.json` lists every build: tag, build id, loader tag
+   (`ota-SMK37` + the first 16 hex digits of the build id, the USB name of the update loader while
+   it waits for that build), page path, date, source archive, note. `make publish` adds the new
+   build by itself (BUILD.md 26.5; tool tools/linux/builds-index.py).
+2. The workbench never accepts a loader whose tag is not its own build, with or without force
+   flash, and never lets such a loader run into the reconnect timeout. At Connect, and while
+   waiting for the device to re-enumerate during an install, it reads the tag, looks it up in
+   `builds/index.json` (relative to its own address) and tells the user which build the loader is
+   waiting for, with a link to that build's page (`LOADER_MISMATCH`: tag known, tag unknown, or
+   the list unreadable, each with its own message). Nothing but the identity query is sent to
+   that loader, and its port is closed.
+3. The install page of a build is therefore the way to finish that build's interrupted install:
+   close the other tab, power-cycle the device if the loader does not answer, open the page the
+   message links to, Connect, Start update (BUILD.md 26.6, the install steps).

@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.43
+Version: 0.44
 Revision log:
+- v0.44, 2026-11-08 (Task 12 A5): 26.5 permanent build pages (builds/<tag>/, builds/index.json) and
+  the safe resume for a stale loader; 9.1 and 9.2 updated.
 - v0.43, 2026-11-08 (Task 12 A4): 26.4 the counters and the loop profile in the normal build.
 - v0.42, 2026-11-08 (Task 12 A3): 26.3 block writes during play.
 - v0.41, 2026-11-08 (Task 12 A2): 26.2 the step editor removed; SYNC / MIDI; left-to-build: the
@@ -646,6 +648,16 @@ nothing was written to any device.
 
 ### 9.1 What is published
 
+**Permanent build pages (Task 12 A5, 2026-11-08).** Every published build also has a page of its
+own at `https://seattleuser0.github.io/classic-tabby/builds/<tag>/` that is never removed, and
+`builds/index.json` lists every build (tag, build id, loader tag `ota-SMK37` + the first 16 hex
+digits of the build id, page path, date, source archive, note); `builds/` itself is a readable
+list. `make publish TAG=...` adds the new build by itself (publish-pages.py v0.4 calls
+tools/linux/builds-index.py); the historic builds were imported once (26.5). Published so far:
+tabby-v03.2, tabby-v03.3-diag, tabby-p0-probe64 (the same site as `probe64/`) and
+tabby-v03.3-diag-r2 (the resume page that was `/recover/`; `/recover/` now redirects there).
+The workbench reads the index when it meets an update loader waiting for another build (26.5).
+
 Current release **tabby-v03.3-diag** (2026-11-07, Task 11: the diagnostic build at the site root),
 and the test pre-release **tabby-p0-probe64** in the site's `probe64/` directory; the earlier
 releases' values below stay as the record of their publications.
@@ -736,9 +748,11 @@ depend on the commit id, so a rebuild from the tagged commit gives the same SHA-
    - `publish-pages.py --tag <TAG> --push`: refuses unless HEAD carries the tag, the tree is
      clean and the tag is on origin with the same id; then checks out `gh-pages` in the
      worktree `build/gh-pages/` (created as an orphan branch the first time), replaces the
-     site, commits ("Pages: <TAG> (build …)") and pushes with `gh auth git-credential` as a
-     one-command credential helper (no global git config is changed). Without a git
-     identity configured, the author of HEAD is used.
+     site (keeping `probe64/`, `builds/` and `recover/`), copies it to `builds/<TAG>/` and
+     rewrites `builds/index.json` and `builds/index.html` (v0.4, Task 12 A5; `--note "..."`
+     adds the index note, `--no-builds` skips the step), commits ("Pages: <TAG> (build …)")
+     and pushes with `gh auth git-credential` as a one-command credential helper (no global
+     git config is changed). Without a git identity configured, the author of HEAD is used.
 3. `make release TAG=tabby-v01.1` after writing `docs/releases/tabby-v01.1.md`: gathers
    `build/release/<TAG>/` (`.fwsc`, offline HTML, `SHA256SUMS.txt`) and runs
    `gh release create --verify-tag`.
@@ -3234,3 +3248,68 @@ Tests: tests/workbench/backup.mjs v0.5 section 5 (normal build: bits 6 and 7, ki
 backup, no command 26; the profile counts passes, the sections add up to the pass within 2 %, the
 screen, router and transfer hooks are counted). make check, lint (no new warning), test-fast pass.
 Size: 447748 bytes after A3 + A4, margin 71709 (FLASH-BUDGET 17).
+
+### 26.5 A5: permanent build pages and the safe resume for a stale loader
+
+**Why.** The 2026-11-08 incident (25.3a-c): an interrupted install left the SMK-37 in its Jieli
+loader, named `ota-SMK378b7dff801f1b0876` after the build it was receiving, and the loader accepts
+only that build. The published page waited for its own tag until the timeout and said nothing
+useful; the build the loader wanted had no page of its own until one was made by hand (`/recover/`).
+
+**The pages.** `https://seattleuser0.github.io/classic-tabby/builds/<tag>/` for every published
+build, never removed; `builds/index.json` (schema 1: tag, build, loader, version, page, published,
+source, note; ordered by date) and `builds/index.html` (the same as a static list; no scripts).
+Tool: `tools/linux/builds-index.py` (`add --tag T --site DIR [--published D] [--note N]
+[--source URL] [--replace]`, `index`, `redirect --path P --to T`). `add` refuses to overwrite a tag
+that holds a different build id (pages are permanent); the same build id is replaced quietly.
+`publish-pages.py` v0.4 calls it on every tagged publish and keeps `builds/` and `recover/` on a
+root publish, so `make publish` needs nothing more. Test: tests/linux/builds-index-test.py (21
+checks: hosted and standalone sites, permanence, index rewrite keeping dates and notes, redirect,
+the command line).
+
+**The import (done once, gh-pages 89ef820, worktree build/gh-pages).** The sites came from the
+gh-pages history, so the bytes are the published ones:
+
+```
+git -C build/gh-pages archive 4c675ae | tar -x -C <staging>/tabby-v03.2        # the v03.2 root
+git -C build/gh-pages archive e0811fa | tar -x -C <staging>/tabby-v03.3-diag   # the v03.3-diag root
+cp -a build/gh-pages/probe64/. <staging>/tabby-p0-probe64/
+cp build/gh-pages/recover/index.html <staging>/tabby-v03.3-diag-r2/index.html  # bytes = diag-r2-fixed page
+python3 -I tools/linux/builds-index.py add --tag tabby-v03.2 --site ... --published 2026-11-05 --note ...
+   (likewise tabby-v03.3-diag 2026-11-07, tabby-p0-probe64 2026-11-07, tabby-v03.3-diag-r2 2026-11-08
+    with --source https://github.com/SeattleUser0/classic-tabby/archive/c80c166.zip)
+python3 -I tools/linux/builds-index.py redirect --path recover --to builds/tabby-v03.3-diag-r2/
+```
+
+The diag-r2 entry is the untagged resume page: firmware built at d9e83f0 (DIAG=1, 536576 layout)
+inside the workbench of c80c166; its index entry names both commits, and the source link is the
+archive of c80c166 (a commit archive; both commits are on the pushed branch). Checked from a local
+HTTP server before the push: every moved page returns 200 and loads its three scripts from its
+own `assets/smk37/` (relative URLs), `/recover/` redirects. Sizes: 5.8-5.9 MB per hosted build,
+3.0 MB for the single-file resume page.
+
+**Safe resume (sdk/WebUpdate.js, Task 12 A5).** `loaderTag(identity)` reads the 16 hex digits of an
+`ota-SMK37…` name. In `connect()` and in `waitFor()`, a loader whose tag is not this page's build is
+never treated as the page's own loader and never left to the timeout: the Updater asks its
+`builds` lookup (a 5th constructor argument; the page passes `FM1Web.buildsLookup([...])` over
+`./builds/index.json`, `../index.json` and `../builds/index.json` resolved against its own URL,
+so the main page, a `builds/<tag>/` page and `probe64/` or `recover/` all find the same file) and
+throws code `LOADER_MISMATCH` with `loaderTag`, `build` ({tag, page, url} or null), `indexState`
+(`found`, `unknown`, `unavailable`) and `indexUrl`. The message names the tag, the build's own tag
+when the index lists it, and this page's version; the page (`#loader-hint`, showLoaderHint) adds
+the link to that build's page, or to the `builds/` list for an unknown tag, or (offline page, no
+network) says to open the list online. Force flash does not change the answer: the loader accepts
+only its build. The old behaviour was the generic "Connected hardware does not match this SMK37
+model" at Connect and a silent skip until `NO_DEVICE` in waitFor. The three messages have English
+patterns in sdk/I18n.js. Tests: tests/workbench/loader-tag.mjs (40 checks: own tag resumes; a known
+tag names the build and its URL, only the identity query reached the loader, the port is closed;
+an unknown tag; no index, failing fetch, throwing lookup; waitFor ends at once; matchBuild and
+buildsLookup over candidates with a 404 and a malformed index; every message translates; the page
+wiring). make test-fast passes (the two new tests are in workbench-test, Makefile v0.19).
+
+**What this does not cover.** The pages of the historic builds carry their own, older workbench:
+tabby-v03.2 and tabby-v03.3-diag refuse a mismatched loader with the old generic message, and the
+diag-r2 page (c80c166) with the Task 11C messages; only pages published from here on (tabby-v04.0
+and later, and the root page) have the lookup. A loader can be in the list only if its build was
+published; a private build's tag reads `unknown`, and the message says to use the page that built
+it or to power-cycle.

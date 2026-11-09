@@ -76,9 +76,12 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.18
+# Version: 0.19
 #
 # Revision log
+#   v0.19 2026-11-08  Task 12 A5: workbench-test runs tests/workbench/loader-tag.mjs (stale-loader resume) and
+#                     tests/linux/builds-index-test.py (permanent build pages, builds/index.json). publish-pages.py
+#                     v0.4 adds every tagged publish to builds/<tag>/ and the index by itself.
 #   v0.18 2026-11-08  Task 12 A1: the normal layout is USER 471040. web-diag now builds the diagnostic
 #                     simulator on that layout; web-old536 (was web-probe64) the diagnostic simulator on
 #                     the old 536576 layout, the source of the cross-layout restore in backup-test.
@@ -329,7 +332,9 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/rig-profile.mjs
 	$(T) $(NODE) tests/workbench/midi-guide.mjs
 	$(T) $(NODE) tests/workbench/update-ports.mjs
+	$(T) $(NODE) tests/workbench/loader-tag.mjs
 	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
+	$(T) $(PYTHON) -I tests/linux/builds-index-test.py
 
 test: timed-note-test host-smoke web-smoke workbench-test backup-test
 	@echo "test: timed-note-test, host-smoke, web-smoke, workbench-test and backup-test passed"

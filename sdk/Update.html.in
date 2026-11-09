@@ -235,6 +235,8 @@ main{max-width:1440px}
 <p id="status" role="status" aria-live="polite">正在检查网页内容…</p>
 <progress id="progress" value="0" max="100" aria-label="更新进度"></progress>
 <p id="error" role="alert"></p>
+<!-- Task 12 A5: when the update loader waits for another build, the build's name and the link to its page. -->
+<p id="loader-hint" hidden></p>
 <details id="connection-details" hidden><summary>连接详情</summary><p>以下是浏览器本次检测到的端口；信息仅显示在本页。</p><p><strong>MIDI IN</strong></p><ul id="connection-inputs"></ul><p><strong>MIDI OUT</strong></p><ul id="connection-outputs"></ul><p><strong>设备回复的身份</strong></p><ul id="connection-identities"></ul><p><strong>等待的设备身份</strong></p><ul id="connection-expected"></ul><ul id="connection-attempts"></ul></details>
 <small>更新期间保持供电和 USB 连接，中断后请用同一版本网页重试。</small><p><a href="#manual-update">更新帮助</a></p>
 </section>
@@ -884,6 +886,25 @@ main{max-width:1440px}
   function clearUpdateConnection(text){
     connected=false;same=false;migration=false;forceSuggested=false;updateResult='';
     $('device-identity').textContent='';FM1I18n.text($('error'),'');status(text,0);
+    showLoaderHint(null);   /* Task 12 A5 */
+  }
+  /* Task 12 A5: the builds index (builds/index.json) is looked up only when a loader reports another
+     build's tag. The candidates cover the main page (./builds/), a builds/<tag>/ page (../) and the
+     probe64/ or recover/ pages (../builds/); file:// pages find none and the message says so. */
+  const buildsLookup=FM1Web.buildsLookup(['./builds/index.json','../index.json','../builds/index.json'].map(u=>{try{return new URL(u,location.href).href;}catch(_){return u;}}));
+  function showLoaderHint(error){
+    const box=$('loader-hint');box.replaceChildren();box.hidden=!(error&&error.code==='LOADER_MISMATCH');
+    if(box.hidden)return;
+    const label=document.createElement('strong');
+    if(error.build&&error.build.url){
+      FM1I18n.text(label,'该固件的页面：');
+      const link=document.createElement('a');link.href=error.build.url;link.target='_blank';link.rel='noopener noreferrer';
+      link.textContent=(error.build.tag||'')+' — '+error.build.url;box.append(label,' ',link);
+    }else if(error.indexUrl){
+      FM1I18n.text(label,'已发布固件列表：');
+      const link=document.createElement('a');link.href=new URL('./',error.indexUrl).href;link.target='_blank';link.rel='noopener noreferrer';
+      link.textContent=link.href;box.append(label,' ',link);
+    }else{FM1I18n.text(label,'连接前请先断开其他 SMK-37。');box.append(label);}
   }
   function connectionChanged(){
     if(busy||finishingUpdate)return;
@@ -946,14 +967,14 @@ main{max-width:1440px}
       watch(access);
       updater=new FM1Web.Updater(access,pkg,(text,value)=>status(
         pkg.kind!=='stock'&&value===100?'固件已写入，正在检查采样区…':text,
-        pkg.kind!=='stock'&&typeof value==='number'?value*0.8:value));
+        pkg.kind!=='stock'&&typeof value==='number'?value*0.8:value),{},{builds:buildsLookup});   /* Task 12 A5 */
       attemptUpdater=updater;
       /* Task 11B: the port the user picked from #update-port, if any (CHOOSE_PORT below). */
       const device=await updater.connect({force:$('force-update').checked,signal,pick:$('update-port').value||null}); connected=true;same=!!device.same;migration=!!device.migration;forceSuggested=migration;
       $('device-identity').textContent=device.identity;
       status(migration?'已识别设备和当前固件；迁移请点击“启用强制烧录并重新连接”。':same?'已是当前版本，无需更新。':device.resume?'已连接升级程序，机型尚未核实；写入前需核对机身型号。':pkg.kind==='stock'?'已连接设备，可恢复原厂 V16。':$('force-update').checked?'已连接；开始强制烧录前将再次确认设备和兼容风险。':'已连接 SMK37 OPEN，可开始更新');
       connectionNotice=undefined;
-    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=error.code==='FIRMWARE_MISMATCH';if(error.code==='CHOOSE_PORT')showPortChoices(error.choices);FM1I18n.text($('error'),error.message);status('尚未连接');if(error.identity)$('device-identity').textContent=error.identity;}
+    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=error.code==='FIRMWARE_MISMATCH';if(error.code==='CHOOSE_PORT')showPortChoices(error.choices);FM1I18n.text($('error'),error.message);showLoaderHint(error);status('尚未连接');if(error.identity)$('device-identity').textContent=error.identity;}
     finally{await endConnection(attempt);busy=false;enable();}
   }
   $('connect').addEventListener('click',connectDevice);
@@ -1409,7 +1430,7 @@ main{max-width:1440px}
     busy=true;writing=true;enable();FM1I18n.text($('error'),'');
     let completed=false;
     try{await updater.install({force,confirmedModel});completed=true;}
-    catch(error){FM1I18n.text($('error'),error.message);status('升级未完成；请保留本网页，检查设备连接后重试',0);showConnectionDetails(updater.diagnostics);}
+    catch(error){FM1I18n.text($('error'),error.message);showLoaderHint(error);status('升级未完成；请保留本网页，检查设备连接后重试',0);showConnectionDetails(updater.diagnostics);}
     finally{busy=false;writing=false;connected=false;finishingUpdate=completed;if(completed)$('device-identity').textContent=pkg.product;enable();}
     if(completed){
       if(pkg.kind==='stock'){

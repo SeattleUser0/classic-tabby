@@ -2,6 +2,11 @@
 (() => {
   'use strict';
   const messages={
+  // Classic Tabby Task 12 A5: the stale-loader hint under the error (the sentences with the build
+  // numbers are patterns, below).
+  "该固件的页面：": "That build's page:",
+  "已发布固件列表：": "The list of published builds:",
+  "连接前请先断开其他 SMK-37。": "Disconnect any other SMK-37 before connecting.",
   // Classic Tabby Task 12 A3: writes refused while the device plays.
   "设备正在播放，未写入任何内容。请先停止播放，再重试。": "The device is playing; nothing was written. Stop playback, then try again.",
   "当前固件不支持从网页清除旧数据，请在设备 ACTIONS 中操作": "This firmware cannot erase old data from the web page; use ACTIONS on the device.",
@@ -1040,6 +1045,13 @@
   // Only complete UI messages are matched. Captured project, preset and port
   // names are kept verbatim; no blanket replacement of user data is performed.
   const patterns=[
+    // Classic Tabby Task 12 A5: a Jieli loader waiting for another build (sdk/WebUpdate.js loaderMismatch).
+    [/^升级程序正在等待另一个固件：构建 ([0-9a-f]{16})（(.+?)），不是本页的 (.+?)。本页没有发送固件。请打开该固件的页面继续安装。$/,
+      m=>`The update loader is waiting for another firmware: build ${m[1]} (${m[2]}), not this page's ${m[3]}. This page sent no firmware. Open that build's page and continue the install there.`],
+    [/^升级程序正在等待构建 ([0-9a-f]{16})，它不在已发布固件列表中，也不是本页的 (.+?)。本页没有发送固件。如果这是自己编译的固件，请用编译它的网页继续；否则请断电重启设备后再连接。$/,
+      m=>`The update loader is waiting for build ${m[1]}, which is not in the list of published builds and is not this page's ${m[2]}. This page sent no firmware. If that is a build you compiled yourself, continue with the page that built it; otherwise power-cycle the device and connect again.`],
+    [/^升级程序正在等待另一个固件：构建 ([0-9a-f]{16})，不是本页的 (.+?)。本页没有发送固件，也无法读取已发布固件列表（离线页面或网络问题）。请在线打开 builds\/ 页面，按这个构建编号找到对应固件的页面继续。$/,
+      m=>`The update loader is waiting for another firmware: build ${m[1]}, not this page's ${m[2]}. This page sent no firmware, and the list of published builds could not be read (offline page or network problem). Open the builds/ page online and find the page of the build with this number to continue.`],
     [/^已保存到仿真独立音色库的音色 (\d+)。$/,m=>`Saved to simulator voice library position ${m[1]}.`],
     [/^已载入 (.+)。$/,m=>`Loaded ${m[1]}.`],
     [/^当前槽最多可放 ([\d.]+) 秒；写入会自动导入当前选段。$/,m=>`This slot can hold up to ${m[1]} seconds. Writing automatically imports the current selection.`],
