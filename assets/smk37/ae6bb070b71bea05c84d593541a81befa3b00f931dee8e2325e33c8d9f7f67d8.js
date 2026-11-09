@@ -2,7 +2,43 @@
 (() => {
   'use strict';
   const messages={
+  // Classic Tabby Task 12 A5: the stale-loader hint under the error (the sentences with the build
+  // numbers are patterns, below).
+  "该固件的页面：": "That build's page:",
+  "已发布固件列表：": "The list of published builds:",
+  "连接前请先断开其他 SMK-37。": "Disconnect any other SMK-37 before connecting.",
+  // Classic Tabby Task 12 A3: writes refused while the device plays.
+  "设备正在播放，未写入任何内容。请先停止播放，再重试。": "The device is playing; nothing was written. Stop playback, then try again.",
+  "当前固件不支持从网页清除旧数据，请在设备 ACTIONS 中操作": "This firmware cannot erase old data from the web page; use ACTIONS on the device.",
+  // Classic Tabby Task 12 A2: the manual after the step editor left (SYNC / MIDI, MIDI TRACK).
+  "把鼠标放在 LCD 上的数值，出现高亮即可滚轮调节；每次按参数最小步长变化，不随滚动速度加速。也可点击打开大号数值框，用滚轮、＋／−或方向键细调，Esc 关闭。支持底部参数、顶部 BPM、总览各轨音量、DX7 快捷页的参数行和效果参数行。混音页也可点静音／独奏格子设置。状态、电平和当前引擎不支持的参数只显示；外部 MIDI 时钟下 BPM 由外部控制。切换轨道或参数页会关闭旧编辑框，避免改错参数。总览调其他轨的小音量数字不会改变当前选轨。": "Hover over an LCD value: a highlight means it is editable with the mouse wheel. Each step uses the parameter's smallest increment, without scroll-speed acceleration. Click to open a larger value display, then use the wheel, + / − or arrow keys; Esc closes it. Editable values include bottom parameters, top BPM, overview track levels, the DX7 quick page's rows and the effect rows. Mixer mute / solo cells are also editable. Status, meters and unsupported engine parameters remain read-only; external MIDI clock controls BPM. Changing tracks or parameter pages closes the old editor to prevent editing the wrong value. Adjusting another track's small level on the overview does not change your selected track.",
+  "常用编辑按钮直接打开音色、SYNC / MIDI、混音和效果；其余功能在“更多编辑”。旋钮可拖动或滚轮调节，LCD 数值可点击编辑。电脑键盘 Z、S、X、D…演奏，空格播放，Esc 停音；输入文字和操作菜单时不会演奏。": "The main buttons open sound, SYNC / MIDI, mixer and effects; other controls are in More editing. Drag or scroll knobs, or click LCD values. Play with Z, S, X, D…; Space plays and Esc stops notes. Typing and menu actions do not play notes.",
+  "37 个力度琴键始终用于演奏。短按 PAD / STEP 切换 KEY／PAD 编辑焦点（本版本没有 Pad 步进模式）；菜单中打击垫用于选择。8 个编码器依次为 K1–K4、SELECT、PAGE、PRESET、MASTER。4 个推子控制轨道音量，FADER BANK 在 1–4／5–8 轨之间切换，推子经过屏幕当前值后才接管。BT 键提示蓝牙设置已移至网页工作台，SHIFT + HOME / SRC 直达音源页。弯音轮、调制轮和延音踏板跟随 KEY；Pad 触后跟随 PAD。": "The 37 velocity keys always play notes. Tap PAD / STEP to switch KEY/PAD editing focus (there is no pad-step mode in this version). Pads select items in menus. Encoders are K1–K4, SELECT, PAGE, PRESET and MASTER. Four faders control track levels; FADER BANK selects tracks 1–4 or 5–8. A fader takes over after crossing the stored value. BT reminds you that Bluetooth settings moved to the web workbench; SHIFT + HOME / SRC opens sources. Pitch, modulation and sustain follow KEY; Pad aftertouch follows PAD.",
+  "机身的蓝牙页已随 Classic Tabby Task 06 移除（为独立轨道启动腾出闪存）。蓝牙设置在网页工作台“项目与音色 → 蓝牙设置”：连接项目库后可打开或关闭蓝牙和蓝牙音频，选择 BLE MIDI 的 DEVICE／HOST 角色，并清除 MIDI 配对；改动立即写入设备并保存。蓝牙打开时 MIDI 服务自动可用；出厂默认蓝牙和音频打开、DEVICE 角色。时钟来源在 SYNC / MIDI 页（按 SEQ）选择。HOST 模式的设备扫描与连接列表不再提供。": "The device's Bluetooth page was removed with Classic Tabby Task 06 (to free flash for independent track launching). Bluetooth settings live in the workbench under Projects & sounds → Bluetooth settings: with the library connected you can switch Bluetooth and Bluetooth audio on or off, choose the BLE MIDI DEVICE / HOST role and forget MIDI pairs; every change is written to the device and saved at once. MIDI is available whenever Bluetooth is on. Factory defaults are Bluetooth and audio on, DEVICE role. The clock source is chosen on the SYNC / MIDI page (press SEQ). The HOST-mode device scan and connection list are no longer offered.",
+  "放歌曲：在网页工作台编写歌曲或导入 MIDI 文件并写入设备，然后长按 SEQ 选 SONG MODE，在 SONG 页按 PLAY。": "Play a song: write a song in the web workbench or import a MIDI file and write it to the device, then hold SEQ, choose SONG MODE and press PLAY on the SONG page.",
+  "机身蓝牙页已移除；这里的改动立即写入设备并保存。时钟来源在机身的 SYNC / MIDI 页（按 SEQ）。": "The device's Bluetooth page is gone; changes here are written to the device and saved at once. The clock source is on the device's SYNC / MIDI page (press SEQ).",
+  "网页顶部和实机开机画面显示版本；HOME 显示 KEY 或 PAD 哪个是当前的演奏焦点。开机动画约 1 秒，按键或旋钮可跳过；开机不会自动播放。": "The version shows at the top of the web page and on the device's boot screen; HOME shows whether KEY or PAD has the playing focus. The boot animation takes about 1 s; any key or knob skips it. Nothing plays by itself at boot.",
+  "总览、DX7 快捷页、SYNC / MIDI、MIDI TRACK 和混音页选轨；菜单选项目；SONG 页选歌曲。": "Selects the track on the overview, DX7 quick page, SYNC / MIDI, MIDI TRACK and mixer; selects the entry in menus; selects the song on SONG.",
+  "在任何页面短按打开 SYNC / MIDI 页；SHIFT + SEQ 打开 MIDI TRACK；长按约 0.6 秒打开 ACTIONS 菜单；HOME + SEQ 拍击速度。": "Tap on any page to open SYNC / MIDI; SHIFT + SEQ opens MIDI TRACK; hold for about 0.6 s to open the ACTIONS menu; HOME + SEQ taps the tempo.",
+  "播放／暂停／续播。本版本 REC 不录音（屏幕提示 NO REC IN THIS VERSION）。预设页的 PLAY 为载入并播放，切换预设不弹确认。": "Play, pause, continue. REC does not record in this version (the screen says NO REC IN THIS VERSION). On the preset page PLAY loads and plays; changing presets asks nothing.",
+  "演奏时上下移调八度；SONG 与 TRACK LAUNCH 页翻打击垫页。": "Transpose the playing octave down or up; on SONG and TRACK LAUNCH, page the pads.",
+  "总览的 K4 设置速度（BPM 只在这里设置）。本版本机身没有录音和步进编辑；歌曲在网页工作台编写。": "On the overview, K4 sets the tempo (BPM is set only there). This version has no recording and no step editing on the device; songs are written in the web workbench.",
+  "上排功能键在所有页面都有效：FX、EDIT（DX7 轨）、MIX、SEQ 可直接切页；SCL、ENV、LFO 只在歌曲页有作用（见第 05 章）；ARP 短按开关、长按调参数，PLAY 控制播放。SAVE 打开项目保存页，或执行屏幕内的确认；OCT−／OCT+ 调八度。离开确认页不会执行待确认操作。": "The top row of buttons works on every page: FX, EDIT (DX7 track), MIX and SEQ open their pages; SCL, ENV and LFO act only on the song pages (chapter 05); ARP toggles with a tap and opens its settings when held; PLAY controls playback. SAVE opens the project save page or confirms the prompt on screen; OCT− / OCT+ change the octave. Leaving a confirmation page runs nothing.",
+  "15 · 同步与 MIDI": "15 · Sync & MIDI",
+  "在任何页面按 SEQ 打开 SYNC / MIDI 页：K1 CLOCK 选 INT／MIDI，K2 CLK IN 选时钟来源（AUTO、USB、BLE、DIN），K3 SWING，K4 SEQ OUT 选 OFF／ON／CLOCK，PRESETS 开关 KEY OUT。速度只在 HOME 的 K4 设置；外部 MIDI 时钟下速度由外部设备决定。长按 SEQ 打开 ACTIONS。": "Press SEQ on any page to open SYNC / MIDI: K1 CLOCK chooses INT or MIDI, K2 CLK IN the clock source (AUTO, USB, BLE, DIN), K3 SWING, K4 SEQ OUT chooses OFF, ON or CLOCK, PRESETS switches KEY OUT. The tempo is set only on HOME K4; with external MIDI clock the source sets it. Hold SEQ for ACTIONS.",
+  "切换时钟会停止播放；MIDI 模式需外部 Start／Continue 和 Clock，等待时屏幕提示 WAIT MIDI CLOCK。外部 BPM 只读。歌曲模式需要 INT 时钟。": "Changing the clock stops playback. MIDI mode needs an external Start or Continue and Clock; while waiting the screen says WAIT MIDI CLOCK. The external BPM is read only. Song mode needs the INT clock.",
+  "首次使用时，8 个轨道的 SEQ 默认 BOTH，KEY OUT 默认 ON，同时启用 ALL 和 SEQ OUT ON；已保存的输出模式与 KEY OUT 选择会保留。MIDI TRACK 页（SHIFT + SEQ）：K1 IN CH 输入通道，K2 OUT CH 发送通道，K3 SEQ 选 LOCAL／BOTH／MIDI，K4 OUT PORT 选 ALL／OFF。SYNC / MIDI 页：K4 SEQ OUT 选 OFF（关闭音序音符和主时钟）／ON（音序音符及内部时钟／启停）／CLOCK（仅内部时钟／启停），PRESETS 开关 KEY OUT。SEQ 模式与 SEQ OUT 不影响 ARP；ARP 固定 BOTH（内部发声＋MIDI 输出），按该轨 OUT CH 和公共 OUT PORT 发送。切换 SEQ 设置不打断 ARP，开关 ARP 也不释放 SEQ 音符。ARP 第二页仅保留 SWING、HOLD 和 OUT CH，K3 无功能。只发时钟时，请关闭 KEY OUT 和各轨 ARP。USB-C 分轨输出时逐轨设置 OUT CH，启用 BOTH 或 MIDI、ALL 及 SEQ OUT ON；只改 IN CH 不会改变输出通道。升级后本地演奏始终可用，Thru 关闭；旧端口组合只要有输出就转为 ALL，OFF 保留。偏好独立于项目；网页仅预览，实机请通过机身设置。": "On first use the 8 tracks' SEQ is BOTH, KEY OUT is ON, OUT PORT is ALL and SEQ OUT is ON; saved output modes and the KEY OUT choice are kept. MIDI TRACK page (SHIFT + SEQ): K1 IN CH the input channel, K2 OUT CH the send channel, K3 SEQ LOCAL / BOTH / MIDI, K4 OUT PORT ALL / OFF. SYNC / MIDI page: K4 SEQ OUT OFF (no sequencer notes and no master clock) / ON (sequencer notes and the internal clock with Start and Stop) / CLOCK (only the internal clock with Start and Stop); PRESETS switches KEY OUT. SEQ mode and SEQ OUT do not affect ARP: ARP is always BOTH (built-in sound and MIDI out) and sends on the track's OUT CH and the common OUT PORT. Changing SEQ settings does not interrupt ARP, and switching ARP does not release sequencer notes. ARP page 2 keeps only SWING, HOLD and OUT CH; K3 does nothing. To send the clock alone, switch off KEY OUT and every track's ARP. For per-track output over USB-C set OUT CH per track and use BOTH or MIDI, ALL and SEQ OUT ON; changing IN CH alone does not change the output channel. After an update local playing always works and Thru is off; an old port combination with any output becomes ALL, OFF stays. These preferences are independent of the project; the web page only previews them, set them on the device.",
+  "本版本移除的机身编辑": "Device editing removed in this version",
+  "tabby-v04.0 移除了机身的步进编辑：STEP DETAILS、LOCKS、RHYTHM/REC 页，REC 录音（停止时逐步录入和播放时录入）、预备拍、节拍器、Pad 步进模式，以及复制、粘贴、清空、重复步进和对应的 ACTIONS 项。项目里原有的图案仍随项目载入、保存和播放。SWING、时钟、时钟来源与输出开关移到 SYNC / MIDI 页，速度在 HOME 的 K4。节拍器与预备拍计划在之后的版本（第 5 阶段）回来。": "tabby-v04.0 removes the step editing on the device: the STEP DETAILS, LOCKS and RHYTHM/REC pages, REC recording (step entry while stopped and recording while playing), the count-in, the metronome, pad-step mode, and copying, pasting, clearing and repeating steps with their ACTIONS entries. The patterns already in a project still load, save and play with it. SWING, the clock, the clock source and the output switches moved to the SYNC / MIDI page; the tempo is on HOME K4. The metronome and the count-in are planned to return in a later version (Phase 5).",
+  "每条轨道都能选择任意一种音源，同类型的多条轨道也各有参数。切换音源后使用新类型的默认参数；鼓与旋律互换会清空不兼容步进，可用 HOME + SAVE 撤销。": "Every track can use any of the sources, and several tracks of one type each keep their own parameters. A new source starts with its type's defaults; swapping drums and melody clears the steps that do not fit, and HOME + SAVE undoes it.",
+  "MMC 支持 Stop（01）、Play（02）、Deferred Play（03）、Record Strobe（06）、Record Exit（07）和 Pause（09）；接收设备 ID 00 或广播 7F。Play／Deferred Play／Record Strobe 从当前位置继续，Record Exit 不起作用（本版本没有录音），Stop／Pause 停止。在 MIDI 时钟模式仍需外部 Clock。": "MMC: Stop (01), Play (02), Deferred Play (03), Record Strobe (06), Record Exit (07) and Pause (09), for device ID 00 or the broadcast 7F. Play, Deferred Play and Record Strobe continue from the current position, Record Exit does nothing (no recording in this version), Stop and Pause stop. In MIDI clock mode an external Clock is still needed.",
+  "按 SEQ 打开 SYNC / MIDI 页，检查 K1 CLOCK 是 INT 还是 MIDI；没有外部时钟时切回 INT。若播放走动但没声音，确认当前轨未静音且音量不为零。": "Press SEQ for SYNC / MIDI and check whether K1 CLOCK is INT or MIDI; without an external clock switch back to INT. If playback runs but makes no sound, check that the track is not muted and its level is not zero.",
   "页面资源不完整，请重新载入。": "Page resources are incomplete. Reload the page.",
+  "选择设备的 MIDI 端口": "Choose the device's MIDI port",
+  "所选 MIDI 输入没有同名的 MIDI 输出，未向任何端口发送数据。请查看连接详情，在下方选择另一个端口，再重新连接。": "The chosen MIDI input has no MIDI output with the same name; nothing was sent to any port. Check the connection details, choose another port below, then connect again.",
+  "自动（只连接名称相符的端口）": "Automatic (only ports with a matching name)",
+  "检测到多台可能的升级设备。请在下方选择目标设备的 MIDI 端口，再重新连接。": "More than one possible device answered. Choose the target device's MIDI port below, then connect again.",
+  "没有名称与 SMK37 或其升级程序相符的 MIDI 端口，未向任何端口发送数据。如确认设备已连接，请在下方选择它的 MIDI 端口，再重新连接。": "No MIDI port is named like the SMK37 or its update loader; nothing was sent to any port. If the device is connected, choose its MIDI port below, then connect again.",
   "检查 / 初始化采样": "Check / initialize samples",
   "采样区尚未就绪：可重新检查；若提示校验失败，请在“项目与音色 → 8 槽采样库”恢复备份或确认写入内置库，无需重刷固件。": "Samples are not ready. Retry the check; if verification fails, restore a backup or confirm writing the built-in bank in Projects & sounds > 8-slot sample bank. No firmware reflash is needed.",
   "采样区检查完成；已有有效采样保留，空采样区已补齐内置库。": "Sample check complete. Valid banks were preserved; uninitialized storage received the built-in bank.",
@@ -1009,6 +1045,13 @@
   // Only complete UI messages are matched. Captured project, preset and port
   // names are kept verbatim; no blanket replacement of user data is performed.
   const patterns=[
+    // Classic Tabby Task 12 A5: a Jieli loader waiting for another build (sdk/WebUpdate.js loaderMismatch).
+    [/^升级程序正在等待另一个固件：构建 ([0-9a-f]{16})（(.+?)），不是本页的 (.+?)。本页没有发送固件。请打开该固件的页面继续安装。$/,
+      m=>`The update loader is waiting for another firmware: build ${m[1]} (${m[2]}), not this page's ${m[3]}. This page sent no firmware. Open that build's page and continue the install there.`],
+    [/^升级程序正在等待构建 ([0-9a-f]{16})，它不在已发布固件列表中，也不是本页的 (.+?)。本页没有发送固件。如果这是自己编译的固件，请用编译它的网页继续；否则请断电重启设备后再连接。$/,
+      m=>`The update loader is waiting for build ${m[1]}, which is not in the list of published builds and is not this page's ${m[2]}. This page sent no firmware. If that is a build you compiled yourself, continue with the page that built it; otherwise power-cycle the device and connect again.`],
+    [/^升级程序正在等待另一个固件：构建 ([0-9a-f]{16})，不是本页的 (.+?)。本页没有发送固件，也无法读取已发布固件列表（离线页面或网络问题）。请在线打开 builds\/ 页面，按这个构建编号找到对应固件的页面继续。$/,
+      m=>`The update loader is waiting for another firmware: build ${m[1]}, not this page's ${m[2]}. This page sent no firmware, and the list of published builds could not be read (offline page or network problem). Open the builds/ page online and find the page of the build with this number to continue.`],
     [/^已保存到仿真独立音色库的音色 (\d+)。$/,m=>`Saved to simulator voice library position ${m[1]}.`],
     [/^已载入 (.+)。$/,m=>`Loaded ${m[1]}.`],
     [/^当前槽最多可放 ([\d.]+) 秒；写入会自动导入当前选段。$/,m=>`This slot can hold up to ${m[1]} seconds. Writing automatically imports the current selection.`],
@@ -1126,7 +1169,7 @@
   }
 })();
 
-const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v03.3-diag","build_id":"6ada221504309d10f544a5d9743791e385f60fe2e88b7bc6570b32d2060c78a1","sha256":"969a8f7ccfaac0aff4b345c64ede53a5a5b80d669b5c4e1a49aef42b329a5770","bytes":492084,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":536576,"diag":true,"url":"./assets/smk37/969a8f7ccfaac0aff4b345c64ede53a5a5b80d669b5c4e1a49aef42b329a5770.bin"};
+const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.0","build_id":"b6e9590223446363dff53a2190bd80eb020233c63dd2d90cfa778e361ce0f708","sha256":"368c613022672f8918cb990cd886970edc771014afba2dd93a736577e29f24af","bytes":487988,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"url":"./assets/smk37/368c613022672f8918cb990cd886970edc771014afba2dd93a736577e29f24af.bin"};
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* SMK37 OPEN browser updater.
  * Fixed device protocol: 00 59, 7-bit SysEx packing, USB MIDI only.
@@ -1134,6 +1177,35 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
  * layout setting (capability reply 21), reads capability bits 6 (diagnostic counters) and 7
  * (device settings kind 8), and carries the full backup and restore (fullBackup, fullRestore,
  * fullVerify; docs/BACKUP-FORMAT.md) and the counters (diagRead).
+ * Classic Tabby Task 11B (2026-11-08): port selection for the update, force-flash and factory V16
+ * flows. Only ports named like the SMK-37 or its Jieli update loader are opened (UPDATE_PORT);
+ * force flash no longer widens the search to every MIDI input. When no port name matches, or
+ * more than one port answers, connect() fails with code CHOOSE_PORT and the candidates, and the
+ * page lets the user pick one input; a picked port is the only way any other port is opened.
+ * Test: tests/workbench/update-ports.mjs (12 fake ports, 10 of them not the SMK-37).
+ * Classic Tabby Task 12 A1 (2026-11-08): the default layout is USER 471040 (song region 397312);
+ * Library reads command 27 (version, feature flags, USER size) and offers eraseOldData (command
+ * 28); reply code 76 = refused while the device plays.
+ * Classic Tabby Task 12 A4 (2026-11-08): diagRead adds the screen page and the control-loop profile
+ * (command 25 pages 4 and 5); the counters are in every build from tabby-v04.0.
+ * Classic Tabby Task 12 A3 (2026-11-08): writeGuard() before every flash write (project slot save,
+ * song uploads and deletes, settings kind 8, Bluetooth writes, ERASE OLD DATA, full restore): it
+ * reads command 27's live transport byte and sends nothing while the device plays.
+ * Classic Tabby Task 12 A5 (2026-11-08): safe resume for a stale loader. The Jieli loader's USB name
+ * carries the build it waits for (ota-SMK37 + the first 16 hex digits of the build id, taggedLoader).
+ * When connect() or waitFor() meets a loader whose tag is not this page's build, the page never
+ * treats it as its own and never waits for the timeout: it looks the tag up in builds/index.json
+ * (the permanent build pages, tools/linux/builds-index.py), says which build the loader waits for
+ * and links to that build's page (code LOADER_MISMATCH: loaderTag, build {tag, page, url} or null,
+ * indexState found | unknown | unavailable). Updater takes {builds} (buildsLookup) as a 5th argument.
+ * Test: tests/workbench/loader-tag.mjs.
+ * Classic Tabby Task 11C (2026-11-08): port names are normalized before matching (portName):
+ * macOS CoreMIDI reported the SMK-37 as "SMK37 Open" plus 3 or 4 spaces, with different padding on
+ * the input and output endpoints, so no input/output pair formed and the page connected to
+ * nothing. Matching and pairing now use NFKC, NUL/control characters as spaces, collapsed white
+ * space, trimmed, lower case. No path fails without saying why: no matching port -> CHOOSE_PORT
+ * with every input; a picked input with no same-name output -> CHOOSE_PORT with that message;
+ * waitFor timeout -> NO_DEVICE with the ports seen; project library -> NO_PORT with the ports.
  * The bundled vendor loader controls the Flash layout. A successful transfer
  * does not guarantee data preservation or recovery from interrupted power. */
 (() => {
@@ -1195,6 +1267,46 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     /^(SMK-37 Elite_\d+|SMK37E_OPEN_\d{3})$/.test(value)?'elite':undefined;
   const taggedLoader = pkg => 'ota-SMK37'+pkg.build_id.slice(0,16);
   const modelLoader = (identity,model) => identity.startsWith('ota-') && identityModel(identity.slice(4))===model;
+  // Task 12 A5: the 16 hex digits of the build a Jieli loader waits for, or null for any other name.
+  const LOADER_TAG=/^ota-SMK37([0-9a-fA-F]{16})$/;
+  const loaderTag = identity => { const m=LOADER_TAG.exec(identity||''); return m?m[1].toLowerCase():null; };
+  const ownTag = pkg => String(pkg.build_id||'').slice(0,16).toLowerCase();
+  // Task 12 A5: find a loader tag in a builds index (builds/index.json, schema 1). The entry's page
+  // path is relative to the site root; indexUrl (where the index was read from) resolves it.
+  function matchBuild(index,tag,indexUrl) {
+    if(!index || index.schema!==1 || !Array.isArray(index.builds)) return null;
+    const want=String(tag).toLowerCase();
+    const entry=index.builds.find(b=>b && (String(b.loader||'').toLowerCase()==='ota-smk37'+want || String(b.build||'').toLowerCase().startsWith(want)));
+    if(!entry) return null;
+    let url=entry.page||'';
+    try { if(indexUrl) url=new URL('../'+String(entry.page||'').replace(/^\/+/,''),indexUrl).href; } catch(_) {}
+    return {tag:entry.tag,build:entry.build,loader:entry.loader,version:entry.version,page:entry.page,published:entry.published,url};
+  }
+  // Task 12 A5: a lookup over an index object already in hand (tests, or a page that embeds it).
+  const buildsLookupFromIndex = (index,indexUrl=null) => async tag => {
+    if(!index || index.schema!==1 || !Array.isArray(index.builds)) return {state:'unavailable',entry:null,indexUrl:null};
+    const entry=matchBuild(index,tag,indexUrl);
+    return {state:entry?'found':'unknown',entry,indexUrl};
+  };
+  // Task 12 A5: a lookup that fetches the first readable index among candidate URLs (the page passes
+  // ./builds/index.json, ../index.json and ../builds/index.json resolved against its own address, so
+  // the main page, a builds/<tag>/ page and the probe64/ or recover/ pages all find the same file).
+  // file:// pages and network failures give 'unavailable'; the message still names the tag.
+  const buildsLookup = (urls,fetcher=(typeof fetch==='function'?fetch.bind(globalThis):null)) => async tag => {
+    if(!fetcher) return {state:'unavailable',entry:null,indexUrl:null};
+    for(const url of urls) {
+      try {
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+        let index;
+        try { const r=await fetcher(url,{cache:'no-store',signal:controller.signal}); if(!r.ok) continue; index=await r.json(); }
+        finally { clearTimeout(timer); }
+        if(!index || index.schema!==1 || !Array.isArray(index.builds)) continue;
+        const entry=matchBuild(index,tag,url);
+        return {state:entry?'found':'unknown',entry,indexUrl:url};
+      } catch(_) { /* try the next address */ }
+    }
+    return {state:'unavailable',entry:null,indexUrl:null};
+  };
   async function sha256(bytes) { return hex(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))); }
   // Official M-VAVE V016 downloads (2026-08-12), preserved byte-for-byte.
   const stockHashes={pro:'2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0',
@@ -1367,27 +1479,54 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     check(data[7]===1,'设备使用未知的升级程序');
     return {family:data[5],state:data[6],build:hex(data.subarray(14,46)),error:data[46]};
   }
-  function pairs(access,loader=false,force=false) {
-    // Windows can retain SINCO-MIDI after the updater re-enumerates. Names
-    // only nominate candidates; identity/capability or project replies must
-    // still match before a connection can be used.
-    const name=loader ? /smk.?37|felucca|sloop|clipper|ota|sinco|usb.?midi|composite/i
-                      : /smk.?37|^(?:usb|sinco).?midi(?:\s+\d+)?$/i;
+  // Port names the SMK-37 can enumerate under, on any firmware the updater talks to:
+  //   "SMK37 Open ..." (Classic Tabby and Open V01), "SINCO-MIDI" / "USB MIDI ..." (M-VAVE
+  //   firmware; Windows can retain SINCO-MIDI after the updater re-enumerates), and the Jieli
+  //   update loader ("USB Composite Device", manufacturer Jieli Technology).
+  // Task 11B: the FM-1 names (Felucca, Sloop, Clipper) and the loose "ota" match are gone, so
+  // an FM-1 or an audio interface on the same computer is never sent the identity query.
+  // Task 11C: every pattern below is matched against portName(), never the raw name.
+  //   Linux ALSA:   "SMK37 Open MIDI 1", "USB Composite Device MIDI 1", "SINCO-MIDI MIDI 1"
+  //   macOS:        "SMK37 Open" + 3 or 4 spaces, "USB Composite Device" + spaces, "USB MIDI   "
+  //   Windows:      "SMK37 Open", "SINCO-MIDI", "USB MIDI"
+  // Loader:  usb composite device / jieli.  Open firmware: smk37 open.  Factory V16: smk-37 pro,
+  // sinco-midi, usb midi.  (smk[ -_]?37 covers both SMK37 and SMK-37.)
+  const UPDATE_PORT=/smk[ _-]?37|sinco|^usb[ _-]?midi\b|composite|jieli/;
+  const LIBRARY_PORT=/smk[ _-]?37|^(?:usb|sinco)[ _-]?midi(?: midi)?(?: \d+)?$/;
+  // Task 11C: the name used for matching and for pairing an input with its output. CoreMIDI pads
+  // USB string descriptors with spaces (and some hosts with NULs); NBSP, tabs and full-width
+  // forms are folded by NFKC and the white-space collapse.
+  function portName(name) {
+    return String(name??'').normalize('NFKC').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+  }
+  // Task 11C: what the page shows when nothing matched (connection details and the pick list).
+  function portList(access) {
+    const live=map=>[...map.values()].filter(p=>p.state==='connected');
+    return {inputs:live(access.inputs).map(p=>p.name||'?'),outputs:live(access.outputs).map(p=>p.name||'?'),
+      choices:live(access.inputs).map(p=>({id:p.id,name:p.name||'?'}))};
+  }
+  function pairs(access,loader=false,pick=null) {
+    // Names only nominate candidates; identity/capability or project replies must
+    // still match before a connection can be used. pick (Task 11B): the id of one input
+    // the user chose from the page's list; then only that input is used, whatever its name.
+    const name=loader ? UPDATE_PORT : LIBRARY_PORT;
     const connectedInputs=[...access.inputs.values()].filter(p=>p.state==='connected');
-    const inputs=connectedInputs.filter(p=>force || name.test(p.name||''));
+    const inputs=pick ? connectedInputs.filter(p=>p.id===pick) : connectedInputs.filter(p=>name.test(portName(p.name)));
     const outputs=[...access.outputs.values()].filter(p=>p.state==='connected');
     return inputs.flatMap(input=>{
-      const named=outputs.filter(output=>output.name===input.name);
-      const exact=named.filter(output=>(output.manufacturer||'')===(input.manufacturer||''));
+      const named=outputs.filter(output=>portName(output.name)===portName(input.name));
+      const exact=named.filter(output=>portName(output.manufacturer)===portName(input.manufacturer));
       const found=exact.length===1?exact:named.length===1?named:
         !named.length&&connectedInputs.length===1&&outputs.length===1?outputs:[];
       return found.length===1 ? [{input,output:found[0]}] : [];
     });
   }
   class Updater {
-    constructor(access,pkg,status=()=>{},timing={}) {
+    constructor(access,pkg,status=()=>{},timing={},options={}) {
       this.access=access; this.pkg=pkg; this.status=status; this.link=null; this.identity=null; this.busy=false;
       this.timing={idle:10000,writeIdle:180000,reconnect:40000,settle:600,pace:0,...timing};
+      // Task 12 A5: builds(tag16) -> {state, entry, indexUrl}; null means no index (the message still names the tag).
+      this.builds=options.builds||null;
     }
     async open(pair,signal) {
       try { await portOperation(pair.input,'open',signal); await portOperation(pair.output,'open',signal); }
@@ -1404,11 +1543,18 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       }
       catch(e) { await link.close(); throw e; }
     }
-    async discover(force=false,signal) {
+    // Task 11B: discover(signal,pick) replaces discover(force,signal). Force flash no longer
+    // changes which ports are opened; see UPDATE_PORT and pairs().
+    async discover(signal,pick=null) {
       signal?.throwIfAborted();
-      const ports=pairs(this.access,true,force),found=[];let lastError;
-      this.diagnostics={inputs:[...this.access.inputs.values()].filter(p=>p.state==='connected').map(p=>p.name||'?'),
-        outputs:[...this.access.outputs.values()].filter(p=>p.state==='connected').map(p=>p.name||'?'),attempts:[]};
+      const ports=pairs(this.access,true,pick),found=[];let lastError;
+      const connectedInputs=[...this.access.inputs.values()].filter(p=>p.state==='connected');
+      this.diagnostics={inputs:connectedInputs.map(p=>p.name||'?'),
+        outputs:[...this.access.outputs.values()].filter(p=>p.state==='connected').map(p=>p.name||'?'),attempts:[],
+        candidates:ports.map(pair=>pair.input.name||'?'),
+        // What the page offers to pick from: the inputs that answered when several did,
+        // otherwise every connected input (filled in by connect() when none matched).
+        choices:[]};
       if(ports.length>16)throw Object.assign(Error('MIDI 端口过多，请断开不相关设备后重试'),{code:'AMBIGUOUS'});
       for(const pair of ports){
         try {signal?.throwIfAborted();found.push(await this.open(pair,signal));}
@@ -1418,23 +1564,45 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
         }
       }
       this.diagnostics.identities=found.map(device=>device.identity);
-      if(found.length>1){await Promise.allSettled(found.map(device=>device.link.close()));throw Object.assign(Error('检测到多台可能的升级设备，无法确认目标'),{code:'AMBIGUOUS'});}
+      if(found.length>1){
+        await Promise.allSettled(found.map(device=>device.link.close()));
+        // Task 11B: several SMK-37-named ports answered. The user picks one; nothing is sent
+        // to any of them until then.
+        const choices=found.map(device=>({id:device.link.input.id,name:device.link.input.name||'?',identity:device.identity}));
+        this.diagnostics.choices=choices;
+        throw Object.assign(Error('检测到多台可能的升级设备。请在下方选择目标设备的 MIDI 端口，再重新连接。'),{code:'CHOOSE_PORT',choices});
+      }
       if(found.length)return found[0];
       if(lastError&&lastError.code!=='TIMEOUT')throw lastError;
       return null;
     }
-    async connect({force=false,signal}={}) {
+    async connect({force=false,signal,pick=null}={}) {
       check(!this.busy,'正在更新'); await this.disconnect();
-      this.force=force;this.mode=null;
-      const device=await this.discover(force,signal);
+      this.force=force;this.mode=null;this.pick=pick||null;
+      const device=await this.discover(signal,this.pick);
       if(!device){
         const d=this.diagnostics;
         if(!d?.inputs.length||!d.outputs.length)fail('浏览器未发现完整的 MIDI 输入和输出。请连接开机的 SMK37 OPEN USB-MIDI 接口，再重新连接。');
-        if(!d.attempts.length)fail('已发现 MIDI 端口，但无法匹配 SMK37 OPEN 输入和输出。请查看连接详情，只保留目标 SMK37 OPEN 后重试。');
+        if(!d.candidates.length&&!this.pick){
+          // Task 11B: no port is named like the SMK-37 or its loader. Nothing was sent; the
+          // user may pick the device's port from every connected input.
+          const choices=[...this.access.inputs.values()].filter(p=>p.state==='connected').map(p=>({id:p.id,name:p.name||'?'}));
+          d.choices=choices;
+          throw Object.assign(Error('没有名称与 SMK37 或其升级程序相符的 MIDI 端口，未向任何端口发送数据。如确认设备已连接，请在下方选择它的 MIDI 端口，再重新连接。'),{code:'CHOOSE_PORT',choices});
+        }
+        if(!d.attempts.length){
+          // Task 11C: a picked (or name-matched) input has no output of the same name. Say so and
+          // offer the list again rather than ending on a generic error.
+          const choices=portList(this.access).choices;d.choices=choices;
+          throw Object.assign(Error('所选 MIDI 输入没有同名的 MIDI 输出，未向任何端口发送数据。请查看连接详情，在下方选择另一个端口，再重新连接。'),{code:'CHOOSE_PORT',choices});
+        }
         fail('已找到 MIDI 端口，但设备未回复型号。请关闭其他 MIDI 软件和更新网页，重新开机并插拔 USB 后重试；强制烧录也需要设备先响应。');
       }
       this.link=device.link; this.identity=device.identity;
       try {
+        // Task 12 A5: a loader waiting for another build is named, never accepted, never silent.
+        const stale=loaderTag(this.identity);
+        if(stale && stale!==ownTag(this.pkg)) throw await this.loaderMismatch(stale,this.identity);
         if(this.identity===this.pkg.loaderIdentity || this.identity===taggedLoader(this.pkg) ||
            modelLoader(this.identity,this.pkg.model)) {
           // Stock firmware passes ota- plus its current identity to the loader.
@@ -1468,16 +1636,44 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       } catch(e) { await this.disconnect(); throw e; }
     }
     async disconnect() { if(this.link) await this.link.close(); this.link=null; this.identity=null; }
+    // Task 12 A5: the error for a loader that waits for another build. Nothing has been sent to the
+    // loader but the identity query. The message names the tag, this page's build, and (when the
+    // builds index lists it) the build's own tag; the page adds the link from error.build.url.
+    async loaderMismatch(tag,identity) {
+      let found={state:'unavailable',entry:null,indexUrl:null};
+      if(this.builds) { try { found={state:'unavailable',entry:null,indexUrl:null,...(await this.builds(tag))}; } catch(_) {} }
+      const own=this.pkg.display_version||this.pkg.release_version||ownTag(this.pkg);
+      let message;
+      if(found.state==='found' && found.entry)
+        message='升级程序正在等待另一个固件：构建 '+tag+'（'+found.entry.tag+'），不是本页的 '+own+'。本页没有发送固件。请打开该固件的页面继续安装。';
+      else if(found.state==='unknown')
+        message='升级程序正在等待构建 '+tag+'，它不在已发布固件列表中，也不是本页的 '+own+'。本页没有发送固件。如果这是自己编译的固件，请用编译它的网页继续；否则请断电重启设备后再连接。';
+      else
+        message='升级程序正在等待另一个固件：构建 '+tag+'，不是本页的 '+own+'。本页没有发送固件，也无法读取已发布固件列表（离线页面或网络问题）。请在线打开 builds/ 页面，按这个构建编号找到对应固件的页面继续。';
+      return Object.assign(Error(message),{code:'LOADER_MISMATCH',loaderTag:tag,identity,build:found.entry||null,indexState:found.state,indexUrl:found.indexUrl||null});
+    }
     async waitFor(identity,alternatives=[],loaderModel) {
       const end=Date.now()+this.timing.reconnect,expected=[...new Set([identity,...alternatives])],observed=new Set();
       while(Date.now()<end) {
         {
           let device;
-          try {device=await this.discover(this.force);}
-          catch(error){if(error.code==='AMBIGUOUS')throw error;}
+          // Task 11B: a picked port is kept while it is still connected; once the device
+          // re-enumerates (loader or new firmware) the name filter finds it again.
+          const pick=this.pick&&[...this.access.inputs.values()].some(p=>p.id===this.pick&&p.state==='connected')?this.pick:null;
+          try {device=await this.discover(undefined,pick);}
+          catch(error){if(error.code==='AMBIGUOUS'||error.code==='CHOOSE_PORT')throw error;}
           if(device)observed.add(device.identity);
           this.diagnostics={...this.diagnostics,expected,identities:[...observed]};
           if(device) {
+            // Task 12 A5: a loader with another build's tag ends the wait at once with its name,
+            // instead of being skipped until the timeout.
+            const stale=loaderTag(device.identity);
+            if(stale && stale!==ownTag(this.pkg) && !expected.includes(device.identity)) {
+              await device.link.close();
+              const ports=portList(this.access);
+              this.diagnostics={...this.diagnostics,inputs:ports.inputs,outputs:ports.outputs,expected,identities:[...observed]};
+              throw await this.loaderMismatch(stale,device.identity);
+            }
             if(expected.includes(device.identity) || (loaderModel && modelLoader(device.identity,loaderModel))) {
               this.link=device.link; this.identity=device.identity; return;
             }
@@ -1486,7 +1682,10 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
         }
         await sleep(this.timing.settle);
       }
-      fail('等待设备重连超时；请保留这个更新网页，重新连接同一台设备后重试');
+      // Task 11C: the timeout carries the ports seen, so the page's connection details list them.
+      const ports=portList(this.access);
+      this.diagnostics={...this.diagnostics,inputs:ports.inputs,outputs:ports.outputs,expected,identities:[...observed]};
+      throw Object.assign(Error('等待设备重连超时；请保留这个更新网页，重新连接同一台设备后重试'),{code:'NO_DEVICE',ports});
     }
     async serve(finish,idle,phase) {
       const image=this.pkg.image, covered=new Uint8Array(Math.ceil(image.length/8));
@@ -1752,7 +1951,9 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     async connect({signal}={}) {
       await this.disconnect();signal?.throwIfAborted();
       const ports=pairs(this.access),found=[];let lastError;
-      check(ports.length,'未找到支持项目库的 SMK37 OPEN USB MIDI');
+      // Task 11C: no matching port is an error with the port list (the page shows it).
+      if(!ports.length){const list=portList(this.access);this.diagnostics={inputs:list.inputs,outputs:list.outputs};
+        throw Object.assign(Error('未找到支持项目库的 SMK37 OPEN USB MIDI'),{code:'NO_PORT',ports:list});}
       check(ports.length<=16,'MIDI 端口过多，请断开不相关设备后重试');
       if(ports.length===1)return this.open(ports[0],signal);
       // A BLE or DAW port is only a candidate, not another project device.
@@ -1781,12 +1982,13 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     }
     async disconnect(){if(this.link)await this.link.close();this.link=null;this.projectBytes=0;this.tuningBytes=0;}
     async extensions(){
-      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.songRegion=462848;this.userBytes=536576;this.diagCounters=false;this.settingsTransfer=false;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;this.songBatch=false;this.timedNotes=false;this.radioSettings=false;
+      this.tuningBytes=0;this.programs=16;this.tabbyFlags=0;this.tabbyUserBytes=0;this.sampleCapacity=462848;this.songRegion=397312;this.userBytes=471040;this.diagCounters=false;this.settingsTransfer=false;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;this.songBatch=false;this.timedNotes=false;this.radioSettings=false;
       try {
         const info=await this.query(21);
         // Classic Tabby Task 11 (Step 4): bytes 3..6 are the song region, which follows the firmware's
         // USER size (user_bytes = region + 73728: projects 69632 + the tuning sector 4096): 462848 in the
-        // stock 536576 layout, 397312 in the 471040 probe layout. Any multiple of 4096 from a 128 KiB
+        // old stock 536576 layout, 397312 in the 471040 layout (normal since Task 12 A1; the defaults
+        // above assume it until the reply arrives). Any multiple of 4096 from a 128 KiB
         // move up to the stock size is accepted; the layout is kept for the full backup.
         const region=le(info,3,4);
         check(info.length===7&&(info[0]&~1)===0&&le(info,1,2)===4264&&region%4096===0&&region>=331776&&region<=462848,'设备文件长度无效');
@@ -1799,6 +2001,14 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
         check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~255)===0,'设备扩展能力回复无效');   // Task 11: bit 6 = diagnostic counters (command 25), bit 7 = device settings transfer kind 8 (full backup)
         this.diagCounters=!!(info[8]&64);this.settingsTransfer=!!(info[8]&128);   // (earlier) Task 06 (a): bit 5 = Bluetooth settings; the mask was ~15 and refused a Task 05 device (bit 4)
         this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);this.songStorage=!!(info[8]&4);this.songBatch=!!(info[8]&8);this.timedNotes=!!(info[8]&16);this.radioSettings=!!(info[8]&32);   // Task 05: payload format 1 accepted; Task 06: command 24
+      } catch(error){if(error.deviceCode!==71)throw error;}
+      // Task 12 A1: command 27, the Classic Tabby capability reply (tabby-v04.0 and later): version,
+      // feature flags (bit 0 writes refused while playing, bit 1 command 28 ERASE OLD DATA) and the
+      // USER size the firmware reserves. Older firmware answers 71 (unknown command).
+      try {
+        const info=await this.query(27);
+        check(info.length>=7&&info[0]>=1,'设备扩展能力回复无效');
+        this.tabbyFlags=le(info,1,2);this.tabbyUserBytes=le(info,3,4);
       } catch(error){if(error.deviceCode!==71)throw error;}
     }
     projectPayload(bytes){
@@ -1830,7 +2040,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
             const r=await link.read(Math.min(200,until-Date.now()));check(!link.lost,'USB 已断开，当前操作未完成');
             if(!r||r.command!==(command|64)||r.token!==token)continue;
             check(r.data.length>0,'设备回复不完整');const code=r.data[0];
-            if(code!==0&&!(emptyOK&&code===1))throw Object.assign(Error(code===1?'该项目槽为空':code===73?'旧采样库占用了扩展存储空间，请先备份并缩小采样库':code===72?'内存不足，当前项目保持不变':code===71?'文件或参数无效，当前项目保持不变':code===74?'歌曲存储已满，请在设备 ACTIONS 中压缩歌曲存储或删除歌曲':'设备操作失败：'+code),{deviceCode:code});
+            if(code!==0&&!(emptyOK&&code===1))throw Object.assign(Error(code===1?'该项目槽为空':code===73?'旧采样库占用了扩展存储空间，请先备份并缩小采样库':code===72?'内存不足，当前项目保持不变':code===71?'文件或参数无效，当前项目保持不变':code===74?'歌曲存储已满，请在设备 ACTIONS 中压缩歌曲存储或删除歌曲':code===76?'设备正在播放，未写入任何内容。请先停止播放，再重试。':'设备操作失败：'+code),{deviceCode:code});
             return r.data.slice(1);
           }
         }
@@ -1849,9 +2059,22 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     }
     // Classic Tabby song mode (Task 03 d): kinds 5 (record) and 6 (block, 16-bit id).
     // Task 06 (a): Bluetooth settings through transfer command 24 (the device's BLE page is gone).
+    // Task 12 A1: ERASE OLD DATA (command 28 with the confirm bytes "ERASE"). The device refuses it
+    // unless song storage reports OLD DATA, and while the transport runs (code 76). The page asks
+    // the user first; this method never asks.
+    async eraseOldData(){check(this.tabbyFlags&2,'当前固件不支持从网页清除旧数据，请在设备 ACTIONS 中操作');await this.writeGuard();await this.query(28,[69,82,65,83,69]);}
+    // Task 12 A3: every method that writes flash calls this first. On tabby-v04.0 and later
+    // (command 27 flag bit 0) it reads the live transport byte and refuses, before a single
+    // write is sent, while a song or the stock sequencer plays. The device refuses on its own
+    // too (reply code 76); this check makes the page say so instead of starting a transfer.
+    async writeGuard(){
+      if(!(this.tabbyFlags&1))return;
+      const r=await this.query(27);
+      if(r.length>=8&&r[7])throw Object.assign(Error('设备正在播放，未写入任何内容。请先停止播放，再重试。'),{deviceCode:76,playing:true});
+    }
     async radioRead(){const r=await this.query(24);check(r.length===2,'蓝牙设置回复无效');return {on:!!(r[0]&1),audio:!!(r[0]&2),host:r[1]===1};}
-    async radioWrite(s){await this.query(24,[(s.on?1:0)|(s.audio?2:0)|4,s.host?1:0]);}
-    async radioForget(){await this.query(24,[0x7f]);}
+    async radioWrite(s){await this.writeGuard();await this.query(24,[(s.on?1:0)|(s.audio?2:0)|4,s.host?1:0]);}
+    async radioForget(){await this.writeGuard();await this.query(24,[0x7f]);}
     // Task 06 (9.13): a 31-byte reply adds, per track, the state byte (bits 0-1 follow / launched / stopped,
     // bits 2-3 the pending queue: none / launch / stop / back to song, bit 4 waiting) and the pattern row (255 = none).
     async songStatus(){const s=await this.query(23);check(s.length===13||s.length===15||s.length===31,'歌曲存储状态回复无效');
@@ -1865,7 +2088,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
     }
     async uploadBlock(song,id,bytes){
-      songPayloadParse(bytes);
+      songPayloadParse(bytes);await this.writeGuard();   // Task 12 A3
       try {
         await this.query(3,[6,song,id&255,id>>8,bytes.length&255,bytes.length>>8]);
         for(let at=0;at<bytes.length;at+=64)await this.query(4,[at&255,at>>8,...bytes.slice(at,at+64)]);
@@ -1875,6 +2098,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     // Batched block upload (Task 03 e, transfer kind 7, 9.9 v0.5): one stream of block records
     // lands in whole block sectors under one journal commit, or not at all.
     async uploadBatch(song,stream){
+      await this.writeGuard();   // Task 12 A3
       try {
         await this.query(3,[7,song,stream.length&255,stream.length>>8]);
         for(let at=0;at<stream.length;at+=64)await this.query(4,[at&255,at>>8,...stream.slice(at,at+64)]);
@@ -1909,6 +2133,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     async songDelete(song){check(this.songStorage,'请先更新固件以使用歌曲模式');await this.upload(5,song,new Uint8Array(SONG_RECORD).fill(255));}
     async saveProject(slot,bytes) {
       check(Number.isInteger(slot)&&slot>=0&&slot<16,'请选择设备项目槽');
+      await this.writeGuard();   // Task 12 A3: the slot write is refused while playing
       if(bytes){bytes=this.projectPayload(bytes);await this.upload(0,0,bytes);}
       const expected=await this.download(0);
       check(!bytes||(bytes.length===expected.length&&bytes.every((value,i)=>value===expected[i])),
@@ -1984,6 +2209,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       else if(kind===4){check(this.programs===128,'请先更新固件以使用 128 音色库');bankFile(bytes);}
       else if(kind===5){check(bytes.length===SONG_RECORD,'歌曲记录长度无效');}
       else if(kind===8){check(this.settingsTransfer&&bytes.length===40,'设备设置长度无效');}   // Task 11: device settings, sent as they are
+      if(kind>=5&&kind<=8)await this.writeGuard();   // Task 12 A3: the flash kinds
       else {
         bytes=this.projectPayload(bytes);
         if(bytes.length===4264)kind=3;
@@ -2276,10 +2502,11 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
   Library.prototype.fullRestore=async function(input,progress=()=>{},{settleMs=2500}={}){
     const b=input&&input.projects&&input.workspace instanceof Uint8Array?input:backupParse(input);
     check(this.link&&!this.link.lost,'请先连接项目库');
+    await this.writeGuard();   // Task 12 A3: a restore writes flash; nothing is sent while the device plays
     const notes=[],songsWanted=b.songs.some(s=>!s.empty);
     check(!songsWanted||(this.songStorage&&this.timedNotes),'This firmware has no song storage; the backup holds songs. Nothing was changed.');
     if(this.songStorage){const st=await this.songStatus();
-      check(st.state!==2,'Song storage holds old data (ACTIONS shows OLD SAMPLE/DX7 DATA). Run ACTIONS > ERASE OLD SAMPLE/DX7 on the device first. Nothing was changed.');
+      check(st.state!==2,'Song storage holds OLD DATA. Run Erase old data (Song mode group) or ACTIONS > ERASE OLD DATA on the device first. Nothing was changed.');
       check(st.state===0,'Song storage is not ready (state '+st.state+'). Wait for the scan or the compaction, then retry. Nothing was changed.');
       check(st.playing===0,'Stop song playback before a restore. Nothing was changed.');}
     // Device and session settings first: track roles decide how the projects load.
@@ -2340,26 +2567,52 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
   // Page 1 (64 bytes) and page 2 (20 bytes) as app/diag.c lists them; times in 24 MHz ticks,
   // returned here in milliseconds.
   Library.prototype.diagRead=async function(reset=false){
-    check(this.diagCounters,'This firmware has no diagnostic counters (install tabby-v03.3-diag).');
+    check(this.diagCounters,'This firmware has no diagnostic counters (tabby-v04.0 and later have them in every build).');
     const a=await this.query(25,[reset?1:0]),b=await this.query(25,[2]);
     check(a.length===64&&b.length===20,'Diagnostic reply has the wrong length');
     const u=(p,i)=>le(p,i,4),hz=u(a,0)||24000000,ms=t=>t*1000/hz;
     const bins=[];for(let i=0;i<8;i++)bins.push(a[48+2*i]|a[49+2*i]<<8);
     const seconds=u(a,4)/hz;
-    return {seconds,loop:{count:u(a,8),max_ms:ms(u(a,12)),mean_ms:ms(u(a,16))},
+    const out={seconds,loop:{count:u(a,8),max_ms:ms(u(a,12)),mean_ms:ms(u(a,16))},
       flash:{erases:u(a,20),erase_max_ms:ms(u(a,24)),writes:u(a,28),write_max_ms:ms(u(a,32)),write_max_bytes:u(a,36)},
       keys:{count:u(a,40),max_ms:ms(u(a,44)),bins},
       scan:{count:u(b,0),per_second:seconds?u(b,0)/seconds:0,gap_max_ms:ms(u(b,4)),isr_peak_ms:ms(u(b,8)),adc_peak_ms:ms(u(b,12))}};
+    // Task 11B page 3 (screen) and Task 12 A4 pages 4 and 5 (the control-loop profile); firmware
+    // older than tabby-v04.0 answers page 3 only in a diag-r2 build and pages 4 and 5 not at all.
+    try{const c=await this.query(25,[3]);if(c.length===28)out.screen={controls:u(c,0),control_mean_ms:ms(u(c,4)),control_max_ms:ms(u(c,8)),paints:u(c,12),bands:u(c,16),paint_mean_ms:ms(u(c,20)),paint_max_ms:ms(u(c,24))};}catch(error){if(!error.deviceCode)throw error;}
+    try{
+      const p4=await this.query(25,[4]),p5=await this.query(25,[5]);
+      if(p4.length===60&&p5.length===56){
+        const names=['router','song','storage','screen','panel','transfer','project','sdk'],sections={};
+        for(let i=0;i<6;i++)sections[names[i]]={max_ms:ms(u(p4,12+8*i)),mean_ms:ms(u(p4,16+8*i))};
+        for(let i=0;i<2;i++)sections[names[6+i]]={max_ms:ms(u(p5,8*i)),mean_ms:ms(u(p5,4+8*i))};
+        for(let i=0;i<7;i++)sections[names[i]].calls=u(p5,28+4*i);
+        out.profile={passes:u(p4,0),pass_mean_ms:ms(u(p4,4)),pass_max_ms:ms(u(p4,8)),sections,
+          midi_in:{calls:u(p5,16),mean_ms:ms(u(p5,20)),max_ms:ms(u(p5,24))}};
+      }
+    }catch(error){if(!error.deviceCode)throw error;}
+    return out;
   };
+  // Task 12 A4: the section names as the report and docs/BUILD.md 26.4 use them.
+  const PROFILE_LABELS={router:'router (MIDI out sends)',song:'song scheduling',storage:'song storage (scan / erase / compact)',screen:'screen (panel input, pages, LCD)',panel:'panel and LEDs (key queue, LEDs)',transfer:'transfer (workbench protocol)',project:'project (restores, settings saves)',sdk:'SDK between the hooks'};
   function diagText(d){
     const f=v=>v.toFixed(3);
-    return ['Classic Tabby diagnostic counters, '+f(d.seconds)+' s since reset',
+    const lines=['Classic Tabby diagnostic counters, '+f(d.seconds)+' s since reset',
       'L.1 control loop (groove_midi_poll): '+d.loop.count+' loops, mean '+f(d.loop.mean_ms)+' ms, max '+f(d.loop.max_ms)+' ms',
       'L.3 flash: '+d.flash.erases+' erases, longest '+f(d.flash.erase_max_ms)+' ms; '+d.flash.writes+' writes, longest '+f(d.flash.write_max_ms)+' ms ('+d.flash.write_max_bytes+' bytes)',
       'L.4 key/pad note-on to router: '+d.keys.count+' notes, max '+f(d.keys.max_ms)+' ms; <0.5 '+d.keys.bins[0]+', <1 '+d.keys.bins[1]+', <2 '+d.keys.bins[2]+', <4 '+d.keys.bins[3]+', <8 '+d.keys.bins[4]+', <16 '+d.keys.bins[5]+', <32 '+d.keys.bins[6]+', >=32 '+d.keys.bins[7]+' (ms)',
-      'L.5 matrix scan: '+d.scan.count+' scans, '+d.scan.per_second.toFixed(1)+' per second, longest gap '+f(d.scan.gap_max_ms)+' ms; scan ISR peak '+f(d.scan.isr_peak_ms)+' ms, ADC ISR peak '+f(d.scan.adc_peak_ms)+' ms'].join('\n');
+      'L.5 matrix scan: '+d.scan.count+' scans, '+d.scan.per_second.toFixed(1)+' per second, longest gap '+f(d.scan.gap_max_ms)+' ms; scan ISR peak '+f(d.scan.isr_peak_ms)+' ms, ADC ISR peak '+f(d.scan.adc_peak_ms)+' ms'];
+    if(d.screen)lines.push('screen: '+d.screen.controls+' control calls, mean '+f(d.screen.control_mean_ms)+' ms, max '+f(d.screen.control_max_ms)+' ms; '+d.screen.paints+' band paints ('+d.screen.bands+' bands), mean '+f(d.screen.paint_mean_ms)+' ms, max '+f(d.screen.paint_max_ms)+' ms');
+    if(d.profile){
+      const p=d.profile;
+      lines.push('control pass (SDK call of groove_midi_poll to the next): '+p.passes+' passes, mean '+f(p.pass_mean_ms)+' ms, max '+f(p.pass_max_ms)+' ms; per section, per pass (mean / max, exclusive):');
+      for(const [k,label] of Object.entries(PROFILE_LABELS)){const s=p.sections[k];lines.push('  '+label+': '+f(s.mean_ms)+' / '+f(s.max_ms)+' ms'+(s.calls!==undefined&&p.passes?', '+(s.calls/p.passes).toFixed(2)+' calls per pass':''));}
+      lines.push('  MIDI input callback (routing task, not in the pass): '+p.midi_in.calls+' calls, mean '+f(p.midi_in.mean_ms)+' ms, max '+f(p.midi_in.max_ms)+' ms');
+    }
+    return lines.join('\n');
   }
-  globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,Updater,
+  globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,portName,Updater,
+    loaderTag,matchBuild,buildsLookup,buildsLookupFromIndex,
     songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadParseV1,songPayloadBuild,songStepText,songStepParse,songLengthText,tabbyFile,readTabbyFile,songBlockIds,songBatches,songEventsValidate,
     crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library,
     backupParse,BACKUP_FORMAT,BACKUP_VERSION,diagText};   // Task 11
@@ -3634,9 +3887,12 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-08  Task 12 A1: the block pool of the normal layout (USER 471040) is 80 sectors,
+ *                     80 x 4076 = 326080 bytes (was 96 sectors, 391296 bytes, in the old 536576
+ *                     layout). The device's own song status (command 23) still decides a write.
  *   v0.5  2026-11-03  Task 05: timed notes (section 9.12): model schema tabby-song/2 with offset
  *                     and length in units, payload format 1 encode, format 0 and 1 decode,
  *                     block record byte 1, song swing flag, quantize helpers, JSON upgrade.
@@ -3666,7 +3922,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     blocksPerSong: 2048, idMax: 65535, rowsPerSong: 128, songs: 16, tracks: 8,
     repeatMin: 1, repeatMax: 64, lengthMin: 1, lengthMax: 65535 * 128, lengthStepsV1Max: 255,
     tempoMin: 30, tempoMax: 300, nameLength: 12,
-    recordArea: 4076, blockSectors: 96, poolBytes: 96 * 4076,   /* 391296 */
+    recordArea: 4076, blockSectors: 80, poolBytes: 80 * 4076,   /* 326080: Task 12 A1, the 471040 layout (96 = 391296 in the old one) */
     recordBytes: 4096, rowBytes: 20, rowsOffset: 64, bodyEnd: 2624, channelsOffset: 48, headerBytes: 64, blockHeaderBytes: 6,
     eventsOffset: 2624, eventsStart: 2632, eventBytes: 5, eventsMax: 292, rowEventsMax: 32, recordV2End: 4092,   /* 9.11 v0.6 */
     rowStepsAllowed: [16, 32, 48, 64],
@@ -4999,7 +5255,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();
 
-const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v03.3-diag","sha256":"315af83e97fa708337799a0f2eacda45810be9f936dea0757e7f68f9dde52d3d","source_sha256":"e226aba33f46e03f4aab42149a80c93766023c6664e10bbd3045c3b265697ebe","sample_bank":"synthesized-demo","user_bytes":536576,"diag":true,"bytes":300668,"url":"./assets/smk37/315af83e97fa708337799a0f2eacda45810be9f936dea0757e7f68f9dde52d3d.wasm"};
+const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.0","sha256":"39e494b76aa64d30a475831924ee3b1ade4b197490d2ea6a98e927ab874cc394","source_sha256":"c0db471deefe1dd7b9b0c2e25f7abc739e5970b9c6898d42dbb893f44543d794","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":287473,"url":"./assets/smk37/39e494b76aa64d30a475831924ee3b1ade4b197490d2ea6a98e927ab874cc394.wasm"};
 (() => {
   const $=id=>document.getElementById(id);
   // Task 08: the badge shows the Classic Tabby display version (the git tag); the Open label is the fallback.
@@ -5131,6 +5387,25 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
   function clearUpdateConnection(text){
     connected=false;same=false;migration=false;forceSuggested=false;updateResult='';
     $('device-identity').textContent='';FM1I18n.text($('error'),'');status(text,0);
+    showLoaderHint(null);   /* Task 12 A5 */
+  }
+  /* Task 12 A5: the builds index (builds/index.json) is looked up only when a loader reports another
+     build's tag. The candidates cover the main page (./builds/), a builds/<tag>/ page (../) and the
+     probe64/ or recover/ pages (../builds/); file:// pages find none and the message says so. */
+  const buildsLookup=FM1Web.buildsLookup(['./builds/index.json','../index.json','../builds/index.json'].map(u=>{try{return new URL(u,location.href).href;}catch(_){return u;}}));
+  function showLoaderHint(error){
+    const box=$('loader-hint');box.replaceChildren();box.hidden=!(error&&error.code==='LOADER_MISMATCH');
+    if(box.hidden)return;
+    const label=document.createElement('strong');
+    if(error.build&&error.build.url){
+      FM1I18n.text(label,'该固件的页面：');
+      const link=document.createElement('a');link.href=error.build.url;link.target='_blank';link.rel='noopener noreferrer';
+      link.textContent=(error.build.tag||'')+' — '+error.build.url;box.append(label,' ',link);
+    }else if(error.indexUrl){
+      FM1I18n.text(label,'已发布固件列表：');
+      const link=document.createElement('a');link.href=new URL('./',error.indexUrl).href;link.target='_blank';link.rel='noopener noreferrer';
+      link.textContent=link.href;box.append(label,' ',link);
+    }else{FM1I18n.text(label,'连接前请先断开其他 SMK-37。');box.append(label);}
   }
   function connectionChanged(){
     if(busy||finishingUpdate)return;
@@ -5155,6 +5430,15 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
   $('force-update').addEventListener('change',()=>setForceMode($('force-update').checked));
   $('patch-track').addEventListener('change',enable);
   window.addEventListener('beforeunload',event=>{if(writing){event.preventDefault();event.returnValue='';}});
+  /* Task 11B: when no port is named like the SMK-37, or several answered, the updater sends
+     nothing more and the user picks the device's input here; the next Connect uses only it. */
+  function showPortChoices(choices=[]){
+    const select=$('update-port'),keep=select.value;
+    while(select.options.length>1)select.remove(1);
+    for(const choice of choices){const option=document.createElement('option');option.value=choice.id;
+      option.textContent=choice.name+(choice.identity?' — '+choice.identity:'');select.append(option);}
+    select.value=choices.some(choice=>choice.id===keep)?keep:'';$('port-pick').hidden=!choices.length;
+  }
   function showConnectionDetails(diagnostics){
     const box=$('connection-details');box.hidden=!diagnostics;box.open=!!diagnostics;
     for(const kind of ['inputs','outputs','identities','expected','attempts']){
@@ -5184,13 +5468,14 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
       watch(access);
       updater=new FM1Web.Updater(access,pkg,(text,value)=>status(
         pkg.kind!=='stock'&&value===100?'固件已写入，正在检查采样区…':text,
-        pkg.kind!=='stock'&&typeof value==='number'?value*0.8:value));
+        pkg.kind!=='stock'&&typeof value==='number'?value*0.8:value),{},{builds:buildsLookup});   /* Task 12 A5 */
       attemptUpdater=updater;
-      const device=await updater.connect({force:$('force-update').checked,signal}); connected=true;same=!!device.same;migration=!!device.migration;forceSuggested=migration;
+      /* Task 11B: the port the user picked from #update-port, if any (CHOOSE_PORT below). */
+      const device=await updater.connect({force:$('force-update').checked,signal,pick:$('update-port').value||null}); connected=true;same=!!device.same;migration=!!device.migration;forceSuggested=migration;
       $('device-identity').textContent=device.identity;
       status(migration?'已识别设备和当前固件；迁移请点击“启用强制烧录并重新连接”。':same?'已是当前版本，无需更新。':device.resume?'已连接升级程序，机型尚未核实；写入前需核对机身型号。':pkg.kind==='stock'?'已连接设备，可恢复原厂 V16。':$('force-update').checked?'已连接；开始强制烧录前将再次确认设备和兼容风险。':'已连接 SMK37 OPEN，可开始更新');
       connectionNotice=undefined;
-    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=error.code==='FIRMWARE_MISMATCH';FM1I18n.text($('error'),error.message);status('尚未连接');if(error.identity)$('device-identity').textContent=error.identity;}
+    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=error.code==='FIRMWARE_MISMATCH';if(error.code==='CHOOSE_PORT')showPortChoices(error.choices);FM1I18n.text($('error'),error.message);showLoaderHint(error);status('尚未连接');if(error.identity)$('device-identity').textContent=error.identity;}
     finally{await endConnection(attempt);busy=false;enable();}
   }
   $('connect').addEventListener('click',connectDevice);
@@ -5285,11 +5570,17 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
   $('about-open').onclick=()=>$('about-dialog').showModal();
   // Classic Tabby Task 11: a package whose USER size is not the stock 536576 (the probe) or a
   // diagnostic build says so at the top of the update tab and in the page title.
-  if(typeof FM1_PACKAGE==='object'&&FM1_PACKAGE&&(FM1_PACKAGE.user_bytes&&FM1_PACKAGE.user_bytes!==536576||FM1_PACKAGE.diag)){
-    const moved=FM1_PACKAGE.user_bytes&&FM1_PACKAGE.user_bytes!==536576,w=$('layout-warning');
-    w.textContent=moved?'TEST BUILD: this firmware moves the device storage (USER '+FM1_PACKAGE.user_bytes+' bytes instead of 536576). Make a Full backup first (Projects & sounds tab), and keep it: your projects, settings and songs are restored from it after the install, and again after going back. See docs/BUILD.md 24.5 and 24.6.'
-      :'Diagnostic build: the current firmware and storage layout with timing counters (Projects & sounds > Diagnostics) and the settings transfer for the full backup.';
-    w.hidden=false;if(moved)document.title='TEST BUILD (moves storage) · '+document.title;
+  // Task 12 A1: 471040 is the normal layout from tabby-v04.0. A package with it says plainly that
+  // installing it over tabby-v03.x (or V01 / V16) moves the storage; a 536576 package (the old
+  // layout, the way back) says the reverse. Neither is a test build any more; the title changes
+  // only for a diagnostic build.
+  if(typeof FM1_PACKAGE==='object'&&FM1_PACKAGE&&(FM1_PACKAGE.user_bytes||FM1_PACKAGE.diag)){
+    const w=$('layout-warning'),size=FM1_PACKAGE.user_bytes,notes=[];
+    if(size===471040)notes.push('This release moves the device storage (USER 471040 bytes; tabby-v03.x, V01 and V16 use 536576). Coming from one of those: make a Full backup first (Projects & sounds tab) and keep it. After the install your projects, device settings and songs are gone until you run Full restore and Verify. Bluetooth pairings are lost once. If ACTIONS shows OLD DATA, erase it (with confirmation) before restoring. Going back to tabby-v03.x moves the storage back the same way: back up, install, restore.');
+    else if(size&&size!==471040)notes.push('This build uses the older storage layout (USER '+size+' bytes; tabby-v04.0 and later use 471040). Installing it over tabby-v04.0 or later moves the storage back: make a Full backup first, then Full restore and Verify after the install.');
+    if(FM1_PACKAGE.diag)notes.push('Diagnostic build: adds command 26, the remote ACTIONS / song commands for unattended hardware runs. The timing counters are in every build.');
+    if(notes.length){w.textContent=notes.join(' ');w.hidden=false;}
+    if(FM1_PACKAGE.diag)document.title='DIAGNOSTIC BUILD · '+document.title;
   }
   /* Classic Tabby (Task 03 a): no sample bank on the device. The post-update sample check
      is a no-op that reports the firmware as ready. */
@@ -5314,7 +5605,7 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
     FM1Web.projectVersion(working);
     // Task 06 (a): the Bluetooth settings panel replaces the device's BLE page.
     $('radio-group').hidden=!library.radioSettings;
-    $('diag-group').hidden=!library.diagCounters;   // Task 11: the diagnostic build's counters
+    $('diag-group').hidden=!library.diagCounters;   // Task 11: the counters; every build from tabby-v04.0 (Task 12 A4)
     if(library.radioSettings){const r=await library.radioRead();$('radio-on').checked=r.on;$('radio-audio').checked=r.audio;$('radio-role').value=r.host?'1':'0';}
     // Publish a complete snapshot only after every query succeeds. A partial
     // list must never enable load/save/import with an empty selection.
@@ -5348,7 +5639,10 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
       const access=await requestMidiAccess(report,signal);
       watch(access);
       library=createLibrary(access);await library.connect({signal});await refreshLibrary(true);message('项目库已连接。');connectionNotice=undefined;
-    }catch(error){connectionNotice={message:error.message,failed:true};throw error;}
+      await songOldDataCheck().catch(()=>{});   /* Task 12 A1 */
+    }catch(error){connectionNotice={message:error.message,failed:true};
+      /* Task 11C: no matching port (NO_PORT) or a failed probe: list the ports the browser sees. */
+      showConnectionDetails(library?.diagnostics||error.ports||null);throw error;}
     finally{await endConnection(attempt);}
   });}
   $('library-connect').addEventListener('click',connectLibrary);
@@ -5588,11 +5882,27 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
     songRender();
     songMessage('已导入 .tabby 文件到编辑器，点击“写入歌曲”上传。');
   }));
+  /* Task 12 A1: after the project library connects, say plainly when song storage holds OLD DATA
+     and offer the erase. Nothing is sent until the user confirms the dialog. */
+  async function songOldDataCheck(){
+    const box=$('song-old-data');box.hidden=true;
+    if(!library||!library.songStorage)return;
+    const s=await library.songStatus();box.hidden=s.state!==2;
+    $('song-erase-old').disabled=!(library.tabbyFlags&2);
+    if(s.state===2&&!(library.tabbyFlags&2))songMessage('Song storage holds OLD DATA. This firmware cannot erase it from the web page: on the device, hold SEQ for ACTIONS, choose ERASE OLD DATA, press SAVE, then SAVE again to confirm.');
+  }
+  $('song-erase-old').addEventListener('click',songAct(async()=>{
+    if(!library)throw Error('请先连接项目库');
+    if(!confirm('Erase the old data in song storage?\n\nThis erases every song-storage sector that is not in the song format. Projects, tunings and device settings are kept. It cannot be undone. The device must be stopped.'))return;
+    await library.eraseOldData();
+    songMessage('Erasing old data on the device; this takes a few seconds. Click Storage status to check: it reports READY when done.');
+    $('song-old-data').hidden=true;
+  }));
   $('song-status').addEventListener('click',songAct(async()=>{
     const s=await songBackend().status();
     const words=['follow','launched','stopped'],queues=['','queued launch','queued stop','queued back to song'];
     const tracks=s.tracks?'; tracks: '+s.tracks.map((t,i)=>'T'+(i+1)+' '+words[t.state]+(t.row!==255?' r'+(t.row+1):'')+(t.queue?' ('+queues[t.queue]+')':'')+(t.waiting?' waiting':'')).join(', '):'';
-    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (old sample / DX7 data still present)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+tracks+'.');
+    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (OLD DATA: erase it with Erase old data, or on the device in ACTIONS)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+tracks+'.');
   }));
   $('song-row-add').addEventListener('click',songAct(async()=>{if(!songEd.song)throw Error('请先读取或新建歌曲');if(songEd.song.rows.length>=128)throw Error('最多 128 行');
     const last=songEd.song.rows[songEd.song.rows.length-1];songEd.song.rows.push({block:last.block.slice(),repeat:last.repeat,loopHere:false,steps:last.steps});songRowsRender();}));
@@ -5621,7 +5931,7 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
     busy=true;writing=true;enable();FM1I18n.text($('error'),'');
     let completed=false;
     try{await updater.install({force,confirmedModel});completed=true;}
-    catch(error){FM1I18n.text($('error'),error.message);status('升级未完成；请保留本网页，检查设备连接后重试',0);showConnectionDetails(updater.diagnostics);}
+    catch(error){FM1I18n.text($('error'),error.message);showLoaderHint(error);status('升级未完成；请保留本网页，检查设备连接后重试',0);showConnectionDetails(updater.diagnostics);}
     finally{busy=false;writing=false;connected=false;finishingUpdate=completed;if(completed)$('device-identity').textContent=pkg.product;enable();}
     if(completed){
       if(pkg.kind==='stock'){

@@ -24,8 +24,9 @@
           new Uint8Array(c.memory.buffer).set(new Uint8Array(snapshot));
         } else {
           // Classic Tabby Task 11: the size comes from the wasm (sim_flash_size, the build's USER
-          // size: 536576 stock, 471040 in the probe layout); a stored image of another size is not loaded.
-          const size = c.sim_flash_size ? c.sim_flash_size() : 536576, saved = flash?.length === size;
+          // size: 471040 normal since Task 12 A1, 536576 the old stock layout); a stored image of
+          // another size is not loaded. Task 12 A1: the fallback for an older wasm is 471040.
+          const size = c.sim_flash_size ? c.sim_flash_size() : 471040, saved = flash?.length === size;
           if (saved) new Uint8Array(c.memory.buffer,c.sim_flash(),size).set(flash);
           c.sim_boot(saved ? 0 : 1);
         }
@@ -154,7 +155,7 @@
           message.pixelBands=bands;this.lastFrame=revision;
         }
         const flash=c.sim_flash_revision();
-        if(flash!==this.lastFlash){message.flash=new Uint8Array(c.memory.buffer,c.sim_flash(),c.sim_flash_size?c.sim_flash_size():536576).slice();this.lastFlash=flash;}   // Task 11
+        if(flash!==this.lastFlash){message.flash=new Uint8Array(c.memory.buffer,c.sim_flash(),c.sim_flash_size?c.sim_flash_size():471040).slice();this.lastFlash=flash;}   // Task 11
         return message;
       }
     };
@@ -576,29 +577,10 @@
         FM1I18n.attr(button,'aria-label',label);FM1I18n.attr(button,'title',label);
         button.onclick=()=>action(fn);host.append(button);return button;
       };
+      // Task 12 A2: the overview's step cells and page 1's step grid left with the step editor;
+      // page 1 is SYNC / MIDI now. Only the track rows of the overview stay clickable.
       if(state[1]===0){
-        for(let t=0;t<8;t++){
-          target(5,48+t*18,72,16,'轨道 '+(t+1),()=>select(t,6));
-          for(let i=0;i<16;i++){
-            const step=screen.first+i;
-            if(step>=state[209+t])continue;
-            target(80+i*8,48+t*18,8,16,'T'+(t+1)+' / STEP '+(step+1),async()=>{await select(t,6);await request('step',{index:step});}).tabIndex=-1;
-          }
-        }
-      }else if(state[1]===1){
-        const length=state[209+state[0]];
-        for(let p=0;p<4;p++)if(p*16<length)target(8+p*57,50,53,14,'PAGE '+(p+1),()=>request('step',{index:p*16}));
-        for(let i=0;i<16;i++){
-          const step=screen.first+i;if(step>=length)continue;
-          const cell=target(8+(i%4)*57,72+Math.floor(i/4)*29,53,25,'STEP '+(step+1),()=>request('step',{index:step,toggle:true}));
-          cell.dataset.lcdStep=step;
-          cell.addEventListener('keydown',event=>{
-            const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-4,ArrowDown:4}[event.code];if(!delta)return;
-            event.preventDefault();event.stopPropagation();
-            const next=Math.max(screen.first,Math.min(screen.first+15,length-1,step+delta));
-            host.querySelector('[data-lcd-step="'+next+'"]')?.focus();
-          });
-        }
+        for(let t=0;t<8;t++)target(5,48+t*18,72,16,'轨道 '+(t+1),()=>select(t,6));
       }
       for(const item of items){
         const id=lcdId(item),button=target(...item.rect,item.label,()=>editLcd(id,button));

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-09T04:14:25Z",
+  "updated": "2026-11-09T04:41:13Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -41,6 +41,16 @@
       "published": "2026-11-08",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/c80c166.zip",
       "note": "Untagged resume page (Task 11B/11C): tabby-v03.3-diag rebuilt at commit d9e83f0 (DIAG=1, 536576 layout) inside the workbench of commit c80c166 (port-name fixes); installed on the device on 2026-11-08. Was /recover/."
+    },
+    {
+      "tag": "tabby-v04.0",
+      "build": "b6e9590223446363dff53a2190bd80eb020233c63dd2d90cfa778e361ce0f708",
+      "loader": "ota-SMK37b6e9590223446363",
+      "version": "tabby-v04.0",
+      "page": "builds/tabby-v04.0/",
+      "published": "2026-11-09",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.0.zip",
+      "note": ""
     }
   ]
 }
