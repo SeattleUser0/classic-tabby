@@ -49,9 +49,10 @@ Subcommands
           ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/usb-readback.py identity --seq [--out DIR]
           python3 tools/linux/hw/usb-readback.py soak --rounds 200 [--seq] [--port SMK37] [--out DIR]
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-08  midi-watch also watches the CME H4MIDI WC (inputs and kernel counters).
     v0.4  2026-11-08  midi-watch (passive TRS MIDI out check, Task 11C item 2).
     v0.3  2026-11-08  backup-read and condition (Task 11C shared-controller test).
     v0.2  2026-11-08  --seq backend (ALSA sequencer via python-rtmidi; shares the port with Chrome).
@@ -362,12 +363,12 @@ def cmd_condition(a):
     print(json.dumps(rep, indent=1))
 
 
-def audio4c_counters():
-    """Kernel Rx byte counter of each AUDIO4c MIDI input (/proc/asound/cardN/midi0)."""
+def audio4c_counters(card="AUDIO4c"):
+    """Kernel Rx byte counter of each MIDI input of one card (/proc/asound/cardN/midi0)."""
     import glob, re
     for path in glob.glob("/proc/asound/card*/midi0"):
         text = open(path).read()
-        if text.startswith("AUDIO4c"):
+        if text.startswith(card):
             return [int(x) for x in re.findall(r"Rx bytes\s*:\s*(\d+)", text)]
     return []
 
@@ -375,7 +376,7 @@ def audio4c_counters():
 def cmd_watch(a):
     import rtmidi
     probe = rtmidi.MidiIn(rtmidi.API_LINUX_ALSA)
-    names = [n for n in probe.get_ports() if "audio4c" in n.lower() or "smk37" in n.lower().replace(" ", "")]
+    names = [n for n in probe.get_ports() if any(k in n.lower().replace(" ", "") for k in ("audio4c", "smk37", "h4midi"))]
     del probe
     log, ins = [], []
     for n in names:                                  # one MidiIn per port; the callback tags the port
@@ -385,13 +386,13 @@ def cmd_watch(a):
         mi.open_port(idx, "midi-watch")
         mi.set_callback(lambda ev, _d, n=n: log.append((time.monotonic(), n, ev[0])))
         ins.append(mi)
-    before = audio4c_counters()
+    before, h4_before = audio4c_counters(), audio4c_counters("H4MIDI")
     t0 = time.monotonic()
     print("LISTENING %d s on %d ports: play keys now" % (a.seconds, len(names)), flush=True)
     time.sleep(a.seconds)
     for mi in ins:
         mi.close_port()
-    after = audio4c_counters()
+    after, h4_after = audio4c_counters(), audio4c_counters("H4MIDI")
     per = {}
     for _t, n, m in log:
         k = "clock" if m[0] == 0xF8 else {0x90: "note_on" if len(m) > 2 and m[2] else "note_off", 0x80: "note_off"}.get(m[0] & 0xF0, "other")
@@ -403,7 +404,8 @@ def cmd_watch(a):
         d["channels"] = sorted(d["channels"])
     rep = {"seconds": a.seconds, "ports": names, "arrived": per,
            "audio4c_rx_bytes_before": before, "audio4c_rx_bytes_after": after,
-           "audio4c_rx_delta": [y - x for x, y in zip(before, after)]}
+           "audio4c_rx_delta": [y - x for x, y in zip(before, after)],
+           "h4midi_rx_delta": [y - x for x, y in zip(h4_before, h4_after)]}
     if a.out:
         os.makedirs(a.out, exist_ok=True)
         with open(os.path.join(a.out, "midi-watch-%s.csv" % a.tag), "w") as f:

@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.38
+Version: 0.39
 Revision log:
+- v0.39, 2026-11-08 (Task 11C, part 3): 25.7: L.9 closed: the TRS out works with a type A
+  adapter (all notes and clock into the CME H4MIDI WC); the AUDIO4c side is the fault.
 - v0.38, 2026-11-08 (Task 11C, part 2): 25.6: the shared-controller USB test (four conditions,
   all pass; AUDIO4c audio is not the likely cause), the rule that follows, the TRS MIDI out watch
   (nothing reaches the AUDIO4c), make suite after the port-name fix; usb-readback.py v0.4.
@@ -2708,7 +2710,7 @@ Diagnostics group must be visible (it is, on the diag build).
   playing, queued, pending stop, a pattern, empty, and the SHIFT view of the eight tracks; note what
   you would change. Press pads soft and hard on the keyboard page and note whether velocity follows.
 - **L.9, the jack** (was 23.5 step 1). Note which TRS adapter type (A or B) works on the SMK-37's
-  MIDI out with the AUDIO4c.
+  MIDI out with the AUDIO4c. **Closed 2026-11-08 (25.7): type A works.**
 
 **Step 4. Full backup on the diag build.** Library tab > Full backup. Rename the file
 `backup-4-diag.json`. Its message must say the settings are in it (no "no settings transfer" note)
@@ -2853,7 +2855,8 @@ are on the local builds tabby-v03.3-diag-r2 (8b7dff80…) and tabby-p0-probe64-r
 and probe plus command 26 and the diag-only screen timing (command 25 page 3); diag image 453892,
 margin **29 bytes** of the 637. Normal build unchanged (gate: 32 bytes of build id).
 
-**DIN (L.9): no adapter type works here.** The firmware sends to DIN: stored ports 7 (DIN, USB, BLE),
+**DIN (L.9): no adapter type works here.** *(Superseded 2026-11-08: 25.7, type A works; the AUDIO4c
+input side is the fault.)* The firmware sends to DIN: stored ports 7 (DIN, USB, BLE),
 every track's mode BOTH, the SDK reports DIN as a physical output, and song notes use that mask; the
 rig profile sets channels, not ports. While a song played, the SMK-37's USB output carried every note,
 clock, Start, SPP and Stop, but all ten AUDIO4c MIDI inputs, opened together, received 0 bytes. The
@@ -3081,6 +3084,31 @@ without a device write: Auracle X's DIN input activity while keys are played; th
 The Open V01 comparison needs an install (the user, from the Mac).
 
 **make suite** after the port-name fix: **passed** 2026-11-09T02:10:00Z at c80c166 (crosscheck, test, midi-import-sim, host-sanitize; the uncommitted changes were only this section and usb-readback.py, which the suite does not run).
+
+### 25.7 L.9 closed: TRS MIDI out isolation (2026-11-08, read-only toward the device)
+
+Wiring: the SMK-37's TRS MIDI out, through the **type A** adapter (user read the label), into DIN
+input 1 of the CME H4MIDI WC (USB 7104:2100, ALSA card 3, ports "H4MIDI-WC Port 1..4"), plugged into
+the NUC. Passive `usb-readback.py midi-watch` v0.5 (sends nothing) on all 4 H4MIDI WC inputs, all 10
+AUDIO4c inputs and the SMK-37's USB out at once; the device on tabby-v03.3-diag-r2; user played
+keys for about 15 s (file 2026-11-08-usb-test/midi-watch-l9-adapter1.*):
+
+| port | received |
+|---|---|
+| SMK-37 USB out | 152 note-on, 152 note-off (channel 1), 2884 clock |
+| H4MIDI WC Port 1 (DIN in 1) | **152 note-on, 152 note-off (channel 1), 2882 clock**; kernel Rx +3793 bytes |
+| H4MIDI WC Ports 2-4, all 10 AUDIO4c inputs | nothing (kernel Rx +0) |
+
+Every note that left on USB also arrived from the TRS jack. A type B adapter was not available, so
+step 2 (swap) did not run; step 3 (a known-good DIN source into the AUDIO4c) was conditional on
+both types failing and did not run either.
+
+**Conclusion: not the SMK-37's TRS output and not the adapter type (type A works); the fault is on
+the AUDIO4c input side** (its DIN input, the DIN cable to it, or its internal routing; the earlier
+runs, 25.3 and 25.6, gave 0 bytes on all 10 AUDIO4c inputs, also with DIN routed to all outputs in
+Auracle X). Confirming which of those needs the step 3 test (a known-good DIN out into the
+AUDIO4c). **L.9: adapter type A.** For the timing measurements (L.2, L.6), use the H4MIDI WC Port 1
+as the DIN monitor (midi-monitor.py `--port H4MIDI-WC Port 1`) until the AUDIO4c input is fixed.
 
 ### 25.4 First run (2026-11-07, before the erase approval)
 
