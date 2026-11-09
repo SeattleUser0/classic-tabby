@@ -4,6 +4,15 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.2  2026-11-08  Task 12 A2: the stock step editor is gone: STEPS 1/7 BASIC, 2/7 STEP DETAILS,
+ *                     4/7 LOCKS, STEP_EDIT, RHYTHM, REC (step and live recording, count-in, CLICK),
+ *                     pad-step mode (SHIFT+PAD), HOME K3 STEP, the step-editing ACTIONS (step
+ *                     details, copy / paste / clear / repeat, undo). The stock pattern still loads,
+ *                     saves and plays with the project. Page STEPS (number 1, frozen) is now SYNC /
+ *                     MIDI: K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, PRESETS KEY OUT; SEQ opens it
+ *                     from any page. SHIFT+SEQ opens MIDI TRACK (IN CH, OUT CH, SEQ, OUT PORT) as
+ *                     before; HOME K4 stays the one BPM control. SEQ alone no longer taps tempo on
+ *                     EFFECTS 3/3 (HOME+SEQ taps everywhere).
  *   v0.1  2026-11-08  Task 12 A1: ERASE OLD DATA (was ERASE OLD SAMPLE/DX7) asks for confirmation
  *                     (before, it ran on the first SAVE and the prompt showed on COMPACT); the
  *                     OLD DATA texts on boot, SONG and ACTIONS say what to do.
@@ -150,26 +159,26 @@ static const uint8_t white_keys[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19,
  * The sixth name stays so a GROOVE_SAMPLE view (never produced by the app) still prints. */
 static const char *const source_names[] = {"DX7 FM", "BASS 303", "DRUM 808", "PSG", "PLUCK", "SAMPLER"};
 enum { SOURCE_CHOICES = GROOVE_SAMPLE };
-static const char *const actions[] = {"STEP DETAILS", "RHYTHM / RECORD", "COPY STEP", "COPY PAGE", "COPY TRACK",
-    "PASTE STEP", "PASTE PAGE", "PASTE TRACK", "CLEAR STEP", "CLEAR PAGE", "CLEAR TRACK",
-    "REPEAT TO 32", "REPEAT TO 48", "REPEAT TO 64", "UNDO / REDO", "COPY TIMBRE", "PASTE TIMBRE",
-    "STOP ALL / REWIND", "ERASE OLD DATA",   /* Task 12 A1: was ERASE OLD SAMPLE/DX7 */
+/* Task 12 A2: the step-editing entries (STEP DETAILS, RHYTHM / RECORD, COPY / PASTE / CLEAR
+ * STEP / PAGE / TRACK, REPEAT TO 32 / 48 / 64, UNDO / REDO) left with the step editor. The
+ * entries keep their order; ACT_* names them. (Task 06 (a): "DX7 PATCH NAME" and "BLUETOOTH /
+ * CLOCK" left with their pages; the clock source is on SYNC / MIDI, Bluetooth in the workbench.) */
+static const char *const actions[] = {"COPY TIMBRE", "PASTE TIMBRE", "STOP ALL / REWIND",
+    "ERASE OLD DATA", /* Task 12 A1: was ERASE OLD SAMPLE/DX7 */
     "SONG MODE", "COMPACT SONG STORAGE", "SEND SETUP"};
-/* Task 06 (a): "DX7 PATCH NAME" and "BLUETOOTH / CLOCK" left with their pages (the clock
- * source stays on SEQ page 5/7, Bluetooth is set from the workbench): 17 STOP ALL, 18 ERASE,
- * 19 SONG MODE, 20 COMPACT, 21 SEND SETUP. */
+enum { ACT_COPY_TIMBRE, ACT_PASTE_TIMBRE, ACT_STOP_ALL, ACT_ERASE_OLD, ACT_SONG_MODE, ACT_COMPACT, ACT_SEND_SETUP };
 enum { ACTION_COUNT = sizeof actions / sizeof actions[0] };
 static unsigned source_preview, action, action_confirm, tone_clip_ready;
 /* Task 12 A1: the question the ACTIONS page asks before a destructive entry runs. */
 static const char *confirm_prompt(void)
 {
-    return action == 18 ? "ERASE OLD DATA?" : action == 20 ? "COMPACT SONG STORAGE?" : "REPLACE PATTERN DATA?";
+    return action == ACT_ERASE_OLD ? "ERASE OLD DATA?" : action == ACT_COMPACT ? "COMPACT SONG STORAGE?" : "REPLACE TIMBRE?";
 }
 static struct groove_preset tone_clip;
 static uint32_t midi_seen[8], midi_until[8];
 static uint8_t midi_active[8];
-static unsigned track, cursor, selected_note = 60, drum, writing, page;
-static unsigned music_page, subpage_return, project_return, rec_before_press, effects_page;
+static unsigned track, cursor, selected_note = 60, drum, page;
+static unsigned music_page, subpage_return, project_return, effects_page;
 static unsigned seq_page, arp_page;
 static unsigned song_select, song_row_page; /* SONG page: selected song, pads = rows 1-16 + 16 * page */
 static unsigned launch_phase(void);         /* Task 06 (c): the TRACK LAUNCH page's flash phase */
@@ -178,23 +187,23 @@ static unsigned panel_modes_seen;
 static uint32_t fader_feedback_seen;
 static unsigned boot_active, boot_phase;
 static uint32_t boot_started;
-static const char *const seq_pages[] = {"1/7 BASIC", "2/7 STEP DETAILS", "3/7 RHYTHM/REC", "4/7 LOCKS", "5/7 SYNC / LOOP", "6/7 MIDI TRACK", "7/7 MIDI OUTPUT"};
-/* Keep input and output channels together; output switches are global. */
-/* 10 is the input-channel preference; 255 marks an unused control. */
-static const uint8_t seq_midi_parameters[2][4] = {{10,1,0,2},{9,4,255,255}};
-static const uint8_t seq_midi_limits[2][4] = {{15,15,2,7},{2,1,0,0}};
+/* Task 12 A2: page STEPS has two views: seq_page 0 = SYNC / MIDI (SEQ), 1 = MIDI TRACK (SHIFT+SEQ). */
+enum { SEQ_SYNC = 0, SEQ_MIDI_TRACK = 1 };
+static const char *const seq_pages[] = {"SYNC / MIDI", "MIDI TRACK"};
+/* MIDI TRACK: K1 IN CH (10, the input-channel preference), K2 OUT CH (1), K3 SEQ (0), K4 OUT PORT (2).
+ * SYNC / MIDI uses the global output switches 9 (SEQ OUT, 0..2) and 4 (KEY OUT, 0..1). */
+static const uint8_t seq_midi_parameters[4] = {10,1,0,2};
+static const uint8_t seq_midi_limits[4] = {15,15,2,7};
 static const char *const track_modes[] = {"PROJECT", "LIVE", "OFF"};
 static const char *const midi_modes[] = {"LOCAL", "BOTH", "MIDI"};
 static const char *const seq_outputs[] = {"OFF", "ON", "CLOCK"};
-static unsigned rec_down, rec_used;
-static uint32_t rec_ms;
 static int octave;
 /* Editing focus never redirects the other physical instrument. */
 static uint8_t instrument_track[2];
 static int8_t instrument_octave[2];
 static unsigned pad_focus;
-/* The editor cursor and the visible playback page are independent. Manual
- * paging/editing pins the view; SEQ resumes follow without moving the cursor. */
+/* Task 12 A2: the overview's 16-step window follows the playhead (the step editor that could pin
+ * it is gone); cursor is the window when stopped. */
 static unsigned step_follow = 1, transport_seen;
 static const char *notice;
 static uint32_t notice_until;
@@ -204,7 +213,7 @@ static unsigned step_first(const struct groove_view *v)
 {
     return ((step_follow && v->playing ? v->play_step : cursor) % v->sequence_length) & ~15U;
 }
-/* Selected drum part per track, restored on track change (STEPS editing). Task 03 b
+/* Selected drum part per track, restored on track change. Task 03 b
  * removed the operator/tone editor state that used to sit next to it. */
 static uint8_t drum_parts[GROOVE_TRACKS];
 static uint8_t key_note[27], key_track[27], retry_reset;
@@ -265,7 +274,7 @@ static struct draw_cache saved_cache, band_cache, *cache = &saved_cache;
 static uint32_t led_cache;
 static uint16_t button_led_cache;
 static struct groove_view frame_views[GROOVE_TRACKS];
-static uint8_t frame_step_notes[16], frame_effects[4];
+static uint8_t frame_effects[4];
 static uint8_t frame_patch[156];
 static char frame_fm_names[GROOVE_TRACKS][8];
 static struct groove_fm_controls frame_controls;
@@ -277,18 +286,10 @@ static __attribute__((noinline)) int clamp(int value, int low, int high)
 {
     return value < low ? low : value > high ? high : value;
 }
-static void move_step(const struct groove_view *view, int delta, int pages)
-{
-    if (step_follow && view->playing) cursor = view->play_step;
-    if (pages) cursor = (unsigned)clamp((int)(cursor / 16) + pages, 0,
-        (int)view->sequence_length / 16 - 1) * 16 + (cursor & 15U);
-    cursor = (unsigned)clamp((int)cursor + delta, 0, (int)view->sequence_length - 1);
-    step_follow = 0;
-}
 static unsigned navigation_mode(void)
 {
     return page == PROJECT || page == PRESET_BROWSER || page == MIX ||
-        (page >= SOURCE && page <= RHYTHM) || page == SONG || page == TRACK_LAUNCH || (page == STEPS && !writing) || glo_down;
+        (page >= SOURCE && page <= RHYTHM) || page == SONG || page == TRACK_LAUNCH || page == STEPS || glo_down;
 }
 static unsigned encoder_active(const int16_t values[7])
 {
@@ -452,12 +453,10 @@ static __attribute__((noinline)) void header(const struct groove_view *v)
 {
     if (paint_rendering && paint_top >= 30) return;
     unsigned paused = !v->playing && !groove_sequence_rewound();
-    unsigned count = (groove_sequence_count_in() + 3U) / 4U;
-    if (count > 4) count = 4;
     uint32_t sig = v->tempo | ((uint32_t)v->play_step << 10) |
-        ((uint32_t)v->playing << 16) | (writing << 17) |
-        ((uint32_t)v->clock_mode << 18) | ((uint32_t)v->clock_state << 19) | (step_follow << 22) | (groove_arp_enabled(track) << 23) |
-        ((uint32_t)(v->sequence_length >> 4) << 24) | (groove_project_dirty() << 27) | (paused << 28) | (count << 29);
+        ((uint32_t)v->playing << 16) |
+        ((uint32_t)v->clock_mode << 18) | ((uint32_t)v->clock_state << 19) | (groove_arp_enabled(track) << 23) |
+        ((uint32_t)(v->sequence_length >> 4) << 24) | (groove_project_dirty() << 27) | (paused << 28);
     if (sig == cache->header_cache)
         return;
     uint32_t previous = cache->header_cache, changed = sig ^ previous;
@@ -494,14 +493,10 @@ static __attribute__((noinline)) void header(const struct groove_view *v)
         if (first || active != was_active || (changed & (7U << 24)))
             paint_fill(80 + i * 16, 20, 12, 3, active ? GREEN : i * 16 < v->sequence_length ? PANEL : BACK);
     }
-    if (first || (changed & (1U << 22)))
-        color_text(142, 7, step_follow ? "FOLLOW" : "EDIT  ", step_follow ? GREEN : AMBER);
-    if (first || (changed & ((1U << 16) | (1U << 17) | (1U << 23) | (7U << 29)))) {
-        uint16_t color = writing ? AMBER : PANEL;
-        paint_fill(181, 7, 51, 16, color);
-        char counting[] = "CNT 4"; counting[4] = (char)('0' + count);
-        text(192, 12, writing ? count ? counting : v->playing ? "REC" : "STEP"
-             : groove_arp_enabled(track) ? "ARP" : "LIVE", 1, writing ? BACK : TEXT, color);
+    /* Task 12 A2: no REC / STEP / CNT / FOLLOW-EDIT states any more; the box shows ARP or LIVE. */
+    if (first || (changed & ((1U << 16) | (1U << 23)))) {
+        paint_fill(181, 7, 51, 16, PANEL);
+        text(192, 12, groove_arp_enabled(track) ? "ARP" : "LIVE", 1, TEXT, PANEL);
     }
 }
 static __attribute__((noinline)) void overview(const struct groove_view v[8])
@@ -509,19 +504,17 @@ static __attribute__((noinline)) void overview(const struct groove_view v[8])
     if (paint_rendering && (paint_top >= 190 || paint_top + PAINT_ROWS <= 32)) return;
     unsigned first = step_first(&v[track]);
     char project_name[13]; groove_project_name(project_name);
-    uint32_t title = signature(first / 16 | (step_follow << 3) | (cursor << 4) |
-        ((unsigned)v[track].sequence_length << 10) | (smk37_pad_steps() << 17) |
+    uint32_t title = signature(first / 16 | ((unsigned)v[track].sequence_length << 10) |
         (pad_focus << 18) | ((unsigned)v[track].type << 19), project_name, 12);
     if (title != cache->title_cache) {
         cache->title_cache = title;
         erase(0, 32, 240, 13);
         accent_text(8, 35, project_name);
-        color_text(86, 35, smk37_pad_steps() ? "PAD STEP" : pad_focus ?
-            groove_pad_count(track)?"PAD DRUM":"PAD NOTE":"KEY PLAY", smk37_pad_steps()?AMBER:pad_focus?ACCENT:DIM);
-        dim_text(146, 35, step_follow ? "PAGE" : "STEP");
-        small_number(178, 35, step_follow ? first + 1 : cursor + 1, 2, TEXT);
-        dim_text(190, 35, step_follow ? "-" : "/");
-        small_number(196, 35, step_follow ? first + 16 : v[track].sequence_length, 2, TEXT);
+        color_text(86, 35, pad_focus ? groove_pad_count(track)?"PAD DRUM":"PAD NOTE":"KEY PLAY", pad_focus?ACCENT:DIM);
+        dim_text(146, 35, "PAGE");
+        small_number(178, 35, first + 1, 2, TEXT);
+        dim_text(190, 35, "-");
+        small_number(196, 35, first + 16, 2, TEXT);
     }
     static const char *const chip_names[] = {"PSG YM", "PSG AY", "PSG NOIS", "PSG MIX"};
     for (unsigned t = 0; t < 8; ++t) {
@@ -561,8 +554,8 @@ static __attribute__((noinline)) void overview(const struct groove_view v[8])
             unsigned enabled = step < v[t].sequence_length;
             unsigned on = enabled && (unsigned)((v[t].active_steps >> step) & 1U);
             unsigned head = v[t].playing && v[t].play_step == step;
-            unsigned selected = enabled && t == track && step == cursor;
-            uint32_t sig = on | (head << 1) | (selected << 2) | ((uint32_t)v[t].audible << 3) | (enabled << 4);
+            unsigned selected = 0;   /* Task 12 A2: no step cursor to show */
+            uint32_t sig = on | (head << 1) | ((uint32_t)v[t].audible << 3) | (enabled << 4);
             if (sig == cache->cell_cache[t][i])
                 continue;
             cache->cell_cache[t][i] = sig;
@@ -582,97 +575,39 @@ static __attribute__((noinline)) void overview(const struct groove_view v[8])
         }
     }
 }
-static void step_knob(unsigned col, unsigned bank)
-{
-    static const char *const labels[] = {"VELOCITY", "GATE", "PROB", "CHORD", "TIE", "LOCK", "VALUE", "NOTE"};
-    unsigned setting = bank * 4 + col, v = groove_step_setting(track, cursor, setting);
-    char value[12];
-    if (setting == 1) { decimal(value, v ? v == 15 ? 100 : (v * 100 + 8) / 16 : 50, 1); strcat(value, "%"); }
-    else if (setting == 2) { decimal(value, v ? (v * 100 + 4) / 8 : 100, 1); strcat(value, "%"); }
-    else if (setting == 3) strcpy(value, groove_sequence_chord_name(v));
-    else if (setting == 4) strcpy(value, v ? "ON" : "OFF");
-    else if (setting == 5 && !v) strcpy(value, "OFF");
-    else if (setting < 7) decimal(value, v, 1);
-    else note_name(frame_views[track].step.note, value);
-    if (groove_pad_count(track) && (setting == 1 || setting == 3 || setting == 4 || setting == 7)) strcpy(value, "--");
-    knob(col, labels[setting], value, colors[col]);
-}
-static void step_adjust(unsigned bank, const int16_t *encoders, uint32_t now)
-{
-    for (unsigned i = 0; i < 4; ++i) if (encoders[2 + i]) {
-        unsigned setting = bank * 4 + i;
-        if (setting < 7) {
-            if (groove_step_setting_edit(track, cursor, setting, encoders[2 + i])) {
-                announce("UNAVAILABLE / CHORD OR LOCK FULL", now + 2000U);
-            }
-        } else if (!groove_pad_count(track)) {
-            struct groove_view v; groove_get_view(track, cursor, &v);
-            groove_sequence_edit(track, cursor, (unsigned)clamp((int)v.step.note + encoders[2 + i], 0, 127), v.step.velocity);
-        }
-    }
-}
-static void sequence_length_adjust(int delta)
-{
-    if (!delta) return;
-    struct groove_view v; groove_get_view(track, cursor, &v);
-    unsigned length = (unsigned)clamp((int)(v.next_length / 16) + delta, 1, 4) * 16U;
-    groove_sequence_length_set(track, length);
-    cursor %= groove_sequence_length(track);
-}
-static __attribute__((noinline)) void steps(const struct groove_view *v)
+/* Task 12 A2: the SYNC / MIDI and MIDI TRACK views of page STEPS (the step grid that was here left
+ * with the step editor). The body lists every setting with the control that changes it; the knob
+ * strip below shows K1-K4. BPM is set on HOME K4 and only shown here. */
+static __attribute__((noinline)) void sync_draw(const struct groove_view *v)
 {
     if (paint_rendering && (paint_top >= 184 || paint_top + PAINT_ROWS <= 32)) return;
-    unsigned first = step_first(v);
-    uint32_t title = track | (drum << 3) | (first << 7) | (writing << 13) |
-        ((uint32_t)v->sequence_length << 14) | ((uint32_t)v->next_length << 21);
-    if (title != cache->title_cache) {
-        cache->title_cache = title;
-        erase(0, 32, 240, 34);
-        color_text(8, 35, "T", colors[track]);
-        small_number(14, 35, track + 1, 1, colors[track]);
-        color_text(30, 35, groove_pad_count(track) != 0                ? groove_pad_name(track, drum)
-             : groove_source_type(track) == GROOVE_303   ? "303 STEPS"
-             : groove_source_type(track) == GROOVE_PSG   ? "PSG STEPS"
-             : groove_source_type(track) == GROOVE_PLUCK ? "PLUCK STEPS"
-                                                         : "DX7 STEPS", TEXT);
-        unsigned pending = v->sequence_length != v->next_length;
-        color_text(174, 35, pending ? "NEXT" : "LEN ", pending ? AMBER : DIM);
-        small_number(204, 35, v->next_length, 2, pending ? AMBER : colors[track]);
-        for (unsigned p = 0; p < 4; ++p) {
-            uint16_t bg = p == first / 16 ? colors[track] : p * 16 < v->sequence_length ? PANEL : BACK;
-            paint_fill(8 + p * 57, 50, 53, 14, bg);
-            number(19 + p * 57, 54, p * 16 + 1, 2, 1, p == first / 16 ? BACK : DIM, bg);
-            text(31 + p * 57, 54, "-", 1, p == first / 16 ? BACK : DIM, bg);
-            number(37 + p * 57, 54, p * 16 + 16, 2, 1, p == first / 16 ? BACK : DIM, bg);
-        }
+    uint32_t sig = seq_page | (track << 2) | ((uint32_t)v->clock_mode << 5) | ((uint32_t)v->clock_state << 6) |
+        ((uint32_t)groove_midi_setting(track, 4) << 8) | ((uint32_t)v->tempo << 10);
+    if (sig == cache->title_cache) return;
+    cache->title_cache = sig;
+    erase(0, 32, 240, 150);
+    accent_text(8, 35, seq_pages[seq_page]);
+    if (seq_page == SEQ_MIDI_TRACK) {
+        color_text(8, 55, "T", colors[track]); small_number(14, 55, track + 1, 1, colors[track]);
+        plain_text(30, 55, "MIDI FOR THIS TRACK");
+        dim_text(8, 75, "K1 IN CH   RECEIVE CHANNEL");
+        dim_text(8, 89, "K2 OUT CH  SEND CHANNEL");
+        dim_text(8, 103, "K3 SEQ     LOCAL / BOTH / MIDI");
+        dim_text(8, 117, "K4 OUT PORT ALL / OFF");
+        dim_text(8, 137, "SELECT: TRACK  SEQ: SYNC / MIDI");
+        return;
     }
-    uint64_t lane = groove_pad_count(track) != 0 ? groove_drum_steps(track, drum) : v->active_steps;
-    for (unsigned i = 0; i < 16; ++i) {
-        unsigned step = first + i;
-        unsigned x = 8 + (i % 4) * 57, y = 72 + (i / 4) * 29;
-        if (paint_rendering && (y >= paint_top + PAINT_ROWS || y + 25 <= paint_top)) continue;
-        unsigned on = (unsigned)((lane >> step) & 1U), head = v->playing && v->play_step == step;
-        uint32_t sig = step | (on << 6) | (head << 7) | ((step == cursor) << 8) |
-                       ((uint32_t)frame_step_notes[i] << 9) | (track << 16) | (drum << 19);
-        if (sig == cache->tile_cache[i])
-            continue;
-        cache->tile_cache[i] = sig;
-        uint16_t bg = on ? colors[track] : PANEL, fg = on ? BACK : TEXT;
-        paint_fill(x, y, 53, 25, bg);
-        if (step == cursor)
-            frame(x, y, 53, 25, TEXT);
-        if (head)
-            paint_fill(x, y, 53, 3, GREEN);
-        number(x + 5, y + 5, step + 1, 2, 1, fg, bg);
-        char label[12];
-        if (!on)
-            strcpy(label, "-");
-        else if (groove_pad_count(track) != 0)
-            strcpy(label, "HIT");
-        else
-            note_name(frame_step_notes[i], label);
-        text(x + 25, y + 14, label, 1, fg, bg);
-    }
+    dim_text(8, 55, "K1 CLOCK   INT / MIDI");
+    dim_text(8, 69, "K2 CLK IN  AUTO USB BLE DIN");
+    dim_text(8, 83, "K3 SWING");
+    dim_text(8, 97, "K4 SEQ OUT OFF / ON / CLOCK");
+    plain_text(8, 115, "PRESETS KEY OUT:");
+    accent_text(116, 115, groove_midi_setting(track, 4) ? "ON" : "OFF");
+    dim_text(8, 135, "BPM:");
+    if (v->clock_mode && !v->tempo) color_text(40, 135, v->clock_state == GROOVE_CLOCK_LOST ? "LOST" : "WAIT", AMBER);
+    else small_number(40, 135, v->tempo, 3, TEXT);
+    dim_text(72, 135, v->clock_mode ? "FROM MIDI CLOCK" : "SET ON HOME K4");
+    dim_text(8, 153, "SHIFT+SEQ: MIDI TRACK");
 }
 static __attribute__((noinline)) void mix_draw(const struct groove_view v[8])
 {
@@ -820,16 +755,8 @@ static __attribute__((noinline)) void effects_draw(void)
 static void leds(const struct groove_view *v, unsigned visible)
 {
     uint32_t bits = 0;
-    unsigned first = step_first(v);
-    if (visible == STEPS && !writing) {
-        uint64_t lane =
-            groove_pad_count(track) != 0 ? groove_drum_steps(track, drum) : v->active_steps;
-        for (unsigned i = 0; i < 16; ++i)
-            if ((lane >> (first + i)) & 1U)
-                bits |= 1U << white_keys[i];
-        if (v->playing && (v->play_step & ~15U) == first)
-            bits ^= 1U << white_keys[v->play_step & 15U];
-    } else if (visible == PRESET_BROWSER) {
+    /* Task 12 A2: the pads no longer light a step lane (no step editor). */
+    if (visible == PRESET_BROWSER) {
         bits = 1U << white_keys[preset_slot];
     } else if (visible == MIX) {
         for (unsigned t = 0; t < 8; ++t) {
@@ -847,15 +774,12 @@ static void leds(const struct groove_view *v, unsigned visible)
         if (changed & (1U << key))
             fm1_led_set(key + 14, (bits >> key) & 1U);
     led_cache = bits;
-    unsigned step_pages = visible == STEPS || visible == ACTIONS;
-    bits = ((step_pages ? first > 0 : octave < 0) << OCT_DOWN)
-        | ((step_pages ? first + 16 < v->sequence_length : octave > 0) << OCT_UP)
+    bits = ((octave < 0) << OCT_DOWN) | ((octave > 0) << OCT_UP)
         | ((visible == OVERVIEW) << HOME) | ((visible == EFFECTS) << FX)
         | ((groove_arp_enabled(track) != 0) << ARP)
-        | ((visible == STEPS || visible == ACTIONS || visible == STEP_EDIT || visible == RHYTHM) << SEQ)
-        | ((writing != 0) << REC)
+        | ((visible == STEPS || visible == ACTIONS) << SEQ)
         | ((v->playing != 0 || song_playing()) << PLAY) | ((visible == MIX) << GLO)
-        | ((visible == FM_QUICK || visible == STEP_EDIT) << EDIT) | ((visible == TRACK_LAUNCH) << SCL)
+        | ((visible == FM_QUICK) << EDIT) | ((visible == TRACK_LAUNCH) << SCL)
         | ((visible == PROJECT || visible == SOURCE || (visible == ACTIONS && action_confirm)) << SAVE);
     changed = bits ^ button_led_cache;
     for (unsigned key = 0; key < 14; ++key)
@@ -871,9 +795,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         sig = sig * 33U + source_preview;
         sig = sig * 33U + (unsigned)source_result;
         if (visible == SOURCE) sig = sig * 33U + groove_track_role(track);
-        for (unsigned i = 0; i < 7; ++i) sig = sig * 33U + groove_step_setting(track, cursor, i);
-        for (unsigned i = 0; i < 3; ++i) sig = sig * 33U + groove_sequence_setting(i);
-        sig = sig * 33U + groove_sequence_count_in();
+        sig = sig * 33U + tone_clip_ready;   /* Task 12 A2: the step / count-in state left with the editor */
         sig = sig * 33U + frame_views[track].volume;
         if (notice) sig = signature(sig, notice, (unsigned)strlen(notice));
 #ifdef CT_DIAG
@@ -935,14 +857,12 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         if (action_confirm) color_text(8, 38, confirm_prompt(), AMBER);
         else {
 #endif
+            /* Task 12 A2: the step / page / clipboard line left with the step editor. */
             dim_text(8, 38, "T"); small_number(16, 38, track + 1, 1, TEXT);
-            dim_text(36, 38, "STEP"); small_number(68, 38, cursor + 1, 2, ACCENT);
-            dim_text(94, 38, "PAGE"); small_number(126, 38, cursor / 16 + 1, 1, ACCENT);
-            unsigned count = groove_edit_clipboard_count();
-            dim_text(154, 38, count == 1 ? "CLIP STEP" : count == 16 ? "CLIP PAGE" : count ? "CLIP TRACK" : "CLIP EMPTY");
+            dim_text(36, 38, tone_clip_ready ? "TIMBRE COPIED" : "NO TIMBRE COPIED");
         }
-        unsigned first = action < 4 ? 0 : action > ACTION_COUNT - 5 ? ACTION_COUNT - 8 : action - 3;
-        for (unsigned i = 0; i < 8; ++i) {
+        unsigned first = 0;   /* Task 12 A2: the seven entries fit on one screen */
+        for (unsigned i = 0; i < ACTION_COUNT; ++i) {
             unsigned at = first + i, y = 57 + i * 19;
             uint16_t bg = at == action ? PANEL : BACK;
             paint_fill(6, y, 228, 17, bg);
@@ -953,7 +873,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
 #else
         plain_text(8, 213, notice ? notice : "K1 / SELECT ACTION  SAVE EXECUTE");
 #endif
-        dim_text(8, 231, action_confirm ? "SAVE CONFIRM   HOME CANCEL" : "PRESETS STEP  OCT PAGE  SAVE DO");
+        dim_text(8, 231, action_confirm ? "SAVE CONFIRM   HOME CANCEL" : "K1 / SELECT ACTION  SAVE DO");
     } else if (visible == SONG) {
         /* Task 03 d: song mode. Row = song record row, pads queue jumps. */
         struct song_status st; song_status_read(&st);
@@ -1120,14 +1040,13 @@ static __attribute__((noinline)) const char *performance_hint(unsigned visible, 
 {
     const struct groove_view *v = &views[track];
     unsigned role = groove_track_role(track);
-    if (visible == STEPS && seq_page == 5) return "K1 IN: RECEIVE  K2 OUT: SEND";
+    if (visible == STEPS && seq_page == SEQ_MIDI_TRACK) return "K1 IN: RECEIVE  K2 OUT: SEND";
     if (role == GROOVE_TRACK_OFF) return "TRACK OFF - SHIFT+HOME K2 TO ENABLE";
     if (!fm1_engine_output_level()) return "MASTER MUTED - TURN MASTER UP";
     if (v->muted) return "TRACK MUTED - MIX / PAD TO UNMUTE";
     /* The engine already resolves the independent NORMAL / PLAY solo groups. */
     if (!v->audible) return "OTHER TRACK SOLO - MIX TO CHECK";
     if (!v->volume) return "TRACK LEVEL 0 - USE MIX / FADER";
-    if (writing && role == GROOVE_TRACK_PLAY) return "REC PROJECT TRACKS; LIVE NOT REC";
     if (groove_midi_input_channel(smk37_performance_track(0))==
         groove_midi_input_channel(smk37_performance_track(1)))
         return "KEY/PAD SAME CH - SHIFT+SEQ TO SET";
@@ -1183,60 +1102,44 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
     if (visible == OVERVIEW)
         overview(views);
     else if (visible == STEPS)
-        steps(v);
+        sync_draw(v);   /* Task 12 A2 */
     else
         mix_draw(views);
     /* Lower controls cannot intersect an upper LCD band. Avoid formatting
      * their labels and querying the engine once for every unrelated band. */
     if (paint_rendering && paint_top + PAINT_ROWS <= 184) return;
     if (visible == STEPS) {
-        unsigned parameter = seq_page == 3 ? groove_step_setting(track, cursor, 5) : 0;
-        uint32_t strip = parameter | (seq_page << 10) | ((unsigned)v->type << 13);
+        uint32_t strip = seq_page << 10;
         if (cache->seq_cache != strip) {
             cache->seq_cache = strip;
             erase(0, 184, 240, 11);
-            accent_text(8, 186, parameter ? groove_lock_parameter_name(track, parameter - 1) : seq_pages[seq_page]);
-            if (!parameter) dim_text(174, 186, "PAGE ALG");
+            accent_text(8, 186, seq_pages[seq_page]);
+            dim_text(150, 186, seq_page == SEQ_SYNC ? "HOLD SEQ: ACTIONS" : "SELECT: TRACK");
         }
     }
     for (unsigned col = 0; col < 4; ++col) {
         char value[12];
         const char *label;
         uint16_t color = colors[col];
-        if (visible == STEPS && (seq_page == 1 || seq_page == 3)) {
-            step_knob(col, seq_page == 3); continue;
-        } else if (visible == STEPS && seq_page == 2) {
-            static const char *const labels[] = {"SWING", "CLICK", "COUNT IN", "LENGTH"};
-            static const char *const clicks[] = {"OFF", "REC", "ON"};
-            label = labels[col];
-            if (!col) { decimal(value, groove_sequence_setting(0), 1); strcat(value, "%"); }
-            else if (col == 1) strcpy(value, clicks[groove_sequence_setting(1)]);
-            else if (col == 2) strcpy(value, groove_sequence_setting(2) ? "1 BAR" : "OFF");
-            else decimal(value, v->next_length, 1);
-        } else if (visible == STEPS && seq_page == 4) {
-            static const char *const labels[] = {"CLOCK", "BPM", "LENGTH", "CLK IN"};
+        if (visible == STEPS && seq_page == SEQ_SYNC) {
+            /* Task 12 A2: SYNC / MIDI. K1 CLOCK (was 5/7 K1), K2 CLK IN (5/7 K4), K3 SWING (3/7 K1),
+             * K4 SEQ OUT (7/7 K1). KEY OUT (7/7 K2) is on PRESETS and in the body. */
+            static const char *const labels[] = {"CLOCK", "CLK IN", "SWING", "SEQ OUT"};
+            static const char *const sources[] = {"AUTO", "USB", "BLE", "DIN"};
             label = labels[col];
             if (!col) strcpy(value, v->clock_mode ? "MIDI" : "INT");
-            else if (col == 1) {
-                if (v->clock_mode) {
-                    label = "MIDI BPM";
-                    if (v->tempo) decimal(value, v->tempo, 1);
-                    else strcpy(value, v->clock_state == GROOVE_CLOCK_LOST ? "LOST" : "WAIT");
-                }
-                else decimal(value, v->tempo, 1);
-            } else if (col == 2) decimal(value, v->next_length, 1);
-            else { static const char *const sources[] = {"AUTO", "USB", "BLE", "DIN"}; strcpy(value, sources[groove_midi_setting(track,6)]); }
-        } else if (visible == STEPS && seq_page >= 5) {
-            static const char *const labels[2][4] = {{"IN CH", "OUT CH", "SEQ", "OUT PORT"}, {"SEQ OUT", "KEY OUT", "", ""}};
-            unsigned parameter = seq_midi_parameters[seq_page - 5][col], setting = groove_midi_setting(track,parameter);
-            label = labels[seq_page - 5][col];
+            else if (col == 1) strcpy(value, sources[groove_midi_setting(track,6) & 3U]);
+            else if (col == 2) { decimal(value, groove_sequence_setting(0), 1); strcat(value, "%"); }
+            else strcpy(value, seq_outputs[groove_midi_setting(track,9)]);
+        } else if (visible == STEPS) {
+            /* MIDI TRACK (SHIFT+SEQ, was 6/7). */
+            static const char *const labels[4] = {"IN CH", "OUT CH", "SEQ", "OUT PORT"};
+            unsigned parameter = seq_midi_parameters[col], setting = groove_midi_setting(track,parameter);
+            label = labels[col];
             if (!parameter) strcpy(value,midi_modes[setting]);
             else if (parameter == 1) decimal(value,setting + 1,1);
             else if (parameter == 2) strcpy(value,setting ? "ALL" : "OFF");
-            else if (parameter == 10) decimal(value,groove_midi_input_channel(track)+1,1);
-            else if (parameter == 9) strcpy(value,seq_outputs[setting]);
-            else if (parameter == 255) { value[0] = 0; color = BACK; }
-            else strcpy(value,setting ? "ON" : "OFF");
+            else decimal(value,groove_midi_input_channel(track)+1,1);
         } else if (visible == MIX) {
             unsigned t = (track & ~3U) + col;
             static const char *const labels[8] = {"TRACK 1", "TRACK 2", "TRACK 3", "TRACK 4",
@@ -1252,9 +1155,9 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
             else if (col == 1 && visible == OVERVIEW) {
                 label = "SOURCE";
                 strcpy(value, source_names[v->type]);
-            } else if (col == (visible == OVERVIEW ? 2U : 1U)) {
-                label = visible != OVERVIEW && step_follow && v->playing ? "PLAY" : "STEP";
-                decimal(value, step_follow && v->playing ? v->play_step + 1U : cursor + 1U, 2);
+            } else if (col == 1 || (col == 2 && visible == OVERVIEW)) {
+                /* Task 12 A2: no STEP control any more (HOME K3, K2 elsewhere). */
+                label = "-"; strcpy(value, "--"); color = DIM;
             } else if (col == 2 && groove_pad_count(track) != 0) {
                 label = "DRUM";
                 decimal(value, drum + 1, 2);
@@ -1284,13 +1187,10 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
     const char *hint = state_hint ? state_hint
                        : v->clock_mode && v->clock_state != GROOVE_CLOCK_LOCKED
                            ? "WAIT MIDI CLOCK - SEQ SYNC: INT/MIDI"
-                       : writing && groove_sequence_count_in() ? "COUNT IN - RECORD ON NEXT BAR"
-                       : writing ? v->playing ? "LIVE REC - PLAY KEYS  REC TO FINISH"
-                                                             : "STEP REC - PLAY KEYS  REC TO FINISH"
                        : visible == OVERVIEW && (previous_buttons & BUTTON(HOME))
                            ? "PRESETS SOURCE  EDIT PARAMETERS"
                        : visible == OVERVIEW ? routing
-                       : visible == STEPS    ? "PRESETS STEP  OCT PAGE  HOLD SEQ MORE"
+                       : visible == STEPS    ? seq_page == SEQ_SYNC ? "PRESETS KEY OUT  SHIFT+SEQ MIDI TRACK" : "SEQ: SYNC / MIDI  HOME BACK"
                        : visible == MIX      ? "PADS MUTE/SOLO  MIX / HOME BACK"
                        : "SELECT PAGE  HOME TRACKS";
     hint_draw(hint);
@@ -1340,12 +1240,6 @@ static void draw(const struct fm1_ble_status *ble)
         groove_get_view(t, cursor, &frame_views[t]);
         if (visible == OVERVIEW && frame_views[t].type == GROOVE_DX7 && !groove_fm_copy(t, frame_patch, NULL))
             memcpy(frame_fm_names[t], frame_patch + 145, 7);
-    }
-    if (visible == STEPS) {
-        unsigned first = step_first(&frame_views[track]);
-        struct groove_step cells[16];
-        groove_sequence_read(track, first, cells, 16);
-        for (unsigned i = 0; i < 16; ++i) frame_step_notes[i] = cells[i].note;
     }
     if (visible == EFFECTS) {
         groove_effects_get(frame_effects);
@@ -1451,7 +1345,7 @@ static int preset_load(unsigned start, uint32_t now)
     preset_loaded = 1;
     preset_project_revision = groove_project_revision();
     preset_current_slot = preset_slot;
-    writing = cursor = drum = 0; step_follow = 1;
+    cursor = drum = 0; step_follow = 1;
     memset(drum_parts, 0, sizeof drum_parts);
     selected_note = groove_pad_count(track) ? groove_pad_note(track, 0) : 60;
     page = music_page = OVERVIEW;
@@ -1464,24 +1358,11 @@ static int preset_load(unsigned start, uint32_t now)
     }
     return 0;
 }
-static void toggle_step(unsigned step)
-{
-    struct groove_view v;
-    groove_get_view(track, step, &v);
-    unsigned enabled =
-        groove_pad_count(track) != 0 ? (v.step.drums & (1U << drum)) != 0 : v.step.velocity != 0;
-    if (!groove_pad_count(track) && enabled) selected_note = v.step.note;
-    groove_sequence_edit(track, step, selected_note, enabled ? 0 : 100);
-    cursor = step;
-    step_follow = 0;
-    if (groove_pad_count(track)) drum_parts[track] = (uint8_t)drum;
-}
 void groove_screen_init(void)
 {
     smk37_controls_reset();
-    track = cursor = drum = writing = page = 0;
-    music_page = subpage_return = project_return = rec_before_press = OVERVIEW;
-    rec_down = rec_used = 0;
+    track = cursor = drum = page = 0;
+    music_page = subpage_return = project_return = OVERVIEW;
     selected_note = 60;
     step_follow = 1;
     transport_seen = 0;
@@ -1593,32 +1474,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         seq_down = 1; seq_ms = now;
     }
     if (page == OVERVIEW || page == STEPS) music_page = page;
-    if (pressed & BUTTON(REC)) rec_before_press = writing;
-    /* HOME defers REC until release so REC+SELECT never starts a take.
-     * A held gesture preserves the previous recording state. */
-    if ((pressed & BUTTON(REC)) && page == OVERVIEW && !glo_down &&
-        !(controls->buttons & ~BUTTON(REC))) {
-        rec_down = 1; rec_used = 0; rec_ms = now;
-    }
-    if (rec_down) {
-        if (page != OVERVIEW || (pressed & ~BUTTON(REC))) rec_down = 0;
-        else if (!(controls->buttons & BUTTON(REC))) {
-            if (!rec_used && now - rec_ms < 600U) writing ^= 1U;
-            rec_down = 0;
-        } else {
-            pressed &= ~BUTTON(REC);
-            if (controls->encoders[0]) {
-                rec_used = 1;
-                if (now - rec_ms >= 600U) {
-                    cursor = (unsigned)clamp((int)cursor + controls->encoders[0], 0,
-                        (int)groove_sequence_length(track) - 1);
-                    groove_edit_seek(track, cursor);
-                    step_follow = 0;
-                }
-                goto controls_done;
-            }
-        }
-    }
+    /* Task 12 A2: REC (step and live recording, the REC+K1 seek) left with the step editor;
+     * REC only says so (handled below). */
     /* Emergency stop has the same meaning in every modal page. */
     if ((controls->buttons & (BUTTON(HOME) | BUTTON(PLAY))) ==
             (BUTTON(HOME) | BUTTON(PLAY)) && (pressed & (BUTTON(HOME) | BUTTON(PLAY)))) {
@@ -1626,9 +1483,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (!post(0xff, 0, 0, 1)) return 0;
         memset(key_note, 0xff, sizeof key_note); project_keys = 0;
         page = music_page = OVERVIEW;
-        writing = glo_down = glo_used = project_reload = 0;
-        arp_down = arp_long = seq_down = rec_down = 0;
-        groove_edit_record(0, track, cursor);
+        glo_down = glo_used = project_reload = 0;
+        arp_down = arp_long = seq_down = 0;
         return 1;
     }
     /* A project received over MIDI can replace the current instrument while
@@ -1636,12 +1492,13 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     if ((controls->buttons & (BUTTON(HOME) | BUTTON(SAVE))) == (BUTTON(HOME) | BUTTON(SAVE)) &&
         (pressed & (BUTTON(HOME) | BUTTON(SAVE)))) {
         int r = groove_edit_undo();
-        announce(r ? "NOTHING TO UNDO / STOP REC FIRST" : "UNDO / REDO APPLIED", now + 2000U);
+        announce(r ? "NOTHING TO UNDO" : "UNDO / REDO APPLIED", now + 2000U);   /* Task 12 A2: no REC to stop */
         page = music_page;
         goto controls_done;
     }
-    if ((pressed & BUTTON(SEQ)) && ((controls->buttons & BUTTON(HOME)) ||
-        (page == EFFECTS && effects_page == 2 && controls->buttons == BUTTON(SEQ)))) {
+    /* Task 12 A2: HOME+SEQ taps tempo on every page; SEQ alone always opens SYNC / MIDI (it
+     * used to tap on EFFECTS 3/3 too). */
+    if ((pressed & BUTTON(SEQ)) && (controls->buttons & BUTTON(HOME))) {
         groove_screen_tap(now);
         seq_down = 0;
         if (controls->buttons & BUTTON(HOME)) page = music_page;
@@ -1696,7 +1553,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 preset_refresh(); project_result = 0; page = PRESET_BROWSER;
             } else page = OVERVIEW;
         } else if (pressed & BUTTON(SEQ)) {
-            page = STEPS; seq_page = 0; step_follow = 1; cache->shown_page = ~0U;
+            page = STEPS; seq_page = SEQ_SYNC; cache->shown_page = ~0U;   /* Task 12 A2: SYNC / MIDI */
         } else if (pressed & BUTTON(FX)) {
             if (page != EFFECTS) effects_page = 0;
             open_subpage(EFFECTS);
@@ -1719,16 +1576,12 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         announce(groove_arp_enabled(track) ? "ARP ON / HOLD ARP FOR SETTINGS" : "ARP OFF / LIVE KEYS", now + 2000U);
     }
     if (pressed & BUTTON(REC)) {
-        writing ^= 1U;
+        /* Task 12 A2: no recording on the device in this version (Phase 5 brings it back). */
         glo_down = 0;
-        if (writing && (page == PROJECT || page == PRESET_BROWSER ||
-                       page == MIX || (page >= SOURCE && page <= RHYTHM) ||
-                       (page == STEPS && (seq_page == 1 || seq_page == 3)))) {
-            page = STEPS; seq_page = 0; step_follow = 1;
-        }
+        announce("NO REC IN THIS VERSION", now + 1500U);
         goto controls_done;
     }
-    if (page != STEPS && page != ACTIONS)
+    if (page != ACTIONS)
         {
             int next=clamp(octave + !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN)), -2, 2);
             if(next!=octave) {octave=next;groove_settings_panel_changed();}
@@ -1876,55 +1729,36 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         goto controls_done;
     }
     if (page == ACTIONS) {
-        int move = controls->encoders[6] + controls->encoders[3];
-        int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN));
-        if (move || paging) {
-            cursor = (unsigned)clamp((int)cursor + move + paging * 16, 0,
-                                     (int)groove_sequence_length(track) - 1);
-            step_follow = action_confirm = 0;
-        }
-        for (unsigned i = 0; i < 16; ++i)
-            if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
-                cursor = (cursor & ~15U) + i;
-                step_follow = action_confirm = 0;
-            }
+        /* Task 12 A2: no step cursor here any more; K1 / SELECT choose the entry. */
         if (controls->encoders[0] || controls->encoders[2]) {
             action = (unsigned)clamp((int)action + controls->encoders[0] + controls->encoders[2], 0, ACTION_COUNT - 1);
             action_confirm = 0;
         }
         if (pressed & BUTTON(SAVE)) {
             int r = 0;
-            unsigned operation = action;
-            /* Task 12 A1: ERASE OLD DATA (18) asks first, as COMPACT (20) does; before, 18 ran on
-             * the first SAVE and the erase prompt showed on COMPACT. */
-            unsigned destructive = (action >= 7 && action <= 13) || action == 16 || action == 18 || action == 20;
+            /* Task 12 A1: ERASE OLD DATA asks first, as COMPACT does; PASTE TIMBRE too. */
+            unsigned destructive = action == ACT_PASTE_TIMBRE || action == ACT_ERASE_OLD || action == ACT_COMPACT;
             if (destructive && !action_confirm) { action_confirm = 1; goto controls_done; }
             action_confirm = 0;
-            if (action <= 1) { page = STEPS; seq_page = action + 1; step_follow = 0; cache->shown_page = ~0U; }
-            else if (action <= 4) {
-                r = groove_edit_copy(track, cursor, action - 2);
-                if (!r) action += 3; /* Select the matching paste command. */
+            /* Task 12 A3: no flash write while the transport runs. */
+            if ((action == ACT_ERASE_OLD || action == ACT_COMPACT) && ct_transport_running()) {
+                announce("STOP TO ERASE / COMPACT", now + 2000U);
+                cache->middle_cache = ~0U;
+                goto controls_done;
             }
-            else if (action <= 7) {
-                unsigned wanted = action == 5 ? 1U : action == 6 ? 16U : 64U;
-                r = groove_edit_clipboard_count() == wanted ? groove_edit_paste(track, cursor, action - 5) : -3;
-            }
-            else if (action <= 10) r = groove_edit_clear(track, cursor, action - 8);
-            else if (action <= 13) r = groove_edit_repeat(track, (action - 9) * 16);
-            else if (action == 14) r = groove_edit_undo();
-            else if (action == 15) { r = groove_timbre_export(track, (uint8_t *)&tone_clip, sizeof tone_clip); tone_clip_ready = !r; }
-            else if (action == 16) r = tone_clip_ready ? groove_timbre_import(track, (uint8_t *)&tone_clip, sizeof tone_clip) : -1;
-            else if (action == 18) {
-                /* Task 03 a: user-confirmed erase of the V01 sample bank / DX7 library
-                 * sectors so the region can become song storage (app/song_storage.c). */
+            if (action == ACT_COPY_TIMBRE) { r = groove_timbre_export(track, (uint8_t *)&tone_clip, sizeof tone_clip); tone_clip_ready = !r; }
+            else if (action == ACT_PASTE_TIMBRE) r = tone_clip_ready ? groove_timbre_import(track, (uint8_t *)&tone_clip, sizeof tone_clip) : -1;
+            else if (action == ACT_ERASE_OLD) {
+                /* Task 03 a: user-confirmed erase of the old-data sectors so the region can be
+                 * song storage (app/song_storage.c). */
                 r = song_storage_initialize();
-            } else if (action == 19) {
+            } else if (action == ACT_SONG_MODE) {
                 page = SONG;
                 if (song_loaded() == SONG_NONE) (void)song_load(song_select);
-            } else if (action == 20) {
+            } else if (action == ACT_COMPACT) {
                 /* Task 03 d: full compaction pass, one block sector per poll (9.6). */
-                r = song_playing() ? -1 : song_storage_compact();
-            } else if (action == 21) {
+                r = song_storage_compact();
+            } else if (action == ACT_SEND_SETUP) {
                 /* Task 04 (9.11): send row 1's events now, for a set or after power-up. */
                 int e = song_send_setup();
                 announce(e == SONG_BUSY ? "STOP THE SONG FIRST" : e ? "NO SONG LOADED" : "SETUP SENT - ROW 1 EVENTS", now + 2000U);
@@ -1933,15 +1767,9 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             }
             else {
                 if (!post(0xff, 0, 0, 1)) return 0;
-                memset(key_note, 0xff, sizeof key_note); project_keys = 0; writing = 0; page = OVERVIEW;
+                memset(key_note, 0xff, sizeof key_note); project_keys = 0; page = OVERVIEW;
             }
-            announce(r == -3 ? "COPY MATCHING STEP / PAGE / TRACK FIRST"
-                : r == -2 ? "CHORD / LOCK TABLE FULL" : r ? "UNAVAILABLE / INCOMPATIBLE"
-                : operation == 2 ? "STEP COPIED - CHOOSE DESTINATION"
-                : operation == 3 ? "PAGE COPIED - CHOOSE DESTINATION"
-                : operation == 4 ? "TRACK COPIED - CHOOSE DESTINATION"
-                : operation == 5 ? "STEP PASTED - UNDO AVAILABLE"
-                : operation == 6 ? "PAGE PASTED - UNDO AVAILABLE" : "DONE", now + 2000U);
+            announce(r ? "UNAVAILABLE / INCOMPATIBLE" : action == ACT_COPY_TIMBRE ? "TIMBRE COPIED" : "DONE", now + 2000U);
             cache->middle_cache = ~0U;
         }
         goto controls_done;
@@ -2002,45 +1830,36 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                     cache->shown_page = ~0U;
                     goto controls_done;
                 }
-                int oct_delta = (int)((pressed >> OCT_UP) & 1U) - (int)((pressed >> OCT_DOWN) & 1U);
-                if (page == STEPS) {
-                    unsigned next = (unsigned)clamp((int)seq_page + controls->encoders[1], 0, 6);
-                    struct groove_view v; groove_get_view(track, cursor, &v);
-                    int move = controls->encoders[6] + (!next ? controls->encoders[3] : 0);
-                    if (next != seq_page || move || oct_delta) {
-                        move_step(&v, move, oct_delta);
-                        if (move) writing = 0;
+                if (page == STEPS && seq_page == SEQ_SYNC) {
+                    /* Task 12 A2: SYNC / MIDI. K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, PRESETS KEY OUT;
+                     * the same setting calls the removed 3/7, 5/7 and 7/7 used. */
+                    if (controls->encoders[2]) groove_settings_clock(controls->encoders[2] > 0
+                        ? GROOVE_CLOCK_MIDI : GROOVE_CLOCK_INTERNAL);
+                    groove_settings_midi(track, 6, controls->encoders[3]);
+                    groove_sequence_setting_edit(0, controls->encoders[4]);
+                    static const uint8_t outputs[2] = {9, 4}, limits[2] = {2, 1};
+                    const int deltas[2] = {controls->encoders[5], controls->encoders[6]};
+                    for (unsigned i = 0; i < 2; ++i) if (deltas[i]) {
+                        unsigned old = groove_midi_setting(track, outputs[i]);
+                        if ((deltas[i] < 0 && !old) || (deltas[i] > 0 && old == limits[i])) continue;
+                        groove_settings_midi(track, outputs[i], deltas[i]);
+                        announce(i ? "KEY OUTPUT UPDATED" : "SEQ OUTPUT UPDATED", now + 1500U);
                     }
-                    if (next != seq_page) { seq_page = next; cache->shown_page = ~0U; }
-                    if (seq_page == 1 || seq_page == 3) step_adjust(seq_page == 3, controls->encoders, now);
-                    else if (seq_page == 2) {
-                        for (unsigned i = 0; i < 3; ++i) groove_sequence_setting_edit(i, controls->encoders[2 + i]);
-                        sequence_length_adjust(controls->encoders[5]);
-                    } else if (seq_page == 4) {
-                        if (controls->encoders[2]) groove_settings_clock(controls->encoders[2] > 0
-                            ? GROOVE_CLOCK_MIDI : GROOVE_CLOCK_INTERNAL);
-                        groove_tempo_edit(controls->encoders[3]);
-                        sequence_length_adjust(controls->encoders[4]);
-                        groove_settings_midi(track,6,controls->encoders[5]);
-                        if (controls->encoders[3] && groove_clock_mode()) {
-                            announce("EXT CLOCK - CHANGE BPM AT SOURCE", now + 2000U);
+                } else if (page == STEPS) {
+                    /* MIDI TRACK (SHIFT+SEQ): K1 IN CH, K2 OUT CH, K3 SEQ, K4 OUT PORT for the selected track. */
+                    for (unsigned i = 0; i < 4; ++i) if (controls->encoders[2+i]) {
+                        int r = 0;
+                        unsigned parameter = seq_midi_parameters[i];
+                        int delta = controls->encoders[2+i];
+                        unsigned old = parameter == 10 ? groove_midi_input_channel(track) : groove_midi_setting(track,parameter);
+                        if ((delta < 0 && !old) || (delta > 0 && old == seq_midi_limits[i])) continue;
+                        if (parameter == 2) delta = delta > 0 ? 7 : -7;
+                        if (parameter == 10) {
+                            blocked_keys |= controls->keys; if (!release_keys()) return 0;
+                            r=groove_settings_track(track,1,delta);
                         }
-                    } else if (seq_page >= 5) {
-                        for (unsigned i = 0; i < 4; ++i) if (controls->encoders[2+i]) {
-                            int r = 0;
-                            unsigned parameter = seq_midi_parameters[seq_page-5][i];
-                            if (parameter == 255) continue;
-                            int delta = controls->encoders[2+i];
-                            unsigned old = parameter == 10 ? groove_midi_input_channel(track) : groove_midi_setting(track,parameter);
-                            if ((delta < 0 && !old) || (delta > 0 && old == seq_midi_limits[seq_page-5][i])) continue;
-                            if (parameter == 2) delta = delta > 0 ? 7 : -7;
-                            if (parameter == 10) {
-                                blocked_keys |= controls->keys; if (!release_keys()) return 0;
-                                r=groove_settings_track(track,1,delta);
-                            }
-                            else groove_settings_midi(track,parameter,delta);
-                            announce(r ? "TRACK SETTING FAILED" : parameter == 0 || parameter == 9 ? "SEQ OUTPUT UPDATED" : "MIDI SETTING - NOTES RELEASED", now + 1500U);
-                        }
+                        else groove_settings_midi(track,parameter,delta);
+                        announce(r ? "TRACK SETTING FAILED" : parameter == 0 ? "SEQ OUTPUT UPDATED" : "MIDI SETTING - NOTES RELEASED", now + 1500U);
                     }
                 }
                 if (page == ARP_EDIT) {
@@ -2075,38 +1894,13 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                         groove_control_edit(track, 0, controls->encoders[4], 0);
                         groove_effects_edit(3, controls->encoders[5]);
                     }
-                } else if (page != STEPS || !seq_page) {
+                } else if (page != STEPS) {
+                    /* Task 12 A2: HOME K3 (the step cursor) and the STEPS note edit are gone. */
                     if (page == OVERVIEW) {
-                        if (controls->encoders[4]) {
-                            struct groove_view view;
-                            groove_get_view(track, cursor, &view);
-                            move_step(&view, controls->encoders[4], 0);
-                            if (writing) groove_edit_seek(track, cursor);
-                        }
                     } else if (groove_pad_count(track) != 0) {
                         drum = (unsigned)clamp((int)drum + controls->encoders[4], 0,
                                                (int)groove_pad_count(track) - 1);
                         selected_note = groove_pad_note(track, drum);
-                    } else if (page == STEPS) {
-                        struct groove_view selected;
-                        groove_get_view(track, cursor, &selected);
-                        if (controls->encoders[4] && step_follow && selected.playing) {
-                            cursor = selected.play_step;
-                            groove_get_view(track, cursor, &selected);
-                        }
-                        /* STEP selects the existing cell; NOTE edits its pitch
-                         * without replacing velocity, chord, gate or locks.
-                         * On an empty cell it sets the next inserted note. */
-                        if (selected.step.velocity) selected_note = selected.step.note;
-                        if (controls->encoders[4]) {
-                            step_follow = 0;
-                            selected_note = (unsigned)clamp((int)selected_note + controls->encoders[4], 0, 127);
-                            if (selected.step.velocity) {
-                                groove_sequence_edit(track, cursor, selected_note, selected.step.velocity);
-                                groove_get_view(track, cursor, &selected);
-                                selected_note = selected.step.note; /* Respect chord pitch limits. */
-                            }
-                        }
                     }
                     if (controls->encoders[2])
                         groove_control_edit(track, 0, controls->encoders[2], 0);
@@ -2133,16 +1927,11 @@ controls_done:
         glo_down = glo_used = action_confirm = project_reload = 0;
         if (page != STEPS) seq_down = 0;
     }
-    if (page != OVERVIEW) rec_down = 0;
     if (page != old_page && page != ARP_EDIT) arp_down = arp_long = 0;
-    /* Manual selection must not be overwritten by the recording cursor on
-     * the next poll. Entering sequence editing finishes the recording take. */
-    if (page == ACTIONS || page == STEP_EDIT || (page == STEPS && (seq_page == 1 || seq_page == 3))) writing = 0;
-    groove_edit_record(writing, track, cursor);
     if ((pressed & BUTTON(PLAY)) && !play_handled) {
         struct groove_view view;
         groove_get_view(track, cursor, &view);
-        uint8_t command = view.playing ? 0xfc : (writing && groove_sequence_setting(2) && groove_sequence_rewound() ? 0xfa : 0xfb);
+        uint8_t command = view.playing ? 0xfc : 0xfb;   /* Task 12 A2: no count-in start (0xfa) */
         if (song_playing()) song_stop(); /* Task 03 d: PLAY anywhere stops a playing song */
         else if (!post(command, 0, 0, 1)) return 0;
     }
@@ -2160,16 +1949,6 @@ controls_done:
         memset(key_note, 0xff, sizeof key_note); project_keys = 0;
     }
     uint32_t keys = controls->keys & ~blocked_keys;
-    if (page == STEPS && !writing && !glo_down) {
-        struct groove_view view;
-        groove_get_view(track, cursor, &view);
-        unsigned first = step_first(&view);
-        for (unsigned i = 0; i < 16; ++i)
-            if ((key_down & keys) & (1U << white_keys[i])) {
-                if (seq_page == 1 || seq_page == 3) { cursor = first + i; step_follow = 0; }
-                else toggle_step(first + i);
-            }
-    }
     for (unsigned key = 0; key < 27; ++key) {
         /* Unused keys have no pitch to map or release on this control poll. */
         if (key_note[key] == 0xff && !(keys & (1U << key))) continue;
@@ -2293,15 +2072,11 @@ void groove_screen_control(void)
     if (ble_was_linked && !linked)
         retry_reset = 1;
     ble_was_linked = linked;
-    writing = groove_edit_recording();
-    if (writing) cursor = groove_edit_cursor();
-    unsigned error = groove_edit_error();
-    if (error && !notice) { announce(error == 1 ? "RECORD STOPPED - MIDI QUEUE FULL" : "CHORD LIMIT - LAST NOTES KEPT", now + 2000U); }
     struct groove_view transport;
     groove_get_view(track, cursor, &transport);
     cursor %= transport.sequence_length;
-    if (transport.playing && !transport_seen && !(page == STEPS && seq_page) && page != STEP_EDIT && page != ACTIONS) step_follow = 1;
-    if (!transport.playing && transport_seen && step_follow && !writing)
+    if (transport.playing && !transport_seen) step_follow = 1;
+    if (!transport.playing && transport_seen && step_follow)
         cursor = transport.play_step;
     transport_seen = transport.playing;
     unsigned old_page = page;
@@ -2310,8 +2085,7 @@ void groove_screen_control(void)
     if (page == OVERVIEW || page == STEPS || glo_down)
         boundary |= key_down != 0;
     if (boundary) {
-        if ((glo_down && !(controls.buttons & BUTTON(GLO))) ||
-            (rec_down && !(controls.buttons & BUTTON(REC)))) {
+        if (glo_down && !(controls.buttons & BUTTON(GLO))) {
             /* The encoder count includes motion before this release. Route
              * that motion through the held layer before closing it. */
             struct fm1_controls prior = controls;
@@ -2341,9 +2115,7 @@ void groove_screen_mmc(unsigned command)
     unsigned transport = command == 1 || command == 9 ? 0xfc :
                          command == 2 || command == 3 || command == 6 ? 0xfb : 0;
     if (!transport && command != 7) return;
-    writing = command == 6;
-    rec_down = 0;
-    groove_edit_record(writing, track, cursor);
+    /* Task 12 A2: MMC record strobe (6) only starts the transport; there is no recording. */
     if (transport) (void)post((uint8_t)transport, 0, 0, 1);
 }
 unsigned smk37_screen_track(void) { return track; }
@@ -2422,12 +2194,11 @@ __attribute__((noinline, cold, minsize)) void smk37_screen_pad_mode(unsigned ste
         select_track((int)instrument_track[pad_focus]-(int)track);
         octave=instrument_octave[pad_focus];
     }
-    glo_down=glo_used=seq_down=arp_down=arp_long=rec_down=0;
+    glo_down=glo_used=seq_down=arp_down=arp_long=0;
     action_confirm=project_reload=0;
-    page=music_page=steps?STEPS:OVERVIEW;
-    if(steps) {seq_page=0;writing=0;groove_edit_record(0,track,cursor);}
-    notice=steps?"PAD STEPS - SHIFT+PAD TO PLAY":
-        pad_focus?"PAD READY - EDIT / FX":"KEY READY - EDIT / FX";
+    (void)steps;   /* Task 12 A2: always 0 (no pad-step mode) */
+    page=music_page=OVERVIEW;
+    notice=pad_focus?"PAD READY - EDIT / FX":"KEY READY - EDIT / FX";
     notice_until=fm1_millis()+2000U;
     boot_active=0;cache->shown_page=~0U;
 }
@@ -2436,32 +2207,21 @@ unsigned smk37_screen_pad_key(unsigned pad)
     if(pad>=16)return 255;
     return navigation_mode()?white_keys[pad]:255;
 }
+/* Task 12 A2: pad-step mode is gone (smk37_controls.c never sets it); pads always play. */
 int smk37_screen_pad(unsigned pad,unsigned velocity,unsigned steps)
 {
-    (void)velocity;
-    if(!steps)return 0;
-    if(pad>=16)return 1;
-    unsigned first=(cursor/16U)*16U;
-    unsigned next=first+pad;
-    if(next>=groove_sequence_length(track))return 1;
-    if(page!=STEPS)seq_page=0;
-    page=music_page=STEPS;glo_down=glo_used=0;
-    writing=0;step_follow=0;
-    groove_edit_record(0,track,next);
-    if(seq_page==1 || seq_page==3)cursor=next;
-    else toggle_step(next);
-    boot_active=0;cache->shown_page=~0U;
-    return 1;
+    (void)pad; (void)velocity; (void)steps;
+    return 0;
 }
 void smk37_screen_page(unsigned target)
 {
     if(!release_keys())return;
     blocked_keys|=previous_keys;
-    glo_down=glo_used=seq_down=arp_down=arp_long=rec_down=0;
+    glo_down=glo_used=seq_down=arp_down=arp_long=0;
     /* Task 06 (a): the BT button has no page any more; Bluetooth is set from the workbench. */
     if(target==SMK37_PAGE_BLUETOOTH) {announce("BLUETOOTH: SET IN WORKBENCH",fm1_millis()+2000U);boot_active=0;return;}
     page=target==SMK37_PAGE_MIDI?STEPS:SOURCE;
-    if(page==STEPS) {music_page=STEPS;seq_page=5;}
+    if(page==STEPS) {music_page=STEPS;seq_page=SEQ_MIDI_TRACK;}   /* Task 12 A2: SHIFT+SEQ = MIDI TRACK */
     else {source_preview=groove_source_type(track);source_result=0;}
     boot_active=0;cache->shown_page=~0U;
 }
@@ -2503,21 +2263,17 @@ int groove_screen_open(unsigned target)
     /* Task 03 b: the operator and tone editor pages are gone; the DX7 pages need a DX7. */
     if (target == FM_EDIT || target == FM_ENV || target == FM_LFO || target == TONE_EDIT) return -1;
     if (target == BLE || target == NAME) return -1;   /* Task 06 (a): pages removed */
+    if (target == STEP_EDIT || target == RHYTHM) return -1;   /* Task 12 A2: pages removed */
     if (target == FM_QUICK && groove_source_type(track) != GROOVE_DX7) return -1;
     if (!release_keys()) return -1;
     blocked_keys |= previous_keys;
-    glo_down = glo_used = seq_down = arp_down = arp_long = rec_down = 0;
+    glo_down = glo_used = seq_down = arp_down = arp_long = 0;
     if (parameter_page(target)) {
         if (!parameter_page(page)) subpage_return = page;
     }
     page = target;
-    if (target == STEP_EDIT || target == RHYTHM) { page = STEPS; seq_page = target == STEP_EDIT ? 1 : 2; step_follow = 0; }
-    else if (page == STEPS) seq_page = 0;
+    if (page == STEPS) seq_page = SEQ_SYNC;   /* Task 12 A2: STEP_EDIT and RHYTHM are rejected above */
     if (page == ARP_EDIT) arp_page = 0;
-    if (page == ACTIONS || (page == STEPS && seq_page == 1)) {
-        writing = 0;
-        groove_edit_record(0, track, cursor);
-    }
     action_confirm = name_cursor = 0;
     if (page == OVERVIEW || page == STEPS) music_page = page;
     if (page == SOURCE) { source_preview = groove_source_type(track); source_result = 0; }
@@ -2536,7 +2292,7 @@ unsigned groove_screen_web_context(void)
 {
     unsigned context[] = {page, track, groove_source_type(track), effects_page,
         0, glo_down && glo_used,
-        (page == STEP_EDIT || (page == STEPS && seq_page)) ? cursor : 0, seq_page, arp_page};
+        0, seq_page, arp_page};
     return signature(2166136261U, context, sizeof context);
 }
 unsigned groove_screen_web_mask(void)
@@ -2545,15 +2301,13 @@ unsigned groove_screen_web_mask(void)
     if (shift_visible) return 0;
     if (glo_down && glo_used) return 0;
     if (page == OVERVIEW || page == STEPS || page == MIX || page == EFFECTS ||
-        page == STEP_EDIT || page == RHYTHM || page == FM_QUICK || page == ARP_EDIT) {
+        page == FM_QUICK || page == ARP_EDIT) {
         for (unsigned i = 0; i < 4; ++i)
             if (web_knobs[i][0][0] && strcmp(web_knobs[i][0], "-") &&
                 web_knobs[i][1][0] && strcmp(web_knobs[i][1], "--")) mask |= 1U << i;
     }
-    if ((page == OVERVIEW || (page == STEPS && !seq_page)) && groove_clock_mode()) mask &= ~8U;
-    if (page == STEPS && seq_page == 4 && groove_clock_mode()) mask &= ~2U;
+    if (page == OVERVIEW && groove_clock_mode()) mask &= ~8U;
     if (page == EFFECTS && effects_page == 2 && groove_clock_mode()) mask &= ~4U;
-    if (page == RHYTHM) mask &= 7U; /* Fixed 1/16 quantization is a readout. */
     return mask;
 }
 static void web_target(unsigned x, unsigned y, unsigned w, unsigned h, unsigned action,
@@ -2590,9 +2344,6 @@ const void *groove_screen_web_targets(void)
             char label[16] = "T1 LEVEL"; label[1] += t;
             web_target(210, 48 + t * 18, 27, 16, 2, 0, t, label, row.volume, NULL);
         }
-    } else if (page == STEPS) {
-        web_target(172, 31, 60, 17, 8, 0, track, "LOOP LENGTH", v.next_length, NULL);
-        web_target(6, 181, 222, 12, 6, 1, track, "SEQ PAGE", seq_page + 1, seq_pages[seq_page]);
     } else if (page == SOURCE) {
         web_target(6, 178, 228, 18, 6, 3, track, "TRACK MODE", groove_track_role(track), track_modes[groove_track_role(track)]);
     } else if (page == FM_QUICK) {
@@ -2635,27 +2386,19 @@ int groove_screen_web_adjust(unsigned context, unsigned action, unsigned index, 
         struct groove_view v; groove_get_view(owner, cursor, &v);
         if ((index ? v.solo : v.muted) != (unsigned)(delta > 0)) groove_mix_toggle(owner, index);
     }
-    else if (action == 8) sequence_length_adjust(delta);
-    return 0;
+    return 0;   /* Task 12 A2: action 8 (loop length) left with the step editor */
 }
 const char *groove_screen_web_knobs(void) { return &web_knobs[0][0][0]; }
+/* Task 12 A2: the browser's step grid is gone with the step editor; the entry points stay so the
+ * simulator wasm keeps its exports: the window start, and a step edit that is always refused. */
 unsigned groove_screen_web_first(void)
 {
     struct groove_view v; groove_get_view(track, cursor, &v); return step_first(&v);
 }
 int groove_screen_web_step(unsigned step, unsigned toggle)
 {
-    struct groove_view v; groove_get_view(track, cursor, &v);
-    if ((page != OVERVIEW && page != STEPS) || step >= v.sequence_length || toggle > 1) return -1;
-    if (!release_keys()) return -1;
-    blocked_keys |= previous_keys;
-    writing = 0; step_follow = 0; cursor = step;
-    if (page == OVERVIEW) seq_page = 0;
-    page = music_page = STEPS;
-    groove_edit_record(0, track, cursor);
-    if (toggle && seq_page != 1 && seq_page != 3) toggle_step(cursor);
-    cache->shown_page = ~0U;
-    return 0;
+    (void)step; (void)toggle;
+    return -1;
 }
 /* Read-only panel state for the browser simulator. */
 void groove_screen_snapshot(uint8_t state[8])
@@ -2664,7 +2407,7 @@ void groove_screen_snapshot(uint8_t state[8])
     state[1] = (uint8_t)page;
     state[2] = (uint8_t)cursor;
     state[3] = (uint8_t)drum;
-    state[4] = (uint8_t)writing;
+    state[4] = 0; /* Task 12 A2: never recording */
     state[5] = 0; /* Task 03 b: no selected operator / FM page any more. */
     state[6] = 0;
     state[7] = (uint8_t)(octave + 24);

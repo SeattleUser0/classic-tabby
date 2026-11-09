@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.21
+Version: 0.22
 Revision log:
+- v0.22, 2026-11-08 (Task 12 A2): section 16.2: the step editor removed; SYNC / MIDI and MIDI TRACK;
+  where every remaining setting lives (one place each).
 - v0.21, 2026-11-08 (Task 12 A1): section 16: the storage move is the normal layout (USER 471040),
   OLD DATA on first boot, commands 27 and 28.
 - v0.20, 2026-11-08 (Task 11C): section 15: device rules after the loader incident (no unattended
@@ -700,7 +702,7 @@ Checkpoints and status:
 
 - **(a) done, 2026-11-04: BLE and NAME pages removed** (the approved removals of the
   assessment's section 7). The device keeps BLE MIDI, the saved radio settings and the clock
-  source (SEQ page 5/7); the BT button announces "BLUETOOTH: SET IN WORKBENCH". The
+  source (SEQ page 5/7 until tabby-v04.0; since then the SYNC / MIDI page, 16.2); the BT button announces "BLUETOOTH: SET IN WORKBENCH". The
   Bluetooth settings moved to the workbench: transfer **command 24** (read {flags, role},
   write them, forget BLE MIDI pairs; capability bit 5 of command 22, reply byte 8 = 63) and a
   "Bluetooth settings" group in the Library tab (radio on, Bluetooth audio, DEVICE / HOST
@@ -1001,3 +1003,34 @@ override the Task 11B permission to install unattended.
 - **Workbench.** The library defaults to the 471040 layout until command 21 answers; the importer's
   storage estimate uses the 80-sector pool; the update tab tells the user that this release moves
   storage (and that a 536576 build moves it back).
+
+### 16.2 Removals: the stock step editor (A2)
+
+Removed from the device (decision: Task 10 assessment section J, with the user's choice of
+2026-11-08 to keep the settings that are not pattern data): STEPS 1/7 BASIC, 2/7 STEP DETAILS,
+4/7 LOCKS, the STEP_EDIT and RHYTHM pages, REC (step entry while stopped, recording while playing,
+the REC+K1 seek, the MMC record strobe as a record start), the count-in and CLICK (metronome; they
+return in Phase 5 under decision 7), pad-step mode (SHIFT + PAD / STEP), HOME K3 STEP, and the
+ACTIONS entries STEP DETAILS, RHYTHM / RECORD, COPY / PASTE / CLEAR STEP / PAGE / TRACK, REPEAT TO
+32 / 48 / 64 and UNDO / REDO. Kept: the ARP_EDIT page and the arpeggiator, the factory DX7 bank,
+the stock pattern as project data (it loads, saves and plays with the project; drum / melody swaps
+still clear incompatible steps and HOME + SAVE still undoes), and every page number (STEP_EDIT 13
+and RHYTHM 14 are refused like the other removed pages).
+
+**Where each remaining setting lives (the only documented place for each):**
+
+| Setting | Control | Page |
+| --- | --- | --- |
+| BPM | K4 | HOME (overview); HOME + SEQ taps it on any page |
+| CLOCK (INT / MIDI) | K1 | SYNC / MIDI (SEQ on any page) |
+| CLK IN (AUTO / USB / BLE / DIN) | K2 | SYNC / MIDI |
+| SWING (project) | K3 | SYNC / MIDI |
+| SEQ OUT (OFF / ON / CLOCK) | K4 | SYNC / MIDI |
+| KEY OUT (ON / OFF) | PRESETS | SYNC / MIDI |
+| IN CH, OUT CH, SEQ (LOCAL / BOTH / MIDI), OUT PORT | K1 to K4 | MIDI TRACK (SHIFT + SEQ on any page), per selected track |
+
+SEQ always opens SYNC / MIDI (it no longer taps the tempo on EFFECTS 3/3); holding SEQ there opens
+ACTIONS, whose entries are COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE,
+COMPACT SONG STORAGE and SEND SETUP. REC shows NO REC IN THIS VERSION. The web simulator's step grid
+and its step-details / rhythm shortcuts are gone (sim_step refuses every edit). Bytes freed:
+FLASH-BUDGET 17.

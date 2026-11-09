@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
- * Physical controls shared by Pro, Elite, host tests and the workbench. */
+ * Physical controls shared by Pro, Elite, host tests and the workbench.
+ *
+ * Classic Tabby revision log (the upstream file had no header)
+ *   v0.1  2026-11-08  Task 12 A2: SHIFT + the pad button no longer enters pad-step mode (the step
+ *                     editor is gone); step_pads stays 0. */
 #include "smk37_controls.h"
 #include "instrument.h"
 #include <string.h>
@@ -274,8 +278,10 @@ void smk37_control_event(unsigned kind,unsigned id,int value)
             if(physical_buttons&1U)shifted_buttons|=bit&((1U<<9)|(1U<<12)|(1U<<15));
             if(id==1) {bank^=1;pickup=15;}
             else if(id==7) {
-                unsigned instrument=!(physical_buttons&1U);
-                step_pads=instrument?0:!step_pads;
+                /* Task 12 A2: SHIFT+PAD (pad-step mode) left with the step editor; the button
+                 * only switches the keyboard / pad focus. */
+                unsigned instrument=1;
+                step_pads=0;
                 /* Cancel held menu keys before moving pages. Sounding notes
                  * retain their original channel until physical release. */
                 memset(pad_navigation,255,sizeof pad_navigation);panel.keys=0;

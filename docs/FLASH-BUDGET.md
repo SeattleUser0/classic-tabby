@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.17
+Version: 0.18
 Revision log:
+- v0.18, 2026-11-08 (Task 12 A2): section 17: the step editor removed, -8224 bytes (measured).
 - v0.17, 2026-11-08 (Task 12 A1): section 3.5: the 471040 layout is the normal one from tabby-v04.0
   (the hard app limit is 519457 bytes); measured margins follow in section 17 (A2-A6).
 - v0.16, 2026-11-07 (Task 11): section 3.5: the USER size as one build setting, today's layout
@@ -872,6 +873,21 @@ The diagnostic code is 1888 bytes of flash (counters, command 25, transfer kind 
 validation, the ACTIONS lines) and 1152 bytes of static RAM (the 1 KB stamp ring beside the scan
 queue, the counters). The probe's .bss is 160 bytes smaller (16 fewer song-region sectors in the
 storage tables). The normal build is the same code as before Task 11 (BUILD.md 24.1 gate).
+
+## 17. Task 12: Phase 0, make room (measured, normal build, USER 471040, hard limit 519457)
+
+| Step | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v03.3 normal build on the 536576 layout (section 16) | 451396 | | 2525 (limit 453921) |
+| A1: 471040 layout, commands 27 / 28, ERASE confirm | 451620 | +224 | 67837 |
+| A2: step editor removed, SYNC / MIDI page added | 443396 | **-8224** | 76061 |
+
+A2 against the Task 10 assessment (section J): removing STEPS 1-7, STEP_EDIT, RHYTHM and the REC
+logic outright was estimated at about 8 KB (5920 bytes of page code measured plus about 2 KB of
+apply_controls and strings estimated). Keeping swing, clock, clock input and the output switches on
+the new SYNC / MIDI page and keeping MIDI TRACK, as the user chose, still freed 8224 bytes: the
+removal also took the pad-step mode, the step-cursor and REC states of the header and overview, the
+step-editing ACTIONS entries and the web step grid's handlers, which the estimate did not count.
 
 ## Appendix A — generated tables (tools/linux/flash-budget.py on the Track A build/pro/sdk.elf)
 

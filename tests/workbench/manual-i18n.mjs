@@ -13,9 +13,10 @@
 //
 //   Run: /usr/bin/node tests/workbench/manual-i18n.mjs      (make workbench-test runs it)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-08  Task 12 A2: the removed step-editor texts must be absent too.
 //   v0.1  2026-11-04  Initial version (Task 08, the manual rewrite).
 
 import { readFileSync } from 'node:fs';
@@ -45,7 +46,8 @@ check(missing.length === 0, `every CJK text of the manual has a translation (${n
 const chapters = (section.match(/class="manual-chapter/g) || []).length, links = (section.match(/<li><a href="#manual-/g) || []).length;
 check(chapters === 21 && links === 21, 'manual has 21 chapters and 21 index links', `${chapters} / ${links}`);
 check(!/—/.test(section.slice(0, section.indexOf('<article id="manual-start"'))), 'Classic Tabby chapters contain no em dash');
-for (const w of ['SAMPLER · 采样', '.fm1s', 'OP1–OP6', 'EDIT＋REC', 'FACTORY（16 个内置工程）']) check(!section.includes(w), `removed feature text absent: ${w}`);
+/* Task 12 A2: the step editor's pages are gone from the manual too. */
+for (const w of ['SAMPLER · 采样', '.fm1s', 'OP1–OP6', 'EDIT＋REC', 'FACTORY（16 个内置工程）', 'SYNC / LOOP', '6/7 MIDI TRACK', '7/7 MIDI OUTPUT', 'ERASE OLD SAMPLE/DX7', '两种录入方式', 'SHIFT + PAD / STEP 切换步进']) check(!section.includes(w), `removed feature text absent: ${w}`);
 
 console.log(failures ? `${failures} check(s) failed` : 'all checks passed');
 process.exit(failures ? 1 : 0);

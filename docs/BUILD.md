@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.40
+Version: 0.41
 Revision log:
+- v0.41, 2026-11-08 (Task 12 A2): 26.2 the step editor removed; SYNC / MIDI; left-to-build: the
+  metronome and count-in (Phase 5).
 - v0.40, 2026-11-08 (Task 12 A1): section 26: Task 12; 26.1 the storage move as the normal layout,
   migration, OLD DATA, commands 27/28, how to go back.
 - v0.39, 2026-11-08 (Task 11C, part 3): 25.7: L.9 closed: the TRS out works with a type A
@@ -271,6 +273,9 @@ understood (25.5); installs are done from the user's MacBook.
     tag after the reboot and timed out ("Timed out waiting for reconnection") instead of naming
     the tag it saw. The waiting page must report the tag it sees and stop, not wait it out. A
     power cycle (on the Mac) left the loader and booted the image already in flash (diag-r2).
+- **Metronome and count-in** (Task 12 A2 removed CLICK and COUNT IN with the step editor; not built).
+  They come back in Phase 5 under SPEC 14 decision 7: an internal 808 click that can be turned off,
+  and a MIDI-note click to a chosen channel and note, selectable.
 - **NUC USB link to the SMK-37** (Task 11C, 25.5; not understood). No flashing from the NUC until
   the read-only link test in 25.5 explains the 125 MB loop and `urb status -115`.
 - **Sanitizer fixes**: none needed; `make host-sanitize` is green (0 findings, leaks included)
@@ -3171,3 +3176,23 @@ layout and verifies; the move on real old-layout flash; planted OLD DATA erased 
 build from its permanent page (builds/<tag>/, A5), Erase old data if offered, Full restore, Verify.
 Songs written by v04.0 restore onto v03.x unchanged (the song format did not change); the 80-sector
 pool is smaller than v03.x's 96, so anything that fits on v04.0 fits on v03.x.
+
+### 26.2 A2: removals (the stock step editor)
+
+Scope as decided with the user on 2026-11-08 (option 1 with details): the step-editing parts go
+(STEPS 1/7, 2/7, 4/7, STEP_EDIT, RHYTHM, REC and the step logic, CLICK and COUNT IN); the settings
+that are not pattern data stay on the device, each in exactly one place (SPEC 16.2): HOME K4 BPM
+(existing), MIDI TRACK on SHIFT + SEQ (existing), and one new SYNC / MIDI page on SEQ from any page
+(K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, PRESETS KEY OUT). Kept: ARP_EDIT and the arpeggiator,
+the factory DX7 bank, the stock pattern in the project (load, save, play).
+
+Code: app/screen.c v0.2 (pages, controls, LEDs, header, overview, ACTIONS, web targets), app/
+smk37_controls.c v0.1 (no pad-step mode), sdk/Simulator.js (no step grid), sdk/Update.html.in and
+sdk/I18n.js (Help: chapters 09, 11, 12 in English and 13-15, 16, 19, 21 in Chinese with their
+translations; the simulator's page buttons), README.md. Tests: tests/host/smoke.c v0.10 section 14
+(SEQ opens SYNC / MIDI; K3 SWING, K4 SEQ OUT, PRESETS KEY OUT, K1 CLOCK change; SHIFT + SEQ MIDI
+TRACK K2 OUT CH; REC records nothing; pages 13 and 14 refused); tests/workbench/manual-i18n.mjs
+v0.2 (the removed texts are absent). make check, lint (no new warning) and test-fast pass.
+
+Bytes: 451620 -> 443396, **-8224 bytes** (FLASH-BUDGET 17), against about 8 KB estimated for the
+full removal in the Task 10 assessment, section J.

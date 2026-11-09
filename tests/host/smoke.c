@@ -44,9 +44,11 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.9
+ * Version: 0.10
  *
  * Revision log
+ *   v0.10 2026-11-08  Task 12 A2: section 14, the SYNC / MIDI page (SEQ), MIDI TRACK (SHIFT+SEQ),
+ *                     no REC, STEP_EDIT / RHYTHM refused.
  *   v0.9  2026-11-08  Task 12 A1: the song-region constants come from CT_USER_BYTES (471040 by
  *                     default: 80 block sectors), not the old 536576 layout's 96.
  *   v0.8  2026-11-04  Task 06: section 13, independent track launching (launch at the next
@@ -87,6 +89,8 @@ unsigned sim_midi_output(void);
 unsigned sim_midi_setting(unsigned track, unsigned parameter);
 void sim_midi_edit(unsigned track, unsigned parameter, int delta);
 int sim_smk37(unsigned kind, unsigned id, int value);
+int sim_open(unsigned target);                       /* Task 12 A2 */
+unsigned groove_sequence_setting(unsigned setting);  /* Task 12 A2: swing (setting 0) */
 unsigned sim_smk37_instruments(void);
 const uint8_t *sim_state(void);
 uint8_t *sim_file(void);
@@ -1111,6 +1115,41 @@ int main(void)
         #undef LATE
         #undef DBG13
         #undef DBG13M
+    }
+
+    /* ---- 14. Task 12 A2: SYNC / MIDI (SEQ), MIDI TRACK (SHIFT+SEQ), no REC ------------------ */
+    {
+        /* Physical ids (app/smk37_controls.c): button 0 SHIFT, 15 SEQ, 17 REC; encoders 0-3 = K1-K4,
+         * 6 = PRESETS. */
+        #define PRESS(id) do { sim_smk37(SMK37_BUTTON, id, 1); settle(); sim_smk37(SMK37_BUTTON, id, 0); settle(); } while (0)
+        PRESS(15);
+        CHECK(sim_state()[1] == 1, "SEQ opens page 1, SYNC / MIDI (page %u)", sim_state()[1]);
+        unsigned swing = groove_sequence_setting(0), seq_out = sim_midi_setting(0, 9), key_out = sim_midi_setting(0, 4);
+        sim_smk37(SMK37_ENCODER, 2, 2); settle();
+        CHECK(groove_sequence_setting(0) != swing, "SYNC / MIDI K3 changes SWING (%u -> %u)", swing, groove_sequence_setting(0));
+        sim_smk37(SMK37_ENCODER, 2, -2); settle();
+        sim_smk37(SMK37_ENCODER, 3, seq_out ? -1 : 1); settle();
+        CHECK(sim_midi_setting(0, 9) != seq_out, "SYNC / MIDI K4 changes SEQ OUT (%u -> %u)", seq_out, sim_midi_setting(0, 9));
+        sim_smk37(SMK37_ENCODER, 3, seq_out ? 1 : -1); settle();
+        sim_smk37(SMK37_ENCODER, 6, key_out ? -1 : 1); settle();
+        CHECK(sim_midi_setting(0, 4) != key_out, "SYNC / MIDI PRESETS changes KEY OUT (%u -> %u)", key_out, sim_midi_setting(0, 4));
+        sim_smk37(SMK37_ENCODER, 6, key_out ? 1 : -1); settle();
+        CHECK(sim_midi_setting(0, 9) == seq_out && sim_midi_setting(0, 4) == key_out, "SEQ OUT and KEY OUT restored");
+        sim_smk37(SMK37_ENCODER, 0, 1); settle();
+        CHECK(sim_state()[16] == 1, "SYNC / MIDI K1 sets CLOCK to MIDI");
+        sim_smk37(SMK37_ENCODER, 0, -1); settle();
+        CHECK(sim_state()[16] == 0, "and back to INT");
+        sim_smk37(SMK37_BUTTON, 0, 1); sim_smk37(SMK37_BUTTON, 15, 1); settle();
+        sim_smk37(SMK37_BUTTON, 15, 0); sim_smk37(SMK37_BUTTON, 0, 0); settle();
+        unsigned out_ch = sim_midi_setting(0, 1);
+        sim_smk37(SMK37_ENCODER, 1, out_ch ? -1 : 1); settle();
+        CHECK(sim_state()[1] == 1 && sim_midi_setting(0, 1) != out_ch, "SHIFT+SEQ: MIDI TRACK K2 changes OUT CH (%u -> %u)", out_ch, sim_midi_setting(0, 1));
+        sim_smk37(SMK37_ENCODER, 1, out_ch ? 1 : -1); settle();
+        PRESS(17);
+        CHECK(sim_state()[4] == 0, "REC does not start recording");
+        CHECK(sim_open(13) == -1 && sim_open(14) == -1, "STEP_EDIT (13) and RHYTHM (14) are refused");
+        CHECK(sim_open(1) == 0 && sim_state()[1] == 1, "page 1 still opens (SYNC / MIDI)");
+        #undef PRESS
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);
