@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
-/* Classic Tabby Task 12 A3 (2026-11-08): groove_project_save_slot refuses while the transport
+/* Classic Tabby Task 12 A4 (2026-11-08): transfer kind 8 is in every build; groove_project_poll is
+ * the PROJECT section of the loop profile.
+ * Classic Tabby Task 12 A3 (2026-11-08): groove_project_save_slot refuses while the transport
  * runs (GROOVE_PROJECT_PLAYING), and the deferred settings / session save waits for the stop. */
 /* Classic Tabby Task 11 (2026-11-07): in the diagnostic build (CT_DIAG) the device and session
  * settings travel as transfer kind 8 (groove_settings_export / groove_settings_import, at the
@@ -838,7 +840,15 @@ void groove_project_init(void)
     settings_dirty = 0;
     settings_result = 0;
 }
+/* Task 12 A4: the PROJECT section of the loop profile; the body has several early returns. */
+static void project_poll_body(void);
 void groove_project_poll(void)
+{
+    ct_prof_enter(CT_PROF_PROJECT);
+    project_poll_body();
+    ct_prof_leave();
+}
+static void project_poll_body(void)
 {
     if (restore_pending == 2) {
         /* Task 03 a: the SDK's power-on instrument may contain a sampler track; the app
@@ -925,7 +935,6 @@ void groove_project_poll(void)
     }
 }
 
-#ifdef CT_DIAG
 /* ---- Classic Tabby Task 11: device and session settings as transfer kind 8 ---------------
  * Wire layout v1, 40 bytes, little-endian (docs/BACKUP-FORMAT.md 4):
  *    0  magic "TBS1"           4  version 1          5  BLE role (0 DEVICE, 1 HOST)
@@ -983,4 +992,3 @@ int groove_settings_import(const uint8_t *in, unsigned bytes)
     }
     return 0;
 }
-#endif

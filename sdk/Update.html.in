@@ -256,8 +256,8 @@ main{max-width:1440px}
 <div class="field-row"><label><input id="backup-rig" type="checkbox" checked data-library disabled> Also put the file's "My rig" into this browser</label></div>
 <p id="backup-message" class="library-message" role="status" aria-live="polite"></p>
 <ul id="backup-notes" class="sim-help"></ul></details>
-<details class="library-group" id="diag-group" hidden><summary>Diagnostics (Classic Tabby diagnostic build)</summary>
-<p class="sim-help">Timing counters of the diagnostic firmware (docs/BUILD.md 24.6). Reset, play the test song for the time the checklist says, then Read. Times in milliseconds; the counter runs at 24 MHz.</p>
+<details class="library-group" id="diag-group" hidden><summary>Diagnostics (timing counters and control-loop profile)</summary>
+<p class="sim-help">Timing counters and the control-loop profile (every build from tabby-v04.0; docs/BUILD.md 24.6 and 26.4). Reset, play for the time the measurement needs, then Read. Each section of the profile is the time per control pass spent in that part of the app, mean and longest; "SDK between the hooks" is the rest of the pass. Times in milliseconds; the counter runs at 24 MHz. Reading is allowed while the device plays.</p>
 <button id="diag-read" data-library disabled>Read counters</button><button id="diag-reset" data-library disabled>Reset counters</button><button id="diag-copy" data-library disabled>Copy as text</button>
 <pre id="diag-output" class="sim-help"></pre></details>
 <details class="library-group" open><summary>设备项目</summary>
@@ -1056,7 +1056,7 @@ main{max-width:1440px}
     const w=$('layout-warning'),size=FM1_PACKAGE.user_bytes,notes=[];
     if(size===471040)notes.push('This release moves the device storage (USER 471040 bytes; tabby-v03.x, V01 and V16 use 536576). Coming from one of those: make a Full backup first (Projects & sounds tab) and keep it. After the install your projects, device settings and songs are gone until you run Full restore and Verify. Bluetooth pairings are lost once. If ACTIONS shows OLD DATA, erase it (with confirmation) before restoring. Going back to tabby-v03.x moves the storage back the same way: back up, install, restore.');
     else if(size&&size!==471040)notes.push('This build uses the older storage layout (USER '+size+' bytes; tabby-v04.0 and later use 471040). Installing it over tabby-v04.0 or later moves the storage back: make a Full backup first, then Full restore and Verify after the install.');
-    if(FM1_PACKAGE.diag)notes.push('Diagnostic build: the remote ACTIONS / song commands for unattended hardware runs (command 26) are included.');
+    if(FM1_PACKAGE.diag)notes.push('Diagnostic build: adds command 26, the remote ACTIONS / song commands for unattended hardware runs. The timing counters are in every build.');
     if(notes.length){w.textContent=notes.join(' ');w.hidden=false;}
     if(FM1_PACKAGE.diag)document.title='DIAGNOSTIC BUILD · '+document.title;
   }
@@ -1083,7 +1083,7 @@ main{max-width:1440px}
     FM1Web.projectVersion(working);
     // Task 06 (a): the Bluetooth settings panel replaces the device's BLE page.
     $('radio-group').hidden=!library.radioSettings;
-    $('diag-group').hidden=!library.diagCounters;   // Task 11: the diagnostic build's counters
+    $('diag-group').hidden=!library.diagCounters;   // Task 11: the counters; every build from tabby-v04.0 (Task 12 A4)
     if(library.radioSettings){const r=await library.radioRead();$('radio-on').checked=r.on;$('radio-audio').checked=r.audio;$('radio-role').value=r.host?'1':'0';}
     // Publish a complete snapshot only after every query succeeds. A partial
     // list must never enable load/save/import with an empty selection.

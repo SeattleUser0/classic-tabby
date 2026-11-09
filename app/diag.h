@@ -1,13 +1,33 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /*
- * app/diag.h — Classic Tabby diagnostic build (Task 11 Step 3): timing counters, the device
- *              settings transfer kind of the full backup, the ACTIONS storage line
+ * app/diag.h — Classic Tabby timing counters (Task 11 Step 3, in every build since Task 12 A4),
+ *              the control-loop profile (Task 12 A4), the device settings transfer kind of the
+ *              full backup, the ACTIONS storage line
  *
  * Purpose
- *   Everything here exists only when the build defines CT_DIAG (tools/linux/build.py --diag,
- *   Makefile DIAG=1: the tabby-v03.3-diag and tabby-p0-probe64 builds). In the normal build
- *   this header declares nothing and every hook below is an empty macro, so the normal build
- *   compiles to the same code as before (the gate: app image identical except the build id).
+ *   Task 11 built these only with CT_DIAG (the tabby-v03.3-diag and tabby-p0-probe64 builds).
+ *   Task 12 A4 (2026-11-08) moved everything here into the normal build: the counters, the
+ *   Diagnostics panel's command 25, transfer kind 8 and the ACTIONS storage lines. CT_DIAG
+ *   (tools/linux/build.py --diag, Makefile DIAG=1) now adds only command 26, the remote ACTIONS
+ *   and song commands for unattended hardware runs (app/transfer.c).
+ *
+ *   The loop profile (Task 12 A4, for the Phase 1 timing investigation): one control pass runs
+ *   from one SDK call of groove_midi_poll() to the next. Each app hook the SDK calls in the pass
+ *   is a section, timed exclusive of the sections it calls (a nesting stack), summed per pass,
+ *   and kept as the mean and the longest per pass:
+ *     ROUTER    groove_midi_poll / ct_midi_flush: the router's MIDI out sends (also when the
+ *               panel or the song code flush it)
+ *     SONG      song_poll(): song scheduling (decode ahead, stops); the notes themselves are sent
+ *               by the router from the audio thread's song tick
+ *     STORAGE   song_storage_poll(): the boot scan, a confirmed erase, a compaction
+ *     SCREEN    groove_screen_control(): panel input handling, pages, the LCD painter
+ *     PANEL     fm1_controls_read() (app/board/panel.c): key and encoder queue, pad and button LEDs
+ *     TRANSFER  groove_transfer_poll(): the workbench protocol
+ *     PROJECT   groove_project_poll(): restores, the deferred settings saves
+ *     SDK       the rest of the pass: the SDK's own work between the hooks (its MIDI input
+ *               processing, the engine's control work, the Bluetooth stack)
+ *   MIDI input arrives in the SDK's routing task (fm1_app_midi_received), not in the pass; its
+ *   calls are counted apart (count, mean, longest).
  *
  *   What the diagnostic build measures, for the hardware checklist (docs/BUILD.md 24.6) and the
  *   Task 10 assessment's section L:
@@ -30,9 +50,10 @@
  *   radio switches, the MIDI configuration) and the session settings in the tuning sector (track
  *   roles, input channels, panel preferences). docs/BACKUP-FORMAT.md describes it.
  *
- * Version: 0.2
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-08  Task 12 A4: every build; the loop profile (command 25 pages 4 and 5).
  *   v0.2  2026-11-08  Task 11B: screen timing (command 25 page 3: groove_screen_control calls and
  *                     paint_flush band painting).
  *   v0.1  2026-11-07  Task 11 Steps 2 and 3: first version.
@@ -42,7 +63,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#ifdef CT_DIAG
 enum {
     CT_DIAG_TICK_HZ = 24000000,      /* TIMER4 */
     CT_DIAG_REPLY_BYTES = 64,        /* command 25's reply, the protocol's maximum */
@@ -77,7 +97,15 @@ int groove_settings_import(const uint8_t *in, unsigned bytes);
 #define fm1_flash_write(offset, data, bytes) ct_diag_flash_write(offset, data, bytes)
 #endif
 #define CT_DIAG_LOOP() ct_diag_loop()
-#else
-#define CT_DIAG_LOOP() ((void)0)
-#endif
+/* Task 12 A4: the loop profile. Control task only, except ct_prof_midi_in (routing task). */
+enum { CT_PROF_ROUTER, CT_PROF_SONG, CT_PROF_STORAGE, CT_PROF_SCREEN, CT_PROF_PANEL, CT_PROF_TRANSFER,
+       CT_PROF_PROJECT, CT_PROF_SECTIONS };
+void ct_prof_pass(void);                 /* the SDK's call of groove_midi_poll: a pass begins */
+void ct_prof_enter(unsigned section);    /* a hook starts (pauses the section it interrupts) */
+void ct_prof_leave(void);                /* it ends (resumes that section) */
+void ct_prof_midi_in(uint32_t ticks);    /* one fm1_app_midi_received call, routing task */
+int ct_prof_read(unsigned page, uint8_t out[CT_DIAG_REPLY_BYTES]);   /* command 25 requests 4 / 5 */
+void ct_prof_reset(void);
+/* The router's flush without a pass boundary, for the app's own calls (panel, song, router). */
+void ct_midi_flush(void);
 #endif

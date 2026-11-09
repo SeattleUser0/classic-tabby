@@ -4,6 +4,7 @@
 #include "smk37_hw.h"
 #include "fm1_lcd_hw.h"
 #include "lcd.inc"
+#include "diag.h"   /* Classic Tabby Task 12 A4: fm1_controls_read is the PANEL section of the loop profile */
 
 static uint32_t virtual_leds;
 static uint16_t button_leds;
@@ -17,6 +18,7 @@ uint8_t fm1_io_trs_midi_enabled(void) {return 0;}
 void fm1_controls_init(void) {smk37_scan_init();led_modes=~0U;}
 void fm1_controls_read(struct fm1_controls *state)
 {
+    ct_prof_enter(CT_PROF_PANEL);   /* Task 12 A4 */
     smk37_scan_read();smk37_controls_snapshot(state);
     state->battery=smk37_battery_adc();
     unsigned bank=smk37_fader_bank(),pad=smk37_pad_steps()||smk37_pad_focus();
@@ -30,6 +32,7 @@ void fm1_controls_read(struct fm1_controls *state)
         smk37_rgb_set(i,smk37_pad_color(i,on));
     }
     smk37_rgb_service();
+    ct_prof_leave();
 }
 void fm1_led_set(unsigned key,int on)
 {

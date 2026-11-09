@@ -86,6 +86,7 @@
 #include "song.h"
 #include "timed_note.h"
 #include "instrument.h"
+#include "diag.h"   /* Task 12 A4: ct_midi_flush */
 #include <string.h>
 
 enum { NOTE = TIMED_NOTE_BYTES, CELL = 1 + SONG_NOTES_PER_STEP * NOTE };   /* 25: step header + 4 timed notes */
@@ -743,7 +744,7 @@ static void leave_song(void)
 {
     /* The audio thread has released every note into the lanes; deliver them on the
      * song channels, then the device channels apply again. */
-    groove_midi_poll();
+    ct_midi_flush();   /* Task 12 A4 */
     groove_midi_song_channels(NULL);
     state = 0; jump_row = SONG_NONE;
     memset((void *)queue_kind, 0, sizeof queue_kind);
@@ -802,7 +803,7 @@ int song_play(void)
     for (unsigned t = 0; t < SONG_TRACKS; ++t) { tbuf[t][0].ready = tbuf[t][1].ready = 0; tr[t].cur = 0; tr[t].state = 0; tr[t].waiting = 0; }
     cur = 0; jump_row = SONG_NONE; underruns = 0; late_count = 0; setup_request = 0; song_over = 0;
     memset((void *)queue_kind, 0, sizeof queue_kind);
-    groove_midi_poll();
+    ct_midi_flush();   /* Task 12 A4 */
     groove_midi_song_channels(record.channel);   /* before the decodes: the event slices use the channels */
     for (unsigned t = 0; t < SONG_TRACKS; ++t) decode_track(t, &tbuf[t][0], 0, P_SONG);
     decode_rowinfo(&rowset[0], 0);

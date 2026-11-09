@@ -2,10 +2,12 @@
  * Physical controls shared by Pro, Elite, host tests and the workbench.
  *
  * Classic Tabby revision log (the upstream file had no header)
+ *   v0.2  2026-11-08  Task 12 A4: the router flushes here are ct_midi_flush() (no profile pass).
  *   v0.1  2026-11-08  Task 12 A2: SHIFT + the pad button no longer enters pad-step mode (the step
  *                     editor is gone); step_pads stays 0. */
 #include "smk37_controls.h"
 #include "instrument.h"
+#include "diag.h"   /* Task 12 A4: ct_midi_flush */
 #include <string.h>
 
 struct held_note { uint8_t note, channel; };
@@ -104,7 +106,7 @@ void smk37_controls_reset(void)
 
 static void play(struct held_note *held,unsigned note,unsigned velocity,unsigned track,unsigned keyboard)
 {
-    groove_midi_poll();
+    ct_midi_flush();   /* Task 12 A4 */
     release(held);
     if(note>=128 || !velocity)return;
     smk37_screen_note(track,note);
@@ -131,7 +133,7 @@ static void play(struct held_note *held,unsigned note,unsigned velocity,unsigned
 
 static void pressure(unsigned id,unsigned value)
 {
-    groove_midi_poll();
+    ct_midi_flush();   /* Task 12 A4 */
     if(held_notes[37+id].note>=128)return;
     unsigned channel=held_notes[37+id].channel,bit=1U<<channel;
     if(pad_pressure[id]==value && !(pressure_dirty&bit))return;
@@ -305,7 +307,7 @@ void smk37_control_event(unsigned kind,unsigned id,int value)
 
 void smk37_controls_snapshot(struct fm1_controls *out)
 {
-    groove_midi_poll();
+    ct_midi_flush();   /* Task 12 A4 */
     *out=panel;memset(panel.encoders,0,sizeof panel.encoders);
 }
 unsigned smk37_fader_bank(void) {return bank;}

@@ -1,7 +1,9 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.18
+Version: 0.19
 Revision log:
+- v0.19, 2026-11-08 (Task 12 A3, A4): section 17: write blocking during play and the counters plus the
+  loop profile in the normal build, +4352 bytes together (measured), heap 198636.
 - v0.18, 2026-11-08 (Task 12 A2): section 17: the step editor removed, -8224 bytes (measured).
 - v0.17, 2026-11-08 (Task 12 A1): section 3.5: the 471040 layout is the normal one from tabby-v04.0
   (the hard app limit is 519457 bytes); measured margins follow in section 17 (A2-A6).
@@ -881,6 +883,12 @@ storage tables). The normal build is the same code as before Task 11 (BUILD.md 2
 | tabby-v03.3 normal build on the 536576 layout (section 16) | 451396 | | 2525 (limit 453921) |
 | A1: 471040 layout, commands 27 / 28, ERASE confirm | 451620 | +224 | 67837 |
 | A2: step editor removed, SYNC / MIDI page added | 443396 | **-8224** | 76061 |
+| A3 + A4: no flash write during play; the counters, kind 8, the ACTIONS storage lines and the loop profile in the normal build (built together, not measured apart) | 447748 | +4352 | **71709** |
+
+Runtime heap after A4: 198636 bytes (the Task 11 diagnostic build had 198668; the 1 KB key-stamp
+ring and the counters are now in every build). The counters cost 1888 bytes in Task 11; A4 adds the
+profile (about 0.9 KB: the per-hook wrappers and pages 4 and 5) and drops command 26 from the normal
+build.
 
 A2 against the Task 10 assessment (section J): removing STEPS 1-7, STEP_EDIT, RHYTHM and the REC
 logic outright was estimated at about 8 KB (5920 bytes of page code measured plus about 2 KB of

@@ -34,9 +34,11 @@
 //   Run:  /usr/bin/node tests/workbench/backup.mjs NORMAL.wasm DIAG.wasm PROBE.wasm
 //         (or: make backup-test, which builds the three)
 //
-// Version: 0.4
+// Version: 0.5
 //
 // Revision log
+//   v0.5  2026-11-08  Task 12 A4: section 5, the normal build has the counters and kind 8 (no
+//                     command 26); the loop profile adds up and counts the hooks.
 //   v0.4  2026-11-08  Task 12 A3: section 8, every flash write refused while the transport runs
 //                     (workbench guard and device reply 76), reads allowed, deferred settings save.
 //   v0.3  2026-11-08  Task 12 A1: commands 27 and 28 (the move test erases through command 28);
@@ -358,20 +360,31 @@ check(mverify.pass, 'after the move the file restores and verifies', mverify.dif
   check((c.sim_song_storage_state() & 255) === 1, 'erase pause: the erase finishes after the stop (READY)');
 }
 
-/* ---- 5. NORMAL: no kind 8 ------------------------------------------------------------------- */
+/* ---- 5. NORMAL (Task 12 A4): the counters and kind 8 are in the normal build; no command 26 ------ */
 const normal = simulator(normalPath);
 const nlib = await library(normal);
-check(!nlib.settingsTransfer && !nlib.diagCounters, 'NORMAL simulator: capability bits 6 and 7 clear');
+check(nlib.settingsTransfer && nlib.diagCounters, 'NORMAL simulator: capability bits 6 and 7 set (Task 12 A4)');
+await refused(nlib.query(26), 'NORMAL: command 26 (diagnostic build only) is unknown', /71|无效|invalid/i);
 await populate(nlib, normal);
 const nfile = JSON.stringify(await nlib.fullBackup());
-check(JSON.parse(nfile).settings.kind8 === null && JSON.parse(nfile).not_included.some(t => /kind 8/.test(t)), 'NORMAL backup says the settings are not in it');
+check(JSON.parse(nfile).settings.kind8 !== null, 'NORMAL backup holds the device settings (kind 8)');
 reboot(normal, 1);
 const nwiped = await library(normal);
-const nres = await nwiped.fullRestore(nfile, () => {}, { settleMs: 0 });
+await nwiped.fullRestore(nfile, () => {}, { settleMs: 0 });
 settle(normal);
-check(nres.notes.some(t => /no device MIDI settings/.test(t)), 'NORMAL restore notes the missing settings', JSON.stringify(nres.notes));
 const nverify = await nwiped.fullVerify(nfile);
 check(nverify.pass, 'NORMAL: verify after restore passes', nverify.difference);
+{
+  /* Task 12 A4: the loop profile (command 25 pages 4 and 5) on the normal build. */
+  await nwiped.diagRead(true);
+  for (let i = 0; i < 700; i++) normal.sim_render();     // about 2 s
+  const d = await nwiped.diagRead(false), p = d.profile;
+  check(p && p.passes > 50, 'NORMAL: the profile counts control passes', p && p.passes);
+  const sum = p ? Object.values(p.sections).reduce((t, s) => t + s.mean_ms, 0) : 0;
+  check(p && Math.abs(sum - p.pass_mean_ms) < 0.01 + p.pass_mean_ms * 0.02, 'NORMAL: the sections add up to the pass (incl. SDK)', p && sum.toFixed(3) + ' vs ' + p.pass_mean_ms.toFixed(3));
+  check(p && p.sections.screen.calls > 0 && p.sections.router.calls >= p.passes && p.sections.transfer.calls > 0, 'NORMAL: the screen, router and transfer hooks are counted', p && JSON.stringify(p.sections).slice(0, 160));
+  check(/control pass/.test(W.diagText(d)) && /SDK between the hooks/.test(W.diagText(d)), 'NORMAL: the counter text names the profile sections');
+}
 
 console.log(`${passed} ok, ${failed} failed`);
 if (failed) { console.log('FAILED'); process.exit(1); }

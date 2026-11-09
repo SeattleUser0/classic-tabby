@@ -4,6 +4,9 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.4  2026-11-08  Task 12 A4: the ACTIONS storage lines (USER size, song storage state, free
+ *                     and reclaimable) and the screen and paint timing are in every build; the
+ *                     screen control call is the SCREEN section of the loop profile.
  *   v0.3  2026-11-08  Task 12 A3: SAVE while the transport runs shows STOP TO SAVE (project.c
  *                     refuses); ERASE OLD DATA and COMPACT say STOP TO ERASE / COMPACT.
  *   v0.2  2026-11-08  Task 12 A2: the stock step editor is gone: STEPS 1/7 BASIC, 2/7 STEP DETAILS,
@@ -801,12 +804,10 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         sig = sig * 33U + tone_clip_ready;   /* Task 12 A2: the step / count-in state left with the editor */
         sig = sig * 33U + frame_views[track].volume;
         if (notice) sig = signature(sig, notice, (unsigned)strlen(notice));
-#ifdef CT_DIAG
         if (visible == ACTIONS) {   /* Task 11: redraw when the storage lines change */
             char a[40], b[40]; ct_diag_storage_lines(a, b);
             sig = signature(sig, a, (unsigned)strlen(a)); sig = signature(sig, b, (unsigned)strlen(b));
         }
-#endif
         if (visible == FM_QUICK) {
             sig = signature(sig, frame_patch, 156);
             sig = sig * 33U + frame_views[track].program;
@@ -847,7 +848,6 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         color_text(8, 216, source_result ? "NOT ENOUGH MEMORY - RETRY" : "K1 / PADS 1-6 CHOOSE", source_result ? AMBER : TEXT);
         dim_text(8, 231, role == GROOVE_TRACK_OFF ? "K2 ENABLE TRACK   HOME BACK" : "SAVE APPLY SOUND   HOME BACK");
     } else if (visible == ACTIONS) {
-#ifdef CT_DIAG
         /* Task 11 (diagnostic and probe builds): the USER size the SDK validated and the song
          * storage state replace the clipboard line; free / reclaimable storage replaces the
          * hint, so the probe's result can be read on the device without a monitor. */
@@ -856,10 +856,6 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         if (action_confirm) color_text(8, 38, confirm_prompt(), AMBER);
         else color_text(8, 38, diag_user, ACCENT);
         if (0) {
-#else
-        if (action_confirm) color_text(8, 38, confirm_prompt(), AMBER);
-        else {
-#endif
             /* Task 12 A2: the step / page / clipboard line left with the step editor. */
             dim_text(8, 38, "T"); small_number(16, 38, track + 1, 1, TEXT);
             dim_text(36, 38, tone_clip_ready ? "TIMBRE COPIED" : "NO TIMBRE COPIED");
@@ -871,11 +867,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             paint_fill(6, y, 228, 17, bg);
             text(10, y + 5, actions[at], 1, at == action ? ACCENT : DIM, bg);
         }
-#ifdef CT_DIAG
         plain_text(8, 213, notice ? notice : diag_song);
-#else
-        plain_text(8, 213, notice ? notice : "K1 / SELECT ACTION  SAVE EXECUTE");
-#endif
         dim_text(8, 231, action_confirm ? "SAVE CONFIRM   HOME CANCEL" : "K1 / SELECT ACTION  SAVE DO");
     } else if (visible == SONG) {
         /* Task 03 d: song mode. Row = song record row, pads queue jumps. */
@@ -1266,9 +1258,7 @@ static void draw(const struct fm1_ble_status *ble)
 static void paint_flush(void)
 {
     uint32_t started = fm1_millis();
-#ifdef CT_DIAG
     uint32_t diag_start = ct_diag_ticks(); unsigned diag_bands = 0;   /* Task 11B: paint timing */
-#endif
     paint_rendering = 1;
     cache = &band_cache;
     for (unsigned visited = 0; visited < PAINT_BANDS; ++visited) {
@@ -1303,18 +1293,14 @@ static void paint_flush(void)
         paint_left[band] = FM1_SCREEN_WIDTH;
         paint_right[band] = 0;
         paint_priority &= ~(1U << band);
-#ifdef CT_DIAG
         ++diag_bands;
-#endif
         /* The DMA borrows paint_pixels. The next iteration/poll must observe
          * completion before composing another band into that same buffer. */
         if (fm1_millis() - started >= 4U) break;
     }
     paint_rendering = 0;
     cache = &saved_cache;
-#ifdef CT_DIAG
     ct_diag_paint(ct_diag_ticks() - diag_start, diag_bands);
-#endif
 }
 static int release_keys_except(uint32_t keep)
 {
@@ -1979,19 +1965,18 @@ controls_done:
     return 1;
 }
 
-#ifdef CT_DIAG
-/* Task 11B: the whole screen control call is timed; the body is groove_screen_control_body. */
+/* Task 11B: the whole screen control call is timed; the body is groove_screen_control_body.
+ * Task 12 A4: in every build, and it is the SCREEN section of the loop profile. */
 static void groove_screen_control_body(void);
 void groove_screen_control(void)
 {
     uint32_t t = ct_diag_ticks();
+    ct_prof_enter(CT_PROF_SCREEN);
     groove_screen_control_body();
+    ct_prof_leave();
     ct_diag_screen(ct_diag_ticks() - t);
 }
 static void groove_screen_control_body(void)
-#else
-void groove_screen_control(void)
-#endif
 {
     struct fm1_controls controls;
     fm1_controls_read(&controls);

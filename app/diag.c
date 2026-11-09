@@ -8,8 +8,8 @@
  *   latency; the scan ISR's are in app/board/scan.c), their read-and-reset for transfer
  *   command 25, and the two lines the ACTIONS page shows in a diagnostic build: the USER size
  *   the SDK validated (fm1_flash_size()) with the song storage state, and the free and
- *   reclaimable song storage. The whole file is empty unless CT_DIAG is defined, so the
- *   normal build links nothing from it.
+ *   reclaimable song storage. Since Task 12 A4 the file is in every build (it was diagnostic
+ *   builds only), with the control-loop profile at the end (command 25 requests 4 and 5).
  *
  *   Reply of command 25 (64 bytes, little-endian u32 unless noted; times in 24 MHz ticks):
  *     0  tick rate (24000000)            4  ticks since the last reset
@@ -26,9 +26,11 @@
  *   Control-loop timing is taken at groove_midi_poll() because that call sends MIDI out: its
  *   period is the MIDI-out quantum during playback (SPEC 9.6, SPEC 14.3).
  *
- * Version: 0.2
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-08  Task 12 A4: in every build; the control-loop profile (ct_prof_*: exclusive
+ *                     time per app hook per pass, the SDK's rest, the routing task's MIDI input).
  *   v0.2  2026-11-08  Task 11B: page 3 (request 3), the screen timing: groove_screen_control()
  *                     calls (count, mean, longest) and paint_flush() band paints (count, bands,
  *                     mean, longest), to see whether drawing sets the control loop's period.
@@ -36,7 +38,6 @@
  */
 #define CT_DIAG_IMPL
 #include "diag.h"
-#ifdef CT_DIAG
 #include "instrument.h"
 #include "song_storage.h"
 #include "fm1_device.h"
@@ -114,8 +115,9 @@ int ct_diag_read(unsigned request, uint8_t out[CT_DIAG_REPLY_BYTES])
 {
     /* request 0: page 1 (64 bytes); 1: reset everything, then page 1; 2: page 2 (20 bytes). */
     uint32_t now = ticks();
+    if (request == 4 || request == 5) return ct_prof_read(request, out);   /* Task 12 A4 */
     if (request == 1) {
-        memset(&d, 0, sizeof d);
+        memset(&d, 0, sizeof d); ct_prof_reset();
         ct_diag_scan_count = 0; ct_diag_scan_gap_max = 0;
 #ifndef FM1_HOST_TEST
         smk37_scan_peak_ticks = 0; smk37_adc_peak_ticks = 0;
@@ -177,4 +179,73 @@ void ct_diag_storage_lines(char user_line[40], char song_line[40])
     } else p = word(p, "SONG STORAGE NOT READY");
     *p = 0;
 }
-#endif
+
+/* ---- Task 12 A4: the control-loop profile (diag.h describes the sections) -------------------- */
+enum { PROF_DEPTH = 6, PROF_ALL = CT_PROF_SECTIONS + 1 /* + SDK */ };
+static struct {
+    uint32_t pass_start, passes, pass_max;
+    uint64_t pass_sum;
+    uint32_t now_section[CT_PROF_SECTIONS];      /* ticks in this pass, exclusive */
+    uint32_t max[PROF_ALL];                      /* longest per pass */
+    uint64_t sum[PROF_ALL];                      /* summed over passes, for the mean */
+    uint32_t calls[CT_PROF_SECTIONS];
+    uint8_t stack[PROF_DEPTH], depth, started;
+    uint32_t mark;                               /* when the top of the stack last resumed */
+    uint32_t in_count, in_max;                   /* routing task */
+    uint64_t in_sum;
+} prof;
+void ct_prof_enter(unsigned section)
+{
+    uint32_t now = ticks();
+    if (prof.depth) prof.now_section[prof.stack[prof.depth - 1]] += now - prof.mark;
+    if (prof.depth < PROF_DEPTH && section < CT_PROF_SECTIONS) { prof.stack[prof.depth++] = (uint8_t)section; ++prof.calls[section]; }
+    prof.mark = now;
+}
+void ct_prof_leave(void)
+{
+    uint32_t now = ticks();
+    if (prof.depth) { prof.now_section[prof.stack[prof.depth - 1]] += now - prof.mark; --prof.depth; }
+    prof.mark = now;
+}
+void ct_prof_pass(void)
+{
+    uint32_t now = ticks();
+    if (prof.started && !prof.depth) {
+        uint32_t period = now - prof.pass_start, used = 0;
+        ++prof.passes; prof.pass_sum += period; if (period > prof.pass_max) prof.pass_max = period;
+        for (unsigned i = 0; i < CT_PROF_SECTIONS; ++i) {
+            uint32_t t = prof.now_section[i]; used += t;
+            prof.sum[i] += t; if (t > prof.max[i]) prof.max[i] = t;
+            prof.now_section[i] = 0;
+        }
+        uint32_t sdk = period > used ? period - used : 0;
+        prof.sum[CT_PROF_SECTIONS] += sdk; if (sdk > prof.max[CT_PROF_SECTIONS]) prof.max[CT_PROF_SECTIONS] = sdk;
+    } else for (unsigned i = 0; i < CT_PROF_SECTIONS; ++i) prof.now_section[i] = 0;
+    prof.pass_start = now; prof.started = 1;
+}
+/* The routing task's counters: a torn read of the 64-bit sum only blurs one mean. */
+void ct_prof_midi_in(uint32_t t)
+{
+    ++prof.in_count; prof.in_sum += t; if (t > prof.in_max) prof.in_max = t;
+}
+/* Page 4 (60 bytes): passes, mean and longest pass, then (longest, mean) per pass for ROUTER, SONG,
+ * STORAGE, SCREEN, PANEL, TRANSFER. Page 5 (56 bytes): (longest, mean) for PROJECT and SDK, the
+ * routing task's MIDI input calls (count, mean, longest), then the call count of each of the seven
+ * sections. Ticks of 24 MHz throughout. */
+int ct_prof_read(unsigned page, uint8_t out[CT_DIAG_REPLY_BYTES])
+{
+    uint32_t n = prof.passes;
+    unsigned at = 0;
+#define PUT(v) do { put32(out + at, (uint32_t)(v)); at += 4; } while (0)
+    if (page == 4) {
+        PUT(n); PUT(n ? prof.pass_sum / n : 0); PUT(prof.pass_max);
+        for (unsigned i = 0; i < 6; ++i) { PUT(prof.max[i]); PUT(n ? prof.sum[i] / n : 0); }
+    } else {
+        for (unsigned i = 6; i < PROF_ALL; ++i) { PUT(prof.max[i]); PUT(n ? prof.sum[i] / n : 0); }
+        PUT(prof.in_count); PUT(prof.in_count ? prof.in_sum / prof.in_count : 0); PUT(prof.in_max);
+        for (unsigned i = 0; i < CT_PROF_SECTIONS; ++i) PUT(prof.calls[i]);
+    }
+#undef PUT
+    return (int)at;
+}
+void ct_prof_reset(void) { memset(&prof, 0, sizeof prof); }

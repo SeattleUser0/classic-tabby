@@ -4,6 +4,9 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.3  2026-11-08  Task 12 A4: the counters (command 25), transfer kind 8 and capability bits 6
+ *                     and 7 are in every build; only command 26 (the remote ACTIONS / song commands)
+ *                     stays in the diagnostic build. Command 25 requests 4 and 5: the loop profile.
  *   v0.2  2026-11-08  Task 12 A3: no flash write while the transport runs (ct_transport_running):
  *                     uploads of the flash kinds 5-8 are refused at begin and at finish, project
  *                     save (command 7, in project.c), Bluetooth writes (24), ERASE OLD DATA (28)
@@ -18,7 +21,7 @@
 #include "fm_patch.h"
 #include "song.h"
 #include "fm1_engine_control.h"
-#include "diag.h"   /* Classic Tabby Task 11: kind 8 and command 25, diagnostic build only */
+#include "diag.h"   /* Classic Tabby Task 11: kind 8 and command 25 (every build since Task 12 A4) */
 /* Task 12: command 27 feature flags (bit 0: flash writes refused while the transport runs, A3;
  * bit 1: command 28 ERASE OLD DATA, A1). */
 #define CT_CAPABILITY_FLAGS 3U
@@ -98,13 +101,9 @@ static int transfer_begin(unsigned kind, unsigned target, unsigned size, unsigne
                       size < SONG_PAYLOAD_MIN || size > SONG_PAYLOAD_MAX)) return GROOVE_PROJECT_INVALID;
     if (kind == 7 && (!writing || target >= SONG_SONGS || size < SONG_BLOCK_HEADER + SONG_PAYLOAD_MIN ||
                       size > SONG_BATCH_BYTES)) return GROOVE_PROJECT_INVALID;
-#ifdef CT_DIAG
     /* Task 11: kind 8 = the device and session settings (40 bytes, target 0), both ways. */
     if (kind == 8 && (target || size != CT_SETTINGS_BYTES)) return GROOVE_PROJECT_INVALID;
     if (kind == 4 || kind > 8 || (kind == 1 && (target >= GROOVE_TRACKS || size != 156)) ||
-#else
-    if (kind == 4 || kind > 7 || (kind == 1 && (target >= GROOVE_TRACKS || size != 156)) ||
-#endif
         (kind == 2 && (target >= GROOVE_TRACKS || size != sizeof(struct groove_preset))) ||
         (!kind && (target || (size != GROOVE_PROJECT_BYTES && size != GROOVE_PROJECT_LEGACY_BYTES &&
                               (!writing || size != GROOVE_PROJECT_TUNED_BYTES)))) ||
@@ -166,9 +165,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
          * bit 3 the batched block upload, transfer kind 7 (checkpoint e). */
         out[0]=1; out[1]=128; out[2]=0; out[3]=0;
         put32(out+4,0); out[8]=63; /* session roles, extended delay, song storage, batches, timed notes (Task 05, bit 4), Bluetooth settings (Task 06, bit 5) */
-#ifdef CT_DIAG
         out[8]=255; /* Task 11: + bit 6 diagnostic counters (command 25), bit 7 settings transfer kind 8 */
-#endif
         *count=9; return 0;
     }
 #ifdef CT_DIAG
@@ -201,13 +198,14 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         if (n == 1 && data[0] == 3) return song_storage_initialize() ? GROOVE_PROJECT_INVALID : 0;
         return GROOVE_PROJECT_INVALID;
     }
-    if (cmd == 25 && n <= 1 && (!n || data[0] <= 3)) {   /* Task 11B: 3 = the screen page */
-        /* Task 11 (diagnostic build): the timing counters; data byte 1 resets them first,
-         * 2 asks for the scan page (app/diag.c lists the fields). */
+#endif   /* CT_DIAG: command 26 only (Task 12 A4) */
+    /* Task 12 A4: the counters are in every build; request 4 and 5 are the loop profile. */
+    if (cmd == 25 && n <= 1 && (!n || data[0] <= 5)) {   /* Task 11B: 3 = the screen page */
+        /* Task 11: the timing counters (every build since Task 12 A4); data byte 1 resets them
+         * first, 2 asks for the scan page, 3 the screen, 4 and 5 the loop profile (app/diag.c). */
         *count = (unsigned)ct_diag_read(n ? data[0] : 0, out);
         return 0;
     }
-#endif
     if (cmd == 24) {
         /* Task 06 (a): the Bluetooth settings that the device's BLE page used to edit.
          * n = 0 reads {flags, role}: flags bit 0 radio on, bit 1 Bluetooth audio, bit 2 MIDI
@@ -286,9 +284,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
     }
     if (cmd == 1 && (n == 2 || (n == 4 && data[0] == 6))) {
         unsigned size = data[0] == 2 ? sizeof(struct groove_preset) : data[0] == 1 ? 156
-#ifdef CT_DIAG
                         : data[0] == 8 ? CT_SETTINGS_BYTES   /* Task 11 */
-#endif
                         : data[0] == 3 ? GROOVE_PROJECT_TUNED_BYTES : data[0] == 5 ? SONG_RECORD_BYTES
                         : GROOVE_PROJECT_BYTES;
         unsigned target = data[1], block_id = n == 4 ? get16(data + 2) : 0;
@@ -313,9 +309,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
                 r = song_record_read(target, (struct song_record *)transfer);
                 if (r > 0) r = GROOVE_PROJECT_EMPTY;
             }
-#ifdef CT_DIAG
             else if (data[0] == 8) r = groove_settings_export(transfer);   /* Task 11 */
-#endif
             else
             r = data[0] == 2 ? groove_timbre_export(data[1], transfer, size)
                 : data[0] == 1 ? groove_fm_copy(data[1], transfer, NULL)
@@ -362,10 +356,8 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
                 r = song_block_append(transfer_target >> 16, transfer_target & 0xffffU, SONG_FORMAT_V2, transfer, transfer_size);
             else if (transfer_kind == 7)
                 r = song_block_batch(transfer_target, transfer, transfer_size); /* all or nothing (9.6 v0.5) */
-#ifdef CT_DIAG
             else if (transfer_kind == 8)
                 r = groove_settings_import(transfer, transfer_size);   /* Task 11: validated, then applied */
-#endif
             else
             r = transfer_kind == 2 ? groove_timbre_import(transfer_target, transfer, transfer_size)
                 : transfer_kind == 1 ? groove_fm_import(transfer_target, transfer)
@@ -397,7 +389,15 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
     }
     return r;
 }
+/* Task 12 A4: the TRANSFER section of the loop profile; the body has several early returns. */
+static void transfer_poll_body(void);
 void groove_transfer_poll(void)
+{
+    ct_prof_enter(CT_PROF_TRANSFER);
+    transfer_poll_body();
+    ct_prof_leave();
+}
+static void transfer_poll_body(void)
 {
     uint32_t now = fm1_millis();
     if (transfer && now - last_activity > 10000U)

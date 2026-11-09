@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.23
+Version: 0.24
 Revision log:
+- v0.24, 2026-11-08 (Task 12 A4): section 16.4: the counters and the loop profile in every build.
 - v0.23, 2026-11-08 (Task 12 A3): section 16.3: no flash write while the transport runs.
 - v0.22, 2026-11-08 (Task 12 A2): section 16.2: the step editor removed; SYNC / MIDI and MIDI TRACK;
   where every remaining setting lives (one place each).
@@ -1058,3 +1059,30 @@ Reads stay allowed (downloads, song status, slot names, capability replies, coun
 the RAM kinds 0-3 (workspace, FM patch, timbre) stay allowed: they reach flash only through command
 7. Tests: tests/workbench/backup.mjs v0.4 section 8 (every row above while playing and while
 stopped, reads while playing, the deferred save, the erase pause).
+
+### 16.4 Timing counters and the control-loop profile in every build (A4)
+
+The Task 11 counters (L.1 control loop, L.3 flash erase and write, L.4 key-to-router latency, L.5
+scan ISR, the screen timing of Task 11B), the workbench's Diagnostics panel (command 25), transfer
+kind 8 (device settings in the full backup) and the ACTIONS storage lines are in every build from
+tabby-v04.0. The diagnostic build (`DIAG=1`) adds only command 26 (remote ACTIONS and song commands
+for unattended runs).
+
+**Control-loop profile (command 25 requests 4 and 5).** One control pass = from one SDK call of
+`groove_midi_poll()` to the next. Each app hook the SDK calls is a section, timed exclusive of
+the hooks it calls, summed per pass, kept as mean and longest per pass, with its call count:
+
+| Section | Hook | What it is |
+| --- | --- | --- |
+| router | `groove_midi_poll` / `ct_midi_flush` | the MIDI router's sends to the SDK's output queues (also the app's own flushes) |
+| song | `song_poll` | song scheduling in the control task (decode ahead, stops); notes are clocked by the audio thread and sent by the router |
+| storage | `song_storage_poll` | the boot scan, a confirmed erase, a compaction |
+| screen | `groove_screen_control` | panel input handling, pages, the LCD painter |
+| panel | `fm1_controls_read` | the scan queue (keys, pads, encoders), button and pad LEDs |
+| transfer | `groove_transfer_poll` | the workbench protocol |
+| project | `groove_project_poll` | restores, deferred settings saves |
+| SDK | (the rest of the pass) | the SDK's own work between the hooks, including its MIDI input processing |
+
+MIDI input arrives in the SDK's routing task (`fm1_app_midi_received`), outside the pass; it is
+counted apart (calls, mean, longest). L.1 keeps its Task 11 meaning (the period between any two
+router flushes) so the old numbers stay comparable; the pass period is the profile's.

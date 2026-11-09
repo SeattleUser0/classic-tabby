@@ -2,7 +2,7 @@
 #include "instrument.h"
 #include "song.h"
 #include "fm1_engine_control.h"
-#include "diag.h"   /* Classic Tabby Task 11: CT_DIAG_LOOP(), empty outside the diagnostic build */
+#include "diag.h"   /* Classic Tabby Task 11: CT_DIAG_LOOP(); Task 12 A4: the loop profile (every build) */
 #include <string.h>
 #ifdef FM1_HOST_TEST
 #include <stdatomic.h>
@@ -102,7 +102,7 @@ __attribute__((cold, minsize)) void groove_midi_config_apply(const struct groove
         /* SEQ mode/output edits leave transport, ARP and live controls intact.
          * Release changed pattern gates using the OLD local/output routing. */
         fm1_engine_pause();
-        groove_midi_poll();
+        ct_midi_flush();   /* Task 12 A4: an app flush, not a pass */
         for (unsigned t = 0; t < 8; ++t, modes >>= 2) {
             if (modes & 3U) groove_sequence_release(t);
             if ((changed & SEQ_OFF) || (modes & 3U)) release_owner(t, config.flags & 7U);
@@ -329,7 +329,24 @@ void groove_midi_song_channels(const uint8_t *channels)
         barrier();
     }
 }
+/* Task 12 A4: the SDK calls groove_midi_poll() once per control pass, so that call marks the pass
+ * boundary of the loop profile (app/diag.h). The app's own flushes (panel snapshot, a played note,
+ * song start and stop, a MIDI setting change) call ct_midi_flush(): the same router work, counted in
+ * the ROUTER section, without a boundary. L.1 (CT_DIAG_LOOP) still counts every flush, as in Task 11,
+ * so its numbers stay comparable with the Task 11B hardware runs. */
+static void midi_poll_body(void);
 void groove_midi_poll(void)
+{
+    ct_prof_pass();
+    ct_midi_flush();
+}
+void ct_midi_flush(void)
+{
+    ct_prof_enter(CT_PROF_ROUTER);
+    midi_poll_body();
+    ct_prof_leave();
+}
+static void midi_poll_body(void)
 {
     CT_DIAG_LOOP();   /* Task 11 (L.1): this call sends MIDI out; its period is the control loop's */
     unsigned ready = fm1_midi_ready_ports();
@@ -441,7 +458,15 @@ int groove_midi_clock_accept(unsigned source, uint8_t status)
     }
     return source == auto_source;
 }
+/* Task 12 A4: the routing task's MIDI input callback is timed (ct_prof_midi_in), apart from the pass. */
+static void midi_received_body(unsigned source, const uint8_t *m, size_t n);
 void fm1_app_midi_received(unsigned source, const uint8_t *m, size_t n)
+{
+    uint32_t t = ct_diag_ticks();
+    midi_received_body(source, m, n);
+    ct_prof_midi_in(ct_diag_ticks() - t);
+}
+static void midi_received_body(unsigned source, const uint8_t *m, size_t n)
 {
     if (source >= 3 || !m || !n || n > 3) return;
     unsigned clock = m[0] == 0xf8 || m[0] == 0xfa || m[0] == 0xfb || m[0] == 0xfc || m[0] == 0xf2;

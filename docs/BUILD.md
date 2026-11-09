@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.42
+Version: 0.43
 Revision log:
+- v0.43, 2026-11-08 (Task 12 A4): 26.4 the counters and the loop profile in the normal build.
 - v0.42, 2026-11-08 (Task 12 A3): 26.3 block writes during play.
 - v0.41, 2026-11-08 (Task 12 A2): 26.2 the step editor removed; SYNC / MIDI; left-to-build: the
   metronome and count-in (Phase 5).
@@ -3212,3 +3213,24 @@ Tests (all pass): tests/workbench/backup.mjs v0.4, section 8 and the erase-pause
 while playing and stopped. Found on the way: every MIDI setting change (OUT CH, SEQ OUT, KEY OUT,
 CLK IN, OUT PORT, SEQ) stops the stock transport by itself (the old channel is reset), so only
 session preferences such as OCT can change during play; the deferral covers them.
+
+### 26.4 A4: the counters in the normal build, and the loop profile
+
+The `#ifdef CT_DIAG` blocks of app/diag.c, app/diag.h, app/board/scan.c, app/transfer.c,
+app/project.c and app/screen.c are gone: the counters, command 25, transfer kind 8 and the ACTIONS
+storage lines are in every build; capability bits 6 and 7 are set by the normal build. `DIAG=1`
+now adds only command 26. The loop profile (app/diag.c v0.3 `ct_prof_*`; sections and their hooks
+in SPEC 16.4: router, song, storage, screen, panel, transfer, project, SDK, plus the routing
+task's MIDI input) is read with command 25 requests 4 and 5; the workbench's Diagnostics panel
+prints it under "control pass" (sdk/WebUpdate.js diagRead / diagText).
+
+Reading the profile on the device (Part B): Projects & sounds > Connect project library >
+Diagnostics > Reset counters, run the measurement, Read counters, Copy as text. Or from the NUC,
+read-only: `~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/usb-readback.py` does not read command 25
+yet; Part B adds the profile read to it (reading counters is allowed; the reset is a write to RAM
+only, but needs the user present under SPEC 15).
+
+Tests: tests/workbench/backup.mjs v0.5 section 5 (normal build: bits 6 and 7, kind 8 in the
+backup, no command 26; the profile counts passes, the sections add up to the pass within 2 %, the
+screen, router and transfer hooks are counted). make check, lint (no new warning), test-fast pass.
+Size: 447748 bytes after A3 + A4, margin 71709 (FLASH-BUDGET 17).

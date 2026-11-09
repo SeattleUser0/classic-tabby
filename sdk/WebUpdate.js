@@ -14,6 +14,8 @@
  * Classic Tabby Task 12 A1 (2026-11-08): the default layout is USER 471040 (song region 397312);
  * Library reads command 27 (version, feature flags, USER size) and offers eraseOldData (command
  * 28); reply code 76 = refused while the device plays.
+ * Classic Tabby Task 12 A4 (2026-11-08): diagRead adds the screen page and the control-loop profile
+ * (command 25 pages 4 and 5); the counters are in every build from tabby-v04.0.
  * Classic Tabby Task 12 A3 (2026-11-08): writeGuard() before every flash write (project slot save,
  * song uploads and deletes, settings kind 8, Bluetooth writes, ERASE OLD DATA, full restore): it
  * reads command 27's live transport byte and sends nothing while the device plays.
@@ -1315,24 +1317,49 @@
   // Page 1 (64 bytes) and page 2 (20 bytes) as app/diag.c lists them; times in 24 MHz ticks,
   // returned here in milliseconds.
   Library.prototype.diagRead=async function(reset=false){
-    check(this.diagCounters,'This firmware has no diagnostic counters (install tabby-v03.3-diag).');
+    check(this.diagCounters,'This firmware has no diagnostic counters (tabby-v04.0 and later have them in every build).');
     const a=await this.query(25,[reset?1:0]),b=await this.query(25,[2]);
     check(a.length===64&&b.length===20,'Diagnostic reply has the wrong length');
     const u=(p,i)=>le(p,i,4),hz=u(a,0)||24000000,ms=t=>t*1000/hz;
     const bins=[];for(let i=0;i<8;i++)bins.push(a[48+2*i]|a[49+2*i]<<8);
     const seconds=u(a,4)/hz;
-    return {seconds,loop:{count:u(a,8),max_ms:ms(u(a,12)),mean_ms:ms(u(a,16))},
+    const out={seconds,loop:{count:u(a,8),max_ms:ms(u(a,12)),mean_ms:ms(u(a,16))},
       flash:{erases:u(a,20),erase_max_ms:ms(u(a,24)),writes:u(a,28),write_max_ms:ms(u(a,32)),write_max_bytes:u(a,36)},
       keys:{count:u(a,40),max_ms:ms(u(a,44)),bins},
       scan:{count:u(b,0),per_second:seconds?u(b,0)/seconds:0,gap_max_ms:ms(u(b,4)),isr_peak_ms:ms(u(b,8)),adc_peak_ms:ms(u(b,12))}};
+    // Task 11B page 3 (screen) and Task 12 A4 pages 4 and 5 (the control-loop profile); firmware
+    // older than tabby-v04.0 answers page 3 only in a diag-r2 build and pages 4 and 5 not at all.
+    try{const c=await this.query(25,[3]);if(c.length===28)out.screen={controls:u(c,0),control_mean_ms:ms(u(c,4)),control_max_ms:ms(u(c,8)),paints:u(c,12),bands:u(c,16),paint_mean_ms:ms(u(c,20)),paint_max_ms:ms(u(c,24))};}catch(error){if(!error.deviceCode)throw error;}
+    try{
+      const p4=await this.query(25,[4]),p5=await this.query(25,[5]);
+      if(p4.length===60&&p5.length===56){
+        const names=['router','song','storage','screen','panel','transfer','project','sdk'],sections={};
+        for(let i=0;i<6;i++)sections[names[i]]={max_ms:ms(u(p4,12+8*i)),mean_ms:ms(u(p4,16+8*i))};
+        for(let i=0;i<2;i++)sections[names[6+i]]={max_ms:ms(u(p5,8*i)),mean_ms:ms(u(p5,4+8*i))};
+        for(let i=0;i<7;i++)sections[names[i]].calls=u(p5,28+4*i);
+        out.profile={passes:u(p4,0),pass_mean_ms:ms(u(p4,4)),pass_max_ms:ms(u(p4,8)),sections,
+          midi_in:{calls:u(p5,16),mean_ms:ms(u(p5,20)),max_ms:ms(u(p5,24))}};
+      }
+    }catch(error){if(!error.deviceCode)throw error;}
+    return out;
   };
+  // Task 12 A4: the section names as the report and docs/BUILD.md 26.4 use them.
+  const PROFILE_LABELS={router:'router (MIDI out sends)',song:'song scheduling',storage:'song storage (scan / erase / compact)',screen:'screen (panel input, pages, LCD)',panel:'panel and LEDs (key queue, LEDs)',transfer:'transfer (workbench protocol)',project:'project (restores, settings saves)',sdk:'SDK between the hooks'};
   function diagText(d){
     const f=v=>v.toFixed(3);
-    return ['Classic Tabby diagnostic counters, '+f(d.seconds)+' s since reset',
+    const lines=['Classic Tabby diagnostic counters, '+f(d.seconds)+' s since reset',
       'L.1 control loop (groove_midi_poll): '+d.loop.count+' loops, mean '+f(d.loop.mean_ms)+' ms, max '+f(d.loop.max_ms)+' ms',
       'L.3 flash: '+d.flash.erases+' erases, longest '+f(d.flash.erase_max_ms)+' ms; '+d.flash.writes+' writes, longest '+f(d.flash.write_max_ms)+' ms ('+d.flash.write_max_bytes+' bytes)',
       'L.4 key/pad note-on to router: '+d.keys.count+' notes, max '+f(d.keys.max_ms)+' ms; <0.5 '+d.keys.bins[0]+', <1 '+d.keys.bins[1]+', <2 '+d.keys.bins[2]+', <4 '+d.keys.bins[3]+', <8 '+d.keys.bins[4]+', <16 '+d.keys.bins[5]+', <32 '+d.keys.bins[6]+', >=32 '+d.keys.bins[7]+' (ms)',
-      'L.5 matrix scan: '+d.scan.count+' scans, '+d.scan.per_second.toFixed(1)+' per second, longest gap '+f(d.scan.gap_max_ms)+' ms; scan ISR peak '+f(d.scan.isr_peak_ms)+' ms, ADC ISR peak '+f(d.scan.adc_peak_ms)+' ms'].join('\n');
+      'L.5 matrix scan: '+d.scan.count+' scans, '+d.scan.per_second.toFixed(1)+' per second, longest gap '+f(d.scan.gap_max_ms)+' ms; scan ISR peak '+f(d.scan.isr_peak_ms)+' ms, ADC ISR peak '+f(d.scan.adc_peak_ms)+' ms'];
+    if(d.screen)lines.push('screen: '+d.screen.controls+' control calls, mean '+f(d.screen.control_mean_ms)+' ms, max '+f(d.screen.control_max_ms)+' ms; '+d.screen.paints+' band paints ('+d.screen.bands+' bands), mean '+f(d.screen.paint_mean_ms)+' ms, max '+f(d.screen.paint_max_ms)+' ms');
+    if(d.profile){
+      const p=d.profile;
+      lines.push('control pass (SDK call of groove_midi_poll to the next): '+p.passes+' passes, mean '+f(p.pass_mean_ms)+' ms, max '+f(p.pass_max_ms)+' ms; per section, per pass (mean / max, exclusive):');
+      for(const [k,label] of Object.entries(PROFILE_LABELS)){const s=p.sections[k];lines.push('  '+label+': '+f(s.mean_ms)+' / '+f(s.max_ms)+' ms'+(s.calls!==undefined&&p.passes?', '+(s.calls/p.passes).toFixed(2)+' calls per pass':''));}
+      lines.push('  MIDI input callback (routing task, not in the pass): '+p.midi_in.calls+' calls, mean '+f(p.midi_in.mean_ms)+' ms, max '+f(p.midi_in.max_ms)+' ms');
+    }
+    return lines.join('\n');
   }
   globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,portName,Updater,
     songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadParseV1,songPayloadBuild,songStepText,songStepParse,songLengthText,tabbyFile,readTabbyFile,songBlockIds,songBatches,songEventsValidate,
