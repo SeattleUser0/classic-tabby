@@ -24,6 +24,22 @@ Subcommands
                (min / median / max), and the kernel log lines (urb, reset, disconnect) that appear
                on this device's USB path during the run. Read-only; the device's state is unchanged.
 
+    backup-read  one read-only pass over what the device can hand out without loading a slot:
+               the workspace (kind 0, or 3 with tuning), device settings (kind 8), the 8 track
+               timbres (kind 2), the 8 tracks' FM patches (kind 1), the 16 slot names (command 9)
+               and the 16 song records (kind 5), each through commands 1 (begin: a copy into a RAM
+               buffer, transfer_writing = 0), 2 (read 64 bytes) and 6 (cancel). Unlike the
+               workbench's full backup it never sends command 8 (load slot) or an upload.
+    condition  --tag T [--audio]: the Task 11C test of one cable/audio condition: the soak
+               (--rounds, default 2000) and backup-read twice (compared byte for byte), with the
+               AUDIO4c capturing 8 channels at 48 kHz (arecord on hw:AUDIO4c) for the whole run
+               when --audio is given. Kernel USB lines over the whole window; JSON report.
+    midi-watch --seconds N: sends nothing. Listens on every AUDIO4c MIDI input and the SMK-37's
+               USB output at once (ALSA sequencer, so it works while Chrome holds the ports) and
+               reports, per port, the messages that arrived (note on / off / other) and the
+               kernel's receive byte counters for the AUDIO4c inputs before and after. Answers
+               "does the SMK-37's TRS MIDI out reach the AUDIO4c while USB carries the notes".
+
     Backends. The default opens the ALSA raw MIDI port, which is exclusive: it fails with "Device
     or resource busy" while Chrome has a Web MIDI page open. --seq goes through the ALSA
     sequencer with python-rtmidi instead (run it with ~/fm1-hw/hwvenv/bin/python3), which shares
@@ -33,9 +49,11 @@ Subcommands
           ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/usb-readback.py identity --seq [--out DIR]
           python3 tools/linux/hw/usb-readback.py soak --rounds 200 [--seq] [--port SMK37] [--out DIR]
 
-Version: 0.2
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-08  midi-watch (passive TRS MIDI out check, Task 11C item 2).
+    v0.3  2026-11-08  backup-read and condition (Task 11C shared-controller test).
     v0.2  2026-11-08  --seq backend (ALSA sequencer via python-rtmidi; shares the port with Chrome).
     v0.1  2026-11-08  Task 11C: first version (identity, soak).
 """
@@ -219,15 +237,202 @@ def cmd_soak(a):
     print(json.dumps(rep, indent=1))
 
 
+def backup_read(link):
+    """One read-only pass (see the docstring). Returns ({name: bytes}, stats)."""
+    st = {"queries": 0, "bytes": 0, "empty": 0}
+    out = {}
+
+    def q(cmd, payload=b""):
+        st["queries"] += 1
+        return link.query(cmd, bytes(payload))
+
+    def download(name, kind, target=0):
+        try:
+            head = q(1, [kind, target])
+        except tabby_link.DeviceError as e:          # empty slot / record, or not a DX7 track
+            st["empty"] += 1; out[name] = ("device code %d" % e.code).encode(); return
+        size = head[0] | head[1] << 8
+        data = bytearray()
+        try:
+            for at in range(0, size, 64):
+                n = min(64, size - at)
+                part = q(2, [at & 255, at >> 8, n])
+                if len(part) != n:
+                    raise ValueError("%s: short part at %d" % (name, at))
+                data += part
+        finally:
+            try: q(6)                               # cancel: frees the RAM copy
+            except Exception: pass
+        st["bytes"] += len(data); out[name] = bytes(data)
+
+    t0 = time.monotonic()
+    caps = link.capabilities(); st["queries"] += 2
+    download("workspace", 3 if caps["tuning"] else 0)
+    if caps["settings_kind8"]:
+        download("settings", 8)
+    for t in range(8):
+        download("timbre%d" % t, 2, t)
+        download("fm%d" % t, 1, t)
+    for slot in range(16):
+        try:
+            out["name%d" % slot] = bytes(q(9, [slot]))
+        except tabby_link.DeviceError as e:
+            out["name%d" % slot] = ("device code %d" % e.code).encode()
+    for slot in range(16):
+        download("song%d" % slot, 5, slot)
+    st["seconds"] = time.monotonic() - t0
+    return out, st
+
+
+def run_backups(link, n=2):
+    """n backup reads; every pass compared with the first, item by item."""
+    passes, res = [], []
+    for i in range(n):
+        try:
+            data, st = backup_read(link)
+        except (TimeoutError, ValueError, tabby_link.DeviceError) as e:
+            res.append({"pass": i, "error": str(e)}); continue
+        passes.append(data)
+        diff = [k for k in data if passes[0].get(k) != data[k]] if len(passes) > 1 else []
+        res.append({"pass": i, **st, "differing_items": diff[:20]})
+    return res, len(passes) == n and all(not r.get("differing_items") and "error" not in r for r in res)
+
+
+def soak(link, rounds):
+    first, rtt, timeouts, malformed, differ = {}, [], 0, 0, 0
+    t0 = time.monotonic()
+    for i in range(rounds):
+        for c in (17, 49):
+            try:
+                d, t, bad = uquery(link, c)
+            except TimeoutError:
+                timeouts += 1; continue
+            malformed += bad; rtt.append(t * 1000)
+            if c not in first:
+                first[c] = d
+            elif d != first[c]:
+                differ += 1
+    q = sorted(rtt)
+    pct = lambda p: q[min(len(q) - 1, int(p * len(q)))] if q else None
+    return {"rounds": rounds, "queries": 2 * rounds, "replies": len(rtt), "timeouts": timeouts, "malformed": malformed,
+            "differing": differ, "seconds": round(time.monotonic() - t0, 2),
+            "rtt_ms": {"min": q[0], "median": pct(0.5), "p99": pct(0.99), "max": q[-1]} if q else None,
+            "build_id": capability(first[49])["build_id"][:16] if 49 in first else None}
+
+
+def usb_path():
+    """Where the SMK-37 is now: its USB port, bus and the PCI controller (from sysfs)."""
+    for d in os.listdir("/sys/bus/usb/devices"):
+        f = "/sys/bus/usb/devices/%s/idVendor" % d
+        if os.path.exists(f) and open(f).read().strip() in ("3654", "4d4a"):
+            real = os.path.realpath("/sys/bus/usb/devices/" + d)
+            return {"port": d, "sysfs": real.replace("/sys/devices/", ""),
+                    "speed_mbps": open("/sys/bus/usb/devices/%s/speed" % d).read().strip()}
+    return None
+
+
+def cmd_condition(a):
+    since = time.strftime("%Y-%m-%d %H:%M:%S")
+    rec, rec_err = None, ""
+    if a.audio:                                     # the AUDIO4c streams its 8 inputs into /dev/null
+        rec = subprocess.Popen(["arecord", "-D", "hw:AUDIO4c", "-c", "8", "-r", "48000", "-f", "S32_LE", "-t", "raw",
+                                "-q", "/dev/null"], stderr=subprocess.PIPE, text=True)
+        time.sleep(2)
+        if rec.poll() is not None:
+            raise SystemExit("arecord did not start: " + rec.stderr.read())
+    st = "/proc/asound/AUDIO4c/pcm0c/sub0/status"
+    pcm = open(st).read().split("\n")[0] if os.path.exists(st) else "?"
+    link = open_link(a)
+    try:
+        sk = soak(link, a.rounds)
+        bk, bk_ok = run_backups(link, 2)
+    finally:
+        link.close()
+        pcm_end = open(st).read().split("\n")[0] if os.path.exists(st) else "?"
+        if rec:
+            rec.terminate()
+            try: rec_err = rec.communicate(timeout=5)[1]
+            except Exception: pass
+    time.sleep(1)
+    rep = {"tag": a.tag, "audio": bool(a.audio), "audio4c_capture": [pcm, pcm_end], "arecord_stderr": (rec_err or "").strip(),
+           "usb": usb_path(), "port": link.name, "soak": sk, "backup_reads": bk, "backups_identical": bk_ok,
+           "kernel": kernel_lines(since)}
+    rep["pass"] = (not sk["timeouts"] and not sk["malformed"] and not sk["differing"] and bk_ok and not rep["kernel"])
+    save(a.out, "condition-%s.json" % a.tag, rep)
+    print(json.dumps(rep, indent=1))
+
+
+def audio4c_counters():
+    """Kernel Rx byte counter of each AUDIO4c MIDI input (/proc/asound/cardN/midi0)."""
+    import glob, re
+    for path in glob.glob("/proc/asound/card*/midi0"):
+        text = open(path).read()
+        if text.startswith("AUDIO4c"):
+            return [int(x) for x in re.findall(r"Rx bytes\s*:\s*(\d+)", text)]
+    return []
+
+
+def cmd_watch(a):
+    import rtmidi
+    probe = rtmidi.MidiIn(rtmidi.API_LINUX_ALSA)
+    names = [n for n in probe.get_ports() if "audio4c" in n.lower() or "smk37" in n.lower().replace(" ", "")]
+    del probe
+    log, ins = [], []
+    for n in names:                                  # one MidiIn per port; the callback tags the port
+        mi = rtmidi.MidiIn(rtmidi.API_LINUX_ALSA)
+        mi.ignore_types(sysex=False, timing=False, active_sense=True)
+        idx = mi.get_ports().index(n)
+        mi.open_port(idx, "midi-watch")
+        mi.set_callback(lambda ev, _d, n=n: log.append((time.monotonic(), n, ev[0])))
+        ins.append(mi)
+    before = audio4c_counters()
+    t0 = time.monotonic()
+    print("LISTENING %d s on %d ports: play keys now" % (a.seconds, len(names)), flush=True)
+    time.sleep(a.seconds)
+    for mi in ins:
+        mi.close_port()
+    after = audio4c_counters()
+    per = {}
+    for _t, n, m in log:
+        k = "clock" if m[0] == 0xF8 else {0x90: "note_on" if len(m) > 2 and m[2] else "note_off", 0x80: "note_off"}.get(m[0] & 0xF0, "other")
+        d = per.setdefault(n, {"note_on": 0, "note_off": 0, "clock": 0, "other": 0, "channels": set()})
+        d[k] += 1
+        if m[0] < 0xF0:
+            d["channels"].add((m[0] & 15) + 1)
+    for d in per.values():
+        d["channels"] = sorted(d["channels"])
+    rep = {"seconds": a.seconds, "ports": names, "arrived": per,
+           "audio4c_rx_bytes_before": before, "audio4c_rx_bytes_after": after,
+           "audio4c_rx_delta": [y - x for x, y in zip(before, after)]}
+    if a.out:
+        os.makedirs(a.out, exist_ok=True)
+        with open(os.path.join(a.out, "midi-watch-%s.csv" % a.tag), "w") as f:
+            f.write("t_s,port,bytes\n")
+            for t, n, m in log:
+                f.write("%.6f,%s,%s\n" % (t - t0, n, " ".join("%02X" % b for b in m)))
+    save(a.out, "midi-watch-%s.json" % a.tag, rep)
+    print(json.dumps(rep, indent=1))
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[1].strip())
-    p.add_argument("cmd", choices=["identity", "soak"])
+    p.add_argument("cmd", choices=["identity", "soak", "backup-read", "condition", "midi-watch"])
+    p.add_argument("--seconds", type=float, default=90, help="midi-watch: listening time")
+    p.add_argument("--tag", default="x", help="condition: name of the condition (a, b, c, d)")
+    p.add_argument("--audio", action="store_true", help="condition: AUDIO4c capture runs throughout")
     p.add_argument("--port", default="SMK37", help="ALSA raw MIDI port name (substring)")
     p.add_argument("--rounds", type=int, default=200, help="soak: rounds of 17 + 49")
     p.add_argument("--seq", action="store_true", help="use the ALSA sequencer (python-rtmidi), shared with Chrome")
     p.add_argument("--out", help="directory for the JSON report")
     a = p.parse_args()
-    {"identity": cmd_identity, "soak": cmd_soak}[a.cmd](a)
+    def cmd_backup(a):
+        link = open_link(a)
+        try:
+            r, _ = run_backups(link, 1)
+        finally:
+            link.close()
+        print(json.dumps(r, indent=1))
+    {"midi-watch": cmd_watch, "identity": cmd_identity, "soak": cmd_soak, "backup-read": cmd_backup, "condition": cmd_condition}[a.cmd](a)
 
 
 if __name__ == "__main__":

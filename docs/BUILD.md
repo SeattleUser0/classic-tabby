@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.37
+Version: 0.38
 Revision log:
+- v0.38, 2026-11-08 (Task 11C, part 2): 25.6: the shared-controller USB test (four conditions,
+  all pass; AUDIO4c audio is not the likely cause), the rule that follows, the TRS MIDI out watch
+  (nothing reaches the AUDIO4c), make suite after the port-name fix; usb-readback.py v0.4.
 - v0.37, 2026-11-08 (Task 11C): device rules (top and SPEC 15); 25.5: the Mac recovery, the port
   name fix (normalized names, no silent failure), what the stale loader tag did today, the NUC
   USB failure and a read-only link test, the firmware read back over USB; usb-readback.py in
@@ -2826,6 +2829,8 @@ python3 tools/linux/hw/run-11b.py trs-watch --clock|--passive --seconds 60 [--po
 # Task 11C, read-only (no install, write, erase or reset; --seq shares the port with an open Chrome):
 ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/usb-readback.py identity --seq --out run/
 ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/usb-readback.py soak --seq --rounds 2000 --out run/
+~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/usb-readback.py condition --seq --tag a --audio --out run/  # soak + 2 backup reads, AUDIO4c capturing
+~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/usb-readback.py midi-watch --seconds 120 --tag T --out run/  # passive: AUDIO4c inputs + SMK USB out
 node tests/workbench/update-ports.mjs                                   # the updater's port selection
 ```
 
@@ -3026,6 +3031,56 @@ returns 0 in upstream V01 and here alike. By the SDK header it gates the TRS **r
   the Mac either way until the user changes the rule.
 - **4. Tools.** tools/linux/hw/usb-readback.py v0.2 (read-only: identity and soak; `--seq` uses
   the ALSA sequencer so it works while Chrome holds the port).
+
+### 25.6 Task 11C part 2: does AUDIO4c audio on the same controller break the SMK-37's transfers? (2026-11-08)
+
+Read-only toward the device throughout (usb-readback.py v0.4 `condition`, `--seq`; files in
+hardware-runs/2026-11-07/2026-11-08-usb-test/). Each condition: 2000 rounds of identity (17) and
+capability (49) = 4000 queries, then two read-only backup reads (workspace + tuning, settings, 8
+timbres, the DX7 tracks' patches, 16 slot names, 16 song records: 300 queries, 14,592 bytes, all
+songs empty), compared byte for byte; "streaming" = arecord capturing the AUDIO4c's 8 inputs at
+48 kHz for the whole run (PCM state RUNNING before and after, no xrun reported).
+
+**Controllers.** The NUC has one USB controller, Intel Sunrise Point-LP xHCI at PCI 00:14.0; every
+port is on its bus 1 (USB 2 root hub; bus 2 is the same controller's 5 Gb/s side, empty). The
+AUDIO4c is on port 1-3 (480 Mb/s), the SMK-37 at 12 Mb/s on 1-4 (back port) or 1-1 (the port it was
+on during the failed update). So the "back port" is not a separate controller: both SMK-37 ports
+share the controller and root hub with the AUDIO4c; only the audio traffic varies.
+
+| | port | AUDIO4c | replies | timeouts / malformed / differing | round trip ms min / median / p99 / max | backup reads | kernel |
+|---|---|---|---|---|---|---|---|
+| a | 1-4 | streaming | 4000/4000 | 0 / 0 / 0 | 1.08 / 1.17 / 1.30 / 6.60 | 2 x 14592 B, identical | none |
+| b | 1-4 | idle | 4000/4000 | 0 / 0 / 0 | 1.09 / 1.18 / 1.34 / 3.47 | identical | none |
+| c | 1-1 | streaming | 4000/4000 | 0 / 0 / 0 | 1.07 / 1.17 / 2.29 / 4.51 | identical | none |
+| d | 1-1 | idle | 4000/4000 | 0 / 0 / 0 | 0.33 / 1.18 / 2.30 / 4.57 | identical | none |
+
+**Conclusion: shared-controller audio traffic is not the likely cause of the update loop** — no
+error, timeout or kernel message in any condition, and audio moved only the round-trip tail
+(max 6.6 ms vs 3.5 ms on 1-4), never a reply. Limits: these are small queries (about 12 bytes out
+per query) to the Open firmware, not the loader's sustained 512-byte blocks host-to-device; the
+loop and `urb status -115` happened with the Jieli loader on the other end (which also never
+answered Python over raw MIDI while Chrome got replies).
+
+**Rule that follows.** Do not blame or work around the AUDIO4c (no need to unplug it or stop
+audio for SMK-37 work). The NUC stays read-only toward the device (SPEC 15) because the cause is
+still unknown and now points at the loader's host-to-device path, not the shared controller.
+Next read-only steps, with the user present: a host-to-device volume test (queries sent back to
+back, several in flight), a usbmon capture of bus 1 during it, and the same soak from the Mac.
+Installs stay on the Mac.
+
+**TRS MIDI out (item 2).** Passive watch (`midi-watch`, sends nothing) on all 10 AUDIO4c MIDI inputs
+and the SMK-37's USB out while the user played keys, the device on tabby-v03.3-diag-r2:
+- run 1 (150 s): no keys reached the window (USB: clock only) — not counted;
+- run 2 (120 s): USB carried 316 note-on / 316 note-off (channels 1 and 10), 48 other, 5765 clock;
+  **the AUDIO4c received nothing on any input (kernel Rx counters +0 on all 10)**;
+- run 3 (120 s), after the user routed the AUDIO4c's DIN input to all outputs in Auracle X: USB
+  166 note-on / 166 note-off (channel 1), 5764 clock; **the AUDIO4c again received nothing (+0)**.
+Nothing from the SMK-37's TRS out reaches the AUDIO4c while USB carries the notes and clock. Not
+yet separated: our firmware not sending on TRS, the TRS adapter type (A/B) or the cable. Checks
+without a device write: Auracle X's DIN input activity while keys are played; the adapter type.
+The Open V01 comparison needs an install (the user, from the Mac).
+
+**make suite** after the port-name fix: **passed** 2026-11-09T02:10:00Z at c80c166 (crosscheck, test, midi-import-sim, host-sanitize; the uncommitted changes were only this section and usb-readback.py, which the suite does not run).
 
 ### 25.4 First run (2026-11-07, before the erase approval)
 
