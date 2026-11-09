@@ -1,0 +1,55 @@
+{
+  "build": "b6e9590223446363dff53a2190bd80eb020233c63dd2d90cfa778e361ce0f708",
+  "release": "V01",
+  "version": "tabby-v04.0",
+  "entryBytes": 335825,
+  "initialBytes": 1441880,
+  "standaloneBytes": 3127637,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/368c613022672f8918cb990cd886970edc771014afba2dd93a736577e29f24af.bin",
+      "bytes": 487988,
+      "sha256": "368c613022672f8918cb990cd886970edc771014afba2dd93a736577e29f24af"
+    },
+    {
+      "name": "assets/smk37/39e494b76aa64d30a475831924ee3b1ade4b197490d2ea6a98e927ab874cc394.wasm",
+      "bytes": 287473,
+      "sha256": "39e494b76aa64d30a475831924ee3b1ade4b197490d2ea6a98e927ab874cc394"
+    },
+    {
+      "name": "assets/smk37/d06f5c0951a9f081d6e22ed9751290dabf2abd08db70c1a0698efb40d46fff84.js",
+      "bytes": 746241,
+      "sha256": "d06f5c0951a9f081d6e22ed9751290dabf2abd08db70c1a0698efb40d46fff84"
+    },
+    {
+      "name": "assets/smk37/cce0942a6c87f8a16d8162d68a38368d6745e3f876bfba195bf6ba1fa193231e.js",
+      "bytes": 71842,
+      "sha256": "cce0942a6c87f8a16d8162d68a38368d6745e3f876bfba195bf6ba1fa193231e"
+    },
+    {
+      "name": "assets/smk37/6cbd3ba63f8a821e611f506c9f206d0a275f681493e7a71c7baea18df2e0caff.js",
+      "bytes": 499,
+      "sha256": "6cbd3ba63f8a821e611f506c9f206d0a275f681493e7a71c7baea18df2e0caff"
+    },
+    {
+      "name": "index.html",
+      "bytes": 335825,
+      "sha256": "24c3a033c98de69b03a31f7cae2ed56c5fe9d2c0229b2d027a0450b6a1296e87"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 335825,
+      "sha256": "24c3a033c98de69b03a31f7cae2ed56c5fe9d2c0229b2d027a0450b6a1296e87"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3127637,
+      "sha256": "c4ef289ad6433f5f4da362135a52596e7f9dab6cc6b8c1dcf43d53a161d6d9c3"
+    }
+  ]
+}
