@@ -4,6 +4,11 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.2  2026-11-08  Task 12 A3: no flash write while the transport runs (ct_transport_running):
+ *                     uploads of the flash kinds 5-8 are refused at begin and at finish, project
+ *                     save (command 7, in project.c), Bluetooth writes (24), ERASE OLD DATA (28)
+ *                     and the diag COMPACT / ERASE (26) answer code 76. Reads stay allowed.
+ *                     Command 27 sets flag bit 0 and appends out[7], the transport state now.
  *   v0.1  2026-11-08  Task 12 A1: command 27, the Classic Tabby capability reply (version, feature
  *                     flags, USER size), and command 28, ERASE OLD DATA from the workbench (needs
  *                     the five confirm bytes "ERASE"; refused unless song storage reports OLD DATA).
@@ -14,8 +19,13 @@
 #include "song.h"
 #include "fm1_engine_control.h"
 #include "diag.h"   /* Classic Tabby Task 11: kind 8 and command 25, diagnostic build only */
-/* Task 12: command 27 feature flags (bit 1: command 28 ERASE OLD DATA). */
-#define CT_CAPABILITY_FLAGS 2U
+/* Task 12: command 27 feature flags (bit 0: flash writes refused while the transport runs, A3;
+ * bit 1: command 28 ERASE OLD DATA, A1). */
+#define CT_CAPABILITY_FLAGS 3U
+/* Task 12 A3: the transfer kinds whose upload writes flash: 5 song record (and delete), 6 block,
+ * 7 block batch, 8 device settings. Kinds 0-3 (workspace, FM patch, timbre, tuned workspace) only
+ * change RAM; the project reaches flash through command 7, which project.c refuses while playing. */
+static int kind_writes_flash(unsigned kind) { return kind >= 5 && kind <= 8; }
 #include <stdlib.h>
 #include <string.h>
 
@@ -132,11 +142,14 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
      *   out[1..2] feature flags, u16 LE: bit 0 flash writes are refused while the transport runs
      *             (Task 12 A3, reply code 76), bit 1 command 28 (ERASE OLD DATA), bits 2.. later
      *   out[3..6] the USER size the build reserves (CT_USER_BYTES: 471040 normal, 536576 old)
+     *   out[7]    A3: 1 while the transport runs now (song or stock sequencer); the workbench reads
+     *             it before every write and sends nothing while it is 1
      * Later versions only append. */
     if (cmd == 27 && !n) {
         out[0] = 1; out[1] = CT_CAPABILITY_FLAGS & 255; out[2] = CT_CAPABILITY_FLAGS >> 8;
         put32(out + 3, CT_USER_BYTES);
-        *count = 7; return 0;
+        out[7] = (uint8_t)ct_transport_running();
+        *count = 8; return 0;
     }
     /* Task 12 A1: ERASE OLD DATA from the workbench, the same erase as the confirmed ACTIONS entry
      * (song_storage_initialize: one old-data sector per poll; projects, tunings and settings are
@@ -183,7 +196,8 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
             r = song_play();
             return r < 0 ? r : 0;
         }
-        if (n == 1 && data[0] == 2) return song_playing() ? GROOVE_PROJECT_INVALID : song_storage_compact();
+        if (n == 1 && data[0] >= 2 && ct_transport_running()) return GROOVE_PROJECT_PLAYING;   /* Task 12 A3 */
+        if (n == 1 && data[0] == 2) return song_storage_compact();
         if (n == 1 && data[0] == 3) return song_storage_initialize() ? GROOVE_PROJECT_INVALID : 0;
         return GROOVE_PROJECT_INVALID;
     }
@@ -201,6 +215,8 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
          * (applied and saved by app/project.c as the page did). n = 1 with data[0] = 0x7f
          * forgets the BLE MIDI pairs. The clock source stays on SEQ page 5/7. */
         if (!n) { out[0] = (uint8_t)groove_settings_radio_flags(); out[1] = (uint8_t)groove_settings_role_value(); *count = 2; return 0; }
+        /* Task 12 A3: both writes are saved to flash (settings, the BLE bond store). */
+        if ((n == 2 || (n == 1 && data[0] == 0x7f)) && ct_transport_running()) return GROOVE_PROJECT_PLAYING;
         if (n == 2) return groove_settings_radio(data[0], data[1]) ? GROOVE_PROJECT_INVALID : 0;
         if (n == 1 && data[0] == 0x7f) { int fr = fm1_ble_forget_bonds(); return fr ? fr : 0; }
         return GROOVE_PROJECT_INVALID;
@@ -319,7 +335,9 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
             *count = bytes;
             r = 0;
         }
-    } else if (cmd == 3 && n == 4)
+    } else if (cmd == 3 && (n == 4 || (n == 6 && data[0] == 6)) && kind_writes_flash(data[0]) && ct_transport_running())
+        r = GROOVE_PROJECT_PLAYING;   /* Task 12 A3: refused before a byte is uploaded */
+    else if (cmd == 3 && n == 4)
         r = transfer_begin(data[0], data[1], get16(data + 2), 1);
     else if (cmd == 3 && n == 6 && data[0] == 6)
         r = transfer_begin(6, data[1] << 16 | get16(data + 2), get16(data + 4), 1);
@@ -330,6 +348,9 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
             transferred += bytes;
             r = 0;
         }
+    } else if (cmd == 5 && n == 4 && transfer && transfer_writing && transferred == transfer_size &&
+               kind_writes_flash(transfer_kind) && ct_transport_running()) {
+        r = GROOVE_PROJECT_PLAYING;   /* Task 12 A3: the transport started during the upload; kept for a retry */
     } else if (cmd == 5 && n == 4 && transfer && transfer_writing && transferred == transfer_size) {
         if (get32(data) == ~groove_crc32(~0U, transfer, transfer_size)) {
             if (transfer_kind == 5) {

@@ -14,6 +14,9 @@
  * Classic Tabby Task 12 A1 (2026-11-08): the default layout is USER 471040 (song region 397312);
  * Library reads command 27 (version, feature flags, USER size) and offers eraseOldData (command
  * 28); reply code 76 = refused while the device plays.
+ * Classic Tabby Task 12 A3 (2026-11-08): writeGuard() before every flash write (project slot save,
+ * song uploads and deletes, settings kind 8, Bluetooth writes, ERASE OLD DATA, full restore): it
+ * reads command 27's live transport byte and sends nothing while the device plays.
  * Classic Tabby Task 11C (2026-11-08): port names are normalized before matching (portName):
  * macOS CoreMIDI reported the SMK-37 as "SMK37 Open" plus 3 or 4 spaces, with different padding on
  * the input and output endpoints, so no input/output pair formed and the page connected to
@@ -807,10 +810,19 @@
     // Task 12 A1: ERASE OLD DATA (command 28 with the confirm bytes "ERASE"). The device refuses it
     // unless song storage reports OLD DATA, and while the transport runs (code 76). The page asks
     // the user first; this method never asks.
-    async eraseOldData(){check(this.tabbyFlags&2,'当前固件不支持从网页清除旧数据，请在设备 ACTIONS 中操作');await this.query(28,[69,82,65,83,69]);}
+    async eraseOldData(){check(this.tabbyFlags&2,'当前固件不支持从网页清除旧数据，请在设备 ACTIONS 中操作');await this.writeGuard();await this.query(28,[69,82,65,83,69]);}
+    // Task 12 A3: every method that writes flash calls this first. On tabby-v04.0 and later
+    // (command 27 flag bit 0) it reads the live transport byte and refuses, before a single
+    // write is sent, while a song or the stock sequencer plays. The device refuses on its own
+    // too (reply code 76); this check makes the page say so instead of starting a transfer.
+    async writeGuard(){
+      if(!(this.tabbyFlags&1))return;
+      const r=await this.query(27);
+      if(r.length>=8&&r[7])throw Object.assign(Error('设备正在播放，未写入任何内容。请先停止播放，再重试。'),{deviceCode:76,playing:true});
+    }
     async radioRead(){const r=await this.query(24);check(r.length===2,'蓝牙设置回复无效');return {on:!!(r[0]&1),audio:!!(r[0]&2),host:r[1]===1};}
-    async radioWrite(s){await this.query(24,[(s.on?1:0)|(s.audio?2:0)|4,s.host?1:0]);}
-    async radioForget(){await this.query(24,[0x7f]);}
+    async radioWrite(s){await this.writeGuard();await this.query(24,[(s.on?1:0)|(s.audio?2:0)|4,s.host?1:0]);}
+    async radioForget(){await this.writeGuard();await this.query(24,[0x7f]);}
     // Task 06 (9.13): a 31-byte reply adds, per track, the state byte (bits 0-1 follow / launched / stopped,
     // bits 2-3 the pending queue: none / launch / stop / back to song, bit 4 waiting) and the pattern row (255 = none).
     async songStatus(){const s=await this.query(23);check(s.length===13||s.length===15||s.length===31,'歌曲存储状态回复无效');
@@ -824,7 +836,7 @@
       } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
     }
     async uploadBlock(song,id,bytes){
-      songPayloadParse(bytes);
+      songPayloadParse(bytes);await this.writeGuard();   // Task 12 A3
       try {
         await this.query(3,[6,song,id&255,id>>8,bytes.length&255,bytes.length>>8]);
         for(let at=0;at<bytes.length;at+=64)await this.query(4,[at&255,at>>8,...bytes.slice(at,at+64)]);
@@ -834,6 +846,7 @@
     // Batched block upload (Task 03 e, transfer kind 7, 9.9 v0.5): one stream of block records
     // lands in whole block sectors under one journal commit, or not at all.
     async uploadBatch(song,stream){
+      await this.writeGuard();   // Task 12 A3
       try {
         await this.query(3,[7,song,stream.length&255,stream.length>>8]);
         for(let at=0;at<stream.length;at+=64)await this.query(4,[at&255,at>>8,...stream.slice(at,at+64)]);
@@ -868,6 +881,7 @@
     async songDelete(song){check(this.songStorage,'请先更新固件以使用歌曲模式');await this.upload(5,song,new Uint8Array(SONG_RECORD).fill(255));}
     async saveProject(slot,bytes) {
       check(Number.isInteger(slot)&&slot>=0&&slot<16,'请选择设备项目槽');
+      await this.writeGuard();   // Task 12 A3: the slot write is refused while playing
       if(bytes){bytes=this.projectPayload(bytes);await this.upload(0,0,bytes);}
       const expected=await this.download(0);
       check(!bytes||(bytes.length===expected.length&&bytes.every((value,i)=>value===expected[i])),
@@ -943,6 +957,7 @@
       else if(kind===4){check(this.programs===128,'请先更新固件以使用 128 音色库');bankFile(bytes);}
       else if(kind===5){check(bytes.length===SONG_RECORD,'歌曲记录长度无效');}
       else if(kind===8){check(this.settingsTransfer&&bytes.length===40,'设备设置长度无效');}   // Task 11: device settings, sent as they are
+      if(kind>=5&&kind<=8)await this.writeGuard();   // Task 12 A3: the flash kinds
       else {
         bytes=this.projectPayload(bytes);
         if(bytes.length===4264)kind=3;
@@ -1235,10 +1250,11 @@
   Library.prototype.fullRestore=async function(input,progress=()=>{},{settleMs=2500}={}){
     const b=input&&input.projects&&input.workspace instanceof Uint8Array?input:backupParse(input);
     check(this.link&&!this.link.lost,'请先连接项目库');
+    await this.writeGuard();   // Task 12 A3: a restore writes flash; nothing is sent while the device plays
     const notes=[],songsWanted=b.songs.some(s=>!s.empty);
     check(!songsWanted||(this.songStorage&&this.timedNotes),'This firmware has no song storage; the backup holds songs. Nothing was changed.');
     if(this.songStorage){const st=await this.songStatus();
-      check(st.state!==2,'Song storage holds old data (ACTIONS shows OLD SAMPLE/DX7 DATA). Run ACTIONS > ERASE OLD SAMPLE/DX7 on the device first. Nothing was changed.');
+      check(st.state!==2,'Song storage holds OLD DATA. Run Erase old data (Song mode group) or ACTIONS > ERASE OLD DATA on the device first. Nothing was changed.');
       check(st.state===0,'Song storage is not ready (state '+st.state+'). Wait for the scan or the compaction, then retry. Nothing was changed.');
       check(st.playing===0,'Stop song playback before a restore. Nothing was changed.');}
     // Device and session settings first: track roles decide how the projects load.

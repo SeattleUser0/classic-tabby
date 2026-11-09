@@ -619,6 +619,7 @@ main{max-width:1440px}
 <tr><td>Any page</td><td><kbd>SEQ</kbd></td><td>SYNC / MIDI: K1 CLOCK (INT, MIDI), K2 CLK IN (AUTO, USB, BLE, DIN), K3 SWING, K4 SEQ OUT (OFF, ON, CLOCK), <kbd>PRESETS</kbd> KEY OUT. Songs need INT.</td></tr>
 <tr><td>Any page</td><td><kbd>HOME</kbd>+<kbd>SEQ</kbd></td><td>Tap the tempo.</td></tr>
 <tr><td>HOME</td><td><kbd>K4</kbd></td><td>BPM (the only tempo control; read only with MIDI clock).</td></tr>
+<tr><td>Any page, while playing</td><td><kbd>SAVE</kbd>, ERASE OLD DATA, COMPACT</td><td>Nothing is written to flash while a song or the pattern plays: the screen says STOP TO SAVE (or STOP TO ERASE / COMPACT), the workbench says the device is playing and sends nothing. Setting changes made while playing are kept and saved after the stop.</td></tr>
 <tr><td>Any page</td><td><kbd>BT</kbd></td><td>Shows BLUETOOTH: SET IN WORKBENCH. Settings are in the workbench.</td></tr>
 <tr><td>Any page</td><td><kbd>SHIFT</kbd>+pad 1 to 8 / 9 to 16</td><td>Select track / toggle mute.</td></tr>
 <tr><td>Any page</td><td><kbd>SHIFT</kbd>+<kbd>SEQ</kbd></td><td>MIDI TRACK: K1 IN CH, K2 OUT CH, K3 SEQ (LOCAL, BOTH, MIDI), K4 OUT PORT.</td></tr>

@@ -2,6 +2,9 @@
 (() => {
   'use strict';
   const messages={
+  // Classic Tabby Task 12 A3: writes refused while the device plays.
+  "设备正在播放，未写入任何内容。请先停止播放，再重试。": "The device is playing; nothing was written. Stop playback, then try again.",
+  "当前固件不支持从网页清除旧数据，请在设备 ACTIONS 中操作": "This firmware cannot erase old data from the web page; use ACTIONS on the device.",
   // Classic Tabby Task 12 A2: the manual after the step editor left (SYNC / MIDI, MIDI TRACK).
   "把鼠标放在 LCD 上的数值，出现高亮即可滚轮调节；每次按参数最小步长变化，不随滚动速度加速。也可点击打开大号数值框，用滚轮、＋／−或方向键细调，Esc 关闭。支持底部参数、顶部 BPM、总览各轨音量、DX7 快捷页的参数行和效果参数行。混音页也可点静音／独奏格子设置。状态、电平和当前引擎不支持的参数只显示；外部 MIDI 时钟下 BPM 由外部控制。切换轨道或参数页会关闭旧编辑框，避免改错参数。总览调其他轨的小音量数字不会改变当前选轨。": "Hover over an LCD value: a highlight means it is editable with the mouse wheel. Each step uses the parameter's smallest increment, without scroll-speed acceleration. Click to open a larger value display, then use the wheel, + / − or arrow keys; Esc closes it. Editable values include bottom parameters, top BPM, overview track levels, the DX7 quick page's rows and the effect rows. Mixer mute / solo cells are also editable. Status, meters and unsupported engine parameters remain read-only; external MIDI clock controls BPM. Changing tracks or parameter pages closes the old editor to prevent editing the wrong value. Adjusting another track's small level on the overview does not change your selected track.",
   "常用编辑按钮直接打开音色、SYNC / MIDI、混音和效果；其余功能在“更多编辑”。旋钮可拖动或滚轮调节，LCD 数值可点击编辑。电脑键盘 Z、S、X、D…演奏，空格播放，Esc 停音；输入文字和操作菜单时不会演奏。": "The main buttons open sound, SYNC / MIDI, mixer and effects; other controls are in More editing. Drag or scroll knobs, or click LCD values. Play with Z, S, X, D…; Space plays and Esc stops notes. Typing and menu actions do not play notes.",

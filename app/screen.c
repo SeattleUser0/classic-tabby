@@ -4,6 +4,8 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.3  2026-11-08  Task 12 A3: SAVE while the transport runs shows STOP TO SAVE (project.c
+ *                     refuses); ERASE OLD DATA and COMPACT say STOP TO ERASE / COMPACT.
  *   v0.2  2026-11-08  Task 12 A2: the stock step editor is gone: STEPS 1/7 BASIC, 2/7 STEP DETAILS,
  *                     4/7 LOCKS, STEP_EDIT, RHYTHM, REC (step and live recording, count-in, CLICK),
  *                     pad-step mode (SHIFT+PAD), HOME K3 STEP, the step-editing ACTIONS (step
@@ -678,6 +680,7 @@ static __attribute__((noinline)) void project_draw(void)
     cache->row_cache[1] = sig;
     const char *status = project_result == GROOVE_PROJECT_EMPTY     ? "NO VALID SAVE"
                          : project_result == GROOVE_PROJECT_TUNING_SPACE ? "ERASE OLD SAMPLE DATA"
+                         : project_result == GROOVE_PROJECT_PLAYING ? "STOP TO SAVE"   /* Task 12 A3 */
                          : project_result == GROOVE_PROJECT_MEMORY  ? "NOT ENOUGH MEMORY"
                          : project_result == GROOVE_PROJECT_INVALID ? "INVALID PROJECT"
                          : project_result == FM1_FLASH_BUSY         ? "FLASH BUSY - RETRY"

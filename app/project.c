@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/* Classic Tabby Task 12 A3 (2026-11-08): groove_project_save_slot refuses while the transport
+ * runs (GROOVE_PROJECT_PLAYING), and the deferred settings / session save waits for the stop. */
 /* Classic Tabby Task 11 (2026-11-07): in the diagnostic build (CT_DIAG) the device and session
  * settings travel as transfer kind 8 (groove_settings_export / groove_settings_import, at the
  * end of this file) for the workbench's full backup, and every flash call is timed (app/diag.h).
@@ -11,6 +13,7 @@
 #include "tuning_hook.h"
 #include "fm_patch.h"
 #include "song_storage.h"
+#include "song.h"   /* Task 12 A3: ct_transport_running */
 #include "diag.h"   /* Task 11: timed flash calls and transfer kind 8 in the diagnostic build only */
 #include <stddef.h>
 #include <stdlib.h>
@@ -574,6 +577,10 @@ int groove_project_save_slot(unsigned slot)
 {
     if (slot >= GROOVE_PROJECT_SLOTS)
         return GROOVE_PROJECT_INVALID;
+    /* Classic Tabby Task 12 A3: no flash write while the transport runs (the panel's SAVE shows
+     * STOP TO SAVE, the workbench's command 7 gets reply code 76). */
+    if (ct_transport_running())
+        return GROOVE_PROJECT_PLAYING;
     int r = tuning_can_save();
     if (!r)
         r = tuning_upgrade();
@@ -881,8 +888,10 @@ void groove_project_poll(void)
         if (!r || (r != -2 && r != -3))
             role_pending = 0;
     }
+    /* Task 12 A3: a settings change made while the transport runs is applied at once and saved
+     * after the stop (the save is a flash erase and write). */
     if ((settings_dirty || session_dirty) && fm1_millis() - settings_changed >= 1500U &&
-        groove_performance_idle(1500U)) {
+        groove_performance_idle(1500U) && !ct_transport_running()) {
         int r = 0;
         /* Panel/track preferences live in the tuning journal. Do not also
          * rewrite slot 16 and its staging copy when those settings did not change. */

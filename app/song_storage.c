@@ -33,9 +33,11 @@
  *   Everything here runs on the control task and is synchronous (a transaction takes
  *   three sector erases). The sequencer (app/song.c) only reads through the directory.
  *
- * Version: 0.7
+ * Version: 0.8
  *
  * Revision log
+ *   v0.8  2026-11-08  Task 12 A3: a confirmed erase or a compaction pauses while the transport
+ *                     runs (no flash write during play) and resumes after the stop.
  *   v0.7  2026-11-07  Task 11: the region size follows the layout setting (song_storage.h v0.7);
  *                     app/diag.h is included so a diagnostic build times every flash erase and
  *                     write. No behaviour change.
@@ -131,8 +133,12 @@ static int classify(unsigned sector)
     if (!erased(head, sizeof head)) mark_old(sector);
     return 0;
 }
+unsigned ct_transport_running(void);   /* app/song.h; Task 12 A3 */
 void song_storage_poll(void)
 {
+    /* Task 12 A3: ERASING and COMPACTING write flash one sector per poll; they wait while the
+     * transport runs (started while stopped, the stock transport can still start later). */
+    if ((state == SONG_STORAGE_ERASING || state == SONG_STORAGE_COMPACTING) && ct_transport_running()) return;
     if (state == SONG_STORAGE_SCANNING) {
         /* Four sectors per control iteration: the whole scan takes 29 polls. */
         for (unsigned n = 0; n < 4 && position < SONG_REGION_SECTORS; ++n, ++position) {

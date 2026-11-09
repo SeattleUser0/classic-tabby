@@ -34,9 +34,11 @@
 //   Run:  /usr/bin/node tests/workbench/backup.mjs NORMAL.wasm DIAG.wasm PROBE.wasm
 //         (or: make backup-test, which builds the three)
 //
-// Version: 0.3
+// Version: 0.4
 //
 // Revision log
+//   v0.4  2026-11-08  Task 12 A3: section 8, every flash write refused while the transport runs
+//                     (workbench guard and device reply 76), reads allowed, deferred settings save.
 //   v0.3  2026-11-08  Task 12 A1: commands 27 and 28 (the move test erases through command 28);
 //                     471040 is the normal layout; the "DIAG" role (the device before
 //                     the move) is played by the old-layout simulator build/web-old536, "PROBE" by
@@ -273,12 +275,87 @@ check(mverify.pass, 'after the move the file restores and verifies', mverify.dif
   for (let i = 0; i < 200; i++) diag.sim_render();
   const playing = await rebooted.query(26);
   check(playing[5] === 1 && playing[6] === 2, 'song 3 is loaded and playing', playing[5] + ',' + playing[6]);
-  await refused(rebooted.query(26, [2]), 'COMPACT is refused while the song plays, as on the panel', /71|无效|invalid/i);
+  await refused(rebooted.query(26, [2]), 'COMPACT is refused while the song plays, as on the panel (Task 12 A3: code 76)', /76|正在播放|71|无效|invalid/i);
   await rebooted.query(26, [0]);
   for (let i = 0; i < 400; i++) diag.sim_render();
   check((await rebooted.query(26))[5] === 0, 'command 26 {0} stops it');
   check((await rebooted.query(26, [2])).length === 0, 'COMPACT starts when stopped');
   await refused(rebooted.query(26, [3]), 'ERASE OLD is refused when there is no old data', /71|无效|invalid/i);
+}
+
+/* ---- 8. Task 12 A3: every flash write is refused while the transport runs ------------------- */
+{
+  const c = simulator(probePath);                      // the normal 471040 layout, diagnostic build
+  const lib = await library(c);
+  check(lib.tabbyFlags & 1, 'command 27 flag bit 0: writes are refused while playing');
+  const transport = async () => (await lib.query(27))[7];
+  const press = i => { c.sim_control(0, i, 1); for (let k = 0; k < 20; k++) c.sim_render(); c.sim_control(0, i, 0); for (let k = 0; k < 20; k++) c.sim_render(); };
+  check(await transport() === 0, 'stopped: command 27 reports the transport stopped');
+  const slot0 = await lib.download(0);
+  press(12);                                           // PLAY: the stock transport
+  check(await transport() === 1, 'PLAY: command 27 reports the transport running');
+  const PLAYING = /正在播放|playing/i, CODE76 = /76|正在播放/;
+  // the workbench refuses before sending (writeGuard) ...
+  await refused(lib.saveProject(2, slot0), 'playing: project save refused by the workbench', PLAYING);
+  await refused(lib.songWrite(3, song('PLAYTEST', [[1, 0, 0, 0, 0, 0, 0, 0]]), new Map([[1, W.songPayloadBuild(Array.from({ length: 64 }, () => ({ probability: 0, alt: false, notes: [] })))]])), 'playing: song upload refused by the workbench', PLAYING);
+  await refused(lib.songDelete(3), 'playing: song delete refused by the workbench', PLAYING);
+  await refused(lib.upload(8, 0, await lib.download(8)), 'playing: settings write (kind 8) refused by the workbench', PLAYING);
+  await refused(lib.radioWrite({ on: true, audio: true, host: false }), 'playing: Bluetooth settings write refused by the workbench', PLAYING);
+  await refused(lib.radioForget(), 'playing: forget Bluetooth pairs refused by the workbench', PLAYING);
+  await refused(lib.eraseOldData(), 'playing: ERASE OLD DATA refused by the workbench', PLAYING);
+  press(12); const fileForRestore = JSON.stringify(await lib.fullBackup()); settle(c, 3000); press(12);
+  check(await transport() === 1, 'playing again after a backup taken while stopped', await transport());
+  await refused(lib.fullRestore(fileForRestore, () => {}, { settleMs: 0 }), 'playing: full restore refused by the workbench', PLAYING);
+  // ... and the device refuses the raw commands on its own (reply code 76)
+  await refused(lib.query(7, [2]), 'playing: command 7 (save slot) answers 76', CODE76);
+  await refused(lib.query(3, [5, 3, 0, 16]), 'playing: song record upload begin answers 76', CODE76);
+  await refused(lib.query(3, [7, 3, 64, 0]), 'playing: block batch upload begin answers 76', CODE76);
+  await refused(lib.query(3, [8, 0, 40, 0]), 'playing: settings upload begin answers 76', CODE76);
+  await refused(lib.query(24, [5, 0]), 'playing: command 24 write answers 76', CODE76);
+  await refused(lib.query(24, [0x7f]), 'playing: command 24 forget answers 76', CODE76);
+  await refused(lib.query(28, [69, 82, 65, 83, 69]), 'playing: command 28 answers 76', CODE76);
+  await refused(lib.query(26, [2]), 'playing: diag COMPACT (26 {2}) answers 76', CODE76);
+  await refused(lib.query(26, [3]), 'playing: diag ERASE OLD (26 {3}) answers 76', CODE76);
+  // reads stay allowed
+  check((await lib.download(0)).length > 0 && (await lib.songStatus()).state === 0 && (await lib.query(9, [0], true)) !== undefined, 'playing: reads (workspace, song status, slot name) still work');
+  // a saved preference changed while playing (OCT+, a session setting) is applied at once and
+  // saved only after the stop. (A MIDI setting change stops the transport by itself.)
+  settle(c, 3000);
+  const rev = c.sim_flash_revision();
+  press(1);                                            // OCT+
+  settle(c, 3000);
+  check(await transport() === 1, 'playing: OCT+ keeps the transport running');
+  check(c.sim_flash_revision() === rev, 'playing: nothing reached flash (the preference save waits for the stop)');
+  press(12);                                           // stop
+  check(await transport() === 0, 'PLAY again stops the transport');
+  settle(c, 3000);
+  check(c.sim_flash_revision() !== rev, 'stopped: the deferred settings save runs');
+  // and every write works again when stopped
+  const saved = await lib.saveProject(2, slot0);
+  check(saved.length === slot0.length, 'stopped: project save works');
+  await lib.radioWrite({ on: true, audio: true, host: false });
+  check(true, 'stopped: Bluetooth settings write works');
+  await refused(lib.eraseOldData(), 'stopped: ERASE OLD DATA is refused only for having no old data (71)', /71|无效|invalid/i);
+  check((await lib.query(26, [2])).length === 0, 'stopped: diag COMPACT starts');
+  press(0); settle(c, 3000);                           // OCT- back
+}
+{
+  /* Task 12 A3: a confirmed erase started while stopped pauses when the transport starts and
+   * finishes after the stop. 30 planted old sectors, one erased per 10 ms poll. */
+  const image = flashImage(simulator(probePath));
+  for (let k = 0; k < 30; k++) { const at = 69632 + 17 * 4096 + (10 + k) * 4096; image.set([0x46, 0x4d, 0x31, 0x53], at); image.fill(0x11, at + 4, at + 32); }
+  const c = simulator(probePath, image);
+  const lib = await library(c);
+  check((c.sim_song_storage_state() & 255) === 2, 'erase pause: 30 old sectors planted (OLD DATA)');
+  await lib.eraseOldData();
+  c.sim_control(0, 12, 1); c.sim_render(); c.sim_control(0, 12, 0);   // PLAY right after the erase starts
+  for (let k = 0; k < 10; k++) c.sim_render();
+  const rev = c.sim_flash_revision();
+  for (let k = 0; k < 700; k++) c.sim_render();                        // 2 s of play
+  check((c.sim_song_storage_state() & 255) === 3 && c.sim_flash_revision() === rev, 'erase pause: ERASING waits while playing (no flash write)', (c.sim_song_storage_state() & 255) + ' rev ' + rev + '->' + c.sim_flash_revision());
+  c.sim_control(0, 12, 1); for (let k = 0; k < 20; k++) c.sim_render(); c.sim_control(0, 12, 0);
+  for (let k = 0; k < 700; k++) c.sim_render();
+  check((c.sim_song_storage_state() & 255) === 1, 'erase pause: the erase finishes after the stop (READY)');
 }
 
 /* ---- 5. NORMAL: no kind 8 ------------------------------------------------------------------- */

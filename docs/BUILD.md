@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.41
+Version: 0.42
 Revision log:
+- v0.42, 2026-11-08 (Task 12 A3): 26.3 block writes during play.
 - v0.41, 2026-11-08 (Task 12 A2): 26.2 the step editor removed; SYNC / MIDI; left-to-build: the
   metronome and count-in (Phase 5).
 - v0.40, 2026-11-08 (Task 12 A1): section 26: Task 12; 26.1 the storage move as the normal layout,
@@ -3196,3 +3197,18 @@ v0.2 (the removed texts are absent). make check, lint (no new warning) and test-
 
 Bytes: 451620 -> 443396, **-8224 bytes** (FLASH-BUDGET 17), against about 8 KB estimated for the
 full removal in the Task 10 assessment, section J.
+
+### 26.3 A3: no flash write during play
+
+One test, `ct_transport_running()` (app/song.c v0.5: a song plays or the stock transport runs),
+guards every flash write: app/project.c (save slot refuses with GROOVE_PROJECT_PLAYING, reply code
+76; the deferred settings / session save waits for the stop), app/transfer.c v0.2 (uploads of kinds
+5-8 refused at begin and finish, commands 24 writes, 26 {2,3}, 28), app/song_storage.c v0.8 (a
+running erase or compaction pauses), app/screen.c v0.3 (STOP TO SAVE, STOP TO ERASE / COMPACT). The
+workbench (sdk/WebUpdate.js) calls writeGuard() before every flash write and sends nothing while
+command 27's live byte says the device plays. The complete table is SPEC 16.3.
+
+Tests (all pass): tests/workbench/backup.mjs v0.4, section 8 and the erase-pause block: 25 checks
+while playing and stopped. Found on the way: every MIDI setting change (OUT CH, SEQ OUT, KEY OUT,
+CLK IN, OUT PORT, SEQ) stops the stock transport by itself (the old channel is reset), so only
+session preferences such as OCT can change during play; the deferral covers them.

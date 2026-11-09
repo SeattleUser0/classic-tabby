@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.22
+Version: 0.23
 Revision log:
+- v0.23, 2026-11-08 (Task 12 A3): section 16.3: no flash write while the transport runs.
 - v0.22, 2026-11-08 (Task 12 A2): section 16.2: the step editor removed; SYNC / MIDI and MIDI TRACK;
   where every remaining setting lives (one place each).
 - v0.21, 2026-11-08 (Task 12 A1): section 16: the storage move is the normal layout (USER 471040),
@@ -1034,3 +1035,26 @@ ACTIONS, whose entries are COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE O
 COMPACT SONG STORAGE and SEND SETUP. REC shows NO REC IN THIS VERSION. The web simulator's step grid
 and its step-details / rhythm shortcuts are gone (sim_step refuses every edit). Bytes freed:
 FLASH-BUDGET 17.
+
+### 16.3 No flash write while the transport runs (A3)
+
+"Transport running" = a song plays or is stopping, or the stock pattern sequencer runs (internal
+or external clock): `ct_transport_running()` in app/song.c, the one test every path uses. While it
+is true:
+
+| Write | Device | Workbench (writeGuard, command 27 out[7]) | Device reply if sent anyway |
+| --- | --- | --- | --- |
+| project SAVE / save slot | STOP TO SAVE (project.c refuses) | "The device is playing; nothing was written" | command 7: 76 |
+| song upload, song delete (kinds 5, 6, 7) | - | refused before the first byte | command 3 begin and command 5 finish: 76 |
+| device settings (kind 8) | - | refused | 76 |
+| Bluetooth settings, forget pairs (command 24) | - | refused | 76 |
+| ERASE OLD DATA | STOP TO ERASE / COMPACT | refused | command 28: 76 |
+| COMPACT SONG STORAGE | STOP TO ERASE / COMPACT | (no workbench button) | diag command 26 {2} / {3}: 76 |
+| full restore | - | refused before anything is written | (its parts answer 76) |
+| deferred settings and session saves (panel, track, clock, output changes) | applied at once, saved after the stop | - | - |
+| an erase or compaction already running | pauses, resumes after the stop | - | - |
+
+Reads stay allowed (downloads, song status, slot names, capability replies, counters). Uploads of
+the RAM kinds 0-3 (workspace, FM patch, timbre) stay allowed: they reach flash only through command
+7. Tests: tests/workbench/backup.mjs v0.4 section 8 (every row above while playing and while
+stopped, reads while playing, the deferred save, the erase pause).
