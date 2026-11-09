@@ -4,6 +4,7 @@
   const messages={
   "页面资源不完整，请重新载入。": "Page resources are incomplete. Reload the page.",
   "选择设备的 MIDI 端口": "Choose the device's MIDI port",
+  "所选 MIDI 输入没有同名的 MIDI 输出，未向任何端口发送数据。请查看连接详情，在下方选择另一个端口，再重新连接。": "The chosen MIDI input has no MIDI output with the same name; nothing was sent to any port. Check the connection details, choose another port below, then connect again.",
   "自动（只连接名称相符的端口）": "Automatic (only ports with a matching name)",
   "检测到多台可能的升级设备。请在下方选择目标设备的 MIDI 端口，再重新连接。": "More than one possible device answered. Choose the target device's MIDI port below, then connect again.",
   "没有名称与 SMK37 或其升级程序相符的 MIDI 端口，未向任何端口发送数据。如确认设备已连接，请在下方选择它的 MIDI 端口，再重新连接。": "No MIDI port is named like the SMK37 or its update loader; nothing was sent to any port. If the device is connected, choose its MIDI port below, then connect again.",

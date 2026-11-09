@@ -11,6 +11,13 @@
  * more than one port answers, connect() fails with code CHOOSE_PORT and the candidates, and the
  * page lets the user pick one input; a picked port is the only way any other port is opened.
  * Test: tests/workbench/update-ports.mjs (12 fake ports, 10 of them not the SMK-37).
+ * Classic Tabby Task 11C (2026-11-08): port names are normalized before matching (portName):
+ * macOS CoreMIDI reported the SMK-37 as "SMK37 Open" plus 3 or 4 spaces, with different padding on
+ * the input and output endpoints, so no input/output pair formed and the page connected to
+ * nothing. Matching and pairing now use NFKC, NUL/control characters as spaces, collapsed white
+ * space, trimmed, lower case. No path fails without saying why: no matching port -> CHOOSE_PORT
+ * with every input; a picked input with no same-name output -> CHOOSE_PORT with that message;
+ * waitFor timeout -> NO_DEVICE with the ports seen; project library -> NO_PORT with the ports.
  * The bundled vendor loader controls the Flash layout. A successful transfer
  * does not guarantee data preservation or recovery from interrupted power. */
 (() => {
@@ -250,19 +257,37 @@
   //   update loader ("USB Composite Device", manufacturer Jieli Technology).
   // Task 11B: the FM-1 names (Felucca, Sloop, Clipper) and the loose "ota" match are gone, so
   // an FM-1 or an audio interface on the same computer is never sent the identity query.
-  const UPDATE_PORT=/smk.?37|sinco|^usb.?midi\b|composite|jieli/i;
+  // Task 11C: every pattern below is matched against portName(), never the raw name.
+  //   Linux ALSA:   "SMK37 Open MIDI 1", "USB Composite Device MIDI 1", "SINCO-MIDI MIDI 1"
+  //   macOS:        "SMK37 Open" + 3 or 4 spaces, "USB Composite Device" + spaces, "USB MIDI   "
+  //   Windows:      "SMK37 Open", "SINCO-MIDI", "USB MIDI"
+  // Loader:  usb composite device / jieli.  Open firmware: smk37 open.  Factory V16: smk-37 pro,
+  // sinco-midi, usb midi.  (smk[ -_]?37 covers both SMK37 and SMK-37.)
+  const UPDATE_PORT=/smk[ _-]?37|sinco|^usb[ _-]?midi\b|composite|jieli/;
+  const LIBRARY_PORT=/smk[ _-]?37|^(?:usb|sinco)[ _-]?midi(?: midi)?(?: \d+)?$/;
+  // Task 11C: the name used for matching and for pairing an input with its output. CoreMIDI pads
+  // USB string descriptors with spaces (and some hosts with NULs); NBSP, tabs and full-width
+  // forms are folded by NFKC and the white-space collapse.
+  function portName(name) {
+    return String(name??'').normalize('NFKC').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+  }
+  // Task 11C: what the page shows when nothing matched (connection details and the pick list).
+  function portList(access) {
+    const live=map=>[...map.values()].filter(p=>p.state==='connected');
+    return {inputs:live(access.inputs).map(p=>p.name||'?'),outputs:live(access.outputs).map(p=>p.name||'?'),
+      choices:live(access.inputs).map(p=>({id:p.id,name:p.name||'?'}))};
+  }
   function pairs(access,loader=false,pick=null) {
     // Names only nominate candidates; identity/capability or project replies must
     // still match before a connection can be used. pick (Task 11B): the id of one input
     // the user chose from the page's list; then only that input is used, whatever its name.
-    const name=loader ? UPDATE_PORT
-                      : /smk.?37|^(?:usb|sinco).?midi(?:\s+\d+)?$/i;
+    const name=loader ? UPDATE_PORT : LIBRARY_PORT;
     const connectedInputs=[...access.inputs.values()].filter(p=>p.state==='connected');
-    const inputs=pick ? connectedInputs.filter(p=>p.id===pick) : connectedInputs.filter(p=>name.test(p.name||''));
+    const inputs=pick ? connectedInputs.filter(p=>p.id===pick) : connectedInputs.filter(p=>name.test(portName(p.name)));
     const outputs=[...access.outputs.values()].filter(p=>p.state==='connected');
     return inputs.flatMap(input=>{
-      const named=outputs.filter(output=>output.name===input.name);
-      const exact=named.filter(output=>(output.manufacturer||'')===(input.manufacturer||''));
+      const named=outputs.filter(output=>portName(output.name)===portName(input.name));
+      const exact=named.filter(output=>portName(output.manufacturer)===portName(input.manufacturer));
       const found=exact.length===1?exact:named.length===1?named:
         !named.length&&connectedInputs.length===1&&outputs.length===1?outputs:[];
       return found.length===1 ? [{input,output:found[0]}] : [];
@@ -335,7 +360,12 @@
           d.choices=choices;
           throw Object.assign(Error('没有名称与 SMK37 或其升级程序相符的 MIDI 端口，未向任何端口发送数据。如确认设备已连接，请在下方选择它的 MIDI 端口，再重新连接。'),{code:'CHOOSE_PORT',choices});
         }
-        if(!d.attempts.length)fail('已发现 MIDI 端口，但无法匹配 SMK37 OPEN 输入和输出。请查看连接详情，只保留目标 SMK37 OPEN 后重试。');
+        if(!d.attempts.length){
+          // Task 11C: a picked (or name-matched) input has no output of the same name. Say so and
+          // offer the list again rather than ending on a generic error.
+          const choices=portList(this.access).choices;d.choices=choices;
+          throw Object.assign(Error('所选 MIDI 输入没有同名的 MIDI 输出，未向任何端口发送数据。请查看连接详情，在下方选择另一个端口，再重新连接。'),{code:'CHOOSE_PORT',choices});
+        }
         fail('已找到 MIDI 端口，但设备未回复型号。请关闭其他 MIDI 软件和更新网页，重新开机并插拔 USB 后重试；强制烧录也需要设备先响应。');
       }
       this.link=device.link; this.identity=device.identity;
@@ -394,7 +424,10 @@
         }
         await sleep(this.timing.settle);
       }
-      fail('等待设备重连超时；请保留这个更新网页，重新连接同一台设备后重试');
+      // Task 11C: the timeout carries the ports seen, so the page's connection details list them.
+      const ports=portList(this.access);
+      this.diagnostics={...this.diagnostics,inputs:ports.inputs,outputs:ports.outputs,expected,identities:[...observed]};
+      throw Object.assign(Error('等待设备重连超时；请保留这个更新网页，重新连接同一台设备后重试'),{code:'NO_DEVICE',ports});
     }
     async serve(finish,idle,phase) {
       const image=this.pkg.image, covered=new Uint8Array(Math.ceil(image.length/8));
@@ -660,7 +693,9 @@
     async connect({signal}={}) {
       await this.disconnect();signal?.throwIfAborted();
       const ports=pairs(this.access),found=[];let lastError;
-      check(ports.length,'未找到支持项目库的 SMK37 OPEN USB MIDI');
+      // Task 11C: no matching port is an error with the port list (the page shows it).
+      if(!ports.length){const list=portList(this.access);this.diagnostics={inputs:list.inputs,outputs:list.outputs};
+        throw Object.assign(Error('未找到支持项目库的 SMK37 OPEN USB MIDI'),{code:'NO_PORT',ports:list});}
       check(ports.length<=16,'MIDI 端口过多，请断开不相关设备后重试');
       if(ports.length===1)return this.open(ports[0],signal);
       // A BLE or DAW port is only a candidate, not another project device.
@@ -1267,7 +1302,7 @@
       'L.4 key/pad note-on to router: '+d.keys.count+' notes, max '+f(d.keys.max_ms)+' ms; <0.5 '+d.keys.bins[0]+', <1 '+d.keys.bins[1]+', <2 '+d.keys.bins[2]+', <4 '+d.keys.bins[3]+', <8 '+d.keys.bins[4]+', <16 '+d.keys.bins[5]+', <32 '+d.keys.bins[6]+', >=32 '+d.keys.bins[7]+' (ms)',
       'L.5 matrix scan: '+d.scan.count+' scans, '+d.scan.per_second.toFixed(1)+' per second, longest gap '+f(d.scan.gap_max_ms)+' ms; scan ISR peak '+f(d.scan.isr_peak_ms)+' ms, ADC ISR peak '+f(d.scan.adc_peak_ms)+' ms'].join('\n');
   }
-  globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,Updater,
+  globalThis.FM1Web={abortable,assetBytes,crc16,inspectPackage,prepare,pack7,frame,parse,capability,Link,pairs,portName,Updater,
     songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadParseV1,songPayloadBuild,songStepText,songStepParse,songLengthText,tabbyFile,readTabbyFile,songBlockIds,songBatches,songEventsValidate,
     crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library,
     backupParse,BACKUP_FORMAT,BACKUP_VERSION,diagText};   // Task 11

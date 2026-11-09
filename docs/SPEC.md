@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.19
+Version: 0.20
 Revision log:
+- v0.20, 2026-11-08 (Task 11C): section 15: device rules after the loader incident (no unattended
+  installs or device writes; no flashing from the NUC until its USB problem is understood).
 - v0.19.1, 2026-11-07 (Task 11 Steps 2-4): section 14.4: the backup, the diagnostic build and the
   probe as built.
 - v0.19, 2026-11-07 (Task 11 Step 1): section 14: the Task 10 decisions recorded, the event cap
@@ -953,3 +955,19 @@ clock follow.
   and the same code.
 - **tools/linux/midi-monitor.py** and the timing test songs (BUILD.md 24.4).
 - The hardware checklist that decides Phase 0: BUILD.md 24.6.
+
+## 15. Device rules (2026-11-08, Task 11C; in force until the user changes them)
+
+After the 2026-11-08 loader incident (BUILD.md 25.3a–c and 25.5) the user set these rules. They
+override the Task 11B permission to install unattended.
+
+1. **No unattended installs or device writes.** The agent may build, test in the simulator and
+   on the host, and read from the device (identity, capability, device info, capabilities, song
+   storage status, backups, the diagnostic counters without reset). Every install, restore,
+   erase, save, delete, counter reset or song-storage change on the device is done by the user, or
+   with the user present at the device.
+2. **No flashing from the NUC** until its USB problem is understood (BUILD.md 25.5). Installs are
+   done from the user's MacBook. Read-only checks from the NUC are allowed
+   (tools/linux/hw/usb-readback.py).
+3. The workbench never fails without saying why: when no MIDI port matches, it shows the
+   ports the browser sees and a message, and sends nothing (BUILD.md 25.5, item 1).

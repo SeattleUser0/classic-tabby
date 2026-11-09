@@ -1108,7 +1108,9 @@ main{max-width:1440px}
       const access=await requestMidiAccess(report,signal);
       watch(access);
       library=createLibrary(access);await library.connect({signal});await refreshLibrary(true);message('项目库已连接。');connectionNotice=undefined;
-    }catch(error){connectionNotice={message:error.message,failed:true};throw error;}
+    }catch(error){connectionNotice={message:error.message,failed:true};
+      /* Task 11C: no matching port (NO_PORT) or a failed probe: list the ports the browser sees. */
+      showConnectionDetails(library?.diagnostics||error.ports||null);throw error;}
     finally{await endConnection(attempt);}
   });}
   $('library-connect').addEventListener('click',connectLibrary);

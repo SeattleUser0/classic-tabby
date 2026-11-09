@@ -1,7 +1,11 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.36
+Version: 0.37
 Revision log:
+- v0.37, 2026-11-08 (Task 11C): device rules (top and SPEC 15); 25.5: the Mac recovery, the port
+  name fix (normalized names, no silent failure), what the stale loader tag did today, the NUC
+  USB failure and a read-only link test, the firmware read back over USB; usb-readback.py in
+  25.2.
 - v0.36, 2026-11-08: 25.3c the approved resume: the write looped and never finished; stopped,
   the manual resume steps handed to the user.
 - v0.35, 2026-11-08 (Task 11B, the first way out): 25.3b the reproduced diag-r2 tag and the
@@ -104,6 +108,11 @@ install. It is updated at every checkpoint. Scope and acceptance criteria: docs/
 
 Nothing in Task 01 touches device flash. Factory calibration and protected flash regions
 are never written.
+
+**Device rules (2026-11-08, Task 11C; SPEC 15).** No unattended installs or device writes: the
+agent builds, tests in the simulator and reads from the device; every install, restore or erase
+is done by the user or with the user present. No flashing from the NUC until its USB problem is
+understood (25.5); installs are done from the user's MacBook.
 
 ## 1. Status
 
@@ -249,6 +258,14 @@ are never written.
   - or require an explicit confirm, with the model checked, before writing another image to it.
   - Never accept silently. Also find out why the loader kept the previous update's tag when the
     page armed a new one with command 50 (the cause of the 2026-11-08 16:50 timeout).
+  - Learned on 2026-11-08 (25.5): the loader kept the diag-r2 tag across a failed install (the
+    published diag page armed its own build with command 50; the loader still reported
+    `ota-SMK378b7dff801f1b0876` afterwards), and the published page then waited for its own
+    tag after the reboot and timed out ("Timed out waiting for reconnection") instead of naming
+    the tag it saw. The waiting page must report the tag it sees and stop, not wait it out. A
+    power cycle (on the Mac) left the loader and booted the image already in flash (diag-r2).
+- **NUC USB link to the SMK-37** (Task 11C, 25.5; not understood). No flashing from the NUC until
+  the read-only link test in 25.5 explains the 125 MB loop and `urb status -115`.
 - **Sanitizer fixes**: none needed; `make host-sanitize` is green (0 findings, leaks included)
   at linux-build 8114114. Keep it green: it is part of `make suite`.
 
@@ -2806,6 +2823,9 @@ python3 tools/linux/hw/run-11b.py fm6-delay|gaps --tag X [--csv run/X-midi.csv] 
 node tools/linux/hw/workbench.mjs resume --url URL --expect VERSION     # update from the loader (v0.3)
 node tools/linux/hw/workbench.mjs install|stock|resume --port NAME ...  # pick NAME if the page asks
 python3 tools/linux/hw/run-11b.py trs-watch --clock|--passive --seconds 60 [--port NAME] --tag T --out run/
+# Task 11C, read-only (no install, write, erase or reset; --seq shares the port with an open Chrome):
+~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/usb-readback.py identity --seq --out run/
+~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/usb-readback.py soak --seq --rounds 2000 --out run/
 node tests/workbench/update-ports.mjs                                   # the updater's port selection
 ```
 
@@ -2950,6 +2970,62 @@ returns 0 in upstream V01 and here alike. By the SDK header it gates the TRS **r
 - The device is still the loader (4d4a:4155, device 12). **Stop rule: not retried.** By the
   user's instruction, the resume was handed to the user as manual steps in Chrome (the same page
   from localhost:8711). Steps 3 to 6 are not run.
+
+### 25.5 Task 11C: after the Mac recovery (2026-11-08 evening)
+
+- **Recovery (by the user, no flash).** After a power cycle on the user's MacBook the SMK-37
+  left the loader and enumerated as "SMK37 Open" (Jieli Technology, 3654:7756), on normal
+  firmware with working keys. Nothing was flashed on the Mac.
+- **Firmware on the device now** (read over USB from the NUC, read-only, 2026-11-08 16:06 PST;
+  `usb-readback.py identity --seq`; file hardware-runs/2026-11-07/2026-11-08-after-mac/):
+  identity `SMK-37 Pro_8000001`, capability family 8, state 0, **build id
+  `8b7dff801f1b08768bb95855ed11b92e894a65cd284caff07bbf204da06f9449`** (= tabby-v03.3-diag-r2,
+  the tag the loader held); USER 536576 (song region 462848), extension flags 255 (diag counters
+  and settings kind 8 present); project info version 4, 16 slots; song storage state 2 (OLD DATA),
+  free 0, reclaim 0. The step 4 backup has not been restored.
+- **1. Port names (fixed, not published).** CoreMIDI reports the device as "SMK37 Open" with 3 or
+  4 trailing spaces (the USB product string is space padded: the NUC's kernel also logs
+  `Product: SMK37 Open   `), and the input and output endpoints need not carry the same padding.
+  Pairing compared raw names, so no input/output pair formed and the page connected to nothing.
+  sdk/WebUpdate.js now normalizes every name (`portName`: NFKC, NUL and control characters to
+  spaces, white space collapsed, trimmed, lower case) before matching and before pairing an
+  input with its output, for the loader ("USB Composite Device", Jieli), Open firmware ("SMK37
+  Open") and the factory names ("SMK-37 Pro", "SINCO-MIDI", "USB MIDI"), in the macOS, Linux and
+  Windows forms. No silent failure: no matching port -> CHOOSE_PORT with every input and a
+  message (as before); a chosen input without a same-name output -> CHOOSE_PORT with that message
+  (was a dead end); the reconnect wait times out with code NO_DEVICE and the ports seen; the
+  project library fails with NO_PORT and the page shows the port list (connection details).
+  tests/workbench/update-ports.mjs v0.2 adds scenarios H–O (macOS 3/4 spaces, mismatched
+  endpoint padding, mixed case, NUL, NBSP, Linux and macOS loader and factory names, the library,
+  the error paths): 46 ok; the old code fails 17 of 44. make check, lint, workbench-test and
+  test-fast pass.
+- **2. Stale loader tag.** Kept in left-to-build, with today's facts added (the loader kept the
+  diag-r2 tag across the failed install; the published page waited for its own tag and timed
+  out).
+- **3. The NUC's USB failure (recorded; not understood).** The approved resume (25.3c) sent
+  125,162,049 bytes and received 6,937,112 for a 492,084-byte image (about 254 times the image)
+  over 8 minutes; the loader kept re-requesting the same blocks and never finished; the kernel
+  logged `usb 1-1: urb status -115` (EINPROGRESS) twice. The device was on root port 1-1 at full
+  speed (12 Mb/s) on the same xHCI bus as the AUDIO4c (480 Mb/s). Python over ALSA raw MIDI never
+  got a reply from the loader while Chrome did. The same image was already in flash and boots,
+  so the image was not the cause.
+  **Proposed read-only link test (no flashing; all commands are queries Connect already sends):**
+  1. `usb-readback.py soak --rounds 2000` on Open firmware, on root port 1-1 and on 1-4, with and
+     without the AUDIO4c attached. Pass: 0 timeouts, 0 malformed, every reply byte-identical, no
+     kernel `urb`/reset/disconnect lines. First sample today on 1-4, AUDIO4c attached, 50 rounds:
+     **pass** (100 replies, round trip 1.12 / 1.19 / 2.26 ms min/median/max, no kernel lines).
+  2. Volume device-to-host: the workbench's full backup read path (read-only downloads), twice,
+     compared byte for byte.
+  3. Volume host-to-device, the direction that looped: queries sent back to back without waiting
+     (several in flight, about the loader's block rate), counting the replies.
+  4. With the user present: `sudo modprobe usbmon` and a capture of bus 1 during 1–3 to see
+     whether OUT URBs are being cancelled or resubmitted (what -115 points at), and
+     `/sys/bus/usb/devices/1-*/power/control` (today `on`, so autosuspend is not the cause).
+  5. The same soak from the MacBook, so the computer is the only difference.
+  If any step fails on the NUC and passes on the Mac, the NUC's USB is the cause; installs stay on
+  the Mac either way until the user changes the rule.
+- **4. Tools.** tools/linux/hw/usb-readback.py v0.2 (read-only: identity and soak; `--seq` uses
+  the ALSA sequencer so it works while Chrome holds the port).
 
 ### 25.4 First run (2026-11-07, before the erase approval)
 

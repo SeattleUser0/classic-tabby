@@ -23,11 +23,30 @@
 //     F  re-enumeration: waitFor finds the loader          -> only SMK/loader ports sent to
 //     G  an FM-1 ("Felucca") next to the SMK-37            -> the FM-1 is never sent to
 //
+//
+//   Task 11C (v0.2): port names as macOS CoreMIDI and Linux ALSA report them. On the MacBook the
+//   SMK-37 enumerated as "SMK37 Open" followed by 3 or 4 spaces (the USB string descriptor is
+//   space padded; the input and output endpoints need not carry the same padding), and the
+//   page then connected to nothing without saying why. Names are now normalized (Unicode NFKC,
+//   control characters and NUL padding to spaces, runs of white space to one space, trimmed,
+//   lower case) before they are matched or an input is paired with its output.
+//     H  macOS Open firmware: input/output "SMK37 Open" + 3 / 4 spaces       -> connects
+//     I  Linux and mixed case: "smk37 OPEN midi 1 ", NUL padding, NBSP       -> connects
+//     J  macOS loader "USB Composite Device" + spaces, Jieli                  -> loader (resume)
+//     K  factory V16 names, macOS ("SINCO-MIDI  ", "USB MIDI   ") and Linux   -> legacy connects
+//     L  the project library (pairs, not loader) on the macOS and Linux names -> one pair each
+//     M  no match at all: CHOOSE_PORT lists every input; a picked input whose
+//        output has a different name fails with a message, never silently
+//     N  waitFor timeout: the error carries code NO_DEVICE and the port list
+//     O  the project library with no matching port: code NO_PORT and the port list
+//
 //   Run:  /usr/bin/node tests/workbench/update-ports.mjs   (part of make workbench-test)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-08  Task 11C: scenarios H..O (macOS / Linux port names, trailing spaces,
+//                     mixed case, no silent failure); device() takes a separate output name.
 //   v0.1  2026-11-08  Initial version (Task 11B, workbench port fix).
 
 import { readFileSync } from 'node:fs';
@@ -58,14 +77,16 @@ const STOCK = { ...PKG, kind: 'stock', product: 'SMK-37 Pro_016' };
 let nextId = 1;
 /* One fake device port: an input and an output with the same name. `identity` set means the
    device answers command 17 (and command 49 for Open identities); null means it never answers. */
-function device(name, identity = null, manufacturer = 'x') {
+/* outName (Task 11C): the output endpoint's name when it differs from the input's (CoreMIDI may
+   pad the two endpoints differently). */
+function device(name, identity = null, manufacturer = 'x', outName = name) {
   const id = 'p' + nextId++;
   const listeners = new Set();
   const port = { name, identity, sent: [], connected: true };
   const state = () => port.connected ? 'connected' : 'disconnected';
   port.input = { id, name, manufacturer, get state() { return state(); }, async open() {}, async close() {},
     addEventListener(_t, f) { listeners.add(f); }, removeEventListener(_t, f) { listeners.delete(f); } };
-  port.output = { id: 'o' + id, name, manufacturer, get state() { return state(); }, async open() {}, async close() {},
+  port.output = { id: 'o' + id, name: outName, manufacturer, get state() { return state(); }, async open() {}, async close() {},
     send(bytes) {
       port.sent.push(Array.from(bytes));
       if (!port.identity) return;
@@ -178,6 +199,113 @@ await scenario('G', async () => {
   const r = await u.connect({ force: true });
   check(r.identity === 'SMK-37 Pro_8000001' && quiet([fm1]) && quiet(a4), 'G: an FM-1 next to the SMK-37 is never sent to');
   await u.disconnect();
+});
+
+/* ---- Task 11C: macOS / Linux names ------------------------------------------------------- */
+const SP3 = '   ', SP4 = '    ';
+await scenario('H', async () => {
+  const smk = device('SMK37 Open' + SP3, 'SMK-37 Pro_8000001', 'Jieli Technology', 'SMK37 Open' + SP4);
+  const { a4, all } = rig(smk, device('IAC Driver Bus 1'));
+  const u = new W.Updater(access(all), PKG, () => {}, FAST);
+  const r = await u.connect({ force: false });
+  check(r.identity === 'SMK-37 Pro_8000001', 'H: macOS "SMK37 Open" + 3/4 trailing spaces connects', JSON.stringify(r));
+  check(quiet(a4), 'H: nothing sent to the AUDIO4c ports');
+  await u.disconnect();
+  const same = device('SMK37 Open' + SP4, 'SMK-37 Pro_8000001', 'Jieli Technology');
+  const u2 = new W.Updater(access(rig(same, device('Network Session 1')).all), PKG, () => {}, FAST);
+  check((await u2.connect({ force: false })).identity === 'SMK-37 Pro_8000001', 'H: macOS "SMK37 Open" + 4 spaces on both endpoints connects');
+  await u2.disconnect();
+});
+
+await scenario('I', async () => {
+  for (const [label, inName, outName] of [
+    ['Linux mixed case + trailing space', 'smk37 OPEN midi 1 ', 'SMK37 Open MIDI 1'],
+    ['NUL padding', 'SMK37 Open\0\0\0', 'SMK37 Open'],
+    ['no-break space and tab', 'SMK37 Open\t', 'SMK37 Open'],
+    ['upper case', 'SMK37 OPEN', 'smk37 open  ']]) {
+    const smk = device(inName, 'SMK-37 Pro_8000001', 'x', outName);
+    const { a4, all } = rig(smk, device('Midi Through Port-0'));
+    const u = new W.Updater(access(all), PKG, () => {}, FAST);
+    let r = null; try { r = await u.connect({ force: false }); } catch (e) { r = { error: e.message }; }
+    check(r?.identity === 'SMK-37 Pro_8000001' && quiet(a4), 'I: ' + label + ' connects', JSON.stringify(r));
+    await u.disconnect();
+  }
+});
+
+await scenario('J', async () => {
+  for (const [label, inName, outName] of [
+    ['macOS', 'USB Composite Device' + SP3, 'USB Composite Device' + SP4],
+    ['Linux', 'USB Composite Device MIDI 1', 'USB Composite Device MIDI 1'],
+    ['mixed case', 'usb composite DEVICE ', 'USB Composite Device']]) {
+    const loader = device(inName, PKG.loaderIdentity, 'Jieli Technology', outName);
+    const { a4, all } = rig(loader, device('Midi Through Port-0'));
+    const u = new W.Updater(access(all), PKG, () => {}, FAST);
+    let r = null; try { r = await u.connect({ force: false }); } catch (e) { r = { error: e.message }; }
+    check(r?.resume === true && r.identity === PKG.loaderIdentity && quiet(a4), 'J: loader, ' + label + ' -> resume', JSON.stringify(r));
+    await u.disconnect();
+  }
+});
+
+await scenario('K', async () => {
+  for (const [label, inName, outName] of [
+    ['macOS SINCO-MIDI', 'SINCO-MIDI  ', 'SINCO-MIDI   '],
+    ['macOS USB MIDI', 'USB MIDI' + SP3, 'USB MIDI' + SP4],
+    ['Linux SINCO-MIDI', 'SINCO-MIDI MIDI 1', 'SINCO-MIDI MIDI 1'],
+    ['Linux USB MIDI', 'USB MIDI MIDI 1', 'USB MIDI MIDI 1'],
+    ['macOS SMK-37 Pro', 'SMK-37 Pro' + SP3, 'SMK-37 Pro' + SP4]]) {
+    const smk = device(inName, 'SMK-37 Pro_016', 'x', outName);
+    const { a4, all } = rig(smk, device('Midi Through Port-0'));
+    const u = new W.Updater(access(all), STOCK, () => {}, FAST);
+    let r = null; try { r = await u.connect({ force: true }); } catch (e) { r = { error: e.message }; }
+    check(r?.legacy && r.identity === 'SMK-37 Pro_016' && quiet(a4), 'K: factory V16, ' + label + ' -> legacy', JSON.stringify(r));
+    await u.disconnect();
+  }
+});
+
+await scenario('L', async () => {
+  for (const [inName, outName] of [['SMK37 Open' + SP3, 'SMK37 Open' + SP4], ['SMK37 Open MIDI 1', 'SMK37 Open MIDI 1'],
+    ['smk37 open midi 1  ', 'SMK37 Open MIDI 1'], ['USB MIDI' + SP3, 'USB MIDI' + SP4], ['SINCO-MIDI MIDI 1 ', 'SINCO-MIDI MIDI 1']]) {
+    const smk = device(inName, 'SMK-37 Pro_8000001', 'x', outName);
+    const found = W.pairs(access(rig(smk, device('Midi Through Port-0')).all));
+    check(found.length === 1 && found[0].input === smk.input && found[0].output === smk.output,
+      'L: project library pairs ' + JSON.stringify(inName) + ' with ' + JSON.stringify(outName), found.length);
+  }
+});
+
+await scenario('M', async () => {
+  const odd = device('Keyboard', 'SMK-37 Pro_8000001', 'x', 'Keyboard Out');
+  const { a4, all } = rig(odd, device('Midi Through Port-0'));
+  const u = new W.Updater(access(all), PKG, () => {}, FAST);
+  let error = null;
+  try { await u.connect({ force: false }); } catch (e) { error = e; }
+  check(error?.code === 'CHOOSE_PORT' && error.choices.length === 12 && error.message.length > 0,
+    'M: no match -> CHOOSE_PORT with a message and all 12 inputs', error?.message);
+  check(u.diagnostics?.inputs?.length === 12 && u.diagnostics?.outputs?.length === 12, 'M: diagnostics list every input and output');
+  error = null;
+  try { await u.connect({ force: false, pick: odd.input.id }); } catch (e) { error = e; }
+  check(error?.code === 'CHOOSE_PORT' && /output|输出/.test(error.message) && error.choices.length === 12,
+    'M: picked input with no same-name output -> CHOOSE_PORT naming the output problem', error?.code + ' ' + error?.message);
+  check(quiet(all), 'M: nothing sent to any port');
+});
+
+await scenario('N', async () => {
+  const { a4, all } = rig(device('Midi Through Port-0'), device('IAC Driver Bus 1'));
+  const u = new W.Updater(access(all), PKG, () => {}, { reconnect: 200, settle: 20 });
+  let error = null;
+  try { await u.waitFor(PKG.loaderIdentity, [], PKG.model); } catch (e) { error = e; }
+  check(error?.code === 'NO_DEVICE' && error.ports?.inputs?.length === 12 && u.diagnostics?.inputs?.length === 12,
+    'N: waitFor timeout -> NO_DEVICE with the 12 ports listed', error?.code + ' ' + JSON.stringify(error?.ports));
+  check(quiet(all), 'N: nothing sent while waiting');
+});
+
+await scenario('O', async () => {
+  const { a4, all } = rig(device('Midi Through Port-0'), device('IAC Driver Bus 1'));
+  const lib = new W.Library(access(all));
+  let error = null;
+  try { await lib.connect({}); } catch (e) { error = e; }
+  check(error?.code === 'NO_PORT' && error.ports?.inputs?.length === 12 && error.message.length > 0,
+    'O: project library with no matching port -> NO_PORT with a message and the port list', error?.code + ' ' + error?.message);
+  check(quiet(all), 'O: nothing sent');
 });
 
 console.log((failed ? 'FAILED' : 'passed') + ': ' + passed + ' ok, ' + failed + ' failed (update-ports)');
