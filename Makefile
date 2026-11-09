@@ -76,9 +76,11 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.19
+# Version: 0.20
 #
 # Revision log
+#   v0.20 2026-11-09  workbench-test runs tests/workbench/recover-page.mjs (the tabby-v04.0 recovery page:
+#                     zero-tag resume, no force flash; tools/linux/recover-page.py).
 #   v0.19 2026-11-08  Task 12 A5: workbench-test runs tests/workbench/loader-tag.mjs (stale-loader resume) and
 #                     tests/linux/builds-index-test.py (permanent build pages, builds/index.json). publish-pages.py
 #                     v0.4 adds every tagged publish to builds/<tag>/ and the index by itself.
@@ -333,6 +335,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/midi-guide.mjs
 	$(T) $(NODE) tests/workbench/update-ports.mjs
 	$(T) $(NODE) tests/workbench/loader-tag.mjs
+	$(T) $(NODE) tests/workbench/recover-page.mjs
 	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
 	$(T) $(PYTHON) -I tests/linux/builds-index-test.py
 

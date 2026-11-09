@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.47
+Version: 0.48
 Revision log:
+- v0.48, 2026-11-09 (Task 12, install incident): 26.7 the tabby-v04.0 recovery page
+  (builds/tabby-v04.0-recover/, tools/linux/recover-page.py, tests/workbench/recover-page.mjs).
 - v0.47, 2026-11-09 (Task 12, install incident, read only): left-to-build: the all-zero loader tag
   (a loader entered by the forced path carries no build tag; the page refuses it and must not).
 - v0.46, 2026-11-09 (Task 12 A6, verification): 9.1 the tabby-v04.0 record (current release);
@@ -3437,3 +3439,32 @@ the full text with every screen is ~/Documents/Classic Tabby/INSTALL-tabby-v04.0
 Going back to tabby-v03.x: full backup on v04.0, install from builds/tabby-v03.2/ or
 builds/tabby-v03.3-diag/, erase old data if offered, restore, verify (26.1).
 
+### 26.7 The tabby-v04.0 recovery page (2026-11-09)
+
+**Why.** The user's install from the Mac left the SMK-37 in its loader as
+`ota-SMK370000000000000000` (left-to-build: "The all-zero loader tag"). A power cycle on the Mac
+did not leave the loader this time, and no published page accepts that name.
+
+**What.** `https://seattleuser0.github.io/classic-tabby/builds/tabby-v04.0-recover/`, made by
+`tools/linux/recover-page.py build` from the **published** tabby-v04.0 standalone page
+(SHA-256 fe7d9604…): the firmware package is carried byte for byte (build b6e9590223446363,
+.fwsc 368c6130…; a rebuild from source would change the build id, which hashes the manifest
+that pins sdk/WebUpdate.js). Only the page's script text is patched (each patch must match once):
+- the zero tag takes the existing model-confirmed resume path (as the vendor's unidentified
+  loader); any other tag that is not this build is still refused (LOADER_MISMATCH);
+- force flash can not be turned on by any path (Connect and Start update pass false; the
+  checkbox is disabled; the "Enable force flash" button is hidden and inert; factory restore,
+  which ticks force, is disabled; the migration group is hidden); a non-Open identity is refused;
+- the capability query at Connect is retried four times on a timeout and then fails with
+  "power-cycle and connect again; do not use force flash"; the identity queries are retried;
+- all other checks are unchanged (package SHA-256, model, container, AC791N, directory and
+  component CRCs, loader hash, the "SMK-37 Pro" confirmation, the build id after the restart).
+- The page is not listed in builds/index.json (the user asked for this one directory only);
+  the next index rewrite (`builds-index.py index`) would list it.
+
+Tests: tests/workbench/recover-page.mjs (29 checks, in workbench-test): the zero tag resumes only
+after the Pro confirmation, writes without command 50, and the restart check passes for this build
+and fails for another; nonzero other tags are refused with and without force; force stays off,
+the capability timeout is retried and never leads to migration or legacy; the built page carries
+the tested WebUpdate.js verbatim and the published FM1_PACKAGE, and every write to the force
+checkbox sets false.
