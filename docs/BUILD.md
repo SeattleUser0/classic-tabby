@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.45
+Version: 0.46
 Revision log:
+- v0.46, 2026-11-09 (Task 12 A6, verification): 9.1 the tabby-v04.0 record (current release);
+  9.3g verification after publishing, including the Pages deployment that hung and the rebuild.
 - v0.45, 2026-11-08 (Task 12 A6): 26.6 the tabby-v04.0 release build and the install steps for the
   user (also ~/Documents/Classic Tabby/INSTALL-tabby-v04.0.txt).
 - v0.44, 2026-11-08 (Task 12 A5): 26.5 permanent build pages (builds/<tag>/, builds/index.json) and
@@ -656,13 +658,28 @@ own at `https://seattleuser0.github.io/classic-tabby/builds/<tag>/` that is neve
 digits of the build id, page path, date, source archive, note); `builds/` itself is a readable
 list. `make publish TAG=...` adds the new build by itself (publish-pages.py v0.4 calls
 tools/linux/builds-index.py); the historic builds were imported once (26.5). Published so far:
-tabby-v03.2, tabby-v03.3-diag, tabby-p0-probe64 (the same site as `probe64/`) and
-tabby-v03.3-diag-r2 (the resume page that was `/recover/`; `/recover/` now redirects there).
+tabby-v03.2, tabby-v03.3-diag, tabby-p0-probe64 (the same site as `probe64/`),
+tabby-v03.3-diag-r2 (the resume page that was `/recover/`; `/recover/` now redirects there) and
+tabby-v04.0 (also the site root).
 The workbench reads the index when it meets an update loader waiting for another build (26.5).
 
-Current release **tabby-v03.3-diag** (2026-11-07, Task 11: the diagnostic build at the site root),
-and the test pre-release **tabby-p0-probe64** in the site's `probe64/` directory; the earlier
-releases' values below stay as the record of their publications.
+Current release **tabby-v04.0** (2026-11-08, Task 12 Phase 0: the storage move as the normal
+layout, at the site root and at `builds/tabby-v04.0/`); the earlier releases' values below stay
+as the record of their publications.
+
+| Item | Value |
+| --- | --- |
+| Branch and tag | `classic-tabby/linux-build` = c55695a; tag `tabby-v04.0` (annotated, cf3a97d) → c55695a |
+| Build options | none (the normal build: USER 471040, counters, block writes during play) |
+| Firmware package `SMK37_PRO_OPEN.fwsc` | SHA-256 368c613022672f8918cb990cd886970edc771014afba2dd93a736577e29f24af, 487988 bytes, build_id b6e9590223446363dff53a2190bd80eb020233c63dd2d90cfa778e361ce0f708 (loader tag `ota-SMK37b6e9590223446363`), app image 447716 (margin 71741 to the 519457-byte limit), heap 198636; sdk.elf cb28814082ef177a465e1d1720e65c879f58e2e588b89cc79cc06948f6f9fdf4, app-image.bin 998a66f4bd943a32cce9ed5cdf89fa4c2290e3d3550af01270e8956bbb144260; display version tabby-v04.0 |
+| Offline workbench `SMK37-Open-Source.html` | SHA-256 fe7d9604786551081b00e59d16f3fd16028c2e191b9ea5b5bb74774e426122e8, 3126358 bytes |
+| Static site | https://seattleuser0.github.io/classic-tabby/ — `gh-pages` 010b553 ("Pages: tabby-v04.0 (build b6e959022344, release V01)"), `index.html` 335451 bytes (SHA-256 61a528aa3e1ec0809db91c3ec69d48935bd56469461f70ed711b1af41304b582), assets.json `"version": "tabby-v04.0"`, 9 assets under `assets/smk37/` (firmware = `368c6130….bin`); the same page at `builds/tabby-v04.0/`; `builds/index.json` lists 5 builds |
+| Source archive | https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.0.zip (VERSION expands to `tabby-v04.0`) |
+| GitHub release | https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v04.0 (`SMK37_PRO_OPEN.fwsc`, `SMK37-Open-Source.html`, `SHA256SUMS.txt`; notes docs/releases/tabby-v04.0.md, first line "this release moves storage; back up first") |
+| Install steps | 26.6 and `~/Documents/Classic Tabby/INSTALL-tabby-v04.0.txt` (full backup on `builds/tabby-v03.3-diag-r2/` first) |
+
+Record of tabby-v03.3-diag (2026-11-07, Task 11: the diagnostic build) and the test pre-release
+tabby-p0-probe64 (the site's `probe64/` directory):
 
 | Item | tabby-v03.3-diag | tabby-p0-probe64 (pre-release) |
 | --- | --- | --- |
@@ -962,6 +979,41 @@ subdirectory (`--site-dir elite`), as HOSTING.md asks for separate directories.
 - Known limit of the probe page: the MIDI importer's pool estimate (web/import/song-format.js)
   assumes 96 block sectors; on the probe the device has 80 and refuses a batch that does not fit
   (code 74), as it would on any full storage.
+
+### 9.3g Verification after publishing tabby-v04.0 (2026-11-08/09)
+
+- Before: `make check`, `make lint` (the same three pre-existing warnings: two
+  missing-field-initializers in screen.c, one unused variable in scan.c) and `make suite
+  DISPLAY_VERSION=tabby-v04.0` at 40fdd71 passed in 4 min 59 s (crosscheck identical on both
+  tracks, the simulator tests, the workbench tests including loader-tag.mjs and
+  builds-index-test.py, the sanitizers); the suite's .fwsc hash is the released one. The release
+  notes commit c55695a changed only docs/releases/ and docs/MIDI-GUIDE.md, so the package is the
+  suite's.
+- Flash: app image 447716, margin 71741 to 519457 (FLASH-BUDGET.md v0.20); heap 198636.
+- Release downloaded: `sha256sum -c SHA256SUMS.txt` OK for both files; the .fwsc is byte-identical
+  to build/pro/generated/. The tag archive (326 files) equals `git archive tabby-v04.0`; its
+  VERSION expands to `tabby-v04.0`.
+- Live site (2026-11-09 07:55 UTC): `/index.html`, `/assets.json`, `/builds/index.json`,
+  `/builds/index.html`, `/builds/tabby-v04.0/index.html`, `/builds/tabby-v04.0/assets.json`,
+  `/builds/tabby-v03.3-diag-r2/index.html`, `/recover/index.html`, `/SMK37-Open-Source.html` and
+  the firmware asset `368c6130….bin` fetched over HTTPS are byte-identical to gh-pages 010b553;
+  assets.json names build b6e9590223446363 / tabby-v04.0; the index lists tabby-v03.2,
+  tabby-p0-probe64, tabby-v03.3-diag, tabby-v03.3-diag-r2, tabby-v04.0.
+- Headless Chrome on the gh-pages copy: no console message; badge tabby-v04.0; the storage-move
+  note; the simulator placeholder hidden; `#loader-hint` present; `builds/index.html` lists the
+  five builds.
+- Pages incident: the deployment of gh-pages 89ef820 (the A5 import, 04:29 UTC) hung in
+  "syncing_files" and deploy-pages timed out after 600 s; the deployment of 010b553 (04:41 UTC)
+  was refused ("in progress deployment"); a re-run of its failed job sat in "queued" for three
+  hours without a job. Fix: `gh api -X POST repos/SeattleUser0/classic-tabby/pages/builds`
+  (07:53 UTC) started a fresh build of 010b553 that deployed in under a minute. The repository,
+  the tag and the release were not affected; until 07:54 UTC the live root still served
+  tabby-v03.3-diag and `builds/` returned 404. GitHub's status page showed Pages operational
+  throughout, with one unrelated incident (504s for anonymous traffic).
+- Small mismatch left as is: `builds/index.json` dates tabby-v04.0 2026-11-09 (the UTC day of the
+  publish); the notes and this file say 2026-11-08 (the local day).
+- Known limit: the historic pages under `builds/` carry the workbench of their own day, so only
+  the root and `builds/tabby-v04.0/` (and later builds) show the stale-loader hint (26.5).
 
 ### 9.4 What the install screen shows for the SMK-37 Pro
 
