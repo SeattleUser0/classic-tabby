@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.46
+Version: 0.47
 Revision log:
+- v0.47, 2026-11-09 (Task 12, install incident, read only): left-to-build: the all-zero loader tag
+  (a loader entered by the forced path carries no build tag; the page refuses it and must not).
 - v0.46, 2026-11-09 (Task 12 A6, verification): 9.1 the tabby-v04.0 record (current release);
   9.3g verification after publishing, including the Pages deployment that hung and the rebuild.
 - v0.45, 2026-11-08 (Task 12 A6): 26.6 the tabby-v04.0 release build and the install steps for the
@@ -281,6 +283,26 @@ understood (25.5); installs are done from the user's MacBook.
     tag after the reboot and timed out ("Timed out waiting for reconnection") instead of naming
     the tag it saw. The waiting page must report the tag it sees and stop, not wait it out. A
     power cycle (on the Mac) left the loader and booted the image already in flash (diag-r2).
+- **The all-zero loader tag** (2026-11-09, the user's tabby-v04.0 install from the Mac; not built).
+  The SMK-37 came up as `ota-SMK370000000000000000` and the A5 check refused it ("not in the list
+  of published builds"); nothing was written. From the SDK disassembly (build/pro/sdk.elf,
+  `update_state`, the command handler at 0x200f8e2): the tag is a 32-byte RAM buffer
+  (`target_id`) that only command 50 writes (payload `1, family, size, build id`, accepted when
+  idle and the family matches); the handoff writes `ota-SMK37` + the hex of its first 8 bytes
+  into the 112-byte block at UPDATA_BEG+8 that names the loader. All zeros = no command 50 since
+  power-on = the page's forced ("legacy") path, which skips command 50 (sdk/WebUpdate.js
+  install(): only mode `tagged` sends it). That path is reached only with Force flash on: ticked
+  by hand, or through "Enable force flash and reconnect" after the capability query (49) timed
+  out on an Open identity. No published page accepts the zero tag (A5 refuses it; older pages fail
+  the model check; force does not bypass connect()); the way out is a power cycle, which boots the
+  image in flash (seen 2026-11-08, 25.5). To build: (1) recognise the all-zero tag as "untagged
+  loader, forced path" with its own message (power-cycle, then update without Force flash) instead
+  of the build-list text, and offer the resume with the model confirmation, as for
+  `ota-FM-1_015`; (2) send command 50 on the forced path too when the identity is Open, so the
+  loader carries the right tag; (3) after a capability timeout on an Open identity, retry once
+  before suggesting migration. Also revisit 25.5's reading of the 11B tag: the only writer is
+  command 50, so the diag-r2 tag came from a command 50 that carried 8b7dff…, not from a kept
+  earlier value. INSTALL-tabby-v04.0.txt STEP 6 does not cover this case yet.
 - **Metronome and count-in** (Task 12 A2 removed CLICK and COUNT IN with the step editor; not built).
   They come back in Phase 5 under SPEC 14 decision 7: an internal 808 click that can be turned off,
   and a MIDI-note click to a chosen channel and note, selectable.
