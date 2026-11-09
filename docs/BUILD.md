@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.39
+Version: 0.40
 Revision log:
+- v0.40, 2026-11-08 (Task 12 A1): section 26: Task 12; 26.1 the storage move as the normal layout,
+  migration, OLD DATA, commands 27/28, how to go back.
 - v0.39, 2026-11-08 (Task 11C, part 3): 25.7: L.9 closed: the TRS out works with a type A
   adapter (all notes and clock into the CME H4MIDI WC); the AUDIO4c side is the fault.
 - v0.38, 2026-11-08 (Task 11C, part 2): 25.6: the shared-controller USB test (four conditions,
@@ -3134,3 +3136,38 @@ its release page. Every install took about 9 s through the page and came back wi
 | L.3 save during play, COMPACT | not run | needs song storage (COMPACT) or a clock thread through the save; COMPACT is refused while playing, as on the panel |
 | L.7, Bluetooth, power cycle | need a person | no per-port power switch; the SMK-37 has a battery |
 | steps 4–7 (probe, restore, V16, way back) | waiting | every restore onto the moved layout and the way back needs ERASE OLD |
+
+## 26. Task 12 — Phase 0 (make room, tabby-v04.0) and the Phase 1 timing investigation (2026-11-08)
+
+Task text: docs/tasks/TASK-12-phase0-and-timing.md. Device rules: SPEC 15 (no unattended writes,
+no installs from the NUC; DIN timing on the CME H4MIDI WC Port 1 with the type A adapter).
+
+### 26.1 A1: the storage move becomes the normal layout
+
+**What changed.** The default USER size is 471040 (app/ct_layout.h v0.2, build.py v0.9,
+build-web.py v0.5, sdk/Build.ps1, the simulator, the workbench). `USER_BYTES=536576` still builds
+the old layout (the define and the build-identity input are added only for a size other than
+471040). Song region: 97 sectors = staging + 16 records + 80 block sectors (pool 326080 bytes;
+web/import/song-format.js v0.6). Commands 27 (capability: version, flags, USER size) and 28
+(ERASE OLD DATA, confirm bytes "ERASE") in app/transfer.c; reply code 76 = refused while playing.
+ACTIONS > ERASE OLD DATA now asks for confirmation (it ran on the first SAVE before, and the erase
+prompt showed on COMPACT). The workbench shows OLD DATA after connecting and offers Erase old data…
+behind a dialog. Tests: tests/workbench/backup.mjs v0.3 (the 536576 backup restores into the 471040
+layout and verifies; the move on real old-layout flash; planted OLD DATA erased through command 28;
+27/28 replies), tests/host/smoke.c v0.9 (layout constants from CT_USER_BYTES). Simulators:
+`make web-diag` (471040, diag), `make web-old536` (536576, diag; was web-probe64).
+
+**Migration (installing tabby-v04.0 over V01, V16 or tabby-v03.x, which use 536576).**
+1. On the current firmware: workbench > Projects & sounds > Connect project library > Full backup.
+   Keep the file. Only tabby-v03.3-diag and later put the device settings (transfer kind 8) in the
+   file; from older firmware the settings are not in it (the file says so).
+2. Install tabby-v04.0 (from the MacBook, SPEC 15).
+3. What is lost until the restore: every project slot, the device and session settings (slot 16),
+   and every song. Bluetooth pairings are lost for good (pair again). Kept: the tuning sector.
+4. Connect the project library. If the page (or ACTIONS) says OLD DATA, run Erase old data (it asks
+   first). Then Full restore with the file, then Verify: it must pass.
+
+**Going back to tabby-v03.x.** The same in reverse: Full backup on tabby-v04.0, install the v03.x
+build from its permanent page (builds/<tag>/, A5), Erase old data if offered, Full restore, Verify.
+Songs written by v04.0 restore onto v03.x unchanged (the song format did not change); the 80-sector
+pool is smaller than v03.x's 96, so anything that fits on v04.0 fits on v03.x.

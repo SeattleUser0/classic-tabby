@@ -8,7 +8,7 @@
 
 Instructions for an AI model (Claude, ChatGPT or another) that writes Standard MIDI files to be imported into Classic Tabby, the custom firmware on an M-VAVE SMK-37 Pro. Read all of it before writing a file. Rules marked MUST are hard limits of the importer or the device. Breaking them loses notes or gets the file refused.
 
-Written for Classic Tabby tabby-v03.2 and the rig profile "Wrong Room" (generated from the committed profile and definitions by web/rig/guide.js from 16 rig channels and the device library). The rules come from the importer source (web/import/midi-song.js) and the spec (docs/SPEC.md sections 7 to 13) at https://github.com/SeattleUser0/classic-tabby. Sections 8, 9 and 11 and the rig tables in Appendix B are generated from the rig profile (web/rig/profiles/) and the device definitions (web/devices/); do not edit them by hand.
+Written for Classic Tabby tabby-p0-probe64-13-g0a6fcf9-dirty and the rig profile "Wrong Room" (generated from the committed profile and definitions by web/rig/guide.js from 16 rig channels and the device library). The rules come from the importer source (web/import/midi-song.js) and the spec (docs/SPEC.md sections 7 to 13) at https://github.com/SeattleUser0/classic-tabby. Sections 8, 9 and 11 and the rig tables in Appendix B are generated from the rig profile (web/rig/profiles/) and the device definitions (web/devices/); do not edit them by hand.
 
 ## 1. What Classic Tabby does with the file
 
@@ -69,7 +69,7 @@ Written for Classic Tabby tabby-v03.2 and the rig profile "Wrong Room" (generate
 - Make the song a whole number of rows. In 4/4, that means a multiple of 4 bars. The last row may be partly silent.
 - At most 128 rows. In 4/4 that is 512 bars.
 - Start each section (intro, verse, drop, breakdown) on a row boundary.
-- Storage is shared by all 16 songs on the device (about 382 KB). Identical blocks are stored once. A drum or bass loop that repeats bar-for-bar identically costs almost nothing. The same loop with randomized velocities or timing on every repeat stores a new copy each time. Keep repeats identical unless the variation is musically intended.
+- Storage is shared by all 16 songs on the device (about 318 KB). Identical blocks are stored once. A drum or bass loop that repeats bar-for-bar identically costs almost nothing. The same loop with randomized velocities or timing on every repeat stores a new copy each time. Keep repeats identical unless the variation is musically intended.
 - Consecutive rows whose 8 blocks are all identical merge into one row with a repeat count (up to 64), unless the later row has row events.
 
 ## 8. Channels: the rig "Wrong Room"
@@ -535,7 +535,7 @@ Generated from the device definitions: how each device is connected and set, how
 | Row events per row / per song | 32 / 292 |
 | Tempo | 30..300 BPM, whole numbers |
 | Songs on the device | 16 |
-| Block pool | 96 sectors, 391296 bytes shared by all songs |
+| Block pool | 80 sectors, 326080 bytes shared by all songs |
 | Distinct blocks per song | 2048 |
 | Song name | 12 characters |
 
@@ -634,7 +634,7 @@ MAX_ROWS = 128
 MAX_LEN_STEPS = 17476
 MAX_EVENTS_ROW = 32
 MAX_EVENTS_SONG = 292
-POOL_BYTES = 391296
+POOL_BYTES = 326080
 PREROLL_STEPS = 4            # importer default: one quarter note
 
 # The rig (generated): 1-based channel -> name, kind, program change (None = not received, else the

@@ -1,4 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/*
+ * app/screen.c — the SMK-37's pages, panel controls and LCD painter
+ *
+ * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
+ * marked "Task NN" where they are)
+ *   v0.1  2026-11-08  Task 12 A1: ERASE OLD DATA (was ERASE OLD SAMPLE/DX7) asks for confirmation
+ *                     (before, it ran on the first SAVE and the prompt showed on COMPACT); the
+ *                     OLD DATA texts on boot, SONG and ACTIONS say what to do.
+ */
 #include "instrument.h"
 #include "song_storage.h"
 #include "song.h"
@@ -144,13 +153,18 @@ enum { SOURCE_CHOICES = GROOVE_SAMPLE };
 static const char *const actions[] = {"STEP DETAILS", "RHYTHM / RECORD", "COPY STEP", "COPY PAGE", "COPY TRACK",
     "PASTE STEP", "PASTE PAGE", "PASTE TRACK", "CLEAR STEP", "CLEAR PAGE", "CLEAR TRACK",
     "REPEAT TO 32", "REPEAT TO 48", "REPEAT TO 64", "UNDO / REDO", "COPY TIMBRE", "PASTE TIMBRE",
-    "STOP ALL / REWIND", "ERASE OLD SAMPLE/DX7",
+    "STOP ALL / REWIND", "ERASE OLD DATA",   /* Task 12 A1: was ERASE OLD SAMPLE/DX7 */
     "SONG MODE", "COMPACT SONG STORAGE", "SEND SETUP"};
 /* Task 06 (a): "DX7 PATCH NAME" and "BLUETOOTH / CLOCK" left with their pages (the clock
  * source stays on SEQ page 5/7, Bluetooth is set from the workbench): 17 STOP ALL, 18 ERASE,
  * 19 SONG MODE, 20 COMPACT, 21 SEND SETUP. */
 enum { ACTION_COUNT = sizeof actions / sizeof actions[0] };
 static unsigned source_preview, action, action_confirm, tone_clip_ready;
+/* Task 12 A1: the question the ACTIONS page asks before a destructive entry runs. */
+static const char *confirm_prompt(void)
+{
+    return action == 18 ? "ERASE OLD DATA?" : action == 20 ? "COMPACT SONG STORAGE?" : "REPLACE PATTERN DATA?";
+}
 static struct groove_preset tone_clip;
 static uint32_t midi_seen[8], midi_until[8];
 static uint8_t midi_active[8];
@@ -914,11 +928,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
          * hint, so the probe's result can be read on the device without a monitor. */
         char diag_user[40], diag_song[40];
         ct_diag_storage_lines(diag_user, diag_song);
-        if (action_confirm) color_text(8, 38, action == 20 ? "ERASE OLD FLASH DATA?" : "REPLACE PATTERN DATA?", AMBER);
+        if (action_confirm) color_text(8, 38, confirm_prompt(), AMBER);
         else color_text(8, 38, diag_user, ACCENT);
         if (0) {
 #else
-        if (action_confirm) color_text(8, 38, action == 20 ? "ERASE OLD FLASH DATA?" : "REPLACE PATTERN DATA?", AMBER);
+        if (action_confirm) color_text(8, 38, confirm_prompt(), AMBER);
         else {
 #endif
             dim_text(8, 38, "T"); small_number(16, 38, track + 1, 1, TEXT);
@@ -952,10 +966,10 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             text(104, 40, name, 1, TEXT, BACK);
         } else dim_text(104, 40, storage == SONG_STORAGE_READY ? "(EMPTY)" : "");
         if (storage != SONG_STORAGE_READY) {
-            color_text(8, 70, storage == SONG_STORAGE_OLD_DATA ? "OLD SAMPLE/DX7 DATA IN FLASH" :
+            color_text(8, 70, storage == SONG_STORAGE_OLD_DATA ? "OLD DATA IN SONG STORAGE" :   /* Task 12 A1 */
                               storage == SONG_STORAGE_ERROR ? "SONG STORAGE ERROR" :
                               storage == SONG_STORAGE_COMPACTING ? "COMPACTING STORAGE..." : "SCANNING STORAGE...", AMBER);
-            if (storage == SONG_STORAGE_OLD_DATA) dim_text(8, 88, "ACTIONS: ERASE OLD SAMPLE/DX7");
+            if (storage == SONG_STORAGE_OLD_DATA) dim_text(8, 88, "ACTIONS: ERASE OLD DATA (CONFIRM)");
         } else if (rec && st.song == song_select) {
             unsigned row = st.playing ? st.row : 0;
             const struct song_row *r = &rec->row[row];
@@ -1881,7 +1895,9 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (pressed & BUTTON(SAVE)) {
             int r = 0;
             unsigned operation = action;
-            unsigned destructive = (action >= 7 && action <= 13) || action == 16 || action == 20;
+            /* Task 12 A1: ERASE OLD DATA (18) asks first, as COMPACT (20) does; before, 18 ran on
+             * the first SAVE and the erase prompt showed on COMPACT. */
+            unsigned destructive = (action >= 7 && action <= 13) || action == 16 || action == 18 || action == 20;
             if (destructive && !action_confirm) { action_confirm = 1; goto controls_done; }
             action_confirm = 0;
             if (action <= 1) { page = STEPS; seq_page = action + 1; step_follow = 0; cache->shown_page = ~0U; }
@@ -2207,7 +2223,7 @@ void groove_screen_control(void)
     static unsigned migration_seen;
     if (!migration_seen && song_storage_state() == SONG_STORAGE_OLD_DATA) {
         migration_seen = 1;
-        announce("OLD SAMPLE/DX7 DATA - SEE ACTIONS TO ERASE", now + 6000U);
+        announce("OLD DATA IN SONG STORAGE - SEE ACTIONS", now + 6000U);   /* Task 12 A1 */
     }
     unsigned modes = smk37_fader_bank() | (smk37_pad_steps() << 1);
     if (modes != panel_modes_seen) {

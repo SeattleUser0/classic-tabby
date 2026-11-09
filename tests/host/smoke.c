@@ -44,9 +44,11 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.6
+ * Version: 0.9
  *
  * Revision log
+ *   v0.9  2026-11-08  Task 12 A1: the song-region constants come from CT_USER_BYTES (471040 by
+ *                     default: 80 block sectors), not the old 536576 layout's 96.
  *   v0.8  2026-11-04  Task 06: section 13, independent track launching (launch at the next
  *                     bar, two presses keep the last, quantized stops with every note-off,
  *                     back to song, scene jumps re-attaching, a late press, polymeter for 64
@@ -69,6 +71,9 @@
  *   v0.1  2026-11-01  Initial version.
  */
 #include "timed_note.h"
+#include "ct_layout.h"   /* Task 12 A1: CT_USER_BYTES */
+/* Task 12 A1: block sectors of the song region of this build's layout (80 at 471040, 96 at 536576). */
+enum { SECTORS = (CT_USER_BYTES - 73728) / 4096 - 17 };
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -314,7 +319,8 @@ int main(void)
 
     /* ---- 5. song storage migration (Task 03 a) ---------------------------------------- */
     {
-        enum { REGION = 69632, LIBRARY = 516096, TUNING = 532480, OLD_DATA = 2, READY = 1 };
+        /* Task 12 A1: LIBRARY is any sector inside the region (it was the V01 DX7 library's 516096). */
+        enum { REGION = 69632, TUNING = CT_USER_BYTES - 4096, LIBRARY = TUNING - 4 * 4096, OLD_DATA = 2, READY = 1 };
         uint8_t *flash = sim_flash();
         unsigned st = sim_song_storage_state();
         CHECK((st & 255U) == READY && (st >> 8) == 0, "cleared flash: song region READY, 0 old sectors (state %u, old %u)", st & 255U, st >> 8);
@@ -460,7 +466,7 @@ int main(void)
 
     /* ---- 8. batched block upload (Task 03 e, assessment 9.6 / 9.9 v0.5) ---------------- */
     {
-        enum { REGION = 69632, BLOCKS = REGION + 17 * 4096, POOL = 96 * 4076, FULL = 832, REC = 840 };
+        enum { REGION = 69632, BLOCKS = REGION + 17 * 4096, POOL = SECTORS * 4076, FULL = 832, REC = 840 };   /* Task 12 A1 */
         uint8_t *flash = sim_flash(), *f = sim_file(), *s = sim_batch_buffer();
         /* Song 1 record first (9.6 v0.5): row 0 plays blocks 10..17 on tracks 1..8, row 1
          * blocks 18..21 on tracks 1..4 (20 and 21 arrive later; a record may reference blocks
@@ -492,7 +498,7 @@ int main(void)
         r = sim_block_read(1, 19);
         CHECK(r == 1600 && f[1] == 39, "block 19 (last of the batch) reads back (%d bytes, pitch %u)", r, f[1]);
         unsigned members = 0, pending = 0, staging_clear = 1;
-        for (unsigned b = 0; b < 96; ++b) {
+        for (unsigned b = 0; b < SECTORS; ++b) {
             const uint8_t *h = flash + BLOCKS + b * 4096;
             if (memcmp(h, "FM1B", 4)) continue;
             if (h[5] == 0xff) ++pending; else if (h[12] & 2) ++members;
@@ -524,13 +530,13 @@ int main(void)
         /* Power cut before the commit: a pending sector (header byte 5 = 0xFF) with no
          * journal. Planted by copying the committed sector of block 20 (CRC excludes the
          * header) into an erased sector; a reboot must erase it and keep the rest. */
-        unsigned src = 96, dst = 96;
-        for (unsigned b = 0; b < 96; ++b) {
+        unsigned src = SECTORS, dst = SECTORS;
+        for (unsigned b = 0; b < SECTORS; ++b) {
             const uint8_t *h = flash + BLOCKS + b * 4096;
-            if (!memcmp(h, "FM1B", 4) && h[6] == 2 && src == 96) src = b;
-            if (h[0] == 0xff && dst == 96) dst = b;
+            if (!memcmp(h, "FM1B", 4) && h[6] == 2 && src == SECTORS) src = b;
+            if (h[0] == 0xff && dst == SECTORS) dst = b;
         }
-        CHECK(src < 96 && dst < 96, "found the two-record batch sector (%u) and an erased sector (%u)", src, dst);
+        CHECK(src < SECTORS && dst < SECTORS, "found the two-record batch sector (%u) and an erased sector (%u)", src, dst);
         memcpy(flash + BLOCKS + dst * 4096, flash + BLOCKS + src * 4096, 4096);
         flash[BLOCKS + dst * 4096 + 5] = 0xff;
         sim_boot(0);
@@ -578,7 +584,7 @@ int main(void)
         CHECK(sim_song_record_delete(1) == 0, "song 1 deleted");
         r = sim_song_compact();
         unsigned formatted = 0;
-        for (unsigned b = 0; b < 96; ++b) if (!memcmp(flash + BLOCKS + b * 4096, "FM1B", 4)) ++formatted;
+        for (unsigned b = 0; b < SECTORS; ++b) if (!memcmp(flash + BLOCKS + b * 4096, "FM1B", 4)) ++formatted;
         CHECK(r == 0 && formatted == 0 && sim_song_free() == POOL, "compaction erased every garbage-only sector (%d, %u left, free %u)", r, formatted, sim_song_free());
     }
 

@@ -68,9 +68,10 @@
  *   notes play anyway (their note-offs follow as usual). A hand-edited note due at or past
  *   its pattern's end (offset +240 on the last step) fires one unit before the end.
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-08  Task 12 A1/A3: ct_transport_running() (song or stock transport).
  *   v0.4  2026-11-04  Task 06: per-track playheads (master clock, per-track frames and
  *                     buffers, launch / stop / back-to-song queues landing on bars, scene
  *                     jumps re-attaching, song end with detached tracks, late adoption of a
@@ -896,4 +897,14 @@ void song_status_read(struct song_status *out)
         out->track_row[t] = (uint8_t)(k->state == 1 ? k->row : k->state == 0 && !song_over && state ? rowset[cur].row : SONG_NONE);
         out->track_queued[t] = (uint8_t)(qk == Q_LAUNCH ? queue_row[t] : qk == Q_ATTACH ? out->row : SONG_NONE);
     }
+}
+
+/* Task 12 A1/A3: the transport test for every flash-write path (song.h). The stock sequencer's
+ * state comes from the same view the screen reads (track 0; the transport is global). */
+unsigned ct_transport_running(void)
+{
+    struct groove_view v;
+    if (song_playing()) return 1;
+    groove_get_view(0, 0, &v);
+    return v.playing != 0;
 }

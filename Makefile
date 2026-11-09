@@ -56,7 +56,7 @@
 #                            (needs docs/releases/<TAG>.md as the notes)
 #     make clean             remove build/ (also detaches the gh-pages worktree)
 #     DIAG=1 / USER_BYTES=N  Task 11: the diagnostic build / the USER size (any firmware, check,
-#                            package or web target); make web-probe64: the 471040-layout simulator
+#                            package or web target); make web-old536: the old 536576-layout simulator
 #
 #   Nothing here touches device flash. Factory calibration and protected flash regions
 #   are never written. Flashing is done by the user through the workbench.
@@ -76,9 +76,12 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.17
+# Version: 0.18
 #
 # Revision log
+#   v0.18 2026-11-08  Task 12 A1: the normal layout is USER 471040. web-diag now builds the diagnostic
+#                     simulator on that layout; web-old536 (was web-probe64) the diagnostic simulator on
+#                     the old 536576 layout, the source of the cross-layout restore in backup-test.
 #   v0.17 2026-11-08  Task 11B: workbench-test runs tests/workbench/update-ports.mjs (updater port selection).
 #   v0.16 2026-11-07  Task 11: DIAG=1 (the diagnostic build, build.py --diag) and USER_BYTES=N (the USER
 #                     size, build.py --user-bytes) reach build.py and build-web.py through $(OPTS); unset,
@@ -188,7 +191,7 @@ WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
         package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test \
         check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide \
-        web-normal web-diag web-probe64 backup-test
+        web-normal web-diag web-old536 backup-test
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -243,15 +246,16 @@ web:
 build/web/simulator.wasm:
 	$(MAKE) web
 
-# Task 11: the simulators of the two Task 11 builds, for tests/workbench/backup.mjs: the diagnostic
-# build on the stock layout (build/web-diag) and the probe (diagnostic, USER 471040; build/web-probe64).
+# Task 11: the simulators for tests/workbench/backup.mjs. Task 12 A1: the diagnostic build on the
+# normal 471040 layout (build/web-diag) and on the old 536576 layout of tabby-v03.x (build/web-old536,
+# the device a backup comes from before the storage move).
 web-diag:
 	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --simulator-only \
 	    --diag --wasm-out build/web-diag $(DV)
 
-web-probe64:
+web-old536:
 	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --simulator-only \
-	    --diag --user-bytes 471040 --wasm-out build/web-probe64 $(DV)
+	    --diag --user-bytes 536576 --wasm-out build/web-old536 $(DV)
 
 # Task 11 Step 2: full backup and restore end to end on the three simulators. The normal one is
 # built here without DIAG/USER_BYTES (build/web-normal), so the test means the same whatever
@@ -260,8 +264,8 @@ web-normal:
 	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I tools/linux/build-web.py --simulator-only \
 	    --wasm-out build/web-normal $(DV)
 
-backup-test: web-normal web-diag web-probe64
-	$(T) $(NODE) tests/workbench/backup.mjs build/web-normal/simulator.wasm build/web-diag/simulator.wasm build/web-probe64/simulator.wasm
+backup-test: web-normal web-diag web-old536
+	$(T) $(NODE) tests/workbench/backup.mjs build/web-normal/simulator.wasm build/web-old536/simulator.wasm build/web-diag/simulator.wasm
 
 # Task 08: web-smoke and midi-import-sim depend on `web` (phony) instead of the wasm file, so a
 # source or display-version change rebuilds the simulator before the tests read it; build-web.py's

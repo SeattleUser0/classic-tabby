@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.20
+Version: 0.21
 Revision log:
+- v0.21, 2026-11-08 (Task 12 A1): section 16: the storage move is the normal layout (USER 471040),
+  OLD DATA on first boot, commands 27 and 28.
 - v0.20, 2026-11-08 (Task 11C): section 15: device rules after the loader incident (no unattended
   installs or device writes; no flashing from the NUC until its USB problem is understood).
 - v0.19.1, 2026-11-07 (Task 11 Steps 2-4): section 14.4: the backup, the diagnostic build and the
@@ -971,3 +973,31 @@ override the Task 11B permission to install unattended.
    (tools/linux/hw/usb-readback.py).
 3. The workbench never fails without saying why: when no MIDI port matches, it shows the
    ports the browser sees and a message, and sends nothing (BUILD.md 25.5, item 1).
+
+## 16. Task 12 — Phase 0: make room (tabby-v04.0, 2026-11-08)
+
+### 16.1 The storage move is the normal layout (A1)
+
+- **Layout.** USER is 471040 bytes from tabby-v04.0 (base 0x8C000): 16 project sectors and the
+  project staging sector, then the song region of 97 sectors (staging, 16 song records, **80 block
+  sectors**, 326080 bytes of block pool), then the tuning and session sector at 0xFE000. The old
+  536576 layout (V01, V16, tabby-v03.x) is still built with `USER_BYTES=536576` for tests and the
+  way back. The code image does not move; the hard app limit grows from 453921 to 519457 bytes.
+- **What the move costs once** (installing tabby-v04.0 over 536576 firmware): every project slot,
+  the device and session settings in slot 16, and the songs are gone until restored from a full
+  backup; Bluetooth pairings are lost (BTIF moves 64 KiB up); the tuning sector is kept. The full
+  backup (docs/BACKUP-FORMAT.md) restores onto the new layout through transfer kinds only.
+- **OLD DATA.** If the boot scan finds song-region sectors that are not song-formatted or erased,
+  song storage reports OLD DATA: songs cannot be written or played. The device says so on boot (six
+  seconds) and on the SONG page, and ACTIONS offers ERASE OLD DATA, which asks ERASE OLD DATA? and
+  runs only on a second SAVE. The workbench shows the same state after it connects the project
+  library and offers "Erase old data…" behind a confirmation dialog (command 28). Nothing is erased
+  without confirmation; projects, tunings and settings are never touched by it.
+- **Commands (transfer protocol, app/transfer.c).** 27: the Classic Tabby capability reply
+  `{version 1, flags u16, USER size u32}`; flags bit 0 = flash writes refused while the transport
+  runs (16.3), bit 1 = command 28. 28 `"ERASE"`: ERASE OLD DATA, refused unless OLD DATA and while
+  the transport runs. Reply code 76 (`GROOVE_PROJECT_PLAYING`, -12) = refused because the transport
+  runs. New commands, so pages older than tabby-v04.0 never see them.
+- **Workbench.** The library defaults to the 471040 layout until command 21 answers; the importer's
+  storage estimate uses the 80-sector pool; the update tab tells the user that this release moves
+  storage (and that a 536576 build moves it back).

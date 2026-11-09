@@ -1,10 +1,21 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/*
+ * app/transfer.c — the project-library SysEx protocol (the workbench's USB link to the device)
+ *
+ * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
+ * marked "Task NN" where they are)
+ *   v0.1  2026-11-08  Task 12 A1: command 27, the Classic Tabby capability reply (version, feature
+ *                     flags, USER size), and command 28, ERASE OLD DATA from the workbench (needs
+ *                     the five confirm bytes "ERASE"; refused unless song storage reports OLD DATA).
+ */
 #include "instrument.h"
 #include "tuning_hook.h"
 #include "fm_patch.h"
 #include "song.h"
 #include "fm1_engine_control.h"
 #include "diag.h"   /* Classic Tabby Task 11: kind 8 and command 25, diagnostic build only */
+/* Task 12: command 27 feature flags (bit 1: command 28 ERASE OLD DATA). */
+#define CT_CAPABILITY_FLAGS 2U
 #include <stdlib.h>
 #include <string.h>
 
@@ -115,6 +126,26 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
 {
     int r = GROOVE_PROJECT_INVALID;
     *count = 0;
+    /* Task 12 A1: command 27, the Classic Tabby capability reply. A new command, so pages older
+     * than tabby-v04.0 never see it (they read 21 and 22 with fixed lengths). Reply:
+     *   out[0]    version of this reply (1)
+     *   out[1..2] feature flags, u16 LE: bit 0 flash writes are refused while the transport runs
+     *             (Task 12 A3, reply code 76), bit 1 command 28 (ERASE OLD DATA), bits 2.. later
+     *   out[3..6] the USER size the build reserves (CT_USER_BYTES: 471040 normal, 536576 old)
+     * Later versions only append. */
+    if (cmd == 27 && !n) {
+        out[0] = 1; out[1] = CT_CAPABILITY_FLAGS & 255; out[2] = CT_CAPABILITY_FLAGS >> 8;
+        put32(out + 3, CT_USER_BYTES);
+        *count = 7; return 0;
+    }
+    /* Task 12 A1: ERASE OLD DATA from the workbench, the same erase as the confirmed ACTIONS entry
+     * (song_storage_initialize: one old-data sector per poll; projects, tunings and settings are
+     * not touched). The five bytes "ERASE" are the workbench's confirmation. */
+    if (cmd == 28) {
+        if (n != 5 || memcmp(data, "ERASE", 5)) return GROOVE_PROJECT_INVALID;
+        if (ct_transport_running()) return GROOVE_PROJECT_PLAYING;
+        return song_storage_initialize() ? GROOVE_PROJECT_INVALID : 0;
+    }
     /* Additive capability reply; command 21 retains its old exact layout. */
     if (cmd == 22 && !n) {
         /* Classic Tabby (Task 03 a): no DX7 user library (0 banks, unavailable) and no

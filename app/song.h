@@ -13,9 +13,11 @@
  *   Transport: song mode owns PLAY while a song plays; the stock pattern sequencer stays
  *   stopped (its transport is never started by song mode). Internal clock only (v1).
  *
- * Version: 0.3
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-08  Task 12 A1/A3: ct_transport_running(), the one test every flash-write path
+ *                     uses: a song plays (or is stopping) or the stock transport runs.
  *   v0.3  2026-11-04  Task 06: per-track playheads (9.13): launch / stop / back-to-song
  *                     queues, per-track status, bar counter, song_over.
  *   v0.2  2026-11-02  Task 04: row events (9.11): the event stream per row buffer, pre-fired
@@ -64,6 +66,10 @@ int song_queue_jump(unsigned row);    /* lands at the next bar / row end */
 void song_jump_mode_set(unsigned mode);
 void song_status_read(struct song_status *out);
 unsigned song_playing(void);          /* 1 while playing or stopping */
+/* Task 12 A3: 1 while any transport runs: song mode (song_playing) or the stock pattern
+ * sequencer (internal or external clock). While it does, no path writes flash (SPEC 15.4):
+ * project SAVE, song upload / delete, COMPACT, ERASE OLD DATA, settings. Control task only. */
+unsigned ct_transport_running(void);
 int song_send_setup(void);            /* stopped only: send row 0's events now (9.11) */
 /* Task 06 (9.13): per-track queues, each landing on the next bar of the master clock. */
 int song_track_launch(unsigned track, unsigned row);  /* SONG_INVALID: not playing / no such row; SONG_EMPTY: no block */

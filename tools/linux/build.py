@@ -43,9 +43,13 @@ Usage (from the repository root)
         python3 tools/linux/build.py --model pro --package --toolchain-kind native --toolchain ...
     python3 tools/linux/build.py --model pro --check-only --toolchain-kind native --toolchain ...   (make check, v0.6)
 
-Version: 0.8
+Version: 0.9
 
 Revision log
+    v0.9  2026-11-08  Task 12 A1: the default --user-bytes is 471040 (the storage move is the normal
+                      layout from tabby-v04.0). -DCT_USER_BYTES and the identity input are added
+                      only when the size is not 471040, as before only when it was not 536576;
+                      USER_BYTES=536576 builds the old stock layout for tests and the way back.
     v0.8  2026-11-07  Classic Tabby Task 11 (Phase 0 preparation). Two build options, both off by
                       default so the normal build is unchanged:
                         --user-bytes N (Makefile USER_BYTES=N, default 536576): the USER region
@@ -130,7 +134,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 # v0.8 (Task 11): the stock USER size, and the smallest one accepted: a 128 KiB move, the
 # largest the Task 10 assessment analysed (docs/tasks/TASK-10-step1-assessment.md H.3).
-DEFAULT_USER_BYTES = 536576
+DEFAULT_USER_BYTES = 471040   # Task 12 A1 (v0.9): the normal layout; 536576 = the old stock layout
 USER_BYTES_MINIMUM = 405504
 SDK = ROOT / "sdk"
 
@@ -798,7 +802,7 @@ def build_firmware(args, log):
     manifest, synth = verify_inputs(toolchain, native_manifest, log)
 
     variant_name = "release"
-    # v0.8: user_bytes is the build option (536576, the stock layout, by default).
+    # v0.8: user_bytes is the build option (v0.9: 471040, the normal layout, by default).
     variant = {"user_bytes": args.user_bytes, "frozen": "sdk/lib/libfm1_engine.a", "update_family": 8 if model == "pro" else 9}
     include = ["sdk/include", "sdk/include/libc", "app/synth", "sdk/config", "app", "app/board"]
     # Sources: app/**/*.c and *.S, excluding app/synth/ (L356-L357; the exclusion is another
@@ -1030,7 +1034,7 @@ def main(argv=None):
                         help="the version shown to the user (default: the git tag via tools/linux/display_version.py); v0.7")
     # v0.8 (Task 11): the layout and the diagnostic build.
     parser.add_argument("--user-bytes", type=int, default=int(os.environ.get("FM1_USER_BYTES") or DEFAULT_USER_BYTES),
-                        help="USER region size in bytes (default 536576, the stock layout; the probe is 471040); v0.8")
+                        help="USER region size in bytes (default 471040, the normal layout since tabby-v04.0; 536576 = the old stock layout); v0.8, v0.9")
     parser.add_argument("--diag", action="store_true", default=os.environ.get("FM1_DIAG") == "1",
                         help="diagnostic build: timing counters, settings transfer kind, ACTIONS storage line (-DCT_DIAG=1); v0.8")
     parser.add_argument("--check-only", action="store_true",

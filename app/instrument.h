@@ -201,7 +201,11 @@ enum { GROOVE_TUNING_BLOCK_BYTES = 200,
        GROOVE_PROJECT_TUNED_BYTES = GROOVE_PROJECT_BYTES + GROOVE_TUNING_BLOCK_BYTES };
 void groove_project_arp_defaults(struct groove_project *p);
 enum { GROOVE_PROJECT_EMPTY = 1, GROOVE_PROJECT_INVALID = -7,
-       GROOVE_PROJECT_MEMORY = -8, GROOVE_PROJECT_TUNING_SPACE = -9 };
+       GROOVE_PROJECT_MEMORY = -8, GROOVE_PROJECT_TUNING_SPACE = -9,
+       /* Classic Tabby Task 12 (A1/A3): a flash write refused because the transport is running
+        * (device reply code 64 + 12 = 76; the workbench shows "stop playback first"). -10 is
+        * SONG_FULL (74) and -11 is unused, so -12 cannot be confused with either. */
+       GROOVE_PROJECT_PLAYING = -12 };
 /* Control only. Apply reuses matching engines and stages only missing
  * instances. A validation/allocation failure leaves the current project
  * untouched. */

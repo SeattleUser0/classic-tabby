@@ -351,7 +351,11 @@ foreach ($file in Get-ChildItem -LiteralPath $sdk -Recurse -Force -File) {
     }
 }
 $variantName = 'release'
-$variant = [pscustomobject]@{user_bytes=536576; frozen='sdk/lib/libfm1_engine.a'; update_family=$(if ($Model -eq 'pro') { 8 } else { 9 })}
+# Classic Tabby Task 12 A1 (2026-11-08): the USER size follows app/ct_layout.h's default, 471040
+# (the normal layout from tabby-v04.0; upstream V01 used 536576). This script compiles without
+# -DCT_USER_BYTES, so its package must reserve the same size as the app's default. The Linux build
+# (tools/linux/build.py --user-bytes) is the one that can build other sizes.
+$variant = [pscustomobject]@{user_bytes=471040; frozen='sdk/lib/libfm1_engine.a'; update_family=$(if ($Model -eq 'pro') { 8 } else { 9 })}
 $include = @('sdk/include','sdk/include/libc','app/synth','sdk/config','app','app/board')
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $root 'app') -Recurse -File |
     Where-Object { $_.Extension -in @('.c','.S') -and !$_.FullName.StartsWith(([IO.Path]::GetFullPath((Join-Path $root 'app/synth'))+'\'),[StringComparison]::OrdinalIgnoreCase) } | Sort-Object FullName | ForEach-Object { $_.FullName.Substring($root.Length+1).Replace('\','/') })

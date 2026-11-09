@@ -295,6 +295,8 @@ main{max-width:1440px}
 <button id="song-read">读取歌曲</button><button id="song-new">新建歌曲</button><button id="song-write">写入歌曲</button><button id="song-delete">删除歌曲</button>
 <button id="song-export">导出 .tabby</button><label>导入 .tabby <input id="song-file" type="file" accept=".tabby"></label><button id="song-status">存储状态</button>
 <p id="song-message" class="library-message" role="status" aria-live="polite"></p>
+<!-- Task 12 A1: shown when the device's song storage reports OLD DATA (state 2). -->
+<div id="song-old-data" class="library-message" role="alert" hidden><p>Song storage holds OLD DATA: flash that is not in the song format (left by V01, V16, the storage move or an interrupted write). Songs cannot be written or played until it is erased. Projects, tunings and device settings are not touched. If you have not made a Full backup yet, make one first.</p><button id="song-erase-old">Erase old data…</button></div>
 <div id="song-editor" hidden>
 <div class="field-row"><label>名称 <input id="song-name" type="text" maxlength="12"></label><label>项目槽 <select id="song-project"></select></label>
 <label>BPM（0 = 项目速度） <input id="song-tempo" type="number" min="0" max="300" step="1"></label></div>
@@ -1045,11 +1047,17 @@ main{max-width:1440px}
   $('about-open').onclick=()=>$('about-dialog').showModal();
   // Classic Tabby Task 11: a package whose USER size is not the stock 536576 (the probe) or a
   // diagnostic build says so at the top of the update tab and in the page title.
-  if(typeof FM1_PACKAGE==='object'&&FM1_PACKAGE&&(FM1_PACKAGE.user_bytes&&FM1_PACKAGE.user_bytes!==536576||FM1_PACKAGE.diag)){
-    const moved=FM1_PACKAGE.user_bytes&&FM1_PACKAGE.user_bytes!==536576,w=$('layout-warning');
-    w.textContent=moved?'TEST BUILD: this firmware moves the device storage (USER '+FM1_PACKAGE.user_bytes+' bytes instead of 536576). Make a Full backup first (Projects & sounds tab), and keep it: your projects, settings and songs are restored from it after the install, and again after going back. See docs/BUILD.md 24.5 and 24.6.'
-      :'Diagnostic build: the current firmware and storage layout with timing counters (Projects & sounds > Diagnostics) and the settings transfer for the full backup.';
-    w.hidden=false;if(moved)document.title='TEST BUILD (moves storage) · '+document.title;
+  // Task 12 A1: 471040 is the normal layout from tabby-v04.0. A package with it says plainly that
+  // installing it over tabby-v03.x (or V01 / V16) moves the storage; a 536576 package (the old
+  // layout, the way back) says the reverse. Neither is a test build any more; the title changes
+  // only for a diagnostic build.
+  if(typeof FM1_PACKAGE==='object'&&FM1_PACKAGE&&(FM1_PACKAGE.user_bytes||FM1_PACKAGE.diag)){
+    const w=$('layout-warning'),size=FM1_PACKAGE.user_bytes,notes=[];
+    if(size===471040)notes.push('This release moves the device storage (USER 471040 bytes; tabby-v03.x, V01 and V16 use 536576). Coming from one of those: make a Full backup first (Projects & sounds tab) and keep it. After the install your projects, device settings and songs are gone until you run Full restore and Verify. Bluetooth pairings are lost once. If ACTIONS shows OLD DATA, erase it (with confirmation) before restoring. Going back to tabby-v03.x moves the storage back the same way: back up, install, restore.');
+    else if(size&&size!==471040)notes.push('This build uses the older storage layout (USER '+size+' bytes; tabby-v04.0 and later use 471040). Installing it over tabby-v04.0 or later moves the storage back: make a Full backup first, then Full restore and Verify after the install.');
+    if(FM1_PACKAGE.diag)notes.push('Diagnostic build: the remote ACTIONS / song commands for unattended hardware runs (command 26) are included.');
+    if(notes.length){w.textContent=notes.join(' ');w.hidden=false;}
+    if(FM1_PACKAGE.diag)document.title='DIAGNOSTIC BUILD · '+document.title;
   }
   /* Classic Tabby (Task 03 a): no sample bank on the device. The post-update sample check
      is a no-op that reports the firmware as ready. */
@@ -1108,6 +1116,7 @@ main{max-width:1440px}
       const access=await requestMidiAccess(report,signal);
       watch(access);
       library=createLibrary(access);await library.connect({signal});await refreshLibrary(true);message('项目库已连接。');connectionNotice=undefined;
+      await songOldDataCheck().catch(()=>{});   /* Task 12 A1 */
     }catch(error){connectionNotice={message:error.message,failed:true};
       /* Task 11C: no matching port (NO_PORT) or a failed probe: list the ports the browser sees. */
       showConnectionDetails(library?.diagnostics||error.ports||null);throw error;}
@@ -1350,11 +1359,27 @@ main{max-width:1440px}
     songRender();
     songMessage('已导入 .tabby 文件到编辑器，点击“写入歌曲”上传。');
   }));
+  /* Task 12 A1: after the project library connects, say plainly when song storage holds OLD DATA
+     and offer the erase. Nothing is sent until the user confirms the dialog. */
+  async function songOldDataCheck(){
+    const box=$('song-old-data');box.hidden=true;
+    if(!library||!library.songStorage)return;
+    const s=await library.songStatus();box.hidden=s.state!==2;
+    $('song-erase-old').disabled=!(library.tabbyFlags&2);
+    if(s.state===2&&!(library.tabbyFlags&2))songMessage('Song storage holds OLD DATA. This firmware cannot erase it from the web page: on the device, hold SEQ for ACTIONS, choose ERASE OLD DATA, press SAVE, then SAVE again to confirm.');
+  }
+  $('song-erase-old').addEventListener('click',songAct(async()=>{
+    if(!library)throw Error('请先连接项目库');
+    if(!confirm('Erase the old data in song storage?\n\nThis erases every song-storage sector that is not in the song format. Projects, tunings and device settings are kept. It cannot be undone. The device must be stopped.'))return;
+    await library.eraseOldData();
+    songMessage('Erasing old data on the device; this takes a few seconds. Click Storage status to check: it reports READY when done.');
+    $('song-old-data').hidden=true;
+  }));
   $('song-status').addEventListener('click',songAct(async()=>{
     const s=await songBackend().status();
     const words=['follow','launched','stopped'],queues=['','queued launch','queued stop','queued back to song'];
     const tracks=s.tracks?'; tracks: '+s.tracks.map((t,i)=>'T'+(i+1)+' '+words[t.state]+(t.row!==255?' r'+(t.row+1):'')+(t.queue?' ('+queues[t.queue]+')':'')+(t.waiting?' waiting':'')).join(', '):'';
-    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (old sample / DX7 data still present)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+tracks+'.');
+    songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (OLD DATA: erase it with Erase old data, or on the device in ACTIONS)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+tracks+'.');
   }));
   $('song-row-add').addEventListener('click',songAct(async()=>{if(!songEd.song)throw Error('请先读取或新建歌曲');if(songEd.song.rows.length>=128)throw Error('最多 128 行');
     const last=songEd.song.rows[songEd.song.rows.length-1];songEd.song.rows.push({block:last.block.slice(),repeat:last.repeat,loopHere:false,steps:last.steps});songRowsRender();}));

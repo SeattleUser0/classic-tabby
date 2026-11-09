@@ -1,7 +1,9 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.16
+Version: 0.17
 Revision log:
+- v0.17, 2026-11-08 (Task 12 A1): section 3.5: the 471040 layout is the normal one from tabby-v04.0
+  (the hard app limit is 519457 bytes); measured margins follow in section 17 (A2-A6).
 - v0.16, 2026-11-07 (Task 11): section 3.5: the USER size as one build setting, today's layout
   and the 471040 probe layout, what moves and what does not; section 16: the diagnostic build
   (+1888 bytes, margin 637) and the probe (margin 66173); the normal build unchanged.
@@ -336,6 +338,10 @@ describes V01) and the probe's, from build/pro/package-report.json:
 | tuning and session sector | 0xFE000 | 0xFE000 (same place) |
 | key_mac | 0xFF000, never written | same |
 | hard app limit | 453921 | 519457 |
+
+**Task 12 A1 (2026-11-08): the 471040 column is the normal layout from tabby-v04.0** (app/ct_layout.h
+default); 536576 is built only with `USER_BYTES=536576`. The hard app limit of every normal build is
+519457 bytes from then on.
 
 The probe moves only USER; the code image stays where it is, so the extra 64 KiB go to VM until a
 later build needs them for code. What the move does to data already on the device (the probe sees

@@ -39,9 +39,11 @@ Usage (from the repository root)
     FM1_WASI_SDK=/path/to/wasi-sdk-27.0-x86_64-linux python3 tools/linux/build-web.py --local-preview
     python3 tools/linux/build-web.py --package-json build/pro/web-package.json --source-url https://...
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-08  Classic Tabby Task 12 A1: the default --user-bytes is 471040 (the normal
+                      layout); -DCT_USER_BYTES only when the size is not 471040.
     v0.4  2026-11-07  Classic Tabby Task 11: --user-bytes N and --diag, passed by build.py from its
                       build options, compile the simulator with -DCT_USER_BYTES=N (only when N is
                       not 536576) and -DCT_DIAG=1, so the simulated flash has the layout of the
@@ -146,7 +148,7 @@ def ensure_wasi_sdk(explicit, log):
     return sdk
 
 
-def build_simulator(wasi_sdk, display, log, user_bytes=536576, diag=False, out=None):
+def build_simulator(wasi_sdk, display, log, user_bytes=471040, diag=False, out=None):   # v0.5 default
     """Build-Simulator (L13-L95). v0.2: `display` is compiled in as FM1_DISPLAY_VERSION.
     v0.4: user_bytes / diag become -DCT_USER_BYTES / -DCT_DIAG (defaults add nothing); out
     is the wasm directory (build/web unless --wasm-out)."""
@@ -197,7 +199,7 @@ def build_simulator(wasi_sdk, display, log, user_bytes=536576, diag=False, out=N
                "-DFM1_HOST_TEST", "-DFM1_OPEN_WEB", "-Wall", "-Wextra", "-Werror",
                "-Wno-unused-function", "-Wno-array-parameter", "-mexec-model=reactor",
                '-DFM1_DISPLAY_VERSION="%s"' % display]   # v0.2: the simulated boot screen draws it
-    if user_bytes != 536576:   # v0.4: the probe layout
+    if user_bytes != 471040:   # v0.4: the probe layout; v0.5: any size but the normal 471040
         options.append("-DCT_USER_BYTES=%d" % user_bytes)
     if diag:                   # v0.4: the diagnostic build
         options.append("-DCT_DIAG=1")
@@ -333,7 +335,7 @@ def main(argv=None):
     parser.add_argument("--display-version", default=os.environ.get("FM1_DISPLAY_VERSION") or None,
                         help="the version shown to the user (default: the git tag via tools/linux/display_version.py); v0.2")
     # v0.4 (Task 11): the layout and the diagnostic build, as build.py passes them.
-    parser.add_argument("--user-bytes", type=int, default=536576, help="USER size the simulator models (v0.4)")
+    parser.add_argument("--user-bytes", type=int, default=471040, help="USER size the simulator models (v0.4; v0.5 default 471040)")
     parser.add_argument("--diag", action="store_true", help="compile the simulator with -DCT_DIAG=1 (v0.4)")
     parser.add_argument("--simulator-only", action="store_true", help="build only the wasm (v0.4)")
     parser.add_argument("--wasm-out", help="directory for the wasm with --simulator-only (v0.4)")

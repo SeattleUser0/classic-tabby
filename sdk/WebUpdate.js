@@ -11,6 +11,9 @@
  * more than one port answers, connect() fails with code CHOOSE_PORT and the candidates, and the
  * page lets the user pick one input; a picked port is the only way any other port is opened.
  * Test: tests/workbench/update-ports.mjs (12 fake ports, 10 of them not the SMK-37).
+ * Classic Tabby Task 12 A1 (2026-11-08): the default layout is USER 471040 (song region 397312);
+ * Library reads command 27 (version, feature flags, USER size) and offers eraseOldData (command
+ * 28); reply code 76 = refused while the device plays.
  * Classic Tabby Task 11C (2026-11-08): port names are normalized before matching (portName):
  * macOS CoreMIDI reported the SMK-37 as "SMK37 Open" plus 3 or 4 spaces, with different padding on
  * the input and output endpoints, so no input/output pair formed and the page connected to
@@ -724,12 +727,13 @@
     }
     async disconnect(){if(this.link)await this.link.close();this.link=null;this.projectBytes=0;this.tuningBytes=0;}
     async extensions(){
-      this.tuningBytes=0;this.programs=16;this.sampleCapacity=462848;this.songRegion=462848;this.userBytes=536576;this.diagCounters=false;this.settingsTransfer=false;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;this.songBatch=false;this.timedNotes=false;this.radioSettings=false;
+      this.tuningBytes=0;this.programs=16;this.tabbyFlags=0;this.tabbyUserBytes=0;this.sampleCapacity=462848;this.songRegion=397312;this.userBytes=471040;this.diagCounters=false;this.settingsTransfer=false;this.trackRoles=false;this.bankAvailable=false;this.extendedDelay=false;this.songStorage=false;this.songBatch=false;this.timedNotes=false;this.radioSettings=false;
       try {
         const info=await this.query(21);
         // Classic Tabby Task 11 (Step 4): bytes 3..6 are the song region, which follows the firmware's
         // USER size (user_bytes = region + 73728: projects 69632 + the tuning sector 4096): 462848 in the
-        // stock 536576 layout, 397312 in the 471040 probe layout. Any multiple of 4096 from a 128 KiB
+        // old stock 536576 layout, 397312 in the 471040 layout (normal since Task 12 A1; the defaults
+        // above assume it until the reply arrives). Any multiple of 4096 from a 128 KiB
         // move up to the stock size is accepted; the layout is kept for the full backup.
         const region=le(info,3,4);
         check(info.length===7&&(info[0]&~1)===0&&le(info,1,2)===4264&&region%4096===0&&region>=331776&&region<=462848,'设备文件长度无效');
@@ -742,6 +746,14 @@
         check(info.length===9&&info[0]===1&&info[1]===128&&(info[2]===4||info[2]===0)&&info[3]<=1&&(le(info,4,4)===446464||le(info,4,4)===0)&&(info[8]&~255)===0,'设备扩展能力回复无效');   // Task 11: bit 6 = diagnostic counters (command 25), bit 7 = device settings transfer kind 8 (full backup)
         this.diagCounters=!!(info[8]&64);this.settingsTransfer=!!(info[8]&128);   // (earlier) Task 06 (a): bit 5 = Bluetooth settings; the mask was ~15 and refused a Task 05 device (bit 4)
         this.programs=128;this.sampleCapacity=le(info,4,4);this.bankAvailable=!!info[3]&&info[2]===4;this.trackRoles=!!(info[8]&1);this.extendedDelay=!!(info[8]&2);this.songStorage=!!(info[8]&4);this.songBatch=!!(info[8]&8);this.timedNotes=!!(info[8]&16);this.radioSettings=!!(info[8]&32);   // Task 05: payload format 1 accepted; Task 06: command 24
+      } catch(error){if(error.deviceCode!==71)throw error;}
+      // Task 12 A1: command 27, the Classic Tabby capability reply (tabby-v04.0 and later): version,
+      // feature flags (bit 0 writes refused while playing, bit 1 command 28 ERASE OLD DATA) and the
+      // USER size the firmware reserves. Older firmware answers 71 (unknown command).
+      try {
+        const info=await this.query(27);
+        check(info.length>=7&&info[0]>=1,'设备扩展能力回复无效');
+        this.tabbyFlags=le(info,1,2);this.tabbyUserBytes=le(info,3,4);
       } catch(error){if(error.deviceCode!==71)throw error;}
     }
     projectPayload(bytes){
@@ -773,7 +785,7 @@
             const r=await link.read(Math.min(200,until-Date.now()));check(!link.lost,'USB 已断开，当前操作未完成');
             if(!r||r.command!==(command|64)||r.token!==token)continue;
             check(r.data.length>0,'设备回复不完整');const code=r.data[0];
-            if(code!==0&&!(emptyOK&&code===1))throw Object.assign(Error(code===1?'该项目槽为空':code===73?'旧采样库占用了扩展存储空间，请先备份并缩小采样库':code===72?'内存不足，当前项目保持不变':code===71?'文件或参数无效，当前项目保持不变':code===74?'歌曲存储已满，请在设备 ACTIONS 中压缩歌曲存储或删除歌曲':'设备操作失败：'+code),{deviceCode:code});
+            if(code!==0&&!(emptyOK&&code===1))throw Object.assign(Error(code===1?'该项目槽为空':code===73?'旧采样库占用了扩展存储空间，请先备份并缩小采样库':code===72?'内存不足，当前项目保持不变':code===71?'文件或参数无效，当前项目保持不变':code===74?'歌曲存储已满，请在设备 ACTIONS 中压缩歌曲存储或删除歌曲':code===76?'设备正在播放，未写入任何内容。请先停止播放，再重试。':'设备操作失败：'+code),{deviceCode:code});
             return r.data.slice(1);
           }
         }
@@ -792,6 +804,10 @@
     }
     // Classic Tabby song mode (Task 03 d): kinds 5 (record) and 6 (block, 16-bit id).
     // Task 06 (a): Bluetooth settings through transfer command 24 (the device's BLE page is gone).
+    // Task 12 A1: ERASE OLD DATA (command 28 with the confirm bytes "ERASE"). The device refuses it
+    // unless song storage reports OLD DATA, and while the transport runs (code 76). The page asks
+    // the user first; this method never asks.
+    async eraseOldData(){check(this.tabbyFlags&2,'当前固件不支持从网页清除旧数据，请在设备 ACTIONS 中操作');await this.query(28,[69,82,65,83,69]);}
     async radioRead(){const r=await this.query(24);check(r.length===2,'蓝牙设置回复无效');return {on:!!(r[0]&1),audio:!!(r[0]&2),host:r[1]===1};}
     async radioWrite(s){await this.query(24,[(s.on?1:0)|(s.audio?2:0)|4,s.host?1:0]);}
     async radioForget(){await this.query(24,[0x7f]);}

@@ -42,9 +42,12 @@
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-08  Task 12 A1: the block pool of the normal layout (USER 471040) is 80 sectors,
+ *                     80 x 4076 = 326080 bytes (was 96 sectors, 391296 bytes, in the old 536576
+ *                     layout). The device's own song status (command 23) still decides a write.
  *   v0.5  2026-11-03  Task 05: timed notes (section 9.12): model schema tabby-song/2 with offset
  *                     and length in units, payload format 1 encode, format 0 and 1 decode,
  *                     block record byte 1, song swing flag, quantize helpers, JSON upgrade.
@@ -74,7 +77,7 @@
     blocksPerSong: 2048, idMax: 65535, rowsPerSong: 128, songs: 16, tracks: 8,
     repeatMin: 1, repeatMax: 64, lengthMin: 1, lengthMax: 65535 * 128, lengthStepsV1Max: 255,
     tempoMin: 30, tempoMax: 300, nameLength: 12,
-    recordArea: 4076, blockSectors: 96, poolBytes: 96 * 4076,   /* 391296 */
+    recordArea: 4076, blockSectors: 80, poolBytes: 80 * 4076,   /* 326080: Task 12 A1, the 471040 layout (96 = 391296 in the old one) */
     recordBytes: 4096, rowBytes: 20, rowsOffset: 64, bodyEnd: 2624, channelsOffset: 48, headerBytes: 64, blockHeaderBytes: 6,
     eventsOffset: 2624, eventsStart: 2632, eventBytes: 5, eventsMax: 292, rowEventsMax: 32, recordV2End: 4092,   /* 9.11 v0.6 */
     rowStepsAllowed: [16, 32, 48, 64],

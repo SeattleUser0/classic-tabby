@@ -7,9 +7,11 @@
 //   real device code (app/transfer.c, app/project.c, app/song_storage.c) compiled into the
 //   simulator wasm, through a fake MIDI link that feeds the workbench's own SysEx frames to
 //   sim_midi and parses the replies with demoParse. Three simulators:
-//     NORMAL  build/web-normal/simulator.wasm     stock layout, no kind 8 (as tabby-v03.2)
-//     DIAG    build/web-diag/simulator.wasm       stock layout, diagnostic build (kind 8)
-//     PROBE   build/web-probe64/simulator.wasm    USER 471040, diagnostic build (the probe)
+//     NORMAL  build/web-normal/simulator.wasm     the normal build (Task 12 A1: USER 471040)
+//     DIAG    build/web-old536/simulator.wasm     the old 536576 layout, diagnostic build (kind 8):
+//                                                 the tabby-v03.3-diag device a backup comes from
+//     PROBE   build/web-diag/simulator.wasm       USER 471040, diagnostic build: since Task 12 A1
+//                                                 the normal layout (it was tabby-p0-probe64)
 //   Checks:
 //     1. DIAG: projects in slots 1, 4 and 16 (slot 16 carries the device settings), changed
 //        device and session settings, an unsaved workspace, two songs with blocks; backup,
@@ -32,9 +34,13 @@
 //   Run:  /usr/bin/node tests/workbench/backup.mjs NORMAL.wasm DIAG.wasm PROBE.wasm
 //         (or: make backup-test, which builds the three)
 //
-// Version: 0.2
+// Version: 0.3
 //
 // Revision log
+//   v0.3  2026-11-08  Task 12 A1: commands 27 and 28 (the move test erases through command 28);
+//                     471040 is the normal layout; the "DIAG" role (the device before
+//                     the move) is played by the old-layout simulator build/web-old536, "PROBE" by
+//                     the normal-layout diagnostic simulator build/web-diag.
 //   v0.2  2026-11-07  Task 11B: command 26 checks.
 //   v0.1  2026-11-07  Initial version (Task 11 Step 2).
 
@@ -44,7 +50,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const [normalPath, diagPath, probePath] = [2, 3, 4].map((i, k) => process.argv[i] ||
-  join(root, ['build/web-normal/simulator.wasm', 'build/web-diag/simulator.wasm', 'build/web-probe64/simulator.wasm'][k]));
+  join(root, ['build/web-normal/simulator.wasm', 'build/web-old536/simulator.wasm', 'build/web-diag/simulator.wasm'][k]));
 
 Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'node', requestMIDIAccess: () => Promise.reject(new Error('no midi')) }, configurable: true });
 globalThis.window = globalThis;
@@ -199,11 +205,32 @@ check(diag.sim_flash_revision() === revision, 'no refused file wrote anything (f
 const probe = simulator(probePath);
 const plib = await library(probe);
 check(plib.userBytes === 471040 && plib.songRegion === 397312, 'PROBE simulator: layout 471040 / region 397312', plib.userBytes + '/' + plib.songRegion);
+/* Task 12 A1: command 27 (Classic Tabby capability) and 28 (ERASE OLD DATA). */
+check(plib.tabbyUserBytes === 471040 && (plib.tabbyFlags & 2), 'command 27 reports USER 471040 and command 28', plib.tabbyUserBytes + ' flags ' + plib.tabbyFlags);
+check(dlib.tabbyUserBytes === 536576, 'command 27 on the old layout reports USER 536576', dlib.tabbyUserBytes);
+await refused(plib.eraseOldData(), 'ERASE OLD DATA (command 28) is refused when there is no old data', /71|无效|invalid/i);
+await refused(plib.query(28, [69, 82, 65, 83]), 'command 28 without the full confirm bytes is refused', /71|无效|invalid/i);
 await plib.fullRestore(text, () => {}, { settleMs: 0 });
 settle(probe);
 const pverify = await plib.fullVerify(text);
 check(pverify.pass, 'the 536576 file restores into the 471040 layout and verifies', pverify.difference);
 check(pverify.notes.some(n => /USER 536576/.test(n)), 'verify notes the layout change', JSON.stringify(pverify.notes));
+
+/* ---- 3b. Task 12 A1: OLD DATA in a block sector; the workbench erases it (command 28) ---------- */
+{
+  const image = flashImage(simulator(probePath));
+  const at = 69632 + 17 * 4096 + 5 * 4096;              // a block sector of the 471040 song region
+  image.set([0x46, 0x4d, 0x31, 0x53], at); image.fill(0x11, at + 4, at + 32);   // a V01-style header
+  const old = simulator(probePath, image);
+  check((old.sim_song_storage_state() & 255) === 2, 'planted old data: song storage reports OLD DATA');
+  const olib = await library(old);
+  check((await olib.songStatus()).state === 2, 'the workbench sees state 2 (OLD DATA)');
+  await olib.eraseOldData();
+  for (let i = 0; i < 400 && (old.sim_song_storage_state() & 255) !== 1; i++) old.sim_render();
+  const after = flashImage(old);
+  check((old.sim_song_storage_state() & 255) === 1 && after.subarray(at, at + 4096).every(b => b === 0xff),
+    'Erase old data (command 28) erases the old sector and leaves READY');
+}
 
 /* ---- 4. the move: the probe on the old layout's flash --------------------------------------- */
 // The probe firmware sees the device's flash with its USER base 64 KiB higher: its USER offset 0
@@ -216,7 +243,9 @@ const seen = await mlib.fullBackup();
 check(seen.counts.projects === 0, 'after the move no old project is visible as a project', JSON.stringify(seen.counts));
 if ((st & 255) === 2) {   // OLD_DATA: the probe's ACTIONS > ERASE OLD SAMPLE/DX7, then the restore
   await refused(mlib.fullRestore(text, () => {}, { settleMs: 0 }), 'restore refuses while the song region holds old data', /old data/i);
-  check(moved.sim_song_storage_initialize() === 0, 'ERASE OLD (song_storage_initialize) runs');
+  await mlib.eraseOldData();   /* Task 12 A1: the workbench's Erase old data (command 28) */
+  for (let i = 0; i < 400 && (moved.sim_song_storage_state() & 255) !== 1; i++) moved.sim_render();
+  check((moved.sim_song_storage_state() & 255) === 1, 'Erase old data (command 28) leaves song storage READY');
 }
 await mlib.fullRestore(text, () => {}, { settleMs: 0 });
 settle(moved);
