@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Classic Tabby, Task 03 a: sample bank and DX7 user library removed from the simulator. */
+/* Classic Tabby Task 13 Step 4 (2026-11-10): panel wording: knobs K1-K8 by their printed numbers (firmware SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8); the firmware's SAVE button named by position (the 4th button in the left group, after SHIFT, FADER BANK, HOME); SPEC 17.4 has the table. The panel button the firmware calls SAVE is labelled BTN 4 here. */
 (() => {
   'use strict';
   // One portable C instance owns the panel, project and sound state. Before
@@ -370,26 +371,26 @@
       if(instrumentState===undefined)wakingKeys.clear();
       else for(const key of wakingKeys.keys())if(typeof key==='number')wakingKeys.delete(key);
       const pageTips={
-        0:'总览：SELECT 选轨，K3（STEP）选步；PRESETS 换预设，PAGE／K2 换音源。',
-        1:'SEQ：PAGE 翻底部七页，PRESETS 选步，SELECT 选轨，OCT−／OCT+ 换步进页；SHIFT + SEQ 直达输入／输出通道，长按 SEQ 复制与更多。',
-        6:'混音：打击垫 1–8 静音、9–16 独奏，同轨互斥；SELECT 选轨，K1–K4 调当前四轨组音量。',
-        7:'蓝牙：K1 总开关，K2 音频，K3 BLE 角色，K4 时钟；PRESETS 选屏幕下方操作，SAVE 执行，清除配对需再次确认。无线连接请在实机操作。',
-        8:'保存项目：SELECT／PRESETS 选 USER 槽，再按 SAVE 保存；覆盖其他已有槽需确认，成功后自动返回。',
-        9:'FM 音色命名：SELECT 选字符，K1 改字符；EDIT 返回编辑，HOME 返回轨道。',
-        10:'效果：PAGE 翻 TRACK／SHARED／DELAY，SELECT 选轨，K1–K4 调屏幕参数。DELAY 页连按 SEQ 或 TAP 打拍；PRESETS 也可翻页。',
-        11:'音源预览：Pad 1–6 或 K1 选择，SAVE 应用，HOME 返回；K2 TRACK 即时选择 PROJECT（跟随项目）／LIVE（换项目保留音色）／OFF（关闭音源）。',
-        12:'复制与粘贴：K1 或 SELECT 选操作，SAVE 执行；复制后自动选中 PASTE。PRESETS／K2 选目标步，OCT−／OCT+ 选目标页，再按 SAVE 粘贴。',
-        15:'FM 常用参数：PRESETS 选择 1–128 音色，PAGE 切换 A–D 组；K1 算法、K2 反馈、K3 移调、K4 音量。EDIT 返回；完整音色编辑请使用网页工作台。',
-        19:'歌曲模式：K1／PRESETS 选歌曲，PLAY 开始／停止，打击垫 1–16 排队跳转到该行，OCT 翻打击垫页，K4 设置跳转落点。歌曲由网页工作台写入。',
-        17:'ARP：短按开关，长按调参数；PAGE 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。SELECT 选轨，开关和参数随项目保存，不保存按住的音符。',
-        16:'预设列表：PRESETS／SELECT 直接载入，PLAY 载入播放，SAVE 打开项目保存；K1 选 USER／FACTORY。切换直接生效，不提示保存。'
+        0:'总览：K5 选轨，K3（STEP）选步；K7 换预设，K6／K2 换音源。',
+        1:'SEQ：K6 翻底部七页，K7 选步，K5 选轨，OCT−／OCT+ 换步进页；SHIFT + SEQ 直达输入／输出通道，长按 SEQ 复制与更多。',
+        6:'混音：打击垫 1–8 静音、9–16 独奏，同轨互斥；K5 选轨，K1–K4 调当前四轨组音量。',
+        7:'蓝牙：K1 总开关，K2 音频，K3 BLE 角色，K4 时钟；K7 选屏幕下方操作，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）执行，清除配对需再次确认。无线连接请在实机操作。',
+        8:'保存项目：K5／K7 选 USER 槽，再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存；覆盖其他已有槽需确认，成功后自动返回。',
+        9:'FM 音色命名：K5 选字符，K1 改字符；EDIT 返回编辑，HOME 返回轨道。',
+        10:'效果：K6 翻 TRACK／SHARED／DELAY，K5 选轨，K1–K4 调屏幕参数。DELAY 页连按 SEQ 或 TAP 打拍；K7 也可翻页。',
+        11:'音源预览：Pad 1–6 或 K1 选择，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用，HOME 返回；K2 TRACK 即时选择 PROJECT（跟随项目）／LIVE（换项目保留音色）／OFF（关闭音源）。',
+        12:'复制与粘贴：K1 或 K5 选操作，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）执行；复制后自动选中 PASTE。K7／K2 选目标步，OCT−／OCT+ 选目标页，再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）粘贴。',
+        15:'FM 常用参数：K7 选择 1–128 音色，K6 切换 A–D 组；K1 算法、K2 反馈、K3 移调、K4 音量。EDIT 返回；完整音色编辑请使用网页工作台。',
+        19:'歌曲模式：K5／K7 选歌曲，PLAY 开始／停止，打击垫 1–16 排队跳转到该行，OCT 翻打击垫页，K4 设置跳转落点。歌曲由网页工作台写入。',
+        17:'ARP：短按开关，长按调参数；K6 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。K5 选轨，开关和参数随项目保存，不保存按住的音符。',
+        16:'预设列表：K7／K5 直接载入，PLAY 载入播放，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开项目保存；K1 选 USER／FACTORY。切换直接生效，不提示保存。'
       };
       if(pageTips[state[1]])say(pageTips[state[1]]);
     }
     if(contextChanged){
       for(const button of document.querySelectorAll('[data-sim-page]'))button.setAttribute('aria-pressed',String(Number(button.dataset.simPage)===state[1]||(Number(button.dataset.simPage)===15&&state[1]===5)));
       const presetUse={0:'换整套预设',1:'选步进',8:'选保存槽位',10:'切换轨道发送／共用细调',12:'选步进',13:'选步进',15:'换当前轨音色',16:'选整套预设',17:'此页不使用'};
-      FM1I18n.text($('sim-context'),'面板 PRESETS 旋钮：'+(presetUse[state[1]]||'以屏幕下方标签为准')+'。');
+      FM1I18n.text($('sim-context'),'面板 K7 旋钮：'+(presetUse[state[1]]||'以屏幕下方标签为准')+'。');
     }
     updateScreenControls(message.screen,contextChanged);
     if(message.pixels)for(let band=0,source=0;band<15;){
@@ -794,8 +795,8 @@
       say('DELAY 页连按 SEQ 或 TAP 设置 BPM；外部 MIDI 时钟下速度只读。');return;
     }
     if(kind===0){
-    if(state?.[1]===7){say('蓝牙：K1 总开关，K2 音频，K3 BLE 角色，K4 时钟；PRESETS 选屏幕下方操作，SAVE 执行，清除配对需再次确认。无线连接请在实机操作。');return;}
-    const tips={2:'FX：SELECT 选轨，K1 混响、K2 延迟，0 关闭发送；PRESETS 切换细调页。',3:'SCL：DX7 算子键盘缩放；其他音源打开音高参数页。',10:'ARP：短按开关，长按调参数；PAGE 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。SELECT 选轨，开关和参数随项目保存，不保存按住的音符。',11:'SEQ：PAGE 翻底部参数页，PRESETS 选步；RHYTHM/REC 页 K4 选循环长度。再按 SEQ 返回基础页并恢复跟随。'};if(tips[index])say(tips[index]);}}
+    if(state?.[1]===7){say('蓝牙：K1 总开关，K2 音频，K3 BLE 角色，K4 时钟；K7 选屏幕下方操作，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）执行，清除配对需再次确认。无线连接请在实机操作。');return;}
+    const tips={2:'FX：K5 选轨，K1 混响、K2 延迟，0 关闭发送；K7 切换细调页。',3:'SCL：DX7 算子键盘缩放；其他音源打开音高参数页。',10:'ARP：短按开关，长按调参数；K6 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。K5 选轨，开关和参数随项目保存，不保存按住的音符。',11:'SEQ：K6 翻底部参数页，K7 选步；RHYTHM/REC 页 K4 选循环长度。再按 SEQ 返回基础页并恢复跟随。'};if(tips[index])say(tips[index]);}}
   function latch(item){latched.has(item)?latched.delete(item):latched.add(item);syncHolds();}
   function pulse(kind,index) {
     const owner='click:'+kind+':'+index;clearTimeout(pulseTimers.get(owner));
@@ -855,7 +856,7 @@
     sources.forEach((name,type)=>{const option=document.createElement('option');option.value=type;option.textContent=name;$('sim-source').append(option);});
     // The SMK37 workbench exposes each physical control. Shapes and handlers are
     // local implementations; no remote font, image or script is needed.
-    const encoders=['K1','K2','K3','K4','SELECT','PAGE','PRESET','MASTER'];
+    const encoders=['K1','K2','K3','K4','K5','K6','K7','K8'];   // Task 13: printed numbers (firmware SELECT, PAGE, PRESETS, MASTER = K5-K8)
     for(const [index,label]of encoders.entries()){
       const box=document.createElement('div');box.className='encoder';
       box.innerHTML='<span>'+label+'</span><button class="dial" data-sim disabled aria-label="'+label+'：拖动、滚轮或点击调节"><i></i></button><div class="detents"><button data-sim disabled aria-label="'+label+' 减少">−</button><button data-sim disabled aria-label="'+label+' 增加">＋</button></div>';
@@ -872,7 +873,7 @@
       dial.addEventListener('keydown',event=>{if(['ArrowUp','ArrowRight','ArrowDown','ArrowLeft'].includes(event.code)){event.preventDefault();event.stopPropagation();turn(event.code==='ArrowUp'||event.code==='ArrowRight'?1:-1);}});
       FM1I18n.scan(box);$('sim-encoders').append(box);
     }
-    const labels=['SHIFT','FADER BANK','HOME','SAVE','OCT -','OCT +','ARP','PAD / STEP','SCL','ENV / LFO','MIX','BT','HOME / SRC','EDIT','FX','SEQ','PLAY','REC'];
+    const labels=['SHIFT','FADER BANK','HOME','BTN 4','OCT -','OCT +','ARP','PAD / STEP','SCL','ENV / LFO','MIX','BT','HOME / SRC','EDIT','FX','SEQ','PLAY','REC'];
     for(let id=0;id<18;++id){
       const button=document.createElement('button');button.textContent=labels[id];button.className='panel-button';button.dataset.sim='';button.dataset.button=id;button.disabled=true;
       const led=[255,255,8,9,0,1,10,255,3,4,7,255,8,6,2,11,12,13][id];
@@ -963,7 +964,7 @@
   $('sim-file-apply').onclick=()=>action(async()=>{
     if(!selectedFile)return;if(!confirm(FM1I18n.t('将替换仿真工作区'+(selectedFile.patch?'当前 DX7 音色':selectedFile.timbre?'当前轨道音色':'项目')+'，继续吗？')))return;
     const timbre=!!(selectedFile.patch||selectedFile.timbre),data=selectedFile.patch?voices[Number($('sim-voice').value)]:selectedFile.data;
-    await request('import',{patch:!!selectedFile.patch,timbre:!!selectedFile.timbre,data});say(timbre?'音色已导入。PROJECT 轨请保存项目；LIVE 轨请导出轨道音色，DX7 也可存入独立库。':'已导入仿真工作区；按面板 SAVE 保存到本地仿真槽。');
+    await request('import',{patch:!!selectedFile.patch,timbre:!!selectedFile.timbre,data});say(timbre?'音色已导入。PROJECT 轨请保存项目；LIVE 轨请导出轨道音色，DX7 也可存入独立库。':'已导入仿真工作区；按面板左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存到本地仿真槽。');
   });
   $('sim-read-device').onclick=()=>action(async()=>{
     if(!ready)throw Error('请先启动仿真');

@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.28
+Version: 0.29
 Revision log:
+- v0.29, 2026-11-10 (Task 13 Step 4): 17.4, the control-name table (firmware name -> printed name or
+  position), the start of the sticker map.
 - v0.28, 2026-11-10 (Task 13 Step 2): 17.3: option A is not built (the song tick runs in the audio
   interrupt; the SDK's pass request is not interrupt-safe).
 - v0.27, 2026-11-10 (Task 13 Step 1): section 17.1: the control-pass budget (option B), CPU GUARD
@@ -1170,4 +1172,51 @@ router flushes) so the old numbers stay comparable; the pass period is the profi
   task up by name under `vTaskSuspendAll` and may yield directly (BUILD.md 27.2).
 - Consequence: notes leave at the next control pass (10 ms timer) or at an in-pass flush (after each
   LCD band, 17.1). The 4 ms target needs an SDK change; option A stays unbuilt.
+
+### 17.4 Control names: firmware name -> printed name or position (Task 13 Step 4; sticker map starts here)
+
+Rules (the user's, 2026-11-10): knobs by their printed numbers K1-K8 from the left; a button whose
+printed label is not confirmed is described by its position, never by a guessed name. All screen
+text, Help (the workbench manual and its translations), the panel shortcut texts, the READMEs and
+the install-file template (docs/releases/INSTALL.template.txt) follow this table. On the LCD the
+4th left button is "4TH LEFT BTN" (the full phrase does not fit a 38-character line).
+
+Knobs (`fm1_controls.encoders[]` index; physical id from app/smk37_controls.c `encoder_map`):
+
+| Firmware name | Index | Physical id | Printed / to use | Status |
+| --- | ---: | ---: | --- | --- |
+| K1 | 2 | 0 | K1 | confirmed by the user |
+| K2 | 3 | 1 | K2 | confirmed by the user |
+| K3 | 4 | 2 | K3 | confirmed by the user |
+| K4 | 5 | 3 | K4 | confirmed by the user |
+| SELECT | 0 | 4 | K5 | confirmed by the user (used for the song on 2026-11-09) |
+| PAGE | 1 | 5 | K6 | confirmed by the user |
+| PRESETS | 6 | 6 | K7 | confirmed by the user |
+| MASTER | (ADC) | 7 | K8 | confirmed by the user |
+
+Buttons (physical id = position in sdk/Simulator.js's panel map; left group = ids 0-5, right group =
+ids 6-17; firmware name = the FM1 button app/screen.c tests, through `button_map`):
+
+| Physical id | Firmware name | Printed / to use | Status |
+| ---: | --- | --- | --- |
+| 0 | (SHIFT, panel code) | SHIFT | confirmed by the user |
+| 1 | (FADER BANK, panel code) | FADER BANK | confirmed by the user |
+| 2 | HOME | HOME | confirmed by the user |
+| 3 | SAVE | **the 4th button in the left group (after SHIFT, FADER BANK, HOME)**; LCD "4TH LEFT BTN"; workbench panel "BTN 4" | not SAVE (user, 2026-11-09); printed label unknown |
+| 4 | OCT_DOWN | OCT - | from the workbench panel map, not confirmed |
+| 5 | OCT_UP | OCT + | from the workbench panel map, not confirmed |
+| 6 | ARP | ARP | from the workbench panel map, not confirmed |
+| 7 | (PAD / STEP, panel code) | PAD / STEP | from the workbench panel map, not confirmed |
+| 8 | SCL | SCL | from the workbench panel map, not confirmed |
+| 9 | ENV | ENV / LFO (text says ENV) | from the workbench panel map, not confirmed |
+| 10 | GLO | MIX | from the workbench panel map, not confirmed |
+| 11 | (BT, panel code) | BT | from the workbench panel map, not confirmed |
+| 12 | HOME (SHIFT: source page) | HOME / SRC | from the workbench panel map, not confirmed |
+| 13 | EDIT | EDIT | from the workbench panel map, not confirmed |
+| 14 | FX | FX | from the workbench panel map, not confirmed |
+| 15 | SEQ | SEQ | confirmed by use (the user opened ACTIONS with it) |
+| 16 | PLAY | PLAY | confirmed by use |
+| 17 | REC | REC | from the workbench panel map, not confirmed |
+
+The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
 

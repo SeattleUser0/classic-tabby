@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- Classic Tabby Task 13 Step 4 (2026-11-10): panel wording: knobs K1-K8 by their printed numbers (firmware SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8); the firmware's SAVE button named by position (the 4th button in the left group, after SHIFT, FADER BANK, HOME); SPEC 17.4 has the table. -->
 <!-- SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception -->
 <html lang="zh-CN">
 <meta charset="utf-8">
@@ -192,7 +193,7 @@ main{max-width:1440px}
 <div class="sim-selectors"><label>当前轨道<select id="sim-track" data-sim disabled aria-label="仿真轨道"></select></label><label>音源类型<select id="sim-source" data-sim disabled aria-label="仿真音源类型"></select></label></div>
 
 <div class="edit-shortcuts"><button data-sim data-sim-page="15" disabled>当前轨音色</button><button data-sim data-sim-page="1" disabled>SYNC / MIDI</button><button data-sim data-sim-page="6" disabled>混音</button><button data-sim data-sim-page="10" disabled>轨道效果</button></div>
-<details class="editor-more"><summary>更多编辑</summary><div class="edit-shortcuts"><button data-sim data-sim-page="0" disabled>总览</button><button data-sim data-sim-page="17" disabled>琶音参数</button><button data-sim data-sim-page="12" disabled>复制与更多</button><button data-sim data-sim-page="16" disabled>用户项目列表</button><button data-sim data-sim-page="19" disabled>歌曲模式</button><button data-sim data-sim-page="20" disabled>轨道启动</button></div><p id="sim-context" class="sim-help">面板 PRESETS 旋钮：换整套预设。</p></details>
+<details class="editor-more"><summary>更多编辑</summary><div class="edit-shortcuts"><button data-sim data-sim-page="0" disabled>总览</button><button data-sim data-sim-page="17" disabled>琶音参数</button><button data-sim data-sim-page="12" disabled>复制与更多</button><button data-sim data-sim-page="16" disabled>用户项目列表</button><button data-sim data-sim-page="19" disabled>歌曲模式</button><button data-sim data-sim-page="20" disabled>轨道启动</button></div><p id="sim-context" class="sim-help">面板 K7 旋钮：换整套预设。</p></details>
 </aside>
 <div class="performance-stage">
 <div class="sim-toolbar"><button id="sim-start" class="primary" disabled>静音</button><button id="sim-tap-tempo" data-sim disabled title="连按设置 BPM">TAP</button><button id="sim-panic" data-sim disabled>紧急停音</button><div class="sim-health" role="status"><span id="sim-engine-state">正在载入</span><span id="sim-audio-state" hidden>静音编辑</span></div><label class="output-level">输出电平 <meter id="sim-output-meter" min="0" max="100" value="0" aria-label="音频输出电平"></meter></label><label>试听音量 <input id="sim-volume" type="range" min="0" max="100" value="35" aria-label="试听音量"></label></div>
@@ -208,7 +209,7 @@ main{max-width:1440px}
 <div id="sim-keyboard" class="keyboard" aria-label="37 键力度键盘"></div>
 </div></div>
 <p class="quiet-note">SMK37 Pro / Elite · 37 keys · 16 pads · 8 encoders · 4 faders. FADER BANK: tracks 1–4 / 5–8, with pickup. SHIFT + ENV: LFO; SHIFT + HOME / SRC: source; SHIFT + SEQ: MIDI channels; SHIFT + Pads: track / mute.</p><div class="panel-caption"><span>旋钮可拖动或滚轮调节，LCD 数值可点击编辑。</span><a href="#manual-panel">操作说明</a></div>
-<details class="quick-start"><summary>先掌握这三步</summary><ol><li>演奏：短按 PAD / STEP 进入或退出 Pad 乐器。默认 KEY 为轨道 1／通道 1，PAD 为轨道 8／通道 10；SELECT 和 OCT 只调整当前操作的乐器。</li><li>改音色：短按 EDIT，转 K1–K4；换音源用 SHIFT + HOME，Pad 1–6 或 K1 选择，SAVE 应用。</li><li>放歌曲：在网页工作台编写歌曲或导入 MIDI 文件并写入设备，然后长按 SEQ 选 SONG MODE，在 SONG 页按 PLAY。</li></ol><p>Pad 触后跟随 Pad 通道；DX7 响应为颤音。网页中按住 Pad 向上拖动可试听触后，支持压力的触控笔可直接按压。</p><p>推子显示 UP TO／DOWN TO 时，按提示移动到目标值后才接管，不会突然跳变音量。F1–F4 是推子编号，T1–T8 是控制的轨道。</p></details>
+<details class="quick-start"><summary>先掌握这三步</summary><ol><li>演奏：短按 PAD / STEP 进入或退出 Pad 乐器。默认 KEY 为轨道 1／通道 1，PAD 为轨道 8／通道 10；K5 和 OCT 只调整当前操作的乐器。</li><li>改音色：短按 EDIT，转 K1–K4；换音源用 SHIFT + HOME，Pad 1–6 或 K1 选择，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用。</li><li>放歌曲：在网页工作台编写歌曲或导入 MIDI 文件并写入设备，然后长按 SEQ 选 SONG MODE，在 SONG 页按 PLAY。</li></ol><p>Pad 触后跟随 Pad 通道；DX7 响应为颤音。网页中按住 Pad 向上拖动可试听触后，支持压力的触控笔可直接按压。</p><p>推子显示 UP TO／DOWN TO 时，按提示移动到目标值后才接管，不会突然跳变音量。F1–F4 是推子编号，T1–T8 是控制的轨道。</p></details>
 <p id="sim-status" class="sim-status" role="status" aria-live="polite">正在载入…</p>
 <small id="sim-storage-warning" role="status" hidden>浏览器未允许保存本地存档；请导出项目文件保留编辑。</small>
 </div></div>
@@ -277,7 +278,7 @@ main{max-width:1440px}
 <div class="field-row"><label>目标轨道 <select id="timbre-track" data-library disabled></select></label>
 <label>音色文件 <input id="timbre-file" type="file" accept=".fm1t" data-library disabled></label></div>
 <button id="timbre-import" data-library disabled>导入轨道音色</button><button id="timbre-export" data-library disabled>导出轨道音色</button>
-<small>保存音源类型、音色参数和音量，不携带步进。鼓与旋律互换会清空此轨不兼容的步进；导入后可在面板 HOME+SAVE 撤销。</small>
+<small>保存音源类型、音色参数和音量，不携带步进。鼓与旋律互换会清空此轨不兼容的步进；导入后可在面板 HOME＋左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）撤销。</small>
 </details>
 <details class="library-group"><summary>DX7 标准音色</summary>
 <div class="field-row"><label>目标轨道 <select id="patch-track" data-library disabled></select></label>
@@ -381,7 +382,7 @@ main{max-width:1440px}
 <p class="manual-note">Songs written by tabby-v02.0 keep playing as before, including swing. Reflashing from tabby-v03.0 to tabby-v03.1 is optional. Both have the same sequencer.</p>
 <h4>First boot</h4>
 <p>The boot screen shows SMK37, OFFICIAL OPEN and the version. When song storage holds data that is not in the song format (V01's sample bank or DX7 library, or what the tabby-v04.0 storage move left), the device shows OLD DATA IN SONG STORAGE - SEE ACTIONS for six seconds. Until it is erased, the SONG page says OLD DATA IN SONG STORAGE and no song can be written or played. The workbench says the same when it connects the project library.</p>
-<p>To erase it: hold <kbd>SEQ</kbd> for about 0.6 s to open the ACTIONS menu, turn <kbd>SELECT</kbd> or <kbd>K1</kbd> to ERASE OLD DATA and press <kbd>SAVE</kbd>; the screen asks ERASE OLD DATA? and a second <kbd>SAVE</kbd> confirms (<kbd>HOME</kbd> cancels). The workbench's Erase old data… does the same after its own confirmation. The erase runs one sector per control cycle and dips the audio briefly if something plays. Projects, tunings and settings are not touched. Afterwards the SONG page says NO SONG HERE - UPLOAD FROM THE WEB WORKBENCH and the storage status reports 326080 bytes free.</p>
+<p>To erase it: hold <kbd>SEQ</kbd> for about 0.6 s to open the ACTIONS menu, turn <kbd>K5</kbd> or <kbd>K1</kbd> to ERASE OLD DATA and press the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>); the screen asks ERASE OLD DATA? and a second the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>) confirms (<kbd>HOME</kbd> cancels). The workbench's Erase old data… does the same after its own confirmation. The erase runs one sector per control cycle and dips the audio briefly if something plays. Projects, tunings and settings are not touched. Afterwards the SONG page says NO SONG HERE - UPLOAD FROM THE WEB WORKBENCH and the storage status reports 326080 bytes free.</p>
 
 <h4>Connect the workbench</h4>
 <p>Open Projects &amp; sounds and click Connect project library. The page reads the device's capabilities. The Song mode group becomes usable with the device as the target, and the Bluetooth settings group appears. Everything in this tab talks to the device over USB MIDI. Close other MIDI software first if the connection fails.</p>
@@ -398,8 +399,8 @@ main{max-width:1440px}
 <h4>Playing a song on the device</h4>
 <ol>
 <li>Hold <kbd>SEQ</kbd> for about 0.6 s, or press <kbd>SEQ</kbd>+<kbd>EDIT</kbd>, to open ACTIONS.</li>
-<li>Turn <kbd>SELECT</kbd> or <kbd>K1</kbd> to SONG MODE and press <kbd>SAVE</kbd>. The SONG page opens.</li>
-<li>Turn <kbd>SELECT</kbd> or <kbd>PRESETS</kbd> to choose song 1 to 16. This works while the song is stopped. The bottom line of the page says K1 SONG, but the knob that works is SELECT or PRESETS.</li>
+<li>Turn <kbd>K5</kbd> or <kbd>K1</kbd> to SONG MODE and press the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>). The SONG page opens.</li>
+<li>Turn <kbd>K5</kbd> or <kbd>K7</kbd> to choose song 1 to 16. This works while the song is stopped. The bottom line of the page says K5/K7 SONG.</li>
 <li>Press <kbd>PLAY</kbd>. The song starts at row 1. If the project's pattern sequencer was running it stops. Press <kbd>PLAY</kbd> again to stop. Every note is released and MIDI Stop is sent once.</li>
 <li><kbd>HOME</kbd> leaves the page. The song keeps playing.</li>
 </ol>
@@ -423,7 +424,7 @@ main{max-width:1440px}
 <tr><td>LATE m</td><td>In amber, next to EVENTS: row entries whose events or notes came after the bar line since PLAY. Chapter 05 and chapter 08 say when that happens.</td></tr>
 <tr><td>NO SONG HERE - UPLOAD FROM THE WEB WORKBENCH</td><td>The slot is empty. Write a song from the workbench.</td></tr>
 </tbody></table></div>
-<p>The bottom lines are the key help: K1 SONG, PADS JUMP, OCT PAD PAGE, PLAY START/STOP, K4 JUMP MODE, SCL TRACK LAUNCH, HOME BACK. Notices such as NO SUCH ROW / NOT PLAYING appear in the same place for a moment.</p>
+<p>The bottom lines are the key help: K5/K7 SONG, PADS JUMP, OCT PAD PAGE, PLAY START/STOP, K4 JUMP MODE, SCL TRACK LAUNCH, HOME BACK. Notices such as NO SUCH ROW / NOT PLAYING appear in the same place for a moment.</p>
 <h4>How the song ends</h4>
 <p>With Loop the song off, the song stops after the last row, releases every note and sends MIDI Stop. With Loop the song on it continues from the Loop start row. When tracks are detached by a launch (chapter 05) the song does not stop at its end. The following tracks go silent, the page shows SONG OVER, the launched tracks keep looping and the clock keeps running until you press <kbd>PLAY</kbd>.</p>
 <h4>The song editor in the workbench</h4>
@@ -555,7 +556,7 @@ main{max-width:1440px}
 <h4>Row events in the song editor</h4>
 <p>Below the row table of the song editor, the Row selector picks a row. Row 1 is marked SEND SETUP because its events are the set-up list. The list shows each event with its channel, the device on it and the event in words. Arrows move an event, ✕ deletes it. Add on channel and type add a Program (from the preset list, with a bank where the device has banks, or a raw number), a Control change (named or raw, with the value meaning where known) or a Gap in ms. A row holds up to 32 events and a song up to 292. Gaps read back from the device are shown greyed and regenerated from the rig at the next write.</p>
 <h4>SEND SETUP</h4>
-<p>With the song loaded and stopped, open ACTIONS, choose SEND SETUP and press <kbd>SAVE</kbd>. Row 1's events go out at once and the notice says SETUP SENT - ROW 1 EVENTS. Use it before a set, after a power-up, and before PLAY on a song whose first row has gaps. With the song playing it says STOP THE SONG FIRST. With no song loaded it says NO SONG LOADED.</p>
+<p>With the song loaded and stopped, open ACTIONS, choose SEND SETUP and press the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>). Row 1's events go out at once and the notice says SETUP SENT - ROW 1 EVENTS. Use it before a set, after a power-up, and before PLAY on a song whose first row has gaps. With the song playing it says STOP THE SONG FIRST. With no song loaded it says NO SONG LOADED.</p>
 <h4>What goes out when</h4>
 <ul>
 <li>A row change or a scene change sends the new row's events for every channel, with their gaps, pre-fired so the last message leaves before the bar.</li>
@@ -577,17 +578,17 @@ main{max-width:1440px}
 </tbody></table></div>
 </article>
 <article id="manual-tabby-preview" class="manual-chapter" tabindex="-1"><h3>09 · FM6 preview</h3>
-<p>Each track decides where its notes go. The setting lives on the MIDI TRACK page, opened with <kbd>SHIFT</kbd>+<kbd>SEQ</kbd> from any page. <kbd>SELECT</kbd> picks the track.</p>
+<p>Each track decides where its notes go. The setting lives on the MIDI TRACK page, opened with <kbd>SHIFT</kbd>+<kbd>SEQ</kbd> from any page. <kbd>K5</kbd> picks the track.</p>
 <div class="manual-table"><table><thead><tr><th scope="col">Knob</th><th scope="col">Setting</th></tr></thead><tbody>
 <tr><td>K1 IN CH</td><td>The channel the track listens to from USB or Bluetooth MIDI.</td></tr>
 <tr><td>K2 OUT CH</td><td>The channel the track sends on. A song's output channel for the track overrides it while the song plays and is withdrawn when playback stops.</td></tr>
 <tr><td>K3 SEQ</td><td>LOCAL: the track's notes play the built-in sound only. BOTH: the built-in sound and MIDI out. MIDI: MIDI out only.</td></tr>
 <tr><td>K4 OUT PORT</td><td>ALL sends on every port (USB, Bluetooth, DIN). OFF sends nothing from this track.</td></tr>
 </tbody></table></div>
-<p>The SYNC / MIDI page (<kbd>SEQ</kbd> from any page) holds the global switches: K4 SEQ OUT (OFF, ON, CLOCK) and <kbd>PRESETS</kbd> KEY OUT. Song notes follow the same rules as pattern notes. Keep SEQ OUT on ON for notes and clock, or CLOCK for the clock alone.</p>
+<p>The SYNC / MIDI page (<kbd>SEQ</kbd> from any page) holds the global switches: K4 SEQ OUT (OFF, ON, CLOCK) and <kbd>K7</kbd> KEY OUT. Song notes follow the same rules as pattern notes. Keep SEQ OUT on ON for notes and clock, or CLOCK for the clock alone.</p>
 <h4>Audition a part, then hand it to the gear</h4>
 <ol>
-<li>Give the track a built-in sound: FM6 (DX7 FM) or one of the others, chosen with <kbd>SHIFT</kbd>+<kbd>HOME</kbd>, <kbd>K1</kbd> or a pad, then <kbd>SAVE</kbd>.</li>
+<li>Give the track a built-in sound: FM6 (DX7 FM) or one of the others, chosen with <kbd>SHIFT</kbd>+<kbd>HOME</kbd>, <kbd>K1</kbd> or a pad, then the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>).</li>
 <li>Set its SEQ to LOCAL or BOTH and play the song. You hear the part on the SMK-37.</li>
 <li>Set OUT CH to the channel of the external synth, or set the song's output channel for the track in the song editor.</li>
 <li>Set SEQ to MIDI. The part now plays on the gear only. Set it back to BOTH to hear both.</li>
@@ -609,7 +610,7 @@ main{max-width:1440px}
 <h4>The song pool</h4>
 <p>Song storage is the flash area that held the sample bank and the DX7 user library on V01. It holds 16 song records and a pool of 80 block sectors (96 before tabby-v04.0 moved the storage). Blocks of every song share the pool. A freshly erased area reports 326080 bytes free. Storage status in the Song mode group shows the free bytes, the reclaimable bytes, and the state of the loaded song: its event count, the late count and every track's state.</p>
 <h4>Compaction</h4>
-<p>Writing a song again, or deleting one, leaves its old blocks in the pool as garbage. They keep their bytes until a compaction. Storage status shows them as reclaimable. To reclaim them, open ACTIONS, choose COMPACT SONG STORAGE and press <kbd>SAVE</kbd>; the screen asks COMPACT SONG STORAGE? and a second <kbd>SAVE</kbd> confirms. The SONG page shows COMPACTING STORAGE... for a few seconds. One sector is rewritten per control cycle, with a short audio dip per sector if something plays. The action is refused while a song plays. When the pool is full during a write, the device compacts the most rewarding sector by itself.</p>
+<p>Writing a song again, or deleting one, leaves its old blocks in the pool as garbage. They keep their bytes until a compaction. Storage status shows them as reclaimable. To reclaim them, open ACTIONS, choose COMPACT SONG STORAGE and press the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>); the screen asks COMPACT SONG STORAGE? and a second the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>) confirms. The SONG page shows COMPACTING STORAGE... for a few seconds. One sector is rewritten per control cycle, with a short audio dip per sector if something plays. The action is refused while a song plays. When the pool is full during a write, the device compacts the most rewarding sector by itself.</p>
 <h4>Exporting and importing .tabby files</h4>
 <p>Export .tabby in the song editor saves the song as one file: the song record and every block, plus the song's own rig copy when it has one. Import .tabby loads such a file into the editor; click Write song to put it on the device. The MIDI importer's Export .tabby file writes the same format. Files from tabby-v02.0 load and are written back in the current format.</p>
 <h4>Writing pauses audio briefly</h4>
@@ -619,17 +620,17 @@ main{max-width:1440px}
 <article id="manual-tabby-quickref" class="manual-chapter manual-quickref" tabindex="-1"><h3>12 · Quick reference</h3>
 <div class="manual-table"><table><thead><tr><th scope="col">Page</th><th scope="col">Control</th><th scope="col">Action</th></tr></thead><tbody>
 <tr><td>Any page</td><td><kbd>SEQ</kbd> held 0.6 s, or <kbd>SEQ</kbd>+<kbd>EDIT</kbd></td><td>Open ACTIONS (COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE, COMPACT SONG STORAGE, SEND SETUP).</td></tr>
-<tr><td>Any page</td><td><kbd>SEQ</kbd></td><td>SYNC / MIDI: K1 CLOCK (INT, MIDI), K2 CLK IN (AUTO, USB, BLE, DIN), K3 SWING, K4 SEQ OUT (OFF, ON, CLOCK), <kbd>PRESETS</kbd> KEY OUT. Songs need INT.</td></tr>
+<tr><td>Any page</td><td><kbd>SEQ</kbd></td><td>SYNC / MIDI: K1 CLOCK (INT, MIDI), K2 CLK IN (AUTO, USB, BLE, DIN), K3 SWING, K4 SEQ OUT (OFF, ON, CLOCK), <kbd>K7</kbd> KEY OUT. Songs need INT.</td></tr>
 <tr><td>Any page</td><td><kbd>HOME</kbd>+<kbd>SEQ</kbd></td><td>Tap the tempo.</td></tr>
 <tr><td>HOME</td><td><kbd>K4</kbd></td><td>BPM (the only tempo control; read only with MIDI clock).</td></tr>
-<tr><td>Any page, while playing</td><td><kbd>SAVE</kbd>, ERASE OLD DATA, COMPACT</td><td>Nothing is written to flash while a song or the pattern plays: the screen says STOP TO SAVE (or STOP TO ERASE / COMPACT), the workbench says the device is playing and sends nothing. Setting changes made while playing are kept and saved after the stop.</td></tr>
+<tr><td>Any page, while playing</td><td>the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>), ERASE OLD DATA, COMPACT</td><td>Nothing is written to flash while a song or the pattern plays: the screen says STOP TO SAVE (or STOP TO ERASE / COMPACT), the workbench says the device is playing and sends nothing. Setting changes made while playing are kept and saved after the stop.</td></tr>
 <tr><td>Any page</td><td><kbd>BT</kbd></td><td>Shows BLUETOOTH: SET IN WORKBENCH. Settings are in the workbench.</td></tr>
 <tr><td>Any page</td><td><kbd>SHIFT</kbd>+pad 1 to 8 / 9 to 16</td><td>Select track / toggle mute.</td></tr>
 <tr><td>Any page</td><td><kbd>SHIFT</kbd>+<kbd>SEQ</kbd></td><td>MIDI TRACK: K1 IN CH, K2 OUT CH, K3 SEQ (LOCAL, BOTH, MIDI), K4 OUT PORT.</td></tr>
-<tr><td>Any page</td><td><kbd>SHIFT</kbd>+<kbd>HOME</kbd></td><td>SOUND SOURCE: K1 or pads choose, K2 TRACK mode, SAVE applies.</td></tr>
+<tr><td>Any page</td><td><kbd>SHIFT</kbd>+<kbd>HOME</kbd></td><td>SOUND SOURCE: K1 or pads choose, K2 TRACK mode, the 4th button in the left group (after SHIFT, FADER BANK, HOME) applies.</td></tr>
 <tr><td>Any page</td><td><kbd>HOME</kbd>+<kbd>PLAY</kbd></td><td>Stop all sound and rewind.</td></tr>
-<tr><td>ACTIONS</td><td><kbd>SELECT</kbd> or <kbd>K1</kbd>, <kbd>SAVE</kbd>, <kbd>HOME</kbd></td><td>Choose the entry, run it, cancel. SONG MODE opens the SONG page.</td></tr>
-<tr><td>SONG</td><td><kbd>SELECT</kbd> or <kbd>PRESETS</kbd></td><td>Choose song 1 to 16 (stopped only).</td></tr>
+<tr><td>ACTIONS</td><td><kbd>K5</kbd> or <kbd>K1</kbd>, the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>), <kbd>HOME</kbd></td><td>Choose the entry, run it, cancel. SONG MODE opens the SONG page.</td></tr>
+<tr><td>SONG</td><td><kbd>K5</kbd> or <kbd>K7</kbd></td><td>Choose song 1 to 16 (stopped only).</td></tr>
 <tr><td>SONG</td><td><kbd>PLAY</kbd></td><td>Start at row 1 / stop and send MIDI Stop.</td></tr>
 <tr><td>SONG</td><td>Pad 1 to 16</td><td>Queue a jump to that row of the pad page.</td></tr>
 <tr><td>SONG</td><td><kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Pad page down / up by 16 rows.</td></tr>
@@ -642,7 +643,7 @@ main{max-width:1440px}
 <tr><td>TRACK LAUNCH</td><td><kbd>ENV</kbd> / <kbd>SHIFT</kbd>+<kbd>ENV</kbd></td><td>Selected track / every track back to the song, next bar.</td></tr>
 <tr><td>TRACK LAUNCH</td><td><kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Pattern page down / up by 16 rows.</td></tr>
 <tr><td>TRACK LAUNCH</td><td><kbd>SCL</kbd> / <kbd>PLAY</kbd> / <kbd>HOME</kbd></td><td>Back to SONG / start or stop the song / overview.</td></tr>
-<tr><td>DX7 track</td><td><kbd>EDIT</kbd></td><td>DX7 QUICK EDIT: PRESETS voice, PAGE bank A to D, K1 to K4 ALGORITHM, FEEDBACK, TRANSPOSE, LEVEL.</td></tr>
+<tr><td>DX7 track</td><td><kbd>EDIT</kbd></td><td>DX7 QUICK EDIT: K7 voice, K6 bank A to D, K1 to K4 ALGORITHM, FEEDBACK, TRANSPOSE, LEVEL.</td></tr>
 <tr><td>Workbench, Play &amp; edit</td><td>Song mode / Track launch</td><td>Open page 19 / page 20 in the browser simulator.</td></tr>
 <tr><td>Workbench, Projects &amp; sounds</td><td>Connect project library</td><td>Then Song mode, Import MIDI file, Rig setup, Bluetooth settings.</td></tr>
 <tr><td>Workbench, Device update</td><td>Connect device, Start update</td><td>Install the firmware. Version and build ID on the tab.</td></tr>
@@ -651,44 +652,44 @@ main{max-width:1440px}
 <article id="manual-start" class="manual-chapter" tabindex="-1"><h3>13 · 三分钟上手（合成器）</h3>
 <p>网页顶部和实机开机画面显示版本；HOME 显示 KEY 或 PAD 哪个是当前的演奏焦点。开机动画约 1 秒，按键或旋钮可跳过；开机不会自动播放。</p>
 <p>Classic Tabby 有 <strong>8 条轨道、5 种音源、16 个用户项目槽</strong>。每轨支持 16、32、48 或 64 步；常用操作使用单键，完整细调放在长按菜单和网页里。</p>
-<ol><li><strong>准备试听。</strong>实机把 MASTER 放在适中的位置；网页点琴键或播放即可发声，无需额外开关。</li><li><strong>先听一个预设。</strong>在 HOME 总览直接转 PRESETS 切换整套预设，按 PLAY 播放。也可按 HOME 打开列表，转 PRESETS／SELECT 直接载入，PLAY 载入播放。SAVE 打开项目保存，打击垫 1–16 也能直接选对应预设。</li><li><strong>改声音。</strong>回总览后 SELECT 选轨；DX7 轨短按 EDIT 进入快捷页，转 PRESETS 换音色，PAGE 换 A–D 音色组，K1–K4 调算法／反馈／移调／音量，再按 EDIT 返回。其他音源的音色在网页工作台编辑。想换音源，在总览转 PAGE 或 K2，SAVE 应用。</li><li><strong>改节奏。</strong>按 SEQ，基础页 K3 选音符或鼓声部，打击垫开关步；PRESETS 选步，OCT−／OCT+ 翻页。PAGE 翻底部参数页，细节和节奏直接可调。</li><li><strong>调平衡。</strong>按 MIX 进入混音，打击垫 1–8 静音、9–16 独奏；SELECT 选轨，K1–K4 调四轨音量。再按 MIX 或 HOME 返回。</li><li><strong>保存。</strong>按 SAVE，SELECT 选 USER 槽，再按 SAVE 保存；覆盖其他已有槽会提示确认，成功后自动返回。</li></ol>
-<p class="manual-note">网页顶部“保存到设备”可直接选槽保存；“存到此浏览器”只存本机浏览器；“导出项目文件”生成电脑备份。实机 SAVE 保存到设备槽。</p></article>
+<ol><li><strong>准备试听。</strong>实机把 K8 放在适中的位置；网页点琴键或播放即可发声，无需额外开关。</li><li><strong>先听一个预设。</strong>在 HOME 总览直接转 K7 切换整套预设，按 PLAY 播放。也可按 HOME 打开列表，转 K7／K5 直接载入，PLAY 载入播放。左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开项目保存，打击垫 1–16 也能直接选对应预设。</li><li><strong>改声音。</strong>回总览后 K5 选轨；DX7 轨短按 EDIT 进入快捷页，转 K7 换音色，K6 换 A–D 音色组，K1–K4 调算法／反馈／移调／音量，再按 EDIT 返回。其他音源的音色在网页工作台编辑。想换音源，在总览转 K6 或 K2，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用。</li><li><strong>改节奏。</strong>按 SEQ，基础页 K3 选音符或鼓声部，打击垫开关步；K7 选步，OCT−／OCT+ 翻页。K6 翻底部参数页，细节和节奏直接可调。</li><li><strong>调平衡。</strong>按 MIX 进入混音，打击垫 1–8 静音、9–16 独奏；K5 选轨，K1–K4 调四轨音量。再按 MIX 或 HOME 返回。</li><li><strong>保存。</strong>按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后），K5 选 USER 槽，再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存；覆盖其他已有槽会提示确认，成功后自动返回。</li></ol>
+<p class="manual-note">网页顶部“保存到设备”可直接选槽保存；“存到此浏览器”只存本机浏览器；“导出项目文件”生成电脑备份。实机左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存到设备槽。</p></article>
 <article id="manual-panel" class="manual-chapter" tabindex="-1"><h3>14 · 面板与快捷键</h3>
 <div class="manual-table"><table><thead><tr><th scope="col">操作</th><th scope="col">用途</th></tr></thead><tbody>
 <tr><td>HOME</td><td>从编辑页回八轨总览；已经在总览时打开预设，再按取消。</td></tr>
-<tr><td>SELECT</td><td>总览、DX7 快捷页、SYNC / MIDI、MIDI TRACK 和混音页选轨；菜单选项目；SONG 页选歌曲。</td></tr>
-<tr><td>PRESETS</td><td>总览直接切换整套工程预设；DX7 快捷页选当前轨音色；预设列表选工程；SEQ 选步；SAVE 页选存档槽；SONG 页选歌曲。</td></tr>
-<tr><td>PAGE</td><td>总览选择合成引擎，SAVE 应用、HOME 取消；SEQ／ARP／FX 翻参数页；DX7 快捷页切换 A–D 音色组。</td></tr>
+<tr><td>K5</td><td>总览、DX7 快捷页、SYNC / MIDI、MIDI TRACK 和混音页选轨；菜单选项目；SONG 页选歌曲。</td></tr>
+<tr><td>K7</td><td>总览直接切换整套工程预设；DX7 快捷页选当前轨音色；预设列表选工程；SEQ 选步；保存页选存档槽；SONG 页选歌曲。</td></tr>
+<tr><td>K6</td><td>总览选择合成引擎，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用、HOME 取消；SEQ／ARP／FX 翻参数页；DX7 快捷页切换 A–D 音色组。</td></tr>
 <tr><td>K1 / K2 / K3 / K4</td><td>总览：音量／音源／步位置／速度。SEQ 基础页：音量／步位置／音高或鼓声部／速度。其他页看屏幕底部标签。</td></tr>
-<tr><td>EDIT 短按／长按</td><td>DX7 轨短按进入或退出快捷页（PRESETS 选音色，PAGE 换音色组，K1–K4 调算法／反馈／移调／音量）。其他音源按 EDIT 时屏幕提示 VOICE EDIT MOVED TO WORKBENCH，音色在网页工作台编辑。</td></tr>
+<tr><td>EDIT 短按／长按</td><td>DX7 轨短按进入或退出快捷页（K7 选音色，K6 换音色组，K1–K4 调算法／反馈／移调／音量）。其他音源按 EDIT 时屏幕提示 VOICE EDIT MOVED TO WORKBENCH，音色在网页工作台编辑。</td></tr>
 <tr><td>SEQ 短按／长按</td><td>在任何页面短按打开 SYNC / MIDI 页；SHIFT + SEQ 打开 MIDI TRACK；长按约 0.6 秒打开 ACTIONS 菜单；HOME + SEQ 拍击速度。</td></tr>
 <tr><td>MIX</td><td>单按进入／退出混音。打击垫 1–8 静音、9–16 独奏，无需一直按住 MIX。</td></tr>
 <tr><td>PLAY / REC</td><td>播放／暂停／续播。本版本 REC 不录音（屏幕提示 NO REC IN THIS VERSION）。预设页的 PLAY 为载入并播放，切换预设不弹确认。</td></tr>
-<tr><td>SAVE</td><td>打开保存页，再按保存；菜单中用于执行／确认。HOME 取消。</td></tr>
+<tr><td>左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）</td><td>打开保存页，再按保存；菜单中用于执行／确认。HOME 取消。</td></tr>
 <tr><td>OCT− / OCT+</td><td>演奏时上下移调八度；SONG 与 TRACK LAUNCH 页翻打击垫页。</td></tr>
 <tr><td>ENV / SHIFT + ENV / FX / SCL</td><td>FX 按轨调混响和延迟。SCL 在 SONG 与 TRACK LAUNCH 页之间切换；ENV 让所选轨回到歌曲，SHIFT + ENV 让全部轨道回到歌曲。在其他页面，SCL、ENV 和 SHIFT + ENV 只提示音色编辑已移至网页工作台。</td></tr>
-<tr><td>ARP</td><td>短按开关当前轨琶音／鼓连奏；长按约 0.6 秒打开参数页。SELECT 选轨，PAGE 翻页：分频／方向／音域／门长，Swing／Hold。</td></tr>
+<tr><td>ARP</td><td>短按开关当前轨琶音／鼓连奏；长按约 0.6 秒打开参数页。K5 选轨，K6 翻页：分频／方向／音域／门长，Swing／Hold。</td></tr>
 </tbody></table></div>
-<p>37 个力度琴键始终用于演奏。短按 PAD / STEP 切换 KEY／PAD 编辑焦点（本版本没有 Pad 步进模式）；菜单中打击垫用于选择。8 个编码器依次为 K1–K4、SELECT、PAGE、PRESET、MASTER。4 个推子控制轨道音量，FADER BANK 在 1–4／5–8 轨之间切换，推子经过屏幕当前值后才接管。BT 键提示蓝牙设置已移至网页工作台，SHIFT + HOME / SRC 直达音源页。弯音轮、调制轮和延音踏板跟随 KEY；Pad 触后跟随 PAD。</p>
+<p>37 个力度琴键始终用于演奏。短按 PAD / STEP 切换 KEY／PAD 编辑焦点（本版本没有 Pad 步进模式）；菜单中打击垫用于选择。8 个编码器从左起依次为 K1–K8（固件把 K5 叫 SELECT、K6 叫 PAGE、K7 叫 PRESETS、K8 叫 MASTER）。4 个推子控制轨道音量，FADER BANK 在 1–4／5–8 轨之间切换，推子经过屏幕当前值后才接管。BT 键提示蓝牙设置已移至网页工作台，SHIFT + HOME / SRC 直达音源页。弯音轮、调制轮和延音踏板跟随 KEY；Pad 触后跟随 PAD。</p>
 <p>总览的 K4 设置速度（BPM 只在这里设置）。本版本机身没有录音和步进编辑；歌曲在网页工作台编写。</p>
 <p>同一轨的静音与独奏互斥：开启独奏会取消该轨静音，开启静音会取消该轨独奏；其他轨保持原状态。</p>
 <h4>网页操作</h4><p>选择预设后点“播放”试听。“读取与保存”管理设备读取和浏览器存档，“文件与 MIDI”导入、导出项目和音色。</p><p>常用编辑按钮直接打开音色、SYNC / MIDI、混音和效果；其余功能在“更多编辑”。旋钮可拖动或滚轮调节，LCD 数值可点击编辑。电脑键盘 Z、S、X、D…演奏，空格播放，Esc 停音；输入文字和操作菜单时不会演奏。</p>
-<p>上排功能键在所有页面都有效：FX、EDIT（DX7 轨）、MIX、SEQ 可直接切页；SCL、ENV、LFO 只在歌曲页有作用（见第 05 章）；ARP 短按开关、长按调参数，PLAY 控制播放。SAVE 打开项目保存页，或执行屏幕内的确认；OCT−／OCT+ 调八度。离开确认页不会执行待确认操作。</p>
+<p>上排功能键在所有页面都有效：FX、EDIT（DX7 轨）、MIX、SEQ 可直接切页；SCL、ENV、LFO 只在歌曲页有作用（见第 05 章）；ARP 短按开关、长按调参数，PLAY 控制播放。左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开项目保存页，或执行屏幕内的确认；OCT−／OCT+ 调八度。离开确认页不会执行待确认操作。</p>
 <h4>LCD 数值直接编辑</h4><p>把鼠标放在 LCD 上的数值，出现高亮即可滚轮调节；每次按参数最小步长变化，不随滚动速度加速。也可点击打开大号数值框，用滚轮、＋／−或方向键细调，Esc 关闭。支持底部参数、顶部 BPM、总览各轨音量、DX7 快捷页的参数行和效果参数行。混音页也可点静音／独奏格子设置。状态、电平和当前引擎不支持的参数只显示；外部 MIDI 时钟下 BPM 由外部控制。切换轨道或参数页会关闭旧编辑框，避免改错参数。总览调其他轨的小音量数字不会改变当前选轨。</p>
 <p>MIX 短按（小于 0.6 秒）进入或退出混音；按住 0.6 秒可临时查看混音，松开回原页。MIX、EDIT、SEQ、ARP 的长按过程中，屏幕顶部显示进度条。</p>
-<p>SHIFT + Pad 1–8 直选轨道，SHIFT + Pad 9–16 切换对应轨道静音；上半区高亮当前轨，下半区橙色表示静音。松开 SHIFT 恢复原来的打击垫功能。</p><p>SHIFT + SEQ 直达 MIDI TRACK：K1 IN CH 选输入通道，K2 OUT CH 选输出通道，K3 SEQ 选 LOCAL／BOTH／MIDI，K4 OUT PORT 选 ALL／OFF。输入、输出通道独立；多个轨道可共用输入通道。</p><p>SHIFT + HOME 音源页的 K2 TRACK 即时选择 PROJECT／LIVE／OFF：PROJECT 跟随项目，LIVE 在换项目时保留音色和按住的音符，OFF 释放音源内存。原来的 NORMAL／PLAY 设置分别对应 PROJECT／LIVE。LIVE 音色请单独导出；项目保存的是原有编曲。模式与输入通道自动记忆；修改前请先停音。K1 仍只预览音源，SAVE 应用音源，HOME 返回。</p><h4>组合键</h4><p>HOME＋PLAY 紧急停音回起点；HOME＋SAVE 撤销／重做；SEQ＋EDIT 打开更多菜单。都可以从长按 SEQ 的菜单完成对应操作。网页需要锁住按键时可 Shift 点击或右击，再点释放；日常操作无需使用。</p></article>
+<p>SHIFT + Pad 1–8 直选轨道，SHIFT + Pad 9–16 切换对应轨道静音；上半区高亮当前轨，下半区橙色表示静音。松开 SHIFT 恢复原来的打击垫功能。</p><p>SHIFT + SEQ 直达 MIDI TRACK：K1 IN CH 选输入通道，K2 OUT CH 选输出通道，K3 SEQ 选 LOCAL／BOTH／MIDI，K4 OUT PORT 选 ALL／OFF。输入、输出通道独立；多个轨道可共用输入通道。</p><p>SHIFT + HOME 音源页的 K2 TRACK 即时选择 PROJECT／LIVE／OFF：PROJECT 跟随项目，LIVE 在换项目时保留音色和按住的音符，OFF 释放音源内存。原来的 NORMAL／PLAY 设置分别对应 PROJECT／LIVE。LIVE 音色请单独导出；项目保存的是原有编曲。模式与输入通道自动记忆；修改前请先停音。K1 仍只预览音源，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用音源，HOME 返回。</p><h4>组合键</h4><p>HOME＋PLAY 紧急停音回起点；HOME＋左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）撤销／重做；SEQ＋EDIT 打开更多菜单。都可以从长按 SEQ 的菜单完成对应操作。网页需要锁住按键时可 Shift 点击或右击，再点释放；日常操作无需使用。</p></article>
 <article id="manual-sequence" class="manual-chapter" tabindex="-1"><h3>15 · 同步与 MIDI</h3>
 <p>内置 128 个 DX7 格式预置音色，分为 A–D 四组，每组 32 个。网页工作台可把标准 DX7 单音色或 32 音色 SysEx 导入某一轨，不支持扩展参数。机身不再有 DX7 用户音色库。</p>
-<p>在任何页面按 SEQ 打开 SYNC / MIDI 页：K1 CLOCK 选 INT／MIDI，K2 CLK IN 选时钟来源（AUTO、USB、BLE、DIN），K3 SWING，K4 SEQ OUT 选 OFF／ON／CLOCK，PRESETS 开关 KEY OUT。速度只在 HOME 的 K4 设置；外部 MIDI 时钟下速度由外部设备决定。长按 SEQ 打开 ACTIONS。</p>
+<p>在任何页面按 SEQ 打开 SYNC / MIDI 页：K1 CLOCK 选 INT／MIDI，K2 CLK IN 选时钟来源（AUTO、USB、BLE、DIN），K3 SWING，K4 SEQ OUT 选 OFF／ON／CLOCK，K7 开关 KEY OUT。速度只在 HOME 的 K4 设置；外部 MIDI 时钟下速度由外部设备决定。长按 SEQ 打开 ACTIONS。</p>
 <p>切换时钟会停止播放；MIDI 模式需外部 Start／Continue 和 Clock，等待时屏幕提示 WAIT MIDI CLOCK。外部 BPM 只读。歌曲模式需要 INT 时钟。</p>
-<p>首次使用时，8 个轨道的 SEQ 默认 BOTH，KEY OUT 默认 ON，同时启用 ALL 和 SEQ OUT ON；已保存的输出模式与 KEY OUT 选择会保留。MIDI TRACK 页（SHIFT + SEQ）：K1 IN CH 输入通道，K2 OUT CH 发送通道，K3 SEQ 选 LOCAL／BOTH／MIDI，K4 OUT PORT 选 ALL／OFF。SYNC / MIDI 页：K4 SEQ OUT 选 OFF（关闭音序音符和主时钟）／ON（音序音符及内部时钟／启停）／CLOCK（仅内部时钟／启停），PRESETS 开关 KEY OUT。SEQ 模式与 SEQ OUT 不影响 ARP；ARP 固定 BOTH（内部发声＋MIDI 输出），按该轨 OUT CH 和公共 OUT PORT 发送。切换 SEQ 设置不打断 ARP，开关 ARP 也不释放 SEQ 音符。ARP 第二页仅保留 SWING、HOLD 和 OUT CH，K3 无功能。只发时钟时，请关闭 KEY OUT 和各轨 ARP。USB-C 分轨输出时逐轨设置 OUT CH，启用 BOTH 或 MIDI、ALL 及 SEQ OUT ON；只改 IN CH 不会改变输出通道。升级后本地演奏始终可用，Thru 关闭；旧端口组合只要有输出就转为 ALL，OFF 保留。偏好独立于项目；网页仅预览，实机请通过机身设置。</p>
-<h4>琶音：速度、方向、Swing 与 Hold</h4><p>短按 ARP 开启后按住音符；长按 ARP 打开参数。PAGE 翻两页：第一页 K1 为 1/4、1/8、1/16、1/32 分频，K2 方向，K3 为 1–4 个八度，K4 为 25%–100% 门长；第二页 K1 为 0%–50% Swing，K2 开关 Hold。Hold 保持松手后的和弦，全部松手后弹新和弦即可替换；关闭 Hold、停止或紧急停音会释放锁住的音符。SELECT 选轨，各轨参数独立。HOME／SEQ 基础页 K4 调 BPM；外部时钟需 Start／Continue 和 Clock，Swing 按 24 PPQN 的精度变化。</p><p>808 支持分频、方向、Swing 和 Hold；音域与门长显示“--”，不移调鼓声部。ARP 开关与六项参数随项目保存，按住或 Hold 锁住的音符不保存。</p>
+<p>首次使用时，8 个轨道的 SEQ 默认 BOTH，KEY OUT 默认 ON，同时启用 ALL 和 SEQ OUT ON；已保存的输出模式与 KEY OUT 选择会保留。MIDI TRACK 页（SHIFT + SEQ）：K1 IN CH 输入通道，K2 OUT CH 发送通道，K3 SEQ 选 LOCAL／BOTH／MIDI，K4 OUT PORT 选 ALL／OFF。SYNC / MIDI 页：K4 SEQ OUT 选 OFF（关闭音序音符和主时钟）／ON（音序音符及内部时钟／启停）／CLOCK（仅内部时钟／启停），K7 开关 KEY OUT。SEQ 模式与 SEQ OUT 不影响 ARP；ARP 固定 BOTH（内部发声＋MIDI 输出），按该轨 OUT CH 和公共 OUT PORT 发送。切换 SEQ 设置不打断 ARP，开关 ARP 也不释放 SEQ 音符。ARP 第二页仅保留 SWING、HOLD 和 OUT CH，K3 无功能。只发时钟时，请关闭 KEY OUT 和各轨 ARP。USB-C 分轨输出时逐轨设置 OUT CH，启用 BOTH 或 MIDI、ALL 及 SEQ OUT ON；只改 IN CH 不会改变输出通道。升级后本地演奏始终可用，Thru 关闭；旧端口组合只要有输出就转为 ALL，OFF 保留。偏好独立于项目；网页仅预览，实机请通过机身设置。</p>
+<h4>琶音：速度、方向、Swing 与 Hold</h4><p>短按 ARP 开启后按住音符；长按 ARP 打开参数。K6 翻两页：第一页 K1 为 1/4、1/8、1/16、1/32 分频，K2 方向，K3 为 1–4 个八度，K4 为 25%–100% 门长；第二页 K1 为 0%–50% Swing，K2 开关 Hold。Hold 保持松手后的和弦，全部松手后弹新和弦即可替换；关闭 Hold、停止或紧急停音会释放锁住的音符。K5 选轨，各轨参数独立。HOME／SEQ 基础页 K4 调 BPM；外部时钟需 Start／Continue 和 Clock，Swing 按 24 PPQN 的精度变化。</p><p>808 支持分频、方向、Swing 和 Hold；音域与门长显示“--”，不移调鼓声部。ARP 开关与六项参数随项目保存，按住或 Hold 锁住的音符不保存。</p>
 <h4>本版本移除的机身编辑</h4><p>tabby-v04.0 移除了机身的步进编辑：STEP DETAILS、LOCKS、RHYTHM/REC 页，REC 录音（停止时逐步录入和播放时录入）、预备拍、节拍器、Pad 步进模式，以及复制、粘贴、清空、重复步进和对应的 ACTIONS 项。项目里原有的图案仍随项目载入、保存和播放。SWING、时钟、时钟来源与输出开关移到 SYNC / MIDI 页，速度在 HOME 的 K4。节拍器与预备拍计划在之后的版本（第 5 阶段）回来。</p>
 </article>
 <article id="manual-sound" class="manual-chapter" tabindex="-1"><h3>16 · 五种音源</h3>
-<p>每条轨道都能选择任意一种音源，同类型的多条轨道也各有参数。切换音源后使用新类型的默认参数；鼓与旋律互换会清空不兼容步进，可用 HOME + SAVE 撤销。</p>
+<p>每条轨道都能选择任意一种音源，同类型的多条轨道也各有参数。切换音源后使用新类型的默认参数；鼓与旋律互换会清空不兼容步进，可用 HOME＋左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）撤销。</p>
 <div class="manual-table"><table><thead><tr><th scope="col">音源</th><th scope="col">怎样编辑</th></tr></thead><tbody>
-<tr><td>DX7 · FM</td><td>短按 EDIT 进入快捷页：PRESETS 选 1–128 音色，PAGE 切换 A–D 组，K1–K4 调算法／反馈／移调／音量。再短按返回。算子级编辑和 .syx 导入在网页工作台完成。</td></tr>
+<tr><td>DX7 · FM</td><td>短按 EDIT 进入快捷页：K7 选 1–128 音色，K6 切换 A–D 组，K1–K4 调算法／反馈／移调／音量。再短按返回。算子级编辑和 .syx 导入在网页工作台完成。</td></tr>
 <tr><td>303 · 酸性贝斯</td><td>参数在网页工作台编辑：Cutoff／Reso／EnvMod／Decay；Accent／Wave／Tune／Volume；Drive／DrvTyp／Slide／AccDec；Mono／Poly 选择单音滑音或 4 复音。Program Change 0／1 切换锯齿／方波。</td></tr>
 <tr><td>808 · 合成鼓</td><td>11 个鼓声部与 KIT 的参数在网页工作台编辑；各声部可调参数不同，KIT 调整整套鼓组。机身用琴键或打击垫试听并选中声部。</td></tr>
 <tr><td>PSG · 芯片音色</td><td>网页工作台编辑 MODE（YM／AY／NOISE／MIX）、NOISE、TUNE、RELEASE。纯方波模式下 NOISE 不改变声音。</td></tr>
@@ -696,19 +697,19 @@ main{max-width:1440px}
 </tbody></table></div>
 <h4>包络与 LFO</h4><p>机身的 ENV 与 LFO 页已随音色编辑移至网页工作台；各引擎的包络（FM 的 ADSR、303 的 EnvMod／Decay／AccDec、PSG 与 Pluck 的 Release 等）和非 FM 引擎的轨道 LFO（速度、深度、音量起伏／声像、波形）在网页里编辑，随项目与轨道音色保存。LFO 作用于整个轨道，也影响轨道效果发送。效果使用 FX。</p>
 <h4>DX7 音色名</h4><p>机身的 DX7 PATCH NAME 页已移除；音色名随网页工作台导入的 .syx 音色一起写入，并随项目保存。切换 DX7 内置音色会替换当前编辑。</p>
-<h4>轨道效果</h4><p>按 FX，SELECT 选轨；K1 混响发送、K2 延迟发送，0 即关闭该轨发送，五种音源均可用。K3 轨道音量、K4 共用效果返回量。转 PRESETS 到第二页细调：K1 混响时间、K2 延迟时间、K3 反馈、K4 返回量，由所有轨道共用。轨道发送量随项目和轨道音色保存；共用效果参数仅随项目保存。静音停止新发送，已有尾音自然衰减。</p>
+<h4>轨道效果</h4><p>按 FX，K5 选轨；K1 混响发送、K2 延迟发送，0 即关闭该轨发送，五种音源均可用。K3 轨道音量、K4 共用效果返回量。转 K7 到第二页细调：K1 混响时间、K2 延迟时间、K3 反馈、K4 返回量，由所有轨道共用。轨道发送量随项目和轨道音色保存；共用效果参数仅随项目保存。静音停止新发送，已有尾音自然衰减。</p>
 </article>
 <article id="manual-mix" class="manual-chapter" tabindex="-1"><h3>17 · 音量与混音</h3>
-<p><strong>MASTER 是总输出音量。</strong>实机旋钮控制合成器、USB 与蓝牙输入的最终输出，也影响 USB 录音。最小位置静音，切换项目沿用旋钮位置；它不随项目保存。转动时屏幕短暂显示 MASTER 百分比或 MASTER MUTED。</p><p><strong>轨道 LEVEL 是项目里的混音音量。</strong>在 HOME／SEQ 基础页用 K1 调当前轨。303 的 Volume、808 的声部 Level 和采样 Level 用于音色内部的平衡。</p>
-<ol><li>按一下 MIX 进入混音，按打击垫 1–8 切换对应轨静音。</li><li>按一下 MIX 进入混音，按打击垫 9–16 切换对应轨独奏。</li><li>混音页中，SELECT 选轨；K1–K4 调当前四轨组（1–4 或 5–8）的音量。</li></ol>
+<p><strong>K8 是总输出音量。</strong>实机旋钮控制合成器、USB 与蓝牙输入的最终输出，也影响 USB 录音。最小位置静音，切换项目沿用旋钮位置；它不随项目保存。转动时屏幕短暂显示 MASTER 百分比或 MASTER MUTED。</p><p><strong>轨道 LEVEL 是项目里的混音音量。</strong>在 HOME／SEQ 基础页用 K1 调当前轨。303 的 Volume、808 的声部 Level 和采样 Level 用于音色内部的平衡。</p>
+<ol><li>按一下 MIX 进入混音，按打击垫 1–8 切换对应轨静音。</li><li>按一下 MIX 进入混音，按打击垫 9–16 切换对应轨独奏。</li><li>混音页中，K5 选轨；K1–K4 调当前四轨组（1–4 或 5–8）的音量。</li></ol>
 <p>多个轨道可以同时独奏；同一轨的静音与独奏互斥。</p><p>网页“静音”只关闭试听，编辑与音序仍继续。要停回起点，请用 HOME＋PLAY 或“紧急停音”。</p>
 </article>
 <article id="manual-project" class="manual-chapter" tabindex="-1"><h3>18 · 保存与文件</h3>
 <p class="manual-note"><strong>工作区 ≠ 已保存项目。</strong>实机未保存的编辑只在内存中，重新开机或载入其他项目会丢失。网页与实机各有自己的存档；“保存到设备”会完成传输、写入槽位和读回校验。</p>
-<h4>预设与保存分开操作</h4><p>PROJECT 轨的音色修改随项目保存；LIVE 轨的音色修改请导出轨道音色。项目备份不包含歌曲；歌曲用“导出 .tabby”逐首备份。</p><p><strong>直接切换：</strong>在 HOME 总览转 PRESETS 即可切整套预设，屏幕显示当前工程名称；播放中切换会继续播放，停止时切换保持停止。切换直接生效，不提示保存。单轨音色在 EDIT 页用 PRESETS 选择。</p><p><strong>浏览列表：</strong>总览按 HOME 打开用户项目列表（16 个用户槽）。PRESETS／SELECT 直接载入对应编号，PLAY 载入并播放，SAVE 打开项目保存；打击垫 1–16 直接选编号并沿用之前的播放状态。空 USER 槽会提示，不替换当前项目。</p><p>切换预设会直接替换当前工作区，包括未保存的修改；想保留修改时，先按 SAVE 保存。</p><p><strong>保存：</strong>SAVE 打开保存页，SELECT／PRESETS 选 USER 槽，K1 选名称字符、K2 改字符；再按 SAVE 写入。覆盖其他已有槽须再按 SAVE 确认，成功后自动回原页面，HOME 取消。当前槽直接更新。标题星号表示未保存。</p>
-<p>顶部状态区区分浏览器试听、设备连接和未写入的网页修改。连接不会自动读取或同步；点常用区“读取设备项目”替换网页工作区，误操作可用 HOME＋SAVE 撤销。保存并读回校验一致后才显示已写入；仅存到浏览器不代表写入设备。实机旋钮修改后，请重新读取。</p><p>项目保存各轨 ARP 开关与参数。</p>
-<h4>把网页作品放入 SMK37 OPEN</h4><ol><li>用 USB 数据线连接 SMK37 OPEN；在网页完成编辑，点顶部“保存到设备”。</li><li>允许浏览器 MIDI／SysEx，选择目标槽位，点击“保存并校验”。已有槽位内容会被替换。</li><li>看到“读回校验通过”再断开设备。重启后可在 USER 列表载入对应槽；不需要另外按实机 SAVE。</li></ol>
-<p>“读取设备项目”把当前实机工作区带入仿真；“恢复到工作区”也不会自动覆盖设备槽。网页的 SAVE 写入浏览器本地槽，清理浏览器数据会删除这些存档，重要作品请导出。</p>
+<h4>预设与保存分开操作</h4><p>PROJECT 轨的音色修改随项目保存；LIVE 轨的音色修改请导出轨道音色。项目备份不包含歌曲；歌曲用“导出 .tabby”逐首备份。</p><p><strong>直接切换：</strong>在 HOME 总览转 K7 即可切整套预设，屏幕显示当前工程名称；播放中切换会继续播放，停止时切换保持停止。切换直接生效，不提示保存。单轨音色在 EDIT 页用 K7 选择。</p><p><strong>浏览列表：</strong>总览按 HOME 打开用户项目列表（16 个用户槽）。K7／K5 直接载入对应编号，PLAY 载入并播放，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开项目保存；打击垫 1–16 直接选编号并沿用之前的播放状态。空 USER 槽会提示，不替换当前项目。</p><p>切换预设会直接替换当前工作区，包括未保存的修改；想保留修改时，先按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存。</p><p><strong>保存：</strong>左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开保存页，K5／K7 选 USER 槽，K1 选名称字符、K2 改字符；再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）写入。覆盖其他已有槽须再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）确认，成功后自动回原页面，HOME 取消。当前槽直接更新。标题星号表示未保存。</p>
+<p>顶部状态区区分浏览器试听、设备连接和未写入的网页修改。连接不会自动读取或同步；点常用区“读取设备项目”替换网页工作区，误操作可用 HOME＋左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）撤销。保存并读回校验一致后才显示已写入；仅存到浏览器不代表写入设备。实机旋钮修改后，请重新读取。</p><p>项目保存各轨 ARP 开关与参数。</p>
+<h4>把网页作品放入 SMK37 OPEN</h4><ol><li>用 USB 数据线连接 SMK37 OPEN；在网页完成编辑，点顶部“保存到设备”。</li><li>允许浏览器 MIDI／SysEx，选择目标槽位，点击“保存并校验”。已有槽位内容会被替换。</li><li>看到“读回校验通过”再断开设备。重启后可在 USER 列表载入对应槽；不需要另外按实机左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）。</li></ol>
+<p>“读取设备项目”把当前实机工作区带入仿真；“恢复到工作区”也不会自动覆盖设备槽。网页面板的左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）写入浏览器本地槽，清理浏览器数据会删除这些存档，重要作品请导出。</p>
 <div class="manual-table"><table><thead><tr><th scope="col">文件</th><th scope="col">包含什么</th></tr></thead><tbody><tr><td>.fm1</td><td>完整八轨项目：音源、参数、轨道音量、循环长度、步进等；不含歌曲。</td></tr><tr><td>.fm1t</td><td>一条轨道的音源类型、音色参数和音量；不携带步进。支持全部六种音源。</td></tr><tr><td>.syx</td><td>DX7 标准音色，支持单音色和 32 音色库。设备目标轨须设为 DX7。</td></tr><tr><td>.tabby</td><td>一首歌曲：歌曲记录与全部块，可带该歌曲自己的设备配置副本。见第 11 章。</td></tr></tbody></table></div>
 <p>项目库列表读取失败时，载入、保存和导入按钮保持禁用；点击“刷新列表”重试。只有完整读取成功后才开放操作，重试会保留有效的选中槽位。</p></article>
 <article id="manual-connect" class="manual-chapter" tabindex="-1"><h3>19 · MIDI、蓝牙与时钟</h3>
@@ -735,13 +736,13 @@ main{max-width:1440px}
 <p>正常完成的同布局更新会保留有效项目槽和歌曲存储；刷写前仍请分别备份工程、音色和歌曲。设备重启后，未保存的内存编辑不会自动恢复。固件更新也不会自动把网页仿真中的项目传到设备。</p><p>若更新中断或设备停在升级界面，保留<strong>同一版本的这张网页</strong>，检查连接后重新连接并按提示继续。从其他固件迁移时，开启“强制烧录”，重新连接并确认兼容风险。固件不支持 USB-MIDI 升级协议时，请使用该版本配套的恢复工具。跨固件迁移可能清除项目和采样，务必先备份。</p>
 <p>正常连接已识别其他固件（相同型号的原有固件）时，点击 启用强制烧录并重新连接。这一步只开启模式并重新连接，不会写入固件。页面会说明接下来缺少哪一步；确认已备份后，再点 强制烧录 并确认兼容风险才会开始。也可点击强制烧录勾选行的任意位置开启。设备仍需支持兼容的 USB-MIDI 升级协议。</p><p>拔插 USB 后重新点击连接即可；页面会清除旧设备信息。烧录与项目库切换时按提示重新连接。</p><p>连接失败时，展开“连接详情”查看本次浏览器检测到的 MIDI IN／OUT。未发现端口、端口无法配对、设备未回复型号是不同的问题。先关闭其他 MIDI 软件和更新网页，再重新开机、插拔 USB 并连接；强制烧录不能跳过设备握手。</p></article>
 <article id="manual-help" class="manual-chapter" tabindex="-1"><h3>21 · 常见问题</h3>
-<h4>没有声音，或 MASTER 看起来没有变化</h4><p>网页检查静音按钮、输出电平和系统音量。实机检查 MASTER、轨道 LEVEL、静音／独奏和输出连接；MASTER 最小位置静音。</p>
+<h4>没有声音，或 K8 看起来没有变化</h4><p>网页检查静音按钮、输出电平和系统音量。实机检查 K8、轨道 LEVEL、静音／独奏和输出连接；K8 最小位置静音。</p>
 <h4>PLAY 按了不走</h4><p>按 SEQ 打开 SYNC / MIDI 页，检查 K1 CLOCK 是 INT 还是 MIDI；没有外部时钟时切回 INT。若播放走动但没声音，确认当前轨未静音且音量不为零。</p>
-<h4>旋钮功能与预期不同</h4><p>先看当前页面和屏幕底部名称。PRESETS 在总览切整套预设，在 EDIT 选单轨音色或鼓声部，在 SEQ 选步；K1–K4 随底部参数页改变。</p>
-<h4>改好后重启丢了，或网页与实机不一致</h4><p>工作区编辑需要保存到 USER 槽。网页面板 SAVE 只保存浏览器本地内容；顶部“保存到设备”完成后，设备槽位才有该项目。</p>
+<h4>旋钮功能与预期不同</h4><p>先看当前页面和屏幕底部名称。K7 在总览切整套预设，在 EDIT 选单轨音色或鼓声部，在 SEQ 选步；K1–K4 随底部参数页改变。</p>
+<h4>改好后重启丢了，或网页与实机不一致</h4><p>工作区编辑需要保存到 USER 槽。网页面板的左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）只保存浏览器本地内容；顶部“保存到设备”完成后，设备槽位才有该项目。</p>
 <h4>挂音、组合键没松开</h4><p>实机按 HOME＋PLAY。网页按 Esc 或“紧急停音”，并取消锁定按钮。停止演奏后再关闭其他 MIDI 输入来源。</p>
 <h4>网页无法连接或按钮不可用</h4><p>已识别设备时，切换强制烧录会自动重新连接，不会自动写入。等待连接完成，勾选备份确认，再点击强制烧录并确认兼容警告。尚未连接时，请先点击连接设备。</p><p>用电脑 Chrome／Edge 打开网页链接或完整 HTML，避免使用不运行脚本的附件预览。检查 MIDI／SysEx 权限、USB 数据线和设备连接；关闭占用端口的软件。若浏览器提示安全上下文问题，请从 localhost 或 HTTPS 打开页面。</p>
-<p>首次用播放按钮、面板 PLAY 或空格播放时，会先开启声音。开启失败会保持停止，处理浏览器声音提示后可再次播放。声音开启过程中点“紧急停音”或切换面板页，会取消等待中的播放。</p><p>Tap Tempo：在 FX 的 DELAY 页直接连按 SEQ，其他页面按住 HOME 连按 SEQ，或点击网页 TAP；连续两拍起生效，最多平均四个间隔，范围 30–300 BPM。FX 用 PRESETS 翻到 DELAY：K1 开关 SYNC，K2 调分频或毫秒，K3 调内部 BPM，K4 调反馈。新建工程默认同步八分音符；关闭 SYNC 后为固定时间 FREE，约 30–2040 毫秒。切换模式选择最接近的时间。T 为三连音，D 为附点；同步延迟跟随内部或外部 MIDI BPM，时钟丢失时保持最后间隔。旧工程保留原来的手动延迟；使用同步分频或扩展固定时间的工程需要新版固件。</p></article>
+<p>首次用播放按钮、面板 PLAY 或空格播放时，会先开启声音。开启失败会保持停止，处理浏览器声音提示后可再次播放。声音开启过程中点“紧急停音”或切换面板页，会取消等待中的播放。</p><p>Tap Tempo：在 FX 的 DELAY 页直接连按 SEQ，其他页面按住 HOME 连按 SEQ，或点击网页 TAP；连续两拍起生效，最多平均四个间隔，范围 30–300 BPM。FX 用 K7 翻到 DELAY：K1 开关 SYNC，K2 调分频或毫秒，K3 调内部 BPM，K4 调反馈。新建工程默认同步八分音符；关闭 SYNC 后为固定时间 FREE，约 30–2040 毫秒。切换模式选择最接近的时间。T 为三连音，D 为附点；同步延迟跟随内部或外部 MIDI BPM，时钟丢失时保持最后间隔。旧工程保留原来的手动延迟；使用同步分频或扩展固定时间的工程需要新版固件。</p></article>
 </div></div>
 </section>
 <dialog id="about-dialog" class="save-dialog about-dialog" aria-labelledby="about-title"><h2 id="about-title">M-VAVE SMK37 OPEN</h2><p>© 2026 M-VAVE。APP 采用 GPLv3＋SDK 链接例外，可依许可修改和再分发。除法律规定或另有书面约定外，不提供担保。SDK 与第三方条款见下方声明。</p><p><a href="/*FM1_SOURCE_URL*/" target="_blank" rel="noopener noreferrer">源码与 SDK</a> · <a href="https://forum.m-vave.com" target="_blank" rel="noopener noreferrer">官方论坛</a></p><details><summary>版权与许可声明</summary><pre>/*FM1_NOTICES*/</pre></details><form method="dialog"><button>关闭</button></form></dialog>
@@ -1389,7 +1390,7 @@ main{max-width:1440px}
     if(!library||!library.songStorage)return;
     const s=await library.songStatus();box.hidden=s.state!==2;
     $('song-erase-old').disabled=!(library.tabbyFlags&2);
-    if(s.state===2&&!(library.tabbyFlags&2))songMessage('Song storage holds OLD DATA. This firmware cannot erase it from the web page: on the device, hold SEQ for ACTIONS, choose ERASE OLD DATA, press SAVE, then SAVE again to confirm.');
+    if(s.state===2&&!(library.tabbyFlags&2))songMessage('Song storage holds OLD DATA. This firmware cannot erase it from the web page: on the device, hold SEQ for ACTIONS, choose ERASE OLD DATA, press the 4th button in the left group (after SHIFT, FADER BANK, HOME), then press it again to confirm.');
   }
   $('song-erase-old').addEventListener('click',songAct(async()=>{
     if(!library)throw Error('请先连接项目库');

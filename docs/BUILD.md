@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.55
+Version: 0.56
 Revision log:
+- v0.56, 2026-11-10 (Task 13 Step 4): 27.4, the panel wording (knobs by number, the firmware's SAVE
+  button by position), SPEC 17.4's table, docs/releases/INSTALL.template.txt.
 - v0.55, 2026-11-10 (Task 13 Step 3): 27.3, DIN running status and the recommended live wiring.
 - v0.54, 2026-11-10 (Task 13 Step 2): 27.2, the option A safety check: not safe (the song tick runs in
   the audio interrupt; the request takes scheduler paths that are not interrupt-safe). A not built.
@@ -3757,4 +3759,35 @@ port choice is **not** there: OUT PORT is one global setting (ALL / OFF, `config
 midi_router.c, the same mask for every track); it is not needed for this wiring (leave the
 SMK-37's TRS out unconnected). Added to the MIDI guide as section 14 (docs/MIDI-GUIDE.template.md
 v0.2, docs/MIDI-GUIDE.md regenerated).
+
+### 27.4 Step 4: the panel wording
+
+The user's rules (2026-11-10, not asked again): knobs by their printed numbers K1-K8 from the left
+(the firmware's SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8); the button the firmware calls
+SAVE is "the 4th button in the left group (after SHIFT, FADER BANK, HOME)" until the sticker map is
+done; any other button whose printed label cannot be confirmed from the source is described by
+position. The source for button labels is the workbench's panel map (sdk/Simulator.js), which had
+SAVE wrong; SPEC 17.4 lists every control with its status (user-confirmed or panel map only).
+
+What was wrong besides the names: the SONG page and its Help said K1 selects the song; the code reads
+SELECT and PRESETS (K5 / K7). K1-K4 in the old texts were right (`encoder_map` sends physical K1-K4 to
+indices 2-5, which the screen code calls K1-K4).
+
+Changed:
+- app/screen.c v0.6: 25 LCD strings (hints, page help, the SONG page's "K5/K7 SONG", ACTIONS
+  "K1/K5 ACTION  4TH LEFT BTN DOES IT", the save and preset pages, SHIFT shortcuts "HOME/SRC SOURCE",
+  "TURN K8 UP", the ARP page's stale "SEQ 6/7" -> "SHIFT+SEQ"). On the LCD the 4th left button is
+  "4TH LEFT BTN": the full phrase does not fit a 38-character line. Page names (SAVE PROJECT,
+  PRESETS) and words (STOP TO SAVE, NO VALID SAVE) are unchanged.
+- The workbench: sdk/Update.html.in (manual, both languages, and the erase prompt), sdk/I18n.js
+  (keys and English texts in step, plus the new table cell), sdk/Simulator.js (the knob labels
+  K1-K8, the panel button "BTN 4", the per-page Help), README.md and README.zh-CN.md. Done by one
+  rule set applied to the Chinese source and its translation keys alike, so every key still matches
+  (manual-i18n passes; the simulator's Chinese strings keep 123 of 130 with keys, as before).
+  sdk/manifest.json re-pinned (tools/linux/pin-sdk-files.py).
+- docs/releases/INSTALL.template.txt (new): the install-file template with the right names and the
+  stall steps (never force flash). INSTALL-tabby-v04.1.txt is written from it in Step 5.
+
+Not changed: docs of old releases and INSTALL-tabby-v04.0.txt (records of what was published).
+make check, lint (unchanged counts) and test-fast pass.
 

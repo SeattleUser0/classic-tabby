@@ -18,8 +18,8 @@
 
 ## SMK37 操作
 
-- **PAD / STEP** 进入／退出独立 Pad 乐器；**SHIFT + PAD / STEP** 切换步进编辑。SELECT 选择当前乐器的轨道。KEY 与 PAD 分别记忆分配，默认轨 1／通道 1 和轨 8／通道 10。SHIFT + Pads 1–8 选轨；SHIFT + Pads 9–16 切换静音。
-- **SHIFT + HOME / SRC** 打开音源选择：Pads 1–6 或 K1 选择，SAVE 应用，HOME 取消。EDIT、ENV、LFO、FX 和 OCT 跟随当前乐器。K1–K4 调整屏幕参数，PAGE 翻页，PRESETS 选择当前页面的预设、音色或步。
+- **PAD / STEP** 进入／退出独立 Pad 乐器；**SHIFT + PAD / STEP** 切换步进编辑。K5 选择当前乐器的轨道。KEY 与 PAD 分别记忆分配，默认轨 1／通道 1 和轨 8／通道 10。SHIFT + Pads 1–8 选轨；SHIFT + Pads 9–16 切换静音。
+- **SHIFT + HOME / SRC** 打开音源选择：Pads 1–6 或 K1 选择，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用，HOME 取消。EDIT、ENV、LFO、FX 和 OCT 跟随当前乐器。K1–K4 调整屏幕参数，K6 翻页，K7 选择当前页面的预设、音色或步。
 - **FADER BANK** 将推子分配到轨 1–4 或 5–8；切换组或加载项目后，经过屏幕提示的目标值才接管。弯音轮、调制轮和踏板跟随 KEY；开机前请将两轮归位。
 - **Pad 压力** 在该 Pad 音符原始通道发送通道触后，最后一个 Pad 松开时归零。DX7 用于颤音；其他音源及外接乐器按各自实现响应。网页 Pad 可向上拖动或使用支持压力的触控笔。
 - **Sampler：**槽 1–8 对应最左侧 8 个白键（C、D、E、F、G、A、B、C），不随 OCT 改变；Pad 和外部 MIDI 保持鼓音符映射。在 Sampler／808 的 ENV 和音色编辑页，弹奏有效音符会选中对应部件。

@@ -1,0 +1,45 @@
+INSTALL {TAG} ON THE SMK-37 PRO  (from the MacBook, in Chrome, SMK-37 plugged straight into the Mac)
+Template version 1.0, 2026-11-10 (Task 13 Step 4). Each release's INSTALL-<tag>.txt is written from
+this file; the control names follow docs/SPEC.md 17.4: knobs K1-K8 by their printed numbers (the
+firmware calls K5 SELECT, K6 PAGE, K7 PRESETS), and the button the firmware calls SAVE is named by
+its position: the 4th button in the left group (after SHIFT, FADER BANK, HOME). Never "SAVE".
+
+What the device runs now: {FROM_TAG} (build {FROM_BUILD}).
+New build: {TAG}, build number {BUILD}, loader name ota-SMK37{BUILD}.
+Its page:  https://seattleuser0.github.io/classic-tabby/            (main page)
+           https://seattleuser0.github.io/classic-tabby/builds/{TAG}/   (permanent copy)
+
+Before you start: only the SMK-37 on the Mac's USB (no FM-1, no AUDIO4c); close other MIDI
+software and other workbench tabs; the device powered and idle (nothing playing).
+
+STEP 1  BACKUP  ({BACKUP_NOTE})
+
+STEP 2  INSTALL FROM THE MAIN PAGE
+  1. Open the main page. Device update tab. Check: Version {TAG}, build number {BUILD}.
+     If the version is not {TAG}, reload the page (Shift-reload) or use the builds/{TAG}/ page.
+  2. Connect device. The identity line must read SMK-37 Pro_8000001. Anything else: stop.
+     If the page says the device did not answer: power-cycle the SMK-37, close other MIDI software
+     and other update tabs, click Connect device again. Never tick Force flash for this.
+  3. Start update. Keep the tab open and the device powered and plugged in. The page goes through:
+     preparing the update loader, waiting for the device to reconnect, writing firmware (progress
+     bar), restart and verify, done. About one to two minutes.
+
+STEP 3  CHECK
+  Boot screen: SMK37 / OFFICIAL OPEN / {TAG}. Hold SEQ for about 0.6 s to open ACTIONS; the storage
+  lines read USER 471040 and SONG READY. Your projects and songs are still there.
+
+IF THE INSTALL STALLS (progress stops for more than two minutes, or the page says the device
+stopped requesting data or timed out waiting for the device)
+  1. Do not click Start update again in that tab. Close the tab.
+  2. Power-cycle the SMK-37 (switch off, wait five seconds, switch on; keep the USB cable).
+  3. Open the page the loader asks for: the main page or builds/{TAG}/. If you open another build's
+     page, it tells you which build the loader waits for and links to its page; open that one.
+  4. Connect device, Start update, confirm the model SMK-37 Pro when asked. The write resumes.
+  5. Never tick Force flash. Force flash is only for a migration from other firmware.
+  6. If the device shows nothing and does not appear as a USB MIDI device after the power-cycle,
+     stop and report; do not retry.
+
+ON THE DEVICE, WHERE THESE STEPS NEED IT
+  ACTIONS (hold SEQ about 0.6 s): turn K1 or K5 to choose an entry, press the 4th button in the
+  left group (after SHIFT, FADER BANK, HOME) to run it; a second press confirms an erase; HOME
+  cancels. SONG page: ACTIONS > SONG MODE, then turn K5 or K7 to choose the song, PLAY starts.

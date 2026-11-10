@@ -4,6 +4,12 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.6  2026-11-10  Task 13 Step 4: the panel wording: knobs by their printed numbers (the
+ *                     firmware's SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8; K1-K4 were right),
+ *                     the firmware's SAVE button by position ("4TH LEFT BTN" on the LCD: the 4th
+ *                     button of the left group, after SHIFT, FADER BANK, HOME; the full phrase does
+ *                     not fit a line), the SONG page's song knob (K5/K7, it said K1), SHIFT+HOME/SRC
+ *                     for sources, ARP's OUT PORT hint (SHIFT+SEQ; SEQ 6/7 is gone). SPEC 17.4.
  *   v0.5  2026-11-10  Task 13 Step 1 (option B): the LCD work keeps to the pass budget
  *                     (app/diag.h ct_pass_*): the page compose (draw) is deferred to a later pass
  *                     once the pass is over budget (at most CT_PASS_STARVE_MS * 2 late); each band
@@ -606,14 +612,14 @@ static __attribute__((noinline)) void sync_draw(const struct groove_view *v)
         dim_text(8, 89, "K2 OUT CH  SEND CHANNEL");
         dim_text(8, 103, "K3 SEQ     LOCAL / BOTH / MIDI");
         dim_text(8, 117, "K4 OUT PORT ALL / OFF");
-        dim_text(8, 137, "SELECT: TRACK  SEQ: SYNC / MIDI");
+        dim_text(8, 137, "K5: TRACK  SEQ: SYNC / MIDI");
         return;
     }
     dim_text(8, 55, "K1 CLOCK   INT / MIDI");
     dim_text(8, 69, "K2 CLK IN  AUTO USB BLE DIN");
     dim_text(8, 83, "K3 SWING");
     dim_text(8, 97, "K4 SEQ OUT OFF / ON / CLOCK");
-    plain_text(8, 115, "PRESETS KEY OUT:");
+    plain_text(8, 115, "K7 KEY OUT:");
     accent_text(116, 115, groove_midi_setting(track, 4) ? "ON" : "OFF");
     dim_text(8, 135, "BPM:");
     if (v->clock_mode && !v->tempo) color_text(40, 135, v->clock_state == GROOVE_CLOCK_LOST ? "LOST" : "WAIT", AMBER);
@@ -676,13 +682,13 @@ static __attribute__((noinline)) void project_draw(void)
     if (cache->row_cache[0] != sig) {
         cache->row_cache[0] = sig;
         erase(8, 126, 224, 26);
-        plain_text(8, 126, project_reload ? "OVERWRITE SELECTED SLOT?" : "SAVE WRITE PROJECT");
-        dim_text(8, 145, project_reload ? "SAVE CONFIRM  HOME CANCEL" : "K1 CURSOR  K2 LETTER");
+        plain_text(8, 126, project_reload ? "OVERWRITE SELECTED SLOT?" : "4TH LEFT BTN: WRITE PROJECT");
+        dim_text(8, 145, project_reload ? "4TH LEFT BTN CONFIRM  HOME CANCEL" : "K1 CURSOR  K2 LETTER");
     }
     if (cache->hint_cache != 1U) {
         cache->hint_cache = 1U;
         dim_text(8, 59, "WORKING NAME");
-        dim_text(8, 105, "SELECT / PRESETS CHOOSE SLOT");
+        dim_text(8, 105, "K5 / K7 CHOOSE SLOT");
         dim_text(8, 224, "HOME CANCEL  EDIT SOUND");
     }
     sig = (unsigned)(project_result + 16) | (project_operation << 16);
@@ -713,11 +719,11 @@ static __attribute__((noinline)) void preset_draw(void)
     number(8, 65, preset_slot + 1, 2, 2, ACCENT, BACK);
     text(38, 65, "/16", 2, DIM, BACK);
     text(8, 97, project_stored_result < 0 ? "READ ERROR" : project_stored, 2, TEXT, BACK);
-    plain_text(8, 127, "SELECT / PRESETS LOAD");
-    plain_text(8, 148, "PLAY LOAD + RUN   SAVE PROJECT");
+    plain_text(8, 127, "K5 / K7 LOAD");
+    plain_text(8, 148, "PLAY LOAD+RUN  4TH LEFT BTN SAVE");
     dim_text(8, 170, "PADS 1-16 LOAD DIRECTLY");
     color_text(8, 213, project_result == GROOVE_PROJECT_EMPTY ? "EMPTY SLOT - CHOOSE ANOTHER" :
-         project_result ? "LOAD FAILED - CURRENT KEPT" : "HOME BACK   HOME+SAVE UNDO", project_result ? AMBER : DIM);
+         project_result ? "LOAD FAILED - CURRENT KEPT" : "HOME BACK  HOME+4TH LEFT BTN UNDO", project_result ? AMBER : DIM);
 }
 static __attribute__((noinline)) void effects_draw(void)
 {
@@ -732,7 +738,7 @@ static __attribute__((noinline)) void effects_draw(void)
             small_number(44, 40, track + 1U, 1, ACCENT);
             plain_text(60, 40, source_names[frame_views[track].type]);
         }
-        dim_text(8, 64, "PAGE: TRACK / SHARED / DELAY");
+        dim_text(8, 64, "K6: TRACK / SHARED / DELAY");
     }
     static const char *const shared[4] = {"REV TIME", "DLY TIME", "FEEDBACK", "RETURN"};
     static const char *const local[4] = {"REV SEND", "DLY SEND", "TRK VOL", "ALL RET"};
@@ -853,7 +859,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         static const char *const hints[] = {"PROJECT: FOLLOWS PROJECT", "LIVE: KEEP SOUND ON PROJECT LOAD", "OFF: TURN K2 LEFT TO ENABLE"};
         dim_text(8, 198, source_preview == groove_source_type(track) ? hints[role] : "DRUM / PITCH CHANGE CLEARS STEPS");
         color_text(8, 216, source_result ? "NOT ENOUGH MEMORY - RETRY" : "K1 / PADS 1-6 CHOOSE", source_result ? AMBER : TEXT);
-        dim_text(8, 231, role == GROOVE_TRACK_OFF ? "K2 ENABLE TRACK   HOME BACK" : "SAVE APPLY SOUND   HOME BACK");
+        dim_text(8, 231, role == GROOVE_TRACK_OFF ? "K2 ENABLE TRACK   HOME BACK" : "4TH LEFT BTN APPLY  HOME BACK");
     } else if (visible == ACTIONS) {
         /* Task 11 (diagnostic and probe builds): the USER size the SDK validated and the song
          * storage state replace the clipboard line; free / reclaimable storage replaces the
@@ -875,7 +881,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             text(10, y + 5, actions[at], 1, at == action ? ACCENT : DIM, bg);
         }
         plain_text(8, 213, notice ? notice : diag_song);
-        dim_text(8, 231, action_confirm ? "SAVE CONFIRM   HOME CANCEL" : "K1 / SELECT ACTION  SAVE DO");
+        dim_text(8, 231, action_confirm ? "4TH LEFT BTN CONFIRM  HOME CANCEL" : "K1/K5 ACTION  4TH LEFT BTN DOES IT");
     } else if (visible == SONG) {
         /* Task 03 d: song mode. Row = song record row, pads queue jumps. */
         struct song_status st; song_status_read(&st);
@@ -927,7 +933,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             dim_text(8, 70, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS IN SONG" : "NO SONG HERE - UPLOAD FROM");
             dim_text(8, 88, "THE WEB WORKBENCH");
         }
-        plain_text(8, 198, notice ? notice : "K1 SONG  PADS JUMP  OCT PAD PAGE");
+        plain_text(8, 198, notice ? notice : "K5/K7 SONG  PADS JUMP  OCT PAD PAGE");
         dim_text(8, 213, "PLAY START/STOP  K4 JUMP MODE");
         dim_text(8, 231, "SCL TRACK LAUNCH   HOME BACK");
     } else if (visible == TRACK_LAUNCH) {
@@ -974,11 +980,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         text(184, 40, "T", 2, colors[track], BACK);
         number(198, 40, track + 1, 1, 2, colors[track], BACK);
         plain_text(8, 72, !groove_arp_enabled(track) ? "OFF - TAP ARP TO ENABLE" : groove_arp_setting(track, 5) ? "ON - HOLD LATCHES YOUR CHORD" : "ON - HOLD KEYS TO PLAY");
-        dim_text(8, 96, "SELECT TRACK  K1-K4 ADJUST");
+        dim_text(8, 96, "K5 TRACK  K1-K4 ADJUST");
         dim_text(8, 118, "RATE FOLLOWS BPM / MIDI CLOCK");
         dim_text(8, 140, arp_page ? "RELEASE ALL KEYS FOR A NEW CHORD" : groove_pad_count(track) ? "DRUMS: RANGE / GATE UNAVAILABLE" : "UP / DOWN / UP-DOWN / RANDOM");
-        dim_text(8, 162, "ARP BOTH - SEQ 6/7: OUT PORT");
-        accent_text(8, 180, arp_page ? "2/2 HOLD / MIDI  PAGE TURN" : "1/2 NOTES  PAGE TURN");
+        dim_text(8, 162, "ARP BOTH - SHIFT+SEQ: OUT PORT");
+        accent_text(8, 180, arp_page ? "2/2 HOLD / MIDI  K6 TURN" : "1/2 NOTES  K6 TURN");
         static const char *const rates[] = {"1/4", "1/8", "1/16", "1/32"};
         static const char *const modes[] = {"UP", "DOWN", "UP-DN", "RANDOM"};
         char range[12], gate[12];
@@ -1004,10 +1010,10 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         dim_text(28, 76, "/128");
         color_text(56, 76, frame_views[track].modified ? "*" : " ", AMBER);
         text(72, 72, name, 2, TEXT, BACK);
-        plain_text(8, 102, "PRESETS VOICE  PAGE BANK");
+        plain_text(8, 102, "K7 VOICE  K6 BANK");
         dim_text(8, 126, "VOICE EDIT: WEB WORKBENCH");
         dim_text(8, 148, "EDIT BACK");
-        dim_text(8, 170, "KEYS PLAY  SELECT TRACK");
+        dim_text(8, 170, "KEYS PLAY  K5 TRACK");
         static const char *const labels[] = {"ALGORITHM", "FEEDBACK", "TRANSPOSE", "LEVEL"};
         int values[] = {frame_patch[134] + 1, frame_patch[135], (int)frame_patch[144] - 24, frame_views[track].volume};
         for (unsigned i = 0; i < 4; ++i) { char value[12]; decimal(value, values[i], 1); knob(i, labels[i], value, colors[i]); }
@@ -1044,7 +1050,7 @@ static __attribute__((noinline)) const char *performance_hint(unsigned visible, 
     unsigned role = groove_track_role(track);
     if (visible == STEPS && seq_page == SEQ_MIDI_TRACK) return "K1 IN: RECEIVE  K2 OUT: SEND";
     if (role == GROOVE_TRACK_OFF) return "TRACK OFF - SHIFT+HOME K2 TO ENABLE";
-    if (!fm1_engine_output_level()) return "MASTER MUTED - TURN MASTER UP";
+    if (!fm1_engine_output_level()) return "MASTER MUTED - TURN K8 UP";
     if (v->muted) return "TRACK MUTED - MIX / PAD TO UNMUTE";
     /* The engine already resolves the independent NORMAL / PLAY solo groups. */
     if (!v->audible) return "OTHER TRACK SOLO - MIX TO CHECK";
@@ -1091,12 +1097,12 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
         edit_page_draw(visible);
         if (visible == FM_QUICK || visible == ARP_EDIT)
             hint_draw(state_hint ? state_hint : visible == FM_QUICK
-                ? "EDIT BACK  SELECT TRACK" : "ARP ON/OFF   HOME BACK");
+                ? "EDIT BACK  K5 TRACK" : "ARP ON/OFF   HOME BACK");
         return;
     }
     if (visible == EFFECTS) {
         effects_draw();
-        hint_draw(state_hint ? state_hint : "PAGE EFFECTS  SELECT TRACK");
+        hint_draw(state_hint ? state_hint : "K6 EFFECTS  K5 TRACK");
         return;
     }
     /* Only OVERVIEW, STEPS and MIX reach this point (Task 03 b removed the
@@ -1116,7 +1122,7 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
             cache->seq_cache = strip;
             erase(0, 184, 240, 11);
             accent_text(8, 186, seq_pages[seq_page]);
-            dim_text(150, 186, seq_page == SEQ_SYNC ? "HOLD SEQ: ACTIONS" : "SELECT: TRACK");
+            dim_text(150, 186, seq_page == SEQ_SYNC ? "HOLD SEQ: ACTIONS" : "K5: TRACK");
         }
     }
     for (unsigned col = 0; col < 4; ++col) {
@@ -1190,11 +1196,11 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
                        : v->clock_mode && v->clock_state != GROOVE_CLOCK_LOCKED
                            ? "WAIT MIDI CLOCK - SEQ SYNC: INT/MIDI"
                        : visible == OVERVIEW && (previous_buttons & BUTTON(HOME))
-                           ? "PRESETS SOURCE  EDIT PARAMETERS"
+                           ? "K7 SOURCE  EDIT PARAMETERS"
                        : visible == OVERVIEW ? routing
-                       : visible == STEPS    ? seq_page == SEQ_SYNC ? "PRESETS KEY OUT  SHIFT+SEQ MIDI TRACK" : "SEQ: SYNC / MIDI  HOME BACK"
+                       : visible == STEPS    ? seq_page == SEQ_SYNC ? "K7 KEY OUT  SHIFT+SEQ MIDI TRACK" : "SEQ: SYNC / MIDI  HOME BACK"
                        : visible == MIX      ? "PADS MUTE/SOLO  MIX / HOME BACK"
-                       : "SELECT PAGE  HOME TRACKS";
+                       : "K5 TRACK  HOME TRACKS";
     hint_draw(hint);
 }
 static void draw_page(const struct fm1_ble_status *ble)
@@ -1205,7 +1211,7 @@ static void draw_page(const struct fm1_ble_status *ble)
         paint_fill(0, 195, 240, 45, PANEL);
         text(8, 198, "SHIFT SHORTCUTS", 1, ACCENT, PANEL);
         text(8, 209, "PADS 1-8 TRACK   PADS 9-16 MUTE", 1, TEXT, PANEL);
-        text(8, 220, "HOME SOURCE  SEQ MIDI", 1, TEXT, PANEL);
+        text(8, 220, "HOME/SRC SOURCE  SEQ MIDI", 1, TEXT, PANEL);
         text(8, 231, "PAD/STEP STEP EDIT  RELEASE TO RETURN", 1, DIM, PANEL);
     }
     if (boot_active || (paint_rendering && paint_top >= 30)) return;
@@ -1660,7 +1666,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         goto controls_done;
     }
     if (page == SONG) {
-        /* Task 03 d: song mode owns PLAY here. K1 / PRESETS select the song (stopped
+        /* Task 03 d: song mode owns PLAY here. K5 / K7 (firmware SELECT / PRESETS) select the song (stopped
          * only), pads queue a row jump, OCT pages the pads, K4 toggles the jump mode. */
         play_handled = 1;
         struct song_status st; song_status_read(&st);

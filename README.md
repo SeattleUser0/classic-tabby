@@ -18,8 +18,8 @@ For M-VAVE SMK-37 Pro and SMK-37 Elite, with 37 keys, 16 pads, eight encoders an
 
 ## SMK37 controls
 
-- **PAD / STEP** enters or leaves the Pad instrument (tabby-v04.0 has no pad-step mode). SELECT chooses the focused instrument's track. KEY and PAD assignments are independent, initially track 1 / channel 1 and track 8 / channel 10. SHIFT + Pads 1–8 selects tracks; SHIFT + Pads 9–16 toggles mute.
-- **SHIFT + HOME / SRC** opens source selection: Pads 1–6 or K1 chooses, SAVE applies, HOME cancels. EDIT, ENV, LFO, FX and OCT follow the focused instrument. K1–K4 edit screen parameters; PAGE changes pages; PRESETS selects the current page's preset or voice (KEY OUT on SYNC / MIDI).
+- **PAD / STEP** enters or leaves the Pad instrument (tabby-v04.0 has no pad-step mode). K5 chooses the focused instrument's track. KEY and PAD assignments are independent, initially track 1 / channel 1 and track 8 / channel 10. SHIFT + Pads 1–8 selects tracks; SHIFT + Pads 9–16 toggles mute.
+- **SHIFT + HOME / SRC** opens source selection: Pads 1–6 or K1 chooses, the 4th button in the left group (after SHIFT, FADER BANK, HOME) applies, HOME cancels. EDIT, ENV, LFO, FX and OCT follow the focused instrument. K1–K4 edit screen parameters; K6 changes pages; K7 selects the current page's preset or voice (KEY OUT on SYNC / MIDI).
 - **FADER BANK** assigns the faders to tracks 1–4 or 5–8. Move through the displayed target to take control after switching banks or loading a project. Pitch/modulation wheels and the pedal follow KEY; return the wheels to rest before powering on.
 - **Pad pressure** sends channel aftertouch on the original Pad note channel; the final release resets it to zero. DX7 responds with vibrato. Other engines and external instruments determine their own response. Browser Pads support upward dragging or a pressure-sensitive pen.
 - **Sampler:** slots 1–8 follow the first eight white keys (C, D, E, F, G, A, B, C), unaffected by OCT. Pads and external MIDI keep their drum mapping. On Sampler/808 ENV and tone-edit pages, playing a mapped note selects its part for editing.
@@ -30,7 +30,7 @@ See the workbench **Help** tab for page controls. Browser and device storage are
 
 USB/BLE MIDI input; DIN/USB/BLE MIDI output. Pro and Elite have no DIN MIDI input. Input channels default to 1–7 for tracks 1–7 and 10 for track 8. Shared input channels layer tracks.
 
-- **SYNC / MIDI (SEQ from any page; Task 12):** K1 CLOCK (INT / MIDI), K2 CLK IN (AUTO / USB / BLE / DIN), K3 SWING, K4 SEQ OUT (OFF, ON, or CLOCK for clock/transport only), PRESETS KEY OUT (keyboard/Pad output on or off). BPM is set on HOME K4 only (HOME + SEQ taps it).
+- **SYNC / MIDI (SEQ from any page; Task 12):** K1 CLOCK (INT / MIDI), K2 CLK IN (AUTO / USB / BLE / DIN), K3 SWING, K4 SEQ OUT (OFF, ON, or CLOCK for clock/transport only), K7 KEY OUT (keyboard/Pad output on or off). BPM is set on HOME K4 only (HOME + SEQ taps it).
 - **MIDI TRACK (SHIFT + SEQ):** K1 IN CH, K2 OUT CH, K3 SEQ (LOCAL / BOTH / MIDI), K4 OUT PORT (ALL / OFF). IN CH and OUT CH are independent; assign OUT CH on each track for multitrack output.
 - SEQ settings do not control ARP: ARP always uses BOTH, following the track's OUT CH and the shared OUT PORT. For clock-only output, also turn KEY OUT off and disable ARP.
 - tabby-v04.0 has no step editing or recording on the device (STEPS 1/7, 2/7, 4/7, STEP DETAILS, RHYTHM, REC, count-in and the metronome were removed); songs come from the web workbench.
