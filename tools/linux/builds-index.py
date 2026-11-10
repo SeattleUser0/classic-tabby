@@ -60,7 +60,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-SITE_LINK = re.compile(r'<a href="([^"]+)"[^>]*>源码与 SDK</a>')       # Build-Hosted.cjs / publish-pages.py
+SITE_LINK = re.compile(r'<a href="([^"]+)"[^>]*>(?:源码与 SDK|Source \+ SDK)</a>')       # Build-Hosted.cjs / publish-pages.py; both texts (Task 14)
 PACKAGE_LINE = re.compile(r'const FM1_PACKAGE = (\{.*?\});', re.S)   # the standalone page's embedded package
 INDEX_NAME = "index.json"
 BUILDS_DIR = "builds"

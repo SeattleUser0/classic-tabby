@@ -212,8 +212,8 @@ check(plib.userBytes === 471040 && plib.songRegion === 397312, 'PROBE simulator:
 /* Task 12 A1: command 27 (Classic Tabby capability) and 28 (ERASE OLD DATA). */
 check(plib.tabbyUserBytes === 471040 && (plib.tabbyFlags & 2), 'command 27 reports USER 471040 and command 28', plib.tabbyUserBytes + ' flags ' + plib.tabbyFlags);
 check(dlib.tabbyUserBytes === 536576, 'command 27 on the old layout reports USER 536576', dlib.tabbyUserBytes);
-await refused(plib.eraseOldData(), 'ERASE OLD DATA (command 28) is refused when there is no old data', /71|无效|invalid/i);
-await refused(plib.query(28, [69, 82, 65, 83]), 'command 28 without the full confirm bytes is refused', /71|无效|invalid/i);
+await refused(plib.eraseOldData(), 'ERASE OLD DATA (command 28) is refused when there is no old data', /71|invalid/i);
+await refused(plib.query(28, [69, 82, 65, 83]), 'command 28 without the full confirm bytes is refused', /71|invalid/i);
 await plib.fullRestore(text, () => {}, { settleMs: 0 });
 settle(probe);
 const pverify = await plib.fullVerify(text);
@@ -277,12 +277,12 @@ check(mverify.pass, 'after the move the file restores and verifies', mverify.dif
   for (let i = 0; i < 200; i++) diag.sim_render();
   const playing = await rebooted.query(26);
   check(playing[5] === 1 && playing[6] === 2, 'song 3 is loaded and playing', playing[5] + ',' + playing[6]);
-  await refused(rebooted.query(26, [2]), 'COMPACT is refused while the song plays, as on the panel (Task 12 A3: code 76)', /76|正在播放|71|无效|invalid/i);
+  await refused(rebooted.query(26, [2]), 'COMPACT is refused while the song plays, as on the panel (Task 12 A3: code 76)', /76|playing|71|invalid/i);
   await rebooted.query(26, [0]);
   for (let i = 0; i < 400; i++) diag.sim_render();
   check((await rebooted.query(26))[5] === 0, 'command 26 {0} stops it');
   check((await rebooted.query(26, [2])).length === 0, 'COMPACT starts when stopped');
-  await refused(rebooted.query(26, [3]), 'ERASE OLD is refused when there is no old data', /71|无效|invalid/i);
+  await refused(rebooted.query(26, [3]), 'ERASE OLD is refused when there is no old data', /71|invalid/i);
 }
 
 /* ---- 8. Task 12 A3: every flash write is refused while the transport runs ------------------- */
@@ -296,7 +296,7 @@ check(mverify.pass, 'after the move the file restores and verifies', mverify.dif
   const slot0 = await lib.download(0);
   press(12);                                           // PLAY: the stock transport
   check(await transport() === 1, 'PLAY: command 27 reports the transport running');
-  const PLAYING = /正在播放|playing/i, CODE76 = /76|正在播放/;
+  const PLAYING = /playing/i, CODE76 = /76|playing/i;
   // the workbench refuses before sending (writeGuard) ...
   await refused(lib.saveProject(2, slot0), 'playing: project save refused by the workbench', PLAYING);
   await refused(lib.songWrite(3, song('PLAYTEST', [[1, 0, 0, 0, 0, 0, 0, 0]]), new Map([[1, W.songPayloadBuild(Array.from({ length: 64 }, () => ({ probability: 0, alt: false, notes: [] })))]])), 'playing: song upload refused by the workbench', PLAYING);
@@ -337,7 +337,7 @@ check(mverify.pass, 'after the move the file restores and verifies', mverify.dif
   check(saved.length === slot0.length, 'stopped: project save works');
   await lib.radioWrite({ on: true, audio: true, host: false });
   check(true, 'stopped: Bluetooth settings write works');
-  await refused(lib.eraseOldData(), 'stopped: ERASE OLD DATA is refused only for having no old data (71)', /71|无效|invalid/i);
+  await refused(lib.eraseOldData(), 'stopped: ERASE OLD DATA is refused only for having no old data (71)', /71|invalid/i);
   check((await lib.query(26, [2])).length === 0, 'stopped: diag COMPACT starts');
   press(0); settle(c, 3000);                           // OCT- back
 }
@@ -364,7 +364,7 @@ check(mverify.pass, 'after the move the file restores and verifies', mverify.dif
 const normal = simulator(normalPath);
 const nlib = await library(normal);
 check(nlib.settingsTransfer && nlib.diagCounters, 'NORMAL simulator: capability bits 6 and 7 set (Task 12 A4)');
-await refused(nlib.query(26), 'NORMAL: command 26 (diagnostic build only) is unknown', /71|无效|invalid/i);
+await refused(nlib.query(26), 'NORMAL: command 26 (diagnostic build only) is unknown', /71|invalid/i);
 await populate(nlib, normal);
 const nfile = JSON.stringify(await nlib.fullBackup());
 check(JSON.parse(nfile).settings.kind8 !== null, 'NORMAL backup holds the device settings (kind 8)');

@@ -47,7 +47,7 @@ def check(ok, what, detail=""):
         print("FAIL " + what + (" — " + str(detail) if detail != "" else ""))
 
 
-LINK = '<a href="%s" target="_blank" rel="noopener noreferrer">源码与 SDK</a>'
+LINK = '<a href="%s" target="_blank" rel="noopener noreferrer">Source + SDK</a>'
 
 
 def hosted_site(where, build, version, source):

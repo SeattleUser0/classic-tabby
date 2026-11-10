@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.60
+Version: 0.61
 Revision log:
+- v0.61, 2026-11-10 (Task 14, English only): 28.5, the conversion and what a future upstream merge needs.
 - v0.60, 2026-11-10 (Task 14, second pass): 28.4 settled: the restore sectors, the TRS jack, the demo samples.
 - v0.59, 2026-11-10 (Task 14): section 28, the Help audit against tabby-v04.1 (counts, the banned-phrase
   guard, stale firmware texts for the left-to-build list, open questions).
@@ -3899,8 +3900,7 @@ notes per step" was checked against app/song_storage.h and stays (SONG_BLOCK_STE
 
 ### 28.2 The guard
 
-tests/workbench/help-banned.mjs reads 4761 strings with tests/workbench/help-banned-phrases.json (52 English
-and 33 Chinese phrases, 31 allow fragments, 4 exact allows). Run against the published tabby-v04.1 sources it
+tests/workbench/help-banned.mjs reads 4761 strings with tests/workbench/help-banned-phrases.json (52 phrases, 19 allow fragments, 5 exact allows). Run against the published tabby-v04.1 sources it
 reports 263 hits; now 0. tests/workbench/manual-i18n.mjs v0.3 expects 22 chapters. Both are in
 `make workbench-test`. SPEC 17.5 has the rules.
 
@@ -3931,3 +3931,25 @@ Found while auditing; all in app/, so out of this task's scope. Check whether ea
 3. **Demo samples**: the simulator still builds the synthesized demo bank (web/synth/demo_bank.h) and its
    source list still offers SAMPLER, so the line stays, reworded to say it applies only to that source and
    that the device has no sampler. Left to decide: whether the simulator should stop offering SAMPLER.
+
+### 28.5 English only: the conversion, and future upstream merges (the user's decision, 2026-11-10; SPEC 17.7)
+
+What was done (sdk/Update.html.in, Simulator.js, WebUpdate.js, Samples.js): 840 text nodes, attributes and
+string literals that were Chinese keys of the table were replaced by their English values by script
+(tools/linux/anglicize-workbench.mjs, kept for the next merge); 92 pieces that no table entry covered
+(strings built from fragments, validation errors in WebUpdate.js, the block editor's messages, the
+bilingual loading messages) were translated by hand. The translation table (763 keys, patterns, language
+picker, `fm1-language`) was deleted: sdk/I18n.js is now a small pass-through (three functions). README.zh-CN.md and the
+language link in README.md were deleted. tests/workbench/manual-i18n.mjs became manual-structure.mjs;
+update-safety, loader-tag, update-ports and backup lost their Chinese expectations;
+recover-page.mjs keeps `机型` because the recovery page is the published (Chinese) tabby-v04.0 page.
+
+**Future merges of upstream workbench changes need the same conversion.** Upstream writes its UI in Chinese
+with a table of English values. After taking upstream's sdk/Update.html.in, Simulator.js, WebUpdate.js,
+Samples.js and I18n.js: run `node tools/linux/anglicize-workbench.mjs <upstream I18n.js>`, translate what it
+lists in anglicize-left.json by hand, put Classic Tabby's pass-through sdk/I18n.js back, remove the
+language selector, run tests/workbench/help-banned.mjs (its CJK check lists what is left) and re-pin the
+files (tools/linux/pin-sdk-files.py). Upstream's license and notice files are taken unchanged.
+
+Size of the built local preview (build/preview/index.html, `make web`): 1492495 bytes before, 1365411 after
+(127084 bytes, 8.5 percent smaller). The release page carries the same saving on top of its firmware.

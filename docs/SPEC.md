@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.31
+Version: 0.32
 Revision log:
+- v0.32, 2026-11-10 (Task 14, English only): 17.7, the workbench and the docs are English only; 17.5 no longer
+  speaks of two languages.
 - v0.31, 2026-11-10 (Task 14, second pass): 16.1 what a factory V16 restore overwrites in the v04 layout;
   17.6 the TRS jack is output only (CLK IN DIN receives nothing).
 - v0.30, 2026-11-10 (Task 14): 17.5, the Help and panel text is held to the removed-features list
@@ -375,7 +377,7 @@ The scripts are classic scripts publishing `globalThis.TabbyMidi`, `TabbyMidiSon
 Node loads the same files. No library is used (the parser is about 200 lines), so
 THIRD_PARTY.md is unchanged. In the workbench they are inlined by tools/linux/build-web.py
 (placeholder `/*FM1_IMPORT_SCRIPT*/`) and the panel is mounted in the Library tab, group
-"导入 MIDI 文件（Classic Tabby）" / "Import MIDI file (Classic Tabby)", next to the song
+"Import MIDI file (Classic Tabby)", next to the song
 editor. The panel's own strings are English in both UI languages (decision at Step 4: no
 80-string addition to the shared sdk/I18n.js; only the group title and its help line are
 translated).
@@ -763,7 +765,7 @@ Checkpoints and status:
   white a pattern, off empty; under SHIFT pads 1-8 show the eight tracks in their colours
   (bright playing or following, dim stopped or silent, flashing queued, the selected track
   brighter). Flashing follows the master clock's eighth notes while the song plays. The
-  workbench simulator has the page as shortcut 20 ("轨道启动"); `sim_pad_color(pad)` reads
+  workbench simulator has the page as shortcut 20 ("Track launch"); `sim_pad_color(pad)` reads
   a pad's colour. The scripted 32-bar performance check (tests/workbench/launch-sim.mjs:
   launches, stops, a scene jump, back to song) found one sequencer fault, fixed here: a
   track rejoining the song on a bar where the song also changes rows took the old row; it
@@ -1237,16 +1239,15 @@ The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
 ### 17.5 The Help and panel text is held to the removed-features list (Task 14, 2026-11-10)
 
 The workbench's Help (the manual tab), the simulator's panel tooltips and status lines, the device
-update help, the translation table (sdk/I18n.js), the READMEs, the MIDI guide and the install template
+update help, the READMEs, the MIDI guide and the install template
 may not name a page, mode, action, flow or control name that tabby-v04.1 does not have. The list of
-banned phrases (English and Chinese) is tests/workbench/help-banned-phrases.json; the test is
+banned phrases is tests/workbench/help-banned-phrases.json; the test is
 tests/workbench/help-banned.mjs (in `make workbench-test`). A phrase is added there whenever a feature is
 removed (16.2 is the list so far: STEP DETAILS, LOCKS, RHYTHM/REC, SYNC / LOOP, REC and its count-in and
 metronome, pad-step mode, copy / paste / clear / repeat, the sampler and its bank, "Enable force flash and
 reconnect"). A sentence that says a thing was removed is allowed by an `allow` fragment of that file, or
 sits in a region marked `data-removed-ok` (the Help chapter 00, "What changed in tabby-v04", and the
-removed-features paragraph of chapter 15). An unused translation is dead text: sdk/I18n.js keeps only
-keys that a source file contains (Task 14 deleted 290).
+removed-features paragraph of chapter 15). (The translation table that once needed this care is gone: 17.7.)
 
 What is checked against the firmware when text changes: the control names against 17.4; K1-K4 on HOME are
 K1 level, K2 engine, K4 tempo (K3 does nothing); SEQ opens SYNC / MIDI on every page and HOME + SEQ taps
@@ -1270,3 +1271,23 @@ Evidence (read from the source and from the disassembly of build/pro/sdk.elf, no
 So the TRS jack cannot be a MIDI input by cable or by setting; it is not switched at all. A DIN device's
 clock reaches the SMK-37 only over USB or Bluetooth (MIDI guide section 14, not tried on this rig).
 The firmware's own screen line "K2 CLK IN  AUTO USB BLE DIN" is in the left-to-build list (BUILD 28.3).
+
+### 17.7 English only (Task 14, 2026-11-10; the user's decision)
+
+Classic Tabby is English only. The workbench (sdk/Update.html.in, sdk/Simulator.js, sdk/WebUpdate.js,
+sdk/Samples.js) carries its text in English at the source. There is no translation table, no language
+selector and no stored language preference (`fm1-language`, `?lang=`); sdk/I18n.js is a pass-through
+(`t`, `text`, `attr`) kept so that the build and the call sites do not change. The Chinese Help chapters
+and README.zh-CN.md are deleted; the manual's chapters 13 to 21 (upstream's) are the converted English text.
+The firmware's screen text was already English capitals (app/ untouched).
+- Kept as upstream wrote them, whatever their language: LICENSE.md, THIRD_PARTY.md and the notices that the
+  page embeds from them (the built page therefore still contains CJK characters in its licence texts).
+- Kept Chinese on purpose, because they match pages that were published in Chinese: the anchors of
+  tools/linux/recover-page.py (the tabby-v04.0 recovery page is made from the published v04.0 page), the
+  "源码与 SDK" alternative of the source-link patterns (tools/Build-Hosted.cjs, publish-pages.py,
+  builds-index.py: pages up to tabby-v04.1 carry that link text) and the Chinese alternatives in
+  tools/linux/hw/workbench.mjs (it also drives the older published pages).
+- Guard: tests/workbench/help-banned.mjs fails on any CJK or fullwidth character in a user-facing string
+  and in the workbench, web and release-facing source files, comments included; tests/workbench/
+  manual-structure.mjs keeps the manual's shape (22 chapters, links, order, no language selector).
+- A new user-facing string is written in English where it is used. Nothing goes into a table.

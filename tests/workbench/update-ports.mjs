@@ -283,7 +283,7 @@ await scenario('M', async () => {
   check(u.diagnostics?.inputs?.length === 12 && u.diagnostics?.outputs?.length === 12, 'M: diagnostics list every input and output');
   error = null;
   try { await u.connect({ force: false, pick: odd.input.id }); } catch (e) { error = e; }
-  check(error?.code === 'CHOOSE_PORT' && /output|输出/.test(error.message) && error.choices.length === 12,
+  check(error?.code === 'CHOOSE_PORT' && /output/.test(error.message) && error.choices.length === 12,
     'M: picked input with no same-name output -> CHOOSE_PORT naming the output problem', error?.code + ' ' + error?.message);
   check(quiet(all), 'M: nothing sent to any port');
 });

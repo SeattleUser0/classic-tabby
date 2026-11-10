@@ -1,13 +1,13 @@
 <!doctype html>
-<!-- Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. -->
+<!-- Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. -->
 <!-- Classic Tabby Task 13 Step 4 (2026-11-10): panel wording: knobs K1-K8 by their printed numbers (firmware SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8); the firmware's SAVE button named by position (the 4th button in the left group, after SHIFT, FADER BANK, HOME); SPEC 17.4 has the table. -->
 <!-- SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception -->
-<html lang="zh-CN">
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2307060D'/%3E%3Cpath d='M4 16h4l3-9 5 18 5-18 3 9h4' fill='none' stroke='%237C3AED' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<title>SMK37 OPEN 工作台</title>
+<title>SMK37 OPEN Workbench</title>
 <style>
 /* Palette from https://www.m-vave.com/ (2026-10-17).
  * System fonts and inline CSS keep the downloaded workbench self-contained. */
@@ -49,14 +49,14 @@
 
 
 .save-dialog{width:min(460px,90vw);padding:24px;color:var(--text-primary);background:var(--bg-card-hover);border:1px solid var(--text-muted);border-radius:12px}.save-dialog::backdrop{background:#000b}.save-dialog select{width:100%}.save-dialog p{font-size:13px}.save-dialog h2{margin-top:0}.save-dialog button{margin:8px 8px 0 0}.save-dialog [role=status]{min-height:22px;color:var(--text-primary)}
-.language-picker{display:flex;align-items:center;gap:8px;margin:0 0 0 auto;font-size:11px;letter-spacing:0}.language-picker select{font-size:12px;padding:5px 8px}.language-picker+span{margin-left:4px}@media(max-width:700px){header{flex-wrap:wrap}.version-tag{display:none}}
+@media(max-width:700px){header{flex-wrap:wrap}.version-tag{display:none}}
 
 
 /* Workbench shell. Physical controls retain their hardware geometry. */
 @media screen {
 :root{background:var(--bg-primary);color:var(--text-primary);font:14px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
 body{background:var(--bg-primary)}main{max-width:1320px;padding:22px 28px 30px}
-.site-header{min-height:40px;gap:14px;letter-spacing:0;margin-bottom:18px;flex-wrap:wrap}.brand{display:flex;gap:9px;align-items:center;color:var(--accent-purple);}.brand svg{width:30px;height:30px}.brand b{font-size:23px;line-height:1;letter-spacing:-.05em;color:var(--text-primary)}.brand b span{display:block;margin-top:4px;font:8px/1 Consolas,monospace;letter-spacing:.15em;color:var(--muted)}.site-header h1{font-size:17px;font-weight:500;letter-spacing:0;margin:0;color:var(--text-secondary)}.release-badge{font:11px/1.4 Consolas,monospace;color:var(--text-secondary);padding:3px 7px;border:1px solid var(--line);border-radius:5px}.language-picker{margin-left:auto;color:var(--muted);font-size:0;gap:0}.language-picker select{font-size:12px;padding:5px 7px;background:var(--bg-secondary);border-color:var(--line)}.about-button{padding:5px 9px;margin:0;font-size:12px;background:transparent;border-color:transparent;color:var(--text-secondary)}
+.site-header{min-height:40px;gap:14px;letter-spacing:0;margin-bottom:18px;flex-wrap:wrap}.brand{display:flex;gap:9px;align-items:center;color:var(--accent-purple);}.brand svg{width:30px;height:30px}.brand b{font-size:23px;line-height:1;letter-spacing:-.05em;color:var(--text-primary)}.brand b span{display:block;margin-top:4px;font:8px/1 Consolas,monospace;letter-spacing:.15em;color:var(--muted)}.site-header h1{font-size:17px;font-weight:500;letter-spacing:0;margin:0;color:var(--text-secondary)}.release-badge{font:11px/1.4 Consolas,monospace;color:var(--text-secondary);padding:3px 7px;border:1px solid var(--line);border-radius:5px}.about-button{padding:5px 9px;margin:0;font-size:12px;background:transparent;border-color:transparent;color:var(--text-secondary)}
 button{border-radius:7px;background:var(--panel-raised);border-color:var(--line);color:var(--text-primary);font-size:13px}button:hover{background:var(--line);border-color:var(--text-muted)}button.primary{background:var(--accent-purple);color:#fff;border-color:var(--accent-purple);}button.primary:hover{background:var(--accent-purple-hover);border-color:var(--accent-purple-hover);}
 .navigation-row{display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--line);padding-bottom:10px}.app-nav{flex:1;gap:4px;margin:0;padding:0;border:0;overflow-x:auto}.app-nav button{padding:8px 14px;margin:0;border:0;border-radius:7px;font-size:13px;color:var(--text-secondary);background:transparent;white-space:nowrap}.app-nav button[aria-selected=true]{background:var(--purple-wash);color:var(--purple-soft);box-shadow:inset 0 -2px var(--accent-purple);}.app-nav button:hover{background:#ffffff08;color:var(--text-primary)}#quick-connect{flex-shrink:0;margin:0;font-size:12px;padding:7px 12px;color:var(--purple-soft);border-color:var(--accent-purple);background:#7c3aed15}
 .device-status{padding:10px 1px;margin:0 0 12px;gap:4px 14px;min-height:36px;border:0;border-radius:0;background:none;font-size:11px}.device-status strong{font-weight:500;color:var(--text-secondary)}.device-status span{color:var(--text-secondary)}.device-status[data-state=pending] strong{color:#FDBA74}.device-status[data-state=verified] strong{color:#86EFAC}
@@ -68,7 +68,7 @@ button{border-radius:7px;background:var(--panel-raised);border-color:var(--line)
 #tab-library,#tab-update{max-width:880px;background:var(--bg-card);border-color:var(--line);border-radius:10px;padding:24px;margin:0 auto}#tab-library>h2,#tab-update>h2{font-size:22px;color:var(--text-primary)}#tab-library p,#tab-update p{color:var(--text-secondary)}.library-group{margin-top:12px;background:var(--bg-secondary)}.library-group[open]>summary{margin-bottom:16px}.field-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}.field-row label{min-width:0}.field-row input,.field-row select{width:100%}.library-message:empty{display:none}select,input[type=text],input[type=file],input[type=number]{background:var(--bg-secondary);border:1px solid var(--control-line);border-radius:7px;color:var(--text-primary);max-width:100%;padding:8px}.technical-details{margin-top:14px;font-size:12px}.technical-details summary{cursor:pointer;color:var(--text-secondary)}.technical-details[open]>summary{margin-bottom:10px}
 #tab-manual{margin:0}.manual-heading h2{font-size:25px}.manual-index,.manual-chapter{background:var(--bg-card);border-color:var(--line);border-radius:10px}.manual-chapter p,.manual-chapter li{color:var(--text-secondary)}.manual-table th{background:var(--panel-raised);color:var(--text-primary)}.manual-note{background:var(--purple-wash)}.save-dialog{background:var(--bg-card-hover);border-color:var(--text-muted);box-shadow:0 24px 90px #0007;border-radius:12px}.save-dialog p{color:var(--text-secondary)}.save-dialog::backdrop{background:#0d0b11bf}.about-dialog{width:min(720px,92vw);max-height:82vh;overflow:auto}.about-dialog h2{font-size:21px}.about-dialog summary{cursor:pointer;font-size:12px;color:var(--text-secondary)}.about-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;color:var(--text-secondary)}.about-dialog form{text-align:right;margin-top:15px}
 @media(max-width:1099px){.workspace{grid-template-columns:1fr;gap:20px}.preset-home{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;padding:18px}.preset-home-head{grid-column:1;grid-row:1}.preset-picker{grid-column:1;grid-row:2/5}.preset-home .preset-hint{grid-column:1;grid-row:5}.preset-home .sim-selectors{grid-column:2;grid-row:1/3;margin:0;padding:0;border:0;align-self:start}.edit-shortcuts{grid-column:2;grid-row:3;margin-top:10px;align-self:start}.editor-more{grid-column:2;grid-row:4/6;align-self:start}.manual-layout{gap:20px}}
-@media(max-width:700px){main{padding:16px}.site-header{gap:9px;margin-bottom:15px}.brand b{font-size:21px}.brand svg{width:27px;height:27px}.site-header h1{font-size:15px}.language-picker select{font-size:11px;max-width:98px}.about-button{font-size:11px;padding:5px}.navigation-row{align-items:stretch;gap:8px}.app-nav{display:flex;gap:0;overflow-x:auto}.app-nav button{font-size:12px;padding:8px 10px}.device-status{font-size:10px;margin-bottom:10px}.device-status span{flex-basis:100%}.preset-home{display:block;padding:16px}.preset-home .preset-main,.preset-navigation,.save-options{grid-column:1/-1}.preset-home .sim-selectors{display:grid;grid-template-columns:1fr 1fr;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.edit-shortcuts{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:12px;padding:0;border:0}.editor-more .edit-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}.edit-shortcuts button{font-size:11px;padding:8px 4px;min-height:38px}.editor-more{margin-top:12px}.sim-toolbar label:not(.output-level){display:none}.sim-health{margin-left:auto}.sim-health span+span{display:inline}.sim-toolbar{gap:7px}.device-scroll{margin:0 -5px;padding:8px 5px 18px}.workspace-extras{grid-template-columns:1fr;gap:10px;margin-top:14px}.sim-details{padding:12px 14px}#tab-library,#tab-update{padding:18px}.manual-chapter{padding:18px}.manual-heading h2{font-size:23px}.field-row{grid-template-columns:1fr;gap:0}}
+@media(max-width:700px){main{padding:16px}.site-header{gap:9px;margin-bottom:15px}.brand b{font-size:21px}.brand svg{width:27px;height:27px}.site-header h1{font-size:15px}.about-button{font-size:11px;padding:5px}.navigation-row{align-items:stretch;gap:8px}.app-nav{display:flex;gap:0;overflow-x:auto}.app-nav button{font-size:12px;padding:8px 10px}.device-status{font-size:10px;margin-bottom:10px}.device-status span{flex-basis:100%}.preset-home{display:block;padding:16px}.preset-home .preset-main,.preset-navigation,.save-options{grid-column:1/-1}.preset-home .sim-selectors{display:grid;grid-template-columns:1fr 1fr;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.edit-shortcuts{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:12px;padding:0;border:0}.editor-more .edit-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}.edit-shortcuts button{font-size:11px;padding:8px 4px;min-height:38px}.editor-more{margin-top:12px}.sim-toolbar label:not(.output-level){display:none}.sim-health{margin-left:auto}.sim-health span+span{display:inline}.sim-toolbar{gap:7px}.device-scroll{margin:0 -5px;padding:8px 5px 18px}.workspace-extras{grid-template-columns:1fr;gap:10px;margin-top:14px}.sim-details{padding:12px 14px}#tab-library,#tab-update{padding:18px}.manual-chapter{padding:18px}.manual-heading h2{font-size:23px}.field-row{grid-template-columns:1fr;gap:0}}
 @media(max-width:480px){.navigation-row{flex-wrap:wrap}.app-nav{flex-basis:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible}.app-nav button{padding:8px 2px;font-size:11px;white-space:normal;line-height:1.25;min-height:40px}#quick-connect{margin-left:auto;padding:5px 10px;font-size:11px}.site-header h1{display:none}.sim-health{width:auto;margin-left:auto}.sim-toolbar .output-level{margin-left:0}.release-badge{font-size:10px}.sim-toolbar{gap:6px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
 }
@@ -148,17 +148,17 @@ main{max-width:1440px}
 @media screen and (max-width:620px){.preset-home{display:block}.preset-home .sim-selectors{margin-top:14px}.preset-home-head{margin-bottom:12px}}
 </style>
 <main>
-<header class="site-header"><div class="brand"><svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M4 16h4l3-9 5 18 5-18 3 9h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><b>SMK37 OPEN<span>M-VAVE</span></b></div><h1>工作台</h1><span id="release-version" class="release-badge"></span><label class="language-picker">Language / 语言 <select id="language" aria-label="Language / 语言"><option value="en">English</option><option value="zh-CN">简体中文</option></select></label><button id="about-open" class="about-button" aria-haspopup="dialog" aria-controls="about-dialog">关于</button></header>
+<header class="site-header"><div class="brand"><svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M4 16h4l3-9 5 18 5-18 3 9h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><b>SMK37 OPEN<span>M-VAVE</span></b></div><h1>Workbench</h1><span id="release-version" class="release-badge"></span><button id="about-open" class="about-button" aria-haspopup="dialog" aria-controls="about-dialog">About</button></header>
 <dialog id="sim-lcd-dialog" class="save-dialog lcd-editor" aria-labelledby="sim-lcd-title">
-<h2 id="sim-lcd-title">LCD 参数编辑</h2><h3 id="sim-lcd-label"></h3><div id="sim-lcd-value" class="lcd-value"></div>
-<div class="lcd-adjust"><button id="sim-lcd-minus" aria-label="减少参数">−</button><button id="sim-lcd-plus" aria-label="增加参数">＋</button></div>
-<p>滚轮、＋／−或方向键按最小步长调节，网页试听实时生效。工程参数用“保存到设备”写入；MIDI 路由与时钟来源请在机身设置。</p><button id="sim-lcd-close">完成</button></dialog>
-<dialog id="device-save-dialog" class="save-dialog" aria-labelledby="device-save-title"><h2 id="device-save-title">保存到设备</h2><p id="device-save-source"></p><label>保存位置<select id="device-save-slot" disabled aria-label="保存到哪个设备项目槽"></select></label><p>保存会替换所选槽位，并载入该项目进行校验。完成后重启设备仍可恢复。</p><p id="device-save-status" role="status" aria-live="polite"></p><button id="device-save-confirm" class="primary" disabled>保存并校验</button><button id="device-save-cancel">取消</button></dialog>
+<h2 id="sim-lcd-title">LCD parameter editor</h2><h3 id="sim-lcd-label"></h3><div id="sim-lcd-value" class="lcd-value"></div>
+<div class="lcd-adjust"><button id="sim-lcd-minus" aria-label="Decrease parameter">−</button><button id="sim-lcd-plus" aria-label="Increase parameter">+</button></div>
+<p>Use the wheel, + / − or arrow keys for the smallest adjustment step. Changes apply to the browser preview immediately. Save to device writes project parameters; configure MIDI routing and clock sources on the instrument.</p><button id="sim-lcd-close">Done</button></dialog>
+<dialog id="device-save-dialog" class="save-dialog" aria-labelledby="device-save-title"><h2 id="device-save-title">Save to device</h2><p id="device-save-source"></p><label>Save location<select id="device-save-slot" disabled aria-label="Device project slot to save into"></select></label><p>Saving replaces the selected slot and loads the project to verify it. The saved project survives a device restart.</p><p id="device-save-status" role="status" aria-live="polite"></p><button id="device-save-confirm" class="primary" disabled>Save and verify</button><button id="device-save-cancel">Cancel</button></dialog>
 <p id="layout-warning" role="alert" hidden style="margin:8px 0;padding:10px 14px;border:2px solid #c0392b;border-radius:6px;font-weight:600"></p>
-<div class="navigation-row"><nav class="app-nav" role="tablist" aria-label="工作台功能"><button id="mode-sim" role="tab" aria-selected="true" aria-controls="tab-sim">演奏与编辑</button><button id="mode-library" role="tab" aria-selected="false" aria-controls="tab-library" tabindex="-1">项目与音色</button><button id="mode-update" role="tab" aria-selected="false" aria-controls="tab-update" tabindex="-1">设备更新</button><button id="mode-manual" role="tab" aria-selected="false" aria-controls="tab-manual" tabindex="-1">使用说明</button></nav><button id="quick-connect">连接设备</button></div>
-<div class="device-status" id="device-sync-status" role="status" aria-live="polite" data-state="preview"><strong id="device-sync-title">网页试听 · 未连接设备</strong><span id="device-sync-detail"></span></div>
-<noscript><div class="boot-warning">JavaScript is required. Open this page in desktop Chrome or Edge. / 需要启用 JavaScript，请用电脑 Chrome 或 Edge 打开此页面。</div></noscript>
-<div id="boot-error" class="boot-error" role="alert" hidden><strong>工作台未能启动 / Workbench could not start</strong><p id="boot-error-detail"></p><button id="boot-reload">重新载入 / Reload</button></div>
+<div class="navigation-row"><nav class="app-nav" role="tablist" aria-label="Workbench sections"><button id="mode-sim" role="tab" aria-selected="true" aria-controls="tab-sim">Play &amp; edit</button><button id="mode-library" role="tab" aria-selected="false" aria-controls="tab-library" tabindex="-1">Projects &amp; sounds</button><button id="mode-update" role="tab" aria-selected="false" aria-controls="tab-update" tabindex="-1">Device update</button><button id="mode-manual" role="tab" aria-selected="false" aria-controls="tab-manual" tabindex="-1">Help</button></nav><button id="quick-connect">Connect device</button></div>
+<div class="device-status" id="device-sync-status" role="status" aria-live="polite" data-state="preview"><strong id="device-sync-title">Browser preview · no device</strong><span id="device-sync-detail"></span></div>
+<noscript><div class="boot-warning">JavaScript is required. Open this page in desktop Chrome or Edge.</div></noscript>
+<div id="boot-error" class="boot-error" role="alert" hidden><strong>Workbench could not start</strong><p id="boot-error-detail"></p><button id="boot-reload">Reload</button></div>
 <script data-smk37-boot>
 // This tiny entry monitor runs independently of the engine scripts. A failed
 // script or WASM load must not leave a disabled panel saying "Loading" forever.
@@ -168,7 +168,7 @@ main{max-width:1440px}
     if(done)return;
     clearTimeout(timer);notice.hidden=false;
     document.getElementById('boot-error-detail').textContent=message;
-    var state=document.getElementById('sim-engine-state');state.hidden=false;state.textContent='载入未完成 / Not loaded';
+    var state=document.getElementById('sim-engine-state');state.hidden=false;state.textContent='Not loaded';
   }
   document.getElementById('boot-reload').onclick=function(){location.reload();};
   window.addEventListener('error',function(event){
@@ -176,82 +176,82 @@ main{max-width:1440px}
       // Engine readiness cannot repair a missing updater or sample script.
       // Keep this failure visible even when the remaining engine starts.
       window.SMK37Boot.blocked=true;done=false;
-      fail('页面脚本载入失败，请重新下载完整工作台。 / A script could not be loaded. Download the complete workbench again.');
+      fail('A script could not be loaded. Download the complete workbench again.');
       document.dispatchEvent(new Event('smk37-script-error'));
     }else if(event.message)fail(event.message);
   },true);
   window.addEventListener('unhandledrejection',function(event){fail(String(event.reason&&event.reason.message||event.reason));});
-  timer=setTimeout(function(){fail('载入时间过长。请检查网络，或打开下载包中的 SMK37-Open-Source.html。 / Loading took too long. Check the network or open SMK37-Open-Source.html from the download.');},15000);
+  timer=setTimeout(function(){fail('Loading took too long. Check the network or open SMK37-Open-Source.html from the download.');},15000);
   window.SMK37Boot={blocked:false,fail:fail,ready:function(){if(this.blocked)return;done=true;clearTimeout(timer);notice.hidden=true;}};
 })();
 </script>
 <section id="tab-sim" role="tabpanel" aria-labelledby="mode-sim">
 <div class="workspace">
-<aside class="preset-home" aria-label="预设与常用操作">
-<div class="preset-home-head"><small>当前工程</small><strong id="sim-current-project" aria-live="polite">正在载入…</strong><span id="sim-project-note"></span></div>
-<div class="preset-picker"><div class="preset-navigation"><button id="sim-preset-prev" data-sim disabled aria-label="上一个用户项目">← 上一个</button><button id="sim-preset-next" data-sim disabled aria-label="下一个用户项目">下一个 →</button></div><button id="sim-play-control" class="primary" data-sim disabled aria-pressed="false">播放</button><button id="sim-save-device" class="primary" data-sim disabled>保存到设备</button><details class="save-options"><summary>读取与保存</summary><div class="sim-file-row"><button id="sim-read-device" data-sim disabled>读取设备项目</button><button id="sim-save-control" data-sim disabled>存到此浏览器</button></div></details></div>
-<p class="sim-help preset-hint">切换预设前请保存修改。</p>
-<div class="sim-selectors"><label>当前轨道<select id="sim-track" data-sim disabled aria-label="仿真轨道"></select></label><label>音源类型<select id="sim-source" data-sim disabled aria-label="仿真音源类型"></select></label></div>
+<aside class="preset-home" aria-label="Presets &amp; common actions">
+<div class="preset-home-head"><small>Current project</small><strong id="sim-current-project" aria-live="polite">Loading…</strong><span id="sim-project-note"></span></div>
+<div class="preset-picker"><div class="preset-navigation"><button id="sim-preset-prev" data-sim disabled aria-label="Previous user project">← Previous</button><button id="sim-preset-next" data-sim disabled aria-label="Next user project">Next →</button></div><button id="sim-play-control" class="primary" data-sim disabled aria-pressed="false">Play</button><button id="sim-save-device" class="primary" data-sim disabled>Save to device</button><details class="save-options"><summary>Read &amp; save</summary><div class="sim-file-row"><button id="sim-read-device" data-sim disabled>Read device project</button><button id="sim-save-control" data-sim disabled>Save in this browser</button></div></details></div>
+<p class="sim-help preset-hint">Save your edits before changing presets.</p>
+<div class="sim-selectors"><label>Current track<select id="sim-track" data-sim disabled aria-label="Simulator track"></select></label><label>Sound engine<select id="sim-source" data-sim disabled aria-label="Simulator sound engine"></select></label></div>
 
-<div class="edit-shortcuts"><button data-sim data-sim-page="15" disabled>当前轨音色</button><button data-sim data-sim-page="1" disabled>SYNC / MIDI</button><button data-sim data-sim-page="6" disabled>混音</button><button data-sim data-sim-page="10" disabled>轨道效果</button></div>
-<details class="editor-more"><summary>更多编辑</summary><div class="edit-shortcuts"><button data-sim data-sim-page="0" disabled>总览</button><button data-sim data-sim-page="17" disabled>琶音参数</button><button data-sim data-sim-page="12" disabled>复制与更多</button><button data-sim data-sim-page="16" disabled>用户项目列表</button><button data-sim data-sim-page="19" disabled>歌曲模式</button><button data-sim data-sim-page="20" disabled>轨道启动</button></div><p id="sim-context" class="sim-help">面板 K7 旋钮：换整套预设。</p></details>
+<div class="edit-shortcuts"><button data-sim data-sim-page="15" disabled>Track sound</button><button data-sim data-sim-page="1" disabled>SYNC / MIDI</button><button data-sim data-sim-page="6" disabled>Mixer</button><button data-sim data-sim-page="10" disabled>Track effects</button></div>
+<details class="editor-more"><summary>More editing</summary><div class="edit-shortcuts"><button data-sim data-sim-page="0" disabled>Overview</button><button data-sim data-sim-page="17" disabled>Arpeggiator settings</button><button data-sim data-sim-page="12" disabled>Copy &amp; more</button><button data-sim data-sim-page="16" disabled>User projects</button><button data-sim data-sim-page="19" disabled>Song mode</button><button data-sim data-sim-page="20" disabled>Track launch</button></div><p id="sim-context" class="sim-help">Panel K7 knob: change the whole project preset.</p></details>
 </aside>
 <div class="performance-stage">
-<div class="sim-toolbar"><button id="sim-start" class="primary" disabled>静音</button><button id="sim-tap-tempo" data-sim disabled title="连按设置 BPM">TAP</button><button id="sim-panic" data-sim disabled>紧急停音</button><div class="sim-health" role="status"><span id="sim-engine-state">正在载入</span><span id="sim-audio-state" hidden>静音编辑</span></div><label class="output-level">输出电平 <meter id="sim-output-meter" min="0" max="100" value="0" aria-label="音频输出电平"></meter></label><label>试听音量 <input id="sim-volume" type="range" min="0" max="100" value="35" aria-label="试听音量"></label></div>
-<div class="device-scroll" tabindex="0" aria-label="SMK37 OPEN 面板，窄屏可左右滑动">
-<div id="sim-device" class="sim-device" aria-label="SMK37 OPEN 实机布局">
+<div class="sim-toolbar"><button id="sim-start" class="primary" disabled>Mute</button><button id="sim-tap-tempo" data-sim disabled title="Tap to set BPM">TAP</button><button id="sim-panic" data-sim disabled>Panic / Stop all</button><div class="sim-health" role="status"><span id="sim-engine-state">Loading</span><span id="sim-audio-state" hidden>Silent editing</span></div><label class="output-level">Output level <meter id="sim-output-meter" min="0" max="100" value="0" aria-label="Audio output level"></meter></label><label>Monitor volume <input id="sim-volume" type="range" min="0" max="100" value="35" aria-label="Monitor volume"></label></div>
+<div class="device-scroll" tabindex="0" aria-label="SMK37 OPEN panel; scroll sideways on narrow screens">
+<div id="sim-device" class="sim-device" aria-label="SMK37 OPEN hardware layout">
 <div class="device-brand">SMK37 <span>WORKBENCH</span></div><span class="case-mark">POLYPHONIC SYNTHESIZER</span>
 <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
-<div class="screen-bezel"><div class="lcd-surface"><canvas id="sim-screen" width="240" height="240" aria-label="SMK37 OPEN 设备屏幕仿真"></canvas><div id="sim-lcd-targets" aria-label="LCD 点击编辑"></div></div><div id="sim-placeholder" class="screen-placeholder"><strong>SMK37 OPEN</strong>正在载入面板…<br>若此提示一直存在，请保存 HTML 后<br>用电脑 Chrome 或 Edge 打开。</div></div>
+<div class="screen-bezel"><div class="lcd-surface"><canvas id="sim-screen" width="240" height="240" aria-label="SMK37 OPEN device display simulation"></canvas><div id="sim-lcd-targets" aria-label="Click to edit the LCD"></div></div><div id="sim-placeholder" class="screen-placeholder"><strong>SMK37 OPEN</strong>Loading the panel…<br>If this message stays here, save the HTML and<br>open it in desktop Chrome or Edge.</div></div>
 <div id="sim-encoders" class="panel-encoders"></div><div id="sim-pads" class="panel-pads"></div>
 <div id="sim-faders" class="panel-faders"></div><div id="sim-wheels" class="panel-wheels"></div>
 <div id="sim-left-buttons" class="panel-left-buttons"></div><div id="sim-right-buttons" class="panel-right-buttons"></div>
 <p id="sim-instruments" class="sim-help"></p>
-<div id="sim-keyboard" class="keyboard" aria-label="37 键力度键盘"></div>
+<div id="sim-keyboard" class="keyboard" aria-label="37 velocity-sensitive keys"></div>
 </div></div>
-<p class="quiet-note">SMK37 Pro / Elite · 37 keys · 16 pads · 8 encoders · 4 faders. FADER BANK: tracks 1–4 / 5–8, with pickup. SHIFT + ENV: LFO; SHIFT + HOME / SRC: source; SHIFT + SEQ: MIDI channels; SHIFT + Pads: track / mute.</p><div class="panel-caption"><span>旋钮可拖动或滚轮调节，LCD 数值可点击编辑。</span><a href="#manual-panel">操作说明</a></div>
-<details class="quick-start"><summary>先掌握这三步</summary><ol><li>演奏：短按 PAD / STEP 进入或退出 Pad 乐器。默认 KEY 为轨道 1／通道 1，PAD 为轨道 8／通道 10；K5 和 OCT 只调整当前操作的乐器。</li><li>改音色：短按 EDIT，转 K1–K4；换音源用 SHIFT + HOME，Pad 1–6 或 K1 选择，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用。</li><li>放歌曲：在网页工作台编写歌曲或导入 MIDI 文件并写入设备，然后长按 SEQ 选 SONG MODE，在 SONG 页按 PLAY。</li></ol><p>Pad 触后跟随 Pad 通道；DX7 响应为颤音。网页中按住 Pad 向上拖动可试听触后，支持压力的触控笔可直接按压。</p><p>推子显示 UP TO／DOWN TO 时，按提示移动到目标值后才接管，不会突然跳变音量。F1–F4 是推子编号，T1–T8 是控制的轨道。</p></details>
-<p id="sim-status" class="sim-status" role="status" aria-live="polite">正在载入…</p>
-<small id="sim-storage-warning" role="status" hidden>浏览器未允许保存本地存档；请导出项目文件保留编辑。</small>
+<p class="quiet-note">SMK37 Pro / Elite · 37 keys · 16 pads · 8 encoders · 4 faders. FADER BANK: tracks 1–4 / 5–8, with pickup. SHIFT + ENV: LFO; SHIFT + HOME / SRC: source; SHIFT + SEQ: MIDI channels; SHIFT + Pads: track / mute.</p><div class="panel-caption"><span>Drag or scroll knobs. Click LCD values to edit.</span><a href="#manual-panel">Controls guide</a></div>
+<details class="quick-start"><summary>Start with these three steps</summary><ol><li>Play: tap PAD / STEP to enter or leave the Pad instrument. KEY defaults to track 1 / channel 1 and PAD to track 8 / channel 10. K5 and OCT adjust only the instrument being edited.</li><li>Shape a sound: tap EDIT and turn K1–K4. For a different engine, use SHIFT + HOME, choose with Pads 1–6 or K1, then the 4th button in the left group (after SHIFT, FADER BANK, HOME) to apply.</li><li>Play a song: write a song in the web workbench or import a MIDI file and write it to the device, then hold SEQ, choose SONG MODE and press PLAY on the SONG page.</li></ol><p>Pad aftertouch follows the Pad channel; DX7 responds with vibrato. In the browser, hold a Pad and drag upward to preview aftertouch, or press with a pressure-sensitive pen.</p><p>When a fader shows UP TO / DOWN TO, move it through the target to take control without an abrupt volume jump. F1–F4 identify faders; T1–T8 identify their tracks.</p></details>
+<p id="sim-status" class="sim-status" role="status" aria-live="polite">Loading…</p>
+<small id="sim-storage-warning" role="status" hidden>Browser storage is unavailable. Export your project file to keep your edits.</small>
 </div></div>
 <p id="sim-record-state" class="sim-record-state" role="status"></p>
 <div class="workspace-extras">
 
-<details class="sim-details"><summary>八轨状态</summary><div id="sim-tracks" class="track-grid" aria-label="八轨状态"></div></details>
-<details class="sim-details"><summary>文件与 MIDI</summary><div class="sim-file-row"><button id="sim-project-export" data-sim disabled>导出项目文件</button><button id="sim-timbre-export" data-sim disabled>导出轨道音色</button><button id="sim-patch-export" data-sim disabled>导出 DX7 音色</button><button id="sim-midi" data-sim disabled>连接 MIDI 输入</button><select id="sim-midi-port" hidden aria-label="仿真 MIDI 输入"></select></div><div class="sim-file-row"><input id="sim-file" type="file" accept=".fm1,.fm1t,.syx" data-sim disabled aria-label="导入仿真项目或音色"><select id="sim-voice" hidden aria-label="选择音色库中的音色"></select><button id="sim-file-apply" data-sim disabled>导入到仿真</button></div><div class="sim-file-row"><button id="sim-clear" data-sim disabled>清空本地仿真存档</button></div><p class="sim-help">导出文件可备份到电脑；浏览器存档与设备项目分别保存。</p><p id="sample-bank-note" class="sim-help" hidden>此预览用合成的演示采样，只用于仿真里可选的 SAMPLER 音源；设备没有采样器，项目文件也不含采样音频。</p></details>
+<details class="sim-details"><summary>Eight-track status</summary><div id="sim-tracks" class="track-grid" aria-label="Eight-track status"></div></details>
+<details class="sim-details"><summary>Files &amp; MIDI</summary><div class="sim-file-row"><button id="sim-project-export" data-sim disabled>Export project file</button><button id="sim-timbre-export" data-sim disabled>Export track sound</button><button id="sim-patch-export" data-sim disabled>Export DX7 patch</button><button id="sim-midi" data-sim disabled>Connect MIDI input</button><select id="sim-midi-port" hidden aria-label="Simulator MIDI input"></select></div><div class="sim-file-row"><input id="sim-file" type="file" accept=".fm1,.fm1t,.syx" data-sim disabled aria-label="Import a project or sound into the simulator"><select id="sim-voice" hidden aria-label="Select a patch from the bank"></select><button id="sim-file-apply" data-sim disabled>Import into browser</button></div><div class="sim-file-row"><button id="sim-clear" data-sim disabled>Clear browser saves</button></div><p class="sim-help">Export files to back up on your computer. Browser and device projects are saved separately.</p><p id="sample-bank-note" class="sim-help" hidden>This preview uses synthesized demo samples, only for the SAMPLER source that the simulator still offers. The device has no sampler, and project files do not contain sample audio.</p></details>
 </div>
 </section>
 <section id="tab-update" role="tabpanel" aria-labelledby="mode-update" hidden>
-<h2>更新固件</h2><p id="update-intro">正在校验本页内置固件。请连接 SMK37 OPEN 的 USB-MIDI 接口。</p>
-<dl><dt>固件</dt><dd id="profile">正在校验…</dd><dt>版本</dt><dd id="firmware-version"></dd></dl>
-<details class="technical-details"><summary>固件详情</summary><dl><dt>文件大小</dt><dd id="size"></dd><dt>构建编号</dt><dd><code id="version"></code></dd><dt>Open 基础版本</dt><dd id="base-version"></dd></dl></details>
-<label class="update-choice"><input id="backup" type="checkbox"> 已保存需要保留的音色、工程和歌曲</label>
-<details id="update-options" class="library-group"><summary>迁移、原厂恢复与强制更新</summary><p><label class="update-choice"><input id="force-update" type="checkbox"> 强制烧录（其他固件迁移）</label></p>
-<button id="stock-restore" disabled>刷回原厂 V16</button><button id="open-firmware" hidden>切回 Open 固件</button></details>
-<p id="stock-warning" role="alert" hidden>将恢复当前型号的原厂 V16 固件和原厂音色资源。Open 项目与采样不能在原厂固件中使用，恢复可能覆盖这些数据；请先分别备份。完成后请重新开机。</p>
-<p id="force-warning" role="alert" hidden>警告：内置固件可能与当前设备不兼容。强制烧录可能清除数据、导致无法开机，并需要专用工具恢复。请只连接目标 SMK37 OPEN；不支持 USB-MIDI 升级协议的固件仍无法通过本页烧录。</p>
+<h2>Update firmware</h2><p id="update-intro">Checking the included firmware. Connect the SMK37 OPEN USB-MIDI port.</p>
+<dl><dt>Firmware</dt><dd id="profile">Verifying…</dd><dt>Version</dt><dd id="firmware-version"></dd></dl>
+<details class="technical-details"><summary>Firmware details</summary><dl><dt>File size</dt><dd id="size"></dd><dt>Build ID</dt><dd><code id="version"></code></dd><dt>Open base version</dt><dd id="base-version"></dd></dl></details>
+<label class="update-choice"><input id="backup" type="checkbox"> I have backed up the sounds, projects and songs I want to keep</label>
+<details id="update-options" class="library-group"><summary>Migration, factory restore and forced updates</summary><p><label class="update-choice"><input id="force-update" type="checkbox"> Force flash (migrate from other firmware)</label></p>
+<button id="stock-restore" disabled>Restore factory V16</button><button id="open-firmware" hidden>Switch to Open firmware</button></details>
+<p id="stock-warning" role="alert" hidden>Restores factory V16 firmware and sound resources for this model. Open projects and samples cannot be used by factory firmware and may be overwritten. Back them up separately first. Power-cycle the device when finished.</p>
+<p id="force-warning" role="alert" hidden>Warning: the bundled firmware may be incompatible with this device. Force flashing may erase data, prevent startup and require a recovery tool. Connect only the target SMK37 OPEN. Firmware without the USB-MIDI update protocol cannot be flashed from this page.</p>
 <p id="device-identity"></p>
-<p id="port-pick" hidden><label>选择设备的 MIDI 端口 <select id="update-port"><option value="">自动（只连接名称相符的端口）</option></select></label></p>
-<button id="connect" disabled>连接设备</button><button id="install" class="primary" disabled>开始更新</button>
+<p id="port-pick" hidden><label>Choose the device's MIDI port <select id="update-port"><option value="">Automatic (only ports with a matching name)</option></select></label></p>
+<button id="connect" disabled>Connect device</button><button id="install" class="primary" disabled>Start update</button>
 <p id="update-next" aria-live="polite"></p>
-<p id="status" role="status" aria-live="polite">正在检查网页内容…</p>
-<progress id="progress" value="0" max="100" aria-label="更新进度"></progress>
+<p id="status" role="status" aria-live="polite">Checking page contents…</p>
+<progress id="progress" value="0" max="100" aria-label="Update progress"></progress>
 <p id="error" role="alert"></p>
 <!-- Task 12 (2026-11-09): the force-activate button stays hidden for good; force flash is only the checkbox in the migration section. -->
 <!-- Task 12 A5: when the update loader waits for another build, the build's name and the link to its page. -->
 <p id="loader-hint" hidden></p>
-<details id="connection-details" hidden><summary>连接详情</summary><p>以下是浏览器本次检测到的端口；信息仅显示在本页。</p><p><strong>MIDI IN</strong></p><ul id="connection-inputs"></ul><p><strong>MIDI OUT</strong></p><ul id="connection-outputs"></ul><p><strong>设备回复的身份</strong></p><ul id="connection-identities"></ul><p><strong>等待的设备身份</strong></p><ul id="connection-expected"></ul><ul id="connection-attempts"></ul></details>
-<small>更新期间保持供电和 USB 连接，中断后请用同一版本网页重试。</small><p><a href="#manual-update">更新帮助</a></p>
+<details id="connection-details" hidden><summary>Connection details</summary><p>These are the ports detected by this browser for this attempt. This information stays on this page.</p><p><strong>MIDI IN</strong></p><ul id="connection-inputs"></ul><p><strong>MIDI OUT</strong></p><ul id="connection-outputs"></ul><p><strong>Identity reported by the device</strong></p><ul id="connection-identities"></ul><p><strong>Expected device identity</strong></p><ul id="connection-expected"></ul><ul id="connection-attempts"></ul></details>
+<small>Keep power and USB connected. If interrupted, retry with the same version of this page.</small><p><a href="#manual-update">Update help</a></p>
 </section>
 <section id="tab-library" role="tabpanel" aria-labelledby="mode-library" hidden>
-<h2 id="library-title">项目与音色</h2>
-<p>管理设备项目、歌曲和音色。备份文件保存在这台电脑。</p>
-<button id="library-connect" disabled>连接项目库</button><button id="library-refresh" data-library disabled>刷新列表</button>
-<p id="library-status" class="library-message" role="status" aria-live="polite">等待连接支持项目库的固件。</p>
-<details class="library-group" id="radio-group" hidden><summary>蓝牙设置</summary>
-<p class="sim-help">机身蓝牙页已移除；这里的改动立即写入设备并保存。时钟来源在机身的 SYNC / MIDI 页（按 SEQ）。</p>
-<div class="field-row"><label><input id="radio-on" type="checkbox" data-library disabled> 蓝牙开启</label><label><input id="radio-audio" type="checkbox" data-library disabled> 蓝牙音频</label></div>
-<div class="field-row"><label>BLE MIDI 角色 <select id="radio-role" data-library disabled><option value="0">DEVICE</option><option value="1">HOST</option></select></label><label>&nbsp;<button id="radio-forget" data-library disabled>清除 MIDI 配对</button></label></div>
+<h2 id="library-title">Projects &amp; sounds</h2>
+<p>Manage device projects, songs and sounds. Backup files stay on this computer.</p>
+<button id="library-connect" disabled>Connect project library</button><button id="library-refresh" data-library disabled>Refresh list</button>
+<p id="library-status" class="library-message" role="status" aria-live="polite">Waiting for a device with project-library support.</p>
+<details class="library-group" id="radio-group" hidden><summary>Bluetooth settings</summary>
+<p class="sim-help">The device's Bluetooth page is gone; changes here are written to the device and saved at once. The clock source is on the device's SYNC / MIDI page (press SEQ).</p>
+<div class="field-row"><label><input id="radio-on" type="checkbox" data-library disabled> Bluetooth on</label><label><input id="radio-audio" type="checkbox" data-library disabled> Bluetooth audio</label></div>
+<div class="field-row"><label>BLE MIDI role <select id="radio-role" data-library disabled><option value="0">DEVICE</option><option value="1">HOST</option></select></label><label>&nbsp;<button id="radio-forget" data-library disabled>Forget MIDI pairs</button></label></div>
 <p id="radio-message" class="library-message" role="status" aria-live="polite"></p></details>
 <details class="library-group" id="backup-group"><summary>Full backup and restore (Classic Tabby)</summary>
 <p class="sim-help">One file holds everything on the device: the 16 project slots (slot 16 carries the device settings), the unsaved workspace and the current slot, the device and session settings (MIDI configuration, track roles, input channels, panel preferences: on the diagnostic build and later), the Bluetooth switches, every song record and block, and the firmware's build ID and layout. Your "My rig" profile from this browser goes in too. Not in the file: Bluetooth pairings, the built-in rig profiles (they come with the workbench). Stop song playback first. A backup loads each project slot in turn and puts your workspace back at the end. Format: docs/BACKUP-FORMAT.md (version 1).</p>
@@ -265,92 +265,92 @@ main{max-width:1440px}
 <p class="sim-help">Timing counters and the control-loop profile (every build from tabby-v04.0; docs/BUILD.md 24.6 and 26.4). Reset, play for the time the measurement needs, then Read. Each section of the profile is the time per control pass spent in that part of the app, mean and longest; "SDK between the hooks" is the rest of the pass. Times in milliseconds; the counter runs at 24 MHz. Reading is allowed while the device plays.</p>
 <button id="diag-read" data-library disabled>Read counters</button><button id="diag-reset" data-library disabled>Reset counters</button><button id="diag-copy" data-library disabled>Copy as text</button>
 <pre id="diag-output" class="sim-help"></pre></details>
-<details class="library-group" open><summary>设备项目</summary>
-<div class="field-row"><label>设备项目槽 <select id="project-slot" data-library disabled></select></label>
-<label>当前项目名称（最多 12 个英文字母、数字或符号）<input id="project-name" type="text" maxlength="12" placeholder="UNTITLED" data-library disabled></label></div>
-<button id="project-rename" data-library disabled>修改当前名称</button>
-<button id="project-save" data-library disabled>保存到此槽</button><button id="project-load" data-library disabled>载入此槽</button>
-<button id="project-export" data-library disabled>备份当前项目</button>
-<label>恢复项目文件 <input id="project-file" type="file" accept=".fm1" data-library disabled></label>
-<button id="project-import" data-library disabled>恢复到工作区</button>
-<small>载入与恢复会替换未保存的工作区。恢复文件不会自动写入设备槽，确认后再按保存。</small>
+<details class="library-group" open><summary>Device projects</summary>
+<div class="field-row"><label>Device project slot <select id="project-slot" data-library disabled></select></label>
+<label>Current project name (up to 12 ASCII letters, digits or symbols)<input id="project-name" type="text" maxlength="12" placeholder="UNTITLED" data-library disabled></label></div>
+<button id="project-rename" data-library disabled>Rename current project</button>
+<button id="project-save" data-library disabled>Save to this slot</button><button id="project-load" data-library disabled>Load this slot</button>
+<button id="project-export" data-library disabled>Back up current project</button>
+<label>Restore project file <input id="project-file" type="file" accept=".fm1" data-library disabled></label>
+<button id="project-import" data-library disabled>Restore to workspace</button>
+<small>Loading or restoring replaces the unsaved workspace. Restoring a file does not write a device slot automatically; save it when ready.</small>
 </details>
-<details class="library-group"><summary>轨道音色</summary>
-<div class="field-row"><label>目标轨道 <select id="timbre-track" data-library disabled></select></label>
-<label>音色文件 <input id="timbre-file" type="file" accept=".fm1t" data-library disabled></label></div>
-<button id="timbre-import" data-library disabled>导入轨道音色</button><button id="timbre-export" data-library disabled>导出轨道音色</button>
-<small>保存音源类型、音色参数和音量，不携带步进。鼓与旋律互换会清空此轨不兼容的步进；导入后可在面板 HOME＋左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）撤销。</small>
+<details class="library-group"><summary>Track sounds</summary>
+<div class="field-row"><label>Target track <select id="timbre-track" data-library disabled></select></label>
+<label>Sound file <input id="timbre-file" type="file" accept=".fm1t" data-library disabled></label></div>
+<button id="timbre-import" data-library disabled>Import track sound</button><button id="timbre-export" data-library disabled>Export track sound</button>
+<small>Includes the engine, sound parameters and level, without steps. Switching between drum and melodic engines clears incompatible steps on this track. HOME + the 4th button in the left group (after SHIFT, FADER BANK, HOME) undoes the import on the panel.</small>
 </details>
-<details class="library-group"><summary>DX7 标准音色</summary>
-<div class="field-row"><label>目标轨道 <select id="patch-track" data-library disabled></select></label>
-<label>音色文件 <input id="patch-file" type="file" accept=".syx" data-library disabled></label></div>
-<label>文件中的音色 <select id="patch-choice" data-library disabled><option>请先选择 .syx 文件</option></select></label>
-<button id="patch-import" data-library disabled>导入到此轨</button><button id="patch-export" data-library disabled>导出此轨音色</button>
-<small>支持 DX7 单音色及 32 音色库 SysEx，不处理扩展参数。先将目标轨道设为 DX7。导入后，PROJECT 轨请保存项目；LIVE 轨请导出轨道音色或存入 DX7 独立库。</small>
+<details class="library-group"><summary>Standard DX7 patches</summary>
+<div class="field-row"><label>Target track <select id="patch-track" data-library disabled></select></label>
+<label>Sound file <input id="patch-file" type="file" accept=".syx" data-library disabled></label></div>
+<label>Patch in file <select id="patch-choice" data-library disabled><option>Choose a .syx file first</option></select></label>
+<button id="patch-import" data-library disabled>Import to this track</button><button id="patch-export" data-library disabled>Export this track patch</button>
+<small>Supports DX7 single-voice and 32-voice bank SysEx; extension parameters are not handled. Set the target track to DX7 first. After importing, save the project for PROJECT tracks; for LIVE tracks, export a timbre file or save the voice to the independent DX7 library.</small>
 </details>
-<details class="library-group"><summary>设备配置 Rig（Classic Tabby）</summary>
-<p class="sim-help">告诉工作台每个 MIDI 通道上接的是哪台设备（web/devices/ 中的定义：音色编号方式、音色库、命名的 CC、设备需要的间隔）。行事件编辑器据此按名称选择音色。配置保存在本浏览器，可导出/导入 JSON；歌曲可带自己的副本。面板为英文。</p>
+<details class="library-group"><summary>Rig setup (Classic Tabby)</summary>
+<p class="sim-help">Tells the workbench which device sits on each MIDI channel (definitions in web/devices/: program numbering, banks, named CCs, the gap a device needs). The row event editor then picks presets by name. The profile is saved in this browser, exportable as JSON; a song can carry its own copy. The panel is in English.</p>
 <div id="rig-setup" class="rig-setup"></div>
 </details>
-<details class="library-group"><summary>歌曲模式（Classic Tabby）</summary>
-<p class="sim-help">歌曲 = 行的序列；每行给 8 条轨道各指定一个块（64 步、每步最多 4 个音符）。歌曲存放在设备的歌曲存储区，由面板 ACTIONS → SONG MODE 播放。文件格式见 docs/tasks/TASK-03-step1-assessment.md 第 9 节。</p>
-<p class="sim-help">独立轨道启动（Task 06）：机身 SONG 页按 SCL 进入 TRACK LAUNCH 页。某轨的“图案 N”就是该轨在第 N 行的块，循环长度为该行的步数；打击垫 1–16 对应当前页的第 1–16 行（OCT 翻页），按下在下一小节启动该图案，再按正在播放的图案则在下一小节停止；SHIFT + 打击垫 1–8 选轨；ENV 让所选轨回到歌曲，SHIFT + ENV 全部回到歌曲；场景跳转（SONG 页）覆盖所有轨道队列。配置设备的“Lead ms”让音色切换提前于小节发出。</p>
-<div class="field-row"><label>目标 <select id="song-target"><option value="device">设备（项目库）</option><option value="sim">浏览器仿真</option></select></label>
-<label>歌曲槽 <select id="song-slot"></select></label></div>
-<button id="song-read">读取歌曲</button><button id="song-new">新建歌曲</button><button id="song-write">写入歌曲</button><button id="song-delete">删除歌曲</button>
-<button id="song-export">导出 .tabby</button><label>导入 .tabby <input id="song-file" type="file" accept=".tabby"></label><button id="song-status">存储状态</button>
+<details class="library-group"><summary>Song mode (Classic Tabby)</summary>
+<p class="sim-help">A song is a sequence of rows; each row assigns one block (64 steps, up to 4 notes per step) to each of the 8 tracks. Songs live in the device's song storage and play from the panel's ACTIONS &gt; SONG MODE. File format: docs/tasks/TASK-03-step1-assessment.md section 9.</p>
+<p class="sim-help">Independent track launching (Task 06): on the device's SONG page, SCL opens the TRACK LAUNCH page. A track's pattern N is its block in row N, looping over that row's step count; pads 1-16 are rows 1-16 of the current page (OCT pages); a pad launches its pattern at the next bar, pressing the playing pattern's pad stops it at the next bar; SHIFT + pads 1-8 select the track; ENV sends the selected track back to the song, SHIFT + ENV every track; a scene jump (SONG page) overrides every track queue. A device's "Lead ms" makes its program change leave before the bar.</p>
+<div class="field-row"><label>Target <select id="song-target"><option value="device">Device (project library)</option><option value="sim">Browser simulator</option></select></label>
+<label>Song slot <select id="song-slot"></select></label></div>
+<button id="song-read">Read song</button><button id="song-new">New song</button><button id="song-write">Write song</button><button id="song-delete">Delete song</button>
+<button id="song-export">Export .tabby</button><label>Import .tabby <input id="song-file" type="file" accept=".tabby"></label><button id="song-status">Storage status</button>
 <p id="song-message" class="library-message" role="status" aria-live="polite"></p>
 <!-- Task 12 A1: shown when the device's song storage reports OLD DATA (state 2). -->
 <div id="song-old-data" class="library-message" role="alert" hidden><p>Song storage holds OLD DATA: flash that is not in the song format (left by V01, V16, the storage move or an interrupted write). Songs cannot be written or played until it is erased. Projects, tunings and device settings are not touched. If you have not made a Full backup yet, make one first.</p><button id="song-erase-old">Erase old data…</button></div>
 <div id="song-editor" hidden>
-<div class="field-row"><label>名称 <input id="song-name" type="text" maxlength="12"></label><label>项目槽 <select id="song-project"></select></label>
-<label>BPM（0 = 项目速度） <input id="song-tempo" type="number" min="0" max="300" step="1"></label></div>
-<div class="field-row"><label><input id="song-loop" type="checkbox"> 整曲循环</label><label><input id="song-swing" type="checkbox"> 摇摆跟随项目设置</label><label>循环起始行 <input id="song-loop-row" type="number" min="1" max="128" step="1"></label>
-<label>跳转落点 <select id="song-jump"><option value="0">下一小节</option><option value="1">行尾</option></select></label></div>
-<label>输出通道（每轨，0 = 设备设置）</label><div id="song-channels" class="sim-file-row"></div>
-<label>行 = 图案（轨道启动页的打击垫 N 对应第 N 行；块编号按轨道 1–8；0 = 该轨静音）</label>
-<div class="device-scroll"><table id="song-rows"><thead><tr><th>行</th><th>T1</th><th>T2</th><th>T3</th><th>T4</th><th>T5</th><th>T6</th><th>T7</th><th>T8</th><th>重复</th><th>步数</th><th>行内循环</th></tr></thead><tbody></tbody></table></div>
-<button id="song-row-add">添加行</button><button id="song-row-remove">删除末行</button>
+<div class="field-row"><label>Name <input id="song-name" type="text" maxlength="12"></label><label>Project slot <select id="song-project"></select></label>
+<label>BPM (0 = project tempo) <input id="song-tempo" type="number" min="0" max="300" step="1"></label></div>
+<div class="field-row"><label><input id="song-loop" type="checkbox"> Loop the song</label><label><input id="song-swing" type="checkbox"> Swing follows the project setting</label><label>Loop start row <input id="song-loop-row" type="number" min="1" max="128" step="1"></label>
+<label>Jumps land at <select id="song-jump"><option value="0">Next bar</option><option value="1">End of row</option></select></label></div>
+<label>Output channels (per track, 0 = device setting)</label><div id="song-channels" class="sim-file-row"></div>
+<label>Rows = patterns (pad N of the track launch page is row N; block ids per track 1–8; 0 = that track silent)</label>
+<div class="device-scroll"><table id="song-rows"><thead><tr><th>Row</th><th>T1</th><th>T2</th><th>T3</th><th>T4</th><th>T5</th><th>T6</th><th>T7</th><th>T8</th><th>Repeat</th><th>Steps</th><th>Loop here</th></tr></thead><tbody></tbody></table></div>
+<button id="song-row-add">Add row</button><button id="song-row-remove">Remove last row</button>
 <p id="song-patterns" class="sim-help"></p>
-<label>行事件（Task 04：行开始时发送的 Program Change / Bank Select / CC，目标为 MIDI 通道；面板为英文）</label>
+<label>Row events (Task 04: Program Change / Bank Select / CC sent at the row start, addressed to a MIDI channel)</label>
 <div id="song-events" class="song-events" hidden></div>
-<div class="field-row"><label>块编号 <input id="song-block-id" type="number" min="1" max="65535" step="1" value="1"></label></div>
-<button id="song-block-load">载入块</button><button id="song-block-store">保存块</button><button id="song-block-remove">删除块</button>
-<p class="sim-help">每步：音高:力度:长度[r]，多个音符以空格分隔；r = 重触发，@n = 概率 n/8，! = 备用调音（例：60:100:2 64:100:2r @4）。长度以 16 分音符计。</p>
+<div class="field-row"><label>Block id <input id="song-block-id" type="number" min="1" max="65535" step="1" value="1"></label></div>
+<button id="song-block-load">Load block</button><button id="song-block-store">Store block</button><button id="song-block-remove">Remove block</button>
+<p class="sim-help">Per step: pitch:velocity:length[r], several notes separated by spaces; r = retrigger, @n = probability n/8, ! = alt tuning (example: 60:100:2 64:100:2r @4). Lengths are in 16th steps.</p>
 <div id="song-steps" class="track-grid"></div>
-<p class="sim-help">步进文本：音高:力度:长度/偏移，长度以步为单位（可带小数，精度 1/480 步），偏移为有符号单位（1 单位 = 1/480 步），r = 重触发，@n = 概率 n/8，! = 替代音律。带偏移或非整步长度的步进左侧有橙色标记；点击某一步在下方检查器中按音符编辑。</p>
+<p class="sim-help">Step text: pitch:velocity:length/offset; length in steps (decimals allowed, 1/480 step resolution), offset in signed units (1 unit = 1/480 step), r = retrigger, @n = probability n/8, ! = alt tuning. Steps with an offset or a fractional length carry an orange mark on the left; click a step to edit its notes in the inspector below.</p>
 <div id="song-inspector" class="song-inspector" hidden></div>
-<button id="song-quantize-starts">量化起点到 16 分</button><button id="song-quantize-ends">量化起点与结束到 16 分</button>
+<button id="song-quantize-starts">Quantize starts to 16ths</button><button id="song-quantize-ends">Quantize starts and ends to 16ths</button>
 <p id="song-blocks" class="sim-help"></p>
 </div>
-<small>写入歌曲会先写入歌曲记录，再把编辑器中的全部块分批写入设备（每批最多 8 个扇区，一次提交；旧副本在设备 ACTIONS → COMPACT SONG STORAGE 时回收），最后读回校验。写入期间设备音频会短暂中断。恢复原厂 V16 会覆盖歌曲存储的最后 40 KB（80 个块扇区中的第 70–79 个，闪存 0xF4000–0xFDFFF），请先导出歌曲。</small>
+<small>Write song stores the song record first, then every block in the editor in batches (up to 8 sectors per batch, one commit each; old copies are reclaimed by ACTIONS &gt; COMPACT SONG STORAGE on the device), then verifies the record by read-back. Device audio pauses briefly while it writes. Restoring factory V16 overwrites the last 40 KB of song storage (block sectors 70 to 79 of the 80, flash 0xF4000 to 0xFDFFF): export your songs first.</small>
 </details>
-<details class="library-group"><summary>导入 MIDI 文件（Classic Tabby）</summary>
-<p class="sim-help">把标准 MIDI 文件（.mid，type 0/1，含 Renoise 导出）转换为歌曲：预览各声部、指定轨道与输出通道、选择小节范围后写入设备或浏览器仿真（写入目标跟随上方“歌曲模式”的目标选择；占用的歌曲槽会先删除再写入）。面板为英文。</p>
+<details class="library-group"><summary>Import MIDI file (Classic Tabby)</summary>
+<p class="sim-help">Converts a standard MIDI file (.mid, type 0/1, Renoise exports included) into a song: preview the parts, assign tracks and output channels, pick a bar range, then write to the device or the browser simulator (the target follows the Song mode target above; an occupied song slot is deleted first). The panel is in English.</p>
 <div id="midi-import" class="midi-import"></div>
 </details>
 </details>
 </section>
 <section id="tab-manual" role="tabpanel" aria-labelledby="mode-manual" tabindex="0" hidden>
-<div class="manual-heading"><div><h2>Classic Tabby 使用说明书</h2><p>第 00 章汇总 tabby-v04 的变化；第 01–12 章讲 Classic Tabby 的功能，英文；第 13–21 章沿用 SMK37 OPEN 的说明。</p></div><button id="manual-print">打印 / 存为 PDF</button></div>
+<div class="manual-heading"><div><h2>Classic Tabby manual</h2><p>Chapter 00 lists what changed in tabby-v04. Chapters 01–12 cover Classic Tabby’s features; chapters 13–21 carry over the SMK37 OPEN manual.</p></div><button id="manual-print">Print / Save as PDF</button></div>
 <div class="manual-layout">
-<aside class="manual-index" aria-label="说明书目录"><label for="manual-search">查找操作</label><input id="manual-search" type="search" placeholder="如：LAUNCH、保存、K8" autocomplete="off" aria-controls="manual-body"><p id="manual-count" class="manual-count" role="status" aria-live="polite">共 21 章</p><button id="manual-clear" hidden>显示全部章节</button><ol>
-<li><a href="#manual-tabby-changes">00 · tabby-v04 有什么变化</a></li><li><a href="#manual-tabby-about">01 · What Classic Tabby is</a></li><li><a href="#manual-tabby-start">02 · Getting started</a></li><li><a href="#manual-tabby-songs">03 · Songs</a></li><li><a href="#manual-tabby-scenes">04 · Scene changes</a></li><li><a href="#manual-tabby-launch">05 · Track launching</a></li><li><a href="#manual-tabby-import">06 · Importing MIDI files</a></li><li><a href="#manual-tabby-timing">07 · Timed notes</a></li><li><a href="#manual-tabby-events">08 · Program changes and CCs</a></li><li><a href="#manual-tabby-preview">09 · FM6 preview</a></li><li><a href="#manual-tabby-bluetooth">10 · Bluetooth settings</a></li><li><a href="#manual-tabby-storage">11 · Storage</a></li><li><a href="#manual-tabby-quickref">12 · Quick reference</a></li>
-<li><a href="#manual-start">13 · 三分钟上手（合成器）</a></li><li><a href="#manual-panel">14 · 面板与快捷键</a></li><li><a href="#manual-sequence">15 · 同步与 MIDI</a></li><li><a href="#manual-sound">16 · 五种音源</a></li><li><a href="#manual-mix">17 · 音量与混音</a></li><li><a href="#manual-project">18 · 保存与文件</a></li><li><a href="#manual-connect">19 · MIDI、蓝牙与时钟</a></li><li><a href="#manual-update">20 · 更新固件</a></li><li><a href="#manual-help">21 · 常见问题</a></li>
+<aside class="manual-index" aria-label="Manual contents"><label for="manual-search">Find an operation</label><input id="manual-search" type="search" placeholder="e.g. LAUNCH, save, K8" autocomplete="off" aria-controls="manual-body"><p id="manual-count" class="manual-count" role="status" aria-live="polite">22 chapters</p><button id="manual-clear" hidden>Show all chapters</button><ol>
+<li><a href="#manual-tabby-changes">00 · What changed in tabby-v04</a></li><li><a href="#manual-tabby-about">01 · What Classic Tabby is</a></li><li><a href="#manual-tabby-start">02 · Getting started</a></li><li><a href="#manual-tabby-songs">03 · Songs</a></li><li><a href="#manual-tabby-scenes">04 · Scene changes</a></li><li><a href="#manual-tabby-launch">05 · Track launching</a></li><li><a href="#manual-tabby-import">06 · Importing MIDI files</a></li><li><a href="#manual-tabby-timing">07 · Timed notes</a></li><li><a href="#manual-tabby-events">08 · Program changes and CCs</a></li><li><a href="#manual-tabby-preview">09 · FM6 preview</a></li><li><a href="#manual-tabby-bluetooth">10 · Bluetooth settings</a></li><li><a href="#manual-tabby-storage">11 · Storage</a></li><li><a href="#manual-tabby-quickref">12 · Quick reference</a></li>
+<li><a href="#manual-start">13 · Get started (synth)</a></li><li><a href="#manual-panel">14 · Panel &amp; shortcuts</a></li><li><a href="#manual-sequence">15 · Sync &amp; MIDI</a></li><li><a href="#manual-sound">16 · Five sound engines</a></li><li><a href="#manual-mix">17 · Volume &amp; mixing</a></li><li><a href="#manual-project">18 · Saving &amp; files</a></li><li><a href="#manual-connect">19 · MIDI, Bluetooth &amp; clock</a></li><li><a href="#manual-update">20 · Firmware updates</a></li><li><a href="#manual-help">21 · Troubleshooting</a></li>
 </ol></aside>
 <div id="manual-body" class="manual-body">
-<p id="manual-empty" class="manual-empty" hidden>没有找到匹配章节。试试“LAUNCH”“保存”“MIDI”等关键词，或点击“显示全部章节”。</p>
-<article id="manual-tabby-changes" class="manual-chapter" tabindex="-1" data-removed-ok><h3>00 · tabby-v04 有什么变化</h3>
-<p>本章汇总 tabby-v04.0 和 tabby-v04.1 相对 tabby-v03.x 的变化；每一项的细节见后面的章节。</p>
+<p id="manual-empty" class="manual-empty" hidden>No matching chapters. Try “LAUNCH”, “save” or “MIDI”, or click “Show all chapters”.</p>
+<article id="manual-tabby-changes" class="manual-chapter" tabindex="-1" data-removed-ok><h3>00 · What changed in tabby-v04</h3>
+<p>This chapter lists what tabby-v04.0 and tabby-v04.1 changed compared with tabby-v03.x. The chapters after it have the details.</p>
 <ul>
-<li><strong>存储搬家。</strong>用户存储从 536576 字节改为 471040 字节：16 个项目槽，加歌曲区的 97 个扇区（其中 80 个块扇区）。首次从 v03.x 安装 tabby-v04.0 时，项目槽、设备设置和歌曲会清空，须从完整备份恢复，蓝牙配对也会丢失。之后的更新（包括 tabby-v04.1）不再搬家。详见第 11 章。</li>
-<li><strong>机身没有步进编辑和录音。</strong>STEP DETAILS、LOCKS、RHYTHM/REC 页，REC 录入，预备拍，节拍器，Pad 步进模式，以及复制、粘贴、清空、重复步进和撤销菜单项都已移除。项目里原有的图案照常载入、保存和播放。节拍器与预备拍计划在之后的版本回来。</li>
-<li><strong>SYNC / MIDI 页。</strong>在任何页面按 SEQ 打开：K1 CLOCK，K2 CLK IN，K3 SWING，K4 SEQ OUT，K7 KEY OUT。SHIFT + SEQ 打开 MIDI TRACK，长按 SEQ 打开 ACTIONS。速度只在 HOME 的 K4 设置，HOME + SEQ 可拍击速度。</li>
-<li><strong>STOP TO SAVE。</strong>歌曲或图案播放时，机身不写闪存：保存显示 STOP TO SAVE，擦除和压缩显示 STOP TO ERASE / COMPACT；网页的写入同样被拒绝，并提示“设备正在播放，未写入任何内容”。先停止播放再重试。</li>
-<li><strong>OLD DATA 与擦除。</strong>安装后若歌曲区留有旧数据，机身显示 OLD DATA IN SONG STORAGE：长按 SEQ 打开 ACTIONS，选 ERASE OLD DATA，用左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）确认两次；网页的“清除旧数据”按钮也可以。项目、调音和设置不受影响。</li>
-<li><strong>计时计数器。</strong>所有版本都带有控制循环和闪存计时计数器，网页和诊断工具可以读取。tabby-v04.1 把每个 10 ms 控制周期内的屏幕绘制和传输工作切成小片，歌曲音符和 MIDI 发送永远排在最前，并新增“忙碌时间”和“丢失节拍”计数。屏幕上的 CPU GUARD - VOICES ADAPTED 是声音引擎的 CPU 预算保护，只减少内置声音的复音数，不改变 MIDI 输出的内容。</li>
-<li><strong>恢复页面。</strong>每个发布的版本在 builds/ 下都有永久页面，builds/ 页面列出所有版本。安装中断时，设备的升级程序只接受它正在接收的那个版本：关闭这张网页，给设备断电重启，再打开页面提示的那个版本。绝不要强制烧录；“启用强制烧录并重新连接”按钮已经取消。</li>
-<li><strong>控制名称。</strong>旋钮按面板上的印刷编号称为 K1 到 K8，从左起；固件里的 SELECT 是 K5，PAGE 是 K6，PRESETS 是 K7，MASTER 是 K8。固件里叫 SAVE 的按键，在说明里称为左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）。</li>
+<li><strong>The storage move. </strong>User storage went from 536576 to 471040 bytes: 16 project slots plus 97 song-region sectors (80 of them block sectors). Installing tabby-v04.0 over v03.x once clears the project slots, the device settings and the songs, so restore them from a Full backup; Bluetooth pairings are lost too. Later updates, tabby-v04.1 included, do not move storage again. See chapter 11.</li>
+<li><strong>The device has no step editing or recording. </strong>The STEP DETAILS, LOCKS and RHYTHM/REC pages, REC recording, the count-in, the metronome, pad-step mode and the copy, paste, clear, repeat and undo menu entries are gone. Patterns already in a project still load, save and play. The metronome and count-in are planned for a later version.</li>
+<li><strong>The SYNC / MIDI page. </strong>Press SEQ on any page: K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, K7 KEY OUT. SHIFT + SEQ opens MIDI TRACK and holding SEQ opens ACTIONS. Tempo is set only with K4 on HOME; HOME + SEQ taps it.</li>
+<li><strong>STOP TO SAVE. </strong>While a song or a pattern plays, the device writes nothing to flash: saving shows STOP TO SAVE, and erase and compaction show STOP TO ERASE / COMPACT. The workbench refuses writes too and says the device is playing and nothing was written. Stop playback, then try again.</li>
+<li><strong>OLD DATA and erasing. </strong>If song storage still holds old data after an install, the device shows OLD DATA IN SONG STORAGE: hold SEQ to open ACTIONS, choose ERASE OLD DATA and confirm twice with the 4th button in the left group (after SHIFT, FADER BANK, HOME). The workbench button for erasing old data does the same. Projects, tunings and settings are not touched.</li>
+<li><strong>The timing counters. </strong>Every build carries the control-loop and flash timing counters, which the workbench and the diagnostic tools can read. tabby-v04.1 cuts the screen drawing and transfer work in each 10 ms control pass into slices, always sends song notes and MIDI first, and adds busy-time and lost-tick counters. CPU GUARD - VOICES ADAPTED on the screen is the sound engine’s CPU budget guard; it only lowers the internal voice count and does not change what is sent on MIDI.</li>
+<li><strong>Recovery pages. </strong>Every published build has a permanent page under builds/, and the builds/ page lists them all. If an install is interrupted, the device’s update loader accepts only the build it was receiving: close this page, power-cycle the device, then open the page of that build. Never force flash; the Enable force flash and reconnect button is gone.</li>
+<li><strong>Control names. </strong>Knobs are called K1 to K8 by their printed numbers, from the left; the firmware’s SELECT is K5, PAGE is K6, PRESETS is K7 and MASTER is K8. The button the firmware calls SAVE is called the 4th button in the left group (after SHIFT, FADER BANK, HOME) in the manual.</li>
 </ul></article>
 <article id="manual-tabby-about" class="manual-chapter" tabindex="-1"><h3>01 · What Classic Tabby is</h3>
 <p>Classic Tabby is a performance MIDI sequencer firmware for the M-VAVE SMK-37 Pro. It is a fork of SMK37 Open V01. It plays songs made of rows and blocks, keeps the exact timing of imported MIDI files, changes scenes on the bar, launches patterns per track, and sends program changes and control changes to the gear on each MIDI channel.</p>
@@ -662,103 +662,103 @@ main{max-width:1440px}
 <tr><td>Workbench, Device update</td><td>Connect device, Start update</td><td>Install the firmware. Version and build ID on the tab.</td></tr>
 </tbody></table></div>
 </article>
-<article id="manual-start" class="manual-chapter" tabindex="-1"><h3>13 · 三分钟上手（合成器）</h3>
-<p>网页顶部和实机开机画面显示版本；HOME 显示 KEY 或 PAD 哪个是当前的演奏焦点。开机动画约 1 秒，按键或旋钮可跳过；开机不会自动播放。</p>
-<p>Classic Tabby 有 <strong>8 条轨道、5 种音源、16 个用户项目槽</strong>。每条轨道的图案长度为 16、32、48 或 64 步，来自项目；本版本机身不编辑步进，歌曲和细调在网页工作台完成。</p>
-<ol><li><strong>准备试听。</strong>实机把 K8 放在适中的位置；网页点琴键或播放即可发声，无需额外开关。</li><li><strong>先听一个预设。</strong>在 HOME 总览直接转 K7 切换整套预设，按 PLAY 播放。也可按 HOME 打开列表，转 K7／K5 直接载入，PLAY 载入播放。左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开项目保存，打击垫 1–16 也能直接选对应预设。</li><li><strong>改声音。</strong>回总览后 K5 选轨；DX7 轨短按 EDIT 进入快捷页，转 K7 换音色，K6 换 A–D 音色组，K1–K4 调算法／反馈／移调／音量，再按 EDIT 返回。其他音源的音色在网页工作台编辑。想换音源，在总览转 K6 或 K2，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用。</li><li><strong>设置时钟。</strong>按 SEQ 打开 SYNC / MIDI 页：K1 选 INT／MIDI 时钟，K3 调 SWING，K4 选 SEQ OUT；速度在 HOME 总览用 K4 调。节奏和音符在网页工作台里的歌曲和项目中编写。</li><li><strong>调平衡。</strong>按 MIX 进入混音，打击垫 1–8 静音、9–16 独奏；K5 选轨，K1–K4 调四轨音量。再按 MIX 或 HOME 返回。</li><li><strong>保存。</strong>按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后），K5 选 USER 槽，再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存；覆盖其他已有槽会提示确认，成功后自动返回。</li></ol>
-<p class="manual-note">网页顶部“保存到设备”可直接选槽保存；“存到此浏览器”只存本机浏览器；“导出项目文件”生成电脑备份。实机左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存到设备槽。</p></article>
-<article id="manual-panel" class="manual-chapter" tabindex="-1"><h3>14 · 面板与快捷键</h3>
-<div class="manual-table"><table><thead><tr><th scope="col">操作</th><th scope="col">用途</th></tr></thead><tbody>
-<tr><td>HOME</td><td>从编辑页回八轨总览；已经在总览时打开预设，再按取消。</td></tr>
-<tr><td>K5</td><td>总览、DX7 快捷页、SYNC / MIDI、MIDI TRACK 和混音页选轨；菜单选项目；SONG 页选歌曲。</td></tr>
-<tr><td>K7</td><td>总览直接切换整套工程预设；DX7 快捷页选当前轨音色；预设列表选工程；保存页选存档槽；SONG 页选歌曲。</td></tr>
-<tr><td>K6</td><td>总览选择合成引擎，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用、HOME 取消；ARP／FX 翻参数页；DX7 快捷页切换 A–D 音色组。</td></tr>
-<tr><td>K1 / K2 / K3 / K4</td><td>总览：K1 音量、K2 音源、K4 速度。SYNC / MIDI 页：K1 CLOCK、K2 CLK IN、K3 SWING、K4 SEQ OUT。其他页看屏幕底部标签。</td></tr>
-<tr><td>EDIT 短按／长按</td><td>DX7 轨短按进入或退出快捷页（K7 选音色，K6 换音色组，K1–K4 调算法／反馈／移调／音量）。其他音源按 EDIT 时屏幕提示 VOICE EDIT MOVED TO WORKBENCH，音色在网页工作台编辑。</td></tr>
-<tr><td>SEQ 短按／长按</td><td>在任何页面短按打开 SYNC / MIDI 页；SHIFT + SEQ 打开 MIDI TRACK；长按约 0.6 秒打开 ACTIONS 菜单；HOME + SEQ 拍击速度。</td></tr>
-<tr><td>MIX</td><td>单按进入／退出混音。打击垫 1–8 静音、9–16 独奏，无需一直按住 MIX。</td></tr>
-<tr><td>PLAY / REC</td><td>播放／暂停／续播。本版本 REC 不录音（屏幕提示 NO REC IN THIS VERSION）。预设页的 PLAY 为载入并播放，切换预设不弹确认。</td></tr>
-<tr><td>左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）</td><td>打开保存页，再按保存；菜单中用于执行／确认。HOME 取消。</td></tr>
-<tr><td>OCT− / OCT+</td><td>演奏时上下移调八度；SONG 与 TRACK LAUNCH 页翻打击垫页。</td></tr>
-<tr><td>ENV / SHIFT + ENV / FX / SCL</td><td>FX 按轨调混响和延迟。SCL 在 SONG 与 TRACK LAUNCH 页之间切换；ENV 让所选轨回到歌曲，SHIFT + ENV 让全部轨道回到歌曲。在其他页面，SCL、ENV 和 SHIFT + ENV 只提示音色编辑已移至网页工作台。</td></tr>
-<tr><td>ARP</td><td>短按开关当前轨琶音／鼓连奏；长按约 0.6 秒打开参数页。K5 选轨，K6 翻页：分频／方向／音域／门长，Swing／Hold。</td></tr>
+<article id="manual-start" class="manual-chapter" tabindex="-1"><h3>13 · Get started (synth)</h3>
+<p>The version shows at the top of the web page and on the device's boot screen; HOME shows whether KEY or PAD has the playing focus. The boot animation takes about 1 s; any key or knob skips it. Nothing plays by itself at boot.</p>
+<p>Classic Tabby has <strong>8 tracks, 5 engines and 16 user project slots</strong>. Each track’s pattern is 16, 32, 48 or 64 steps long, as set by the project. This version does not edit steps on the device; songs and detailed editing are in the web workbench.</p>
+<ol><li><strong>Prepare to listen. </strong>Set device MASTER to a moderate level. In the browser, press a key or Play to hear sound; no extra switch is needed.</li><li><strong>Try a preset. </strong>On HOME, turn K7 to change the whole project and press PLAY. You can also press HOME for the list, load with K7 / K5, or press PLAY to load and play. The 4th button in the left group (after SHIFT, FADER BANK, HOME) opens project saving; pads 1–16 select directly.</li><li><strong>Shape the sound. </strong>On the overview, K5 chooses a track. On a DX7 track a short EDIT press opens the quick page: turn K7 to change the voice, K6 for banks A–D, K1–K4 for algorithm, feedback, transpose and level; press EDIT again to return. Sounds of the other engines are edited in the workbench. To change engines, turn K6 or K2 on the overview, then press the 4th button in the left group (after SHIFT, FADER BANK, HOME).</li><li><strong>Set the clock. </strong>Press SEQ to open SYNC / MIDI: K1 chooses the INT or MIDI clock, K3 sets SWING and K4 sets SEQ OUT. Tempo is K4 on HOME. Rhythm and notes are written in the web workbench, in songs and projects.</li><li><strong>Balance the mix. </strong>Press MIX. Pads 1–8 mute and 9–16 solo. K5 chooses a track; K1–K4 adjust four track levels. Press MIX or HOME to return.</li><li><strong>Save your work. </strong>Press the 4th button in the left group (after SHIFT, FADER BANK, HOME), choose a USER slot with K5, then press the 4th button in the left group (after SHIFT, FADER BANK, HOME) again. Replacing another occupied slot asks for confirmation. The panel returns after saving.</li></ol>
+<p class="manual-note">“Save to device” at the top writes a chosen device slot. “Save in this browser” stores a browser copy; “Export project file” makes a computer backup. On the device, the 4th button in the left group (after SHIFT, FADER BANK, HOME) writes a device slot.</p></article>
+<article id="manual-panel" class="manual-chapter" tabindex="-1"><h3>14 · Panel &amp; shortcuts</h3>
+<div class="manual-table"><table><thead><tr><th scope="col">Control</th><th scope="col">What it does</th></tr></thead><tbody>
+<tr><td>HOME</td><td>Return from editing to the eight-track overview. From the overview, open the preset list; press again to cancel.</td></tr>
+<tr><td>K5</td><td>Selects the track on the overview, DX7 quick page, SYNC / MIDI, MIDI TRACK and mixer; selects the entry in menus; selects the song on SONG.</td></tr>
+<tr><td>K7</td><td>On HOME, change the complete project preset; on the DX7 quick page, the track voice; in the preset browser, the project; on the save page, the slot; on the SONG page, the song.</td></tr>
+<tr><td>K6</td><td>On HOME, preview a sound engine, then the 4th button in the left group (after SHIFT, FADER BANK, HOME) to apply or HOME to cancel. K6 changes parameter pages in ARP / FX and switches banks A–D on the DX7 quick page.</td></tr>
+<tr><td>K1 / K2 / K3 / K4</td><td>HOME: K1 level, K2 engine, K4 tempo. SYNC / MIDI: K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT. On other pages, follow the bottom labels.</td></tr>
+<tr><td>EDIT: tap / hold</td><td>On a DX7 track, tap to enter or leave the quick page (K7 selects the voice, K6 the bank, K1–K4 algorithm, feedback, transpose and level). On other engines EDIT shows VOICE EDIT MOVED TO WORKBENCH; those sounds are edited in the workbench.</td></tr>
+<tr><td>SEQ: tap / hold</td><td>Tap on any page to open SYNC / MIDI; SHIFT + SEQ opens MIDI TRACK; hold for about 0.6 s to open the ACTIONS menu; HOME + SEQ taps the tempo.</td></tr>
+<tr><td>MIX</td><td>Tap to enter or leave the mixer. Pads 1–8 mute and 9–16 solo. You do not need to keep MIX held.</td></tr>
+<tr><td>PLAY / REC</td><td>Play, pause, continue. REC does not record in this version (the screen says NO REC IN THIS VERSION). On the preset page PLAY loads and plays; changing presets asks nothing.</td></tr>
+<tr><td>The 4th button in the left group (after SHIFT, FADER BANK, HOME)</td><td>Open the save page, then press again to save. Execute / confirm in menus. HOME cancels.</td></tr>
+<tr><td>OCT− / OCT+</td><td>Transpose the playing octave down or up; on SONG and TRACK LAUNCH, page the pads.</td></tr>
+<tr><td>ENV / SHIFT + ENV / FX / SCL</td><td>FX edits track reverb and delay. SCL switches between the SONG and TRACK LAUNCH pages; ENV sends the selected track back to the song, SHIFT + ENV every track. On other pages SCL, ENV and SHIFT + ENV only say that voice editing moved to the workbench.</td></tr>
+<tr><td>ARP</td><td>Tap to toggle the current track arpeggiator / drum repeats; hold for about 0.6 seconds for settings. K5 chooses a track; K6 switches between rate / direction / range / gate and Swing / Hold.</td></tr>
 </tbody></table></div>
-<p>37 个力度琴键始终用于演奏。短按 PAD / STEP 切换 KEY／PAD 编辑焦点（本版本没有 Pad 步进模式）；菜单中打击垫用于选择。8 个编码器从左起依次为 K1–K8（固件把 K5 叫 SELECT、K6 叫 PAGE、K7 叫 PRESETS、K8 叫 MASTER）。4 个推子控制轨道音量，FADER BANK 在 1–4／5–8 轨之间切换，推子经过屏幕当前值后才接管。BT 键提示蓝牙设置已移至网页工作台，SHIFT + HOME / SRC 直达音源页。弯音轮、调制轮和延音踏板跟随 KEY；Pad 触后跟随 PAD。</p>
-<p>总览的 K4 设置速度，HOME + SEQ 也可拍击速度。本版本机身没有录音和步进编辑；歌曲在网页工作台编写。</p>
-<p>同一轨的静音与独奏互斥：开启独奏会取消该轨静音，开启静音会取消该轨独奏；其他轨保持原状态。</p>
-<h4>网页操作</h4><p>选择预设后点“播放”试听。“读取与保存”管理设备读取和浏览器存档，“文件与 MIDI”导入、导出项目和音色。</p><p>常用编辑按钮直接打开音色、SYNC / MIDI、混音和效果；其余功能在“更多编辑”。旋钮可拖动或滚轮调节，LCD 数值可点击编辑。电脑键盘 Z、S、X、D…演奏，空格播放，Esc 停音；输入文字和操作菜单时不会演奏。</p>
-<p>上排功能键在所有页面都有效：FX、EDIT（DX7 轨）、MIX、SEQ 可直接切页；SCL、ENV、LFO 只在歌曲页有作用（见第 05 章）；ARP 短按开关、长按调参数，PLAY 控制播放。左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开项目保存页，或执行屏幕内的确认；OCT−／OCT+ 调八度。离开确认页不会执行待确认操作。</p>
-<h4>LCD 数值直接编辑</h4><p>把鼠标放在 LCD 上的数值，出现高亮即可滚轮调节；每次按参数最小步长变化，不随滚动速度加速。也可点击打开大号数值框，用滚轮、＋／−或方向键细调，Esc 关闭。支持底部参数、顶部 BPM、总览各轨音量、DX7 快捷页的参数行和效果参数行。混音页也可点静音／独奏格子设置。状态、电平和当前引擎不支持的参数只显示；外部 MIDI 时钟下 BPM 由外部控制。切换轨道或参数页会关闭旧编辑框，避免改错参数。总览调其他轨的小音量数字不会改变当前选轨。</p>
-<p>MIX 短按（小于 0.6 秒）进入或退出混音；按住 0.6 秒可临时查看混音，松开回原页。MIX、EDIT、SEQ、ARP 的长按过程中，屏幕顶部显示进度条。</p>
-<p>SHIFT + Pad 1–8 直选轨道，SHIFT + Pad 9–16 切换对应轨道静音；上半区高亮当前轨，下半区橙色表示静音。松开 SHIFT 恢复原来的打击垫功能。</p><p>SHIFT + SEQ 直达 MIDI TRACK：K1 IN CH 选输入通道，K2 OUT CH 选输出通道，K3 SEQ 选 LOCAL／BOTH／MIDI，K4 OUT PORT 选 ALL／OFF。输入、输出通道独立；多个轨道可共用输入通道。</p><p>SHIFT + HOME 音源页的 K2 TRACK 即时选择 PROJECT／LIVE／OFF：PROJECT 跟随项目，LIVE 在换项目时保留音色和按住的音符，OFF 释放音源内存。原来的 NORMAL／PLAY 设置分别对应 PROJECT／LIVE。LIVE 音色请单独导出；项目保存的是原有编曲。模式与输入通道自动记忆；修改前请先停音。K1 仍只预览音源，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用音源，HOME 返回。</p><h4>组合键</h4><p>HOME＋PLAY 紧急停音回起点；HOME＋左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）撤销／重做最近一次改动；SEQ＋EDIT 打开 ACTIONS 菜单，与长按 SEQ 相同。网页需要锁住按键时可 Shift 点击或右击，再点释放；日常操作无需使用。</p></article>
-<article id="manual-sequence" class="manual-chapter" tabindex="-1"><h3>15 · 同步与 MIDI</h3>
-<p>内置 128 个 DX7 格式预置音色，分为 A–D 四组，每组 32 个。网页工作台可把标准 DX7 单音色或 32 音色 SysEx 导入某一轨，不支持扩展参数。机身不再有 DX7 用户音色库。</p>
-<p>在任何页面按 SEQ 打开 SYNC / MIDI 页：K1 CLOCK 选 INT／MIDI，K2 CLK IN 选时钟来源（AUTO、USB、BLE；DIN 在 Pro／Elite 上收不到任何数据，不要选），K3 SWING，K4 SEQ OUT 选 OFF／ON／CLOCK，K7 开关 KEY OUT。速度只在 HOME 的 K4 设置；外部 MIDI 时钟下速度由外部设备决定。长按 SEQ 打开 ACTIONS。</p>
-<p>切换时钟会停止播放；MIDI 模式需外部 Start／Continue 和 Clock，等待时屏幕提示 WAIT MIDI CLOCK。外部 BPM 只读。歌曲模式需要 INT 时钟。</p>
-<p>首次使用时，8 个轨道的 SEQ 默认 BOTH，KEY OUT 默认 ON，同时启用 ALL 和 SEQ OUT ON；已保存的输出模式与 KEY OUT 选择会保留。MIDI TRACK 页（SHIFT + SEQ）：K1 IN CH 输入通道，K2 OUT CH 发送通道，K3 SEQ 选 LOCAL／BOTH／MIDI，K4 OUT PORT 选 ALL／OFF。SYNC / MIDI 页：K4 SEQ OUT 选 OFF（关闭音序音符和主时钟）／ON（音序音符及内部时钟／启停）／CLOCK（仅内部时钟／启停），K7 开关 KEY OUT。SEQ 模式与 SEQ OUT 不影响 ARP；ARP 固定 BOTH（内部发声＋MIDI 输出），按该轨 OUT CH 和公共 OUT PORT 发送。切换 SEQ 设置不打断 ARP，开关 ARP 也不释放 SEQ 音符。ARP 第二页仅保留 SWING、HOLD 和 OUT CH，K3 无功能。只发时钟时，请关闭 KEY OUT 和各轨 ARP。USB-C 分轨输出时逐轨设置 OUT CH，启用 BOTH 或 MIDI、ALL 及 SEQ OUT ON；只改 IN CH 不会改变输出通道。升级后本地演奏始终可用，Thru 关闭；旧端口组合只要有输出就转为 ALL，OFF 保留。偏好独立于项目；网页仅预览，实机请通过机身设置。</p>
-<h4>琶音：速度、方向、Swing 与 Hold</h4><p>短按 ARP 开启后按住音符；长按 ARP 打开参数。K6 翻两页：第一页 K1 为 1/4、1/8、1/16、1/32 分频，K2 方向，K3 为 1–4 个八度，K4 为 25%–100% 门长；第二页 K1 为 0%–50% Swing，K2 开关 Hold。Hold 保持松手后的和弦，全部松手后弹新和弦即可替换；关闭 Hold、停止或紧急停音会释放锁住的音符。K5 选轨，各轨参数独立。HOME 总览 K4 调 BPM；外部时钟需 Start／Continue 和 Clock，Swing 按 24 PPQN 的精度变化。</p><p>808 支持分频、方向、Swing 和 Hold；音域与门长显示“--”，不移调鼓声部。ARP 开关与六项参数随项目保存，按住或 Hold 锁住的音符不保存。</p>
-<h4 data-removed-ok>本版本移除的机身编辑</h4><p data-removed-ok>tabby-v04.0 移除了机身的步进编辑：STEP DETAILS、LOCKS、RHYTHM/REC 页，REC 录音（停止时逐步录入和播放时录入）、预备拍、节拍器、Pad 步进模式，以及复制、粘贴、清空、重复步进和对应的 ACTIONS 项。项目里原有的图案仍随项目载入、保存和播放。SWING、时钟、时钟来源与输出开关移到 SYNC / MIDI 页，速度在 HOME 的 K4。节拍器与预备拍计划在之后的版本（第 5 阶段）回来。</p>
+<p>The 37 velocity keys always play notes. Tap PAD / STEP to switch KEY/PAD editing focus (there is no pad-step mode in this version). Pads select items in menus. Encoders are K1–K8 from the left (the firmware calls K5 SELECT, K6 PAGE, K7 PRESETS and K8 MASTER). Four faders control track levels; FADER BANK selects tracks 1–4 or 5–8. A fader takes over after crossing the stored value. BT reminds you that Bluetooth settings moved to the web workbench; SHIFT + HOME / SRC opens sources. Pitch, modulation and sustain follow KEY; Pad aftertouch follows PAD.</p>
+<p>On the overview, K4 sets the tempo; HOME + SEQ taps it. This version has no recording and no step editing on the device; songs are written in the web workbench.</p>
+<p>Mute and solo are mutually exclusive on each track: enabling solo clears that track’s mute, and enabling mute clears its solo. Other tracks keep their settings.</p>
+<h4>Web controls</h4><p>Choose a preset and press Play. Read &amp; save contains device reading and browser saves. Files &amp; MIDI imports and exports projects and sounds.</p><p>The main buttons open sound, SYNC / MIDI, mixer and effects; other controls are in More editing. Drag or scroll knobs, or click LCD values. Play with Z, S, X, D…; Space plays and Esc stops notes. Typing and menu actions do not play notes.</p>
+<p>The top row of buttons works on every page: FX, EDIT (DX7 track), MIX and SEQ open their pages; SCL, ENV and LFO act only on the song pages (chapter 05); ARP toggles with a tap and opens its settings when held; PLAY controls playback. The 4th button in the left group (after SHIFT, FADER BANK, HOME) opens the project save page or confirms the prompt on screen; OCT− / OCT+ change the octave. Leaving a confirmation page runs nothing.</p>
+<h4>Edit LCD values directly</h4><p>Hover over an LCD value: a highlight means it is editable with the mouse wheel. Each step uses the parameter's smallest increment, without scroll-speed acceleration. Click to open a larger value display, then use the wheel, + / − or arrow keys; Esc closes it. Editable values include bottom parameters, top BPM, overview track levels, the DX7 quick page's rows and the effect rows. Mixer mute / solo cells are also editable. Status, meters and unsupported engine parameters remain read-only; external MIDI clock controls BPM. Changing tracks or parameter pages closes the old editor to prevent editing the wrong value. Adjusting another track's small level on the overview does not change your selected track.</p>
+<p>Tap MIX (less than 0.6 seconds) to enter or leave the mixer. Hold for 0.6 seconds for a momentary mixer view; release to return. A progress bar appears at the top while holding MIX, EDIT, SEQ or ARP.</p>
+<p>SHIFT + Pads 1–8 select tracks; SHIFT + Pads 9–16 toggle their mute. The upper half highlights the selected track; orange in the lower half means muted. Release SHIFT to restore the pads.</p><p>SHIFT + SEQ opens MIDI TRACK: K1 IN CH selects the input channel, K2 OUT CH selects the output channel, K3 SEQ selects LOCAL / BOTH / MIDI, and K4 OUT PORT selects ALL / OFF. Input and output channels are independent; several tracks can share an input channel.</p><p>K2 TRACK on SHIFT + HOME immediately selects PROJECT / LIVE / OFF: PROJECT follows the project, LIVE retains its sound and held notes across project changes, and OFF frees instrument memory. Existing NORMAL / PLAY preferences map to PROJECT / LIVE. Export LIVE timbres separately; projects store the arrangement. Mode and input-channel preferences are remembered. Release notes before changing them. K1 still previews a source, the 4th button in the left group (after SHIFT, FADER BANK, HOME) applies it, and HOME returns.</p><h4>Button combinations</h4><p>HOME+PLAY stops all sound and returns to the start; HOME + the 4th button in the left group (after SHIFT, FADER BANK, HOME) toggles undo / redo of the last change; SEQ+EDIT opens the ACTIONS menu, the same as holding SEQ. To lock a button in the web panel, Shift-click or right-click it, then click to release; daily use does not need this.</p></article>
+<article id="manual-sequence" class="manual-chapter" tabindex="-1"><h3>15 · Sync &amp; MIDI</h3>
+<p>The 128 DX7-format presets are arranged in banks A–D of 32 voices each. The workbench imports a standard DX7 single-voice or 32-voice SysEx file to a track; extended parameters are not supported. The device no longer has a DX7 user library.</p>
+<p>Press SEQ on any page to open SYNC / MIDI: K1 CLOCK chooses INT or MIDI, K2 CLK IN the clock source (AUTO, USB or BLE; DIN receives nothing on the Pro and Elite, do not choose it), K3 SWING, K4 SEQ OUT chooses OFF, ON or CLOCK, K7 switches KEY OUT. The tempo is set only on HOME K4; with external MIDI clock the source sets it. Hold SEQ for ACTIONS.</p>
+<p>Changing the clock stops playback. MIDI mode needs an external Start or Continue and Clock; while waiting the screen says WAIT MIDI CLOCK. The external BPM is read only. Song mode needs the INT clock.</p>
+<p>On first use the 8 tracks' SEQ is BOTH, KEY OUT is ON, OUT PORT is ALL and SEQ OUT is ON; saved output modes and the KEY OUT choice are kept. MIDI TRACK page (SHIFT + SEQ): K1 IN CH the input channel, K2 OUT CH the send channel, K3 SEQ LOCAL / BOTH / MIDI, K4 OUT PORT ALL / OFF. SYNC / MIDI page: K4 SEQ OUT OFF (no sequencer notes and no master clock) / ON (sequencer notes and the internal clock with Start and Stop) / CLOCK (only the internal clock with Start and Stop); K7 switches KEY OUT. SEQ mode and SEQ OUT do not affect ARP: ARP is always BOTH (built-in sound and MIDI out) and sends on the track's OUT CH and the common OUT PORT. Changing SEQ settings does not interrupt ARP, and switching ARP does not release sequencer notes. ARP page 2 keeps only SWING, HOLD and OUT CH; K3 does nothing. To send the clock alone, switch off KEY OUT and every track's ARP. For per-track output over USB-C set OUT CH per track and use BOTH or MIDI, ALL and SEQ OUT ON; changing IN CH alone does not change the output channel. After an update local playing always works and Thru is off; an old port combination with any output becomes ALL, OFF stays. These preferences are independent of the project; the web page only previews them, set them on the device.</p>
+<h4>Arpeggiator: rate, direction, Swing and Hold</h4><p>Tap ARP and hold notes; hold ARP to open settings. K6 switches two pages: page 1 has K1 rate (1/4, 1/8, 1/16, 1/32), K2 direction, K3 range (1–4 octaves), K4 gate (25%–100%); page 2 has K1 Swing (0%–50%) and K2 Hold. Hold keeps a released chord; release all keys and play a new chord to replace it. Turning Hold off, Stop or Panic releases latched notes. K5 chooses a track; settings are independent per track. K4 on HOME changes BPM. External clock needs Start / Continue and Clock; Swing follows 24 PPQN resolution.</p><p>808 supports rate, direction, Swing and Hold. Range and gate show “--”; drum parts are not transposed. ARP enable and all six settings are saved with the project; held or latched notes are not.</p>
+<h4 data-removed-ok>Device editing removed in this version</h4><p data-removed-ok>tabby-v04.0 removes the step editing on the device: the STEP DETAILS, LOCKS and RHYTHM/REC pages, REC recording (step entry while stopped and recording while playing), the count-in, the metronome, pad-step mode, and copying, pasting, clearing and repeating steps with their ACTIONS entries. The patterns already in a project still load, save and play with it. SWING, the clock, the clock source and the output switches moved to the SYNC / MIDI page; the tempo is on HOME K4. The metronome and the count-in are planned to return in a later version (Phase 5).</p>
 </article>
-<article id="manual-sound" class="manual-chapter" tabindex="-1"><h3>16 · 五种音源</h3>
-<p>每条轨道都能选择任意一种音源，同类型的多条轨道也各有参数。切换音源后使用新类型的默认参数；鼓与旋律互换会清空不兼容步进，可用 HOME＋左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）撤销。</p>
-<div class="manual-table"><table><thead><tr><th scope="col">音源</th><th scope="col">怎样编辑</th></tr></thead><tbody>
-<tr><td>DX7 · FM</td><td>短按 EDIT 进入快捷页：K7 选 1–128 音色，K6 切换 A–D 组，K1–K4 调算法／反馈／移调／音量。再短按返回。算子级编辑和 .syx 导入在网页工作台完成。</td></tr>
-<tr><td>303 · 酸性贝斯</td><td>参数在网页工作台编辑：Cutoff／Reso／EnvMod／Decay；Accent／Wave／Tune／Volume；Drive／DrvTyp／Slide／AccDec；Mono／Poly 选择单音滑音或 4 复音。Program Change 0／1 切换锯齿／方波。</td></tr>
-<tr><td>808 · 合成鼓</td><td>11 个鼓声部与 KIT 的参数在网页工作台编辑；各声部可调参数不同，KIT 调整整套鼓组。机身用琴键或打击垫试听并选中声部。</td></tr>
-<tr><td>PSG · 芯片音色</td><td>网页工作台编辑 MODE（YM／AY／NOISE／MIX）、NOISE、TUNE、RELEASE。纯方波模式下 NOISE 不改变声音。</td></tr>
-<tr><td>PLUCK · 拨弦</td><td>网页工作台编辑 DECAY、BRIGHT、TUNE、RELEASE。DECAY 是自然衰减，RELEASE 是松键衰减；按住键仍会自然衰减。亮度在下一次拨弦生效。</td></tr>
+<article id="manual-sound" class="manual-chapter" tabindex="-1"><h3>16 · Five sound engines</h3>
+<p>Every track can use any of the sources, and several tracks of one type each keep their own parameters. A new source starts with its type's defaults; swapping drums and melody clears the steps that do not fit, and HOME + the 4th button in the left group (after SHIFT, FADER BANK, HOME) undoes it.</p>
+<div class="manual-table"><table><thead><tr><th scope="col">Engine</th><th scope="col">How to edit</th></tr></thead><tbody>
+<tr><td>DX7 · FM</td><td>Tap EDIT for the quick page: K7 selects voices 1–128, K6 switches banks A–D, and K1–K4 adjust algorithm, feedback, transpose and level. Tap again to return. Operator-level editing and .syx import happen in the workbench.</td></tr>
+<tr><td>303 · Acid bass</td><td>Parameters are edited in the workbench: Cutoff / Reso / EnvMod / Decay; Accent / Wave / Tune / Volume; Drive / DrvTyp / Slide / AccDec; Mono / Poly selects monophonic slide or four-voice polyphony. Program Change 0 / 1 switches saw / square.</td></tr>
+<tr><td>808 · Synthesized drums</td><td>The parameters of the 11 drum parts and KIT are edited in the workbench; available parameters depend on the part, and KIT adjusts the whole kit. On the device, a key or pad auditions and selects the part.</td></tr>
+<tr><td>PSG · Chip sounds</td><td>Edited in the workbench: MODE (YM / AY / NOISE / MIX), NOISE, TUNE and RELEASE. NOISE has no effect in a pure square-wave mode.</td></tr>
+<tr><td>PLUCK · Plucked strings</td><td>Edited in the workbench: DECAY, BRIGHT, TUNE and RELEASE. DECAY is the natural decay; RELEASE is decay after key release. A held note still decays naturally. Brightness changes apply to the next pluck.</td></tr>
 </tbody></table></div>
-<h4>包络与 LFO</h4><p>机身的 ENV 与 LFO 页已随音色编辑移至网页工作台；各引擎的包络（FM 的 ADSR、303 的 EnvMod／Decay／AccDec、PSG 与 Pluck 的 Release 等）和非 FM 引擎的轨道 LFO（速度、深度、音量起伏／声像、波形）在网页里编辑，随项目与轨道音色保存。LFO 作用于整个轨道，也影响轨道效果发送。效果使用 FX。</p>
-<h4>DX7 音色名</h4><p>机身的 DX7 PATCH NAME 页已移除；音色名随网页工作台导入的 .syx 音色一起写入，并随项目保存。切换 DX7 内置音色会替换当前编辑。</p>
-<h4>轨道效果</h4><p>按 FX，K5 选轨；K1 混响发送、K2 延迟发送，0 即关闭该轨发送，五种音源均可用。K3 轨道音量、K4 共用效果返回量。转 K7 到第二页细调：K1 混响时间、K2 延迟时间、K3 反馈、K4 返回量，由所有轨道共用。轨道发送量随项目和轨道音色保存；共用效果参数仅随项目保存。静音停止新发送，已有尾音自然衰减。</p>
+<h4>Envelopes &amp; LFO</h4><p>The device's ENV and LFO pages moved to the workbench with voice editing. Each engine's envelope (FM ADSR, 303 EnvMod / Decay / AccDec, PSG and Pluck Release and so on) and the track LFO of the non-FM engines (rate, depth, tremolo / pan, waveform) are edited in the browser and saved with the project and the track sound. The LFO acts on the whole track, including its effect sends. Effects use FX.</p>
+<h4>DX7 patch names</h4><p>The device's DX7 PATCH NAME page is gone. Patch names come with the .syx voices imported in the workbench and are saved with the project. Switching a built-in DX7 voice replaces the current edit.</p>
+<h4>Track effects</h4><p>Press FX and select a track with K5. K1 sets reverb send, K2 delay send; 0 disables that track send. All five engines are supported. K3 is track volume and K4 is the shared effects return. Turn K7 to the second page for shared reverb time, delay time, feedback and return. Track sends are saved with projects and sounds. Shared effect settings are saved only with the project. Muting stops new sends while existing tails decay.</p>
 </article>
-<article id="manual-mix" class="manual-chapter" tabindex="-1"><h3>17 · 音量与混音</h3>
-<p><strong>K8 是总输出音量。</strong>实机旋钮控制合成器、USB 与蓝牙输入的最终输出，也影响 USB 录音。最小位置静音，切换项目沿用旋钮位置；它不随项目保存。转动时屏幕短暂显示 MASTER 百分比或 MASTER MUTED。</p><p><strong>轨道 LEVEL 是项目里的混音音量。</strong>在 HOME 总览用 K1 调当前轨。303 的 Volume 和 808 的声部 Level 用于音色内部的平衡。</p>
-<ol><li>按一下 MIX 进入混音，按打击垫 1–8 切换对应轨静音。</li><li>按一下 MIX 进入混音，按打击垫 9–16 切换对应轨独奏。</li><li>混音页中，K5 选轨；K1–K4 调当前四轨组（1–4 或 5–8）的音量。</li></ol>
-<p>多个轨道可以同时独奏；同一轨的静音与独奏互斥。</p><p>网页“静音”只关闭试听，编辑与音序仍继续。要停回起点，请用 HOME＋PLAY 或“紧急停音”。</p>
+<article id="manual-mix" class="manual-chapter" tabindex="-1"><h3>17 · Volume &amp; mixing</h3>
+<p><strong>MASTER controls the final output level. </strong>The physical knob controls the final synthesizer, USB and Bluetooth input output, including USB recording. Minimum mutes. Its position remains in effect when changing projects and is not saved per project. Turning it briefly displays a MASTER percentage or MASTER MUTED.</p><p><strong>Track LEVEL is the mix level saved in a project. </strong>On HOME, K1 adjusts track level. The 303 Volume and 808 part Level balance sounds within the engine.</p>
+<ol><li>Tap MIX for the mixer; pads 1–8 toggle track mute.</li><li>Tap MIX for the mixer; pads 9–16 toggle track solo.</li><li>In the mixer, K5 chooses a track; K1–K4 adjust its group of four tracks (1–4 or 5–8).</li></ol>
+<p>Multiple tracks can be soloed; a track cannot be muted and soloed at the same time.</p><p>Browser Mute silences monitoring while editing and sequencing continue. Use HOME+PLAY or Panic / Stop all to stop and return to the start.</p>
 </article>
-<article id="manual-project" class="manual-chapter" tabindex="-1"><h3>18 · 保存与文件</h3>
-<p class="manual-note"><strong>工作区 ≠ 已保存项目。</strong>实机未保存的编辑只在内存中，重新开机或载入其他项目会丢失。网页与实机各有自己的存档；“保存到设备”会完成传输、写入槽位和读回校验。</p>
-<h4>预设与保存分开操作</h4><p>PROJECT 轨的音色修改随项目保存；LIVE 轨的音色修改请导出轨道音色。项目备份不包含歌曲；歌曲用“导出 .tabby”逐首备份。</p><p><strong>直接切换：</strong>在 HOME 总览转 K7 即可切整套预设，屏幕显示当前工程名称；播放中切换会继续播放，停止时切换保持停止。切换直接生效，不提示保存。单轨音色在 EDIT 页用 K7 选择。</p><p><strong>浏览列表：</strong>总览按 HOME 打开用户项目列表（16 个用户槽）。K7／K5 直接载入对应编号，PLAY 载入并播放，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开项目保存；打击垫 1–16 直接选编号并沿用之前的播放状态。空 USER 槽会提示，不替换当前项目。</p><p>切换预设会直接替换当前工作区，包括未保存的修改；想保留修改时，先按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存。</p><p><strong>保存：</strong>左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开保存页，K5／K7 选 USER 槽，K1 选名称字符、K2 改字符；再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）写入。覆盖其他已有槽须再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）确认，成功后自动回原页面，HOME 取消。当前槽直接更新。标题星号表示未保存。</p>
-<p>顶部状态区区分浏览器试听、设备连接和未写入的网页修改。连接不会自动读取或同步；点常用区“读取设备项目”替换网页工作区，误操作可用 HOME＋左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）撤销。保存并读回校验一致后才显示已写入；仅存到浏览器不代表写入设备。实机旋钮修改后，请重新读取。</p><p>项目保存各轨 ARP 开关与参数。</p>
-<h4>把网页作品放入 SMK37 OPEN</h4><ol><li>用 USB 数据线连接 SMK37 OPEN；在网页完成编辑，点顶部“保存到设备”。</li><li>允许浏览器 MIDI／SysEx，选择目标槽位，点击“保存并校验”。已有槽位内容会被替换。</li><li>看到“读回校验通过”再断开设备。重启后可在 USER 列表载入对应槽；不需要另外按实机左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）。</li></ol>
-<p>“读取设备项目”把当前实机工作区带入仿真；“恢复到工作区”也不会自动覆盖设备槽。网页面板的左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）写入浏览器本地槽，清理浏览器数据会删除这些存档，重要作品请导出。</p>
-<div class="manual-table"><table><thead><tr><th scope="col">文件</th><th scope="col">包含什么</th></tr></thead><tbody><tr><td>.fm1</td><td>完整八轨项目：音源、参数、轨道音量、循环长度、步进等；不含歌曲。</td></tr><tr><td>.fm1t</td><td>一条轨道的音源类型、音色参数和音量；不携带步进。支持全部五种音源。</td></tr><tr><td>.syx</td><td>DX7 标准音色，支持单音色和 32 音色库。设备目标轨须设为 DX7。</td></tr><tr><td>.tabby</td><td>一首歌曲：歌曲记录与全部块，可带该歌曲自己的设备配置副本。见第 11 章。</td></tr></tbody></table></div>
-<p>项目库列表读取失败时，载入、保存和导入按钮保持禁用；点击“刷新列表”重试。只有完整读取成功后才开放操作，重试会保留有效的选中槽位。</p></article>
-<article id="manual-connect" class="manual-chapter" tabindex="-1"><h3>19 · MIDI、蓝牙与时钟</h3>
-<h4>USB 与网页连接</h4><p>下载完整 HTML 后可离线试听和编辑；读写设备需要支持 Web MIDI 的电脑 Chrome／Edge 和 USB 数据线，并允许 MIDI／SysEx。不能连接时先关闭占用 MIDI 的其他网页或软件，再重新连接。外部演奏请选择与目标轨相同的输入通道；SHIFT + SEQ 后用 K2 查看或修改。</p><p>仿真页的“连接 MIDI 输入”用于外部键盘演奏网页。项目库连接用于读写实机项目和音色。USB 音频的输入／输出选择在电脑系统或音乐软件中设置。</p>
-<p>USB MIDI 开机即接收；蓝牙 MIDI 在网页工作台“项目与音色 → 蓝牙设置”中控制，两者使用相同的轨道输入通道设置。Pro／Elite 的 TRS 口只输出 MIDI，不能作为 MIDI 输入（固件没有 DIN 接收，SYNC / MIDI 页的 CLK IN 选 DIN 收不到任何数据）；外部时钟和音符请经 USB 或蓝牙输入。</p>
-<h4>通道与接收规则</h4><p>默认 CH1–7 对应轨道 1–7，CH10 对应轨道 8。SHIFT + SEQ 后用 K2 为各轨选择输入通道 1–16。音符、弯音、调制和控制器按此设置接收，与屏幕选中轨道无关；多轨可共用一个通道叠奏。未分配给任何轨道的通道消息被忽略。更换音源不改变通道，USB MIDI 与 BLE MIDI 使用相同规则。</p><p>例如在默认设置下，键盘 CH2 控制轨 2；将轨 3 的输入也设为 CH2，即可同时演奏轨 2 和轨 3。</p>
-<div class="manual-table"><table><thead><tr><th scope="col">接收消息</th><th scope="col">作用与范围</th></tr></thead><tbody>
-<tr><td>Note On / Off</td><td>全部音源接收 Note On／Off 和力度；Note On 力度 0 等同 Note Off。808 按鼓音符选择声部。</td></tr>
-<tr><td>Pitch Bend</td><td>FM、303、PSG、Pluck 支持 14 位弯音，中心 8192，范围 ±2 半音；作用于已发声及后续音符。808 的音高使用各声部 TUNE。</td></tr>
-<tr><td>CC1 · Mod Wheel</td><td>FM：音高颤音，音色 PMS 为 0 时调制轮仍有基础响应；303：EnvMod；PSG、Pluck、808：轨道 LFO 深度，未设置 LFO 时为音量起伏。</td></tr>
-<tr><td>CC7 / CC10 / CC11 / CC91</td><td>全部音源：CC7 轨道音量；CC10 声像（0 左、64 中、127 右）；CC11 表情（0 静音、127 原音量）；CC91 混响发送。</td></tr>
-<tr><td>CC64 / Channel Pressure / CC2 / CC4</td><td>FM、303、PSG、Pluck：CC64 延音，64–127 踩下，0–63 松开。FM 另接收通道触后用于颤音，以及 CC2／CC4 的振幅控制，效果取决于音色振幅敏感度。</td></tr>
-<tr><td>CC120 / CC121 / CC123</td><td>CC120 停止该轨声音；CC123 释放该轨外部音符（延音踏板仍有效）；CC121 复位实时弯音、表情、声像、调制和踏板，不改音色参数。</td></tr>
-<tr><td>Program Change</td><td>Program Change 使用 SMK37 OPEN 音色：FM 0–15 循环；303 0／1 为锯齿／方波；PSG 0–3 为 YM／AY／NOISE／MIX。其他音源忽略。部分软件显示为 1 起始编号。</td></tr>
-<tr><td>Engine CC</td><td>303 还接收 CC5 滑音时间、CC71 共振、CC74 截止、CC75 衰减；PSG 接收 CC74 噪声、CC72 释放；Pluck 接收 CC74 亮度、CC75 衰减、CC72 释放。</td></tr>
-</tbody></table></div><p>CC7、CC91、音色切换与音色参数编辑可随项目保存。弯音、表情、声像及实时调制不写入项目；CC121 不撤销已编辑的 303 EnvMod。SMK37 OPEN 保留自己的音色体系，不提供 GM 128 音色表。</p>
-<h4>同步与走带</h4>
-<p>Clock、Start、Continue、Stop、歌曲位置和 MMC 不带 MIDI 通道，控制整机。选择 MIDI 时钟后，外部 Clock 按每四分音符 24 个脉冲同步；仅发送 Clock 不会自行播放。Start 从起点开始，Continue 从当前位置继续，Stop 停止播放并释放音序和琶音音符。</p><p>歌曲位置 SPP（F2）在 MIDI 时钟模式下定位，每单位为一个十六分音符，各轨按自身循环长度取余；随后发送 Continue 与 Clock。Start 会重新回到起点。System Reset（FF）停止、回起点并释放全部音符。</p><p>MMC 支持 Stop（01）、Play（02）、Deferred Play（03）、Record Strobe（06）、Record Exit（07）和 Pause（09）；接收设备 ID 00 或广播 7F。Play／Deferred Play／Record Strobe 从当前位置继续，Record Exit 不起作用（本版本没有录音），Stop／Pause 停止。在 MIDI 时钟模式仍需外部 Clock。</p><p>例：F0 7F 7F 06 01 F7 为 MMC Stop；F0 7F 7F 06 02 F7 为 MMC Play。数字均为十六进制。</p><p>同时连接多台 MIDI 设备时只让一台发送时钟和走带，避免重复脉冲。MTC 时间码、MMC 时间码定位／快进／倒带、RPN／NRPN、复音触后、GM Reset、Bank Select、Active Sensing 超时监控及未列出的控制器目前不实现，收到后忽略。</p>
-<h4>蓝牙设置</h4><p>机身没有蓝牙页（为独立轨道启动腾出闪存）；BT 键只提示去网页工作台设置。蓝牙设置在网页工作台“项目与音色 → 蓝牙设置”：连接项目库后可打开或关闭蓝牙和蓝牙音频，选择 BLE MIDI 的 DEVICE／HOST 角色，并清除 MIDI 配对；改动立即写入设备并保存。蓝牙打开时 MIDI 服务自动可用；出厂默认蓝牙和音频打开、DEVICE 角色。时钟来源在 SYNC / MIDI 页（按 SEQ）选择。HOST 模式的设备扫描与连接列表不再提供。</p>
-<h4>INT 与 MIDI 时钟</h4><p><strong>INT：</strong>SMK37 OPEN 使用内部速度，K4 可设 30–300 BPM。<strong>MIDI：</strong>跟随外部 MIDI Clock，需外部发送 Start／Continue 才开始或继续。此时旋转速度不会改变外部速度。超过约两秒收不到时钟，屏幕显示 LOST；检查外部设备是否发送时钟，或切回 INT。</p>
+<article id="manual-project" class="manual-chapter" tabindex="-1"><h3>18 · Saving &amp; files</h3>
+<p class="manual-note"><strong>The workspace is not a saved project. </strong>Unsaved device edits exist only in memory and are lost on restart or when loading another project. Browser and device saves are separate. “Save to device” transfers, writes the slot and reads it back to verify it.</p>
+<h4>Switching presets and saving are separate</h4><p>PROJECT timbre edits are saved with projects. For LIVE timbre edits, export a track sound file. Project backups do not include songs; back up each song with Export .tabby.</p><p><strong>Switch directly: </strong>On HOME, turn K7 to change the whole preset. The screen shows the current project name. Playback continues if running, or stays stopped. Changes apply immediately without a save prompt. Use K7 on EDIT for single-track sounds.</p><p><strong>Browse the list: </strong>Press HOME on the overview to open the user project list (16 user slots). K7 / K5 loads the selected number immediately. PLAY loads and plays; the 4th button in the left group (after SHIFT, FADER BANK, HOME) opens project saving. Pads 1–16 select directly and preserve playback state. An empty USER slot displays a message and keeps the current project.</p><p>Switching projects replaces the workspace, including unsaved edits. Press the 4th button in the left group (after SHIFT, FADER BANK, HOME) first when you want to keep changes.</p><p><strong>Save: </strong>Press the 4th button in the left group (after SHIFT, FADER BANK, HOME), select a USER slot with K5 / K7, choose a name character with K1 and change it with K2. Press the 4th button in the left group (after SHIFT, FADER BANK, HOME) to write. Replacing another occupied slot requires a second press of the 4th button in the left group (after SHIFT, FADER BANK, HOME). After success, the previous page returns; HOME cancels. The current slot updates directly. An asterisk in the title indicates unsaved changes.</p>
+<p>The top status bar distinguishes browser preview, device connection and browser edits not yet written. Connecting does not read or sync automatically. Read device project in the main controls replaces the browser workspace; HOME + the 4th button in the left group (after SHIFT, FADER BANK, HOME) can undo it. Written status requires matching read-back; saving in the browser does not write SMK37 OPEN. Read again after editing on the device.</p><p>Projects save each track’s ARP settings.</p>
+<h4>Put your browser project on SMK37 OPEN</h4><ol><li>Connect SMK37 OPEN with a USB data cable. Finish editing in the browser, then click “Save to device”.</li><li>Allow MIDI / SysEx, choose the target slot and click “Save and verify”. Existing content in that slot will be replaced.</li><li>Wait for the read-back verification message before disconnecting. After restarting, load the slot from USER. You do not need to press the 4th button in the left group (after SHIFT, FADER BANK, HOME) on the device again.</li></ol>
+<p>“Read device project” brings the device workspace into the browser. “Restore to workspace” does not overwrite a device slot automatically. The browser panel's 4th button in the left group (after SHIFT, FADER BANK, HOME) writes a local browser slot. Clearing browser data removes those saves, so export important work.</p>
+<div class="manual-table"><table><thead><tr><th scope="col">File</th><th scope="col">Contents</th></tr></thead><tbody><tr><td>.fm1</td><td>A complete eight-track project: engines, parameters, track levels, loop lengths, steps and more. Does not include songs.</td></tr><tr><td>.fm1t</td><td>One track’s engine, sound parameters and level, without steps. Supports all five engines.</td></tr><tr><td>.syx</td><td>Standard DX7 single patches and 32-patch banks. The target device track must use DX7.</td></tr><tr><td>.tabby</td><td>One song: the song record and all of its blocks, with the song's own rig copy when it has one. See chapter 11.</td></tr></tbody></table></div>
+<p>If the project list cannot be read, load, save and import remain disabled. Click Refresh list to retry. Operations become available only after the full list has been read; a valid selected slot is preserved when retrying.</p></article>
+<article id="manual-connect" class="manual-chapter" tabindex="-1"><h3>19 · MIDI, Bluetooth &amp; clock</h3>
+<h4>USB &amp; browser connection</h4><p>Download the complete HTML for offline play and editing. Device transfer needs desktop Chrome / Edge with Web MIDI, a USB data cable and permission for MIDI / SysEx. If connection fails, close other pages or apps using MIDI, then reconnect. For external performance, use the target track's input channel; press SHIFT + SEQ and use K2 to view or change it.</p><p>“Connect MIDI input” lets an external keyboard play the browser instrument. The project-library connection transfers projects and sounds to the device. Choose USB audio input / output in your computer or music software settings.</p>
+<p>USB MIDI receives at startup; Bluetooth MIDI is controlled from the workbench (Projects &amp; sounds → Bluetooth settings). Both use the track input-channel settings. The TRS jack of the Pro and Elite only outputs MIDI and cannot be a MIDI input (the firmware has no DIN receive, so CLK IN set to DIN receives nothing on the SYNC / MIDI page); bring external clock and notes in over USB or Bluetooth.</p>
+<h4>Channels and receive rules</h4><p>By default, CH1–7 address tracks 1–7 and CH10 addresses track 8. Press SHIFT + SEQ and use K2 to assign each track an input channel from 1 to 16. Notes, pitch bend, modulation and controllers follow these settings regardless of the selected screen track. Several tracks can share a channel to layer sounds. Messages on unassigned channels are ignored. Changing engines does not change channels; USB MIDI and BLE MIDI use the same rules.</p><p>With the default settings, keyboard CH2 controls track 2. Set track 3's input to CH2 as well to play both tracks together.</p>
+<div class="manual-table"><table><thead><tr><th scope="col">Received message</th><th scope="col">Action and scope</th></tr></thead><tbody>
+<tr><td>Note On / Off</td><td>All engines receive Note On / Off and velocity; zero-velocity Note On is Note Off. The 808 uses drum notes to select parts.</td></tr>
+<tr><td>Pitch Bend</td><td>FM, 303, PSG and Pluck receive 14-bit pitch bend, centered at 8192, with a ±2-semitone range. It affects held and subsequent notes. Use each part’s TUNE for 808 pitch.</td></tr>
+<tr><td>CC1 · Mod Wheel</td><td>FM: pitch vibrato, with a basic wheel response even when patch PMS is 0. 303: EnvMod. PSG, Pluck and 808: track LFO depth, defaulting to volume tremolo when no LFO is configured.</td></tr>
+<tr><td>CC7 / CC10 / CC11 / CC91</td><td>All engines: CC7 track volume; CC10 pan (0 left, 64 center, 127 right); CC11 expression (0 silent, 127 full level); CC91 reverb send.</td></tr>
+<tr><td>CC64 / Channel Pressure / CC2 / CC4</td><td>FM, 303, PSG and Pluck: CC64 sustain, 64–127 down and 0–63 up. FM also receives channel pressure for vibrato and CC2 / CC4 for amplitude control, subject to patch amplitude sensitivity.</td></tr>
+<tr><td>CC120 / CC121 / CC123</td><td>CC120 stops the track’s voices; CC123 releases its external notes (sustain still applies); CC121 resets live bend, expression, pan, modulation and sustain without changing sound parameters.</td></tr>
+<tr><td>Program Change</td><td>Program Change uses SMK37 OPEN sounds: FM cycles through 0–15; 303 uses 0 / 1 for saw / square; PSG uses 0–3 for YM / AY / NOISE / MIX. Other engines ignore it. Some software displays numbers starting at 1.</td></tr>
+<tr><td>Engine CC</td><td>303 also receives CC5 slide time, CC71 resonance, CC74 cutoff and CC75 decay. PSG receives CC74 noise and CC72 release. Pluck receives CC74 brightness, CC75 decay and CC72 release.</td></tr>
+</tbody></table></div><p>CC7, CC91, program changes and sound parameter edits can be saved in projects. Bend, expression, pan and live modulation are not stored. CC121 does not undo edited 303 EnvMod. SMK37 OPEN retains its own sound system and does not provide the GM 128-program sound set.</p>
+<h4>Synchronization and transport</h4>
+<p>Clock, Start, Continue, Stop, Song Position and MMC are not MIDI channel messages: they control the whole device. With MIDI clock selected, external Clock synchronizes at 24 pulses per quarter note. Clock alone does not start playback. Start begins from the start, Continue resumes at the current position, and Stop stops playback and releases sequence / arpeggiator notes.</p><p>Song Position Pointer (F2) locates in MIDI clock mode. Each unit is one sixteenth note, wrapped to each track’s loop length. Follow it with Continue and Clock. Start returns to the beginning. System Reset (FF) stops, rewinds and releases all notes.</p><p>MMC: Stop (01), Play (02), Deferred Play (03), Record Strobe (06), Record Exit (07) and Pause (09), for device ID 00 or the broadcast 7F. Play, Deferred Play and Record Strobe continue from the current position, Record Exit does nothing (no recording in this version), Stop and Pause stop. In MIDI clock mode an external Clock is still needed.</p><p>Examples: F0 7F 7F 06 01 F7 is MMC Stop; F0 7F 7F 06 02 F7 is MMC Play. Numbers are hexadecimal.</p><p>When several MIDI devices are connected, use only one clock and transport master to avoid duplicate pulses. MTC time code, MMC time-code locate / fast-forward / rewind, RPN / NRPN, polyphonic pressure, GM Reset, Bank Select, Active Sensing timeout monitoring and unlisted controllers are not implemented and are ignored.</p>
+<h4>Bluetooth settings</h4><p>The device has no Bluetooth page (to free flash for independent track launching); the BT button only tells you to use the workbench. Bluetooth settings live in the workbench under Projects &amp; sounds → Bluetooth settings: with the library connected you can switch Bluetooth and Bluetooth audio on or off, choose the BLE MIDI DEVICE / HOST role and forget MIDI pairs; every change is written to the device and saved at once. MIDI is available whenever Bluetooth is on. Factory defaults are Bluetooth and audio on, DEVICE role. The clock source is chosen on the SYNC / MIDI page (press SEQ). The HOST-mode device scan and connection list are no longer offered.</p>
+<h4>INT &amp; MIDI clock</h4><p><strong>INT:</strong>SMK37 OPEN uses its internal tempo; K4 sets 30–300 BPM. <strong>MIDI:</strong>SMK37 OPEN follows external MIDI Clock and waits for Start / Continue. The tempo knob does not change the external tempo. After about two seconds without clock, the screen shows LOST. Check that the external device is sending clock, or return to INT.</p>
 </article>
-<article id="manual-update" class="manual-chapter" tabindex="-1"><h3>20 · 更新固件</h3><p>下载与机身型号对应的 Pro 工作台。连接 USB，先导出项目与歌曲备份（.tabby），再在“设备更新”中连接、勾选备份确认并更新。从 tabby 固件更新到 tabby 固件从不需要强制烧录；只有首次从同型号原厂固件迁移时，才在“迁移、原厂恢复与强制更新”中手动勾选“强制烧录”。完成后网页会核对型号与版本哈希。Pro 与 Elite 固件不可混刷。</p>
-<p>选择“迁移、原厂恢复与强制更新”中的“刷回原厂 V16”，核对型号、备份后确认恢复。固件和原厂资源完成写入、读回校验后，请重新开机。需要返回 Open 时点击“切回 Open 固件”，重新连接并更新；项目与歌曲再从各自备份恢复。</p><ol><li>在“项目与音色”备份当前项目，其他需要保留的项目槽也逐一载入并备份；歌曲用“导出 .tabby”逐首备份。LIVE 轨的音色修改另行导出轨道音色。</li><li>打开最新版工作台的“设备更新”，通过 USB 数据线连接 SMK37 OPEN。固件已内置。</li><li>勾选“已保存需要保留的音色、工程和歌曲”，点击“连接设备”，允许 MIDI／SysEx。</li><li>核对设备提示，点击“开始更新”，保持供电和 USB 连接直到完成。</li><li>等待重启及版本核对。首次安装 tabby-v04.0 或更新版本后，机身若提示 OLD DATA，请在 ACTIONS 中选 ERASE OLD DATA（见第 02 章和“tabby-v04 有什么变化”）。</li></ol>
-<p>正常完成的同布局更新会保留有效项目槽和歌曲存储；刷写前仍请分别备份工程、音色和歌曲。设备重启后，未保存的内存编辑不会自动恢复。固件更新也不会自动把网页仿真中的项目传到设备。</p><p>若更新中断或设备停在升级界面：<strong>关闭这张网页，给 SMK-37 断电重启，再打开加载器要求的网页</strong>（页面会显示它的名称和链接，所有版本的列表在 builds/ 页面）。绝不要强制烧录。固件不支持 USB-MIDI 升级协议时，请使用该版本配套的恢复工具。跨固件迁移可能清除项目和歌曲，务必先备份。</p>
-<p>拔插 USB 后重新点击连接即可；页面会清除旧设备信息。烧录与项目库切换时按提示重新连接。</p><p>连接失败时，展开“连接详情”查看本次浏览器检测到的 MIDI IN／OUT。未发现端口、端口无法配对、设备未回复型号是不同的问题。先关闭其他 MIDI 软件和更新网页，再重新开机、插拔 USB 并连接；强制烧录不能跳过设备握手。</p></article>
-<article id="manual-help" class="manual-chapter" tabindex="-1"><h3>21 · 常见问题</h3>
-<h4>没有声音，或 K8 看起来没有变化</h4><p>网页检查静音按钮、输出电平和系统音量。实机检查 K8、轨道 LEVEL、静音／独奏和输出连接；K8 最小位置静音。</p>
-<h4>PLAY 按了不走</h4><p>按 SEQ 打开 SYNC / MIDI 页，检查 K1 CLOCK 是 INT 还是 MIDI；没有外部时钟时切回 INT。若播放走动但没声音，确认当前轨未静音且音量不为零。</p>
-<h4>旋钮功能与预期不同</h4><p>先看当前页面和屏幕底部名称。K7 在总览切整套预设，在 EDIT 选单轨音色或鼓声部，在 SYNC / MIDI 页开关 KEY OUT；K1–K4 随底部参数页改变。</p>
-<h4>改好后重启丢了，或网页与实机不一致</h4><p>工作区编辑需要保存到 USER 槽。网页面板的左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）只保存浏览器本地内容；顶部“保存到设备”完成后，设备槽位才有该项目。</p>
-<h4>挂音、组合键没松开</h4><p>实机按 HOME＋PLAY。网页按 Esc 或“紧急停音”，并取消锁定按钮。停止演奏后再关闭其他 MIDI 输入来源。</p>
-<h4>网页无法连接或按钮不可用</h4><p>页面从不自动开启强制烧录。若无法连接，先确认设备已通电并用 USB 数据线连接，关闭其他 MIDI 软件和更新网页，必要时给设备断电重启，再点击连接设备。</p><p>用电脑 Chrome／Edge 打开网页链接或完整 HTML，避免使用不运行脚本的附件预览。检查 MIDI／SysEx 权限、USB 数据线和设备连接；关闭占用端口的软件。若浏览器提示安全上下文问题，请从 localhost 或 HTTPS 打开页面。</p>
-<p>首次用播放按钮、面板 PLAY 或空格播放时，会先开启声音。开启失败会保持停止，处理浏览器声音提示后可再次播放。声音开启过程中点“紧急停音”或切换面板页，会取消等待中的播放。</p><p>Tap Tempo：在任何页面按住 HOME 连按 SEQ，或点击网页 TAP；连续两拍起生效，最多平均四个间隔，范围 30–300 BPM。FX 用 K7 翻到 DELAY：K1 开关 SYNC，K2 调分频或毫秒，K3 调内部 BPM，K4 调反馈。新建工程默认同步八分音符；关闭 SYNC 后为固定时间 FREE，约 30–2040 毫秒。切换模式选择最接近的时间。T 为三连音，D 为附点；同步延迟跟随内部或外部 MIDI BPM，时钟丢失时保持最后间隔。旧工程保留原来的手动延迟；使用同步分频或扩展固定时间的工程需要新版固件。</p></article>
+<article id="manual-update" class="manual-chapter" tabindex="-1"><h3>20 · Firmware updates</h3><p>Download the Pro workbench for your device. Connect USB, export project and song (.tabby) backups, then connect in Device update, confirm your backup and update. Updating from one tabby firmware to another never needs force flash. Only for the first migration from the same model’s factory firmware, tick Force flash by hand under Migration, factory restore and forced updates. The page verifies the model and the build hash afterward. Pro and Elite firmware are not interchangeable.</p>
+<p>Choose Restore factory V16 under Migration, factory restore and forced updates. Check the model, back up your data and confirm. After firmware installation and resource read-back finish, power-cycle the device. To return to Open, choose Switch to Open firmware, reconnect and update, then restore projects and songs from their separate backups.</p><ol><li>In Projects &amp; sounds, back up the current project, then load and back up any other project slots you need; back up each song with Export .tabby. Export LIVE timbre edits separately as track sounds.</li><li>Open Device update in the latest workbench and connect SMK37 OPEN by USB. Firmware is included.</li><li>Check “I have backed up the sounds, projects and songs I want to keep”, click “Connect device” and allow MIDI / SysEx.</li><li>Check the device information, click “Start update” and maintain power and USB until completion.</li><li>Wait for restart and version verification. After the first install of tabby-v04.0 or later, if the device reports OLD DATA, choose ERASE OLD DATA in ACTIONS (see chapter 02 and "What changed in tabby-v04").</li></ol>
+<p>A successfully completed update using the same storage layout preserves valid project slots and the song storage. Still back up projects, voices and songs separately before flashing. Unsaved memory edits are not restored after restart. Updating firmware does not transfer the browser project to the device automatically.</p><p>If the update is interrupted or the device stays in update mode: <strong>close this page, power-cycle the SMK-37, then open the page the loader asks for</strong> (the page shows its name and link; the list of every build is under builds/). Never force flash. Firmware without the USB-MIDI update protocol requires its matching recovery tool. Migration may erase projects and songs; back up first.</p>
+<p>After reconnecting USB, click Connect again; old device information is cleared. Reconnect when switching between firmware update and the project library.</p><p>If connection fails, open Connection details to see the MIDI IN / OUT ports detected for this attempt. Missing ports, unpaired ports and no identity reply are different problems. Close other MIDI apps and updater tabs, then power-cycle, reconnect USB and connect again. Force flash cannot skip the device handshake.</p></article>
+<article id="manual-help" class="manual-chapter" tabindex="-1"><h3>21 · Troubleshooting</h3>
+<h4>No sound, or MASTER seems unresponsive</h4><p>In the browser, check Mute, output level and system volume. On SMK37 OPEN, check K8, track LEVEL, mute/solo and output connections. K8 at minimum mutes the output.</p>
+<h4>PLAY does not advance</h4><p>Press SEQ for SYNC / MIDI and check whether K1 CLOCK is INT or MIDI; without an external clock switch back to INT. If playback runs but makes no sound, check that the track is not muted and its level is not zero.</p>
+<h4>A knob does something unexpected</h4><p>Check the current page and bottom labels. K7 changes complete presets on HOME, track sounds or drum parts on EDIT, and KEY OUT on SYNC / MIDI. K1–K4 follow the bottom parameter page.</p>
+<h4>Edits disappear after restart, or browser and device differ</h4><p>Save workspace edits to a USER slot. The browser panel's 4th button in the left group (after SHIFT, FADER BANK, HOME) stores only a browser copy. The device receives the project after “Save to device” completes.</p>
+<h4>Stuck notes or held buttons</h4><p>On the device, press HOME+PLAY. In the browser, press Esc or “Panic / Stop all” and release any latched buttons. Stop playing, then close other MIDI input sources.</p>
+<h4>The page cannot connect or buttons are unavailable</h4><p>The page never turns force flash on by itself. If it cannot connect, check that the device is powered and connected with a USB data cable, close other MIDI apps and workbench tabs, power-cycle the device if needed, then click Connect device.</p><p>Open the website link or full HTML in desktop Chrome / Edge, not an attachment preview that blocks scripts. Check MIDI / SysEx permission, the USB data cable and device connection. Close apps using the port. For secure-context errors, open the page over HTTPS or localhost.</p>
+<p>The Play button, panel PLAY and Space enable sound before starting playback. If sound cannot start, playback stays stopped; resolve the browser audio issue and try again. Panic / Stop all or changing panel pages cancels pending playback while sound is starting.</p><p>Tap Tempo: hold HOME and tap SEQ on any page, or click TAP on the web page. Two taps start detection; up to four intervals are averaged over 30–300 BPM. In FX, turn K7 to DELAY: K1 toggles SYNC, K2 sets division or milliseconds, K3 sets internal BPM and K4 sets feedback. New projects default to synchronized eighth notes. With SYNC off, FREE holds a fixed time of about 30–2040 ms. Switching modes selects the nearest available time. T means triplet and D means dotted. Delay follows internal or external MIDI BPM and retains its last interval if clock is lost. Old projects keep their manual delay; projects using synchronized divisions or extended fixed times require updated firmware.</p></article>
 </div></div>
 </section>
-<dialog id="about-dialog" class="save-dialog about-dialog" aria-labelledby="about-title"><h2 id="about-title">M-VAVE SMK37 OPEN</h2><p>© 2026 M-VAVE。APP 采用 GPLv3＋SDK 链接例外，可依许可修改和再分发。除法律规定或另有书面约定外，不提供担保。SDK 与第三方条款见下方声明。</p><p><a href="/*FM1_SOURCE_URL*/" target="_blank" rel="noopener noreferrer">源码与 SDK</a> · <a href="https://forum.m-vave.com" target="_blank" rel="noopener noreferrer">官方论坛</a></p><details><summary>版权与许可声明</summary><pre>/*FM1_NOTICES*/</pre></details><form method="dialog"><button>关闭</button></form></dialog>
+<dialog id="about-dialog" class="save-dialog about-dialog" aria-labelledby="about-title"><h2 id="about-title">M-VAVE SMK37 OPEN</h2><p>© 2026 M-VAVE. APP: GPLv3 with an SDK linking exception; modification and redistribution are permitted under its terms. No warranty except as required by law or agreed in writing. See below for SDK and third-party terms.</p><p><a href="/*FM1_SOURCE_URL*/" target="_blank" rel="noopener noreferrer">Source + SDK</a> · <a href="https://forum.m-vave.com" target="_blank" rel="noopener noreferrer">Official forum</a></p><details><summary>Copyright and license notices</summary><pre>/*FM1_NOTICES*/</pre></details><form method="dialog"><button>Close</button></form></dialog>
 </main>
 <script>
 /*FM1_I18N*/
@@ -792,15 +792,14 @@ main{max-width:1440px}
     });
   }
   const chapters=[...document.querySelectorAll('.manual-chapter')];
-  const chapterText=chapters.map(node=>FM1I18n.sourceText(node).toLocaleLowerCase());
+  const chapterText=chapters.map(node=>node.textContent.toLocaleLowerCase());
   const chapterLinks=[...document.querySelectorAll('.manual-index a')];
   function searchManual(){
     const terms=$('manual-search').value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);let count=0;
     chapters.forEach((node,i)=>{const match=terms.every(term=>(chapterText[i]+' '+node.textContent.toLocaleLowerCase()).includes(term));node.hidden=!match;chapterLinks[i].parentElement.hidden=!match;if(match)count++;});
-    FM1I18n.text($('manual-count'),terms.length?'找到 '+count+' / '+chapters.length+' 章':'共 '+chapters.length+' 章');
+    FM1I18n.text($('manual-count'),terms.length?'Found '+count+' / '+chapters.length+' chapters':chapters.length+' chapters');
     $('manual-empty').hidden=count!==0;$('manual-clear').hidden=!terms.length;
   }
-  document.addEventListener('fm1-language-change',searchManual);
   $('manual-search').addEventListener('input',searchManual);
   $('manual-clear').addEventListener('click',()=>{$('manual-search').value='';searchManual();$('manual-search').focus();});
   $('manual-print').addEventListener('click',()=>window.print());
@@ -819,7 +818,7 @@ main{max-width:1440px}
   let connecting;
   function beginConnection(){
     const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(Error('连接超时，请检查 USB 连接和 MIDI 权限后重试。')),12000);
+    const timer=setTimeout(()=>controller.abort(Error('Connection timed out. Check USB and MIDI permissions, then retry.')),12000);
     connecting={controller,timer};enable();return connecting;
   }
   async function endConnection(attempt){
@@ -832,18 +831,18 @@ main{max-width:1440px}
     if(updater?.link)updater.link.signal=undefined;
     if(connecting===attempt)connecting=undefined;
   }
-  function cancelConnection(){connecting?.controller.abort(Error('已取消连接。'));}
+  function cancelConnection(){connecting?.controller.abort(Error('Connection cancelled.'));}
   async function requestMidiAccess(report=status,signal) {
     signal?.throwIfAborted();
-    if(!navigator.requestMIDIAccess)throw Error('当前浏览器不支持 Web MIDI，请使用电脑 Chrome 或 Edge');
+    if(!navigator.requestMIDIAccess)throw Error('This browser does not support Web MIDI. Use desktop Chrome or Edge');
     let finished=false;
-    report('正在请求 MIDI 访问并初始化端口；若浏览器提示，请允许 MIDI / SysEx。');
+    report('Requesting MIDI access and initializing ports. If prompted, allow MIDI / SysEx.');
     navigator.permissions?.query({name:'midi',sysex:true}).then(result=>{
-      if(!finished&&result.state==='granted')report('MIDI 权限已允许，正在等待浏览器初始化设备端口…');
+      if(!finished&&result.state==='granted')report('MIDI permission is allowed. Waiting for the browser to initialize device ports…');
     }).catch(()=>{});
     if(!midiRequest){
       const pending=navigator.requestMIDIAccess({sysex:true}).then(access=>{
-        if(!access.sysexEnabled)throw Error('请允许浏览器使用 MIDI / SysEx');return access;
+        if(!access.sysexEnabled)throw Error('Allow MIDI / SysEx in your browser');return access;
       });
       midiRequest=pending;
       pending.catch(()=>{if(midiRequest===pending)midiRequest=undefined;});
@@ -851,7 +850,7 @@ main{max-width:1440px}
     const request=midiRequest;
     try {
       const access=await FM1Web.abortable(request,signal);
-      report('正在搜索并连接 SMK37 OPEN…');return access;
+      report('Searching for SMK37 OPEN and connecting…');return access;
     } catch(error){if(midiRequest===request)midiRequest=undefined;throw error;}
     finally {finished=true;}
   }
@@ -870,15 +869,15 @@ main{max-width:1440px}
     $('stock-restore').hidden=pkg?.kind==='stock';$('open-firmware').hidden=pkg?.kind!=='stock';
     $('open-firmware').disabled=locked;$('stock-warning').hidden=pkg?.kind!=='stock';
     /* Task 14: the force-activate button is gone from the page; force flash is only the checkbox in the migration section. */
-    FM1I18n.text($('update-next'),SMK37Boot.blocked?'页面资源不完整，请重新载入。':!pkg?'':finishingUpdate?'固件已更新，正在核对版本…':busy?'设备操作进行中，请稍候。':updateResult==='stock'?'原厂固件与资源已恢复，读回校验通过。请重新开机后使用。':updateResult==='ready'?
-      '更新已完成，可以开始使用 SMK37 OPEN，无需再次烧录。':!connected||migration?
-      (forceSuggested?'检测到其他固件：如需迁移，请在“迁移、原厂恢复与强制更新”中手动勾选“强制烧录”。':'下一步：连接设备。'):
-      same?'已是当前版本，无需重刷。':!$('backup').checked?'下一步：勾选已备份确认，才能开始烧录。':pkg.kind==='stock'?'下一步：恢复当前型号的原厂 V16，确认后开始写入。':$('force-update').checked?
-      '下一步：点击“强制烧录”，阅读并确认兼容风险。':'下一步：点击“开始更新”。');
-    FM1I18n.text($('install'),pkg?.kind==='stock'?'刷入原厂 V16':$('force-update').checked?'强制烧录':'开始更新');
+    FM1I18n.text($('update-next'),SMK37Boot.blocked?'Page resources are incomplete. Reload the page.':!pkg?'':finishingUpdate?'Firmware updated. Verifying the version…':busy?'Device operation in progress. Please wait.':updateResult==='stock'?'Factory firmware and resources restored; resource read-back passed. Power-cycle the device before use.':updateResult==='ready'?
+      'Update complete. Your SMK37 OPEN is ready to use; no further flashing is needed.':!connected||migration?
+      (forceSuggested?'Different firmware detected. To migrate, tick Force flash by hand under Migration, factory restore and forced updates.':'Next: connect the device.'):
+      same?'This firmware is already installed; no need to flash again.':!$('backup').checked?'Next: confirm that your work is backed up before flashing.':pkg.kind==='stock'?'Next: restore factory V16 for this model. Confirm to start writing.':$('force-update').checked?
+      'Next: click Force flash, then read and confirm the compatibility risks.':'Next: click Start update.');
+    FM1I18n.text($('install'),pkg?.kind==='stock'?'Install factory V16':$('force-update').checked?'Force flash':'Start update');
     $('library-connect').disabled=locked||!navigator.requestMIDIAccess;
     $('quick-connect').disabled=!connecting&&(locked||!navigator.requestMIDIAccess||(!$('tab-update').hidden&&!pkg));
-    FM1I18n.text($('quick-connect'),connecting?'取消连接':'连接设备');
+    FM1I18n.text($('quick-connect'),connecting?'Cancel connection':'Connect device');
     const disconnected=!library?.link||library.link.lost;
     const unavailable=locked||disconnected||!libraryReady;
     for(const control of document.querySelectorAll('[data-library]'))control.disabled=unavailable;
@@ -909,27 +908,27 @@ main{max-width:1440px}
     if(box.hidden)return;
     const label=document.createElement('strong');
     if(error.build&&error.build.url){
-      FM1I18n.text(label,'该固件的页面：');
+      FM1I18n.text(label,'That build\'s page:');
       const link=document.createElement('a');link.href=error.build.url;link.target='_blank';link.rel='noopener noreferrer';
       link.textContent=(error.build.tag||'')+' — '+error.build.url;box.append(label,' ',link);
     }else if(error.indexUrl){
-      FM1I18n.text(label,'已发布固件列表：');
+      FM1I18n.text(label,'The list of published builds:');
       const link=document.createElement('a');link.href=new URL('./',error.indexUrl).href;link.target='_blank';link.rel='noopener noreferrer';
       link.textContent=link.href;box.append(label,' ',link);
-    }else{FM1I18n.text(label,'连接前请先断开其他 SMK-37。');box.append(label);}
+    }else{FM1I18n.text(label,'Disconnect any other SMK-37 before connecting.');box.append(label);}
   }
   function connectionChanged(){
     if(busy||finishingUpdate)return;
     connectionNotice=undefined;
-    if(connected&&updater?.link?.lost)clearUpdateConnection('设备已断开，请重新连接。');
-    if(library?.link?.lost){libraryReady=false;message('设备已断开，请重新连接项目库。');}
+    if(connected&&updater?.link?.lost)clearUpdateConnection('Device disconnected. Please reconnect.');
+    if(library?.link?.lost){libraryReady=false;message('Device disconnected. Reconnect the project library.');}
     enable();
   }
   function watch(access){if(watchedAccess)watchedAccess.removeEventListener('statechange',connectionChanged);watchedAccess=access;access.addEventListener('statechange',connectionChanged);}
   $('backup').addEventListener('change',enable);
   async function setForceMode(value,reconnect=connected||!!(updater?.link&&!updater.link.lost)){
     if(busy||finishingUpdate)return false;
-    busy=true;clearUpdateConnection('烧录模式已改变，请重新连接设备。');
+    busy=true;clearUpdateConnection('Flashing mode changed. Reconnect the device.');
     $('force-update').checked=value;$('force-warning').hidden=!value;enable();
     try{
       if(updater)await updater.disconnect();
@@ -955,7 +954,7 @@ main{max-width:1440px}
     for(const kind of ['inputs','outputs','identities','expected','attempts']){
       const list=$('connection-'+kind);list.replaceChildren();
       const entries=diagnostics?.[kind]||[];
-      if(!entries.length){const item=document.createElement('li');FM1I18n.text(item,'无');list.append(item);}
+      if(!entries.length){const item=document.createElement('li');FM1I18n.text(item,'None');list.append(item);}
       for(const entry of entries){
         const item=document.createElement('li');
         if(kind==='attempts'){
@@ -968,32 +967,32 @@ main{max-width:1440px}
   }
   async function connectDevice(){
     if(busy||finishingUpdate||SMK37Boot.blocked||!pkg)return;
-    busy=true;clearUpdateConnection('正在搜索并连接 SMK37 OPEN…');showConnectionDetails(null);
+    busy=true;clearUpdateConnection('Searching for SMK37 OPEN and connecting…');showConnectionDetails(null);
     const report=text=>{status(text);connectionNotice={message:text,failed:false};enable();};
-    report('正在搜索并连接 SMK37 OPEN…');
+    report('Searching for SMK37 OPEN and connecting…');
     let attemptUpdater;const attempt=beginConnection(),signal=attempt.controller.signal;
     try {
-      if(library){libraryReady=false;await library.disconnect();message('已切换到网页烧录；使用项目库时请重新连接。');}
+      if(library){libraryReady=false;await library.disconnect();message('Switched to firmware update. Reconnect to use the project library.');}
       if(updater)await updater.disconnect();
       const access=await requestMidiAccess(report,signal);
       watch(access);
       updater=new FM1Web.Updater(access,pkg,(text,value)=>status(
-        pkg.kind!=='stock'&&value===100?'固件已写入，正在核对版本…':text,
+        pkg.kind!=='stock'&&value===100?'Firmware written. Verifying the version…':text,
         pkg.kind!=='stock'&&typeof value==='number'?value*0.8:value),{},{builds:buildsLookup});   /* Task 12 A5 */
       attemptUpdater=updater;
       /* Task 11B: the port the user picked from #update-port, if any (CHOOSE_PORT below). */
       const device=await updater.connect({force:$('force-update').checked,signal,pick:$('update-port').value||null}); connected=true;same=!!device.same;migration=!!device.migration;forceSuggested=migration;
       $('device-identity').textContent=device.identity;
-      status(migration?'已识别设备和当前固件（不是 Open 固件）。如需迁移，请展开“迁移、原厂恢复与强制更新”，手动勾选“强制烧录”，再重新连接。':same?'已是当前版本，无需更新。':device.resume?'已连接升级程序，机型尚未核实；写入前需核对机身型号。':pkg.kind==='stock'?'已连接设备，可恢复原厂 V16。':$('force-update').checked?'已连接；开始强制烧录前将再次确认设备和兼容风险。':'已连接 SMK37 OPEN，可开始更新');
+      status(migration?'Device and current firmware recognized (not Open firmware). To migrate, open Migration, factory restore and forced updates, tick Force flash by hand, then connect again.':same?'This version is already installed. No update is needed.':device.resume?'Loader connected; hardware model unverified. Check the device label before writing.':pkg.kind==='stock'?'Device connected; ready to restore factory V16.':$('force-update').checked?'Connected. Confirm the device and compatibility risks before force flashing.':'SMK37 OPEN connected. Ready to update');
       connectionNotice=undefined;
-    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=false;   /* Task 12 (2026-11-09): an error never suggests force */if(error.code==='CHOOSE_PORT')showPortChoices(error.choices);FM1I18n.text($('error'),error.message);showLoaderHint(error);status('尚未连接');if(error.identity)$('device-identity').textContent=error.identity;}
+    }catch(error){connectionNotice={message:error.message,failed:true};showConnectionDetails(attemptUpdater?.diagnostics);forceSuggested=false;   /* Task 12 (2026-11-09): an error never suggests force */if(error.code==='CHOOSE_PORT')showPortChoices(error.choices);FM1I18n.text($('error'),error.message);showLoaderHint(error);status('Not connected');if(error.identity)$('device-identity').textContent=error.identity;}
     finally{await endConnection(attempt);busy=false;enable();}
   }
   $('connect').addEventListener('click',connectDevice);
   /* Task 12 (2026-11-09): the "Enable force flash and reconnect" button is gone (it was offered after a query timeout on 2026-11-09). */
   function packageDetails(){
-    FM1I18n.text($('update-intro'),pkg.kind==='stock'?'连接当前型号，确认备份后点击“刷入原厂 V16”。':'连接 SMK37 OPEN，确认备份后点击“开始更新”。');
-    FM1I18n.text($('profile'),'SMK37 '+(pkg.model==='elite'?'Elite':'Pro')+(pkg.kind==='stock'?' 原厂 V16':' Open'));
+    FM1I18n.text($('update-intro'),pkg.kind==='stock'?'Connect this model, confirm your backup, then click Install factory V16.':'Connect SMK37 OPEN, confirm your backup, then click Start update.');
+    FM1I18n.text($('profile'),'SMK37 '+(pkg.model==='elite'?'Elite':'Pro')+(pkg.kind==='stock'?' Factory V16':' Open'));
     $('firmware-version').textContent=pkg.display_version||pkg.release_version||'—';   // Task 08: the display version
     $('base-version').textContent=pkg.release_version||'—';                              // the Open label stays in the details
     FM1I18n.text($('version'),pkg.build_id.slice(0,16));$('version').title=pkg.build_id;
@@ -1001,13 +1000,13 @@ main{max-width:1440px}
   }
   async function chooseFirmware(stock){
     if(busy||finishingUpdate||!openPkg)return;
-    const reconnect=connected;busy=true;clearUpdateConnection('烧录目标已改变，请核对版本和备份。');enable();
+    const reconnect=connected;busy=true;clearUpdateConnection('Firmware target changed. Check the version and your backup.');enable();
     try{
       if(updater)await updater.disconnect();
       if(library){libraryReady=false;await library.disconnect();}
-      if(stock&&!stockPkg){status('正在加载原厂固件…');stockPkg=await FM1Web.prepare(FM1_PACKAGE.stock);}
+      if(stock&&!stockPkg){status('Loading factory firmware…');stockPkg=await FM1Web.prepare(FM1_PACKAGE.stock);}
       pkg=stock?stockPkg:openPkg;$('backup').checked=false;$('force-update').checked=stock;
-      $('force-warning').hidden=true;packageDetails();status('固件校验通过，等待连接设备');
+      $('force-warning').hidden=true;packageDetails();status('Firmware verified. Waiting for device connection');
     }catch(error){FM1I18n.text($('error'),error.message);return;}
     finally{busy=false;enable();}
     if(reconnect)await connectDevice();
@@ -1022,10 +1021,10 @@ main{max-width:1440px}
   const option=(value,text)=>{const node=document.createElement('option');node.value=String(value);FM1I18n.text(node,text);return node;};
   async function deviceProject(action,refresh=false,duringUpdate=false,signal) {
     signal?.throwIfAborted();
-    if(SMK37Boot.blocked)throw Error('页面资源不完整，请重新载入。');
-    if(busy||(finishingUpdate&&!duringUpdate))throw Error('设备操作正在进行');busy=true;connectionNotice=undefined;enable();
+    if(SMK37Boot.blocked)throw Error('Page resources are incomplete. Reload the page.');
+    if(busy||(finishingUpdate&&!duringUpdate))throw Error('A device operation is already in progress');busy=true;connectionNotice=undefined;enable();
     try {
-      if(connected){clearUpdateConnection('已切换到项目库；烧录前请重新连接。');if(updater)await updater.disconnect();}
+      if(connected){clearUpdateConnection('Switched to the project library. Reconnect before updating firmware.');if(updater)await updater.disconnect();}
       if(!library?.link||library.link.lost){
         const attempt=beginConnection(),abort=()=>attempt.controller.abort(signal.reason);
         signal?.addEventListener('abort',abort,{once:true});
@@ -1038,25 +1037,25 @@ main{max-width:1440px}
       signal?.throwIfAborted();
       const result=await action(library);
       if(refresh)await refreshLibrary(true);
-      message('设备操作已完成。');return result;
+      message('Device operation completed.');return result;
     } finally {busy=false;enable();}
   }
   const saveDialog=$('device-save-dialog');let saveBytes,saveRunning=false,saveOpening=false,saveReturnFocus;
   function saveStatus(text){FM1I18n.text($('device-save-status'),text);}
   async function openSave(bytes){
-    if(busy||finishingUpdate||saveOpening||saveRunning)throw Error('设备操作正在进行');
+    if(busy||finishingUpdate||saveOpening||saveRunning)throw Error('A device operation is already in progress');
     saveOpening=true;saveBytes=bytes?.slice();saveReturnFocus=document.activeElement;
     const selected=!bytes?$('project-slot').value:'';
-    FM1I18n.text($('device-save-source'),bytes?'将网页当前项目写入 SMK37 OPEN，替换设备当前工作区。':'将 SMK37 OPEN 当前工作区保存到所选设备项目槽。');
+    FM1I18n.text($('device-save-source'),bytes?'Write the current browser project to SMK37 OPEN, replacing the device workspace.':'Save the current SMK37 OPEN workspace to the selected device project slot.');
     $('device-save-confirm').disabled=true;$('device-save-slot').disabled=true;
-    $('device-save-slot').replaceChildren();saveStatus('正在连接并读取设备项目槽…');saveDialog.showModal();
+    $('device-save-slot').replaceChildren();saveStatus('Connecting and reading device project slots…');saveDialog.showModal();
     try{
       await deviceProject(async()=>{},true);
       if(!saveDialog.open)return;
       for(const node of $('project-slot').options)$('device-save-slot').append(option(node.value,node.textContent));
       $('device-save-slot').value=selected||$('project-slot').value;
       $('device-save-confirm').disabled=false;$('device-save-slot').disabled=false;
-      saveStatus('请选择保存位置；已有内容将被覆盖。');$('device-save-slot').focus();
+      saveStatus('Choose a save location. Its existing content will be replaced.');$('device-save-slot').focus();
     }catch(error){saveStatus(error.message);}finally{saveOpening=false;}
   }
   function closeSave(){if(saveRunning)return;if(saveOpening)cancelConnection();saveDialog.close();saveBytes=undefined;saveReturnFocus?.focus();}
@@ -1066,17 +1065,17 @@ main{max-width:1440px}
     if(saveRunning||busy||finishingUpdate)return;const slot=Number($('device-save-slot').value);
     saveRunning=true;writing=true;$('device-save-confirm').disabled=true;
     $('device-save-slot').disabled=true;$('device-save-cancel').disabled=true;
-    saveStatus('正在写入并读回校验，请保持设备连接…');
+    saveStatus('Writing and verifying by reading back. Keep the device connected…');
     try{
       const saved=await deviceProject(l=>l.saveProject(slot,saveBytes));
       document.dispatchEvent(new CustomEvent('fm1-device-project-saved',{detail:{bytes:saved}}));
-      saveStatus('已保存到设备槽 '+(slot+1)+'，读回校验通过。');
-      message('已保存到设备槽 '+(slot+1)+'，读回校验通过。');
-      saveBytes=undefined;FM1I18n.text($('device-save-cancel'),'完成');
-    }catch(error){saveStatus('保存未确认完成：'+error.message);$('device-save-confirm').disabled=false;$('device-save-slot').disabled=false;}
+      saveStatus('Saved to device slot '+(slot+1)+'; read-back verification passed.');
+      message('Saved to device slot '+(slot+1)+'; read-back verification passed.');
+      saveBytes=undefined;FM1I18n.text($('device-save-cancel'),'Done');
+    }catch(error){saveStatus('Save could not be confirmed: '+error.message);$('device-save-confirm').disabled=false;$('device-save-slot').disabled=false;}
     finally{saveRunning=false;writing=false;$('device-save-cancel').disabled=false;}
   };
-  saveDialog.addEventListener('close',()=>{FM1I18n.text($('device-save-cancel'),'取消');});
+  saveDialog.addEventListener('close',()=>{FM1I18n.text($('device-save-cancel'),'Cancel');});
   $('quick-connect').addEventListener('click',()=>connecting?cancelConnection():$('tab-update').hidden?connectLibrary():connectDevice());
   $('about-open').onclick=()=>$('about-dialog').showModal();
   // Classic Tabby Task 11: a package whose USER size is not the stock 536576 (the probe) or a
@@ -1099,12 +1098,12 @@ main{max-width:1440px}
   async function checkDeviceSamples(afterUpdate=false){
     if(busy||finishingUpdate&&!afterUpdate)return;
     updateResult=afterUpdate?'ready':'checked';
-    status(afterUpdate?'固件已就绪。':'设备已就绪。',100);enable();
+    status(afterUpdate?'Firmware ready.':'Device ready.',100);enable();
   }
   async function refreshLibrary(initial=false) {
     libraryReady=false;
     const info=await library.query(0);
-    if(info.length!==14||info[1]!==16||info[2]>=16||!((info[0]===3&&info[3]===208&&info[4]===15)||(info[0]===4&&info[3]===224&&info[4]===15))||info.slice(6).some(source=>source>5))throw Error('设备项目库信息无效');
+    if(info.length!==14||info[1]!==16||info[2]>=16||!((info[0]===3&&info[3]===208&&info[4]===15)||(info[0]===4&&info[3]===224&&info[4]===15))||info.slice(6).some(source=>source>5))throw Error('Invalid device project-library information');
     const previous=Number($('project-slot').value),selected=initial||$('project-slot').value===''||!Number.isInteger(previous)||previous<0||previous>=16?info[2]:previous;
     const slots=[];
     for(let slot=0;slot<info[1];slot++){
@@ -1112,7 +1111,7 @@ main{max-width:1440px}
       slots.push(option(slot,(slot+1)+' · '+String.fromCharCode(...name).trim()));
     }
     const working=await library.download(0);
-    if(working.length!==(library.tuningBytes||(info[3]|info[4]<<8)))throw Error('设备文件长度无效');
+    if(working.length!==(library.tuningBytes||(info[3]|info[4]<<8)))throw Error('Invalid device file length');
     FM1Web.projectVersion(working);
     // Task 06 (a): the Bluetooth settings panel replaces the device's BLE page.
     $('radio-group').hidden=!library.radioSettings;
@@ -1122,15 +1121,15 @@ main{max-width:1440px}
     // list must never enable load/save/import with an empty selection.
     $('project-slot').replaceChildren(...slots);
     $('project-slot').value=String(selected);
-    const sources=['DX7','303','808','PSG','拨弦','采样器'];
+    const sources=['DX7','303','808','PSG','Pluck','Sampler'];
     const toneTrack=$('timbre-track').value||'0';$('timbre-track').replaceChildren();
-    for(let i=0;i<8;i++)$('timbre-track').append(option(i,'轨道 '+(i+1)+' · '+(sources[info[6+i]]||'未知')));
+    for(let i=0;i<8;i++)$('timbre-track').append(option(i,'Track '+(i+1)+' · '+(sources[info[6+i]]||'Unknown')));
     $('timbre-track').value=toneTrack;
     const first=Array.from(info.slice(6)).findIndex(type=>type===0);
     for(const id of ['patch-track']){
       const track=Number($(id).value||0);$(id).replaceChildren();
       for(let i=0;i<8;i++){
-        const node=option(i,'轨道 '+(i+1)+' · '+(sources[info[6+i]]||'未知'));node.disabled=info[6+i]!==0;$(id).append(node);
+        const node=option(i,'Track '+(i+1)+' · '+(sources[info[6+i]]||'Unknown'));node.disabled=info[6+i]!==0;$(id).append(node);
       }
       $(id).value=String(info[6+track]===0?track:first);
     }
@@ -1143,13 +1142,13 @@ main{max-width:1440px}
   }
   function connectLibrary(){return perform(async()=>{
     const report=text=>{message(text);connectionNotice={message:text,failed:false};enable();};
-    report('正在搜索并连接 SMK37 OPEN…');
+    report('Searching for SMK37 OPEN and connecting…');
     const attempt=beginConnection(),signal=attempt.controller.signal;
     try{
-      libraryReady=false;clearUpdateConnection('已切换到项目库；烧录前请重新连接。');if(updater)await updater.disconnect();if(library)await library.disconnect();
+      libraryReady=false;clearUpdateConnection('Switched to the project library. Reconnect before updating firmware.');if(updater)await updater.disconnect();if(library)await library.disconnect();
       const access=await requestMidiAccess(report,signal);
       watch(access);
-      library=createLibrary(access);await library.connect({signal});await refreshLibrary(true);message('项目库已连接。');connectionNotice=undefined;
+      library=createLibrary(access);await library.connect({signal});await refreshLibrary(true);message('Project library connected.');connectionNotice=undefined;
       await songOldDataCheck().catch(()=>{});   /* Task 12 A1 */
     }catch(error){connectionNotice={message:error.message,failed:true};
       /* Task 11C: no matching port (NO_PORT) or a failed probe: list the ports the browser sees. */
@@ -1159,10 +1158,10 @@ main{max-width:1440px}
   $('library-connect').addEventListener('click',connectLibrary);
   // Task 06 (a): Bluetooth settings (transfer command 24). Each change is written at once.
   const radioMessage=text=>{$('radio-message').textContent=text?FM1I18n.t(text):'';};
-  const radioWrite=async()=>{try{await library.radioWrite({on:$('radio-on').checked,audio:$('radio-audio').checked,host:$('radio-role').value==='1'});radioMessage('蓝牙设置已写入设备。');}catch(error){radioMessage(error.message);}};
+  const radioWrite=async()=>{try{await library.radioWrite({on:$('radio-on').checked,audio:$('radio-audio').checked,host:$('radio-role').value==='1'});radioMessage('Bluetooth settings written to the device.');}catch(error){radioMessage(error.message);}};
   for(const id of ['radio-on','radio-audio','radio-role'])$(id).addEventListener('change',radioWrite);
-  $('radio-forget').addEventListener('click',async()=>{if(!confirm(FM1I18n.t('清除设备上保存的 BLE MIDI 配对？')))return;try{await library.radioForget();radioMessage('已清除 MIDI 配对；请在电脑或平板上也删除该配对后重新配对。');}catch(error){radioMessage(error.message);}});
-  $('library-refresh').addEventListener('click',()=>perform(async()=>{await refreshLibrary();message('项目与轨道列表已刷新。');}));
+  $('radio-forget').addEventListener('click',async()=>{if(!confirm(FM1I18n.t('Forget the BLE MIDI pairs stored on the device?')))return;try{await library.radioForget();radioMessage('MIDI pairs forgotten; remove the pairing on the computer or tablet too, then pair again.');}catch(error){radioMessage(error.message);}});
+  $('library-refresh').addEventListener('click',()=>perform(async()=>{await refreshLibrary();message('Project and track lists refreshed.');}));
   // Classic Tabby Task 11 (Step 2): full backup, restore and verify (FM1Web Library.fullBackup /
   // fullRestore / fullVerify; docs/BACKUP-FORMAT.md). Restore validates the whole file before it
   // writes anything and writes only through the transfer commands.
@@ -1215,56 +1214,56 @@ main{max-width:1440px}
   $('diag-copy').addEventListener('click',()=>{if(diagText&&navigator.clipboard)navigator.clipboard.writeText(diagText).catch(()=>{});});
 
   $('project-rename').addEventListener('click',()=>perform(async()=>{
-    const name=$('project-name').value;if(!/^[\x20-\x7e]{1,12}$/.test(name))throw Error('名称须为 1–12 个可显示的英文字符');
-    await library.query(10,Array.from(name.padEnd(12),c=>c.charCodeAt(0)));message('名称已修改，请保存项目以保留修改。');
+    const name=$('project-name').value;if(!/^[\x20-\x7e]{1,12}$/.test(name))throw Error('Use 1–12 printable ASCII characters for the name');
+    await library.query(10,Array.from(name.padEnd(12),c=>c.charCodeAt(0)));message('Name changed. Save the project to keep it.');
   }));
   $('project-save').addEventListener('click',()=>openSave().catch(error=>message(error.message)));
   $('project-load').addEventListener('click',()=>perform(async()=>{
     const slot=Number($('project-slot').value);
-    await library.query(8,[slot]);await refreshLibrary();message('项目已载入。');
+    await library.query(8,[slot]);await refreshLibrary();message('Project loaded.');
   }));
   $('project-export').addEventListener('click',()=>perform(async()=>{
-    const data=await library.download(0);saveFile(FM1Web.projectFile(data),'SMK37 OPEN-project.fm1');message('当前项目已生成备份文件。');
+    const data=await library.download(0);saveFile(FM1Web.projectFile(data),'SMK37 OPEN-project.fm1');message('Current project exported as a backup file.');
   }));
   $('project-file').addEventListener('change',()=>perform(async()=>{
     projectBytes=undefined;const file=$('project-file').files[0];if(!file)return;
-    if(file.size>4280)throw Error('项目备份文件过大');projectBytes=FM1Web.readProjectFile(new Uint8Array(await file.arrayBuffer()));message('备份校验通过，可以恢复到工作区。');
+    if(file.size>4280)throw Error('Project backup file is too large');projectBytes=FM1Web.readProjectFile(new Uint8Array(await file.arrayBuffer()));message('Backup verified. Ready to restore to the workspace.');
   }));
   $('project-import').addEventListener('click',()=>perform(async()=>{
-    if(!projectBytes||!confirm(FM1I18n.t('用备份替换当前未保存的工作区？设备项目槽不会自动覆盖。')))return;
-    await library.upload(0,0,projectBytes);await refreshLibrary();message('项目已恢复到工作区，请选择槽位保存。');
+    if(!projectBytes||!confirm(FM1I18n.t('Replace the unsaved workspace with this backup? Device project slots will not be overwritten automatically.')))return;
+    await library.upload(0,0,projectBytes);await refreshLibrary();message('Project restored to the workspace. Choose a slot and save it.');
   }));
   $('timbre-file').addEventListener('change',()=>perform(async()=>{
     timbreBytes=undefined;const file=$('timbre-file').files[0];if(!file)return;
-    if(file.size!==239)throw Error('请选择本版导出的 .fm1t 音色');
-    timbreBytes=FM1Web.readTimbreFile(new Uint8Array(await file.arrayBuffer()));message('音色校验通过，可导入到选中的轨道。');
+    if(file.size!==239)throw Error('Choose a .fm1t sound exported by this version');
+    timbreBytes=FM1Web.readTimbreFile(new Uint8Array(await file.arrayBuffer()));message('Sound verified. Ready to import to the selected track.');
   }));
   $('timbre-import').addEventListener('click',()=>perform(async()=>{
-    if(!timbreBytes)throw Error('请先选择音色文件');
+    if(!timbreBytes)throw Error('Choose a sound file first');
     const track=Number($('timbre-track').value);
-    if(!confirm(FM1I18n.t('替换轨道 '+(track+1)+' 的音源和音色？鼓与旋律互换会清空此轨步进。')))return;
-    await library.upload(2,track,timbreBytes);await refreshLibrary();message('音色已导入。PROJECT 轨请保存项目；LIVE 轨请导出轨道音色，DX7 也可存入独立库。');
+    if(!confirm(FM1I18n.t('Replace track '+(track+1)+' engine and sound? Switching between drums and melody clears this track’s steps.')))return;
+    await library.upload(2,track,timbreBytes);await refreshLibrary();message('Sound imported. Save the project for PROJECT tracks. For LIVE tracks, export a timbre file, or save DX7 voices to the independent library.');
   }));
   $('timbre-export').addEventListener('click',()=>perform(async()=>{
     const track=Number($('timbre-track').value);
-    saveFile(FM1Web.timbreFile(await library.download(2,track)),'SMK37 OPEN-track-'+(track+1)+'.fm1t');message('轨道音色已导出。');
+    saveFile(FM1Web.timbreFile(await library.download(2,track)),'SMK37 OPEN-track-'+(track+1)+'.fm1t');message('Track sound exported.');
   }));
   $('patch-file').addEventListener('change',()=>perform(async()=>{
     voices=[];$('patch-choice').replaceChildren();const file=$('patch-file').files[0];if(!file)return;
-    if(file.size>4104)throw Error('请选择单音色或 32 音色 DX7 .syx 文件');
+    if(file.size>4104)throw Error('Choose a single-patch or 32-patch DX7 .syx file');
     voices=FM1Web.readVoices(new Uint8Array(await file.arrayBuffer()));
     voices.forEach((p,i)=>$('patch-choice').append(option(i,(i+1)+' · '+String.fromCharCode(...p.slice(145,155)).replace(/[^\x20-\x7e]/g,'?'))));
-    message('已校验 '+voices.length+' 个音色，请选择音色与目标 DX7 轨道。');
+    message('Verified '+voices.length+' patches. Choose a patch and target DX7 track.');
   }));
   $('patch-import').addEventListener('click',()=>perform(async()=>{
     const track=patchTarget(),patch=voices[Number($('patch-choice').value)];
-    if(!patch||track<0)throw Error('请选择 DX7 轨道与音色');
-    if(!confirm(FM1I18n.t('替换轨道 '+(track+1)+' 的音色？该轨道的音符会停止。')))return;
-    await library.upload(1,track,patch);message('音色已导入。PROJECT 轨请保存项目；LIVE 轨请导出轨道音色，DX7 也可存入独立库。');
+    if(!patch||track<0)throw Error('Choose a DX7 track and patch');
+    if(!confirm(FM1I18n.t('Replace track '+(track+1)+' sound? Notes on this track will stop.')))return;
+    await library.upload(1,track,patch);message('Sound imported. Save the project for PROJECT tracks. For LIVE tracks, export a timbre file, or save DX7 voices to the independent library.');
   }));
   $('patch-export').addEventListener('click',()=>perform(async()=>{
-    const track=patchTarget();if(track<0)throw Error('请先将一条轨道设为 DX7，再刷新列表');
-    const patch=await library.download(1,track);saveFile(FM1Web.voiceFile(patch,track===7?9:track),'SMK37 OPEN-track-'+(track+1)+'.syx');message('音色已导出为 DX7 .syx 文件。');
+    const track=patchTarget();if(track<0)throw Error('Set a track to DX7, then refresh the list');
+    const patch=await library.download(1,track);saveFile(FM1Web.voiceFile(patch,track===7?9:track),'SMK37 OPEN-track-'+(track+1)+'.syx');message('Patch exported as a DX7 .syx file.');
   }));
 
   // ---- Classic Tabby song editor (Task 03 d) --------------------------------------------
@@ -1273,14 +1272,14 @@ main{max-width:1440px}
   const songSim=()=>$('song-target').value==='sim';
   // `progress` (Task 02 Step 4) lets the MIDI importer show the write progress in its own
   // panel; `exists` returns the slot's record image (or null) without downloading blocks.
-  const songBackend=(progress=p=>songMessage('正在写入歌曲 '+Math.round(p*100)+'%'))=>{
-    if(songSim()){const sim=globalThis.FM1Simulator;if(!sim||!sim.ready())throw Error('请先启动仿真');
+  const songBackend=(progress=p=>songMessage('Writing song '+Math.round(p*100)+'%'))=>{
+    if(songSim()){const sim=globalThis.FM1Simulator;if(!sim||!sim.ready())throw Error('Start the simulator first');
       return {read:song=>sim.request('song-read',{song}).then(d=>d?{record:d.record,blocks:new Map(d.blocks)}:null),
         write:(song,record,blocks)=>sim.request('song-write',{song,record,blocks:[...blocks]}),
         remove:song=>sim.request('song-delete',{song}),status:()=>sim.request('song-status'),
         exists:song=>sim.request('song-read',{song}).then(d=>d?d.record:null)};}
-    if(!library||!libraryReady)throw Error('请先连接项目库');
-    return {read:song=>library.songRead(song,p=>songMessage('正在读取歌曲 '+Math.round(p*100)+'%')),write:(song,record,blocks)=>library.songWrite(song,record,blocks,progress),
+    if(!library||!libraryReady)throw Error('Connect the project library first');
+    return {read:song=>library.songRead(song,p=>songMessage('Reading song '+Math.round(p*100)+'%')),write:(song,record,blocks)=>library.songWrite(song,record,blocks,progress),
       remove:song=>library.songDelete(song),status:()=>library.songStatus(),
       exists:song=>library.download(5,song).catch(error=>{if(error.deviceCode===1)return null;throw error;})};
   };
@@ -1308,7 +1307,7 @@ main{max-width:1440px}
     const bpm=Number($('song-tempo').value)||120,msPerUnit=TabbyTimedNote.unitMs(bpm);
     box.hidden=false;box.replaceChildren();
     const t=document.createElement('table'),head=document.createElement('tr');
-    for(const h of ['步 '+(s+1),'音高','力度','重触发','偏移（单位）','','长度（步 + 单位）','']){const th=document.createElement('th');th.textContent=h;head.append(th);}t.append(head);
+    for(const h of ['Step '+(s+1),'Pitch','Velocity','Retrigger','Offset (units)','','Length (steps + units)','']){const th=document.createElement('th');th.textContent=h;head.append(th);}t.append(head);
     const write=()=>{input.value=FM1Web.songStepText(step);songMark(input);songInspect(s);};
     step.notes.forEach((n,k)=>{
       const tr=document.createElement('tr');const cell=el=>{const td=document.createElement('td');td.append(el);tr.append(td);return td;};
@@ -1318,21 +1317,21 @@ main{max-width:1440px}
       cell(num(n.velocity,1,127,1,v=>{n.velocity=Math.max(1,Math.min(127,Math.round(v)));}));
       const r=document.createElement('input');r.type='checkbox';r.checked=!!n.retrigger;r.addEventListener('change',()=>{n.retrigger=r.checked;write();});cell(r);
       cell(num(n.offset,-240,240,1,v=>{n.offset=Math.max(-240,Math.min(240,Math.round(v)));}));
-      const ro=document.createElement('span');ro.className='readout';ro.textContent=TabbyTimedNote.offsetFraction(n.offset)+' 步 · '+(n.offset*msPerUnit>=0?'+':'')+(n.offset*msPerUnit).toFixed(2)+' ms @ '+bpm;cell(ro);
+      const ro=document.createElement('span');ro.className='readout';ro.textContent=TabbyTimedNote.offsetFraction(n.offset)+' steps · '+(n.offset*msPerUnit>=0?'+':'')+(n.offset*msPerUnit).toFixed(2)+' ms @ '+bpm;cell(ro);
       const steps=Math.floor(n.length/SONG_UNITS),rest=n.length%SONG_UNITS,len=document.createElement('span');
       len.append(num(steps,0,17476,1,v=>{n.length=Math.max(1,Math.max(0,Math.round(v))*SONG_UNITS+(n.length%SONG_UNITS));}),' + ',num(rest,0,479,1,v=>{n.length=Math.max(1,Math.floor(n.length/SONG_UNITS)*SONG_UNITS+Math.max(0,Math.min(479,Math.round(v))));}));cell(len);
-      const rl=document.createElement('span');rl.className='readout';rl.textContent=FM1Web.songLengthText(n.length)+' 步 · '+(n.length*msPerUnit).toFixed(1)+' ms';cell(rl);
+      const rl=document.createElement('span');rl.className='readout';rl.textContent=FM1Web.songLengthText(n.length)+' steps · '+(n.length*msPerUnit).toFixed(1)+' ms';cell(rl);
       t.append(tr);});
     box.append(t);
-    if(!step.notes.length){const p=document.createElement('p');FM1I18n.text(p,'此步没有音符：在上方文本框中输入，例如 60:100:1/-12');box.append(p);}
+    if(!step.notes.length){const p=document.createElement('p');FM1I18n.text(p,'No note on this step: type one in the box above, for example 60:100:1/-12');box.append(p);}
   }
   const songQuantize=mode=>{let changed=0;for(const i of $('song-steps').querySelectorAll('input')){if(!i.value.trim())continue;let step;try{step=FM1Web.songStepParse(i.value);}catch(_){continue;}
     for(const n of step.notes){const before=n.offset+':'+n.length;if(n.offset)n.offset=0;if(mode==='ends')n.length=Math.max(1,Math.round(n.length/SONG_UNITS))*SONG_UNITS;if(before!==n.offset+':'+n.length)changed++;}
     i.value=FM1Web.songStepText(step);songMark(i);}
-    if(songEd.inspecting!==undefined)songInspect(songEd.inspecting);songMessage('已量化 '+changed+' 个音符（仅编辑器中的本块；点击“保存块”保留）。');};
+    if(songEd.inspecting!==undefined)songInspect(songEd.inspecting);songMessage('Quantized '+changed+' notes (this block in the editor only; click Store block to keep them).');};
   $('song-quantize-starts').addEventListener('click',()=>songQuantize('starts'));
   $('song-quantize-ends').addEventListener('click',()=>songQuantize('ends'));
-  const songBlockList=()=>FM1I18n.text($('song-blocks'),songEd.blocks.size?'编辑器中的块：'+[...songEd.blocks.keys()].sort((a,b)=>a-b).join(', '):'编辑器中没有块。');
+  const songBlockList=()=>FM1I18n.text($('song-blocks'),songEd.blocks.size?'Blocks in the editor: '+[...songEd.blocks.keys()].sort((a,b)=>a-b).join(', '):'There are no blocks in the editor.');
   function songRowsRender(){
     const body=$('song-rows').querySelector('tbody');body.replaceChildren();
     songEd.song.rows.forEach((row,r)=>{const tr=document.createElement('tr');const th=document.createElement('th');th.textContent=String(r+1);tr.append(th);
@@ -1342,7 +1341,7 @@ main{max-width:1440px}
       const td=document.createElement('td'),c=document.createElement('input');c.type='checkbox';c.checked=row.loopHere;c.dataset.songRow=r;c.dataset.songField='loop';td.append(c);tr.append(td);
       body.append(tr);});
     // Task 06: per track, the pattern numbers (rows with a block) the TRACK LAUNCH page offers.
-    $('song-patterns').textContent=FM1I18n.t('各轨图案（行号）：')+songEd.song.rows.length?Array.from({length:8},(_,t)=>'T'+(t+1)+' '+(songEd.song.rows.map((row,r)=>row.block[t]?String(r+1):'').filter(Boolean).join(' ')||'-')).join('   '):'';
+    $('song-patterns').textContent=FM1I18n.t('Patterns per track (row numbers): ')+songEd.song.rows.length?Array.from({length:8},(_,t)=>'T'+(t+1)+' '+(songEd.song.rows.map((row,r)=>row.block[t]?String(r+1):'').filter(Boolean).join(' ')||'-')).join('   '):'';
   }
   function songRender(){
     const s=songEd.song;$('song-editor').hidden=!s;if(!s)return;
@@ -1353,7 +1352,7 @@ main{max-width:1440px}
     if(rigUI)rigUI.setSong(s);
   }
   function songCollect(){
-    const s=songEd.song;if(!s)throw Error('请先读取或新建歌曲');
+    const s=songEd.song;if(!s)throw Error('Read or create a song first');
     s.name=$('song-name').value;s.project=Number($('song-project').value);s.tempo=Number($('song-tempo').value)||0;s.loop=$('song-loop').checked;
     s.loopRow=Number($('song-loop-row').value)-1;s.jumpRow=$('song-jump').value==='1';s.swing=$('song-swing').checked;
     for(const i of $('song-channels').querySelectorAll('input'))s.channel[Number(i.dataset.songChannel)]=Number(i.value)||0;
@@ -1361,37 +1360,37 @@ main{max-width:1440px}
       if(f==='loop')row.loopHere=i.checked;else if(f==='repeat')row.repeat=Number(i.value);else if(f==='steps')row.steps=Number(i.value);else row.block[Number(f.slice(1))]=Number(i.value)||0;}
     // Task 04: events with the rig's gaps applied; a song with events becomes a version-2 record.
     const record=FM1Web.songRecordBuild({...s,events:rigUI?rigUI.prepareEvents(s):(s.events||[])});
-    for(const id of FM1Web.songBlockIds(s))if(!songEd.blocks.has(id))throw Error('行中引用的块 '+id+' 不在编辑器中，请先保存该块');
+    for(const id of FM1Web.songBlockIds(s))if(!songEd.blocks.has(id))throw Error('Block '+id+' is used by a row but is not in the editor; save that block first');
     return record;
   }
   const songAct=fn=>async()=>{try{await fn();}catch(error){songMessage(error.message);}};
   $('song-target').addEventListener('change',()=>{songEd.song=null;songEd.blocks=new Map();songRender();songMessage('');});
-  $('song-new').addEventListener('click',songAct(async()=>{songEd.song=FM1Web.songEmpty();songEd.blocks=new Map();songRender();songMessage('已新建空歌曲：填写行与块后点击“写入歌曲”。');}));
+  $('song-new').addEventListener('click',songAct(async()=>{songEd.song=FM1Web.songEmpty();songEd.blocks=new Map();songRender();songMessage('New empty song: fill in rows and blocks, then click Write song.');}));
   $('song-read').addEventListener('click',songAct(async()=>{
     const slot=Number($('song-slot').value),got=await songBackend().read(slot);
-    if(!got){songEd.song=null;songEd.blocks=new Map();songRender();songMessage('该歌曲槽为空。');return;}
-    songEd.song=FM1Web.songRecordParse(got.record);songEd.blocks=got.blocks;songRender();songMessage('歌曲已读取。');
+    if(!got){songEd.song=null;songEd.blocks=new Map();songRender();songMessage('This song slot is empty.');return;}
+    songEd.song=FM1Web.songRecordParse(got.record);songEd.blocks=got.blocks;songRender();songMessage('Song read.');
   }));
   $('song-write').addEventListener('click',songAct(async()=>{
     const slot=Number($('song-slot').value),record=songCollect();
     // Task 03 (f): the shared write path deletes an occupied slot first; say so before writing.
     const old=await songBackend().exists(slot);
-    if(!confirm(FM1I18n.t('写入歌曲槽 ')+(slot+1)+'?'+(old?'\n\n'+FM1I18n.t('该槽已有歌曲：写入前会先删除旧歌曲，其块在下次压缩时回收。如需保留旧歌曲，请先取消并导出 .tabby。'):'')))return;
-    await songBackend().write(slot,record,songEd.blocks);songMessage(old?'旧歌曲已删除，新歌曲已写入并读回校验。':'歌曲已写入并读回校验。');
+    if(!confirm(FM1I18n.t('Write song slot ')+(slot+1)+'?'+(old?'\n\n'+FM1I18n.t('This slot already holds a song: it is deleted before the write and its blocks are reclaimed at the next compaction. To keep the old song, cancel and export a .tabby first.'):'')))return;
+    await songBackend().write(slot,record,songEd.blocks);songMessage(old?'Old song deleted; new song written and verified by read-back.':'Song written and verified by read-back.');
   }));
   $('song-delete').addEventListener('click',songAct(async()=>{
-    const slot=Number($('song-slot').value);if(!confirm(FM1I18n.t('删除歌曲槽 ')+(slot+1)+'?'))return;
-    await songBackend().remove(slot);songMessage('歌曲已删除。');
+    const slot=Number($('song-slot').value);if(!confirm(FM1I18n.t('Delete song slot ')+(slot+1)+'?'))return;
+    await songBackend().remove(slot);songMessage('Song deleted.');
   }));
   $('song-export').addEventListener('click',songAct(async()=>{
-    const record=songCollect();saveFile(FM1Web.tabbyFile(record,songEd.blocks,rigUI?rigUI.trailer(songEd.song):null),'SMK37 OPEN-'+(songEd.song.name.trim()||'song').replace(/[^A-Za-z0-9-]+/g,'_')+'.tabby');songMessage('已导出 .tabby 文件。');
+    const record=songCollect();saveFile(FM1Web.tabbyFile(record,songEd.blocks,rigUI?rigUI.trailer(songEd.song):null),'SMK37 OPEN-'+(songEd.song.name.trim()||'song').replace(/[^A-Za-z0-9-]+/g,'_')+'.tabby');songMessage('Exported the .tabby file.');
   }));
   $('song-file').addEventListener('change',songAct(async()=>{
-    const file=$('song-file').files[0];if(!file)return;if(file.size>4096+2048*1608)throw Error('.tabby 文件过大');
+    const file=$('song-file').files[0];if(!file)return;if(file.size>4096+2048*1608)throw Error('.tabby file too large');
     const got=FM1Web.readTabbyFile(new Uint8Array(await file.arrayBuffer()));songEd.song=FM1Web.songRecordParse(got.record);songEd.blocks=got.blocks;
     if(got.trailer&&got.trailer.rig&&globalThis.TabbyRig){try{songEd.song.rig=TabbyRig.rigNormalize(got.trailer.rig);}catch(_){songEd.song.rig=null;}}   // Task 04: per-song rig override
     songRender();
-    songMessage('已导入 .tabby 文件到编辑器，点击“写入歌曲”上传。');
+    songMessage('Imported the .tabby file into the editor; click Write song to upload it.');
   }));
   /* Task 12 A1: after the project library connects, say plainly when song storage holds OLD DATA
      and offer the erase. Nothing is sent until the user confirms the dialog. */
@@ -1403,7 +1402,7 @@ main{max-width:1440px}
     if(s.state===2&&!(library.tabbyFlags&2))songMessage('Song storage holds OLD DATA. This firmware cannot erase it from the web page: on the device, hold SEQ for ACTIONS, choose ERASE OLD DATA, press the 4th button in the left group (after SHIFT, FADER BANK, HOME), then press it again to confirm.');
   }
   $('song-erase-old').addEventListener('click',songAct(async()=>{
-    if(!library)throw Error('请先连接项目库');
+    if(!library)throw Error('Connect the project library first');
     if(!confirm('Erase the old data in song storage?\n\nThis erases every song-storage sector that is not in the song format. Projects, tunings and device settings are kept. It cannot be undone. The device must be stopped.'))return;
     await library.eraseOldData();
     songMessage('Erasing old data on the device; this takes a few seconds. Click Storage status to check: it reports READY when done.');
@@ -1415,38 +1414,38 @@ main{max-width:1440px}
     const tracks=s.tracks?'; tracks: '+s.tracks.map((t,i)=>'T'+(i+1)+' '+words[t.state]+(t.row!==255?' r'+(t.row+1):'')+(t.queue?' ('+queues[t.queue]+')':'')+(t.waiting?' waiting':'')).join(', '):'';
     songMessage('Song storage: '+s.free+' bytes free, '+s.reclaimable+' bytes reclaimable'+(s.state===2?' (OLD DATA: erase it with Erase old data, or on the device in ACTIONS)':s.state===1?' (busy)':'')+(s.events?'; loaded song: '+s.events+' events, '+s.late+' late':'')+tracks+'.');
   }));
-  $('song-row-add').addEventListener('click',songAct(async()=>{if(!songEd.song)throw Error('请先读取或新建歌曲');if(songEd.song.rows.length>=128)throw Error('最多 128 行');
+  $('song-row-add').addEventListener('click',songAct(async()=>{if(!songEd.song)throw Error('Read or create a song first');if(songEd.song.rows.length>=128)throw Error('At most 128 rows');
     const last=songEd.song.rows[songEd.song.rows.length-1];songEd.song.rows.push({block:last.block.slice(),repeat:last.repeat,loopHere:false,steps:last.steps});songRowsRender();}));
-  $('song-row-remove').addEventListener('click',songAct(async()=>{if(!songEd.song||songEd.song.rows.length<=1)throw Error('至少保留 1 行');songEd.song.rows.pop();songRowsRender();}));
+  $('song-row-remove').addEventListener('click',songAct(async()=>{if(!songEd.song||songEd.song.rows.length<=1)throw Error('Keep at least 1 row');songEd.song.rows.pop();songRowsRender();}));
   $('song-block-load').addEventListener('click',songAct(async()=>{
     const id=Number($('song-block-id').value),payload=songEd.blocks.get(id);
     const steps=payload?FM1Web.songPayloadParse(payload):Array.from({length:64},()=>({probability:0,alt:false,notes:[]}));
     for(const i of $('song-steps').querySelectorAll('input')){i.value=FM1Web.songStepText(steps[Number(i.dataset.songStep)]);songMark(i);}
     $('song-inspector').hidden=true;songEd.inspecting=undefined;
-    songMessage(payload?'块 '+id+' 已载入到步进编辑器。':'块 '+id+' 尚不存在：编辑后点击“保存块”创建。');
+    songMessage(payload?'Block '+id+' loaded into the step editor.':'Block '+id+' does not exist yet: edit it, then click Store block to create it.');
   }));
   $('song-block-store').addEventListener('click',songAct(async()=>{
-    const id=Number($('song-block-id').value);if(!(id>=1&&id<=65535))throw Error('块编号须为 1–65535');
+    const id=Number($('song-block-id').value);if(!(id>=1&&id<=65535))throw Error('Block id must be 1-65535');
     const steps=[];for(const i of $('song-steps').querySelectorAll('input'))steps[Number(i.dataset.songStep)]=FM1Web.songStepParse(i.value);
-    songEd.blocks.set(id,FM1Web.songPayloadBuild(steps));songBlockList();songMessage('块 '+id+' 已保存到编辑器；写入歌曲时上传。');
+    songEd.blocks.set(id,FM1Web.songPayloadBuild(steps));songBlockList();songMessage('Block '+id+' saved in the editor; it is uploaded when you write the song.');
   }));
-  $('song-block-remove').addEventListener('click',songAct(async()=>{const id=Number($('song-block-id').value);songEd.blocks.delete(id);songBlockList();songMessage('块 '+id+' 已从编辑器移除。');}));
+  $('song-block-remove').addEventListener('click',songAct(async()=>{const id=Number($('song-block-id').value);songEd.blocks.delete(id);songBlockList();songMessage('Block '+id+' removed from the editor.');}));
   $('install').addEventListener('click',async()=>{
     if(busy||finishingUpdate||SMK37Boot.blocked||!connected||migration||same||!$('backup').checked)return;
     const force=$('force-update').checked;
     const confirmedModel=updater.mode==='loader'?pkg.model:undefined;
-    if(confirmedModel&&!confirm(FM1I18n.t('升级程序名称不能确定机身型号。请核对机身铭牌，仅连接目标设备。确认机身型号为：')+' SMK-37 '+(confirmedModel==='pro'?'Pro':'Elite')+'?'))return;
+    if(confirmedModel&&!confirm(FM1I18n.t('The loader name does not identify the hardware model. Check the device label and connect only the target device. Confirm that the hardware model is:')+' SMK-37 '+(confirmedModel==='pro'?'Pro':'Elite')+'?'))return;
     if(pkg.kind==='stock'){
-      if(!confirm(FM1I18n.t('确认恢复原厂 V16？Open 项目、音色和采样可能被覆盖，请确认已备份。目标：')+' '+pkg.product+'\n\n'+FM1I18n.t('恢复 V16 还会覆盖 Classic Tabby 歌曲存储的最后 40 KB（80 个块扇区中的第 70–79 个）。请先在“项目与音色 → 歌曲模式”导出歌曲。')))return;
-    }else if(force&&!confirm(FM1I18n.t('确认强制烧录？当前设备：')+updater.identity+'\n\n'+FM1I18n.t('警告：可能与设备不兼容，可能丢失数据或无法开机，需要专用工具恢复。仅当确认目标设备为 SMK37 OPEN 并接受风险时继续。')))return;
+      if(!confirm(FM1I18n.t('Restore factory V16? Open projects, voices and samples may be overwritten. Confirm you have backups. Target:')+' '+pkg.product+'\n\n'+FM1I18n.t('Restoring V16 also overwrites the last 40 KB of Classic Tabby song storage (block sectors 70 to 79 of the 80). Export your songs first in Projects & sounds > Song mode.')))return;
+    }else if(force&&!confirm(FM1I18n.t('Force flash this device? Current identity: ')+updater.identity+'\n\n'+FM1I18n.t('Warning: incompatibility may cause data loss or prevent startup and require a recovery tool. Continue only if the target is an SMK37 OPEN and you accept these risks.')))return;
     busy=true;writing=true;enable();FM1I18n.text($('error'),'');
     let completed=false;
     try{await updater.install({force,confirmedModel});completed=true;}
-    catch(error){FM1I18n.text($('error'),error.message);showLoaderHint(error);status('升级未完成；请保留本网页，检查设备连接后重试',0);showConnectionDetails(updater.diagnostics);}
+    catch(error){FM1I18n.text($('error'),error.message);showLoaderHint(error);status('Update incomplete. Keep this page, check the device connection and retry',0);showConnectionDetails(updater.diagnostics);}
     finally{busy=false;writing=false;connected=false;finishingUpdate=completed;if(completed)$('device-identity').textContent=pkg.product;enable();}
     if(completed){
       if(pkg.kind==='stock'){
-        updateResult='stock';finishingUpdate=false;status('原厂固件与资源已恢复，读回校验通过。请重新开机后使用。',100);enable();return;
+        updateResult='stock';finishingUpdate=false;status('Factory firmware and resources restored; resource read-back passed. Power-cycle the device before use.',100);enable();return;
       }
       await checkDeviceSamples(true);
     }
@@ -1456,26 +1455,26 @@ main{max-width:1440px}
     if(firmwareTask)return firmwareTask;
     firmwareTask=(async()=>{
     try {
-      if(!window.isSecureContext||!crypto.subtle)throw Error('请从 HTTPS 网站或 localhost 打开此网页');
+      if(!window.isSecureContext||!crypto.subtle)throw Error('Open this page over HTTPS or localhost');
       $('sample-bank-note').hidden=FM1_SIMULATOR.sample_bank!=='synthesized-demo';
       if(!FM1_PACKAGE){
-        FM1I18n.text($('update-intro'),'本页缺少内置固件，无法烧录。请重新下载完整官方工作台。');
-        FM1I18n.text($('profile'),'网页试听与编辑');$('firmware-version').textContent=FM1_SIMULATOR.display_version||FM1_SIMULATOR.release_version||'—';$('base-version').textContent=FM1_SIMULATOR.release_version||'—';FM1I18n.text($('version'),FM1_SIMULATOR.sha256.slice(0,16));FM1I18n.text($('size'),'未附带设备固件');
-        status('内置固件不可用，请重新下载完整官方工作台。');
+        FM1I18n.text($('update-intro'),'The built-in firmware is missing, so this page cannot update SMK37 OPEN. Download the complete official workbench again.');
+        FM1I18n.text($('profile'),'Browser play & edit');$('firmware-version').textContent=FM1_SIMULATOR.display_version||FM1_SIMULATOR.release_version||'—';$('base-version').textContent=FM1_SIMULATOR.release_version||'—';FM1I18n.text($('version'),FM1_SIMULATOR.sha256.slice(0,16));FM1I18n.text($('size'),'No device firmware included');
+        status('Built-in firmware is unavailable. Download the complete official workbench again.');
         $('backup').disabled=true;enable();return;
       }
-      FM1I18n.text($('error'),'');status('正在加载固件…');
+      FM1I18n.text($('error'),'');status('Loading firmware…');
       pkg=openPkg=await FM1Web.prepare(FM1_PACKAGE);
       packageDetails();
-      if(!navigator.requestMIDIAccess)throw Error('当前浏览器不支持 Web MIDI，请使用电脑 Chrome 或 Edge');
-      status('固件校验通过，等待连接设备');enable();
-    }catch(error){firmwareTask=undefined;FM1I18n.text($('error'),error.message);status('固件加载失败，请重新打开设备更新页重试。');}
+      if(!navigator.requestMIDIAccess)throw Error('This browser does not support Web MIDI. Use desktop Chrome or Edge');
+      status('Firmware verified. Waiting for device connection');enable();
+    }catch(error){firmwareTask=undefined;FM1I18n.text($('error'),error.message);status('Firmware could not be loaded. Reopen Device Update to retry.');}
     finally{enable();}
     })();return firmwareTask;
   }
   document.addEventListener('fm1-view-change',()=>{if(!$('tab-update').hidden)loadFirmware();});
   if(!FM1_PACKAGE||FM1_PACKAGE.data)loadFirmware();
-  else {status('打开设备更新页后加载固件。');enable();}
+  else {status('Firmware loads when Device Update is opened.');enable();}
 })();
 </script>
 <script>

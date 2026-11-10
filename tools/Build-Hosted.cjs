@@ -14,7 +14,7 @@ function asset(data,extension){
 }
 const standalone=fs.readFileSync(input,'utf8'),download='SMK37-Open-Source.html';
 let html=standalone;
-const sourceLink=html.match(/<a href="([^"]+)"[^>]*>源码与 SDK<\/a>/);
+const sourceLink=html.match(/<a href="([^"]+)"[^>]*>(?:源码与 SDK|Source \+ SDK)<\/a>/);   // Task 14: the page text is English now; the pages published up to tabby-v04.1 say 源码与 SDK
 assert(sourceLink,'Missing source archive link.');
 assert.equal(new URL(sourceLink[1]).protocol,'https:','A source archive HTTPS URL is required.');
 const packaged=JSON.parse(html.match(/const FM1_PACKAGE = (.*);/)[1]);

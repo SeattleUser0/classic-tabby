@@ -22,7 +22,7 @@
 //        with no click handler before),
 //        an error never sets forceSuggested, Connect and Start update read the checkbox (the only
 //        way to turn force on), and the migration text points to the section, not a button;
-//        sdk/I18n.js translates the new messages
+//        the migration messages are English and say "by hand" (Task 14: no translation table any more)
 //
 //   Run:  /usr/bin/node tests/workbench/update-safety.mjs   (part of make workbench-test)
 //
@@ -43,9 +43,6 @@ globalThis.document = { addEventListener() {}, querySelector() { return null; },
 globalThis.location = { search: '' };
 (0, eval)(readFileSync(join(root, 'sdk/WebUpdate.js'), 'utf8'));
 const W = globalThis.FM1Web;
-const i18nScope = { globalThis: {} };
-new Function('globalThis', 'document', 'localStorage', 'location', readFileSync(join(root, 'sdk/I18n.js'), 'utf8'))(i18nScope.globalThis, undefined, undefined, { search: '' });
-const I18N = i18nScope.globalThis.FM1I18n;
 
 let failed = 0, passed = 0;
 function check(cond, what, detail) {
@@ -144,9 +141,7 @@ await scenario('Y', async () => {
   let e = null; try { await u.connect({ force: false }); } catch (x) { e = x; }
   check(e?.code === 'NO_REPLY' && dev.capSeen === 4 && u.mode !== 'migration' && u.mode !== 'legacy' && writes(dev).every(c => c === 49),
     'Y: capability never answers -> 4 queries, NO_REPLY, no migration, nothing written', `${e?.code} ${dev.capSeen} ${u.mode}`);
-  check(/断电重启/.test(e?.message || '') && !/强制/.test(e?.message || ''), 'Y: the message says to power-cycle and does not mention force', e?.message);
-  const en = I18N?.t ? I18N.t(e?.message || '') : '';
-  check(/did not answer/.test(en) && /Power-cycle/.test(en) && !/force/i.test(en), 'Y: the English message', en);
+  check(/did not answer/.test(e?.message || '') && /Power-cycle/.test(e?.message || '') && !/force/i.test(e?.message || ''), 'Y: the message says to power-cycle and does not mention force', e?.message);
 
   dev = smk(PRODUCT, { cap49: capReply(OTHER), capTimeouts: 2 });
   u = new W.Updater(access([dev]), pkg(), () => {}, FAST);
@@ -187,11 +182,11 @@ await scenario('Z', async () => {
   check(!/forceSuggested=error/.test(page) && /forceSuggested=false;\s*\/\* Task 12/.test(page), 'Z: an error never sets forceSuggested');
   const sets = [...page.matchAll(/\$\('force-update'\)\.checked=([^;]+);/g)].map(m => m[1]);
   check(sets.every(v => ['value', 'stock'].includes(v)), 'Z: the checkbox is set only by setForceMode (its own change event) and by the factory-restore choice', JSON.stringify(sets));
-  check(!page.includes('可点击“启用强制烧录并重新连接”') && !page.includes('迁移请点击“启用强制烧录并重新连接”') && page.includes('手动勾选“强制烧录”'),
+  check(!/click Enable force flash and reconnect/i.test(page) && page.includes('tick Force flash by hand'),
     'Z: the migration texts point to the checkbox in the section, not to a button');
-  for (const k of ['已识别设备和当前固件（不是 Open 固件）。如需迁移，请展开“迁移、原厂恢复与强制更新”，手动勾选“强制烧录”，再重新连接。',
-    '检测到其他固件：如需迁移，请在“迁移、原厂恢复与强制更新”中手动勾选“强制烧录”。'])
-    check(I18N.t(k) !== k && /by hand/.test(I18N.t(k)), 'Z: translated: ' + I18N.t(k).slice(0, 50));
+  for (const k of ['Device and current firmware recognized (not Open firmware). To migrate, open Migration, factory restore and forced updates, tick Force flash by hand',
+    'Different firmware detected. To migrate, tick Force flash by hand under Migration, factory restore and forced updates.'])
+    check(page.includes(k) || readFileSync(join(root, 'sdk/WebUpdate.js'), 'utf8').includes(k), 'Z: English, by hand: ' + k.slice(0, 50));
 });
 
 console.log(`\nupdate-safety: ${passed} ok, ${failed} failed`);

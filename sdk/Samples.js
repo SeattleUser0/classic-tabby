@@ -4,6 +4,6 @@
  * keeps these two globals so the shared update code still loads. */
 (() => {
   'use strict';
-  globalThis.FM1Samples={read(){throw Error('此固件没有采样库');},status(){},capacity:0,slots:0};
+  globalThis.FM1Samples={read(){throw Error('This firmware has no sample bank');},status(){},capacity:0,slots:0};
   globalThis.FM1EnsureSamples=async()=>{};
 })();

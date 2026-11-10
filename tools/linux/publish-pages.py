@@ -77,7 +77,7 @@ def builds_index():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-SITE_LINK = re.compile(r'<a href="([^"]+)"[^>]*>源码与 SDK</a>')   # same pattern as Build-Hosted.cjs
+SITE_LINK = re.compile(r'<a href="([^"]+)"[^>]*>(?:源码与 SDK|Source \+ SDK)</a>')   # same pattern as Build-Hosted.cjs; Task 14: English since tabby-v04.2, the older pages say 源码与 SDK
 
 
 class PublishError(Exception):

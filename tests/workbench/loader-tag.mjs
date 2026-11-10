@@ -21,7 +21,7 @@
 //                                                                reconnect timeout), nothing written
 //     U  matchBuild / buildsLookup: case, prefix on the build id, URL resolution, candidates in order,
 //        a 404 then a good index, a malformed index skipped
-//     V  every message translates to English (sdk/I18n.js patterns) and names the tag
+//     V  every message is English at the source and names the tag
 //     W  the page wires it: #loader-hint exists, the Updater gets {builds}, both catch blocks call
 //        showLoaderHint (static check of sdk/Update.html.in)
 //
@@ -43,10 +43,6 @@ globalThis.document = { addEventListener() {}, querySelector() { return null; },
 globalThis.location = { search: '' };
 (0, eval)(readFileSync(join(root, 'sdk/WebUpdate.js'), 'utf8'));
 const W = globalThis.FM1Web;
-// sdk/I18n.js in a bare scope (as tests/workbench/manual-i18n.mjs does): FM1I18n.t for scenario V.
-const i18nScope = { globalThis: {} };
-new Function('globalThis', 'document', 'localStorage', 'location', readFileSync(join(root, 'sdk/I18n.js'), 'utf8'))(i18nScope.globalThis, undefined, undefined, { search: '' });
-const I18N = i18nScope.globalThis.FM1I18n;
 
 let failed = 0, passed = 0;
 function check(cond, what, detail) {
@@ -221,12 +217,13 @@ await scenario('V', async () => {
   samples.push((await (new W.Updater(access(rig(loader).all), PKG, () => {}, FAST, { builds: lookup })).loaderMismatch('fedcba9876543210', 'x')).message);
   samples.push((await u.loaderMismatch(R2.slice(0, 16), 'x')).message);
   for (const [i, zh] of samples.entries()) {
-    const en = I18N.t(zh, 'en');
-    check(en !== zh && /^The update loader is waiting for/.test(en) && en.includes(i === 1 ? 'fedcba9876543210' : R2.slice(0, 16)) && en.includes('tabby-v04.0'),
-      'V: message ' + (i + 1) + ' translates to English and keeps the tag and version', en);
+    const en = zh;   // Task 14: the message is English at the source
+    check(/^The update loader is waiting for/.test(en) && en.includes(i === 1 ? 'fedcba9876543210' : R2.slice(0, 16)) && en.includes('tabby-v04.0'),
+      'V: message ' + (i + 1) + ' is English and keeps the tag and version', en);
   }
-  for (const key of ['该固件的页面：', '已发布固件列表：', '连接前请先断开其他 SMK-37。'])
-    check(I18N.t(key, 'en') !== key, 'V: page string translated: ' + key, I18N.t(key, 'en'));
+  const pageHtml = readFileSync(join(root, 'sdk/Update.html.in'), 'utf8');
+  for (const key of ["That build\\'s page:", 'The list of published builds:', 'Disconnect any other SMK-37 before connecting.'])
+    check(pageHtml.includes(key), 'V: page string is English: ' + key);
 });
 
 await scenario('W', async () => {

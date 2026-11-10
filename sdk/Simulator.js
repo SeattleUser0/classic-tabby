@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
-/* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. */
+/* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. */
 /* Classic Tabby, Task 03 a: sample bank and DX7 user library removed from the simulator. */
 /* Classic Tabby Task 13 Step 4 (2026-11-10): panel wording: knobs K1-K8 by their printed numbers (firmware SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8); the firmware's SAVE button named by position (the 4th button in the left group, after SHIFT, FADER BANK, HOME); SPEC 17.4 has the table. The panel button the firmware calls SAVE is labelled BTN 4 here. */
 (() => {
@@ -21,7 +21,7 @@
         this.c = new WebAssembly.Instance(new WebAssembly.Module(wasm), {}).exports;
         const c = this.c; c._initialize();
         if (snapshot) {
-          if (snapshot.byteLength % 65536 || snapshot.byteLength < c.memory.buffer.byteLength || snapshot.byteLength > 33554432) throw Error('仿真状态无效');
+          if (snapshot.byteLength % 65536 || snapshot.byteLength < c.memory.buffer.byteLength || snapshot.byteLength > 33554432) throw Error('Invalid simulator state');
           c.memory.grow((snapshot.byteLength - c.memory.buffer.byteLength) / 65536);
           new Uint8Array(c.memory.buffer).set(new Uint8Array(snapshot));
         } else {
@@ -43,12 +43,12 @@
           case 'panic': c.sim_panic(); break;
           case 'tapTempo': c.sim_tap_tempo(); break;
           case 'select': result=c.sim_select(message.track,message.source); break;
-          case 'open': result=c.sim_open(message.page); if(result)throw Error('当前音源不支持此编辑页。'); break;
+          case 'open': result=c.sim_open(message.page); if(result)throw Error('The current engine does not support this editing page.'); break;
           case 'preset': result=c.sim_preset(message.index); break;
           case 'step': result=c.sim_step(message.index,message.toggle?1:0); break;
           case 'lcd': result=c.sim_lcd(message.context,message.action,message.index,message.owner,message.delta); break;
           case 'midi':
-            if (!message.data || message.data.length>1024) throw Error('MIDI 数据无效');
+            if (!message.data || message.data.length>1024) throw Error('Invalid MIDI data');
             new Uint8Array(c.memory.buffer,c.sim_file(),message.data.length).set(message.data);
             result=c.sim_midi(message.data.length); break;
           case 'export':
@@ -61,7 +61,7 @@
             break;
           // Task 03 (f): the 'factory' / 'factories' requests are gone with the factory scenes.
           case 'import':
-            if (!message.data || (message.timbre?message.data.length!==223:message.patch?message.data.length!==156:![4048,4064,4264].includes(message.data.length))) throw Error('文件长度无效');
+            if (!message.data || (message.timbre?message.data.length!==223:message.patch?message.data.length!==156:![4048,4064,4264].includes(message.data.length))) throw Error('Invalid file length');
             new Uint8Array(c.memory.buffer,c.sim_file(),message.data.length).set(message.data);
             result=message.timbre?c.sim_timbre_import():message.patch?c.sim_patch_import():c.sim_import(message.data.length); break;
           case 'clear': c.sim_clear(); break;
@@ -102,9 +102,9 @@
             // Task 06: the same per-track words the device's command 23 carries.
             tracks:Array.from({length:8},(_,t)=>{const w=c.sim_song_track_status(t)>>>0;return {state:w&3,queue:(w>>2)&3,waiting:!!(w&16),row:(w>>8)&255};})}; break;
           case 'tick': for(let i=0;i<Math.min(32,message.blocks>>>0);i++)c.sim_render();break;
-          default: throw Error('未知仿真操作');
+          default: throw Error('Unknown simulator operation');
         }
-        if(result)throw Error(result===-8?'内存不足，当前项目保持不变':result===-10?'歌曲存储已满':'当前音源或参数不支持此操作');
+        if(result)throw Error(result===-8?'Insufficient memory. The current project is unchanged':result===-10?'Song storage is full':'The current engine or parameter does not support this operation');
         return data;
       }
       projectRevision(){return this.c.sim_edit_revision()+':'+this.c.sim_project_revision();}
@@ -244,14 +244,14 @@
     $('sim-start').disabled=starting||!ready;
     $('sim-play-control').disabled=starting||!ready;
     $('sim-midi').disabled=!ready||midiConnecting||!navigator.requestMIDIAccess;
-    FM1I18n.text($('sim-start'),starting?'正在开启声音…':muted?'取消静音':'静音');
+    FM1I18n.text($('sim-start'),starting?'Enabling sound…':muted?'Unmute':'Mute');
     $('sim-start').setAttribute('aria-pressed',String(muted));
     $('sim-patch-export').disabled=!ready||!state||state[8+state[0]*20]!==0;
     $('sim-file-apply').disabled=!ready||!selectedFile||(selectedFile.patch&&(!state||state[8+state[0]*20]!==0));
     $('sim-placeholder').hidden=ready;
-    FM1I18n.text($('sim-engine-state'),ready?'面板已就绪':bootError?'载入失败':'正在载入');
-    if(bootError)FM1I18n.text($('sim-current-project'),'载入失败');
-    FM1I18n.text($('sim-audio-state'),audioOn?'声音已开启':muted?'静音编辑':'点琴键即可发声');
+    FM1I18n.text($('sim-engine-state'),ready?'Panel ready':bootError?'Loading failed':'Loading');
+    if(bootError)FM1I18n.text($('sim-current-project'),'Loading failed');
+    FM1I18n.text($('sim-audio-state'),audioOn?'Sound enabled':muted?'Silent editing':'Ready to play');
     $('sim-engine-state').hidden=ready;$('sim-audio-state').hidden=!ready;
     // Task 03 (f): prev / next step through the USER project slots of the simulated flash.
     for(const id of ['sim-preset-prev','sim-preset-next'])$(id).disabled=!ready||presetBusy;
@@ -281,18 +281,18 @@
     finally{syncChecking=false;renderSync();}
   }
   function renderSync(){
-    let title='网页试听 · 未连接设备',detail='',style='preview';
-    if(syncDevice.mode==='update')title='设备已连接用于更新 · 网页试听独立';
+    let title='Browser preview · no device',detail='',style='preview';
+    if(syncDevice.mode==='update')title='Device connected for update · separate browser preview';
     if(syncDevice.mode==='library'){
       const changed=deviceSnapshot&&(!comparisonMatches||comparedRevision!==workspace?.revision);
-      title=!deviceSnapshot?'设备已连接 · 请读取项目':changed?'网页修改未写入设备':deviceSnapshotKind==='save'?'已保存到设备 · 校验通过':'已读取设备项目';
+      title=!deviceSnapshot?'Device connected · read a project to edit':changed?'Browser edits not saved to device':deviceSnapshotKind==='save'?'Saved to device · verified':'Device project loaded';
       style=!deviceSnapshot?'preview':changed?'pending':'verified';
-      detail='网页修改需手动保存；实机更改后请重新读取。';
+      detail='Save browser edits manually. Read again after changes on the device.';
       if(deviceSnapshot&&ready&&comparedRevision!==workspace?.revision&&!syncTimer&&!syncChecking)
         syncTimer=setTimeout(compareDeviceSnapshot,120);
     }
     if(syncDevice.connection){
-      title=syncDevice.connection.failed?'设备连接失败':'正在连接设备…';
+      title=syncDevice.connection.failed?'Device connection failed':'Connecting to device…';
       detail=syncDevice.connection.message;style='pending';
     }
     const text=title+'|'+detail+'|'+style;
@@ -315,7 +315,7 @@
   }
   function send(type,args={}){if(ready)dispatch({type,...args});}
   function request(type,args={}) {
-    if(!ready)return Promise.reject(Error('仿真尚未载入'));
+    if(!ready)return Promise.reject(Error('The simulator is not loaded yet'));
     // These operations release/reset the C controls. Clear their page-side
     // owners too, so a stale latch cannot suppress the next press.
     if(['import','clear'].includes(type))release();
@@ -328,7 +328,7 @@
     // still waiting for audio permission on the previous project.
     if(type==='preset'){wakingPlay=undefined;wakingKeys.clear();}
     const id=++sequence;return new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{pending.delete(id);reject(Error('仿真操作超时'));},7000);
+      const timer=setTimeout(()=>{pending.delete(id);reject(Error('Simulator operation timed out'));},7000);
       pending.set(id,{resolve,reject,timer});dispatch({type,id,...args});
     });
   }
@@ -372,24 +372,24 @@
       if(instrumentState===undefined)wakingKeys.clear();
       else for(const key of wakingKeys.keys())if(typeof key==='number')wakingKeys.delete(key);
       const pageTips={
-        0:'总览：K5 选轨，K1 音量，K4 速度；K7 换预设，K6／K2 换音源。',
-        1:'SYNC / MIDI：K1 CLOCK，K2 CLK IN，K3 SWING，K4 SEQ OUT，K7 KEY OUT；SHIFT + SEQ 打开 MIDI TRACK，长按 SEQ 打开 ACTIONS。',
-        6:'混音：打击垫 1–8 静音、9–16 独奏，同轨互斥；K5 选轨，K1–K4 调当前四轨组音量。',
-        8:'保存项目：K5／K7 选 USER 槽，再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存；覆盖其他已有槽需确认，成功后自动返回。',
-        10:'效果：K6 翻 TRACK／SHARED／DELAY，K5 选轨，K1–K4 调屏幕参数。DELAY 页连按 SEQ 或 TAP 打拍；K7 也可翻页。',
-        11:'音源预览：Pad 1–6 或 K1 选择，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用，HOME 返回；K2 TRACK 即时选择 PROJECT（跟随项目）／LIVE（换项目保留音色）／OFF（关闭音源）。',
-        12:'ACTIONS：K1 或 K5 选操作，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）执行，HOME 取消；SONG MODE 打开歌曲页。',
-        15:'FM 常用参数：K7 选择 1–128 音色，K6 切换 A–D 组；K1 算法、K2 反馈、K3 移调、K4 音量。EDIT 返回；完整音色编辑请使用网页工作台。',
-        19:'歌曲模式：K5／K7 选歌曲，PLAY 开始／停止，打击垫 1–16 排队跳转到该行，OCT 翻打击垫页，K4 设置跳转落点。歌曲由网页工作台写入。',
-        17:'ARP：短按开关，长按调参数；K6 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。K5 选轨，开关和参数随项目保存，不保存按住的音符。',
-        16:'预设列表：K7／K5 直接载入，PLAY 载入播放，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开项目保存；K1 选 USER／FACTORY。切换直接生效，不提示保存。'
+        0:'HOME: K5 chooses a track, K1 sets level and K4 tempo; K7 changes projects; K6 / K2 changes engines.',
+        1:'SYNC / MIDI: K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, K7 KEY OUT; SHIFT + SEQ opens MIDI TRACK, hold SEQ for ACTIONS.',
+        6:'Mixer: pads 1–8 mute, 9–16 solo; mute / solo are exclusive per track. K5 chooses a track; K1–K4 adjust the four-track group.',
+        8:'Save project: K5 / K7 chooses a USER slot; the 4th button in the left group (after SHIFT, FADER BANK, HOME) writes it. Replacing another occupied slot requires confirmation. The panel returns after saving.',
+        10:'Effects: K6 switches TRACK / SHARED / DELAY, K5 chooses a track, and K1–K4 edit the displayed parameters. Tap SEQ or TAP on DELAY; K7 also changes pages.',
+        11:'Sound source: choose with Pads 1–6 or K1, the 4th button in the left group (after SHIFT, FADER BANK, HOME) to apply, HOME to return. K2 TRACK immediately selects PROJECT (follow projects), LIVE (keep sound across project changes), or OFF (disable the instrument).',
+        12:'ACTIONS: K1 or K5 chooses the entry, the 4th button in the left group (after SHIFT, FADER BANK, HOME) runs it, HOME cancels; SONG MODE opens the SONG page.',
+        15:'FM quick parameters: K7 chooses voice 1-128, K6 switches bank A-D; K1 algorithm, K2 feedback, K3 transpose, K4 level. EDIT returns; use the web workbench for full voice editing.',
+        19:'Song mode: K5 / K7 select the song, PLAY starts and stops, pads 1-16 queue a jump to that row, OCT pages the pads, K4 sets where jumps land. Songs are written from the web workbench.',
+        17:'ARP: tap to toggle, hold for settings. K6 changes pages: rate / direction / range / gate, then Swing / Hold. K5 chooses a track. Enable and settings are saved with the project; held notes are not.',
+        16:'Preset list: K7 / K5 loads immediately, PLAY loads and plays, the 4th button in the left group (after SHIFT, FADER BANK, HOME) opens project saving. K1 chooses USER / FACTORY. Preset changes are immediate, with no save prompt.'
       };
       if(pageTips[state[1]])say(pageTips[state[1]]);
     }
     if(contextChanged){
       for(const button of document.querySelectorAll('[data-sim-page]'))button.setAttribute('aria-pressed',String(Number(button.dataset.simPage)===state[1]||(Number(button.dataset.simPage)===15&&state[1]===5)));
-      const presetUse={0:'换整套预设',1:'开关 KEY OUT',8:'选保存槽位',10:'切换轨道发送／共用细调',12:'选操作',15:'换当前轨音色',16:'选整套预设',17:'此页不使用'};
-      FM1I18n.text($('sim-context'),'面板 K7 旋钮：'+(presetUse[state[1]]||'以屏幕下方标签为准')+'。');
+      const presetUse={0:'change the whole preset',1:'toggle KEY OUT',8:'choose a save slot',10:'switch track sends / shared settings',12:'choose an action',15:'change the track sound',16:'choose a whole preset',17:'unused on this page'};
+      FM1I18n.text($('sim-context'),'Panel K7 knob: '+(presetUse[state[1]]||'follow the labels below the screen')+'.');
     }
     updateScreenControls(message.screen,contextChanged);
     if(message.pixels)for(let band=0,source=0;band<15;){
@@ -406,17 +406,17 @@
     if(message.workspace){
       workspace=message.workspace;
       if(!oldWorkspace||workspace.name!==oldWorkspace.name)$('sim-current-project').textContent=workspace.name||'UNTITLED';
-      if(!oldWorkspace||workspace.dirty!==oldWorkspace.dirty)FM1I18n.text($('sim-project-note'),workspace.dirty?'工作区有修改':'工作区未修改');
+      if(!oldWorkspace||workspace.dirty!==oldWorkspace.dirty)FM1I18n.text($('sim-project-note'),workspace.dirty?'Workspace has changes':'Workspace unchanged');
       renderSync();
     }
     /* Task 14: the device has no recording (v0.4); this line only reports the external-clock wait. */
     const waitClock=!!(state[16]&&state[17]!==1);
-    const recording=waitClock?'等待外部 MIDI 时钟；在 SYNC / MIDI 页（按 SEQ）可切回 INT。':'';
+    const recording=waitClock?'Waiting for external MIDI clock. Choose INT on the SYNC / MIDI page (press SEQ) to use internal tempo.':'';
     const hideRecording=!waitClock;
     if($('sim-record-state').hidden!==hideRecording)$('sim-record-state').hidden=hideRecording;
     if($('sim-record-state').dataset.message!==recording){$('sim-record-state').dataset.message=recording;FM1I18n.text($('sim-record-state'),recording);}
     if(!before||before[14]!==state[14]){
-      FM1I18n.text($('sim-play-control'),state[14]?'暂停':'播放');
+      FM1I18n.text($('sim-play-control'),state[14]?'Pause':'Play');
       $('sim-play-control').setAttribute('aria-pressed',String(!!state[14]));
     }
     if(selectionChanged){$('sim-track').value=state[0];$('sim-source').value=state[8+state[0]*20];}
@@ -435,7 +435,7 @@
         if(before&&before[at+6]&&before[at+7]<64)dots[before[at+7]].classList.remove('play');
         if(state[at+6]&&state[at+7]<64)dots[state[at+7]].classList.add('play');
       }
-      if(!before||before[at+4]!==state[at+4]||before[at+5]!==state[at+5]||before[209+t]!==state[209+t]||before[217+t]!==state[217+t])FM1I18n.attr(button,'title','轨道 '+(t+1)+' · '+state[209+t]+' 步'+(state[217+t]!==state[209+t]?' · 下轮 '+state[217+t]+' 步':'')+(state[at+4]?' · 静音':'')+(state[at+5]?' · 独奏':''));
+      if(!before||before[at+4]!==state[at+4]||before[at+5]!==state[at+5]||before[209+t]!==state[209+t]||before[217+t]!==state[217+t])FM1I18n.attr(button,'title','Track '+(t+1)+' · '+state[209+t]+' steps'+(state[217+t]!==state[209+t]?' · next loop: '+state[217+t]+' steps':'')+(state[at+4]?' · muted':'')+(state[at+5]?' · solo':''));
     }
     for(const [button,at]of ui.leds)if(!before||before[at]!==state[at])button.classList.toggle('lit',!!state[at]);
     if(message.session){
@@ -455,7 +455,7 @@
     const stepLabels=stepPads&&state[1]===1;
     const padChannel=(instrument>>>10&15)+1,firstStep=message.screen?.firstStep||0;
     const nextPadSignature=[padFlags,instrument&0x1fffff,stepPads,stepLabels,padNoteMask,firstStep,
-      message.padLabels?.join(','),FM1I18n.language].join(':');
+      message.padLabels?.join(',')].join(':');
     if(nextPadSignature!==padSignature)for(const button of ui.pads){
       const pad=Number(button.dataset.pad),target=pad&7;
       const playable=!!(padNoteMask&(1<<pad));
@@ -467,7 +467,7 @@
       const off=shift&&pad>=8&&(message.session?.[target]&255)===2;
       button.classList.toggle('off-track',off);
       button.classList.toggle('note-root',!shift&&playable&&/^C\d/.test(label));
-      const title=shift?FM1I18n.t(pad<8?'选择轨道':off?'轨道已关闭':'静音轨道')+' '+(target+1):
+      const title=shift?FM1I18n.t(pad<8?'Select track':off?'Track is off':'Mute track')+' '+(target+1):
         'Pad '+(pad+1)+(playable?' · '+label+' · CH '+padChannel:stepLabels?' · Step '+(firstStep+pad+1):'');
       if(button.getAttribute('aria-label')!==title){button.setAttribute('aria-label',title);button.title=title;}
     }
@@ -578,7 +578,7 @@
       // Task 12 A2: the overview's step cells and page 1's step grid left with the step editor;
       // page 1 is SYNC / MIDI now. Only the track rows of the overview stay clickable.
       if(state[1]===0){
-        for(let t=0;t<8;t++)target(5,48+t*18,72,16,'轨道 '+(t+1),()=>select(t,6));
+        for(let t=0;t<8;t++)target(5,48+t*18,72,16,'Track '+(t+1),()=>select(t,6));
       }
       for(const item of items){
         const id=lcdId(item),button=target(...item.rect,item.label,()=>editLcd(id,button));
@@ -610,13 +610,13 @@
   }
   async function boot() {
     try {
-      if(!globalThis.WebAssembly||!globalThis.crypto?.subtle)throw Error('此预览环境不支持仿真。请保存 HTML 后，用电脑 Chrome 或 Edge 打开。');
-      wasm=await FM1Web.assetBytes(FM1_SIMULATOR,2097152,'仿真文件校验失败，请重新下载完整工作台。');
+      if(!globalThis.WebAssembly||!globalThis.crypto?.subtle)throw Error('This preview cannot run the simulator. Save the HTML and open it in desktop Chrome or Edge.');
+      wasm=await FM1Web.assetBytes(FM1_SIMULATOR,2097152,'Simulator verification failed. Download the complete workbench again.');
       let flash;try{const saved=localStorage.getItem(storageKey);if(saved)flash=decode(saved);}catch(_){}
       preview=new globalThis.FM1SimulatorCore(wasm,flash);
       ready=true;receive(preview.frame(true));availability();setVolume(Number($('sim-volume').value));
       availability();
-      say('已就绪，点琴键或播放即可试听。');globalThis.SMK37Boot?.ready();
+      say('Ready. Press a key or Play to listen.');globalThis.SMK37Boot?.ready();
       const blockFrames=preview.c.sim_block_frames();
       let last=performance.now(),frames=0;
       setInterval(()=>{
@@ -629,7 +629,7 @@
       },20);
     }catch(error){
       const blocked=/WebAssembly|wasm/i.test(error.message)&&/content security policy|unsafe-eval|wasm-unsafe-eval/i.test(error.message);
-      bootError=blocked?'当前预览的安全策略禁止运行音频引擎。请退出附件预览，用电脑 Chrome／Edge 直接打开工作台网址；也可将完整 HTML 下载到电脑后打开。':error.message;
+      bootError=blocked?'This preview\'s security policy blocks the audio engine. Leave the attachment preview and open the workbench URL directly in desktop Chrome or Edge, or download the complete HTML and open it on your computer.':error.message;
       ready=false;globalThis.SMK37Boot?.fail(FM1I18n.t(bootError));availability();say(bootError);
       for(const id of ['sim-placeholder','boot-error-detail'])FM1I18n.text($(id),bootError);
       $('boot-reload').hidden=blocked;
@@ -658,27 +658,27 @@
     starting=true;availability();let candidate;
     try {
       if(node) {
-        if(target&&context.state!=='running')await deadline(context.resume(),2500,'浏览器未开启声音，编辑仍可使用。');
+        if(target&&context.state!=='running')await deadline(context.resume(),2500,'The browser did not enable audio. Editing is still available.');
         audioOn=target;setVolume(Number($('sim-volume').value));
-        say(audioOn?'声音已开启，可用“试听音量”调节。':'声音已关闭，面板与编辑继续运行。');return;
+        say(audioOn?'Sound enabled. Adjust the Monitor volume slider.':'Sound disabled. The panel and editor continue running.');return;
       }
-      if(!globalThis.AudioContext||!globalThis.AudioWorkletNode)throw Error('浏览器不支持音频线程，请使用电脑 Chrome 或 Edge；当前面板仍可编辑。');
+      if(!globalThis.AudioContext||!globalThis.AudioWorkletNode)throw Error('Audio worklets are unavailable. Use desktop Chrome or Edge; the panel can still be edited.');
       context=new AudioContext({sampleRate:44100,latencyHint:'interactive'});
-      await deadline(context.resume(),2500,'浏览器未允许播放声音，面板仍可编辑。');
-      await deadline(context.audioWorklet.addModule('data:text/javascript;charset=utf-8,'+encodeURIComponent(globalThis.FM1SimulatorAudioSource)),3500,'音频模块载入超时，面板仍可编辑。');
+      await deadline(context.resume(),2500,'Audio playback was not allowed. The panel can still be edited.');
+      await deadline(context.audioWorklet.addModule('data:text/javascript;charset=utf-8,'+encodeURIComponent(globalThis.FM1SimulatorAudioSource)),3500,'Audio module loading timed out. The panel can still be edited.');
       handoff=true;
       candidate=new AudioWorkletNode(context,'fm1-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2],processorOptions:{wasm,snapshot:preview.c.memory.buffer.slice(0)}});
       gain=context.createGain();gain.gain.value=0;
       analyser=context.createAnalyser();analyser.fftSize=512;meterData=new Float32Array(analyser.fftSize);
       candidate.connect(gain).connect(analyser).connect(context.destination);
       await deadline(new Promise((resolve,reject)=>{
-        candidate.onprocessorerror=()=>reject(Error('音频线程启动失败，面板仍可编辑。'));
+        candidate.onprocessorerror=()=>reject(Error('Audio thread failed to start. The panel can still be edited.'));
         candidate.port.onmessage=e=>{if(e.data.type==='ready')resolve();else receive(e.data);};
-      }),3500,'音频线程没有响应，面板仍可编辑。');
+      }),3500,'Audio thread did not respond. The panel can still be edited.');
       node=candidate;preview=null;audioOn=true;
-      node.onprocessorerror=()=>{ready=false;audioOn=false;availability();say('音频线程已停止。请重新载入页面；已保存到本地槽的项目仍在。');};
-      context.onstatechange=()=>{if(context.state!=='running'){audioOn=false;setVolume(Number($('sim-volume').value));say('声音暂时中断，编辑仍可使用。点琴键或重新播放以恢复声音。');}availability();};
-      setVolume(Number($('sim-volume').value));say('声音已开启，面板状态和编辑已保留。');
+      node.onprocessorerror=()=>{ready=false;audioOn=false;availability();say('Audio thread stopped. Reload the page; projects saved in local slots are retained.');};
+      context.onstatechange=()=>{if(context.state!=='running'){audioOn=false;setVolume(Number($('sim-volume').value));say('Audio was interrupted; editing is still available. Press a key or restart playback to resume sound.');}availability();};
+      setVolume(Number($('sim-volume').value));say('Sound enabled. Your panel state and edits were preserved.');
     }catch(error){
       candidate?.disconnect();candidate?.port.close();
       if(!node&&context)await deadline(context.close().catch(()=>{}),500,'').catch(()=>{});
@@ -786,10 +786,10 @@
   function resetWheels(){ui.wheels.forEach((input,i)=>{input.value=i?0:64;});}
   function feedback(kind,index,element){
     if(kind===10&&index===7){
-      say('PAD / STEP：短按进入或退出独立 Pad 乐器。KEY 与 PAD 保留各自的轨道、通道和八度。');return;
+      say('PAD / STEP: tap to enter or leave the independent Pad instrument. KEY and PAD retain their own tracks, channels and octaves.');return;
     }
     if(kind===0){
-    const tips={2:'FX：K5 选轨，K1 混响、K2 延迟，0 关闭发送；K7 切换细调页。',3:'SCL：在歌曲页与轨道启动页之间切换；其他页面提示音色编辑已移至网页工作台。',10:'ARP：短按开关，长按调参数；K6 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。K5 选轨，开关和参数随项目保存，不保存按住的音符。',11:'SEQ：短按打开 SYNC / MIDI 页，SHIFT + SEQ 打开 MIDI TRACK，长按打开 ACTIONS；HOME + SEQ 拍击速度。'};if(tips[index])say(tips[index]);}}
+    const tips={2:'FX: K5 chooses a track; K1 reverb, K2 delay, 0 disables sends. K7 switches to detailed settings.',3:'SCL: switches between the SONG and TRACK LAUNCH pages; on other pages it says voice editing moved to the workbench.',10:'ARP: tap to toggle, hold for settings. K6 changes pages: rate / direction / range / gate, then Swing / Hold. K5 chooses a track. Enable and settings are saved with the project; held notes are not.',11:'SEQ: tap to open SYNC / MIDI, SHIFT + SEQ opens MIDI TRACK, hold for ACTIONS; HOME + SEQ taps the tempo.'};if(tips[index])say(tips[index]);}}
   function latch(item){latched.has(item)?latched.delete(item):latched.add(item);syncHolds();}
   function pulse(kind,index) {
     const owner='click:'+kind+':'+index;clearTimeout(pulseTimers.get(owner));
@@ -844,7 +844,7 @@
       const button=document.createElement('button');button.id='sim-track-'+t;button.className='track-tile';button.dataset.sim='';button.disabled=true;
       button.innerHTML='<span class="track-number">'+String(t+1).padStart(2,'0')+'</span><span class="track-source"></span><span class="track-level"></span><span class="track-steps">'+'<i></i>'.repeat(64)+'</span>';
       button.addEventListener('click',()=>select(t,6).catch(e=>say(e.message)));$('sim-tracks').append(button);
-      const option=document.createElement('option');option.value=t;FM1I18n.text(option,'轨道 '+(t+1));$('sim-track').append(option);
+      const option=document.createElement('option');option.value=t;FM1I18n.text(option,'Track '+(t+1));$('sim-track').append(option);
     }
     sources.forEach((name,type)=>{const option=document.createElement('option');option.value=type;option.textContent=name;$('sim-source').append(option);});
     // The SMK37 workbench exposes each physical control. Shapes and handlers are
@@ -852,7 +852,7 @@
     const encoders=['K1','K2','K3','K4','K5','K6','K7','K8'];   // Task 13: printed numbers (firmware SELECT, PAGE, PRESETS, MASTER = K5-K8)
     for(const [index,label]of encoders.entries()){
       const box=document.createElement('div');box.className='encoder';
-      box.innerHTML='<span>'+label+'</span><button class="dial" data-sim disabled aria-label="'+label+'：拖动、滚轮或点击调节"><i></i></button><div class="detents"><button data-sim disabled aria-label="'+label+' 减少">−</button><button data-sim disabled aria-label="'+label+' 增加">＋</button></div>';
+      box.innerHTML='<span>'+label+'</span><button class="dial" data-sim disabled aria-label="'+label+': drag, scroll or click to adjust"><i></i></button><div class="detents"><button data-sim disabled aria-label="'+label+' decrease">−</button><button data-sim disabled aria-label="'+label+' increase">+</button></div>';
       const dial=box.querySelector('.dial'),buttons=box.lastElementChild.querySelectorAll('button');dial.dataset.encoder=index;
       if(index===7){dial.id='sim-master';dial.setAttribute('role','slider');dial.setAttribute('aria-valuemin','0');dial.setAttribute('aria-valuemax','100');}
       let angle=0,lastY=0,moved=false;
@@ -864,7 +864,7 @@
       dial.addEventListener('pointerup',event=>{if(dial.hasPointerCapture(event.pointerId)&&!moved)turn(event.shiftKey?-1:1);});
       dial.addEventListener('click',event=>{if(event.detail===0)turn(event.shiftKey?-1:1);});
       dial.addEventListener('keydown',event=>{if(['ArrowUp','ArrowRight','ArrowDown','ArrowLeft'].includes(event.code)){event.preventDefault();event.stopPropagation();turn(event.code==='ArrowUp'||event.code==='ArrowRight'?1:-1);}});
-      FM1I18n.scan(box);$('sim-encoders').append(box);
+      $('sim-encoders').append(box);
     }
     const labels=['SHIFT','FADER BANK','HOME','BTN 4','OCT -','OCT +','ARP','PAD / STEP','SCL','ENV / LFO','MIX','BT','HOME / SRC','EDIT','FX','SEQ','PLAY','REC'];
     for(let id=0;id<18;++id){
@@ -921,62 +921,62 @@
   for(const button of document.querySelectorAll('[data-sim-page]'))button.onclick=()=>action(async()=>{
     await request('open',{page:Number(button.dataset.simPage)});
     $('sim-device').scrollIntoView({behavior:'smooth',block:'center'});
-    say('已打开'+FM1I18n.sourceText(button)+'；用面板旋钮调整，HOME 返回。');
+    say('Opened '+button.textContent+'; adjust with the panel knobs. HOME returns.');
   });
   $('sim-volume').oninput=()=>setVolume(Number($('sim-volume').value));
   $('sim-track').onchange=()=>action(()=>select(Number($('sim-track').value),6));
   $('sim-source').onchange=()=>action(async()=>{
     const track=Number($('sim-track').value),source=Number($('sim-source').value);
-    if(confirm(FM1I18n.t('切换音源将重置此轨的音色；鼓与旋律之间切换还会清空此轨步进。继续吗？')))await select(track,source);
+    if(confirm(FM1I18n.t('Changing engines resets this track’s sound. Switching between drums and melody also clears its steps. Continue?')))await select(track,source);
     else $('sim-source').value=String(state[8+track*20]);
   });
-  $('sim-project-export').onclick=()=>action(async()=>{save(FM1Web.projectFile(await request('export')),'SMK37-simulation.fm1');say('已导出仿真工作区项目。');});
+  $('sim-project-export').onclick=()=>action(async()=>{save(FM1Web.projectFile(await request('export')),'SMK37-simulation.fm1');say('Browser workspace project exported.');});
   async function loadPreset(index){
     if(presetBusy||!Number.isInteger(index)||index<0||index>=16)return;
     presetBusy=true;availability();
     try{
       await request('preset',{index});
-      say('已载入用户项目 '+(index+1)+'。');
+      say('Loaded user project '+(index+1)+'.');
     }finally{presetBusy=false;availability();}
   }
   $('sim-preset-prev').onclick=()=>action(()=>loadPreset(Math.max(0,(workspace?.slot??0)-1)));
   $('sim-preset-next').onclick=()=>action(()=>loadPreset(Math.min(15,(workspace?.slot??0)+1)));
-  $('sim-timbre-export').onclick=()=>action(async()=>{save(FM1Web.timbreFile(await request('export',{timbre:true})),'SMK37-timbre.fm1t');say('已导出当前轨道的音源类型与全部音色参数。');});
-  $('sim-patch-export').onclick=()=>action(async()=>{save(FM1Web.voiceFile(await request('export',{patch:true})),'SMK37-voice.syx');say('已导出当前轨道的 DX7 音色。');});
+  $('sim-timbre-export').onclick=()=>action(async()=>{save(FM1Web.timbreFile(await request('export',{timbre:true})),'SMK37-timbre.fm1t');say('Current track engine and all sound parameters exported.');});
+  $('sim-patch-export').onclick=()=>action(async()=>{save(FM1Web.voiceFile(await request('export',{patch:true})),'SMK37-voice.syx');say('Current track DX7 patch exported.');});
   $('sim-file').onchange=async()=>{
     const revision=++fileRevision;selectedFile=undefined;voices=[];$('sim-voice').replaceChildren();$('sim-voice').hidden=true;availability();const file=$('sim-file').files[0];if(!file)return;
     try {
-    if(file.size>4280)throw Error('请选择 .fm1 项目、.fm1t 音色或 DX7 .syx 文件');const bytes=new Uint8Array(await file.arrayBuffer());
+    if(file.size>4280)throw Error('Choose a .fm1 project, .fm1t sound or DX7 .syx patch file');const bytes=new Uint8Array(await file.arrayBuffer());
     if(revision!==fileRevision)return;
     if(bytes[0]===240){voices=FM1Web.readVoices(bytes);voices.forEach((voice,i)=>{const option=document.createElement('option');option.value=i;option.textContent=(i+1)+' · '+String.fromCharCode(...voice.slice(145,155)).replace(/[^\x20-\x7e]/g,'?');$('sim-voice').append(option);});selectedFile={patch:true};}
     else if(bytes[3]===84) selectedFile={timbre:true,data:FM1Web.readTimbreFile(bytes)};
     else selectedFile={data:FM1Web.readProjectFile(bytes)};
-    $('sim-voice').hidden=!selectedFile.patch;availability();say(selectedFile.patch&&state[8+state[0]*20]!==0?'音色校验通过，请先选择 DX7 轨道再导入。':'文件校验通过，点击“导入到仿真”应用。');
+    $('sim-voice').hidden=!selectedFile.patch;availability();say(selectedFile.patch&&state[8+state[0]*20]!==0?'Patch verified. Choose a DX7 track before importing.':'File verified. Click “Import into browser” to apply it.');
     }catch(error){if(revision===fileRevision)say(error.message);}
   };
   $('sim-file-apply').onclick=()=>action(async()=>{
-    if(!selectedFile)return;if(!confirm(FM1I18n.t('将替换仿真工作区'+(selectedFile.patch?'当前 DX7 音色':selectedFile.timbre?'当前轨道音色':'项目')+'，继续吗？')))return;
+    if(!selectedFile)return;if(!confirm(FM1I18n.t('Replace the browser workspace '+(selectedFile.patch?'current DX7 patch':selectedFile.timbre?'current track sound':'project')+' and continue?')))return;
     const timbre=!!(selectedFile.patch||selectedFile.timbre),data=selectedFile.patch?voices[Number($('sim-voice').value)]:selectedFile.data;
-    await request('import',{patch:!!selectedFile.patch,timbre:!!selectedFile.timbre,data});say(timbre?'音色已导入。PROJECT 轨请保存项目；LIVE 轨请导出轨道音色，DX7 也可存入独立库。':'已导入仿真工作区；按面板左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存到本地仿真槽。');
+    await request('import',{patch:!!selectedFile.patch,timbre:!!selectedFile.timbre,data});say(timbre?'Sound imported. Save the project for PROJECT tracks. For LIVE tracks, export a timbre file, or save DX7 voices to the independent library.':'Imported into the browser workspace. Press the browser panel\'s 4th button in the left group (after SHIFT, FADER BANK, HOME) to store it in a browser slot.');
   });
   $('sim-read-device').onclick=()=>action(async()=>{
-    if(!ready)throw Error('请先启动仿真');
+    if(!ready)throw Error('Start the simulator first');
     const data=await globalThis.FM1Workbench.read();
-    await request('import',{data});rememberDeviceSnapshot(data,'read');say('设备项目已载入仿真工作区。');
+    await request('import',{data});rememberDeviceSnapshot(data,'read');say('Device project loaded into the browser workspace.');
   });
-  $('sim-clear').onclick=()=>action(async()=>{if(confirm(FM1I18n.t('清空此浏览器的 16 个仿真项目槽并恢复默认音源？试听音量保留，设备上的内容不受影响。'))){await request('clear');say('本地项目存档已清空，试听音量已保留。');}});
+  $('sim-clear').onclick=()=>action(async()=>{if(confirm(FM1I18n.t('Clear all 16 project slots in this browser and restore default engines? Monitor volume is preserved. Device contents will not change.'))){await request('clear');say('Browser project saves cleared. Monitor volume is preserved.');}});
   $('sim-midi').onclick=()=>action(async()=>{
     if(midiConnecting)return;
-    if(!ready)throw Error('请先启动仿真');if(!navigator.requestMIDIAccess)throw Error('此浏览器不支持 MIDI 输入，请使用电脑 Chrome 或 Edge');
+    if(!ready)throw Error('Start the simulator first');if(!navigator.requestMIDIAccess)throw Error('This browser does not support MIDI input. Use desktop Chrome or Edge');
     midiConnecting=true;availability();
     try{
     const audioReady=muted?Promise.resolve():start(true);
     const access=await deadline(navigator.requestMIDIAccess({sysex:false}),30000,
-      'MIDI 访问尚未就绪。请检查网站 MIDI 权限；若已允许且没有弹窗，请重启浏览器后重试。');await audioReady;
+      'MIDI access is not ready. Check the site\'s MIDI permission; if it is allowed and no prompt appears, restart the browser and try again.');await audioReady;
     if(midiAccess)midiAccess.onstatechange=null;midiAccess=access;
     const refresh=()=>{
-      if(midiInput&&(midiInput.state!=='connected'||access.inputs.get(midiInput.id)!==midiInput)){midiInput.onmidimessage=null;midiInput=undefined;release();send('panic');say('MIDI 输入已断开，仿真音符已释放。');}
-      $('sim-midi-port').replaceChildren();const empty=document.createElement('option');empty.value='';FM1I18n.text(empty,'选择 MIDI 输入');$('sim-midi-port').append(empty);
+      if(midiInput&&(midiInput.state!=='connected'||access.inputs.get(midiInput.id)!==midiInput)){midiInput.onmidimessage=null;midiInput=undefined;release();send('panic');say('MIDI input disconnected; simulator notes released.');}
+      $('sim-midi-port').replaceChildren();const empty=document.createElement('option');empty.value='';FM1I18n.text(empty,'Choose MIDI input');$('sim-midi-port').append(empty);
       for(const port of access.inputs.values()){if(port.state!=='connected')continue;const option=document.createElement('option');option.value=port.id;option.textContent=port.name;$('sim-midi-port').append(option);}
       $('sim-midi-port').value=midiInput?.id||'';
     };
@@ -994,7 +994,7 @@
         if(playing&&!muted&&(!audioOn||context?.state!=='running'))start(true);
       };
     };
-    say($('sim-midi-port').options.length>1?'选择一个输入端口；MIDI 通道沿用设备的轨道映射。':'未发现 MIDI 输入设备。');
+    say($('sim-midi-port').options.length>1?'Choose an input port. MIDI channels follow the device’s track mapping.':'No MIDI input devices found.');
     }finally{midiConnecting=false;availability();}
   });
   const keyCodes=['KeyZ','KeyS','KeyX','KeyD','KeyC','KeyF','KeyV','KeyB','KeyH','KeyN','KeyJ','KeyM','Comma','KeyL','Period','Semicolon','Slash','Quote','KeyQ','Digit2','KeyW','Digit3','KeyE','KeyR','Digit5','KeyT','Digit6'];

@@ -122,7 +122,7 @@ await scenario('A', async () => {
     check(cmds(dev).length === 0, 'A: Connect sent only the identity query', JSON.stringify(dev.commands));
     if (ok) {
       let e = null; try { await u.install({ force: false }); } catch (x) { e = x; }
-      check(e && /机型/.test(e.message) && cmds(dev).length === 0, 'A: Start update without the model confirmation is refused, nothing written', e?.message);
+      check(e && /model|机型/i.test(e.message)   /* the recovery page is the published tabby-v04.0 page, whose messages are Chinese; Task 14 */ && cmds(dev).length === 0, 'A: Start update without the model confirmation is refused, nothing written', e?.message);
       e = null; try { await u.install({ force: false, confirmedModel: 'elite' }); } catch (x) { e = x; }
       check(e && cmds(dev).length === 0, 'A: an Elite confirmation is refused for the Pro package', e?.message);
       await u.connect({ force: false });

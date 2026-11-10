@@ -76,9 +76,11 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.22
+# Version: 0.23
 #
 # Revision log
+#   v0.23 2026-11-10  Task 14: English only: tests/workbench/manual-i18n.mjs became manual-structure.mjs (no
+#                     translation table any more); help-banned.mjs also fails on any CJK in a user-facing string.
 #   v0.22 2026-11-10  Task 14: workbench-test runs tests/workbench/help-banned.mjs (no Help, panel or
 #                     tooltip string names a removed page, mode, action or flow, in both languages).
 #   v0.21 2026-11-09  workbench-test runs tests/workbench/update-safety.mjs (no force flash after a timeout; the
@@ -334,7 +336,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/devices.mjs
 	$(T) $(NODE) tests/workbench/transfer-radio.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/rig-lead.mjs
-	$(T) $(NODE) tests/workbench/manual-i18n.mjs
+	$(T) $(NODE) tests/workbench/manual-structure.mjs
 	$(T) $(NODE) tests/workbench/help-banned.mjs
 	$(T) $(NODE) tests/workbench/rig-profile.mjs
 	$(T) $(NODE) tests/workbench/midi-guide.mjs

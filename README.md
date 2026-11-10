@@ -1,7 +1,5 @@
 # SMK37 OPEN V01
 
-English · [简体中文](README.zh-CN.md)
-
 **SDK included:** this development kit contains the matching native binary SDK.
 
 [Workbench and development kit](https://open.m-vave.com/smk37-workbench) · [Official forum](https://forum.m-vave.com)
