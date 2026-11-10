@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.49
+Version: 0.50
 Revision log:
+- v0.50, 2026-11-09 (Task 12 B1): 26.9 the Phase 1 timing measurements on tabby-v04.0 (L.2 on DIN
+  and USB at once, one line and eight lines, the loop profile at rest and while playing).
 - v0.49, 2026-11-09 (Task 12, install incident): 26.8 the record of the night and the update page fix
   (zero tag resumes, no force after a timeout); left-to-build updated; tabby-v04.0-recover listed on builds/.
 - v0.48, 2026-11-09 (Task 12, install incident): 26.7 the tabby-v04.0 recovery page
@@ -3505,3 +3507,56 @@ error, the notice shown, the force checkbox disabled, the force button and the m
   rebuilds the published recovery page identically.
 - Publication: with the next release only; tabby-v04.0 is not republished.
   `builds/tabby-v04.0-recover/` is now listed on builds/ with a note on when to use it.
+
+### 26.9 Part B: the Phase 1 timing investigation (2026-11-09)
+
+#### B1: measurements (tabby-v04.0, build b6e9590223446363)
+
+Rig: SMK-37 on the NUC's USB (back port); its TRS MIDI out through the type A adapter into the
+CME H4MIDI WC DIN in 1, read as ALSA "H4MIDI-WC Port 1" (SPEC 15: not the AUDIO4c). USB is the
+SMK-37's own port "SMK37 Open MIDI 1". Both inputs use kernel receive timestamps on one clock
+(CLOCK_MONOTONIC), so DIN and USB are compared note for note. Tool: tools/linux/hw/run-12b.py
+v0.1 (sends only commands 25 and 23; the songs were started with PLAY on the SONG page by the
+user). Raw data: ~/Documents/Classic Tabby/hardware-runs/2026-11-09-b1/ (CSV, reports,
+counters, the analysis files l2-1x16-analysis.txt and l2-8x16-analysis.txt).
+
+Device writes this session, both authorized by the user at the desk: one ERASE OLD DATA
+(command 28; 6 sectors; storage then SONG READY, 321976 bytes free, no restart; no A1 bug), and
+the upload of timing-8x16 as song 15 and timing-1x16 as song 16.
+
+Grid analysis: each line's note-ons are fitted to a straight line (least squares) and the error
+to that grid is reported; "band" = largest minus smallest error. The songs are 60 bars (2 min).
+
+| Run | Notes | Band DIN | Band USB | std | DIN behind USB |
+|---|---|---|---|---|---|
+| L.2 one line (song 16, 82.8 s steady) | 664 | 13.97 ms | 14.10 ms | 3.14 ms | 1.06 ms (0.10..1.31) |
+| L.2 eight lines (song 15, 66 s in two stretches), per line | 531 each | 14.4..16.5 ms | 14.4..16.0 ms | 3.3..3.4 ms | |
+| L.2 eight lines, all lines on line 1's grid | 4245 / 4231 | 23.34 ms | 17.11 ms | 4.10 / 3.47 ms | first note 0.99 ms |
+
+- Eight lines, one step: the 8 note-ons of a step leave over 7.30 ms mean (max 9.30) on DIN and
+  2.43 ms (max 3.05) on USB. On DIN that is the wire: 8 three-byte messages at 31250 baud are
+  7.7 ms; line n's mean offset grows by about 1.0 ms per line (0.00, 1.26, 2.24 ... 7.31 ms).
+- DIN adds one message time (0.96 ms) and nothing else: DIN and USB carry the same jitter, so
+  the spread is made before the bytes leave the firmware, not by the transport.
+- One line's std 3.14 ms is what an error spread evenly over 10.9 ms gives (width/sqrt(12)):
+  the note waits for the next control pass. Note gaps were 113..137 ms around 125.
+- Line 8 of timing-8x16 goes out on channel 10 (the track's OUT CH), lines 1-7 on 1-7.
+- Song 15 shows CPU GUARD - VOICES ADAPTED on the device while it plays (eight internal voices
+  per 16th); song 15 was stopped and restarted once by PLAY (19.3 s .. 23.3 s), fitted per stretch.
+- At port open, USB delivered a burst of old note-ons (12 for song 16) queued while nothing read
+  the port; they are dropped from the analysis (not song timing).
+
+Loop profile (command 25 pages 4-5, reset at the first note; mean / max per pass):
+
+| | Rest (30 s) | One line (125 s) | Eight lines (70 s) |
+|---|---|---|---|
+| Control pass | 10.00 / 12.16 ms | 10.61 / 14.03 ms | 12.49 / 19.21 ms |
+| SDK between the hooks | 9.77 / 11.73 | 10.07 / 12.60 | 10.52 / 14.53 |
+| Router (MIDI out sends) | 0.10 / 0.43 | 0.16 / 1.36 | 0.76 / 4.79 |
+| Screen (panel, pages, LCD) | 0.08 / 0.42 | 0.32 / 2.23 | 1.08 / 2.83 |
+| Song scheduling | 0.00 / 0.13 | 0.01 / 1.04 | 0.03 / 1.58 |
+| L.1 (counts each flush, 2 per pass) | 5.01 / 11.94 | 5.31 / 13.67 | 6.24 / 14.60 |
+
+An earlier partial one-line run with key presses on the panel: screen max 8.36 ms, pass max
+18.04 ms. The USB comparison L.2 is the same capture (USB recorded with DIN at the same time).
+
