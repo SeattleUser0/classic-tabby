@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.53
+Version: 0.54
 Revision log:
+- v0.54, 2026-11-10 (Task 13 Step 2): 27.2, the option A safety check: not safe (the song tick runs in
+  the audio interrupt; the request takes scheduler paths that are not interrupt-safe). A not built.
 - v0.53, 2026-11-10 (Task 13 Step 1): section 27.1, option B (the control-pass budget) and what
   CPU GUARD is.
 - v0.52, 2026-11-09 (Task 12 B3): 26.9 B3, fix options (none built), external clock follow and
@@ -3690,4 +3692,43 @@ What B can and cannot do: it removes the lost ticks the app causes (the 20 ms ta
 queued during the screen leave early. It does not change the 10 ms quantum: a note queued between
 passes still waits for the next tick (0..10 ms). Expected one-line band about 10-11 ms (26.9 B3);
 measured in Step 6.
+
+### 27.2 Step 2: option A safety check (from the disassembly of build/pro/sdk.elf) — NOT SAFE, not built
+
+Option A would call `fm1_control_request` from `song_tick` when a note is queued. Findings:
+
+- **The calling context is an interrupt.** `song_tick` is called by `groove_midi_clock` <-
+  `groove_sequence_render` <- `render.2` <- `fm1_r_0aa010fe1de1` / `fm1_r_ffe3f82683f6` <-
+  `fm1_engine_render` <- `fm1_audio_irq`. `fm1_audio_irq` is a hardware interrupt handler: it saves
+  `{psr, rets, reti}`, ends with `rti`, and `fm1_audio_start` attaches it to IRQ 11 at priority 4
+  (`fm1_device_irq_attach(11, fm1_audio_irq, 4)`). The whole audio render, the song tick with it,
+  runs inside that interrupt (app/song.c's "audio thread" is this ISR).
+- **What the request does.** `fm1_control_request` reads the byte `control_pending`; if 0 it sets it
+  to 1 and calls `os_taskq_post_type` (clearing the flag again if the post fails). No lock and no
+  interrupt mask around that read-modify-write. `os_taskq_post_type` -> `__os_taskq_post`, which:
+  1. calls `xTaskGetHandle(name)`: `strlen`, `vTaskSuspendAll`, then `prvSearchForNameWithinSingleList`
+     over every task list (string compares), then the matching resume. FreeRTOS forbids
+     `vTaskSuspendAll` / `xTaskResumeAll` from an interrupt (the resume can switch tasks and touches
+     the scheduler lists the interrupted task may be in the middle of changing);
+  2. then, with interrupts masked (`__local_irq_disable`), checks the queue's room and sends with
+     `xQueueGenericSendFromISR` (this part is interrupt-safe);
+  3. then, if a higher-priority task was woken, calls `vPortYield` directly (a task-level yield; the
+     interrupt-safe pattern defers the switch to the interrupt exit).
+- **Reentrancy and a pass in progress.** A request while a pass runs or waits is dropped (the flag is
+  cleared only after the pass, in `fm1_application_message`), so A would also miss every note queued
+  during a pass. The unguarded flag can race with the control task's clear (a lost or a doubled
+  request; the doubled one is harmless, the lost one is the case above).
+- **Effect on audio.** The name search runs over every task, inside the audio interrupt, at up to
+  one call per 2.9 ms block: time taken from the render budget that drives CPU GUARD (27.1), and a
+  scheduler-list walk with the scheduler possibly mid-update.
+- **Where the SDK itself calls it:** its 10 ms timer callback and `fm1_app_sysex` (the routing task),
+  both task context. Nothing in the SDK calls it from an interrupt.
+
+**Verdict:** not clearly safe; on the evidence (scheduler suspend/resume and a direct yield from an
+interrupt) it is unsafe. Option A is not built and tabby-v04.1-diagA does not exist. Without a
+task-context wake source of finer grain than the 10 ms timer (the SDK exports none; its timers are
+local symbols), the best this hardware and SDK can give is option B's result: notes wait for the next
+10 ms pass (0..10 ms, about 10-11 ms band on one line), with the 20 ms tail removed. Reaching 4 ms
+needs a change in the SDK (a shorter control timer, an interrupt-safe pass request, or a timestamped
+send in its MIDI task).
 

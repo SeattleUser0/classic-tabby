@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.27
+Version: 0.28
 Revision log:
+- v0.28, 2026-11-10 (Task 13 Step 2): 17.3: option A is not built (the song tick runs in the audio
+  interrupt; the SDK's pass request is not interrupt-safe).
 - v0.27, 2026-11-10 (Task 13 Step 1): section 17.1: the control-pass budget (option B), CPU GUARD
   described (17.2).
 - v0.26, 2026-11-09 (Task 12, install incident): 16.5 items 4 and 5: the all-zero loader tag resumes
@@ -1160,4 +1162,12 @@ router flushes) so the old numbers stay comparable; the pass period is the profi
   tracks (stolen notes, shorter tails) until the load drops. It does not touch MIDI out, the song
   timing or the control pass directly; its indirect effect is that a loaded audio thread leaves
   less CPU to the control task, so passes run longer (12.5 ms mean with eight lines in 26.9 B1).
+
+### 17.3 No extra control passes from the audio interrupt (Step 2)
+
+- The song tick runs inside the audio interrupt (`fm1_audio_irq`, IRQ 11). App code there must not
+  call `fm1_control_request` or any other SDK call that posts to a task queue: the post looks the
+  task up by name under `vTaskSuspendAll` and may yield directly (BUILD.md 27.2).
+- Consequence: notes leave at the next control pass (10 ms timer) or at an in-pass flush (after each
+  LCD band, 17.1). The 4 ms target needs an SDK change; option A stays unbuilt.
 
