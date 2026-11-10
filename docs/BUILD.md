@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.50
+Version: 0.51
 Revision log:
+- v0.51, 2026-11-09 (Task 12 B2): 26.9 B2, where the band comes from (the SDK's 10 ms control
+  timer, the send path).
 - v0.50, 2026-11-09 (Task 12 B1): 26.9 the Phase 1 timing measurements on tabby-v04.0 (L.2 on DIN
   and USB at once, one line and eight lines, the loop profile at rest and while playing).
 - v0.49, 2026-11-09 (Task 12, install incident): 26.8 the record of the night and the update page fix
@@ -3559,4 +3561,42 @@ Loop profile (command 25 pages 4-5, reset at the first note; mean / max per pass
 
 An earlier partial one-line run with key presses on the panel: screen max 8.36 ms, pass max
 18.04 ms. The USB comparison L.2 is the same capture (USB recorded with DIN at the same time).
+
+#### B2: where the band comes from
+
+Read from sdk/include/fm1.h, the app, and the disassembly of build/pro/sdk.elf (objdump).
+
+- **The control pass runs on a fixed 10 ms SDK timer.** `app_task_handler` registers
+  `sys_timer_add(NULL, tick, 10)`. `tick` calls `fm1_control_request`, which sets the byte
+  `control_pending` and posts message 0x464d32 to the app task; while the flag is set a second
+  request is dropped. `fm1_application_message` runs the pass (`fm1_r_f03cc16d330d`: groove_midi_poll,
+  groove_samples_poll, groove_performance_idle, groove_project_poll, groove_transfer_poll,
+  groove_edit_poll, groove_screen_control, effects_poll) and clears the flag after it. A tick
+  that falls while a pass still runs or waits is lost, so the next pass comes 20 ms later.
+- **The 10 ms is a constant inside the SDK.** `sys_timer_add`, `usr_timer_add` and
+  `sys_timeout_add` are local symbols of libfm1_engine.a; the public API has no period setting
+  and no timer for the app. `fm1_control_request` is a global symbol (not in the public header);
+  the SDK itself calls it from `fm1_app_sysex` (the routing task), so a request from outside the
+  control task is how the SDK works internally. A request made while a pass runs is dropped (the
+  flag is cleared only after the pass).
+- **Song notes.** The audio thread calls `groove_midi_clock` once per audio block (128 frames at
+  44.1 kHz = 2.90 ms), which calls `song_tick` (app/song.c, FM1_AUDIO_CODE); due notes go into the
+  router's lock-free lane 0. Only the control pass drains lane 0 (`groove_midi_poll`, and the
+  app's second `ct_midi_flush` in the same pass: the "2.00 router calls per pass"). So a note
+  waits from its audio block to the next drain: 0..10 ms, and 10..20 ms after a lost tick.
+- **The SDK output path.** `fm1_midi_send` / `fm1_midi_send_port` are "control task only,
+  complete messages <= 128 B; 0 = queued, not a delivery receipt; -2 = full" (fm1.h). The call
+  checks `fm1_port_ready`, copies the message into a bounded per-port queue under a lock and calls
+  `fm1_port_signal`, which posts to `midi_scheduler_task` (`connectivity_wl82_midi_signal`). That
+  task pends on its queue and starts the UART (DIN) or USB transfer at once
+  (`request_uart_transmit`, `request_usb_transmit`). Buffered per port, sent at once, no tick of
+  its own, no timestamps; the SDK has no timestamped send.
+- **Contexts that may send:** the control task only (the API rule). The audio thread and the
+  routing task (`fm1_app_midi_received`) may not; the audio thread hands notes over through lane 0.
+- **The numbers agree.** Pass 10.0 ms at rest is the timer. The old "5.5 ms mean" is L.1 counting
+  both flushes of a pass. One line: a 0..~11 ms wait spread evenly gives std 3.1 ms (measured
+  3.14) and a band near 11 ms plus lost ticks: 14 ms measured, 19 ms worst case seen before (Task
+  11) and pass max 18-19 ms here. Eight lines add the DIN wire time (7.7 ms per step) and push
+  the pass to 12.5 ms mean (router 0.76 ms, screen 1.08 ms, SDK 10.5 ms with eight voices and CPU
+  GUARD), more lost ticks: 23 ms across all lines on DIN.
 
