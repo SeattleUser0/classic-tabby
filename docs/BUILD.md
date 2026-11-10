@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.57
+Version: 0.58
 Revision log:
+- v0.58, 2026-11-10 (Task 13 Step 5): 9.1, tabby-v04.1 is the current release; 27.5 its publication and
+  verification record.
 - v0.57, 2026-11-10 (Task 13 Step 5): 27.5, the tabby-v04.1 release build and its install steps.
 - v0.56, 2026-11-10 (Task 13 Step 4): 27.4, the panel wording (knobs by number, the firmware's SAVE
   button by position), SPEC 17.4's table, docs/releases/INSTALL.template.txt.
@@ -688,9 +690,22 @@ tabby-v03.3-diag-r2 (the resume page that was `/recover/`; `/recover/` now redir
 tabby-v04.0 (also the site root).
 The workbench reads the index when it meets an update loader waiting for another build (26.5).
 
-Current release **tabby-v04.0** (2026-11-08, Task 12 Phase 0: the storage move as the normal
-layout, at the site root and at `builds/tabby-v04.0/`); the earlier releases' values below stay
-as the record of their publications.
+Current release **tabby-v04.1** (2026-11-10, Task 13: option B, the panel wording, the safer update
+page; at the site root and at `builds/tabby-v04.1/`):
+
+| Item | Value |
+| --- | --- |
+| Branch and tag | `classic-tabby/linux-build` = c207d92; tag `tabby-v04.1` (annotated, 89ca0ee) → c207d92 |
+| Build options | none (the normal build: USER 471040) |
+| Firmware package `SMK37_PRO_OPEN.fwsc` | SHA-256 f6377d634ee3c69f35e182935fa1b4769a69afec364e3b041eedd5a9266fe1c9, 487988 bytes, build_id 013976a54777bb5fa25ae42738aac840e2016584245a663296f7aee396a03d27 (loader tag `ota-SMK37013976a54777bb5f`), app image 448420 (margin 71037); sdk.elf e11ca82c03a8e7a0fd796738f24ee3c26e25108d06a8b823df487366b30ce910, app-image.bin ead3d62447642dd6c0ae789346fb72097f0044820757fddb87277a151cdca97f; display version tabby-v04.1 |
+| Offline workbench `SMK37-Open-Source.html` | SHA-256 b74e5b4b93189b35062323808b34add5876baf598fe3ba44f545d977c3705794, 3142557 bytes |
+| Static site | https://seattleuser0.github.io/classic-tabby/ — `gh-pages` b0f765a ("Pages: tabby-v04.1 (build 013976a54777, release V01)"), `index.html` 337939 bytes (SHA-256 1caf0d8c6d87673dcb475db45bc07c9466b4bbea1da6ac98d630ffa8daf31dee); `builds/tabby-v04.1/`; builds/index.json 7 builds |
+| Source archive | https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.1.zip (VERSION expands to `tabby-v04.1`) |
+| GitHub release | https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v04.1 (`SMK37_PRO_OPEN.fwsc`, `SMK37-Open-Source.html`, `SHA256SUMS.txt`; notes docs/releases/tabby-v04.1.md) |
+| Install steps | 27.5 and `~/Documents/Classic Tabby/INSTALL-tabby-v04.1.txt` (normal update from tabby-v04.0, no backup or restore needed) |
+
+Record of tabby-v04.0 (2026-11-08, Task 12 Phase 0: the storage move as the normal layout, at
+`builds/tabby-v04.0/`); the earlier releases' values below stay as the record of their publications.
 
 | Item | Value |
 | --- | --- |
@@ -3821,4 +3836,20 @@ no automatic force flash, NO_REPLY after 4 tries), the MIDI guide's section 14. 
    or builds/tabby-v04.1/; another build's page names the right one), Connect, Start update, confirm
    SMK-37 Pro. Never force flash. A normal boot after the power-cycle: tabby-v04.1 -> step 3,
    tabby-v04.0 -> step 2. No USB device: stop and report.
+
+
+
+**Publication (2026-11-10).** Branch and tag pushed (c207d92, tag tabby-v04.1); `make publish
+TAG=tabby-v04.1 DISPLAY_VERSION=tabby-v04.1`: gh-pages b0f765a, `builds/tabby-v04.1/` added,
+builds/index.json 7 builds (tabby-v04.0-recover kept with its note); Pages build "built" at b0f765a.
+`make release TAG=tabby-v04.1`: https://github.com/SeattleUser0/classic-tabby/releases/tag/tabby-v04.1.
+Verified: the release assets pass `sha256sum -c SHA256SUMS.txt`; the tag's tar.gz equals
+`git archive tabby-v04.1` (no difference) and its VERSION reads tabby-v04.1; a rebuild of the package
+at the tag gives the same .fwsc and offline HTML hashes; 8 live files (root index.html and
+assets.json, builds/tabby-v04.1/ index.html, assets.json, the offline HTML and the firmware asset,
+builds/index.json and index.html) equal the gh-pages files byte for byte; the live assets.json names
+build 013976a5... version tabby-v04.1; headless Chrome loads the root and builds/tabby-v04.1/ with the
+tabby-v04.1 badge and the new wording. The plain `builds/tabby-v04.1/` URL answered 404 for a few
+minutes after the deploy (the CDN kept the 404 of a request made just before it; the same URL with a
+query string, and later without, answers 200).
 
