@@ -25,7 +25,7 @@ STEP 2  INSTALL FROM THE MAIN PAGE
      bar), restart and verify, done. About one to two minutes.
 
 STEP 3  CHECK
-  Boot screen: SMK37 / OFFICIAL OPEN / {TAG}. Hold SEQ for about 0.6 s to open ACTIONS; the storage
+  Boot screen: SMK37 / OFFICIAL OPEN / {TAG}. Press SEQ and EDIT together to open ACTIONS; the storage
   lines read USER 471040 and SONG READY. Your projects and songs are still there.
 
 IF THE INSTALL STALLS (progress stops for more than two minutes, or the page says the device
@@ -40,6 +40,6 @@ stopped requesting data or timed out waiting for the device)
      stop and report; do not retry.
 
 ON THE DEVICE, WHERE THESE STEPS NEED IT
-  ACTIONS (hold SEQ about 0.6 s): turn K1 or K5 to choose an entry, press the 4th button in the
+  ACTIONS (press SEQ and EDIT together): turn K1 or K5 to choose an entry, press the 4th button in the
   left group (after SHIFT, FADER BANK, HOME) to run it; a second press confirms an erase; HOME
   cancels. SONG page: ACTIONS > SONG MODE, then turn K5 or K7 to choose the song, PLAY starts.

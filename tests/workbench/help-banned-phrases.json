@@ -65,7 +65,13 @@
     "block sectors 86 to 95",
     "(AUTO, USB, BLE, DIN)",
     "AUTO / USB / BLE / DIN",
-    "no wired MIDI input"
+    "no wired MIDI input",
+    "hold SEQ",
+    "holding SEQ",
+    "SEQ held",
+    "hold for ACTIONS",
+    "SEQ: tap / hold",
+    "SEQ for about 0.6 s"
   ],
   "allow": [
     "data-removed-ok",

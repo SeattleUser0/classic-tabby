@@ -76,9 +76,11 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.23
+# Version: 0.24
 #
 # Revision log
+#   v0.24 2026-11-10  tabby-v04.1.1: workbench-test runs tests/workbench/guide.mjs (the testing guide's
+#                     shape).
 #   v0.23 2026-11-10  Task 14: English only: tests/workbench/manual-i18n.mjs became manual-structure.mjs (no
 #                     translation table any more); help-banned.mjs also fails on any CJK in a user-facing string.
 #   v0.22 2026-11-10  Task 14: workbench-test runs tests/workbench/help-banned.mjs (no Help, panel or
@@ -338,6 +340,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/rig-lead.mjs
 	$(T) $(NODE) tests/workbench/manual-structure.mjs
 	$(T) $(NODE) tests/workbench/help-banned.mjs
+	$(T) $(NODE) tests/workbench/guide.mjs
 	$(T) $(NODE) tests/workbench/rig-profile.mjs
 	$(T) $(NODE) tests/workbench/midi-guide.mjs
 	$(T) $(NODE) tests/workbench/update-ports.mjs

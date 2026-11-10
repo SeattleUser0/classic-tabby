@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.32
+Version: 0.33
 Revision log:
+- v0.33, 2026-11-10 (tabby-v04.1.1): 17.8 ACTIONS opens with SEQ + EDIT only (holding SEQ does nothing); HOME / SRC,
+  not the left HOME, is the source-page button; 17.9 the testing guide and the v04.1.1 release rule.
 - v0.32, 2026-11-10 (Task 14, English only): 17.7, the workbench and the docs are English only; 17.5 no longer
   speaks of two languages.
 - v0.31, 2026-11-10 (Task 14, second pass): 16.1 what a factory V16 restore overwrites in the v04 layout;
@@ -1057,8 +1059,8 @@ and RHYTHM 14 are refused like the other removed pages).
 | KEY OUT (ON / OFF) | PRESETS | SYNC / MIDI |
 | IN CH, OUT CH, SEQ (LOCAL / BOTH / MIDI), OUT PORT | K1 to K4 | MIDI TRACK (SHIFT + SEQ on any page), per selected track |
 
-SEQ always opens SYNC / MIDI (it no longer taps the tempo on EFFECTS 3/3); holding SEQ there opens
-ACTIONS, whose entries are COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE,
+SEQ always opens SYNC / MIDI (it no longer taps the tempo on EFFECTS 3/3); SEQ + EDIT pressed together open
+ACTIONS (holding SEQ alone does not, 17.8), whose entries are COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE,
 COMPACT SONG STORAGE and SEND SETUP. REC shows NO REC IN THIS VERSION. The web simulator's step grid
 and its step-details / rhythm shortcuts are gone (sim_step refuses every edit). Bytes freed:
 FLASH-BUDGET 17.
@@ -1251,7 +1253,7 @@ removed-features paragraph of chapter 15). (The translation table that once need
 
 What is checked against the firmware when text changes: the control names against 17.4; K1-K4 on HOME are
 K1 level, K2 engine, K4 tempo (K3 does nothing); SEQ opens SYNC / MIDI on every page and HOME + SEQ taps
-the tempo everywhere (no tap on FX DELAY); SEQ + EDIT and a long SEQ press both open ACTIONS; HOME + the
+the tempo everywhere (no tap on FX DELAY); SEQ + EDIT opens ACTIONS (a long SEQ press does not, 17.8); HOME + the
 4th left button undoes the last change; a song block is 64 steps with up to 4 notes starting on a step
 (app/song_storage.h `SONG_BLOCK_STEPS`, `SONG_NOTES_PER_STEP`; v2 blocks add a start offset and a length
 to each note but not more notes per step), so the song help's "64 steps, at most 4 notes per step" stays.
@@ -1291,3 +1293,28 @@ The firmware's screen text was already English capitals (app/ untouched).
   and in the workbench, web and release-facing source files, comments included; tests/workbench/
   manual-structure.mjs keeps the manual's shape (22 chapters, links, order, no language selector).
 - A new user-facing string is written in English where it is used. Nothing goes into a table.
+
+### 17.8 ACTIONS opens with SEQ + EDIT only; holding SEQ does nothing (found 2026-11-10 while writing the testing guide)
+
+app/screen.c: the long-press test is `if (seq_down && page == STEPS && now - seq_ms >= 600U)`. The STEPS page no longer
+exists (SEQ opens SYNC / MIDI), so holding SEQ never opens ACTIONS in tabby-v04.0 or v04.1; the other route,
+`SEQ + EDIT` pressed together (either order), does. The simulator confirms it (hold SEQ 0.9 s: stays on SYNC / MIDI;
+SEQ + EDIT: ACTIONS). Help, the install template, the README and the simulator tooltip said "hold SEQ about 0.6 s";
+they now say "press SEQ and EDIT together", and `hold SEQ` and its variants are banned phrases. The firmware's own
+line "HOLD SEQ: ACTIONS" on SYNC / MIDI (screen.c:1125) is wrong and is in the left-to-build list (BUILD 28.3).
+
+HOME / SRC. With SHIFT held, the source page opens from the button the panel map calls HOME / SRC (physical id 12,
+the 7th button of the right group after ARP, PAD / STEP, SCL, ENV, MIX, BT), not from the HOME in the left group
+(id 2), which only opens the PRESETS list. Help, the README and the guide now say "SHIFT + HOME / SRC" and give the
+position. The same button carries the SHIFT + K2 track-role choice (PROJECT / LIVE / OFF) on that page.
+
+### 17.9 The testing guide and the tabby-v04.1.1 release (2026-11-10)
+
+docs/TESTING-GUIDE.md (also kept as ~/Documents/Classic Tabby/TESTING-GUIDE.txt) is the musician's guide and numbered
+checklist (T1 onward). Every device step was driven in the simulator build of the current source; a step that cannot
+be (USB, flashing, outside gear, the workbench against a real device) carries "[not checked in simulator]".
+tests/workbench/guide.mjs keeps its shape (sections, numbering, control names, no "hold SEQ"); the site shows it at
+<site>/guide/ (tools/linux/guide-html.py, staged by publish-pages.py for the main page and every builds/<tag>/).
+tabby-v04.1.1 carries the tabby-v04.1 firmware: app/ has no change since the tag and the app image differs only in
+the build identity bytes (BUILD 29). The firmware is built with the display version forced to tabby-v04.1, so the boot
+screen and the page badge keep saying tabby-v04.1; the page release is named by the tag and by Help chapter 00.

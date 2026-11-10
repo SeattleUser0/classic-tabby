@@ -33,9 +33,11 @@
 //
 //   Run: /usr/bin/node tests/workbench/help-banned.mjs      (make workbench-test runs it)
 //
-// Version: 0.3
+// Version: 0.4
 //
 // Revision log
+//   v0.4  2026-11-10  tabby-v04.1.1: docs/TESTING-GUIDE.md joins the CJK file list; phrases for "hold SEQ"
+//                     (holding SEQ never opens ACTIONS, SPEC 17.8).
 //   v0.3  2026-11-10  Task 14: English only: the Chinese phrases, the translation-table scan and the
 //                     Chinese chapter checks are gone; a CJK check is added.
 //   v0.2  2026-11-10  Task 14 second pass: more phrases (restore sectors, CLK IN DIN).
@@ -129,7 +131,7 @@ import { readdirSync, statSync } from 'node:fs';
 function walk(dir, out = []) { for (const n of readdirSync(dir)) { const p = dir + '/' + n; if (statSync(p).isDirectory()) walk(p, out); else out.push(p); } return out; }
 const rawFiles = [...readdirSync('sdk').filter(n => n.endsWith('.js') || n === 'Update.html.in').map(n => 'sdk/' + n),
   ...walk('web').filter(p => /\.(js|json|html)$/.test(p)),
-  'README.md', 'docs/MIDI-GUIDE.template.md', 'docs/MIDI-GUIDE.md', 'docs/releases/INSTALL.template.txt'];
+  'README.md', 'docs/MIDI-GUIDE.template.md', 'docs/MIDI-GUIDE.md', 'docs/TESTING-GUIDE.md', 'docs/releases/INSTALL.template.txt'];
 const rawBad = rawFiles.filter(f => cjk.test(readFileSync(f, 'utf-8')));
 check(rawBad.length === 0, `no CJK in ${rawFiles.length} workbench, web and release-facing files (comments included)`, rawBad.join(', '));
 check(!/README\.zh-CN|id="language"/.test(readFileSync('README.md', 'utf-8') + html), 'no Chinese README link and no language selector');

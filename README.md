@@ -10,19 +10,19 @@ For M-VAVE SMK-37 Pro and SMK-37 Elite, with 37 keys, 16 pads, eight encoders an
 
 - Eight tracks with DX7 FM, 303, 808, PSG and plucked string engines (five; the sampler was removed); 16–64-step sequences (played from the project; the device's step editor was removed in tabby-v04.0), arpeggiators, effects and 16 project slots.
 - **DX7 voices:** 128 presets in four groups of 32 (A–D). The workbench imports a standard single-voice or 32-voice DX7 SysEx file into a track; extension parameters are not handled. The device has no user voice library.
-- **Track modes:** SHIFT + HOME, K2 selects PROJECT, LIVE or OFF. LIVE retains sound and held notes across project changes; export its timbre separately. PROJECT and LIVE have separate solo groups.
+- **Track modes:** SHIFT + HOME / SRC, K2 selects PROJECT, LIVE or OFF. LIVE retains sound and held notes across project changes; export its timbre separately. PROJECT and LIVE have separate solo groups.
 - **Recording:** none on the device since tabby-v04.0 (Task 12 removed step and live recording, the count-in and the metronome; they return in a later phase). Songs are written in the web workbench or imported from MIDI files.
 - **Tempo:** 30–300 BPM. Tap with the workbench TAP button or HOME + SEQ on any page (Task 12: SEQ alone always opens SYNC / MIDI). Delay supports tempo sync or fixed times of about 30–2040 ms.
 
 ## SMK37 controls
 
 - **PAD / STEP** enters or leaves the Pad instrument (tabby-v04.0 has no pad-step mode). K5 chooses the focused instrument's track. KEY and PAD assignments are independent, initially track 1 / channel 1 and track 8 / channel 10. SHIFT + Pads 1–8 selects tracks; SHIFT + Pads 9–16 toggles mute.
-- **SHIFT + HOME / SRC** opens source selection: Pads 1–6 or K1 chooses, the 4th button in the left group (after SHIFT, FADER BANK, HOME) applies, HOME cancels. EDIT, ENV, LFO, FX and OCT follow the focused instrument. K1–K4 edit screen parameters; K6 changes pages; K7 selects the current page's preset or voice (KEY OUT on SYNC / MIDI).
+- **SHIFT + HOME / SRC** (the 7th button in the right group, after ARP, PAD / STEP, SCL, ENV, MIX, BT; not the HOME in the left group) opens source selection: Pads 1–6 or K1 chooses, the 4th button in the left group (after SHIFT, FADER BANK, HOME) applies, HOME cancels. EDIT, ENV, LFO, FX and OCT follow the focused instrument. K1–K4 edit screen parameters; K6 changes pages; K7 selects the current page's preset or voice (KEY OUT on SYNC / MIDI).
 - **FADER BANK** assigns the faders to tracks 1–4 or 5–8. Move through the displayed target to take control after switching banks or loading a project. Pitch/modulation wheels and the pedal follow KEY; return the wheels to rest before powering on.
 - **Pad pressure** sends channel aftertouch on the original Pad note channel; the final release resets it to zero. DX7 responds with vibrato. Other engines and external instruments determine their own response. Browser Pads support upward dragging or a pressure-sensitive pen.
 - **The 4th button in the left group (after SHIFT, FADER BANK, HOME)** opens the project save page and confirms on-screen actions; HOME + that button undoes the last change. Knobs are K1 to K8 from the left (the firmware calls K5 SELECT, K6 PAGE, K7 PRESETS and K8 MASTER).
 
-See the workbench **Help** tab for page controls. Browser and device storage are separate; write browser edits to the device explicitly.
+See the workbench **Help** tab for page controls, and the [testing and user guide](https://seattleuser0.github.io/classic-tabby/guide/) (docs/TESTING-GUIDE.md) for set-up, the device steps in order and a numbered test checklist. Browser and device storage are separate; write browser edits to the device explicitly.
 
 ## MIDI and Bluetooth
 
@@ -43,7 +43,7 @@ Choose the workbench matching the physical Pro or Elite. Use desktop Chrome/Edge
 
 Classic Tabby keeps a permanent page for every published build at `https://seattleuser0.github.io/classic-tabby/builds/<tag>/` (the list is at [builds/](https://seattleuser0.github.io/classic-tabby/builds/)). If an install is interrupted, the device's update loader keeps the name of the build it was receiving and accepts only that build; the workbench then says which build that is and links to its page. Finish the install from that page (close the other tab and power-cycle the device first if it does not answer). Never force flash. Since tabby-v04.0 the storage layout moved: make a **Full backup** before installing it over v03.x, and read the release notes.
 
-If the device shows OLD DATA IN SONG STORAGE after an install, hold SEQ, choose ERASE OLD DATA in ACTIONS and confirm with the 4th button in the left group; projects, tunings and settings are not touched. The Help chapter **What changed in tabby-v04** lists the storage move, the removed step editor, SYNC / MIDI, STOP TO SAVE, the timing counters and the recovery pages.
+If the device shows OLD DATA IN SONG STORAGE after an install, press SEQ and EDIT together, choose ERASE OLD DATA in ACTIONS and confirm with the 4th button in the left group; projects, tunings and settings are not touched. The Help chapter **What changed in tabby-v04** lists the storage move, the removed step editor, SYNC / MIDI, STOP TO SAVE, the timing counters and the recovery pages.
 
 **Restore factory V16** uses the unmodified, matching V016 package from [M-VAVE Downloads](https://www.m-vave.com/download), dated 2026-08-12. Back up Open data first; power-cycle after resource verification succeeds. **Switch to Open firmware** returns to the Open update flow. Pro and Elite firmware are model-specific; the loader name alone does not identify the model.
 

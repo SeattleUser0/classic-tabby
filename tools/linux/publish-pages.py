@@ -39,9 +39,12 @@ Usage (from the repository root)
         --source-url https://github.com/<owner>/<repo>/archive/refs/tags/tabby-v01.0.zip \
         --commit --push                                                   # + gh-pages
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-10  tabby-v04.1.1: every staged site also gets guide/index.html, the testing guide
+                      (docs/TESTING-GUIDE.md through tools/linux/guide-html.py), so the main page and
+                      every builds/<tag>/ page carry it.
     v0.4  2026-11-08  Task 12 A5: every tagged publish also lands in builds/<tag>/ and in builds/index.json
                       (tools/linux/builds-index.py), the permanent build pages the workbench's stale-loader
                       message links to; a root publish keeps builds/ and recover/ too (--keep default).
@@ -131,6 +134,12 @@ def build_site(html, staging, node, source_url, log):
     # GitHub Pages runs Jekyll unless told not to; Jekyll would skip nothing here but it
     # is slower and ignores underscore paths, so opt out explicitly.
     (staging / ".nojekyll").write_bytes(b"")
+    # v0.5: the testing guide beside the workbench (guide/ is plain HTML, no script).
+    guide = subprocess.run([sys.executable, "-I", str(HERE / "guide-html.py"), "--out", str(staging / "guide" / "index.html")],
+                           cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    if guide.returncode != 0 or not (staging / "guide" / "index.html").is_file():
+        raise PublishError("guide-html.py failed:\n%s" % guide.stdout)
+    log(guide.stdout.strip())
     log("Site: build %s, release %s, version %s, %d assets, entry %d bytes, standalone %d bytes"
         % (report.get("build"), report.get("release"), report.get("version"), len(report.get("assets", [])),
            report.get("entryBytes", 0), report.get("standaloneBytes", 0)))

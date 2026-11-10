@@ -3915,6 +3915,9 @@ Found while auditing; all in app/, so out of this task's scope. Check whether ea
   ERASE OLD DATA now.
 - app/screen.c line 619 "K2 CLK IN  AUTO USB BLE DIN": DIN receives nothing (SPEC 17.6); drop DIN from the line
   and from the choices.
+- app/screen.c line 1125, `"HOLD SEQ: ACTIONS"` on SYNC / MIDI: holding SEQ does not open ACTIONS (the long-press
+  test requires the removed STEPS page; SPEC 17.8). Either change the text to `SEQ+EDIT: ACTIONS` or restore the
+  long press on SYNC / MIDI (a behaviour decision for the user).
 - The firmware still lists SAMPLER in `source_names` (it is not selectable; a project with a sampler track
   loads as the 808 kit).
 

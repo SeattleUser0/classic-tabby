@@ -373,7 +373,7 @@
       else for(const key of wakingKeys.keys())if(typeof key==='number')wakingKeys.delete(key);
       const pageTips={
         0:'HOME: K5 chooses a track, K1 sets level and K4 tempo; K7 changes projects; K6 / K2 changes engines.',
-        1:'SYNC / MIDI: K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, K7 KEY OUT; SHIFT + SEQ opens MIDI TRACK, hold SEQ for ACTIONS.',
+        1:'SYNC / MIDI: K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, K7 KEY OUT; SHIFT + SEQ opens MIDI TRACK, SEQ + EDIT opens ACTIONS.',
         6:'Mixer: pads 1–8 mute, 9–16 solo; mute / solo are exclusive per track. K5 chooses a track; K1–K4 adjust the four-track group.',
         8:'Save project: K5 / K7 chooses a USER slot; the 4th button in the left group (after SHIFT, FADER BANK, HOME) writes it. Replacing another occupied slot requires confirmation. The panel returns after saving.',
         10:'Effects: K6 switches TRACK / SHARED / DELAY, K5 chooses a track, and K1–K4 edit the displayed parameters. Tap SEQ or TAP on DELAY; K7 also changes pages.',
@@ -789,7 +789,7 @@
       say('PAD / STEP: tap to enter or leave the independent Pad instrument. KEY and PAD retain their own tracks, channels and octaves.');return;
     }
     if(kind===0){
-    const tips={2:'FX: K5 chooses a track; K1 reverb, K2 delay, 0 disables sends. K7 switches to detailed settings.',3:'SCL: switches between the SONG and TRACK LAUNCH pages; on other pages it says voice editing moved to the workbench.',10:'ARP: tap to toggle, hold for settings. K6 changes pages: rate / direction / range / gate, then Swing / Hold. K5 chooses a track. Enable and settings are saved with the project; held notes are not.',11:'SEQ: tap to open SYNC / MIDI, SHIFT + SEQ opens MIDI TRACK, hold for ACTIONS; HOME + SEQ taps the tempo.'};if(tips[index])say(tips[index]);}}
+    const tips={2:'FX: K5 chooses a track; K1 reverb, K2 delay, 0 disables sends. K7 switches to detailed settings.',3:'SCL: switches between the SONG and TRACK LAUNCH pages; on other pages it says voice editing moved to the workbench.',10:'ARP: tap to toggle, hold for settings. K6 changes pages: rate / direction / range / gate, then Swing / Hold. K5 chooses a track. Enable and settings are saved with the project; held notes are not.',11:'SEQ: tap to open SYNC / MIDI, SHIFT + SEQ opens MIDI TRACK, SEQ + EDIT together open ACTIONS; HOME + SEQ taps the tempo.'};if(tips[index])say(tips[index]);}}
   function latch(item){latched.has(item)?latched.delete(item):latched.add(item);syncHolds();}
   function pulse(kind,index) {
     const owner='click:'+kind+':'+index;clearTimeout(pulseTimers.get(owner));
