@@ -3,12 +3,14 @@
 <!-- docs/MIDI-GUIDE.template.md: the hand-written part of the guide. tools/linux/midi-guide.mjs
      (web/rig/guide.js) fills every placeholder token (double braces) from the rig profile and the device library and
      writes docs/MIDI-GUIDE.md; the workbench's Import MIDI panel generates the same file for the
-     active rig. Edit this template, never the generated file. Version 0.1, 2026-11-05 (Task 09),
-     from the hand-written guide of 2026-11-05 (tabby-v03.1). -->
+     active rig. Edit this template, never the generated file. Version 0.2, 2026-11-10.
+     Revision log: v0.2 2026-11-10 (Task 13 Step 3): section 14, the recommended live wiring (one DIN
+     cable per device through the H4MIDI WC). v0.1 2026-11-05 (Task 09), from the hand-written guide
+     of 2026-11-05 (tabby-v03.1). -->
 
 Instructions for an AI model (Claude, ChatGPT or another) that writes Standard MIDI files to be imported into Classic Tabby, the custom firmware on an M-VAVE SMK-37 Pro. Read all of it before writing a file. Rules marked MUST are hard limits of the importer or the device. Breaking them loses notes or gets the file refused.
 
-Written for Classic Tabby tabby-v04.0 and the rig profile "Wrong Room" (generated from the committed profile and definitions by web/rig/guide.js from 16 rig channels and the device library). The rules come from the importer source (web/import/midi-song.js) and the spec (docs/SPEC.md sections 7 to 13) at https://github.com/SeattleUser0/classic-tabby. Sections 8, 9 and 11 and the rig tables in Appendix B are generated from the rig profile (web/rig/profiles/) and the device definitions (web/devices/); do not edit them by hand.
+Written for Classic Tabby tabby-v04.0-12-gb8aab50-dirty and the rig profile "Wrong Room" (generated from the committed profile and definitions by web/rig/guide.js from 16 rig channels and the device library). The rules come from the importer source (web/import/midi-song.js) and the spec (docs/SPEC.md sections 7 to 13) at https://github.com/SeattleUser0/classic-tabby. Sections 8, 9 and 11 and the rig tables in Appendix B are generated from the rig profile (web/rig/profiles/) and the device definitions (web/devices/); do not edit them by hand.
 
 ## 1. What Classic Tabby does with the file
 
@@ -562,6 +564,17 @@ If you cannot run code, say so. Then give the user the Python script that writes
 - A preset above 127 without its bank select, or a bank select the device does not use.
 - Humanizing every repeat of a loop, which multiplies storage and makes launching a "loop" sound different each time.
 - PPQ 100 or other values that don't divide 1920.
+
+## 14. Live wiring: one DIN cable per device (recommended)
+
+This section is for the player, not for the file. It changes nothing in how you write a song.
+
+- DIN MIDI is serial: one 3-byte note takes 0.96 ms on the cable. On the SMK-37's own TRS DIN out, every track shares one cable, so the 8 notes of a step on 8 tracks leave one after another over about 7.7 ms; the last device plays its note about 7 ms after the first (measured 7.3 ms mean, Task 12 B1).
+- The SDK's DIN output uses running status by itself (a message with the same status byte as the one before it in the same burst is sent without it). That only helps notes on the same channel. The 8 notes of a step on 8 channels have 8 different status bytes, so it saves nothing there; a 4-note chord on one channel saves 3 bytes (about 1 ms).
+- Recommended live wiring: SMK-37 USB into the USB host port of the CME H4MIDI WC; the H4MIDI WC routes each MIDI channel to its own DIN out (HxMIDI Tools: one channel filter per DIN out), one DIN cable per device. Each cable then carries only its own device's notes: with two devices per DIN out a step costs about 1.9 ms on that cable instead of 7.7 ms, and with one device about 1 ms.
+- What the SMK-37 needs for it, and has today: each track sends on its own channel (MIDI TRACK, SHIFT + SEQ, K2 OUT CH; the importer sets it from the file, section 8), and the song goes out on USB (OUT PORT ALL sends it on USB, DIN and Bluetooth together; the USB copy is the one the H4MIDI routes). Nothing on the SMK-37 has to change.
+- What it does not have: a per-track port choice. OUT PORT is one setting for all tracks (ALL or OFF). A rig that puts one device on the SMK-37's own TRS DIN out and the rest on USB therefore still sends every track on that DIN cable as well; the device on it simply ignores the other channels, but the burst on that cable is still all tracks' notes. Leave the SMK-37's TRS out unconnected in the recommended wiring.
+- The H4MIDI WC adds its own small delay (USB to DIN) and the USB burst of a step (about 2.4 ms for 8 notes, Task 12 B1) still comes first. The 10 ms control-pass step of the firmware (docs/SPEC.md section 17) is the same on every cable.
 
 ## Appendix A. Template: write a song with mido
 

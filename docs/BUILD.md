@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.54
+Version: 0.55
 Revision log:
+- v0.55, 2026-11-10 (Task 13 Step 3): 27.3, DIN running status and the recommended live wiring.
 - v0.54, 2026-11-10 (Task 13 Step 2): 27.2, the option A safety check: not safe (the song tick runs in
   the audio interrupt; the request takes scheduler paths that are not interrupt-safe). A not built.
 - v0.53, 2026-11-10 (Task 13 Step 1): section 27.1, option B (the control-pass budget) and what
@@ -3731,4 +3732,29 @@ local symbols), the best this hardware and SDK can give is option B's result: no
 10 ms pass (0..10 ms, about 10-11 ms band on one line), with the 20 ms tail removed. Reaching 4 ms
 needs a change in the SDK (a shorter control timer, an interrupt-safe pass request, or a timestamped
 send in its MIDI task).
+
+### 27.3 Step 3: the DIN burst
+
+**Running status: yes, in the SDK, always on, per transmit burst.** `request_uart_transmit` (the
+SDK MIDI task's DIN sender) copies queued messages into `uart_midi_tx_buf` and keeps the last
+status byte in a register for the burst: a channel message whose status equals the previous one is
+written without its status byte; real-time bytes (F8-FF) keep it; other system messages (F0-F7)
+clear it; it starts empty at every call. The app has no API for it (no switch, no flush control);
+it can only influence it by the order and the status bytes it sends.
+
+What it saves on an 8-note step: **nothing** for the eight-line test song (8 channels = 8 different
+status bytes: 24 bytes, 7.7 ms, matching the measured 7.30 ms mean). Notes on one channel do share:
+a 4-note chord on one channel is 3 + 2 x 3 = 9 bytes instead of 12 (about 1 ms saved). Note-offs go
+out as 0x8n (midi_router.c), so a note-off and the next note-on on the same channel never share a
+status; sending note-offs as note-on velocity 0 would let them, but the note-offs of the test songs
+fall between steps, not inside the step's burst, so it would not shorten the step either.
+
+**The rig answer (written, nothing built):** SMK-37 USB -> CME H4MIDI WC USB host port -> one DIN out
+per device (channel routing in the H4MIDI), so each cable carries only its own notes (one device:
+about 1 ms per step on its cable; two: 1.9 ms). What the SMK-37 needs: a channel per track (there:
+MIDI TRACK K2 OUT CH, set by the importer) and the song on USB (there: OUT PORT ALL). A per-track
+port choice is **not** there: OUT PORT is one global setting (ALL / OFF, `config.flags & 7` in
+midi_router.c, the same mask for every track); it is not needed for this wiring (leave the
+SMK-37's TRS out unconnected). Added to the MIDI guide as section 14 (docs/MIDI-GUIDE.template.md
+v0.2, docs/MIDI-GUIDE.md regenerated).
 
