@@ -8,7 +8,9 @@
     "Version 0.1, 2026-11-10 (Task 14).",
     "allow_exact: whole strings that are not Help text: the engine-id-5 label (a project backed up from v03.x can name it)",
     "and the error of the Samples.js stub. \"已载入到步进编辑器\" is the WORKBENCH's block editor, which stays.",
-    "A phrase that starts with a letter only matches at a word start (so \"LOCKS\" does not hit \"BLOCKS\")."
+    "A phrase that starts with a letter only matches at a word start (so \"LOCKS\" does not hit \"BLOCKS\").",
+    "v0.2 (Task 14, second pass): the factory-restore sector numbers of the old layout and the CLK IN DIN choice.",
+    "The demo-sample line stays: the simulator still builds the synthesized bank for its SAMPLER source (BUILD 28.4)."
   ],
   "en": [
     "STEP DETAILS",
@@ -57,7 +59,12 @@
     "SAMPLER",
     "press SAVE",
     "SAVE button",
-    "the SAVE key"
+    "the SAVE key",
+    "block sectors 86-95",
+    "block sectors 86 to 95",
+    "(AUTO, USB, BLE, DIN)",
+    "AUTO / USB / BLE / DIN",
+    "no wired MIDI input"
   ],
   "zh": [
     "STEP DETAILS",
@@ -88,7 +95,11 @@
     "8 槽",
     "采样器",
     "按 SAVE",
-    "SAVE 键"
+    "SAVE 键",
+    "块扇区 86–95",
+    "AUTO、USB、BLE、DIN",
+    "AUTO／USB／BLE／DIN",
+    "没有有线 MIDI IN"
   ],
   "allow": [
     "data-removed-ok",
@@ -118,7 +129,10 @@
     "V01's sample bank or DX7 library",
     "held the sample bank and the DX7 user library on V01",
     "已载入到步进编辑器",
-    "被移除的步进编辑"
+    "被移除的步进编辑",
+    "A device still on the old 536576 layout loses block sectors 86 to 95 of 96 instead",
+    "此预览用合成的演示采样",
+    "This preview uses synthesized demo samples"
   ],
   "allow_exact": [
     "采样器",

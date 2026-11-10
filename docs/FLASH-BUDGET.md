@@ -256,7 +256,7 @@ bank upload with a size ≤ 466944). The one absolute address it uses is in
 `restoreFactory`: stock V16 keeps a factory "USR" resource at 0xF4000..0xFDFFF and the
 workbench rewrites that range (40960 bytes) when returning to V16. That range lies inside
 Open's USER region (it overlaps the sample-bank tail and the DX7 library sectors), which
-is why switching firmware families is documented as destroying data.
+is why switching firmware families is documented as destroying data. In the 471040 layout of tabby-v04.0 and later the same range is block sectors 70..79 of the 80 (SPEC 16.1; it was 86..95 of 96 in the 536576 layout).
 
 ### 3.3 What is inside USER (offsets relative to the USER base 0x7C000)
 

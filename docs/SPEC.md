@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.30
+Version: 0.31
 Revision log:
+- v0.31, 2026-11-10 (Task 14, second pass): 16.1 what a factory V16 restore overwrites in the v04 layout;
+  17.6 the TRS jack is output only (CLK IN DIN receives nothing).
 - v0.30, 2026-11-10 (Task 14): 17.5, the Help and panel text is held to the removed-features list
   (banned phrases and a test); K1-K4 on HOME; the song block limits re-checked.
 - v0.29, 2026-11-10 (Task 13 Step 4): 17.4, the control-name table (firmware name -> printed name or
@@ -1014,6 +1016,16 @@ override the Task 11B permission to install unattended.
   runs (16.3), bit 1 = command 28. 28 `"ERASE"`: ERASE OLD DATA, refused unless OLD DATA and while
   the transport runs. Reply code 76 (`GROOVE_PROJECT_PLAYING`, -12) = refused because the transport
   runs. New commands, so pages older than tabby-v04.0 never see them.
+- **What a factory V16 restore overwrites.** `restoreFactory` (sdk/WebUpdate.js) writes 40960 bytes (10
+  sectors) at the fixed flash range 0xF4000..0xFDFFF, the V16 "USR" resource. In the 471040 layout USER
+  starts at 0xFF000 - 471040 = 0x8C000; the project sectors and the project staging sector take 17 sectors
+  (0x11000), so the song region starts at 0x9D000 and has 97 sectors, ending at 0xFE000 where the tuning
+  sector begins (not touched: the range ends at 0xFDFFF). Region sector n is at 0x9D000 + n * 0x1000, so the
+  range is region sectors 87..96. Region sector 0 is the staging journal, 1..16 the song records and 17..96
+  the 80 block sectors (SONG_FIRST_BLOCK_SECTOR 17), so the restore overwrites **block sectors 70..79, the
+  last 10 of 80**, and nothing else of the song region. In the old 536576 layout the same range is region
+  sectors 103..112 of 113, block sectors 86..95 of 96 (the text before Task 14). Any song whose blocks lie
+  there is damaged: export songs first.
 - **Workbench.** The library defaults to the 471040 layout until command 21 answers; the importer's
   storage estimate uses the 80-sector pool; the update tab tells the user that this release moves
   storage (and that a 536576 build moves it back).
@@ -1037,7 +1049,7 @@ and RHYTHM 14 are refused like the other removed pages).
 | --- | --- | --- |
 | BPM | K4 | HOME (overview); HOME + SEQ taps it on any page |
 | CLOCK (INT / MIDI) | K1 | SYNC / MIDI (SEQ on any page) |
-| CLK IN (AUTO / USB / BLE / DIN) | K2 | SYNC / MIDI |
+| CLK IN (AUTO / USB / BLE; DIN receives nothing, 17.6) | K2 | SYNC / MIDI |
 | SWING (project) | K3 | SYNC / MIDI |
 | SEQ OUT (OFF / ON / CLOCK) | K4 | SYNC / MIDI |
 | KEY OUT (ON / OFF) | PRESETS | SYNC / MIDI |
@@ -1242,3 +1254,19 @@ the tempo everywhere (no tap on FX DELAY); SEQ + EDIT and a long SEQ press both 
 4th left button undoes the last change; a song block is 64 steps with up to 4 notes starting on a step
 (app/song_storage.h `SONG_BLOCK_STEPS`, `SONG_NOTES_PER_STEP`; v2 blocks add a start offset and a length
 to each note but not more notes per step), so the song help's "64 steps, at most 4 notes per step" stays.
+
+### 17.6 The TRS jack is output only; CLK IN DIN receives nothing (Task 14, 2026-11-10)
+
+Evidence (read from the source and from the disassembly of build/pro/sdk.elf, nothing tried on hardware):
+- `fm1_midi_input_ports` (0x2024f82) is `r0 = 6`: input ports USB (bit 1) and BLE (bit 2); the DIN bit is not set.
+- `fm1_io_trs_midi_enabled` (app/board/panel.c, 0x2006058) returns 0 and says "PH8 is an encoder input on both
+  boards, with no fitted TRS MIDI RX". The SDK's `fm1_io_start` stores that byte and the SDK header
+  (sdk/include/fm1_device.h) names it "the fitted TRS MIDI receiver".
+- `smk37_uart_start` (0x2024f90) calls `smk37_gpio_set_uart1(-1)` (UART1 receive pin mapping off), maps the
+  transmit function and installs only `midi_tx_irq`; the SDK has smk37_uart_start / write / stop / ready and
+  no receive path (the uart_midi_rx buffers have no reader).
+- app/midi_router.c: CLK IN DIN (config.thru bits 5..6 = 3) accepts clock only from source FM1_MIDI_DIN, which
+  the SDK never delivers. With CLOCK = MIDI and CLK IN = DIN the device waits for a clock that cannot come.
+So the TRS jack cannot be a MIDI input by cable or by setting; it is not switched at all. A DIN device's
+clock reaches the SMK-37 only over USB or Bluetooth (MIDI guide section 14, not tried on this rig).
+The firmware's own screen line "K2 CLK IN  AUTO USB BLE DIN" is in the left-to-build list (BUILD 28.3).

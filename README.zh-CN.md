@@ -30,7 +30,7 @@
 
 支持 USB／BLE MIDI 输入及 DIN／USB／BLE MIDI 输出；Pro 和 Elite 没有 DIN MIDI 输入。默认输入通道 1–7 对应轨 1–7，通道 10 对应轨 8；共享输入通道可叠加演奏。
 
-- **SYNC / MIDI（任何页面按 SEQ）：**K1 CLOCK（INT／MIDI）、K2 CLK IN（AUTO／USB／BLE／DIN）、K3 SWING、K4 SEQ OUT（OFF、ON，或 CLOCK 仅时钟／启停）、K7 KEY OUT（琴键／Pad 输出开关）。速度只在 HOME 的 K4 设置（HOME + SEQ 可拍击速度）。
+- **SYNC / MIDI（任何页面按 SEQ）：**K1 CLOCK（INT／MIDI）、K2 CLK IN（AUTO／USB／BLE；DIN 收不到任何数据，因为 TRS 口只能输出）、K3 SWING、K4 SEQ OUT（OFF、ON，或 CLOCK 仅时钟／启停）、K7 KEY OUT（琴键／Pad 输出开关）。速度只在 HOME 的 K4 设置（HOME + SEQ 可拍击速度）。
 - **MIDI TRACK（SHIFT + SEQ）：**K1 IN CH、K2 OUT CH、K3 SEQ（LOCAL／BOTH／MIDI）、K4 OUT PORT（ALL／OFF）。输入和输出通道独立；分轨输出需逐轨设置 OUT CH。
 - tabby-v04.0 机身没有步进编辑和录音（STEP DETAILS、LOCKS、RHYTHM、REC、预备拍和节拍器已移除）；歌曲来自网页工作台。
 - SEQ 设置不控制 ARP；ARP 固定 BOTH，跟随本轨 OUT CH 和公共 OUT PORT。只发时钟时，还需关闭 KEY OUT 和各轨 ARP。

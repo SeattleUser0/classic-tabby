@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
-/* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. */
+/* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. */
 /* Classic Tabby Task 13 Step 4 (2026-11-10): panel wording: knobs K1-K8 by their printed numbers (firmware SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8); the firmware's SAVE button named by position (the 4th button in the left group, after SHIFT, FADER BANK, HOME); SPEC 17.4 has the table. */
 (() => {
   'use strict';
@@ -31,7 +31,7 @@
   "总览的 K4 设置速度，HOME + SEQ 也可拍击速度。本版本机身没有录音和步进编辑；歌曲在网页工作台编写。": "On the overview, K4 sets the tempo; HOME + SEQ taps it. This version has no recording and no step editing on the device; songs are written in the web workbench.",
   "上排功能键在所有页面都有效：FX、EDIT（DX7 轨）、MIX、SEQ 可直接切页；SCL、ENV、LFO 只在歌曲页有作用（见第 05 章）；ARP 短按开关、长按调参数，PLAY 控制播放。左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）打开项目保存页，或执行屏幕内的确认；OCT−／OCT+ 调八度。离开确认页不会执行待确认操作。": "The top row of buttons works on every page: FX, EDIT (DX7 track), MIX and SEQ open their pages; SCL, ENV and LFO act only on the song pages (chapter 05); ARP toggles with a tap and opens its settings when held; PLAY controls playback. The 4th button in the left group (after SHIFT, FADER BANK, HOME) opens the project save page or confirms the prompt on screen; OCT− / OCT+ change the octave. Leaving a confirmation page runs nothing.",
   "15 · 同步与 MIDI": "15 · Sync & MIDI",
-  "在任何页面按 SEQ 打开 SYNC / MIDI 页：K1 CLOCK 选 INT／MIDI，K2 CLK IN 选时钟来源（AUTO、USB、BLE、DIN），K3 SWING，K4 SEQ OUT 选 OFF／ON／CLOCK，K7 开关 KEY OUT。速度只在 HOME 的 K4 设置；外部 MIDI 时钟下速度由外部设备决定。长按 SEQ 打开 ACTIONS。": "Press SEQ on any page to open SYNC / MIDI: K1 CLOCK chooses INT or MIDI, K2 CLK IN the clock source (AUTO, USB, BLE, DIN), K3 SWING, K4 SEQ OUT chooses OFF, ON or CLOCK, K7 switches KEY OUT. The tempo is set only on HOME K4; with external MIDI clock the source sets it. Hold SEQ for ACTIONS.",
+  "在任何页面按 SEQ 打开 SYNC / MIDI 页：K1 CLOCK 选 INT／MIDI，K2 CLK IN 选时钟来源（AUTO、USB、BLE；DIN 在 Pro／Elite 上收不到任何数据，不要选），K3 SWING，K4 SEQ OUT 选 OFF／ON／CLOCK，K7 开关 KEY OUT。速度只在 HOME 的 K4 设置；外部 MIDI 时钟下速度由外部设备决定。长按 SEQ 打开 ACTIONS。": "Press SEQ on any page to open SYNC / MIDI: K1 CLOCK chooses INT or MIDI, K2 CLK IN the clock source (AUTO, USB or BLE; DIN receives nothing on the Pro and Elite, do not choose it), K3 SWING, K4 SEQ OUT chooses OFF, ON or CLOCK, K7 switches KEY OUT. The tempo is set only on HOME K4; with external MIDI clock the source sets it. Hold SEQ for ACTIONS.",
   "切换时钟会停止播放；MIDI 模式需外部 Start／Continue 和 Clock，等待时屏幕提示 WAIT MIDI CLOCK。外部 BPM 只读。歌曲模式需要 INT 时钟。": "Changing the clock stops playback. MIDI mode needs an external Start or Continue and Clock; while waiting the screen says WAIT MIDI CLOCK. The external BPM is read only. Song mode needs the INT clock.",
   "首次使用时，8 个轨道的 SEQ 默认 BOTH，KEY OUT 默认 ON，同时启用 ALL 和 SEQ OUT ON；已保存的输出模式与 KEY OUT 选择会保留。MIDI TRACK 页（SHIFT + SEQ）：K1 IN CH 输入通道，K2 OUT CH 发送通道，K3 SEQ 选 LOCAL／BOTH／MIDI，K4 OUT PORT 选 ALL／OFF。SYNC / MIDI 页：K4 SEQ OUT 选 OFF（关闭音序音符和主时钟）／ON（音序音符及内部时钟／启停）／CLOCK（仅内部时钟／启停），K7 开关 KEY OUT。SEQ 模式与 SEQ OUT 不影响 ARP；ARP 固定 BOTH（内部发声＋MIDI 输出），按该轨 OUT CH 和公共 OUT PORT 发送。切换 SEQ 设置不打断 ARP，开关 ARP 也不释放 SEQ 音符。ARP 第二页仅保留 SWING、HOLD 和 OUT CH，K3 无功能。只发时钟时，请关闭 KEY OUT 和各轨 ARP。USB-C 分轨输出时逐轨设置 OUT CH，启用 BOTH 或 MIDI、ALL 及 SEQ OUT ON；只改 IN CH 不会改变输出通道。升级后本地演奏始终可用，Thru 关闭；旧端口组合只要有输出就转为 ALL，OFF 保留。偏好独立于项目；网页仅预览，实机请通过机身设置。": "On first use the 8 tracks' SEQ is BOTH, KEY OUT is ON, OUT PORT is ALL and SEQ OUT is ON; saved output modes and the KEY OUT choice are kept. MIDI TRACK page (SHIFT + SEQ): K1 IN CH the input channel, K2 OUT CH the send channel, K3 SEQ LOCAL / BOTH / MIDI, K4 OUT PORT ALL / OFF. SYNC / MIDI page: K4 SEQ OUT OFF (no sequencer notes and no master clock) / ON (sequencer notes and the internal clock with Start and Stop) / CLOCK (only the internal clock with Start and Stop); K7 switches KEY OUT. SEQ mode and SEQ OUT do not affect ARP: ARP is always BOTH (built-in sound and MIDI out) and sends on the track's OUT CH and the common OUT PORT. Changing SEQ settings does not interrupt ARP, and switching ARP does not release sequencer notes. ARP page 2 keeps only SWING, HOLD and OUT CH; K3 does nothing. To send the clock alone, switch off KEY OUT and every track's ARP. For per-track output over USB-C set OUT CH per track and use BOTH or MIDI, ALL and SEQ OUT ON; changing IN CH alone does not change the output channel. After an update local playing always works and Thru is off; an old port combination with any output becomes ALL, OFF stays. These preferences are independent of the project; the web page only previews them, set them on the device.",
   "本版本移除的机身编辑": "Device editing removed in this version",
@@ -106,7 +106,7 @@
   "左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）": "The 4th button in the left group (after SHIFT, FADER BANK, HOME)",
   "37 键力度键盘": "37 velocity-sensitive keys",
 
-  "USB MIDI 开机即接收；蓝牙 MIDI 在网页工作台“项目与音色 → 蓝牙设置”中控制，两者使用相同的轨道输入通道设置。当前 Pro／Elite 没有有线 MIDI IN，机身 MIDI OUT 用于输出。": "USB MIDI receives at startup; Bluetooth MIDI is controlled from the workbench (Projects & sounds → Bluetooth settings). Both use the track input-channel settings. The current Pro / Elite boards have no wired MIDI input; the MIDI OUT connector is for output.",
+  "USB MIDI 开机即接收；蓝牙 MIDI 在网页工作台“项目与音色 → 蓝牙设置”中控制，两者使用相同的轨道输入通道设置。Pro／Elite 的 TRS 口只输出 MIDI，不能作为 MIDI 输入（固件没有 DIN 接收，SYNC / MIDI 页的 CLK IN 选 DIN 收不到任何数据）；外部时钟和音符请经 USB 或蓝牙输入。": "USB MIDI receives at startup; Bluetooth MIDI is controlled from the workbench (Projects & sounds → Bluetooth settings). Both use the track input-channel settings. The TRS jack of the Pro and Elite only outputs MIDI and cannot be a MIDI input (the firmware has no DIN receive, so CLK IN set to DIN receives nothing on the SYNC / MIDI page); bring external clock and notes in over USB or Bluetooth.",
 
   "正在加载固件…": "Loading firmware…",
   "固件加载失败，请重新打开设备更新页重试。": "Firmware could not be loaded. Reopen Device Update to retry.",
@@ -145,7 +145,7 @@
   "操作说明": "Controls guide",
   "文件与 MIDI": "Files & MIDI",
   "导出文件可备份到电脑；浏览器存档与设备项目分别保存。": "Export files to back up on your computer. Browser and device projects are saved separately.",
-  "此预览使用演示采样；项目文件不包含采样音频。": "This preview uses demo samples. Project files do not contain sample audio.",
+  "此预览用合成的演示采样，只用于仿真里可选的 SAMPLER 音源；设备没有采样器，项目文件也不含采样音频。": "This preview uses synthesized demo samples, only for the SAMPLER source that the simulator still offers. The device has no sampler, and project files do not contain sample audio.",
   "© 2026 M-VAVE。APP 采用 GPLv3＋SDK 链接例外，可依许可修改和再分发。除法律规定或另有书面约定外，不提供担保。SDK 与第三方条款见下方声明。": "© 2026 M-VAVE. APP: GPLv3 with an SDK linking exception; modification and redistribution are permitted under its terms. No warranty except as required by law or agreed in writing. See below for SDK and third-party terms.",
   "源码与 SDK": "Source + SDK",
   "官方论坛": "Official forum",
@@ -653,7 +653,7 @@
   "保存块": "Store block",
   "删除块": "Remove block",
   "每步：音高:力度:长度[r]，多个音符以空格分隔；r = 重触发，@n = 概率 n/8，! = 备用调音（例：60:100:2 64:100:2r @4）。长度以 16 分音符计。": "Per step: pitch:velocity:length[r], several notes separated by spaces; r = retrigger, @n = probability n/8, ! = alt tuning (example: 60:100:2 64:100:2r @4). Lengths are in 16th steps.",
-  "写入歌曲会先写入歌曲记录，再把编辑器中的全部块分批写入设备（每批最多 8 个扇区，一次提交；旧副本在设备 ACTIONS → COMPACT SONG STORAGE 时回收），最后读回校验。写入期间设备音频会短暂中断。恢复原厂 V16 会覆盖歌曲存储的最后 40 KB（块扇区 86–95），请先导出歌曲。": "Write song stores the song record first, then every block in the editor in batches (up to 8 sectors per batch, one commit each; old copies are reclaimed by ACTIONS > COMPACT SONG STORAGE on the device), then verifies the record by read-back. Device audio pauses briefly while it writes. Restoring factory V16 overwrites the last 40 KB of song storage (block sectors 86-95): export your songs first.",
+  "写入歌曲会先写入歌曲记录，再把编辑器中的全部块分批写入设备（每批最多 8 个扇区，一次提交；旧副本在设备 ACTIONS → COMPACT SONG STORAGE 时回收），最后读回校验。写入期间设备音频会短暂中断。恢复原厂 V16 会覆盖歌曲存储的最后 40 KB（80 个块扇区中的第 70–79 个，闪存 0xF4000–0xFDFFF），请先导出歌曲。": "Write song stores the song record first, then every block in the editor in batches (up to 8 sectors per batch, one commit each; old copies are reclaimed by ACTIONS > COMPACT SONG STORAGE on the device), then verifies the record by read-back. Device audio pauses briefly while it writes. Restoring factory V16 overwrites the last 40 KB of song storage (block sectors 70 to 79 of the 80, flash 0xF4000 to 0xFDFFF): export your songs first.",
   "请先启动仿真": "Start the simulator first",
   "请先连接项目库": "Connect the project library first",
   "请先读取或新建歌曲": "Read or create a song first",
@@ -700,7 +700,7 @@
   "歌曲记录长度无效": "Invalid song record length",
   "歌曲存储已满，请在设备 ACTIONS 中压缩歌曲存储或删除歌曲": "Song storage is full; compact song storage from the device's ACTIONS page or delete a song",
   "歌曲存储已满": "Song storage is full",
-  "恢复 V16 还会覆盖 Classic Tabby 歌曲存储的最后 40 KB（块扇区 86–95）。请先在“项目与音色 → 歌曲模式”导出歌曲。": "Restoring V16 also overwrites the last 40 KB of Classic Tabby song storage (block sectors 86-95). Export your songs first in Projects & sounds > Song mode.",
+  "恢复 V16 还会覆盖 Classic Tabby 歌曲存储的最后 40 KB（80 个块扇区中的第 70–79 个）。请先在“项目与音色 → 歌曲模式”导出歌曲。": "Restoring V16 also overwrites the last 40 KB of Classic Tabby song storage (block sectors 70 to 79 of the 80). Export your songs first in Projects & sounds > Song mode.",
   "歌曲模式": "Song mode",
   "歌曲模式：K5／K7 选歌曲，PLAY 开始／停止，打击垫 1–16 排队跳转到该行，OCT 翻打击垫页，K4 设置跳转落点。歌曲由网页工作台写入。": "Song mode: K5 / K7 select the song, PLAY starts and stops, pads 1-16 queue a jump to that row, OCT pages the pads, K4 sets where jumps land. Songs are written from the web workbench.",
   "摇摆跟随项目设置": "Swing follows the project setting",

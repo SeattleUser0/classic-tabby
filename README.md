@@ -30,7 +30,7 @@ See the workbench **Help** tab for page controls. Browser and device storage are
 
 USB/BLE MIDI input; DIN/USB/BLE MIDI output. Pro and Elite have no DIN MIDI input. Input channels default to 1–7 for tracks 1–7 and 10 for track 8. Shared input channels layer tracks.
 
-- **SYNC / MIDI (SEQ from any page; Task 12):** K1 CLOCK (INT / MIDI), K2 CLK IN (AUTO / USB / BLE / DIN), K3 SWING, K4 SEQ OUT (OFF, ON, or CLOCK for clock/transport only), K7 KEY OUT (keyboard/Pad output on or off). BPM is set on HOME K4 only (HOME + SEQ taps it).
+- **SYNC / MIDI (SEQ from any page; Task 12):** K1 CLOCK (INT / MIDI), K2 CLK IN (AUTO / USB / BLE; DIN receives nothing because the TRS jack is output only), K3 SWING, K4 SEQ OUT (OFF, ON, or CLOCK for clock/transport only), K7 KEY OUT (keyboard/Pad output on or off). BPM is set on HOME K4 only (HOME + SEQ taps it).
 - **MIDI TRACK (SHIFT + SEQ):** K1 IN CH, K2 OUT CH, K3 SEQ (LOCAL / BOTH / MIDI), K4 OUT PORT (ALL / OFF). IN CH and OUT CH are independent; assign OUT CH on each track for multitrack output.
 - SEQ settings do not control ARP: ARP always uses BOTH, following the track's OUT CH and the shared OUT PORT. For clock-only output, also turn KEY OUT off and disable ARP.
 - tabby-v04.0 has no step editing or recording on the device (STEPS 1/7, 2/7, 4/7, STEP DETAILS, RHYTHM, REC, count-in and the metronome were removed); songs come from the web workbench.

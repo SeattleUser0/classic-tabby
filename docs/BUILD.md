@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.59
+Version: 0.60
 Revision log:
+- v0.60, 2026-11-10 (Task 14, second pass): 28.4 settled: the restore sectors, the TRS jack, the demo samples.
 - v0.59, 2026-11-10 (Task 14): section 28, the Help audit against tabby-v04.1 (counts, the banned-phrase
   guard, stale firmware texts for the left-to-build list, open questions).
 - v0.58, 2026-11-10 (Task 13 Step 5): 9.1, tabby-v04.1 is the current release; 27.5 its publication and
@@ -3898,8 +3899,8 @@ notes per step" was checked against app/song_storage.h and stays (SONG_BLOCK_STE
 
 ### 28.2 The guard
 
-tests/workbench/help-banned.mjs reads 4761 strings with tests/workbench/help-banned-phrases.json (47 English
-and 29 Chinese phrases, 28 allow fragments, 4 exact allows). Run against the published tabby-v04.1 sources it
+tests/workbench/help-banned.mjs reads 4761 strings with tests/workbench/help-banned-phrases.json (52 English
+and 33 Chinese phrases, 31 allow fragments, 4 exact allows). Run against the published tabby-v04.1 sources it
 reports 263 hits; now 0. tests/workbench/manual-i18n.mjs v0.3 expects 22 chapters. Both are in
 `make workbench-test`. SPEC 17.5 has the rules.
 
@@ -3912,15 +3913,21 @@ Found while auditing; all in app/, so out of this task's scope. Check whether ea
   "PAD PLAY - SHIFT+PAD TO EDIT STEPS": pad-step mode is gone.
 - app/screen.c, "ERASE OLD SAMPLE DATA" (project result GROOVE_PROJECT_TUNING_SPACE): the action is called
   ERASE OLD DATA now.
+- app/screen.c line 619 "K2 CLK IN  AUTO USB BLE DIN": DIN receives nothing (SPEC 17.6); drop DIN from the line
+  and from the choices.
 - The firmware still lists SAMPLER in `source_names` (it is not selectable; a project with a sampler track
   loads as the 808 kit).
 
-### 28.4 Unsure, for the user to decide
-- Chapter 11 (English, Storage) says "Restore factory V16 overwrites the last 40 KB of song storage, block
-  sectors 86 to 95". The pool has 80 block sectors since tabby-v04.0, so the sector numbers cannot be right
-  for the new layout. Not changed: the facts are not in this tree.
-- Chapter 19 says "Pro and Elite have no wired MIDI IN" while the SYNC / MIDI page offers CLK IN DIN.
-  Kept as written; needs the hardware answer.
-- The browser preview says "This preview uses demo samples" (chapter 09 area). Kept; the simulator's wasm may
-  still carry demo samples.
-- The overview tip for HOME says the K6 / K2 knobs change the engine; kept as the firmware code reads.
+### 28.4 The three open items, settled (second pass)
+1. **Factory V16 restore** overwrites 40960 bytes at 0xF4000..0xFDFFF. In the v04 layout that is block
+   sectors 70..79 of the 80 (SPEC 16.1 has the arithmetic); 86..95 of 96 only in the old 536576 layout.
+   Chapter 11, the song-editor note and the confirmation dialog now say so, in both languages.
+2. **The TRS jack is output only** (SPEC 17.6 has the evidence): `fm1_midi_input_ports` returns 6 (USB, BLE),
+   the board hook `fm1_io_trs_midi_enabled` returns 0 (PH8 is an encoder input, no receiver fitted), and
+   `smk37_uart_start` sets up transmit only. CLK IN DIN accepts clock only from a source the SDK never
+   delivers. Help (chapters 15, 19, the quick reference, both READMEs) says so; the MIDI guide section 14 says
+   how a DIN master's clock can reach the SMK-37 (DIN in on the H4MIDI WC, routed to its USB host port;
+   CLOCK = MIDI, CLK IN AUTO or USB; not tried on this rig).
+3. **Demo samples**: the simulator still builds the synthesized demo bank (web/synth/demo_bank.h) and its
+   source list still offers SAMPLER, so the line stays, reworded to say it applies only to that source and
+   that the device has no sampler. Left to decide: whether the simulator should stop offering SAMPLER.
