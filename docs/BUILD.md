@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.51
+Version: 0.52
 Revision log:
+- v0.52, 2026-11-09 (Task 12 B3): 26.9 B3, fix options (none built), external clock follow and
+  the clock-loss rule.
 - v0.51, 2026-11-09 (Task 12 B2): 26.9 B2, where the band comes from (the SDK's 10 ms control
   timer, the send path).
 - v0.50, 2026-11-09 (Task 12 B1): 26.9 the Phase 1 timing measurements on tabby-v04.0 (L.2 on DIN
@@ -3599,4 +3601,38 @@ Read from sdk/include/fm1.h, the app, and the disassembly of build/pro/sdk.elf (
   11) and pass max 18-19 ms here. Eight lines add the DIN wire time (7.7 ms per step) and push
   the pass to 12.5 ms mean (router 0.76 ms, screen 1.08 ms, SDK 10.5 ms with eight voices and CPU
   GUARD), more lost ticks: 23 ms across all lines on DIN.
+
+#### B3: fix options (proposed, none built)
+
+Flash margin today 71741 bytes (FLASH-BUDGET); every option below fits easily.
+
+| Option | Expected band (one line / eight lines all-lines) | Flash, RAM | Risk to audio | Proof on hardware |
+|---|---|---|---|---|
+| A. Pass on demand: `song_tick` calls `fm1_control_request` after it puts a note in lane 0; the app's last hook of a pass requests again if lane 0 is not empty (closes the "dropped while a pass runs" hole) | about 3-4 ms (the 2.9 ms audio block plus the task switch) / USB about 5 ms, DIN plus the 7.7 ms wire | about 150 B, 4 B | low to medium: an undocumented SDK call from the audio thread (the post must be safe there: if the audio callback runs in an interrupt, `os_taskq_post_type` may not be); extra passes run all hooks (screen too), at most one per audio block with notes | diag build first: L.2 one line band <= 5 ms, pass max, no extra CPU GUARD, audio capture of the AUDIO4c inputs free of clicks; check the audio callback's context in the disassembly before building |
+| B. Slice the long work: screen paint and transfer work in slices with a `ct_midi_flush` between them, so no pass passes 10 ms and no tick is lost | about 10-11 ms (the 10 ms quantization stays; the 20 ms tail goes) / about 18 ms | about 300 B, 0 | none (less work per pass) | pass max < 10 ms in the profile with eight lines and panel use; band <= 11 ms one line |
+| C. Timestamped look-ahead: the audio thread queues notes early with their due time, released at the due time | with only 10 ms passes: no gain (release is still per pass); with A: as A, and the DIN burst of a step can be sent half a burst early (about 3.8 ms), so the eight lines sit at +-3.8 ms instead of 0..7.7 ms | about 400 B, 1-2 KB queue | as A | as A, plus the per-line mean offsets on DIN centred on the grid |
+| Sends from a timer | not allowed: sends are control task only, the SDK's timers are local symbols | | | |
+| Back-to-back passes (request a pass at the end of every pass) | about 3 ms | small | high: the CPU runs passes all the time; audio and CPU GUARD suffer | rejected |
+
+**Recommendation:** B first (safe, small, removes the lost-tick tail), then A behind a diag
+build after the audio-context check; C only as A's refinement for DIN bursts. Target one line
+<= 4 ms on USB and DIN.
+
+**External clock follow needs:** clock in from a chosen port (USB, DIN, BLE); F8 timestamped
+where it arrives (the routing task, `fm1_app_midi_received`) and passed to the audio thread
+through a lock-free lane; the song advances one 16th per 6 pulses (24 ppqn) instead of by the
+internal tempo; tempo shown from the smoothed pulse period. Start (FA): position 0, start on the
+next pulse. Stop (FC): stop, note-offs, keep the position. Continue (FB): resume from the kept or
+SPP position on the next pulse. SPP (F2): set the position (16ths) while stopped, and relocate
+when it comes while running. Song mode today refuses to start in MIDI clock mode (Task 03
+decision 4). Following adds the receive-to-pass wait to every note, so it needs A (or the same
+wake) to be tight; on today's 10 ms pass it gets today's 14-20 ms band.
+
+**The proposed clock-loss rule** (a gap under 2 s without Stop keeps position and relocks; a
+longer gap shows LOST and waits for Continue or Start): sound; keep the 2 s. Changes I would
+make: (1) hold after about 3 missed pulses (3 x the last period): stop advancing and send
+note-offs, so no note hangs during a gap; show HOLD. (2) On relock within 2 s continue from the
+held position (the sender has moved on; without SPP the device cannot know by how much), and
+accept SPP at any time so a DAW relocate corrects it. (3) In LOST, pulses alone never restart the
+song; Start, Continue (or SPP then Continue) do. (4) Stop always wins, at any time.
 
