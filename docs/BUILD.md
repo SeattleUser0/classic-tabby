@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.62
+Version: 0.63
 Revision log:
+- v0.63, 2026-11-10 (Task 15 Step 4): section 28.5, the diag build tabby-v04.2-diagA2: build record, where
+  it is published (builds/ only), the install and the Step 5 plan.
 - v0.62, 2026-11-10 (Task 15 Step 4): section 28.4, option A2 as a diag build: why 27.2's "not safe"
   verdict was wrong (the evidence), what was built (A2=1, the run-time switch, the call-cost counters),
   tests and the unchanged normal build.
@@ -4083,3 +4085,34 @@ call inside the audio interrupt and what the extra passes do to audio and CPU GU
   (offsets 156173..156204; app/ sources are part of the id), and nowhere else.
 - The A2 build: app image 448868 bytes, +448 against the normal build, margin 70589 (FLASH-BUDGET
   19). `a2_block` and the wrapper are in the RAM code section with the audio code (0x1c031f8).
+
+### 28.5 The diag build tabby-v04.2-diagA2 (2026-11-10)
+
+**Build.** `make check`, `make lint` (3 target warnings, all from before Task 15), `make suite`
+(normal build) and `make suite A2=1 DISPLAY_VERSION=tabby-v04.2-diagA2` passed at f883476: crosscheck
+IDENTICAL on both tracks (sdk.elf, .fwsc, app-image.bin), test, midi-import-sim, host-sanitize.
+`make package TAG=tabby-v04.2-diagA2 DISPLAY_VERSION=tabby-v04.2-diagA2 A2=1`: build id
+49b872869fdda9f1218e8041639a1ab9dbd55271337127cdd1f06d46a67e0c3d (build number 49b872869fdda9f1,
+loader `ota-SMK3749b872869fdda9f1`), `.fwsc` SHA-256
+d10fd71d0f57ee122121fe8f31da0606aa060537545f7cd07422dbb37b0203c8 (487988 bytes), offline workbench
+SHA-256 30eb5c0b05efacfd19d077e6f198f4b85a5ec6a98a826255f5164d43384c7f07 (3144055 bytes). App image
+448868 bytes, margin 70589. The tree adds only docs after f883476, which the build id does not hash.
+
+**Where it is published:** only `builds/tabby-v04.2-diagA2/` (`make publish TAG=tabby-v04.2-diagA2
+DISPLAY_VERSION=tabby-v04.2-diagA2 A2=1 SITE_DIR=builds/tabby-v04.2-diagA2`), with its entry in
+builds/index.json so another build's page can name it for a stale loader. The main page stays
+tabby-v04.1. No GitHub release.
+
+**Install** (the user, from the MacBook; full text ~/Documents/Classic Tabby/INSTALL-tabby-v04.2-diagA2.txt):
+a normal update from tabby-v04.0 or tabby-v04.1 through the build's own page; check the boot screen
+(tabby-v04.2-diagA2) and the new last ACTIONS entry "A2 FAST MIDI: OFF"; then back to the NUC (USB
+back port, TRS out to H4MIDI WC DIN in 1, audio to the AUDIO4c). Never force flash.
+
+**Step 5, after the user says it is installed and on the NUC** (tools/linux/hw/run-15.py, the
+user present, PLAY pressed by the user):
+1. A2 off, then on: one line (song 16) and eight lines (song 15), DIN and USB together, the control
+   pass profile, CPU GUARD count, the call cost; the AUDIO4c recording during the eight-line runs.
+2. A one-hour soak with A2 on, with the user's panel use, one transfer and a save while stopped.
+3. Stop at once and report on any audio dropout, a rise in CPU GUARD trips, a stuck note or a USB
+   MIDI error with A2 on.
+4. F + G only if A2 measures over 4 ms.
