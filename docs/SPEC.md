@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.29
+Version: 0.30
 Revision log:
+- v0.30, 2026-11-10 (Task 15 Step 2): section 18: the timing research; 17.3's finding is superseded
+  (the rule stays until a diag build is measured).
 - v0.29, 2026-11-10 (Task 13 Step 4): 17.4, the control-name table (firmware name -> printed name or
   position), the start of the sticker map.
 - v0.28, 2026-11-10 (Task 13 Step 2): 17.3: option A is not built (the song tick runs in the audio
@@ -1220,3 +1222,14 @@ ids 6-17; firmware name = the FM1 button app/screen.c tests, through `button_map
 
 The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
 
+## 18. Task 15 — Timing research (2026-11-10; nothing built)
+
+- **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
+  otherwise.** The reading in BUILD.md 28.2: this SDK's kernel masks all interrupts in its critical
+  sections, defers the task switch to a soft interrupt, and its own interrupt handlers (the DIN
+  transmit interrupt among them) post to task queues with the same call. A pass request from the song
+  tick is therefore expected to be safe. No normal build calls it from the audio interrupt until the
+  user approves Step 4 and the diag build has been measured.
+- The app cannot create tasks or use OS signals (none exported). It can attach interrupts below 64,
+  and TIMER5 (IRQ 63) is free.
+- The SDK library is not modified (THIRD_PARTY.md grants copy, link and binary redistribution only).

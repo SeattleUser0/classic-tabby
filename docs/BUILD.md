@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.59
+Version: 0.60
 Revision log:
+- v0.60, 2026-11-10 (Task 15 Step 2): section 28.2, the options from the disassembly and JieLi's public
+  headers: the pass request from the audio interrupt is the SDK's own pattern (27.2's verdict revised),
+  no OS calls exported, UART1 and TIMER5 facts, the SDK may not be modified, the M-VAVE request draft.
 - v0.59, 2026-11-10 (Task 15 Step 1): section 28.1, the baseline: the SMK-37 is not on the NUC, so the
   Task 12 B1 numbers (tabby-v04.0) stand until tabby-v04.1 is installed and measured.
 - v0.58, 2026-11-10 (Task 13 Step 5): 9.1, tabby-v04.1 is the current release; 27.5 its publication and
@@ -3877,3 +3880,94 @@ the baseline is Task 12 B1 (26.9), **measured on tabby-v04.0**, before option B:
 
 tabby-v04.1 (option B) is **estimated** at 10 to 11 ms on one line with the 20 ms cases gone (27.1);
 not measured yet.
+
+### 28.2 Step 2: the options, read only
+
+Sources: the disassembly of the tabby-v04.1 build (build/pro/sdk.elf, build id 013976a5…, pi32v2
+objdump; addresses below are from that ELF), the symbol table of sdk/lib/libfm1_engine.a, sdk/include,
+app/board, THIRD_PARTY.md, and JieLi's public AC79 SDK at the commit THIRD_PARTY.md names (5fa84a9:
+WL82.h register map, hwi.h interrupt numbers, os_api.h, timer.h). Nothing here is measured; every
+timing figure in 28.2 and 28.3 is an estimate.
+
+**What the app can link against.** libfm1_engine.a has 224 global symbols; none is an OS call (no
+`os_*`, `task_create`, `thread_fork`, semaphore or timer function; all are local). The app does get:
+`fm1_control_request` (global, and in fm1.h: "Request deferred control work after queuing a message"),
+`fm1_device_irq_attach(index, handler, priority)` (accepts any index below 64, or 122, priority 0..7),
+the soft interrupt 122 (bit 2 of 0x1eef1a0, used by app/board/scan.c), and direct register access
+(app/board already drives ALNK, SPI2, ADC and TIMER4 itself).
+
+**A2 (new): the pass request from the audio interrupt, looked at again. Task 13's "not safe" does
+not hold up.** 27.2 judged the call by stock FreeRTOS rules. This SDK's kernel is JieLi's variant:
+- `__local_irq_disable` (0x1c07b08) is a global `cli` plus a per-CPU nesting count; `__local_irq_enable`
+  (0x1c07b20) does `sti` when the count is back to 0. There is no "highest priority that may call the
+  OS": every kernel critical section masks every interrupt, the audio interrupt included.
+- `vTaskSuspendAll` (0x202fa8c) is exactly `__local_irq_disable` plus `uxSchedulerSuspended++`; so
+  nothing can run between suspend and resume, and the name search in `xTaskGetHandle` is one masked
+  section, the same in a task or an interrupt.
+- `vPortYield` (0x202fa28) does not switch: it picks the next task and sets soft interrupt 7
+  (`0x1eef1a0 |= 0x80`); the switch happens in `vSoftwareInterruptISR` (priority 0) after every
+  hardware handler has returned. That is the deferred, interrupt-safe pattern.
+- **The SDK's own interrupt handlers use the same call.** `midi_tx_irq` (0x1c07ae2, IRQ 20, priority
+  1) -> `smk37_connectivity_platform_uart_transmit_ready` -> `connectivity_wl82_midi_signal` ->
+  `os_taskq_post_msg` -> `__os_taskq_post` (0x20305f0), after every DIN burst. `timer4_isr` (IRQ 62,
+  priority 5, above the audio interrupt's 4) and `slot_timer_irq_handler` (IRQ 41, priority 2) ->
+  `os_taskq_post_type` -> `__os_taskq_post`; `timer1_isr` and `sbc_isr` -> `os_sem_post`.
+- JieLi's os_api.h marks the waiting calls (`os_time_dly`, `os_sem_pend`, `os_sem_accept`, the mutex
+  calls) "not from an interrupt or a critical section" and puts no such note on `os_taskq_post`,
+  `__os_taskq_post` or `os_sem_post`.
+What stays true from 27.2: a request made while a pass runs is dropped (`control_pending`, 0x1c3d19c,
+is cleared only after the pass), and the flag is unguarded (worst case one extra, empty pass). The
+cure is in the app: the song tick asks again on every audio block while lane 0 is not empty, and the
+pass already flushes after every LCD band. The name search costs time inside the audio interrupt (it
+counts toward the render budget behind CPU GUARD), only on blocks that queue a note.
+Limit of A2: a task cannot run while the audio interrupt renders, and notes are found once per
+2.9 ms block; estimated one-line band 3 to 4.5 ms on DIN and USB.
+
+**E. Our own high-priority task: no (and not needed).** No task creation and no interrupt-safe
+signal is exported, so the app cannot make or wake a task of its own through the API. The wake E
+wanted exists as A2, on the control task (`app_core`, priority 15 in `task_info_table` 0x202a9cc;
+the Bluetooth tasks 16 to 21 and `sys_event` 29 are above it). `fm1_midi_send_port` (0x2024e90) is
+built for more than one caller (a lock and a per-port busy byte, -2 when busy), so a second sending
+task would work if we could create one. Any task, at any priority, waits for the audio interrupt.
+
+**D. DIN straight from an interrupt: possible, with a takeover.** The TRS out is UART1 (0x12100,
+JL_UART1; TX on gpio 39 = PC7 through output channel 17; BAUD from the clock / 125000, 31250 baud;
+`smk37_uart_start` 0x2024f90). The SDK sends by DMA: `request_uart_transmit` (0x200ffcc) packs up to
+126 bytes with running status into `uart_midi_tx_buf` and `smk37_uart_write` (0x2025006) sets TXADR
+(0x12114) and TXCNT (0x12118); the end-of-burst interrupt (IRQ 20, `midi_tx_irq`) acknowledges and
+signals the MIDI task, which sends the next burst and keeps a busy bit. Two writers on TXADR/TXCNT
+would cut each other's bursts, so D needs the app to be the only DIN writer: no
+`fm1_midi_send_port(FM1_MIDI_DIN)` at all (keys, clock and song all through the app's own ring), IRQ
+20 re-attached to an app handler (index 20 is allowed), our own running status. Not settled from the
+static image: whether the SDK's own routes (`connectivity_midi_routes`, 0x202c384; source counts are
+set at run time) ever queue to DIN without the app, for example update or SysEx replies; that would
+have to be read from the running device. DIN only; USB cannot be written from an interrupt.
+
+**F. A hardware timer interrupt: yes.** TIMER5 (0x10900, IRQ 63) is free: sdk.elf never touches it,
+fm1_device.h gives TIMER4/TIMER5 to the board code, and scan.c uses only TIMER4 (the 24 MHz counter
+at 0x10800). IRQ 63 can be attached. A 1 ms tick, or one shot per due note. By itself it changes
+nothing; it needs G for due times and A2 or D to send.
+
+**G. Look-ahead: yes, app code only.** The song tick already knows the next block's notes; it can
+queue them one block early with a due time on the 24 MHz counter. Useful only with F.
+
+**H. The 10 ms constant: found, dropped.** `app_task_handler` 0x201fc3a: `r2 = 10`, then
+`sys_timer_add(NULL, tick, 10)`; `tick` (0x201fdd6) calls `fm1_control_request`. THIRD_PARTY.md lets
+us download, copy, link and redistribute libfm1_engine.a in binary form; it grants no right to modify
+it and supplies no source. Patching the constant is not allowed. With A2 it is also not needed.
+
+**I. The request to M-VAVE** (draft, not sent):
+
+> Subject: SMK37 Open SDK: MIDI output timing from the sequencer
+>
+> Hello. We build open firmware for the SMK-37 Pro with your SDK (libfm1_engine.a). Notes scheduled
+> in the audio interrupt can only be sent from the control task, which runs every 10 ms, so MIDI
+> output has about 10 to 14 ms of jitter (measured on DIN and USB).
+> Could you tell us, or add, one of these:
+> 1. Is `fm1_control_request()` safe to call from the audio interrupt (`fm1_engine_render` context)?
+>    Your own UART interrupt posts to a task the same way, so we believe it is. If yes, please say so
+>    in fm1.h, and let a request made during a pass run one more pass instead of being dropped.
+> 2. Or a send call that is safe from an interrupt, or one that takes a time stamp
+>    (`fm1_midi_send_port_at(port, message, bytes, ticks)`).
+> 3. Or a setting for the control timer period (10 ms today).
+> Thank you.
