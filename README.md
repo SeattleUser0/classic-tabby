@@ -6,13 +6,13 @@ English · [简体中文](README.zh-CN.md)
 
 [Workbench and development kit](https://open.m-vave.com/smk37-workbench) · [Official forum](https://forum.m-vave.com)
 
-For M-VAVE SMK-37 Pro and SMK-37 Elite, with 37 keys, 16 pads, eight encoders and four faders. The SMK37 OPEN workbench provides firmware updates, browser playback and project, sample and DX7 voice management. Select **Source and SDK** for the development kit matching that release.
+For M-VAVE SMK-37 Pro and SMK-37 Elite, with 37 keys, 16 pads, eight encoders and four faders. The SMK37 OPEN workbench provides firmware updates, browser playback and project, song and DX7 voice management. Select **Source and SDK** for the development kit matching that release.
 
 ## V01 features
 
-- Eight tracks with DX7 FM, 303, 808, PSG, plucked string and sample engines; 16–64-step sequences (played from the project; the device's step editor was removed in tabby-v04.0), arpeggiators, effects and 16 project slots.
-- **DX7 library:** 128 presets in four groups of 32. Import/export standard single-voice or 32-voice DX7 SysEx; extension parameters are not handled. Saved user banks take priority. Library edits leave voices already stored in projects unchanged.
-- **Track modes:** SHIFT + HOME, K2 selects PROJECT, LIVE or OFF. LIVE retains sound and held notes across project changes; export its timbre separately, or save DX7 voices to the independent library. PROJECT and LIVE have separate solo groups.
+- Eight tracks with DX7 FM, 303, 808, PSG and plucked string engines (five; the sampler was removed); 16–64-step sequences (played from the project; the device's step editor was removed in tabby-v04.0), arpeggiators, effects and 16 project slots.
+- **DX7 voices:** 128 presets in four groups of 32 (A–D). The workbench imports a standard single-voice or 32-voice DX7 SysEx file into a track; extension parameters are not handled. The device has no user voice library.
+- **Track modes:** SHIFT + HOME, K2 selects PROJECT, LIVE or OFF. LIVE retains sound and held notes across project changes; export its timbre separately. PROJECT and LIVE have separate solo groups.
 - **Recording:** none on the device since tabby-v04.0 (Task 12 removed step and live recording, the count-in and the metronome; they return in a later phase). Songs are written in the web workbench or imported from MIDI files.
 - **Tempo:** 30–300 BPM. Tap with the workbench TAP button or HOME + SEQ on any page (Task 12: SEQ alone always opens SYNC / MIDI). Delay supports tempo sync or fixed times of about 30–2040 ms.
 
@@ -22,7 +22,7 @@ For M-VAVE SMK-37 Pro and SMK-37 Elite, with 37 keys, 16 pads, eight encoders an
 - **SHIFT + HOME / SRC** opens source selection: Pads 1–6 or K1 chooses, the 4th button in the left group (after SHIFT, FADER BANK, HOME) applies, HOME cancels. EDIT, ENV, LFO, FX and OCT follow the focused instrument. K1–K4 edit screen parameters; K6 changes pages; K7 selects the current page's preset or voice (KEY OUT on SYNC / MIDI).
 - **FADER BANK** assigns the faders to tracks 1–4 or 5–8. Move through the displayed target to take control after switching banks or loading a project. Pitch/modulation wheels and the pedal follow KEY; return the wheels to rest before powering on.
 - **Pad pressure** sends channel aftertouch on the original Pad note channel; the final release resets it to zero. DX7 responds with vibrato. Other engines and external instruments determine their own response. Browser Pads support upward dragging or a pressure-sensitive pen.
-- **Sampler:** slots 1–8 follow the first eight white keys (C, D, E, F, G, A, B, C), unaffected by OCT. Pads and external MIDI keep their drum mapping. On Sampler/808 ENV and tone-edit pages, playing a mapped note selects its part for editing.
+- **The 4th button in the left group (after SHIFT, FADER BANK, HOME)** opens the project save page and confirms on-screen actions; HOME + that button undoes the last change. Knobs are K1 to K8 from the left (the firmware calls K5 SELECT, K6 PAGE, K7 PRESETS and K8 MASTER).
 
 See the workbench **Help** tab for page controls. Browser and device storage are separate; write browser edits to the device explicitly.
 
@@ -41,15 +41,15 @@ In Bluetooth **DEVICE** mode, use `SMK37 Pro Open_BLE` or `SMK37 Elite Open_BLE`
 
 ## Updates and recovery
 
-Choose the workbench matching the physical Pro or Elite. Use desktop Chrome/Edge with USB and MIDI/SysEx permission. Back up projects, voices and samples, then follow **Device update**. Migration from production firmware uses force mode; a loader connection requires physical-model confirmation. Keep power and USB connected until firmware and sample checks finish.
+Choose the workbench matching the physical Pro or Elite. Use desktop Chrome/Edge with USB and MIDI/SysEx permission. Back up projects, songs and voices (a **Full backup**), then follow **Device update**. Updating from one Classic Tabby build to another never needs force flash. Only a first migration from production firmware uses the **Force flash** checkbox, which you tick by hand; a loader connection requires physical-model confirmation. Keep power and USB connected until the update and the version check finish.
 
-Classic Tabby keeps a permanent page for every published build at `https://seattleuser0.github.io/classic-tabby/builds/<tag>/` (the list is at [builds/](https://seattleuser0.github.io/classic-tabby/builds/)). If an install is interrupted, the device's update loader keeps the name of the build it was receiving and accepts only that build; the workbench then says which build that is and links to its page. Finish the install from that page (close the other tab and power-cycle the device first if it does not answer). Since tabby-v04.0 the storage layout moved: make a **Full backup** before installing it over v03.x, and read the release notes.
+Classic Tabby keeps a permanent page for every published build at `https://seattleuser0.github.io/classic-tabby/builds/<tag>/` (the list is at [builds/](https://seattleuser0.github.io/classic-tabby/builds/)). If an install is interrupted, the device's update loader keeps the name of the build it was receiving and accepts only that build; the workbench then says which build that is and links to its page. Finish the install from that page (close the other tab and power-cycle the device first if it does not answer). Never force flash. Since tabby-v04.0 the storage layout moved: make a **Full backup** before installing it over v03.x, and read the release notes.
 
-If Sampler shows EMPTY, use **Check / initialize samples** without flashing again. Uninitialized storage receives the built-in bank; valid banks, including empty slots, are preserved. For an invalid bank, restore a `.fm1s` backup or explicitly write the built-in bank in **Projects & sounds → 8-slot sample bank**. Writing a bank replaces the current samples.
+If the device shows OLD DATA IN SONG STORAGE after an install, hold SEQ, choose ERASE OLD DATA in ACTIONS and confirm with the 4th button in the left group; projects, tunings and settings are not touched. The Help chapter **What changed in tabby-v04** lists the storage move, the removed step editor, SYNC / MIDI, STOP TO SAVE, the timing counters and the recovery pages.
 
 **Restore factory V16** uses the unmodified, matching V016 package from [M-VAVE Downloads](https://www.m-vave.com/download), dated 2026-08-12. Back up Open data first; power-cycle after resource verification succeeds. **Switch to Open firmware** returns to the Open update flow. Pro and Elite firmware are model-specific; the loader name alone does not identify the model.
 
-Firmware switching does not make data formats interchangeable. Export voice groups A–D and samples separately; projects do not contain sample audio. Eight slots share about 19.55 seconds of new sample storage. Larger legacy banks remain readable but may need trimming before writing the independent library. Keep backups for rollback; compatibility with every third-party firmware is not established.
+Firmware switching does not make data formats interchangeable. Export projects, songs and voices separately; a project does not contain songs. Keep backups for rollback; compatibility with every third-party firmware is not established.
 
 ## Build
 

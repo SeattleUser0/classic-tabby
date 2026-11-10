@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. */
 /* SMK37 OPEN browser updater.
  * Fixed device protocol: 00 59, 7-bit SysEx packing, USB MIDI only.
  * Classic Tabby Task 11 (2026-11-07): the project library accepts any song region size of the
@@ -615,7 +616,7 @@
       try {
         check(!this.force || force,'强制烧录尚未确认');
         check(this.mode,'请重新连接设备');
-        check(this.mode!=='migration','设备已识别；请开启强制烧录并重新连接');
+        check(this.mode!=='migration','设备已识别；如需迁移，请在“迁移、原厂恢复与强制更新”中手动勾选“强制烧录”，再重新连接。');
         check(this.mode!=='loader' || confirmedModel===this.pkg.model,
           '升级模式无法自动识别机型，请先核对机身型号');
         const original=this.identity;
@@ -896,7 +897,7 @@
             const r=await link.read(Math.min(200,until-Date.now()));check(!link.lost,'USB 已断开，当前操作未完成');
             if(!r||r.command!==(command|64)||r.token!==token)continue;
             check(r.data.length>0,'设备回复不完整');const code=r.data[0];
-            if(code!==0&&!(emptyOK&&code===1))throw Object.assign(Error(code===1?'该项目槽为空':code===73?'旧采样库占用了扩展存储空间，请先备份并缩小采样库':code===72?'内存不足，当前项目保持不变':code===71?'文件或参数无效，当前项目保持不变':code===74?'歌曲存储已满，请在设备 ACTIONS 中压缩歌曲存储或删除歌曲':code===76?'设备正在播放，未写入任何内容。请先停止播放，再重试。':'设备操作失败：'+code),{deviceCode:code});
+            if(code!==0&&!(emptyOK&&code===1))throw Object.assign(Error(code===1?'该项目槽为空':code===72?'内存不足，当前项目保持不变':code===71?'文件或参数无效，当前项目保持不变':code===74?'歌曲存储已满，请在设备 ACTIONS 中压缩歌曲存储或删除歌曲':code===76?'设备正在播放，未写入任何内容。请先停止播放，再重试。':'设备操作失败：'+code),{deviceCode:code});
             return r.data.slice(1);
           }
         }
@@ -1003,35 +1004,7 @@
         '保存后的读回校验不一致，请重新连接并检查设备项目槽');
       return saved;
     }
-    async samplesRead(progress=()=>{},signal) {
-      const active=()=>check(!signal?.aborted,'采样读取已取消');active();
-      const info=await this.query(11);active();check(info.length===9&&info[0]===2,'设备采样库尚未就绪，可用内置库恢复');
-      const size=le(info,1,4);check(size>=512&&size<=466944,'采样库长度无效');
-      const data=new Uint8Array(size);
-      for(let at=0;at<size;at+=64){
-        active();const n=Math.min(64,size-at),p=await this.query(15,[at&255,(at>>>8)&255,(at>>>16)&255,at>>>24,n]);
-        active();check(p.length===n,'采样片段不完整');data.set(p,at);progress((at+n)/size);
-      }
-      return data;
-    }
-    async samplesWrite(data,progress=()=>{},signal) {
-      check(data instanceof Uint8Array&&data.length>=512&&data.length<=(this.sampleCapacity||462848),'采样库长度无效');
-      // Validate before erasing the device; every caller uses the same bank format.
-      globalThis.FM1Samples.read(data);
-      const info=await this.query(11);globalThis.FM1Samples.status(info);
-      check(info[0]!==1&&info[0]!==3,'设备采样库忙，请稍后重试');
-      const n=data.length;check(!signal?.aborted,'已取消');
-      try {
-        await this.query(12,[n&255,(n>>>8)&255,(n>>>16)&255,n>>>24]);
-        for(let at=0;at<n;at+=128){check(!signal?.aborted,'已取消；请重新写入完整采样库恢复');const part=data.slice(at,at+128);await this.query(13,[at&255,(at>>>8)&255,(at>>>16)&255,at>>>24,...part]);progress((at+part.length)/n*0.6);}
-        await this.query(14);
-      } finally {if(this.link&&!this.link.lost)await this.query(16).catch(()=>{});}
-      let saved;
-      try{saved=await this.samplesRead(value=>progress(0.6+value*0.39),signal);}
-      catch(error){if(signal?.aborted)fail('采样读回已取消，尚未确认写入结果');throw error;}
-      check(saved.length===n&&saved.every((value,i)=>value===data[i]),'设备采样读回不一致，写入未确认成功；请重试');
-      progress(1);
-    }
+    /* Task 14: samplesRead / samplesWrite (the 8-slot sample bank) are gone: the firmware has no sample bank and nothing called them. */
     async readBank(index){
       check(this.programs===128&&Number.isInteger(index)&&index>=0&&index<4,'请先更新固件以使用 128 音色库');
       const raw=await this.download(4,index);bankFile(raw);return raw;

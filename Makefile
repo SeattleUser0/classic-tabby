@@ -76,9 +76,11 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.21
+# Version: 0.22
 #
 # Revision log
+#   v0.22 2026-11-10  Task 14: workbench-test runs tests/workbench/help-banned.mjs (no Help, panel or
+#                     tooltip string names a removed page, mode, action or flow, in both languages).
 #   v0.21 2026-11-09  workbench-test runs tests/workbench/update-safety.mjs (no force flash after a timeout; the
 #                     zero-tag loader resumes; sdk/WebUpdate.js, BUILD.md 26.8).
 #   v0.20 2026-11-09  workbench-test runs tests/workbench/recover-page.mjs (the tabby-v04.0 recovery page:
@@ -333,6 +335,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/transfer-radio.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/rig-lead.mjs
 	$(T) $(NODE) tests/workbench/manual-i18n.mjs
+	$(T) $(NODE) tests/workbench/help-banned.mjs
 	$(T) $(NODE) tests/workbench/rig-profile.mjs
 	$(T) $(NODE) tests/workbench/midi-guide.mjs
 	$(T) $(NODE) tests/workbench/update-ports.mjs
