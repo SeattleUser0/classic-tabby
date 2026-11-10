@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.61
+Version: 0.62
 Revision log:
+- v0.62, 2026-11-10 (tabby-v04.1.1): section 29, the testing guide and the Help/text-only release.
 - v0.61, 2026-11-10 (Task 14, English only): 28.5, the conversion and what a future upstream merge needs.
 - v0.60, 2026-11-10 (Task 14, second pass): 28.4 settled: the restore sectors, the TRS jack, the demo samples.
 - v0.59, 2026-11-10 (Task 14): section 28, the Help audit against tabby-v04.1 (counts, the banned-phrase
@@ -3956,3 +3957,32 @@ files (tools/linux/pin-sdk-files.py). Upstream's license and notice files are ta
 
 Size of the built local preview (build/preview/index.html, `make web`): 1492495 bytes before, 1365411 after
 (127084 bytes, 8.5 percent smaller). The release page carries the same saving on top of its firmware.
+
+## 29. tabby-v04.1.1: the testing guide and the Help release (2026-11-10)
+
+### 29.1 What it is
+Text only: the same firmware as tabby-v04.1 plus the English-only workbench (SPEC 17.7), the corrected Help and
+docs/TESTING-GUIDE.md. Built from classic-tabby/linux-build at the commit the tag tabby-v04.1.1 names, with
+`DISPLAY_VERSION=tabby-v04.1` forced (the gate pattern of 9.3d/e), so the app image is the tabby-v04.1 image.
+
+### 29.2 The gate
+- `git diff tabby-v04.1 HEAD -- app` is empty.
+- `cmp -l` of the new SMK37_PRO_OPEN.fwsc against the tabby-v04.1 release asset: 46 bytes differ, offsets 173888..173919
+  (the 32-byte build identity) and 0-3, 69-70, 17428-17431, 17460-17463 (package checksums). Size equal (487988).
+- App image 448420 bytes (same as v04.1), margin 71037; build identity 1249d59746334fcf (v04.1: 013976a54777bb5f; the
+  manifest pins the new sdk files, which is why the identity moves).
+- `make suite DISPLAY_VERSION=tabby-v04.1` green at 0e67c3e; `make crosscheck` IDENTICAL (sdk.elf cd6cc4ed..., fwsc
+  25077dd8..., app-image 1b87aeda...).
+
+### 29.3 What the guide check found (simulator, current source)
+Every device step of the guide was driven on build/web/simulator.wasm through the SMK-37 control events (the
+harness reads the 240x240 LCD). Two documentation errors came out and were fixed in the text: holding SEQ does not open
+ACTIONS (screen.c: the long-press needs the removed STEPS page; SPEC 17.8; the firmware line HOLD SEQ: ACTIONS is in
+28.3), and SHIFT + HOME means SHIFT + HOME / SRC. Steps that cannot run in the simulator (USB, flashing, outside gear,
+the workbench against a device, a few messages) carry the marker in the guide (33 of them).
+
+### 29.4 Publishing
+The site gets guide/index.html from tools/linux/guide-html.py (publish-pages.py v0.5), at the root and in
+builds/<tag>/. gh-pages was fetched from origin first (it already held builds/tabby-v04.2-diagA2/, 686e4cc); the root
+publish keeps builds/ and recover/. The timing session's clean build/gh-pages worktree had to be removed so this
+checkout could use the branch; it recreates it at its next publish.

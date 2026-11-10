@@ -1064,3 +1064,7 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | Groove sequencer (groove_*) in SDK | 18488 | 130 |
 
 Package layout: FLASH_BIN_SIZE 471040, VM 471040..503808 (32768 bytes, minimum 32768), BTIF 503808..507904, USER 507904..1044480 (536576 bytes).
+
+### 18.x tabby-v04.1.1 (2026-11-10)
+
+No change: the app image is the tabby-v04.1 image (448420 bytes, margin 71037); only the 32-byte build identity differs (BUILD 29.2).
