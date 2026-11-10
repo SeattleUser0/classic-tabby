@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.56
+Version: 0.57
 Revision log:
+- v0.57, 2026-11-10 (Task 13 Step 5): 27.5, the tabby-v04.1 release build and its install steps.
 - v0.56, 2026-11-10 (Task 13 Step 4): 27.4, the panel wording (knobs by number, the firmware's SAVE
   button by position), SPEC 17.4's table, docs/releases/INSTALL.template.txt.
 - v0.55, 2026-11-10 (Task 13 Step 3): 27.3, DIN running status and the recommended live wiring.
@@ -3790,4 +3791,34 @@ Changed:
 
 Not changed: docs of old releases and INSTALL-tabby-v04.0.txt (records of what was published).
 make check, lint (unchanged counts) and test-fast pass.
+
+### 27.5 Step 5: the tabby-v04.1 release
+
+**Release build.** `make check`, `make lint` (unchanged: 11 host and 3 target warnings, all from
+before Task 13), `make suite DISPLAY_VERSION=tabby-v04.1` passed at 0a4cf87 (crosscheck identical on
+both tracks, test, midi-import-sim, host-sanitize), and `make crosscheck DISPLAY_VERSION=tabby-v04.1`
+on its own: IDENTICAL sdk.elf, .fwsc, app-image.bin. `make package TAG=tabby-v04.1
+DISPLAY_VERSION=tabby-v04.1`: build id
+013976a54777bb5fa25ae42738aac840e2016584245a663296f7aee396a03d27 (build number 013976a54777bb5f,
+loader `ota-SMK37013976a54777bb5f`), `.fwsc` SHA-256
+f6377d634ee3c69f35e182935fa1b4769a69afec364e3b041eedd5a9266fe1c9 (487988 bytes), offline workbench
+SHA-256 b74e5b4b93189b35062323808b34add5876baf598fe3ba44f545d977c3705794 (3142557 bytes). App image
+448420 bytes, **margin 71037** (FLASH-BUDGET 18). The tree only adds docs after 0a4cf87 (release
+notes, the guide's version line), which the build id does not hash.
+
+Contents: option B (27.1), the panel wording (27.4), the update-page fixes of 26.8 (zero-tag resume,
+no automatic force flash, NO_REPLY after 4 tries), the MIDI guide's section 14. Option A is not in it
+(27.2).
+
+**Install steps for the user** (MacBook, Chrome; full text ~/Documents/Classic Tabby/INSTALL-tabby-v04.1.txt):
+1. A normal update from tabby-v04.0: no storage move, no backup or restore needed.
+2. Main page (or builds/tabby-v04.1/): Device update shows tabby-v04.1, build number
+   013976a54777bb5f. Connect device (`SMK-37 Pro_8000001`); a device that does not answer: power-cycle
+   and connect again, never force flash. Start update, keep the tab open.
+3. Check: boot screen tabby-v04.1; ACTIONS reads USER 471040 SONG READY and its bottom line
+   K1/K5 ACTION  4TH LEFT BTN DOES IT.
+4. If it stalls: close the tab, power-cycle (USB stays), open the page the loader asks for (main page
+   or builds/tabby-v04.1/; another build's page names the right one), Connect, Start update, confirm
+   SMK-37 Pro. Never force flash. A normal boot after the power-cycle: tabby-v04.1 -> step 3,
+   tabby-v04.0 -> step 2. No USB device: stop and report.
 
