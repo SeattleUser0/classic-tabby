@@ -50,9 +50,11 @@
  *   radio switches, the MIDI configuration) and the session settings in the tuning sector (track
  *   roles, input channels, panel preferences). docs/BACKUP-FORMAT.md describes it.
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-10  Task 15 Step 4: option A2 (ct_a2_*: the pass request from the audio
+ *                     interrupt, CT_A2 builds only) and command 25 requests 7, 8 and 9.
  *   v0.4  2026-11-10  Task 13 Step 1: the pass budget (ct_pass_*: option B, no pass over the
  *                     10 ms tick) and profile page 6 (busy time, lost ticks, deferrals).
  *   v0.3  2026-11-08  Task 12 A4: every build; the loop profile (command 25 pages 4 and 5).
@@ -134,6 +136,21 @@ uint32_t ct_pass_elapsed(void);          /* ticks since this pass began */
 int ct_pass_over(uint32_t more);         /* 1 if elapsed + more would pass the budget */
 void ct_pass_defer(unsigned kind);       /* count one deferral (profile page 6) */
 void ct_pass_busy_end(void);             /* the pass's last app hook ended: its busy time */
+/* ---- Task 15 Step 4 (option A2): the control pass on demand, CT_A2 builds only ----------------
+ * tools/linux/build.py --a2 (Makefile A2=1) defines CT_A2; the host tests always build it. The
+ * normal build has none of this code. A2 is OFF at boot and lives in RAM only: one install
+ * measures option B alone (off) and B + A2 (on). The code and its rules are in app/midi_router.c.
+ * Command 25: request 7 reads the A2 page (48 bytes, ct_a2_read), 8 switches A2 off and 9 on
+ * (both answer with the page); request 1 (reset everything) also clears the A2 counters. */
+#if defined(FM1_HOST_TEST) && !defined(CT_A2)
+#define CT_A2 1
+#endif
+#ifdef CT_A2
+void ct_a2_set(unsigned on);             /* control task: switch A2 */
+unsigned ct_a2_get(void);
+void ct_a2_reset(void);                  /* clear the counters at the next audio block */
+int ct_a2_read(uint8_t *out);            /* the A2 page, 48 bytes */
+#endif
 #ifdef FM1_HOST_TEST
 /* Host tests only: extra ticks added to the diag clock, so a test can make a band paint or a
  * request "take" a given time (web/engine/Simulator.c sim_test_*). */

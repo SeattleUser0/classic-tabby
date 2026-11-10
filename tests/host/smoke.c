@@ -44,9 +44,14 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.11
+ * Version: 0.12
  *
  * Revision log
+ *   v0.12 2026-11-10  Task 15 Step 4: section 16, option A2 (the control pass on demand): off at
+ *                     boot and then no request at all; on: one request per audio block with an
+ *                     event waiting and the note leaves in that block; a request that gets no
+ *                     pass is repeated once per block (retries counted), never more; no request
+ *                     with empty lanes; the counters, their reset, and the ACTIONS switch.
  *   v0.11 2026-11-10  Task 13 Step 1: section 15, the pass budget (option B): screen slices give
  *                     the same picture as one unbudgeted paint, no pass runs past the budget plus
  *                     one band, the starvation guard repaints a pass that is always late, MIDI
@@ -101,6 +106,13 @@ void sim_test_costs(uint32_t band, uint32_t pass);
 const char *sim_test_log(void);
 void sim_test_log_reset(void);
 void sim_test_inject(int band);
+/* Task 15 Step 4: option A2 (app/midi_router.c, app/diag.c) and its simulator hooks. */
+void sim_test_request_passes(unsigned on);
+extern uint32_t sim_test_control_requests;
+int ct_diag_read(unsigned request, uint8_t out[64]);
+unsigned ct_a2_get(void);
+void sim_control(unsigned kind, unsigned index, int value);
+void sim_release(void);
 const uint16_t *sim_pixels(void);
 int sim_midi_from(unsigned source, unsigned bytes);
 int ct_prof_read(unsigned page, uint8_t out[64]);
@@ -1254,6 +1266,83 @@ int main(void)
         sim_test_costs(0, 0);
         #undef U32
         #undef PIXHASH
+    }
+
+    /* ---- 16. Task 15 Step 4: option A2, the control pass on demand ----------------------- */
+    {
+        #define U32(p, i) ((uint32_t)(p)[(i) * 4] | (uint32_t)(p)[(i) * 4 + 1] << 8 | (uint32_t)(p)[(i) * 4 + 2] << 16 | (uint32_t)(p)[(i) * 4 + 3] << 24)
+        /* A2 page (request 7): 0 on, 1 blocks, 2 calls, 3 mean, 4 longest, 5 retries, 6..11 bins. */
+        uint8_t a2[64]; struct message m[64]; unsigned n, ports;
+        /* Render until a block ends with a 10 ms pass, so the next two blocks have none. */
+        #define AFTER_PASS() do { sim_test_log_reset(); while (!strchr(sim_test_log(), 'P')) (void)sim_render(); } while (0)
+        sim_boot(1); sim_midi_capture(1); sim_test_request_passes(0); sim_test_costs(0, 0);
+        settle(); (void)drain(m, 64);
+        CHECK(ct_diag_read(7, a2) == 48 && U32(a2, 0) == 0 && !ct_a2_get(), "A2: off at boot (page %u bytes)", 48U);
+        /* Off: a waiting note asks for nothing and leaves with the 10 ms pass, as in the normal build. */
+        (void)ct_diag_read(1, a2); AFTER_PASS(); (void)drain(m, 64);
+        uint32_t asked = sim_test_control_requests;
+        groove_midi_song_note(0, 61, 100);
+        (void)sim_render(); (void)sim_render();
+        n = drain(m, 64); (void)ct_diag_read(7, a2);
+        CHECK(U32(a2, 2) == 0 && sim_test_control_requests == asked && !count(m, n, 0x90, 61, 100, &ports),
+              "A2 off: no pass request from the audio block, the note waits (%u calls)", U32(a2, 2));
+        settle(); n = drain(m, 64);
+        CHECK(count(m, n, 0x90, 61, 100, &ports) >= 1, "A2 off: the note leaves with the 10 ms pass");
+        groove_midi_song_note(0, 61, 0); settle(); (void)drain(m, 64);
+        /* On, and the request gets its pass (the device): the note leaves in the block that queued it. */
+        CHECK(ct_diag_read(9, a2) == 48 && U32(a2, 0) == 1 && ct_a2_get(), "A2: request 9 switches it on");
+        sim_test_request_passes(1);
+        /* (The MIDI clock's F8 travels in lane 0 too and asks for its own passes, so the checks
+         * here count from the state just before the note.) */
+        AFTER_PASS(); (void)drain(m, 64); (void)ct_diag_read(7, a2);
+        asked = sim_test_control_requests; uint32_t calls0 = U32(a2, 2);
+        groove_midi_song_note(0, 62, 100);
+        (void)sim_render();
+        n = drain(m, 64); (void)ct_diag_read(7, a2);
+        /* (the simulator's own 10 ms tick may add one request of its own in this block) */
+        CHECK(U32(a2, 2) == calls0 + 1 && sim_test_control_requests - asked >= 1 && sim_test_control_requests - asked <= 2 && U32(a2, 5) == 0 && count(m, n, 0x90, 62, 100, &ports) >= 1,
+              "A2 on: one request, and the note leaves in the same block (%u call, %u retries)", U32(a2, 2) - calls0, U32(a2, 5));
+        CHECK(U32(a2, 2) <= U32(a2, 1), "A2 on: never more calls than blocks (%u / %u)", U32(a2, 2), U32(a2, 1));
+        groove_midi_song_note(0, 62, 0); settle(); (void)drain(m, 64);
+        /* On, and the request is dropped (a pass already waits or runs): asked again once per
+         * block, never more than once, until the lane is empty. */
+        sim_test_request_passes(0);
+        AFTER_PASS(); (void)drain(m, 64); (void)ct_diag_read(7, a2);
+        asked = sim_test_control_requests; calls0 = U32(a2, 2); uint32_t retries0 = U32(a2, 5);
+        groove_midi_song_note(0, 63, 100);
+        (void)sim_render(); (void)ct_diag_read(7, a2);
+        uint32_t first_calls = U32(a2, 2) - calls0;
+        (void)sim_render(); (void)ct_diag_read(7, a2);
+        CHECK(first_calls == 1 && U32(a2, 2) == calls0 + 2 && U32(a2, 5) == retries0 + 1 && sim_test_control_requests == asked + 2,
+              "A2 on, request dropped: one retry per block (%u then %u calls, %u retry)", first_calls, U32(a2, 2) - calls0, U32(a2, 5) - retries0);
+        CHECK(U32(a2, 6) + U32(a2, 7) + U32(a2, 8) + U32(a2, 9) + U32(a2, 10) + U32(a2, 11) == U32(a2, 2) && U32(a2, 4) >= U32(a2, 3),
+              "A2: the cost histogram holds every call (longest %u, mean %u ticks)", U32(a2, 4), U32(a2, 3));
+        settle(); n = drain(m, 64); (void)ct_diag_read(7, a2);
+        uint32_t calls_done = U32(a2, 2), blocks_done = U32(a2, 1);
+        CHECK(count(m, n, 0x90, 63, 100, &ports) >= 1 && calls_done <= blocks_done, "A2: the note left with the next pass; never more calls than blocks (%u / %u)", calls_done, blocks_done);
+        /* Idle (no note, the clock's F8 aside): far fewer requests than blocks. At 120 BPM the
+         * clock sends 48 F8 per second, one block in seven. */
+        for (unsigned i = 0; i < 344; ++i) (void)sim_render();
+        (void)ct_diag_read(7, a2);
+        CHECK(U32(a2, 2) - calls_done < 344 / 4, "A2 on: idle blocks ask only for the clock (%u calls in 344 blocks)", U32(a2, 2) - calls_done);
+        groove_midi_song_note(0, 63, 0); settle(); (void)drain(m, 64);
+        /* Reset clears the counters at the next block and keeps the switch; request 8 is off. */
+        (void)ct_diag_read(1, a2); (void)sim_render(); (void)ct_diag_read(7, a2);
+        CHECK(U32(a2, 2) == 0 && U32(a2, 4) == 0 && U32(a2, 1) >= 1 && U32(a2, 1) < 4 && U32(a2, 0) == 1, "A2: the reset clears the counters, not the switch");
+        CHECK(ct_diag_read(8, a2) == 48 && U32(a2, 0) == 0, "A2: request 8 switches it off");
+        groove_midi_song_note(0, 64, 100); (void)sim_render(); (void)ct_diag_read(7, a2);
+        CHECK(U32(a2, 2) == 0, "A2 off again: no request");
+        groove_midi_song_note(0, 64, 0); settle(); (void)drain(m, 64);
+        /* The ACTIONS entry (page 12): K1 to the last entry, the SAVE button switches A2. */
+        (void)sim_open(12);
+        sim_control(2, 0, 20); sim_release();
+        sim_control(0, 9, 1); sim_release();
+        unsigned panel_on = ct_a2_get();
+        sim_control(0, 9, 1); sim_release();
+        CHECK(panel_on == 1 && ct_a2_get() == 0, "A2: the ACTIONS entry switches it on and off (%u, %u)", panel_on, ct_a2_get());
+        sim_test_request_passes(0); (void)sim_open(0);
+        #undef AFTER_PASS
+        #undef U32
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

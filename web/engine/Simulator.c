@@ -2,6 +2,10 @@
 /* Browser platform adapter: in-memory display, storage and MIDI input.
  *
  * Classic Tabby revision log (the upstream file had no header)
+ *   v0.2  2026-11-10  Task 15 Step 4: fm1_control_request counts its calls
+ *                     (sim_test_control_requests), for the A2 host tests; sim_test_request_passes(1)
+ *                     makes sim_render run a control pass after a block that asked for one, as
+ *                     the SDK does on the device (off by default: passes every 10 ms only).
  *   v0.1  2026-11-10  Task 13 Step 1: test hooks for the pass budget (host tests and the wasm
  *                     simulator): sim_test_costs (ticks one LCD band submit and one pass "take",
  *                     added to the diag clock app/diag.c ct_test_ticks_extra), and an event log
@@ -58,7 +62,9 @@ void fm1_engine_stats_read(struct fm1_engine_stats *stats)
     memset(stats, 0, sizeof *stats);
     stats->submitted = stats->completed = (uint32_t)(frames / FM1_BLOCK_FRAMES);
 }
-void fm1_control_request(void) {}
+uint32_t sim_test_control_requests;   /* v0.2: the A2 host tests read and clear it */
+void fm1_control_request(void) { ++sim_test_control_requests; }
+static unsigned test_request_passes;  /* v0.2: see sim_test_request_passes */
 void fm1_audio_stats_read(struct fm1_audio_stats *stats)
 {
     if (!stats) return;
@@ -523,7 +529,10 @@ EXPORT("sim_render") const float *sim_render(void)
     while (midi_read != midi_write) {
         send(midi[midi_read].data, midi[midi_read].count); midi_read = (midi_read + 1) % MIDI_QUEUE;
     }
+    uint32_t asked = sim_test_control_requests;
     (void)fm1_engine_render(previous, FM1_BLOCK_FRAMES);
+    /* v0.2: a pass request made by the audio block (option A2) gets its pass, when the test asks. */
+    if (test_request_passes && sim_test_control_requests != asked) fm1_web_control();
     if (midi_drain_every_block) groove_midi_poll();   /* Task 05 test switch */
     fm1_output_mix(previous);
     frames += FM1_BLOCK_FRAMES; uint32_t next = (uint32_t)(frames * 1000U / 44100U);
@@ -606,6 +615,7 @@ EXPORT("sim_test_inject") void sim_test_inject(int band) { test_inject_band = ba
 EXPORT("sim_test_log") const char *sim_test_log(void) { return test_log; }
 EXPORT("sim_test_log_reset") void sim_test_log_reset(void) { test_log_at = 0; test_log[0] = 0; }
 /* One control pass, as the SDK's 10 ms tick would run it, without rendering audio. */
+EXPORT("sim_test_request_passes") void sim_test_request_passes(unsigned on) { test_request_passes = on; }
 EXPORT("sim_test_pass") void sim_test_pass(void) { fm1_web_control(); }
 uint32_t sim_test_pass_ticks(void) { return test_pass_ticks; }
 void sim_test_pass_event(void) { test_event('P'); }

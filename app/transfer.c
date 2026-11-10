@@ -4,6 +4,8 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.5  2026-11-10  Task 15 Step 4: CT_A2 builds accept command 25 requests 7, 8 and 9 (the A2
+ *                     page, A2 off, A2 on; app/diag.h). The normal build still stops at 6.
  *   v0.4  2026-11-10  Task 13 Step 1 (option B): a new request (not a cached retry, not MMC) waits
  *                     for a later pass while this pass is over its budget (app/diag.h), at most
  *                     CT_PASS_DEFER_MAX passes in a row; command 25 accepts request 6 (page 6).
@@ -203,7 +205,12 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
     }
 #endif   /* CT_DIAG: command 26 only (Task 12 A4) */
     /* Task 12 A4: the counters are in every build; request 4 and 5 are the loop profile. */
-    if (cmd == 25 && n <= 1 && (!n || data[0] <= 6)) {   /* Task 11B: 3 = the screen page; Task 13: 6 */
+#ifdef CT_A2
+    enum { DIAG_REQUEST_MAX = 9 };   /* Task 15 Step 4: 7 = the A2 page, 8 / 9 = A2 off / on (app/diag.h) */
+#else
+    enum { DIAG_REQUEST_MAX = 6 };
+#endif
+    if (cmd == 25 && n <= 1 && (!n || data[0] <= DIAG_REQUEST_MAX)) {   /* Task 11B: 3 = the screen page; Task 13: 6 */
         /* Task 11: the timing counters (every build since Task 12 A4); data byte 1 resets them
          * first, 2 asks for the scan page, 3 the screen, 4 and 5 the loop profile, 6 (Task 13) the
          * pass budget page (app/diag.c). */

@@ -43,9 +43,14 @@ Usage (from the repository root)
         python3 tools/linux/build.py --model pro --package --toolchain-kind native --toolchain ...
     python3 tools/linux/build.py --model pro --check-only --toolchain-kind native --toolchain ...   (make check, v0.6)
 
-Version: 0.9
+Version: 0.10
 
 Revision log
+    v0.10 2026-11-10  Task 15 Step 4: --a2 (Makefile A2=1): -DCT_A2=1, option A2 (the control pass on
+                      demand, app/midi_router.c) for the diag build tabby-v04.2-diagA2. Off by
+                      default; when on it joins the build identity ("a2:1") and build-identity.json
+                      and the package JSON say "a2": true. Not passed to build-web.py (the simulator
+                      has no A2). The normal build's command lines and outputs are unchanged.
     v0.9  2026-11-08  Task 12 A1: the default --user-bytes is 471040 (the storage move is the normal
                       layout from tabby-v04.0). -DCT_USER_BYTES and the identity input are added
                       only when the size is not 471040, as before only when it was not 536576;
@@ -846,6 +851,8 @@ def build_firmware(args, log):
         flags.append("-DCT_USER_BYTES=%d" % variant["user_bytes"])
     if args.diag:
         flags.append("-DCT_DIAG=1")
+    if args.a2:                                       # v0.10: option A2, diag builds only
+        flags.append("-DCT_A2=1")
     for d in include:
         flags.append("-I" + str(ROOT / d))
     objects = []
@@ -902,6 +909,8 @@ def build_firmware(args, log):
         identity_inputs.append("user_bytes:%d" % variant["user_bytes"])
     if args.diag:                                     # v0.8: so is the diagnostic build
         identity_inputs.append("diag:1")
+    if args.a2:                                       # v0.10
+        identity_inputs.append("a2:1")
     build_identity = sha256_text("\n".join(identity_inputs))
     id_bytes = ["0x" + build_identity[i:i + 2] for i in range(0, 64, 2)]
     if variant["update_family"] not in (8, 9) or variant["user_bytes"] < 4096 or variant["user_bytes"] % 4096:
@@ -916,7 +925,7 @@ def build_firmware(args, log):
     write_text(build / "build-identity.json", to_json({"profile": profile, "family": variant_name,
                                                         "release_version": release_version, "display_version": display,
                                                         "build_id": build_identity, "identity_sort": args.identity_sort,
-                                                        "user_bytes": variant["user_bytes"], "diag": bool(args.diag)}))   # v0.8
+                                                        "user_bytes": variant["user_bytes"], "diag": bool(args.diag), **({"a2": True} if args.a2 else {})}))   # v0.8
     # Linker script instantiation (L417-L421).
     sbc_root = "sbc_decoder" + "\n"
     linker = (SDK / "config/linker.ld.in").read_bytes().decode("utf-8")
@@ -979,7 +988,7 @@ def package_web(build, model, variant, profile, release_version, display, firmwa
                    "bytes": len(package_bytes), "loader_sha256": sha256_file(SDK / "tools/pack/ota.bin"),
                    "hardware_validated": False, "data": base64.b64encode(package_bytes).decode("ascii"),
                    "model": model, "stock": stock_meta,
-                   "user_bytes": variant["user_bytes"], "diag": bool(args.diag)}   # v0.8: the page shows and checks the layout
+                   "user_bytes": variant["user_bytes"], "diag": bool(args.diag), **({"a2": True} if args.a2 else {})}   # v0.8: the page shows and checks the layout
     package_json = build / "web-package.json"
     package_json.write_bytes(json.dumps(web_package, separators=(",", ":")).encode("ascii"))
     log("Package metadata: %s (firmware %d bytes, stock V16 %d bytes)" % (package_json, len(package_bytes), len(stock_bytes)))
@@ -1035,6 +1044,8 @@ def main(argv=None):
     # v0.8 (Task 11): the layout and the diagnostic build.
     parser.add_argument("--user-bytes", type=int, default=int(os.environ.get("FM1_USER_BYTES") or DEFAULT_USER_BYTES),
                         help="USER region size in bytes (default 471040, the normal layout since tabby-v04.0; 536576 = the old stock layout); v0.8, v0.9")
+    parser.add_argument("--a2", action="store_true", default=os.environ.get("FM1_A2") == "1",
+                        help="diag build with option A2, the control pass on demand (-DCT_A2=1); v0.10")
     parser.add_argument("--diag", action="store_true", default=os.environ.get("FM1_DIAG") == "1",
                         help="diagnostic build: timing counters, settings transfer kind, ACTIONS storage line (-DCT_DIAG=1); v0.8")
     parser.add_argument("--check-only", action="store_true",
