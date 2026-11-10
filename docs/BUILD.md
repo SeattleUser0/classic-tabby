@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.60
+Version: 0.61
 Revision log:
+- v0.61, 2026-11-10 (Task 15 Step 3): section 28.3, the ranking and the recommendation (the pass request
+  from the song tick first, the TIMER5 release second), the floor on the SDK's send path.
 - v0.60, 2026-11-10 (Task 15 Step 2): section 28.2, the options from the disassembly and JieLi's public
   headers: the pass request from the audio interrupt is the SDK's own pattern (27.2's verdict revised),
   no OS calls exported, UART1 and TIMER5 facts, the SDK may not be modified, the M-VAVE request draft.
@@ -3971,3 +3973,27 @@ it and supplies no source. Patching the constant is not allowed. With A2 it is a
 >    (`fm1_midi_send_port_at(port, message, bytes, ticks)`).
 > 3. Or a setting for the control timer period (10 ms today).
 > Thank you.
+
+### 28.3 Step 3: ranking and recommendation (all figures estimated; nothing built)
+
+Flash margin today 71037 bytes (measured, FLASH-BUDGET 18); every option fits.
+
+| Rank | Option | One-line band (estimated) | Risk | Flash, RAM (estimated) | Proof on hardware |
+|---|---|---|---|---|---|
+| 1 | **A2**: the song tick calls `fm1_control_request` when lane 0 has a note, and again each block while it is not empty | 3 to 4.5 ms, DIN and USB | low to medium: one exported, documented SDK call in a context the SDK's own handlers already use; a little time inside the audio interrupt | about 200 B, 4 B | diag build: one line and eight lines on DIN and USB, profile page 6 (passes, lost ticks), CPU GUARD count, audio recorded through the AUDIO4c, a one-hour soak with panel use, a workbench transfer and a song save while playing |
+| 2 | **A2 + F + G**: notes queued one block early with a due time; TIMER5 (priority 5) fires at the due time and requests the pass | 1.5 to 3 ms, DIN and USB (what is left: the audio render that no task can interrupt, and a pass in progress) | medium: a new interrupt above the audio one (short, RAM code) | about 800 B, 0.3 KB | as rank 1, plus the band against audio load (one voice, eight voices) |
+| 3 | **D + F + G**: DIN bytes written by the timer interrupt, USB as rank 1 | DIN under 0.5 ms plus the wire; USB as A2 | high: takes UART1 and IRQ 20 from the SDK; SDK-side DIN traffic not yet ruled out; DIN in, update and SysEx paths to retest | about 1.5 KB, 0.3 KB | as rank 2, plus DIN in, clock out, keys and song together, an update from the workbench |
+| - | I: the M-VAVE request | no change by itself | none | 0 | send it whatever we build; a yes to its point 1 settles A2 |
+| no | E: our own task | | not possible: no task or signal call exported | | |
+| no | H: patch the 10 ms constant | | not allowed by the SDK terms | | |
+
+**Recommendation: A2 as the diag build, with F + G as the next step on the same path if A2 measures
+over 4 ms.** A2 is one call in song.c plus a retry, it helps DIN and USB alike, it leaves the SDK's
+send path, UART and update code alone, and its measurement tells us how much the audio render really
+costs before we add a timer. D stays in reserve for the case where DIN must be tighter than the
+audio render allows.
+
+**The floor.** On the SDK's send path a note cannot leave while the audio interrupt renders; the
+render budget is 52244 or 59210 ticks of 24 MHz (2.18 or 2.47 ms, SPEC 17.2), so about 2.5 ms is the
+worst case under full load and less at normal load. Under that only D goes (DIN only). The 4 ms goal
+looks reachable; it is not proven until measured.

@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.22
+Version: 0.23
 Revision log:
+- v0.23, 2026-11-10 (Task 15 Step 3): section 19: estimates for the timing options (nothing built).
 - v0.22, 2026-11-10 (Task 13 Step 5): section 18: the tabby-v04.1 release build, 448420 bytes, margin 71037.
 - v0.21, 2026-11-10 (Task 13 Step 1): section 18: the pass budget (option B), +768 bytes, margin 70941.
 - v0.20, 2026-11-08 (Task 12 A6): section 17: the tabby-v04.0 release build measured, 447716 bytes,
@@ -1064,3 +1065,10 @@ Exact for the -fno-lto units (map input sections). For LTO units the post-LTO si
 | Groove sequencer (groove_*) in SDK | 18488 | 130 |
 
 Package layout: FLASH_BIN_SIZE 471040, VM 471040..503808 (32768 bytes, minimum 32768), BTIF 503808..507904, USER 507904..1044480 (536576 bytes).
+
+## 19. Task 15: timing research (estimated; nothing built)
+
+Margin today 71037 bytes (measured, section 18). Estimates for the options of BUILD.md 28.3, none
+built: A2 (the pass request from the song tick) about 200 bytes of flash and 4 bytes of RAM; A2 with
+the TIMER5 release and the look-ahead about 800 bytes and 0.3 KB; the direct DIN writer about 1.5 KB
+and 0.3 KB. Measured figures replace these in Step 4.

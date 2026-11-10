@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.30
+Version: 0.31
 Revision log:
+- v0.31, 2026-11-10 (Task 15 Step 3): section 18: the recommended next step.
 - v0.30, 2026-11-10 (Task 15 Step 2): section 18: the timing research; 17.3's finding is superseded
   (the rule stays until a diag build is measured).
 - v0.29, 2026-11-10 (Task 13 Step 4): 17.4, the control-name table (firmware name -> printed name or
@@ -1233,3 +1234,6 @@ The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
 - The app cannot create tasks or use OS signals (none exported). It can attach interrupts below 64,
   and TIMER5 (IRQ 63) is free.
 - The SDK library is not modified (THIRD_PARTY.md grants copy, link and binary redistribution only).
+
+- Recommended next step (BUILD.md 28.3, waiting for approval): the pass request from the song tick
+  in a diag build behind a build flag, off in the normal build; goal 4 ms or less on one line (DIN).
