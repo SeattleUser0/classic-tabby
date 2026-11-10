@@ -44,9 +44,15 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.10
+ * Version: 0.11
  *
  * Revision log
+ *   v0.11 2026-11-10  Task 13 Step 1: section 15, the pass budget (option B): screen slices give
+ *                     the same picture as one unbudgeted paint, no pass runs past the budget plus
+ *                     one band, the starvation guard repaints a pass that is always late, MIDI
+ *                     sends come before bands in a pass and a note queued while a band paints
+ *                     leaves before the next pass; a deferred workbench request gets the same
+ *                     reply a few passes later and never waits more than CT_PASS_DEFER_MAX.
  *   v0.10 2026-11-08  Task 12 A2: section 14, the SYNC / MIDI page (SEQ), MIDI TRACK (SHIFT+SEQ),
  *                     no REC, STEP_EDIT / RHYTHM refused.
  *   v0.9  2026-11-08  Task 12 A1: the song-region constants come from CT_USER_BYTES (471040 by
@@ -90,6 +96,16 @@ unsigned sim_midi_setting(unsigned track, unsigned parameter);
 void sim_midi_edit(unsigned track, unsigned parameter, int delta);
 int sim_smk37(unsigned kind, unsigned id, int value);
 int sim_open(unsigned target);                       /* Task 12 A2 */
+/* Task 13 Step 1: the pass-budget hooks (web/engine/Simulator.c) and the profile (app/diag.c). */
+void sim_test_costs(uint32_t band, uint32_t pass);
+const char *sim_test_log(void);
+void sim_test_log_reset(void);
+void sim_test_inject(int band);
+const uint16_t *sim_pixels(void);
+int sim_midi_from(unsigned source, unsigned bytes);
+int ct_prof_read(unsigned page, uint8_t out[64]);
+void ct_prof_reset(void);
+void groove_midi_song_note(unsigned track, unsigned note, unsigned velocity);
 unsigned groove_sequence_setting(unsigned setting);  /* Task 12 A2: swing (setting 0) */
 unsigned sim_smk37_instruments(void);
 const uint8_t *sim_state(void);
@@ -1150,6 +1166,94 @@ int main(void)
         CHECK(sim_open(13) == -1 && sim_open(14) == -1, "STEP_EDIT (13) and RHYTHM (14) are refused");
         CHECK(sim_open(1) == 0 && sim_state()[1] == 1, "page 1 still opens (SYNC / MIDI)");
         #undef PRESS
+    }
+
+
+    /* ---- 15. Task 13 Step 1: the pass budget (option B) ------------------------------------ */
+    {
+        enum { MS = 24000, BUDGET = 6 * MS, BAND = 4 * MS };
+        uint8_t page6[64];
+        #define U32(p_, i_) ((uint32_t)(p_)[4 * (i_)] | (uint32_t)(p_)[4 * (i_) + 1] << 8 | (uint32_t)(p_)[4 * (i_) + 2] << 16 | (uint32_t)(p_)[4 * (i_) + 3] << 24)
+        /* FNV-1a over the LCD: the picture after the screen has settled. */
+        #define PIXHASH() ({ const uint16_t *px_ = sim_pixels(); uint32_t h_ = 2166136261U; for (unsigned i_ = 0; i_ < 240 * 240; ++i_) { h_ ^= px_[i_]; h_ *= 16777619U; } h_; })
+        static const unsigned pages[] = {19, 1, 0};
+        for (unsigned k = 0; k < sizeof pages / sizeof pages[0]; ++k) {
+            unsigned pg = pages[k];
+            /* Reference: no cost, the old behaviour (every band within one pass). */
+            sim_test_costs(0, 0); sim_boot(1); (void)sim_open(pg);
+            for (unsigned i = 0; i < 400; ++i) (void)sim_render();
+            uint32_t ref = PIXHASH();
+            for (unsigned i = 400; i < 1600; ++i) (void)sim_render();
+            uint32_t ref_late = PIXHASH();   /* the same page 1600 blocks in (it may show time) */
+            /* Slices: each band "takes" 4 ms, so at most one band fits after the first. */
+            sim_boot(1); sim_test_costs(BAND, 0); (void)sim_open(pg); ct_prof_reset(); sim_test_log_reset();
+            for (unsigned i = 0; i < 400; ++i) (void)sim_render();
+            uint32_t sliced = PIXHASH();
+            (void)ct_prof_read(6, page6);
+            CHECK(sliced == ref, "budget: page %u painted in slices equals the unbudgeted picture (%08x / %08x)", pg, sliced, ref);
+            CHECK(U32(page6, 0) > 0 && U32(page6, 2) <= BUDGET + MS, "budget: page %u: no pass busy past the budget (longest %.2f ms, %u passes)", pg, U32(page6, 2) / (double)MS, U32(page6, 0));
+            /* The longest run of bands inside one pass of the log. */
+            const char *lg = sim_test_log(); unsigned run = 0, longest = 0;
+            for (const char *c = lg; *c; ++c) { if (*c == 'P') run = 0; else if (*c == 'B' && ++run > longest) longest = run; }
+            CHECK(longest <= 2, "budget: page %u: at most 2 bands of 4 ms in one pass (%u)", pg, longest);
+            /* Starvation: every pass is already 8 ms in when the screen runs (over the budget):
+             * the guard still paints one band per 60 ms and the picture still completes. */
+            sim_boot(1); sim_test_costs(BAND, 8 * MS); (void)sim_open(pg); ct_prof_reset();
+            for (unsigned i = 0; i < 1600; ++i) (void)sim_render();
+            uint32_t starved = PIXHASH();
+            (void)ct_prof_read(6, page6);
+            if (starved != ref_late) printf("       page %u: starved %08x, unbudgeted at the same time %08x\n", pg, starved, ref_late);
+            CHECK(starved == ref_late && U32(page6, 6) > 0, "budget: page %u: a pass that is always late still repaints the page (%u bands deferred)", pg, U32(page6, 6));
+        }
+        /* Sends first: a pass that sends MIDI sends before it paints, and a note the audio thread
+         * queues while a band paints leaves right after that band, inside the same pass. */
+        sim_boot(1); sim_test_costs(BAND, 2 * MS); sim_midi_capture(1); (void)sim_open(19);
+        { struct message m[64]; settle(); (void)drain(m, 64); }
+        sim_test_log_reset();
+        /* A song note queued before the pass (as the audio thread does between passes), then a
+         * page change in that pass: the note leaves before the first band. (A key press is no
+         * test of this: the panel sends its own notes at once, outside the pass.) */
+        groove_midi_song_note(0, 62, 100);
+        (void)sim_open(1);
+        { const char *lg = sim_test_log(); const char *p = strchr(lg, 'P'), *mm = p ? strchr(p, 'M') : NULL, *b = p ? strchr(p, 'B') : NULL;
+          CHECK(p && mm && b && mm < b, "budget: the pass sends MIDI before its first band (log %.24s)", lg); }
+        groove_midi_song_note(0, 62, 0);
+        { struct message m[64]; settle(); (void)drain(m, 64); }
+        (void)sim_open(19); { struct message m[64]; settle(); (void)drain(m, 64); }
+        sim_test_log_reset(); sim_test_inject(0);
+        (void)sim_open(1);                          /* a page change: bands to paint */
+        { const char *lg = sim_test_log(); const char *b = strchr(lg, 'B'); const char *after = b ? b + 1 : NULL;
+          const char *mm = after ? strchr(after, 'M') : NULL, *np = after ? strchr(after, 'P') : NULL;
+          CHECK(b && mm && (!np || mm < np), "budget: a note queued while a band paints leaves before the next pass (log %.24s)", lg); }
+        sim_test_inject(-1);
+        { struct message m[64]; settle(); unsigned n = drain(m, 64), ports;
+          (void)count(m, n, 0x90, 60, 100, &ports); }
+        /* Transfer: a new request waits while the pass is over budget, then gets the same reply. */
+        static const uint8_t req[] = {0xf0, 0x7d, 'F', 'M', 2, 27, 5, 0, 0, 0xf7};
+        uint8_t frame[sizeof req]; memcpy(frame, req, sizeof req);
+        { unsigned sum = 0; for (unsigned i = 1; i < sizeof req - 2; ++i) sum += frame[i]; frame[sizeof req - 2] = (uint8_t)((0U - sum) & 127U); }
+        uint8_t reply_ref[96], reply_late[96]; unsigned ref_n = 0, late_n = 0, passes_late = 0;
+        for (unsigned round = 0; round < 2; ++round) {
+            sim_boot(1); sim_test_costs(0, round ? 8 * MS : 0); sim_midi_capture(1); ct_prof_reset();
+            { struct message m[64]; settle(); (void)drain(m, 64); }
+            memcpy(sim_file(), frame, sizeof frame);
+            (void)sim_midi_from(0, sizeof frame);   /* the sysex arrives and asks for a pass */
+            unsigned got = 0, passes = 1;
+            for (; passes < 12 && !got; ++passes) {
+                unsigned r;
+                while ((r = sim_midi_output()) != 0) if ((r & 255U) > 8 && sim_file()[0] == 0xf0 && sim_file()[5] == (27 | 64)) {
+                    got = r & 255U; memcpy(round ? reply_late : reply_ref, sim_file(), got);
+                }
+                if (!got) for (unsigned i = 0; i < 4; ++i) (void)sim_render();   /* about one more pass */
+            }
+            if (round) { late_n = got; passes_late = passes; } else ref_n = got;
+        }
+        (void)ct_prof_read(6, page6);
+        CHECK(ref_n && ref_n == late_n && !memcmp(reply_ref, reply_late, ref_n), "budget: a deferred capability request gets the same reply (%u / %u bytes)", ref_n, late_n);
+        CHECK(U32(page6, 7) >= 1 && U32(page6, 7) <= 4 && passes_late <= 7, "budget: it waited %u pass(es), at most 4 (answered after %u)", U32(page6, 7), passes_late);
+        sim_test_costs(0, 0);
+        #undef U32
+        #undef PIXHASH
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

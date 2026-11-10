@@ -4,6 +4,9 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.4  2026-11-10  Task 13 Step 1 (option B): a new request (not a cached retry, not MMC) waits
+ *                     for a later pass while this pass is over its budget (app/diag.h), at most
+ *                     CT_PASS_DEFER_MAX passes in a row; command 25 accepts request 6 (page 6).
  *   v0.3  2026-11-08  Task 12 A4: the counters (command 25), transfer kind 8 and capability bits 6
  *                     and 7 are in every build; only command 26 (the remote ACTIONS / song commands)
  *                     stays in the diagnostic build. Command 25 requests 4 and 5: the loop profile.
@@ -200,9 +203,10 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
     }
 #endif   /* CT_DIAG: command 26 only (Task 12 A4) */
     /* Task 12 A4: the counters are in every build; request 4 and 5 are the loop profile. */
-    if (cmd == 25 && n <= 1 && (!n || data[0] <= 5)) {   /* Task 11B: 3 = the screen page */
+    if (cmd == 25 && n <= 1 && (!n || data[0] <= 6)) {   /* Task 11B: 3 = the screen page; Task 13: 6 */
         /* Task 11: the timing counters (every build since Task 12 A4); data byte 1 resets them
-         * first, 2 asks for the scan page, 3 the screen, 4 and 5 the loop profile (app/diag.c). */
+         * first, 2 asks for the scan page, 3 the screen, 4 and 5 the loop profile, 6 (Task 13) the
+         * pass budget page (app/diag.c). */
         *count = (unsigned)ct_diag_read(n ? data[0] : 0, out);
         return 0;
     }
@@ -421,6 +425,18 @@ static void transfer_poll_body(void)
         c->pending=fm1_midi_send_port(source,c->reply,c->reply_length)==-2;
         return;
     }
+    /* Task 13 Step 1: a new request is the transfer's only long work (a flash read, a decode, a
+     * 4 KB block copy). While the pass is already over its budget it waits for the next pass; the
+     * mailbox stays full meanwhile, so the routing task keeps the bytes and a sender's retry is
+     * dropped as before (the workbench retries on its own timeout, 10x longer than the wait). At
+     * most CT_PASS_DEFER_MAX passes in a row, so a pass that is always late still answers.
+     * MMC (0x7f) is a transport message and is never deferred. */
+    static unsigned deferred_passes;
+    if (incoming.bytes[1] != 0x7f && deferred_passes < CT_PASS_DEFER_MAX && ct_pass_over(0)) {
+        ++deferred_passes; ct_pass_defer(CT_DEFER_TRANSFER);
+        return;
+    }
+    deferred_passes = 0;
     /* Keep the last file reply across MMC, voice dumps and rejected frames.
      * These can arrive while the sender is retrying a lost chunk ACK. Hold
      * the incoming mailbox until validation has consumed all of its bytes. */

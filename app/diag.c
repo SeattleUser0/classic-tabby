@@ -26,9 +26,14 @@
  *   Control-loop timing is taken at groove_midi_poll() because that call sends MIDI out: its
  *   period is the MIDI-out quantum during playback (SPEC 9.6, SPEC 14.3).
  *
- * Version: 0.3
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-10  Task 13 Step 1: the pass budget (ct_pass_elapsed / ct_pass_over /
+ *                     ct_pass_defer / ct_pass_busy_end) and command 25 request 6, profile page 6:
+ *                     the pass's busy time (pass start to the end of the screen hook, the last app
+ *                     hook), passes busy over 10 ms, lost ticks (periods over 15 ms), the deferral
+ *                     counts per kind and a busy-time histogram.
  *   v0.3  2026-11-08  Task 12 A4: in every build; the control-loop profile (ct_prof_*: exclusive
  *                     time per app hook per pass, the SDK's rest, the routing task's MIDI input).
  *   v0.2  2026-11-08  Task 11B: page 3 (request 3), the screen timing: groove_screen_control()
@@ -44,8 +49,11 @@
 #include <string.h>
 
 #ifdef FM1_HOST_TEST
-/* The simulator and the host tests have no TIMER4: a millisecond clock scaled to 24 MHz. */
-static uint32_t ticks(void) { return fm1_millis() * 24000U; }
+/* The simulator and the host tests have no TIMER4: a millisecond clock scaled to 24 MHz.
+ * Task 13: plus ct_test_ticks_extra, which a host test advances to make work "take time" inside
+ * one pass (the millisecond clock only moves between audio blocks). */
+uint32_t ct_test_ticks_extra;
+static uint32_t ticks(void) { return fm1_millis() * 24000U + ct_test_ticks_extra; }
 volatile uint32_t ct_diag_scan_count, ct_diag_scan_last, ct_diag_scan_gap_max;
 #else
 static uint32_t ticks(void) { return fm1_device_ticks(); }
@@ -115,7 +123,7 @@ int ct_diag_read(unsigned request, uint8_t out[CT_DIAG_REPLY_BYTES])
 {
     /* request 0: page 1 (64 bytes); 1: reset everything, then page 1; 2: page 2 (20 bytes). */
     uint32_t now = ticks();
-    if (request == 4 || request == 5) return ct_prof_read(request, out);   /* Task 12 A4 */
+    if (request >= 4 && request <= 6) return ct_prof_read(request, out);   /* Task 12 A4; 6: Task 13 */
     if (request == 1) {
         memset(&d, 0, sizeof d); ct_prof_reset();
         ct_diag_scan_count = 0; ct_diag_scan_gap_max = 0;
@@ -193,6 +201,11 @@ static struct {
     uint32_t mark;                               /* when the top of the stack last resumed */
     uint32_t in_count, in_max;                   /* routing task */
     uint64_t in_sum;
+    /* Task 13: the busy part of a pass (its start to the end of the screen hook). */
+    uint32_t busy_count, busy_max, busy_over, lost_ticks, busy_done;
+    uint64_t busy_sum;
+    uint32_t busy_bins[6];                       /* < 2, < 4, < 6, < 8, < 10, >= 10 ms */
+    uint32_t deferred[CT_DEFER_KINDS];
 } prof;
 void ct_prof_enter(unsigned section)
 {
@@ -219,9 +232,27 @@ void ct_prof_pass(void)
             prof.now_section[i] = 0;
         }
         uint32_t sdk = period > used ? period - used : 0;
+        /* Task 13: a period over 15 ms means the SDK dropped at least one 10 ms tick. */
+        if (period > 15U * 24000U) ++prof.lost_ticks;
         prof.sum[CT_PROF_SECTIONS] += sdk; if (sdk > prof.max[CT_PROF_SECTIONS]) prof.max[CT_PROF_SECTIONS] = sdk;
     } else for (unsigned i = 0; i < CT_PROF_SECTIONS; ++i) prof.now_section[i] = 0;
-    prof.pass_start = now; prof.started = 1;
+    prof.pass_start = now; prof.started = 1; prof.busy_done = 0;
+}
+
+/* ---- Task 13 Step 1: the pass budget ---------------------------------------------------------- */
+uint32_t ct_pass_elapsed(void) { return prof.started ? ticks() - prof.pass_start : 0; }
+int ct_pass_over(uint32_t more) { return ct_pass_elapsed() + more > CT_PASS_BUDGET_TICKS; }
+void ct_pass_defer(unsigned kind) { if (kind < CT_DEFER_KINDS) ++prof.deferred[kind]; }
+/* Called once per pass at the end of groove_screen_control (the last app hook the SDK calls; only
+ * the SDK's effects_poll follows). A second call in the same pass is ignored. */
+void ct_pass_busy_end(void)
+{
+    if (!prof.started || prof.busy_done) return;
+    uint32_t busy = ticks() - prof.pass_start;
+    prof.busy_done = 1;
+    ++prof.busy_count; prof.busy_sum += busy; if (busy > prof.busy_max) prof.busy_max = busy;
+    if (busy > 10U * 24000U) ++prof.busy_over;
+    unsigned bin = busy / (2U * 24000U); prof.busy_bins[bin > 5 ? 5 : bin]++;
 }
 /* The routing task's counters: a torn read of the 64-bit sum only blurs one mean. */
 void ct_prof_midi_in(uint32_t t)
@@ -237,7 +268,15 @@ int ct_prof_read(unsigned page, uint8_t out[CT_DIAG_REPLY_BYTES])
     uint32_t n = prof.passes;
     unsigned at = 0;
 #define PUT(v) do { put32(out + at, (uint32_t)(v)); at += 4; } while (0)
-    if (page == 4) {
+    if (page == 6) {
+        /* Task 13: page 6 (56 bytes): busy passes counted, mean and longest busy time, passes busy
+         * over 10 ms, lost ticks (periods over 15 ms), deferrals (compose, band, transfer), then
+         * the busy histogram < 2, < 4, < 6, < 8, < 10, >= 10 ms. */
+        uint32_t b = prof.busy_count;
+        PUT(b); PUT(b ? prof.busy_sum / b : 0); PUT(prof.busy_max); PUT(prof.busy_over); PUT(prof.lost_ticks);
+        for (unsigned i = 0; i < CT_DEFER_KINDS; ++i) PUT(prof.deferred[i]);
+        for (unsigned i = 0; i < 6; ++i) PUT(prof.busy_bins[i]);
+    } else if (page == 4) {
         PUT(n); PUT(n ? prof.pass_sum / n : 0); PUT(prof.pass_max);
         for (unsigned i = 0; i < 6; ++i) { PUT(prof.max[i]); PUT(n ? prof.sum[i] / n : 0); }
     } else {

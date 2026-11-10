@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Modified 2026-10-17: retain undo history when voice allocation fails. */
+/* Modified 2026-11-10 (Classic Tabby Task 13 Step 1): fm1_web_control marks the pass and adds the test pass cost (pass-budget host tests). */
 #include "engine.h"
 #include "synth_dx7.h"
 #include "bass303.h"
@@ -1087,9 +1088,16 @@ __attribute__((cold, minsize)) void groove_samples_stop(void)
     for (unsigned t = 0; t < GROOVE_TRACKS; ++t)
         if (tracks[t].type == GROOVE_SAMPLE && sources[t].ptr) control_panic(t);
 }
+/* Classic Tabby Task 13: test hooks (web/engine/Simulator.c): mark the pass, and let a test make
+ * the pass "take" time after the router flush (the SDK's own work, the audio thread's share). */
+extern uint32_t sim_test_pass_ticks(void);
+extern uint32_t ct_test_ticks_extra;   /* app/diag.c */
+extern void sim_test_pass_event(void);
 void fm1_web_control(void)
 {
+    sim_test_pass_event();
     groove_midi_poll();
+    ct_test_ticks_extra += sim_test_pass_ticks();
     groove_samples_poll();
     (void)groove_performance_idle(0);
     groove_project_poll();

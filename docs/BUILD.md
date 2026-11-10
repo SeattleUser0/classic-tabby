@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.52
+Version: 0.53
 Revision log:
+- v0.53, 2026-11-10 (Task 13 Step 1): section 27.1, option B (the control-pass budget) and what
+  CPU GUARD is.
 - v0.52, 2026-11-09 (Task 12 B3): 26.9 B3, fix options (none built), external clock follow and
   the clock-loss rule.
 - v0.51, 2026-11-09 (Task 12 B2): 26.9 B2, where the band comes from (the SDK's 10 ms control
@@ -3635,4 +3637,57 @@ note-offs, so no note hangs during a gap; show HOLD. (2) On relock within 2 s co
 held position (the sender has moved on; without SPP the device cannot know by how much), and
 accept SPP at any time so a DAW relocate corrects it. (3) In LOST, pulses alone never restart the
 song; Start, Continue (or SPP then Continue) do. (4) Stop always wins, at any time.
+
+## 27. Task 13 — timing fixes (2026-11-10)
+
+Task text: docs/tasks/TASK-13-timing-fixes.md. No device writes from the NUC; the user installs.
+
+### 27.1 Step 1: option B, no pass over the 10 ms tick
+
+**CPU GUARD, found before anything was changed** (SPEC 17.2 has the full description): it is the
+SDK engine's per-audio-block render budget, raised in `audio_track_end` (a track's render passed its
+deadline) and `audio_finish` (a block's total render passed its budget of 52244 or 59210 timer ticks).
+It lowers the heavy track's voice limit by one, steals voices at once and declicks; after 344 quiet
+blocks (about 1 s under 3/4 of the budget) it gives one voice back. app/screen.c only announces it
+(the "adapted" count from `groove_audio_stats`, every 500 ms). During play it changes the sound of
+the internal voices (fewer voices) but not MIDI out, the song clock or the control pass; its only
+effect on timing is the CPU the audio thread takes from the control task. Task 13 does not change it.
+
+**What changed** (app/diag.h v0.4, app/diag.c v0.4, app/screen.c v0.5, app/transfer.c v0.4,
+app/samples.c v0.4):
+- A pass budget: 6 ms of wall time from the start of the pass (`ct_pass_over`). Wall time includes
+  the audio thread's share, which is what decides a missed tick.
+- Song work first: `groove_samples_poll` runs `song_poll` before `song_storage_poll`; the router flush
+  (groove_midi_poll) was already the SDK's first hook. Neither is ever deferred.
+- Screen: the page compose (`draw`, a walk of the whole page) waits for a later pass once the pass is
+  over budget (at most 120 ms past its 33 ms frame); each band paint starts only if the last band's
+  time still fits (was: bands until 4 ms of the millisecond clock had passed, whatever the pass had
+  used before); one band per 60 ms always goes, in plain rotation when over budget (a page that marks
+  the same priority band on every compose would otherwise take all guard bands). Panel input
+  (`apply_controls`) still runs in every pass; only the picture can be late.
+- A router flush after every band: a note the audio thread queues while the screen paints leaves
+  then, not at the next pass (about 1 ms later instead of up to 10).
+- Transfer: a new request (not a cached retry, not MMC) waits for a later pass while the pass is over
+  budget, at most 4 passes in a row (the mailbox stays full; the workbench's timeouts are far longer).
+- Measurement: command 25 request 6, profile page 6 (56 bytes): busy passes, mean and longest busy
+  time (pass start to the end of the screen hook), passes busy over 10 ms, lost ticks (periods over
+  15 ms), deferrals per kind, a busy histogram. tools/linux/hw/tabby_link.py v0.5 reads and prints it.
+
+**Tests** (tests/host/smoke.c v0.11, section 15; hooks in web/engine/Simulator.c v0.1: a cost per
+band and per pass added to the diag clock, an event log, a note injected while a band paints):
+- pages 19, 1 and 0 painted with 4 ms bands give the same picture as one unbudgeted paint; no pass
+  is busy past the budget (longest 4.0 ms); at most 2 bands in one pass (1 measured);
+- every pass 8 ms in at the screen (always over budget): the page still completes (guard bands);
+- a song note queued before a pass leaves before the pass's first band; a note queued while a band
+  paints leaves before the next pass;
+- a capability request (command 27) arriving in an over-budget pass waits 4 passes and gets the
+  same 21-byte reply as without the delay.
+make check, lint (unchanged: 11 host and 3 target warnings, all pre-existing) and test-fast pass.
+
+Size: app image 448516 bytes, +768 against the Task 12 A4 build; margin 70941 (FLASH-BUDGET 18).
+
+What B can and cannot do: it removes the lost ticks the app causes (the 20 ms tail) and lets notes
+queued during the screen leave early. It does not change the 10 ms quantum: a note queued between
+passes still waits for the next tick (0..10 ms). Expected one-line band about 10-11 ms (26.9 B3);
+measured in Step 6.
 

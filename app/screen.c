@@ -4,6 +4,13 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.5  2026-11-10  Task 13 Step 1 (option B): the LCD work keeps to the pass budget
+ *                     (app/diag.h ct_pass_*): the page compose (draw) is deferred to a later pass
+ *                     once the pass is over budget (at most CT_PASS_STARVE_MS * 2 late); each band
+ *                     paint starts only if its estimated time still fits (one band per
+ *                     CT_PASS_STARVE_MS always goes); the router is flushed after every band, so
+ *                     notes the audio thread queued meanwhile leave at once; the end of the screen
+ *                     hook marks the pass's busy time (profile page 6).
  *   v0.4  2026-11-08  Task 12 A4: the ACTIONS storage lines (USER size, song storage state, free
  *                     and reclaimable) and the screen and paint timing are in every build; the
  *                     screen control call is the SCREEN section of the loop profile.
@@ -1255,6 +1262,9 @@ static void draw(const struct fm1_ble_status *ble)
     cache = &saved_cache;
     draw_page(&frame_ble);
 }
+/* Task 13 Step 1: the last band's paint time (24 MHz ticks), the estimate for the next band, and
+ * when a band last went out (the starvation guard). */
+static uint32_t band_ticks_last = 24000U, band_sent_ms;
 static void paint_flush(void)
 {
     uint32_t started = fm1_millis();
@@ -1268,16 +1278,28 @@ static void paint_flush(void)
             break;
         }
         unsigned band = paint_next;
+        /* Task 13 Step 1: over the budget only the starvation guard's band goes, and it goes in
+         * plain rotation: a page that marks the same priority band on every compose would
+         * otherwise take every guard band and never finish the rest of the picture. */
+        unsigned starving = ct_pass_over(band_ticks_last);
         /* Fresh knob/key feedback goes ahead of the rest of a page repaint.
          * Rotate within that set so continuous motion cannot starve its text. */
-        if (paint_priority)
+        if (paint_priority && !starving)
             for (unsigned i = 0; i < PAINT_BANDS; ++i) {
                 unsigned candidate = (paint_next + i) % PAINT_BANDS;
                 if (paint_priority & (1U << candidate)) { band = candidate; break; }
             }
-        paint_next = (band + 1U) % PAINT_BANDS;
         unsigned left = paint_left[band], width = paint_right[band] - left;
-        if (left >= paint_right[band]) continue;
+        if (left >= paint_right[band]) { paint_next = (band + 1U) % PAINT_BANDS; continue; }
+        /* Task 13 Step 1: start this band only if it still fits in the pass budget. A band that
+         * does not fit waits for the next pass (paint_next stays on it); one band per
+         * CT_PASS_STARVE_MS always goes, so a pass that is always late still repaints. */
+        if (starving && fm1_millis() - band_sent_ms < CT_PASS_STARVE_MS) {
+            ct_pass_defer(CT_DEFER_BAND);
+            break;
+        }
+        paint_next = (band + 1U) % PAINT_BANDS;
+        uint32_t band_start = ct_diag_ticks();
         paint_top = band * PAINT_ROWS;
         paint_x = left;
         paint_end = left + width;
@@ -1294,6 +1316,11 @@ static void paint_flush(void)
         paint_right[band] = 0;
         paint_priority &= ~(1U << band);
         ++diag_bands;
+        band_ticks_last = ct_diag_ticks() - band_start;
+        band_sent_ms = fm1_millis();
+        /* Task 13 Step 1: notes the audio thread queued while this band was composed go out now,
+         * not at the next pass (the router flush is cheap when lane 0 is empty). */
+        ct_midi_flush();
         /* The DMA borrows paint_pixels. The next iteration/poll must observe
          * completion before composing another band into that same buffer. */
         if (fm1_millis() - started >= 4U) break;
@@ -1975,6 +2002,7 @@ void groove_screen_control(void)
     groove_screen_control_body();
     ct_prof_leave();
     ct_diag_screen(ct_diag_ticks() - t);
+    ct_pass_busy_end();   /* Task 13: the last app hook of the pass has ended */
 }
 static void groove_screen_control_body(void)
 {
@@ -2092,8 +2120,15 @@ static void groove_screen_control_body(void)
     /* Input changes do not wait for the animation timer. LCD work is bounded
      * separately and continues on later polls, even between animation frames. */
     if (now - frame_ms >= 33U || page != old_page || input_changed || saved_cache.shown_page == ~0U) {
-        frame_ms = now;
-        draw(&ble);
+        /* Task 13 Step 1: the compose walks the whole page; once this pass is over its budget it
+         * waits for a later pass (frame_ms stays, so the next pass asks again). Input is never
+         * lost by this: apply_controls above already ran; only the picture is late. The guard
+         * keeps the delay under 2 x CT_PASS_STARVE_MS past the 33 ms frame. */
+        if (ct_pass_over(0) && now - frame_ms < 33U + 2U * CT_PASS_STARVE_MS) ct_pass_defer(CT_DEFER_DRAW);
+        else {
+            frame_ms = now;
+            draw(&ble);
+        }
     }
     paint_flush();
 }

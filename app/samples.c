@@ -15,9 +15,12 @@
  *   routines are in sdk/synth.json); it is only never bound and never selected
  *   (app/project.c converts GROOVE_SAMPLE presets to the 808, app/screen.c hides it).
  *
- * Version: 0.3 (Classic Tabby; replaces the V01 file)
+ * Version: 0.4 (Classic Tabby; replaces the V01 file)
  *
  * Revision log
+ *   v0.4  2026-11-10  Task 13 Step 1: song scheduling (song_poll) runs before the storage poll,
+ *                     so the pass's song work comes right after the router flush (groove_midi_poll,
+ *                     the first hook) and a storage sector step never delays it.
  *   v0.3  2026-11-08  Task 12 A4: the two polls are the STORAGE and SONG sections of the loop
  *                     profile (app/diag.h).
  *   v0.2  2026-11-02  Checkpoint (d): the song sequencer (app/song.c) is initialized and
@@ -32,8 +35,9 @@
 void groove_samples_init(void) { song_storage_init(); song_init(); }
 void groove_samples_poll(void)
 {
-    ct_prof_enter(CT_PROF_STORAGE); song_storage_poll(); ct_prof_leave();
+    /* Task 13: song first, then storage (the SDK calls this hook second, after the router flush). */
     ct_prof_enter(CT_PROF_SONG); song_poll(); ct_prof_leave();
+    ct_prof_enter(CT_PROF_STORAGE); song_storage_poll(); ct_prof_leave();
 }
 /* V01 status codes were 0 empty, 1 validating, 2 ready, 3 receiving, 4 error.
  * The bank no longer exists: always "empty". Kept for the engine-stats reply. */

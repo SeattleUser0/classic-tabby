@@ -50,9 +50,11 @@
  *   radio switches, the MIDI configuration) and the session settings in the tuning sector (track
  *   roles, input channels, panel preferences). docs/BACKUP-FORMAT.md describes it.
  *
- * Version: 0.3
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-10  Task 13 Step 1: the pass budget (ct_pass_*: option B, no pass over the
+ *                     10 ms tick) and profile page 6 (busy time, lost ticks, deferrals).
  *   v0.3  2026-11-08  Task 12 A4: every build; the loop profile (command 25 pages 4 and 5).
  *   v0.2  2026-11-08  Task 11B: screen timing (command 25 page 3: groove_screen_control calls and
  *                     paint_flush band painting).
@@ -108,4 +110,33 @@ int ct_prof_read(unsigned page, uint8_t out[CT_DIAG_REPLY_BYTES]);   /* command 
 void ct_prof_reset(void);
 /* The router's flush without a pass boundary, for the app's own calls (panel, song, router). */
 void ct_midi_flush(void);
+
+/* ---- Task 13 Step 1 (option B): the pass budget ------------------------------------------------
+ * The SDK posts one control pass per 10 ms timer tick and drops a tick while a pass still runs or
+ * waits (BUILD.md 26.9 B2). A pass that runs past the next tick therefore turns a 0..10 ms MIDI
+ * wait into 10..20 ms. The budget keeps the pass short: work that can wait a pass (the LCD
+ * compose and its band paints, a new workbench request) asks first and is deferred once the pass
+ * has used CT_PASS_BUDGET_TICKS of wall time (wall time on purpose: the audio thread's share of
+ * the CPU is in it, and that is what decides whether the tick is missed). The router flush and
+ * the song code are never deferred; they run first in the pass (groove_midi_poll, then
+ * groove_samples_poll: song_poll before song_storage_poll).
+ *
+ * Every deferrable kind has a starvation guard in its own module (the screen paints at least one
+ * band per CT_PASS_STARVE_MS, the transfer answers after at most CT_PASS_DEFER_MAX passes), so a
+ * pass that is always late still makes progress. */
+enum {
+    CT_PASS_BUDGET_TICKS = 6U * 24000U,   /* 6 ms of the 10 ms tick: room for the SDK's own hooks */
+    CT_PASS_STARVE_MS = 60,               /* the screen paints at least one band this often */
+    CT_PASS_DEFER_MAX = 4,                /* a workbench request waits at most 4 passes */
+    CT_DEFER_DRAW = 0, CT_DEFER_BAND, CT_DEFER_TRANSFER, CT_DEFER_KINDS
+};
+uint32_t ct_pass_elapsed(void);          /* ticks since this pass began */
+int ct_pass_over(uint32_t more);         /* 1 if elapsed + more would pass the budget */
+void ct_pass_defer(unsigned kind);       /* count one deferral (profile page 6) */
+void ct_pass_busy_end(void);             /* the pass's last app hook ended: its busy time */
+#ifdef FM1_HOST_TEST
+/* Host tests only: extra ticks added to the diag clock, so a test can make a band paint or a
+ * request "take" a given time (web/engine/Simulator.c sim_test_*). */
+extern uint32_t ct_test_ticks_extra;
+#endif
 #endif

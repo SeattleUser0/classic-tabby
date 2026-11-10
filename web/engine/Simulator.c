@@ -1,5 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
-/* Browser platform adapter: in-memory display, storage and MIDI input. */
+/* Browser platform adapter: in-memory display, storage and MIDI input.
+ *
+ * Classic Tabby revision log (the upstream file had no header)
+ *   v0.1  2026-11-10  Task 13 Step 1: test hooks for the pass budget (host tests and the wasm
+ *                     simulator): sim_test_costs (ticks one LCD band submit and one pass "take",
+ *                     added to the diag clock app/diag.c ct_test_ticks_extra), and an event log
+ *                     (sim_test_log: 'P' a control pass begins, 'M' a MIDI send, 'B' a band).
+ *                     sim_test_pass runs one control pass without audio; sim_test_inject queues a
+ *                     song note while a band paints. All off by default.
+ */
 #include "fm_patch.h"
 #include "internal.h"
 #include "fm1_engine_control.h"
@@ -29,6 +38,12 @@ static unsigned gate, midi_read, midi_write, midi_reset;
 static uint8_t radio_features, radio_role;
 static struct { uint8_t data[3], count; } midi[MIDI_QUEUE];
 static int32_t previous[FM1_BLOCK_WORDS];
+/* Task 13: the pass-budget test hooks (all zero / off unless a test sets them). */
+extern uint32_t ct_test_ticks_extra;   /* app/diag.c (diag.h would rename the flash calls here) */
+static uint32_t test_band_ticks, test_pass_ticks;
+static int test_inject_band = -1; static unsigned test_bands_seen;   /* see sim_test_inject */
+static char test_log[512]; static unsigned test_log_at;
+static void test_event(char c) { if (test_log_at < sizeof test_log - 1) { test_log[test_log_at++] = c; test_log[test_log_at] = 0; } }
 static float output[FM1_BLOCK_WORDS];
 extern void groove_screen_snapshot(uint8_t state[8]);
 extern int groove_screen_open(unsigned target);
@@ -94,6 +109,9 @@ int fm1_screen_submit(unsigned x, unsigned y, unsigned w, unsigned h,
                       uint16_t *source, size_t count)
 {
     if (!w || !h || w > 240U || h > 240U || w * h > FM1_SCREEN_DMA_PIXELS) return -1;
+    test_event('B'); ct_test_ticks_extra += test_band_ticks;   /* Task 13 */
+    if (test_inject_band >= 0 && test_bands_seen++ == (unsigned)test_inject_band)
+        groove_midi_song_note(0, 60, 100);   /* as the audio thread would, while the band paints */
     int result = fm1_screen_blit(x, y, w, h, source, count);
     if (!result)
         for (unsigned i = 0; i < w * h; ++i)
@@ -166,6 +184,7 @@ int fm1_midi_send_port(unsigned port, const uint8_t *data, size_t bytes)
 {
     if (port >= 3 || !(midi_ready & (1U << port)) || !data || !bytes || bytes > 128) return -1;
     if ((midi_busy & (1U << port)) || (capture_on && capture_write - capture_read == 64)) return -2;
+    test_event('M');   /* Task 13 */
     if (capture_on) {
         unsigned at = capture_write++ & 63U;
         midi_capture[at].port = (uint8_t)port; midi_capture[at].bytes = (uint8_t)bytes;
@@ -577,6 +596,19 @@ EXPORT("sim_midi_from") int sim_midi_from(unsigned source, unsigned bytes)
     midi_source = source; fm1_app_sysex(file_buffer, bytes); midi_source = FM1_MIDI_USB;
     fm1_web_control(); return 0;
 }
+/* Task 13 Step 1: band = ticks (24 MHz) one LCD band submit takes; pass = ticks every control
+ * pass takes right after the router flush (other work: the SDK, the audio thread's share). */
+EXPORT("sim_test_costs") void sim_test_costs(uint32_t band, uint32_t pass)
+{ test_band_ticks = band; test_pass_ticks = pass; }
+/* Task 13: on the n-th band submit from now (0 = the next), queue a song note on track 1 into the
+ * router's lane 0, as the audio thread's song tick does during a pass; -1 turns it off. */
+EXPORT("sim_test_inject") void sim_test_inject(int band) { test_inject_band = band; test_bands_seen = 0; }
+EXPORT("sim_test_log") const char *sim_test_log(void) { return test_log; }
+EXPORT("sim_test_log_reset") void sim_test_log_reset(void) { test_log_at = 0; test_log[0] = 0; }
+/* One control pass, as the SDK's 10 ms tick would run it, without rendering audio. */
+EXPORT("sim_test_pass") void sim_test_pass(void) { fm1_web_control(); }
+uint32_t sim_test_pass_ticks(void) { return test_pass_ticks; }
+void sim_test_pass_event(void) { test_event('P'); }
 EXPORT("sim_midi") int sim_midi(unsigned bytes) { return sim_midi_from(FM1_MIDI_USB, bytes); }
 
 /* The browser has no hardware streams; the same APP mixer still runs. */

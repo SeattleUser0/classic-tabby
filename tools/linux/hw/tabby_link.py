@@ -25,9 +25,12 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-10  Task 13 Step 1: diag() reads profile page 6 when the firmware has it (tabby-v04.1 and
+                      later): busy time per pass, passes busy over 10 ms, lost ticks, deferrals;
+                      profile_lines() prints it.
     v0.4  2026-11-09  Task 12 B1: diag() reads the control-loop profile (command 25 pages 4 and 5, every build
                       from tabby-v04.0; decoded as sdk/WebUpdate.js diagRead), diag_text() prints it.
     v0.3  2026-11-08  kernel timestamps on the device's USB output (snd_rawmidi_tread).
@@ -272,6 +275,16 @@ class Link:
                            "midi_in": {"calls": u(p5, 16), "mean_ms": ms(u(p5, 20)), "max_ms": ms(u(p5, 24))}}
         except (DeviceError, TimeoutError):
             pass
+        if profile:
+            try:                              # v0.5: page 6 (Task 13, the pass budget), tabby-v04.1 and later
+                p6 = self.query(25, bytes([6]), attempts=1)
+                if len(p6) == 56:
+                    profile["budget"] = {"passes": u(p6, 0), "busy_mean_ms": ms(u(p6, 4)), "busy_max_ms": ms(u(p6, 8)),
+                                         "busy_over_10ms": u(p6, 12), "lost_ticks": u(p6, 16),
+                                         "deferred": {"compose": u(p6, 20), "band": u(p6, 24), "transfer": u(p6, 28)},
+                                         "busy_bins": [u(p6, 32 + 4 * i) for i in range(6)]}
+            except (DeviceError, TimeoutError):
+                pass
         return {"seconds": secs, "screen": screen, "profile": profile, "loop": {"count": u(a, 8), "max_ms": ms(u(a, 12)), "mean_ms": ms(u(a, 16))},
                 "flash": {"erases": u(a, 20), "erase_max_ms": ms(u(a, 24)), "writes": u(a, 28), "write_max_ms": ms(u(a, 32)), "write_max_bytes": u(a, 36)},
                 "keys": {"count": u(a, 40), "max_ms": ms(u(a, 44)), "bins": [a[48 + 2 * i] | a[49 + 2 * i] << 8 for i in range(8)]},
@@ -311,6 +324,12 @@ def profile_lines(p):
         out.append("  %s: %s / %s ms%s" % (label, f(s["mean_ms"]), f(s["max_ms"]), calls))
     m = p["midi_in"]
     out.append("  MIDI input callback (routing task, not in the pass): %d calls, mean %s ms, max %s ms" % (m["calls"], f(m["mean_ms"]), f(m["max_ms"])))
+    b = p.get("budget")
+    if b:                                     # v0.5: page 6
+        out.append("pass busy (pass start to the end of the screen hook): mean %s ms, max %s ms; %d passes busy over 10 ms; %d lost ticks (periods over 15 ms)"
+                   % (f(b["busy_mean_ms"]), f(b["busy_max_ms"]), b["busy_over_10ms"], b["lost_ticks"]))
+        out.append("  busy histogram <2 %d, <4 %d, <6 %d, <8 %d, <10 %d, >=10 %d (ms); deferred: compose %d, band %d, transfer %d"
+                   % (tuple(b["busy_bins"]) + (b["deferred"]["compose"], b["deferred"]["band"], b["deferred"]["transfer"])))
     return out
 
 

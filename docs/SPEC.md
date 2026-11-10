@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.26
+Version: 0.27
 Revision log:
+- v0.27, 2026-11-10 (Task 13 Step 1): section 17.1: the control-pass budget (option B), CPU GUARD
+  described (17.2).
 - v0.26, 2026-11-09 (Task 12, install incident): 16.5 items 4 and 5: the all-zero loader tag resumes
   after the model confirmation; a query timeout never leads to force flash.
 - v0.25, 2026-11-08 (Task 12 A5): section 16.5: permanent build pages, builds/index.json, and the
@@ -1120,3 +1122,42 @@ router flushes) so the old numbers stay comparable; the pass period is the profi
    Connect says the device did not answer and to power-cycle it (`NO_REPLY`). Migration is
    offered only for a non-Open identity (factory V16), and then as that checkbox, not a button
    (BUILD.md 26.8).
+
+## 17. Task 13 — Timing fixes (2026-11-10)
+
+### 17.1 The control-pass budget (option B, every build from tabby-v04.1)
+
+- The SDK runs one control pass per 10 ms timer tick and drops a tick while a pass still runs or
+  waits (BUILD.md 26.9 B2). A pass must therefore end before the next tick.
+- Order in a pass: the router flush (groove_midi_poll, the SDK's first hook), then song scheduling
+  (song_poll), then song storage, then the rest. MIDI sends and song work are never deferred.
+- Budget: CT_PASS_BUDGET_TICKS = 6 ms of wall time since the pass began (app/diag.h). Wall time
+  includes the audio thread's share of the CPU, which is what decides a missed tick.
+- Deferrable work asks the budget first: the LCD page compose (at most 2 x 60 ms late past its 33 ms
+  frame), each LCD band (started only if the last band's time still fits; one band per 60 ms always
+  goes, in plain rotation, so a pass that is always late still repaints the whole page), and a new
+  workbench request (at most 4 passes in a row; cached retries and MMC are never deferred).
+- The router is flushed after every LCD band, so a note the audio thread queues while the screen
+  paints leaves at once instead of at the next pass.
+- Panel input is never deferred (apply_controls runs every pass); only the picture can be late.
+- Measured on the device through command 25 page 6: busy time per pass (start to the end of the
+  screen hook), passes busy over 10 ms, lost ticks (pass periods over 15 ms), deferrals per kind.
+
+### 17.2 CPU GUARD (SDK, read from the disassembly; not changed by Task 13)
+
+- What it is: the SDK engine's per-audio-block render budget (`audio_budget`, functions
+  `audio_track_begin`, `audio_track_end`, `audio_finish` in libfm1_engine.a). Each block (128 frames,
+  2.90 ms) has a render budget in timer ticks (52244 or 59210 per render group); each track's render
+  gets a deadline (`fm1_render_begin` / `fm1_render_end`).
+- When it trips: a track whose render passes its deadline, or a block whose total render time passes
+  its budget (and then the heaviest track).
+- What it does: lowers that track's voice limit by one (not below 1), steals the extra voices at
+  once (`voice_limit`), declicks the block (`fm1_declick128`) and counts one "adapted". After 344
+  blocks in a row under 3/4 of the budget (about 1 s) it gives one voice back, up to the track's
+  capacity. The screen shows CPU GUARD - VOICES ADAPTED when the count rises (app/screen.c, checked
+  every 500 ms).
+- During play: yes, it changes behaviour, but only the internal sound: fewer voices on the heavy
+  tracks (stolen notes, shorter tails) until the load drops. It does not touch MIDI out, the song
+  timing or the control pass directly; its indirect effect is that a loaded audio thread leaves
+  less CPU to the control task, so passes run longer (12.5 ms mean with eight lines in 26.9 B1).
+
