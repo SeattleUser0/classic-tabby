@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-10T19:32:21Z",
+  "updated": "2026-11-10T19:32:46Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -80,7 +80,7 @@
       "page": "builds/tabby-v04.2-diagA2/",
       "published": "2026-11-10",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.2-diagA2.zip",
-      "note": ""
+      "note": "TEST BUILD: option A2 (the control pass on demand, A2=1), off at boot; for the Task 15 timing measurement. Not on the main page."
     }
   ]
 }
