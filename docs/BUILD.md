@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.58
+Version: 0.59
 Revision log:
+- v0.59, 2026-11-10 (Task 14): section 28, the Help audit against tabby-v04.1 (counts, the banned-phrase
+  guard, stale firmware texts for the left-to-build list, open questions).
 - v0.58, 2026-11-10 (Task 13 Step 5): 9.1, tabby-v04.1 is the current release; 27.5 its publication and
   verification record.
 - v0.57, 2026-11-10 (Task 13 Step 5): 27.5, the tabby-v04.1 release build and its install steps.
@@ -315,6 +317,9 @@ understood (25.5); installs are done from the user's MacBook.
   the read-only link test in 25.5 explains the 125 MB loop and `urb status -115`.
 - **Sanitizer fixes**: none needed; `make host-sanitize` is green (0 findings, leaks included)
   at linux-build 8114114. Keep it green: it is part of `make suite`.
+
+- **Firmware screen texts that are stale** (Task 14, 28.3): the overview knob labels (STEP, NOTE), the
+  pad-step lines, ERASE OLD SAMPLE DATA. Text only; check reachability first.
 
 ### Left to test
 
@@ -3853,3 +3858,69 @@ tabby-v04.1 badge and the new wording. The plain `builds/tabby-v04.1/` URL answe
 minutes after the deploy (the CDN kept the 404 of a request made just before it; the same URL with a
 query string, and later without, answers 200).
 
+## 28. Task 14 — Help audit against tabby-v04.1 (2026-11-10)
+
+Task text: docs/tasks/TASK-14-help-audit.md. Branch classic-tabby/help-audit (worktree
+../firmware-help-audit), made from classic-tabby/linux-build 5ae7626. Text only: no firmware behavior
+changed (app/ is untouched), nothing was written to the device. The workbench is part of the next
+release only; tabby-v04.1 is not republished.
+
+### 28.1 What the audit covered and found
+
+Every user-facing string of sdk/Update.html.in (HTML text and attributes, script literals),
+sdk/Simulator.js, sdk/WebUpdate.js, sdk/Samples.js, the translation table sdk/I18n.js (1029 keys), both
+READMEs, the MIDI guide template and the install template was read against the firmware (app/screen.c,
+SPEC 16.2 and 17.4). The translation table went from 1029 keys to 763: 327 removed (290 were text no
+source file used any more: the old chapters 01-09, the sampler and DX7 user library pages, the step editor
+and recording help, the count-in lines, old update-page branches, the removed button; 37 were replaced by
+rewritten keys) and 61 added (the 18 of chapter 00 and the rewrites). By place, counting one string, tooltip
+or sentence once:
+
+| Where | Rewritten | Deleted |
+|---|---:|---:|
+| Manual ch 13 quick start | 3 | 0 |
+| Manual ch 14 panel and shortcuts | 5 | 0 |
+| Manual ch 15 sync and MIDI; ch 17 mix; ch 18 files | 3 | 0 |
+| Manual ch 19 MIDI and Bluetooth | 4 | 0 |
+| Manual ch 20 update firmware (incl. the stall steps) | 5 | 1 (the "Enable force flash and reconnect" paragraph) |
+| Manual ch 21 questions | 3 | 0 |
+| Manual heading, search hint, chapter 10 line | 3 | 0 |
+| Simulator panel text (page tips 0, 1, 12; SEQ, SCL and PAD / STEP tips; the preset-knob line; the clear-saves texts) | 10 | 9 (tips of the removed Bluetooth and FM naming pages, the DELAY-page SEQ tap hint, the five recording and step-record status texts, the count-in text) |
+| Update page (progress texts after a flash, the "same version" line, the backup label, two settings texts) | 6 | 3 (the force-activate button with its two handler lines, the two sample-check branches) |
+| WebUpdate.js | 1 message | 1 message, and the unused samplesRead / samplesWrite methods |
+| READMEs: English / Chinese | 10 / 13 | 2 / 2 (the Sampler bullet and the sample-check paragraph, replaced) |
+| MIDI guide template, install template | 0 | 0 (checked; already current) |
+| New: Help chapter 00 "What changed in tabby-v04" (8 items, both languages) | 18 new keys | - |
+
+Chapters 01 to 12 (English) were already current after Tasks 12 and 13, apart from one line in chapter 10
+(the OUT CH readout is on the MIDI TRACK page, not "the SEQ page"). The song help's "64 steps, at most 4
+notes per step" was checked against app/song_storage.h and stays (SONG_BLOCK_STEPS 64, SONG_NOTES_PER_STEP 4).
+
+### 28.2 The guard
+
+tests/workbench/help-banned.mjs reads 4761 strings with tests/workbench/help-banned-phrases.json (47 English
+and 29 Chinese phrases, 28 allow fragments, 4 exact allows). Run against the published tabby-v04.1 sources it
+reports 263 hits; now 0. tests/workbench/manual-i18n.mjs v0.3 expects 22 chapters. Both are in
+`make workbench-test`. SPEC 17.5 has the rules.
+
+### 28.3 Left to build: firmware screen texts that are stale (listed, not changed here)
+
+Found while auditing; all in app/, so out of this task's scope. Check whether each is still reachable.
+- app/screen.c, the overview knob labels `{"LEVEL", "STEP", "NOTE", "BPM"}`: K3 STEP and K2 NOTE are
+  not HOME controls since Task 12 A2 (K1 level, K2 engine, K4 tempo).
+- app/screen.c, "PAD/STEP STEP EDIT  RELEASE TO RETURN" and "PAD STEPS - SHIFT+PAD TO PLAY" /
+  "PAD PLAY - SHIFT+PAD TO EDIT STEPS": pad-step mode is gone.
+- app/screen.c, "ERASE OLD SAMPLE DATA" (project result GROOVE_PROJECT_TUNING_SPACE): the action is called
+  ERASE OLD DATA now.
+- The firmware still lists SAMPLER in `source_names` (it is not selectable; a project with a sampler track
+  loads as the 808 kit).
+
+### 28.4 Unsure, for the user to decide
+- Chapter 11 (English, Storage) says "Restore factory V16 overwrites the last 40 KB of song storage, block
+  sectors 86 to 95". The pool has 80 block sectors since tabby-v04.0, so the sector numbers cannot be right
+  for the new layout. Not changed: the facts are not in this tree.
+- Chapter 19 says "Pro and Elite have no wired MIDI IN" while the SYNC / MIDI page offers CLK IN DIN.
+  Kept as written; needs the hardware answer.
+- The browser preview says "This preview uses demo samples" (chapter 09 area). Kept; the simulator's wasm may
+  still carry demo samples.
+- The overview tip for HOME says the K6 / K2 knobs change the engine; kept as the firmware code reads.

@@ -18,16 +18,18 @@
 //        legacy path; a factory V16 identity still gets migration (force stays a manual choice);
 //        the identity query is tried 4 times when a port opens
 //     Y2 waitFor takes the zero tag while waiting for a loader, never for the firmware
-//     Z  sdk/Update.html.in (static): the force button is always hidden and has no click handler,
+//     Z  sdk/Update.html.in (static): the force button is gone from the page (Task 14; it was hidden
+//        with no click handler before),
 //        an error never sets forceSuggested, Connect and Start update read the checkbox (the only
 //        way to turn force on), and the migration text points to the section, not a button;
 //        sdk/I18n.js translates the new messages
 //
 //   Run:  /usr/bin/node tests/workbench/update-safety.mjs   (part of make workbench-test)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-10  Task 14: Z expects no force button element at all (the page dropped it).
 //   v0.1  2026-11-09  Initial version (Task 12, the 2026-11-09 install incident).
 
 import { readFileSync } from 'node:fs';
@@ -180,7 +182,7 @@ await scenario('Y2', async () => {
 
 await scenario('Z', async () => {
   const page = readFileSync(join(root, 'sdk/Update.html.in'), 'utf8');
-  check(page.includes("$('force-activate').hidden=true;") && !/force-activate'\)\.addEventListener/.test(page), 'Z: the force button is always hidden and has no click handler');
+  check(!page.includes('id="force-activate"') && !/\$\('force-activate'\)/.test(page), 'Z: the force button is gone: no element and no handler');
   check(!/setForceMode\(true/.test(page), 'Z: nothing calls setForceMode(true, ...)');
   check(!/forceSuggested=error/.test(page) && /forceSuggested=false;\s*\/\* Task 12/.test(page), 'Z: an error never sets forceSuggested');
   const sets = [...page.matchAll(/\$\('force-update'\)\.checked=([^;]+);/g)].map(m => m[1]);

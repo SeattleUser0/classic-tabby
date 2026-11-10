@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. */
 /* Classic Tabby, Task 03 a: sample bank and DX7 user library removed from the simulator. */
 /* Classic Tabby Task 13 Step 4 (2026-11-10): panel wording: knobs K1-K8 by their printed numbers (firmware SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8); the firmware's SAVE button named by position (the 4th button in the left group, after SHIFT, FADER BANK, HOME); SPEC 17.4 has the table. The panel button the firmware calls SAVE is labelled BTN 4 here. */
 (() => {
@@ -371,15 +372,13 @@
       if(instrumentState===undefined)wakingKeys.clear();
       else for(const key of wakingKeys.keys())if(typeof key==='number')wakingKeys.delete(key);
       const pageTips={
-        0:'总览：K5 选轨，K3（STEP）选步；K7 换预设，K6／K2 换音源。',
-        1:'SEQ：K6 翻底部七页，K7 选步，K5 选轨，OCT−／OCT+ 换步进页；SHIFT + SEQ 直达输入／输出通道，长按 SEQ 复制与更多。',
+        0:'总览：K5 选轨，K1 音量，K4 速度；K7 换预设，K6／K2 换音源。',
+        1:'SYNC / MIDI：K1 CLOCK，K2 CLK IN，K3 SWING，K4 SEQ OUT，K7 KEY OUT；SHIFT + SEQ 打开 MIDI TRACK，长按 SEQ 打开 ACTIONS。',
         6:'混音：打击垫 1–8 静音、9–16 独奏，同轨互斥；K5 选轨，K1–K4 调当前四轨组音量。',
-        7:'蓝牙：K1 总开关，K2 音频，K3 BLE 角色，K4 时钟；K7 选屏幕下方操作，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）执行，清除配对需再次确认。无线连接请在实机操作。',
         8:'保存项目：K5／K7 选 USER 槽，再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）保存；覆盖其他已有槽需确认，成功后自动返回。',
-        9:'FM 音色命名：K5 选字符，K1 改字符；EDIT 返回编辑，HOME 返回轨道。',
         10:'效果：K6 翻 TRACK／SHARED／DELAY，K5 选轨，K1–K4 调屏幕参数。DELAY 页连按 SEQ 或 TAP 打拍；K7 也可翻页。',
         11:'音源预览：Pad 1–6 或 K1 选择，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）应用，HOME 返回；K2 TRACK 即时选择 PROJECT（跟随项目）／LIVE（换项目保留音色）／OFF（关闭音源）。',
-        12:'复制与粘贴：K1 或 K5 选操作，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）执行；复制后自动选中 PASTE。K7／K2 选目标步，OCT−／OCT+ 选目标页，再按左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）粘贴。',
+        12:'ACTIONS：K1 或 K5 选操作，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）执行，HOME 取消；SONG MODE 打开歌曲页。',
         15:'FM 常用参数：K7 选择 1–128 音色，K6 切换 A–D 组；K1 算法、K2 反馈、K3 移调、K4 音量。EDIT 返回；完整音色编辑请使用网页工作台。',
         19:'歌曲模式：K5／K7 选歌曲，PLAY 开始／停止，打击垫 1–16 排队跳转到该行，OCT 翻打击垫页，K4 设置跳转落点。歌曲由网页工作台写入。',
         17:'ARP：短按开关，长按调参数；K6 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。K5 选轨，开关和参数随项目保存，不保存按住的音符。',
@@ -389,7 +388,7 @@
     }
     if(contextChanged){
       for(const button of document.querySelectorAll('[data-sim-page]'))button.setAttribute('aria-pressed',String(Number(button.dataset.simPage)===state[1]||(Number(button.dataset.simPage)===15&&state[1]===5)));
-      const presetUse={0:'换整套预设',1:'选步进',8:'选保存槽位',10:'切换轨道发送／共用细调',12:'选步进',13:'选步进',15:'换当前轨音色',16:'选整套预设',17:'此页不使用'};
+      const presetUse={0:'换整套预设',1:'开关 KEY OUT',8:'选保存槽位',10:'切换轨道发送／共用细调',12:'选操作',15:'换当前轨音色',16:'选整套预设',17:'此页不使用'};
       FM1I18n.text($('sim-context'),'面板 K7 旋钮：'+(presetUse[state[1]]||'以屏幕下方标签为准')+'。');
     }
     updateScreenControls(message.screen,contextChanged);
@@ -410,12 +409,10 @@
       if(!oldWorkspace||workspace.dirty!==oldWorkspace.dirty)FM1I18n.text($('sim-project-note'),workspace.dirty?'工作区有修改':'工作区未修改');
       renderSync();
     }
-    const count=Math.min(4,Math.ceil(message.countIn/4));
-    const selectedRole=(message.session?.[state[0]]||0)&255;
-    const recording=state[16]&&state[17]!==1?'等待外部 MIDI 时钟；在 SEQ 的 SYNC / LOOP 页可切回 INT。':state[4]?
-      selectedRole===2?'所选轨道为 OFF，未启用；SHIFT + HOME 的 K2 TRACK 可开启。其他 PROJECT 轨仍可录入。':selectedRole===1?'所选 LIVE 轨只做现场演奏，不写入编曲；其他 PROJECT 轨仍可录入。REC 结束录入。':
-      count?'预备拍：'+count+'；下一小节开始录音。':state[14]?'实时录音：弹琴录入，REC 结束录音。':'步进录入：每次弹琴写入编辑步，REC 结束录入。':state[14]?'正在播放；绿色是播放位置，选中框是编辑位置。':'已停止；REC 开始步进录入，PLAY 播放。';
-    const hideRecording=!(state[4]||(state[16]&&state[17]!==1));
+    /* Task 14: the device has no recording (v0.4); this line only reports the external-clock wait. */
+    const waitClock=!!(state[16]&&state[17]!==1);
+    const recording=waitClock?'等待外部 MIDI 时钟；在 SYNC / MIDI 页（按 SEQ）可切回 INT。':'';
+    const hideRecording=!waitClock;
     if($('sim-record-state').hidden!==hideRecording)$('sim-record-state').hidden=hideRecording;
     if($('sim-record-state').dataset.message!==recording){$('sim-record-state').dataset.message=recording;FM1I18n.text($('sim-record-state'),recording);}
     if(!before||before[14]!==state[14]){
@@ -789,14 +786,10 @@
   function resetWheels(){ui.wheels.forEach((input,i)=>{input.value=i?0:64;});}
   function feedback(kind,index,element){
     if(kind===10&&index===7){
-      say('PAD / STEP：短按进入或退出独立 Pad 乐器；SHIFT + PAD / STEP 切换步进。KEY 与 PAD 保留各自的轨道、通道和八度。');return;
-    }
-    if(((kind===0&&index===11)||(kind===10&&index===15))&&state?.[1]===10&&lcdScreen?.knobs?.[0]?.[0]==='SYNC'){
-      say('DELAY 页连按 SEQ 或 TAP 设置 BPM；外部 MIDI 时钟下速度只读。');return;
+      say('PAD / STEP：短按进入或退出独立 Pad 乐器。KEY 与 PAD 保留各自的轨道、通道和八度。');return;
     }
     if(kind===0){
-    if(state?.[1]===7){say('蓝牙：K1 总开关，K2 音频，K3 BLE 角色，K4 时钟；K7 选屏幕下方操作，左侧按键组第 4 键（SHIFT、FADER BANK、HOME 之后）执行，清除配对需再次确认。无线连接请在实机操作。');return;}
-    const tips={2:'FX：K5 选轨，K1 混响、K2 延迟，0 关闭发送；K7 切换细调页。',3:'SCL：DX7 算子键盘缩放；其他音源打开音高参数页。',10:'ARP：短按开关，长按调参数；K6 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。K5 选轨，开关和参数随项目保存，不保存按住的音符。',11:'SEQ：K6 翻底部参数页，K7 选步；RHYTHM/REC 页 K4 选循环长度。再按 SEQ 返回基础页并恢复跟随。'};if(tips[index])say(tips[index]);}}
+    const tips={2:'FX：K5 选轨，K1 混响、K2 延迟，0 关闭发送；K7 切换细调页。',3:'SCL：在歌曲页与轨道启动页之间切换；其他页面提示音色编辑已移至网页工作台。',10:'ARP：短按开关，长按调参数；K6 翻页，第一页调分频／方向／音域／门长，第二页调 Swing／Hold。K5 选轨，开关和参数随项目保存，不保存按住的音符。',11:'SEQ：短按打开 SYNC / MIDI 页，SHIFT + SEQ 打开 MIDI TRACK，长按打开 ACTIONS；HOME + SEQ 拍击速度。'};if(tips[index])say(tips[index]);}}
   function latch(item){latched.has(item)?latched.delete(item):latched.add(item);syncHolds();}
   function pulse(kind,index) {
     const owner='click:'+kind+':'+index;clearTimeout(pulseTimers.get(owner));
@@ -971,7 +964,7 @@
     const data=await globalThis.FM1Workbench.read();
     await request('import',{data});rememberDeviceSnapshot(data,'read');say('设备项目已载入仿真工作区。');
   });
-  $('sim-clear').onclick=()=>action(async()=>{if(confirm(FM1I18n.t('清空此浏览器的 16 个仿真项目槽并恢复默认音源？采样库和试听音量保留，设备上的内容不受影响。'))){await request('clear');say('本地项目存档已清空，采样库和试听音量已保留。');}});
+  $('sim-clear').onclick=()=>action(async()=>{if(confirm(FM1I18n.t('清空此浏览器的 16 个仿真项目槽并恢复默认音源？试听音量保留，设备上的内容不受影响。'))){await request('clear');say('本地项目存档已清空，试听音量已保留。');}});
   $('sim-midi').onclick=()=>action(async()=>{
     if(midiConnecting)return;
     if(!ready)throw Error('请先启动仿真');if(!navigator.requestMIDIAccess)throw Error('此浏览器不支持 MIDI 输入，请使用电脑 Chrome 或 Edge');

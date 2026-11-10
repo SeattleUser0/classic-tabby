@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.29
+Version: 0.30
 Revision log:
+- v0.30, 2026-11-10 (Task 14): 17.5, the Help and panel text is held to the removed-features list
+  (banned phrases and a test); K1-K4 on HOME; the song block limits re-checked.
 - v0.29, 2026-11-10 (Task 13 Step 4): 17.4, the control-name table (firmware name -> printed name or
   position), the start of the sticker map.
 - v0.28, 2026-11-10 (Task 13 Step 2): 17.3: option A is not built (the song tick runs in the audio
@@ -1220,3 +1222,23 @@ ids 6-17; firmware name = the FM1 button app/screen.c tests, through `button_map
 
 The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
 
+### 17.5 The Help and panel text is held to the removed-features list (Task 14, 2026-11-10)
+
+The workbench's Help (the manual tab), the simulator's panel tooltips and status lines, the device
+update help, the translation table (sdk/I18n.js), the READMEs, the MIDI guide and the install template
+may not name a page, mode, action, flow or control name that tabby-v04.1 does not have. The list of
+banned phrases (English and Chinese) is tests/workbench/help-banned-phrases.json; the test is
+tests/workbench/help-banned.mjs (in `make workbench-test`). A phrase is added there whenever a feature is
+removed (16.2 is the list so far: STEP DETAILS, LOCKS, RHYTHM/REC, SYNC / LOOP, REC and its count-in and
+metronome, pad-step mode, copy / paste / clear / repeat, the sampler and its bank, "Enable force flash and
+reconnect"). A sentence that says a thing was removed is allowed by an `allow` fragment of that file, or
+sits in a region marked `data-removed-ok` (the Help chapter 00, "What changed in tabby-v04", and the
+removed-features paragraph of chapter 15). An unused translation is dead text: sdk/I18n.js keeps only
+keys that a source file contains (Task 14 deleted 290).
+
+What is checked against the firmware when text changes: the control names against 17.4; K1-K4 on HOME are
+K1 level, K2 engine, K4 tempo (K3 does nothing); SEQ opens SYNC / MIDI on every page and HOME + SEQ taps
+the tempo everywhere (no tap on FX DELAY); SEQ + EDIT and a long SEQ press both open ACTIONS; HOME + the
+4th left button undoes the last change; a song block is 64 steps with up to 4 notes starting on a step
+(app/song_storage.h `SONG_BLOCK_STEPS`, `SONG_NOTES_PER_STEP`; v2 blocks add a start offset and a length
+to each note but not more notes per step), so the song help's "64 steps, at most 4 notes per step" stays.
