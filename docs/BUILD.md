@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.58
+Version: 0.59
 Revision log:
+- v0.59, 2026-11-10 (Task 15 Step 1): section 28.1, the baseline: the SMK-37 is not on the NUC, so the
+  Task 12 B1 numbers (tabby-v04.0) stand until tabby-v04.1 is installed and measured.
 - v0.58, 2026-11-10 (Task 13 Step 5): 9.1, tabby-v04.1 is the current release; 27.5 its publication and
   verification record.
 - v0.57, 2026-11-10 (Task 13 Step 5): 27.5, the tabby-v04.1 release build and its install steps.
@@ -3853,3 +3855,25 @@ tabby-v04.1 badge and the new wording. The plain `builds/tabby-v04.1/` URL answe
 minutes after the deploy (the CDN kept the 404 of a request made just before it; the same URL with a
 query string, and later without, answers 200).
 
+## 28. Task 15 — past the 10 ms MIDI timing floor: research (2026-11-10)
+
+Task text: docs/tasks/TASK-15-timing-research.md. Branch classic-tabby/timing-research (worktree
+../firmware-timing), from linux-build 5ae7626. Steps 1 to 3 are read-only: nothing built, nothing
+written to the device, nothing pushed.
+
+### 28.1 Step 1: the baseline
+
+**The SMK-37 is not on this NUC** (2026-11-10): `lsusb` shows the AUDIO4c and the H4MIDI-WC only, and
+ALSA has no "SMK37 Open" port. Its build id could not be read, so Task 13 Step 6 (the tabby-v04.1
+measurement) was not run. Until the user installs tabby-v04.1 and puts the device back on the NUC,
+the baseline is Task 12 B1 (26.9), **measured on tabby-v04.0**, before option B:
+
+| Run (measured, tabby-v04.0, 2026-11-09) | Band DIN | Band USB | std |
+|---|---|---|---|
+| One line (song 16) | 13.97 ms | 14.10 ms | 3.14 ms |
+| Eight lines, per line (song 15) | 14.4..16.5 ms | 14.4..16.0 ms | 3.3..3.4 ms |
+| Eight lines, all lines on one grid | 23.34 ms | 17.11 ms | 4.10 / 3.47 ms |
+| Control pass, one line / eight lines (mean / max) | 10.61 / 14.03 ms | 12.49 / 19.21 ms | |
+
+tabby-v04.1 (option B) is **estimated** at 10 to 11 ms on one line with the 20 ms cases gone (27.1);
+not measured yet.
