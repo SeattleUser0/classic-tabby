@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.63
+Version: 0.64
 Revision log:
+- v0.64, 2026-11-10 (Task 15 Step 4): 28.5, the publication record of tabby-v04.2-diagA2.
 - v0.63, 2026-11-10 (Task 15 Step 4): section 28.5, the diag build tabby-v04.2-diagA2: build record, where
   it is published (builds/ only), the install and the Step 5 plan.
 - v0.62, 2026-11-10 (Task 15 Step 4): section 28.4, option A2 as a diag build: why 27.2's "not safe"
@@ -4116,3 +4117,11 @@ user present, PLAY pressed by the user):
 3. Stop at once and report on any audio dropout, a rise in CPU GUARD trips, a stuck note or a USB
    MIDI error with A2 on.
 4. F + G only if A2 measures over 4 ms.
+
+**Publication (2026-11-10).** Branch classic-tabby/timing-research and tag tabby-v04.2-diagA2 pushed
+(9283860). gh-pages b0934f7 added `builds/tabby-v04.2-diagA2/` and its index entry; 686e4cc added the
+entry's note ("TEST BUILD ..."). Both commits change files under builds/ only (`git diff --name-only`
+shows nothing outside it); the root index.html and assets.json are the tabby-v04.1 ones, byte for
+byte. To publish from this worktree, the main checkout's build/gh-pages worktree (clean, at the
+remote's b0f765a) was removed first, as publish-pages.py does with its own; the next publish from
+the main checkout recreates it from the remote.
