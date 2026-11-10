@@ -1322,9 +1322,14 @@ int main(void)
         CHECK(count(m, n, 0x90, 63, 100, &ports) >= 1 && calls_done <= blocks_done, "A2: the note left with the next pass; never more calls than blocks (%u / %u)", calls_done, blocks_done);
         /* Idle (no note, the clock's F8 aside): far fewer requests than blocks. At 120 BPM the
          * clock sends 48 F8 per second, one block in seven. */
+        sim_test_request_passes(1);   /* as on the device: a request gets its pass */
+        (void)sim_render(); (void)ct_diag_read(7, a2);
+        calls_done = U32(a2, 2); uint32_t retries_done = U32(a2, 5);
         for (unsigned i = 0; i < 344; ++i) (void)sim_render();
         (void)ct_diag_read(7, a2);
-        CHECK(U32(a2, 2) - calls_done < 344 / 4, "A2 on: idle blocks ask only for the clock (%u calls in 344 blocks)", U32(a2, 2) - calls_done);
+        CHECK(U32(a2, 2) - calls_done <= 60 && U32(a2, 5) == retries_done,
+              "A2 on: idle blocks ask only for the clock, once each (%u calls in 344 blocks, %u retries)", U32(a2, 2) - calls_done, U32(a2, 5) - retries_done);
+        sim_test_request_passes(0);
         groove_midi_song_note(0, 63, 0); settle(); (void)drain(m, 64);
         /* Reset clears the counters at the next block and keeps the switch; request 8 is off. */
         (void)ct_diag_read(1, a2); (void)sim_render(); (void)ct_diag_read(7, a2);

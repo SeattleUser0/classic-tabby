@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.31
+Version: 0.32
 Revision log:
+- v0.32, 2026-11-10 (Task 15 Step 4): 18.1: option A2 in the diag build (the switch, the request rule,
+  the counters, the stop rule); 17.3 marked superseded.
 - v0.31, 2026-11-10 (Task 15 Step 3): section 18: the recommended next step.
 - v0.30, 2026-11-10 (Task 15 Step 2): section 18: the timing research; 17.3's finding is superseded
   (the rule stays until a diag build is measured).
@@ -1170,6 +1172,9 @@ router flushes) so the old numbers stay comparable; the pass period is the profi
 
 ### 17.3 No extra control passes from the audio interrupt (Step 2)
 
+**Superseded 2026-11-10 (Task 15, section 18; evidence in BUILD.md 28.4).** The rule below stays in
+force for the normal build until the diag build tabby-v04.2-diagA2 has been measured.
+
 - The song tick runs inside the audio interrupt (`fm1_audio_irq`, IRQ 11). App code there must not
   call `fm1_control_request` or any other SDK call that posts to a task queue: the post looks the
   task up by name under `vTaskSuspendAll` and may yield directly (BUILD.md 27.2).
@@ -1237,3 +1242,20 @@ The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
 
 - Recommended next step (BUILD.md 28.3, waiting for approval): the pass request from the song tick
   in a diag build behind a build flag, off in the normal build; goal 4 ms or less on one line (DIN).
+
+
+### 18.1 Option A2 in the diag build tabby-v04.2-diagA2 (Step 4, 2026-11-10)
+
+- Built only with `A2=1` (`-DCT_A2`). The normal build has no A2 code; its image equals tabby-v04.1
+  except the build id.
+- A2 is **off at boot** and lives in RAM. Switch: ACTIONS, last entry "A2 FAST MIDI: OFF / ON" (K1
+  or K5 to choose, the 4th left button switches), or transfer command 25 request 8 (off) / 9 (on).
+- With A2 on, the audio interrupt asks the SDK for a control pass (`fm1_control_request`) at the end
+  of every audio block in which a MIDI event still waits in lane 0 or 1: at most one request per
+  block, never a loop; a request the SDK drops is repeated by the next block.
+- Counters, command 25 request 7 (48 bytes): on, audio blocks, calls, mean and longest call time
+  inside the audio interrupt, retries, a six-bin histogram of the call time.
+- Stop rule for the hardware run (the user's condition 6): any audio dropout, a rise in CPU GUARD
+  trips, a stuck note or a USB MIDI error with A2 on ends the run and is reported.
+- F + G (the TIMER5 release and the look-ahead) only after A2 is measured, and only if it is over
+  4 ms.

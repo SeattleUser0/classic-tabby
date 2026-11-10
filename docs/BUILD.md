@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.61
+Version: 0.62
 Revision log:
+- v0.62, 2026-11-10 (Task 15 Step 4): section 28.4, option A2 as a diag build: why 27.2's "not safe"
+  verdict was wrong (the evidence), what was built (A2=1, the run-time switch, the call-cost counters),
+  tests and the unchanged normal build.
 - v0.61, 2026-11-10 (Task 15 Step 3): section 28.3, the ranking and the recommendation (the pass request
   from the song tick first, the TIMER5 release second), the floor on the SDK's send path.
 - v0.60, 2026-11-10 (Task 15 Step 2): section 28.2, the options from the disassembly and JieLi's public
@@ -3721,6 +3724,10 @@ measured in Step 6.
 
 ### 27.2 Step 2: option A safety check (from the disassembly of build/pro/sdk.elf) — NOT SAFE, not built
 
+**Superseded 2026-11-10 by 28.2 and 28.4 (Task 15): the verdict below judged JieLi's kernel by stock
+FreeRTOS rules and is wrong. The call chain it lists is right; the evidence against the verdict is in
+28.4. The text stays as the record of what Task 13 concluded.**
+
 Option A would call `fm1_control_request` from `song_tick` when a note is queued. Findings:
 
 - **The calling context is an interrupt.** `song_tick` is called by `groove_midi_clock` <-
@@ -3997,3 +4004,82 @@ audio render allows.
 render budget is 52244 or 59210 ticks of 24 MHz (2.18 or 2.47 ms, SPEC 17.2), so about 2.5 ms is the
 worst case under full load and less at normal load. Under that only D goes (DIN only). The 4 ms goal
 looks reachable; it is not proven until measured.
+
+### 28.4 Step 4: option A2 built as a diag build (approved 2026-11-10, with six conditions)
+
+#### Why Task 13's "not safe" verdict (27.2) was wrong: the record
+
+Do not reverse this again without new evidence. 27.2 read the call chain correctly
+(`fm1_control_request` -> `os_taskq_post_type` -> `__os_taskq_post` -> `xTaskGetHandle` with
+`vTaskSuspendAll` / `xTaskResumeAll`, then `vPortYield`) and then judged it by the rules of stock
+FreeRTOS, where suspending the scheduler and yielding are task-only. This SDK's kernel is JieLi's
+variant and those rules do not describe it. The evidence, from the tabby-v04.1 ELF (build id
+013976a5…) and JieLi's public AC79 SDK (commit 5fa84a9, the one THIRD_PARTY.md names):
+
+1. **Critical sections mask every interrupt.** `__local_irq_disable` (0x1c07b08) is `cli` plus a
+   per-CPU nesting count (`irq_lock_cnt`); `__local_irq_enable` (0x1c07b20) is `sti` when the count
+   returns to 0. `vTaskSuspendAll` (0x202fa8c) is exactly `__local_irq_disable` plus
+   `uxSchedulerSuspended++`. So "scheduler suspended" here means "interrupts off": nothing, task or
+   interrupt, runs inside it, the pending-ready list and pended ticks that make the stock call
+   dangerous in an interrupt cannot fill, and there is no priority level above which the OS may not
+   be called. The audio interrupt (priority 4) is masked by it like any other.
+2. **The yield is deferred.** `vPortYield` (0x202fa28) picks the next task (`xTaskSwitchContext`)
+   and sets soft interrupt 7 (`0x1eef1a0 |= 0x80`); the switch itself happens in
+   `vSoftwareInterruptISR` at priority 0, after every hardware handler has returned. 27.2 called
+   this "a task-level yield"; it is the interrupt-safe pattern.
+3. **The SDK's own interrupt handlers post through the same function.** `midi_tx_irq` (0x1c07ae2,
+   IRQ 20, priority 1, after every DIN burst) -> `smk37_connectivity_platform_uart_transmit_ready`
+   -> `connectivity_wl82_midi_signal` -> `os_taskq_post_msg` -> `__os_taskq_post` (0x20305f0).
+   `timer4_isr` (0x201343a, IRQ 62, priority 5, above the audio interrupt) -> `os_taskq_post_type`
+   -> `__os_taskq_post`. Also `slot_timer_irq_handler` (IRQ 41, priority 2) -> `os_taskq_post_type`,
+   and `timer1_isr`, `sbc_isr` -> `os_sem_post`.
+4. **The API offers the call.** sdk/include/fm1.h declares `fm1_control_request` ("Request deferred
+   control work after queuing a message"), the library exports it, and the SDK calls it outside the
+   control task itself (`fm1_app_sysex`, the routing task). JieLi's os_api.h marks the waiting calls
+   (`os_time_dly`, `os_sem_pend`, `os_sem_accept`, the mutex calls) "not from an interrupt or a
+   critical section" and puts no such note on `os_taskq_post`, `__os_taskq_post` or `os_sem_post`.
+
+What 27.2 had right, and A2 handles: a request made while a pass waits or runs is dropped
+(`control_pending`); the flag is unguarded (worst case one extra, empty pass); the name search costs
+time inside the audio interrupt. Still open until measured on the device (Step 5): the cost of the
+call inside the audio interrupt and what the extra passes do to audio and CPU GUARD.
+
+#### What was built
+
+- **Build flag.** `A2=1` (Makefile v0.22) -> tools/linux/build.py `--a2` (v0.10) -> `-DCT_A2=1`,
+  folded into the build identity (`a2:1`; build-identity.json and the package JSON say `"a2": true`).
+  Without it no A2 code is compiled. The host tests always build it (HOST_FLAGS).
+- **The request** (app/midi_router.c, `a2_block`, in RAM with the audio code): once per audio block,
+  after the song tick and the MIDI clock, if A2 is on and lane 0 or 1 holds an event, one call of
+  `fm1_control_request`. At most one per block, no loop; a dropped request is repeated by the next
+  block while events still wait. The lanes carry the song's notes and row events, the pattern and
+  arpeggio notes and the MIDI clock byte, so all of them leave sooner; the song's local-engine notes
+  are posted at the same drain, so the internal sound follows the same timing.
+- **The switch** (condition 1): off at boot, RAM only. On the device: ACTIONS, the last entry
+  "A2 FAST MIDI: OFF / ON" (K1 or K5 to it, the 4th left button switches it; the screen says "A2 ON -
+  PASS ON DEMAND" or "A2 OFF - 10 MS PASSES"). From the NUC: transfer command 25, request 8 = off,
+  9 = on, 7 = read (tools/linux/hw/tabby_link.py `a2()`, run-15.py `--a2 off|on`). A power cycle is
+  off again. With A2 off the build makes no request: it measures option B alone.
+- **The counters** (condition 2; command 25 request 7, 48 bytes): on, audio blocks, calls, mean and
+  longest call (TIMER4 ticks, taken inside the audio interrupt around the call), retries (requests
+  made while nothing had been drained since the block before asked), and a histogram of the call
+  time (< 5, < 10, < 20, < 50, < 100, >= 100 microseconds). Calls per second = calls x 44118 /
+  (blocks x 128). Request 1 (reset) clears them, not the switch.
+- **Tools.** tools/linux/hw/tabby_link.py v0.6 (`a2()`, `health()`: commands 17, 18, 19, the audio
+  counters and CPU GUARD's "adapted"); tools/linux/hw/run-15.py v0.1 (`l2` for one run with A2 off
+  or on, DIN and USB together, optional AUDIO4c recording; `soak`; `table` for the off / on
+  comparison). run-15.py's analysis was checked on synthetic notes only; it has not met the device.
+
+#### Tests and gates (measured on this machine)
+
+- Host tests, tests/host/smoke.c v0.12 section 16 (14 checks; the simulator's `fm1_control_request`
+  counts calls, and `sim_test_request_passes` gives a request its pass as the SDK does): off at
+  boot; off = no request and the note waits for the 10 ms pass; on = one request and the note
+  leaves in the block that queued it; a request that gets no pass is repeated once per block; never
+  more calls than blocks; idle blocks ask only for the MIDI clock; reset, request 8, the ACTIONS
+  entry. `make test-fast`: 189 host checks and the rest pass.
+- **The normal build is unchanged**: built from this tree with DISPLAY_VERSION=tabby-v04.1, its
+  app image (448420 bytes) differs from the released tabby-v04.1 image in 32 bytes, the build id
+  (offsets 156173..156204; app/ sources are part of the id), and nowhere else.
+- The A2 build: app image 448868 bytes, +448 against the normal build, margin 70589 (FLASH-BUDGET
+  19). `a2_block` and the wrapper are in the RAM code section with the audio code (0x1c031f8).

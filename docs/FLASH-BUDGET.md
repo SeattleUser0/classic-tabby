@@ -1,7 +1,9 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.23
+Version: 0.24
 Revision log:
+- v0.24, 2026-11-10 (Task 15 Step 4): section 19: the A2 diag build measured, 448868 bytes (+448),
+  margin 70589; the normal build unchanged at 448420.
 - v0.23, 2026-11-10 (Task 15 Step 3): section 19: estimates for the timing options (nothing built).
 - v0.22, 2026-11-10 (Task 13 Step 5): section 18: the tabby-v04.1 release build, 448420 bytes, margin 71037.
 - v0.21, 2026-11-10 (Task 13 Step 1): section 18: the pass budget (option B), +768 bytes, margin 70941.
@@ -1072,3 +1074,13 @@ Margin today 71037 bytes (measured, section 18). Estimates for the options of BU
 built: A2 (the pass request from the song tick) about 200 bytes of flash and 4 bytes of RAM; A2 with
 the TIMER5 release and the look-ahead about 800 bytes and 0.3 KB; the direct DIN writer about 1.5 KB
 and 0.3 KB. Measured figures replace these in Step 4.
+
+
+| Build (measured, 2026-11-10, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| Normal build from the Task 15 tree (DISPLAY_VERSION=tabby-v04.1): equal to tabby-v04.1 except the build id | 448420 | 0 | **71037** |
+| Diag build tabby-v04.2-diagA2 (`A2=1`): the pass request, its counters, command 25 requests 7 to 9, the ACTIONS entry | 448868 | +448 | **70589** |
+
+The A2 estimate above (about 200 bytes) was low: the counters, the histogram and the ACTIONS entry
+are more than half of the +448. RAM: about 60 bytes of counters (estimated from the struct; the linker merges it with other
+globals, so the map does not show it apart).
