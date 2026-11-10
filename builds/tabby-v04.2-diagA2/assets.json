@@ -1,0 +1,55 @@
+{
+  "build": "49b872869fdda9f1218e8041639a1ab9dbd55271337127cdd1f06d46a67e0c3d",
+  "release": "V01",
+  "version": "tabby-v04.2-diagA2",
+  "entryBytes": 337953,
+  "initialBytes": 1457441,
+  "standaloneBytes": 3144055,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/d10fd71d0f57ee122121fe8f31da0606aa060537545f7cd07422dbb37b0203c8.bin",
+      "bytes": 487988,
+      "sha256": "d10fd71d0f57ee122121fe8f31da0606aa060537545f7cd07422dbb37b0203c8"
+    },
+    {
+      "name": "assets/smk37/2611676539a83d9a3ff65ecfad0f8747b5ba00704eb18833707738a2a5e36dc4.wasm",
+      "bytes": 290052,
+      "sha256": "2611676539a83d9a3ff65ecfad0f8747b5ba00704eb18833707738a2a5e36dc4"
+    },
+    {
+      "name": "assets/smk37/3a3dfa657102f722ca9c19e7f06f10b777ec72bbcf16a1e19247e8b643868532.js",
+      "bytes": 756334,
+      "sha256": "3a3dfa657102f722ca9c19e7f06f10b777ec72bbcf16a1e19247e8b643868532"
+    },
+    {
+      "name": "assets/smk37/663bd5bfe757fef5add9e02b9403fc0447a84d53b05fca9142f0ed5a6549bd5d.js",
+      "bytes": 72603,
+      "sha256": "663bd5bfe757fef5add9e02b9403fc0447a84d53b05fca9142f0ed5a6549bd5d"
+    },
+    {
+      "name": "assets/smk37/6cbd3ba63f8a821e611f506c9f206d0a275f681493e7a71c7baea18df2e0caff.js",
+      "bytes": 499,
+      "sha256": "6cbd3ba63f8a821e611f506c9f206d0a275f681493e7a71c7baea18df2e0caff"
+    },
+    {
+      "name": "index.html",
+      "bytes": 337953,
+      "sha256": "06c791b776bb508a2dd20744366f3721cfd953db523850d9e202fefabb7a7ce2"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 337953,
+      "sha256": "06c791b776bb508a2dd20744366f3721cfd953db523850d9e202fefabb7a7ce2"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3144055,
+      "sha256": "30eb5c0b05efacfd19d077e6f198f4b85a5ec6a98a826255f5164d43384c7f07"
+    }
+  ]
+}
