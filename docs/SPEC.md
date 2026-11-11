@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.32
+Version: 0.33
 Revision log:
+- v0.33, 2026-11-11 (Task 15 Step 5): 18.2: option A2 measured (one line 3.67 ms on DIN).
 - v0.32, 2026-11-10 (Task 15 Step 4): 18.1: option A2 in the diag build (the switch, the request rule,
   the counters, the stop rule); 17.3 marked superseded.
 - v0.31, 2026-11-10 (Task 15 Step 3): section 18: the recommended next step.
@@ -1259,3 +1260,20 @@ The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
   trips, a stuck note or a USB MIDI error with A2 on ends the run and is reported.
 - F + G (the TIMER5 release and the look-ahead) only after A2 is measured, and only if it is over
   4 ms.
+
+### 18.2 Option A2 measured (Step 5, 2026-11-11; all figures measured, BUILD.md 28.6)
+
+- One line (song 16), DIN: 12.34 ms spread with A2 off (option B alone), **3.67 ms with A2 on**;
+  USB 12.29 and 3.68 ms. The remaining spread is one audio block (2.9 ms), the song tick's period.
+- Eight lines (song 15), DIN, per line: 14.4..15.5 ms off, 3.8..6.5 ms on; all lines on one grid
+  21.5 ms off, 12.4 ms on (USB 17.3 and 6.6 ms).
+- Cost: 18 to 24 us per call inside the audio interrupt, longest 53 us; 49 to 64 calls a second;
+  retries under 1 percent of calls. The control pass runs every 6.6 to 7.7 ms instead of 11.6 to
+  12.7 ms.
+- Audio: no engine underrun, no DMA overrun, no silent gap in the AUDIO4c recording, off or on.
+  CPU GUARD trips about once a second on song 15 with A2 off (+97 in 100 s) and the same with A2 on
+  (+100): the stop rule's "rise" is read against that baseline.
+- No stuck note; USB and DIN carry the same notes.
+- Soak with A2 on so far: two hours idle and 25 minutes with two minutes of play, clean. The full
+  hour with panel use, a transfer and a save while stopped is still to do.
+- A2 stays a diag-build option until the user decides; the normal build has no A2 code.

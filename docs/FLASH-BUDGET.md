@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.24
+Version: 0.25
 Revision log:
+- v0.25, 2026-11-11 (Task 15 Step 5): section 19: note that the measurement changed no size.
 - v0.24, 2026-11-10 (Task 15 Step 4): section 19: the A2 diag build measured, 448868 bytes (+448),
   margin 70589; the normal build unchanged at 448420.
 - v0.23, 2026-11-10 (Task 15 Step 3): section 19: estimates for the timing options (nothing built).
@@ -1084,3 +1085,7 @@ and 0.3 KB. Measured figures replace these in Step 4.
 The A2 estimate above (about 200 bytes) was low: the counters, the histogram and the ACTIONS entry
 are more than half of the +448. RAM: about 60 bytes of counters (estimated from the struct; the linker merges it with other
 globals, so the map does not show it apart).
+
+Step 5 (2026-11-11) measured the diag build on the device (BUILD.md 28.6); nothing was rebuilt, so
+the sizes above stand (measured). The TIMER5 release and the look-ahead stay at their estimate
+(about 800 bytes, 0.3 KB), not built.

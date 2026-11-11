@@ -1,7 +1,10 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.64
+Version: 0.65
 Revision log:
+- v0.65, 2026-11-11 (Task 15 Step 5): 28.6, option A2 measured on the device: one line 3.67 ms on DIN
+  (12.34 ms with A2 off), eight lines 3.8..6.5 ms, call cost, CPU GUARD baseline, the soak so far, the
+  measuring-tool faults.
 - v0.64, 2026-11-10 (Task 15 Step 4): 28.5, the publication record of tabby-v04.2-diagA2.
 - v0.63, 2026-11-10 (Task 15 Step 4): section 28.5, the diag build tabby-v04.2-diagA2: build record, where
   it is published (builds/ only), the install and the Step 5 plan.
@@ -4125,3 +4128,84 @@ shows nothing outside it); the root index.html and assets.json are the tabby-v04
 byte. To publish from this worktree, the main checkout's build/gh-pages worktree (clean, at the
 remote's b0f765a) was removed first, as publish-pages.py does with its own; the next publish from
 the main checkout recreates it from the remote.
+
+### 28.6 Step 5: A2 off against on, measured on the device (2026-11-10 and 11)
+
+Device: tabby-v04.2-diagA2 installed by the user from the MacBook; SMK-37 on the NUC's USB back
+port, TRS out through the type A adapter to H4MIDI-WC DIN in 1, audio out to AUDIO4c inputs 1 and 2.
+PLAY pressed by the user; `tools/linux/hw/run-15.py l2`, 100 s from the song's MIDI Start, kernel
+receive timestamps on both ports. Song 16 = timing-1x16 (one line), song 15 = timing-8x16 (eight
+lines, the internal engine sounding). "Spread" = largest minus smallest error of the note-ons
+against a least-squares line, per line. Raw files: build/task15/ (not committed). **All figures in
+this section are measured.**
+
+| | One line, A2 off | One line, A2 on | Eight lines, A2 off | Eight lines, A2 on |
+| --- | ---: | ---: | ---: | ---: |
+| Notes per line | 715 | 804 | 808 | about 805 |
+| DIN spread per line, ms | 12.34 | **3.67** | 14.38..15.45 | 3.77..6.50 |
+| USB spread per line, ms | 12.29 | 3.68 | 14.50..15.71 | 3.71..5.39 |
+| DIN standard deviation, ms | 3.25 | 0.84 | 3.37 | 0.98 |
+| All lines on one grid, DIN / USB, ms | | | 21.46 / 17.28 | 12.44 / 6.57 |
+| Control pass period, mean / max, ms | 11.63 / 14.52 | 6.61 / 13.47 | 12.71 / 19.01 | 7.74 / 18.92 |
+| Pass periods over 15 ms ("lost ticks") | 0 | 0 | 727 | 111 |
+| Pass busy time, mean / max, ms | 1.42 / 3.01 | 0.84 / 2.49 | 2.20 / 7.54 | 1.44 / 7.25 |
+| A2 calls per second | 0 | 62.7 | 0 | 64.0 |
+| A2 call inside the audio interrupt, mean / longest, us | | 23.3 / 53.0 | | 18.3 / 49.5 |
+| A2 retries in 100 s | 0 | 14 | 0 | 1 |
+| CPU GUARD "adapted" | +0 | +0 | +97 | +100 |
+| Engine underruns / DMA overruns | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| Render peak, ms (deadline 2.902) | 0.886 | (1.478, carried over from song 15) | 1.471 | 1.475 |
+| AUDIO4c recording: silent gaps of 2 ms or more, recorder overruns | | | 0, 0 | 0, 0 |
+| Notes left on / USB differing from DIN | 0 / 0 | 0 / see below | 0 / 0 | 0 / 0 |
+
+What the table says:
+- **The goal is met on one line: 3.67 ms on DIN** (a first A2-on run gave 3.78 ms). The errors lie
+  in a flat band about 2.9 ms wide (1st to 99th percentile 2.91 ms): one audio block, which is how
+  often the song tick runs. A2 cannot go under that; F + G could.
+- **Eight lines: 3.8 to 6.5 ms per line on DIN**, so the worst line is over 4 ms; all eight lines on
+  one grid 12.4 ms on DIN (the DIN wire carries 8 notes one after the other, 0.96 ms each) and
+  6.6 ms on USB.
+- **Option B alone is 12.3 ms on one line, not the 10 to 11 ms Task 13 expected**: the SDK's pass
+  comes round every 11.6 ms on average (10.1 ms with no song playing, read on this build), not every 10 ms. Run to run the
+  A2-off eight-line spread moved by about 2 ms (12.2..14.2 ms in another clean run with +94
+  CPU GUARD).
+- **Cost of A2:** 18 to 24 us per call inside the audio interrupt, longest 53 us in every run
+  (2 percent of the 2.9 ms block), 49 to 64 calls a second (48 of them the MIDI clock at 120 BPM).
+  Passes run more often (every 6.6 to 7.7 ms) and are shorter.
+- **CPU GUARD trips on song 15 with A2 off**, about once a second (+94, +97 in 100 s; render peak
+  1.47 ms of 2.90 ms). A2 does not change it (+100). This is the song's eight internal voices, not
+  A2; it was not looked into further here. The stop rule "a rise in CPU GUARD trips" was therefore
+  read as a rise over this baseline (soak: over 1.5 a second across a minute).
+- No stop condition occurred: no underrun, no DMA overrun, no silent gap in the recording, no note
+  left on, no USB MIDI error from the device.
+
+**Faults of the measuring tools found on the way (all on the NUC, none in the firmware):**
+1. run-15.py v0.1 treated the receive times (ns) as seconds and started at the first note-on; a key
+   pressed before PLAY started one run early (v0.2: starts at the MIDI Start).
+2. PLAY, STOP, PLAY inside one capture gave a false 231 ms spread (v0.3: the longest unbroken
+   stretch is fitted; v0.4: the capture starts over at every new Start).
+3. The in-process audio capture overran 810 times in one run (v0.5: `arecord` with a 0.5 s buffer).
+4. After a 5.4 h wait for PLAY the script scanned 930,000 stored clock bytes per turn and did not
+   read the USB port for seconds; that run's USB capture lost 0.6 s and 125 ms (v0.6).
+5. tabby_link `query()` returned at the reply and dropped what the same read brought after it; the
+   A2-on one-line run's USB capture has a 167 ms hole right after the Start for that reason (one
+   note-on, one note-off; DIN complete). Fixed in tabby_link v0.7. Proof that it is not the device:
+   a 20 s probe with about 230 read commands counted the same clock bytes on USB and DIN (942..952
+   each), with A2 off and on; and the soak below, with 75 reads, has the same 6166 note events on
+   both ports. That one-line run was not repeated after the fix.
+
+**Soak with A2 on, so far (not the full hour of condition 5):**
+- Two hours idle (MIDI clock only) before the last timing run: 355,707 calls, 48.5 a second, mean
+  23.7 us, longest 54.2 us, 1785 retries (0.5 percent); underruns 0, DMA overruns 0.
+- `run-15.py soak`, 1500 s (soak-1): the user played songs for the first 121 s (12 starts and
+  stops), then the device idled. 73,335 calls, mean 23.6 us, longest 52.1 us, 353 retries; 213,623
+  passes, mean 7.02 ms, longest 17.4 ms; underruns 0, DMA overruns 0, CPU GUARD +44 (all in the
+  first two minutes, with song 15); 3083 note-ons and 3083 note-offs on each port, the same events
+  in the same order per channel; no note left on; DIN spread per line 3.60..4.46 ms in the longest
+  stretch.
+- **Still open, needs the user at the desk:** the rest of the hour with panel use, one workbench
+  transfer and a save while stopped. run-15.py holds the SMK-37's USB port while it captures, so the
+  transfer is done between two soak parts; the device's audio counters run across.
+
+**Decision left to the user:** F + G was approved only if A2 measures over 4 ms. One line is under
+(3.67 ms); eight lines are over on the worst line (6.5 ms).
