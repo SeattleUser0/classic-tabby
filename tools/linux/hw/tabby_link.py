@@ -25,7 +25,7 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.6
+Version: 0.7
 
 Revision log
     v0.6  2026-11-10  Task 15 Step 4: a2() reads the A2 page (command 25 request 7) and switches option A2
@@ -41,6 +41,10 @@ Revision log
     v0.3  2026-11-08  kernel timestamps on the device's USB output (snd_rawmidi_tread).
     v0.2  2026-11-08  diag page 3 (screen timing) when the firmware has it.
     v0.1  2026-11-07  Task 11B: first version.
+    v0.7  2026-11-11  Task 15 Step 5: query() goes through the whole read before it returns; the
+                      events one read brought after the reply were dropped (run-15's USB capture
+                      lost up to 167 ms after the counter reset at the song start; a 20 s probe with
+                      230 queries then counted the same clock bytes on USB and DIN, A2 off and on).
 """
 
 import ctypes
@@ -184,15 +188,20 @@ class Link:
             self.send(frame(command, token, payload))
             end = time.monotonic() + timeout
             while time.monotonic() < end:
+                # v0.7: the whole batch is gone through before returning: what one read brings
+                # after the reply (clock bytes, notes) used to be dropped with the return.
+                found = None
                 for t, m in self.messages(50):
                     if m[0] != 0xF0:
                         self.other.append((t, m)); continue
                     r = parse(m)
-                    if r and r["command"] == (command | 64) and r["token"] == token:
-                        code = r["data"][0]
-                        if code and not (empty_ok and code == 1):
-                            raise DeviceError(code)
-                        return r["data"][1:]
+                    if found is None and r and r["command"] == (command | 64) and r["token"] == token:
+                        found = r
+                if found is not None:
+                    code = found["data"][0]
+                    if code and not (empty_ok and code == 1):
+                        raise DeviceError(code)
+                    return found["data"][1:]
         raise TimeoutError("no reply to command %d" % command)
 
     # ---- commands --------------------------------------------------------------------------

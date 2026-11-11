@@ -41,7 +41,7 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.5
+Version: 0.7
 
 Revision log
     v0.1  2026-11-10  Task 15 Step 4: first version (written before the device was available; the
@@ -66,6 +66,16 @@ Revision log
                       instead of tabby_link.Capture in this process: with the MIDI polling in the
                       same interpreter the 20 ms capture buffer overran 810 times in one run, and
                       the silent-gap count of that run meant nothing.
+    v0.6  2026-11-11  The wait for PLAY looked through every event since arming on each turn. After
+                      a 5.4 h wait that was 930,000 DIN clock bytes per turn, the USB port was not
+                      read for seconds, its kernel buffer (128 timestamped events) filled, and the
+                      run's USB capture lost the first 0.6 s and 125 ms more (DIN, read by its own
+                      thread, was complete). The wait now looks at new events only and keeps none
+                      of the idle ones.
+    v0.7  2026-11-11  soak --stop-on-rise: CPU GUARD stops the soak only above --guard-rate trips
+                      per second over a log interval (default 1.5): song 15 trips it about once a
+                      second with A2 off (measured: +94 and +97 in 100 s), so "any rise" would
+                      stop at once. Underruns and DMA overruns still stop at the first one.
 """
 import argparse
 import json
@@ -237,14 +247,16 @@ def capture(a, soak=False):
         print("press PLAY on the SONG page now (waiting up to %d s for the song's MIDI Start)" % a.wait, flush=True)
         armed = time.monotonic_ns()
         deadline = time.monotonic() + a.wait; first = None
+        seen = 0
         while first is None and time.monotonic() < deadline:
-            usb.extend(l.messages(20))
+            new = l.messages(20)
             # v0.2: the song's MIDI Start, newer than the arming moment, on either port.
-            for t, m in usb + list(din.messages):
+            # v0.6: only the events that arrived since the last turn are looked at.
+            n = len(din.messages); fresh = new + din.messages[seen:n]; seen = n
+            for t, m in fresh:
                 if t >= armed and list(m) == [0xFA]:
                     first = t; break
-            if len(usb) > 20000:
-                del usb[:10000]                     # idle clock bytes while waiting
+            usb = usb[-200:] + new                  # idle clock bytes are not kept
         if first is None:
             print("no MIDI Start within %d s; nothing recorded" % a.wait); return None
         if a.audio:
@@ -252,7 +264,7 @@ def capture(a, soak=False):
         l.diag(1)                                  # reset at the first note (the A2 counters too)
         before = l.health()
         print("song started; counters reset; recording %d s" % a.seconds, flush=True)
-        t0 = time.monotonic(); end = t0 + a.seconds; next_log = t0 + a.every
+        t0 = time.monotonic(); end = t0 + a.seconds; next_log = t0 + a.every; last_adapted = before["adapted"]
         while time.monotonic() < end:
             new = l.messages(50); usb.extend(new)
             again = [t for t, m in new if list(m) == [0xFA] and t > first]
@@ -274,7 +286,10 @@ def capture(a, soak=False):
                            h["midi_dropped"] - before["midi_dropped"], s["calls"], s["calls_per_second"], s["mean_us"], s["max_us"], s["retries"],
                            (d.get("profile") or {}).get("pass_mean_ms", 0), (d.get("profile") or {}).get("pass_max_ms", 0), b.get("lost_ticks", 0)))
                 print(line, flush=True); log.append(line)
-                rise = [k for k in ("underruns", "dma_overruns", "adapted") if h[k] > before[k]]
+                rise = [k for k in ("underruns", "dma_overruns") if h[k] > before[k]]
+                rate = (h["adapted"] - last_adapted) / a.every; last_adapted = h["adapted"]
+                if rate > a.guard_rate:
+                    rise.append("CPU GUARD (%.2f trips per second)" % rate)
                 if rise and a.stop_on_rise:
                     stopped = "STOPPED at %.0f s: %s rose" % (time.monotonic() - t0, ", ".join(rise)); print(stopped, flush=True); break
         usb.extend(l.other); l.other = []
@@ -390,6 +405,7 @@ def main():
     p.add_argument("--wait", type=float, default=300, help="how long to wait for the first note-on")
     p.add_argument("--every", type=float, default=60, help="soak: seconds between log lines")
     p.add_argument("--stop-on-rise", action="store_true", help="soak: stop at the first rise of underruns, DMA overruns or CPU GUARD")
+    p.add_argument("--guard-rate", type=float, default=1.5, help="soak: CPU GUARD trips per second that stop it")
     p.add_argument("--audio", default="", help="AUDIO4c input channels to record, e.g. 0,1")
     p.add_argument("--din", default="H4MIDI-WC Port 1")
     p.add_argument("--tag", default="run")
