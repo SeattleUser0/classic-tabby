@@ -41,12 +41,31 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.1
+Version: 0.5
 
 Revision log
     v0.1  2026-11-10  Task 15 Step 4: first version (written before the device was available; the
                       analysis was checked on synthetic rows, the device calls on the simulator's
                       page layouts only).
+    v0.2  2026-11-10  Task 15 Step 5, after the first run on the device: (1) the receive times are
+                      nanoseconds, the analysis wants seconds (bands printed 1e9 too large);
+                      (2) the capture now starts at the song's MIDI Start (FA), not at the first
+                      note-on: a key pressed before PLAY started run 1 35 s early, so it ended
+                      before the song did; (3) events older than the arming moment (USB keeps what
+                      nobody read) and events before the Start are left out of the analysis.
+    v0.3  2026-11-10  Second run on the device: PLAY, STOP and PLAY again inside one capture gave a
+                      231 ms "band". Each line is now cut into stretches at every gap of more than
+                      three steps and the longest stretch is fitted (the others are counted); a
+                      note that began in the last 0.3 s of the capture is not called stuck (the
+                      timing songs outlast the capture); `redo` recomputes a summary from its CSV.
+    v0.4  2026-11-10  l2 starts over at every new MIDI Start (counters reset, audio recording
+                      restarted, the full --seconds from there): on the device a song is already
+                      playing when the next run is armed, so the user stops it and may start the
+                      wrong song first. The run that is kept is the last PLAY.
+    v0.5  2026-11-10  The audio is recorded by an `arecord` process with a 0.5 s buffer (class Rec)
+                      instead of tabby_link.Capture in this process: with the MIDI polling in the
+                      same interpreter the 20 ms capture buffer overran 810 times in one run, and
+                      the silent-gap count of that run meant nothing.
 """
 import argparse
 import json
@@ -92,23 +111,37 @@ def fit(times):
 def analyze(events):
     """events: [(seconds, bytes)] of one port. Note-on timing per channel, all channels on the
     first channel's grid, and the notes still held at the end."""
-    ons = {}; held = {}
+    ons = {}; held = {}; held_at = {}; last_on = {}
     for t, m in events:
+        t = t / 1e9                                 # v0.2: receive times are CLOCK_MONOTONIC ns
         if len(m) != 3:
             continue
         kind, ch = m[0] & 0xF0, m[0] & 15
         if kind == 0x90 and m[2]:
-            ons.setdefault(ch, []).append(t); held[(ch, m[1])] = held.get((ch, m[1]), 0) + 1
+            ons.setdefault(ch, []).append(t); held[(ch, m[1])] = held.get((ch, m[1]), 0) + 1; held_at[(ch, m[1])] = t
         elif kind == 0x80 or (kind == 0x90 and not m[2]):
             if held.get((ch, m[1]), 0) > 0:
                 held[(ch, m[1])] -= 1
     lines = {}
+    end = max((t for t, _ in events), default=0) / 1e9
     for ch, ts in sorted(ons.items()):
+        # v0.3: the longest stretch without a break (STOP and PLAY again, a key pressed by hand).
+        gaps = sorted(b - a for a, b in zip(ts, ts[1:])) or [0]
+        step = gaps[len(gaps) // 2] or 1e-9
+        parts = [[ts[0]]]
+        for x, y in zip(ts, ts[1:]):
+            if y - x > 3.5 * step:
+                parts.append([])
+            parts[-1].append(y)
+        ons[ch] = ts = max(parts, key=len)
         f = fit(ts)
         if f:
-            lines[ch + 1] = {"notes": len(ts), "band_ms": f[0], "std_ms": f[1], "step_ms": f[2] * 1000.0}
+            lines[ch + 1] = {"notes": len(ts), "band_ms": f[0], "std_ms": f[1], "step_ms": f[2] * 1000.0,
+                             "stretches": len(parts), "left_out": sum(len(q) for q in parts) - len(ts)}
+        last_on[ch] = ts[-1]
     out = {"lines": lines, "notes": sum(len(v) for v in ons.values()),
-           "stuck": sorted("ch%d note %d" % (c + 1, n) for (c, n), v in held.items() if v > 0)}
+           "stuck": sorted("ch%d note %d" % (c + 1, n) for (c, n), v in held.items()
+                           if v > 0 and end - held_at[(c, n)] > 0.3)}
     if lines:
         bands = [v["band_ms"] for v in lines.values()]
         out["band_min_ms"], out["band_max_ms"] = min(bands), max(bands)
@@ -137,7 +170,7 @@ def same_notes(din, usb):
         x, y = a.get(ch, []), b.get(ch, [])
         # The capture starts and ends on both ports at slightly different notes: compare the overlap.
         n = min(len(x), len(y))
-        if abs(len(x) - len(y)) > 2 or (n and x[1:n - 1] != y[1:n - 1] and x[:n - 2] != y[1:n - 1] and x[1:n - 1] != y[:n - 2]):
+        if abs(len(x) - len(y)) > 4 or (n and x[1:n - 1] != y[1:n - 1] and x[:n - 2] != y[1:n - 1] and x[1:n - 1] != y[:n - 2]):
             diff.append("ch%d: DIN %d notes, USB %d notes" % (ch + 1, len(x), len(y)))
     return diff
 
@@ -159,6 +192,31 @@ def silent_gaps(samples, rate=48000, floor=24, min_ms=2.0):
     return count, longest * 1000.0 / rate
 
 
+class Rec:
+    """v0.5: the AUDIO4c's 8 inputs recorded by arecord into a temporary WAV; finish() returns
+    {channel: int16 bytes} for the kept channels and sets .xruns (arecord's overrun messages)."""
+    def __init__(self, path, keep):
+        import subprocess
+        self.path, self.keep, self.xruns = path, keep, 0
+        self.p = subprocess.Popen(["arecord", "-q", "-D", "hw:AUDIO4c", "-f", "S32_LE", "-c", "8", "-r", "48000",
+                                   "--buffer-time=500000", path], stderr=subprocess.PIPE, stdout=subprocess.DEVNULL)
+
+    def start(self):
+        pass
+
+    def finish(self):
+        import array, signal, wave
+        self.p.send_signal(signal.SIGINT)
+        try:
+            errs = self.p.communicate(timeout=10)[1].decode(errors="replace")
+        except Exception:
+            self.p.kill(); errs = self.p.communicate()[1].decode(errors="replace")
+        self.xruns = errs.count("overrun")
+        w = wave.open(self.path); d = array.array("i"); d.frombytes(w.readframes(w.getnframes())); w.close()
+        os.remove(self.path)
+        return {c: array.array("h", (v >> 16 for v in d[c::8])).tobytes() for c in self.keep}
+
+
 def set_a2(l, want):
     a = l.a2(9 if want == "on" else 8) if want in ("on", "off") else l.a2(7)
     if a is None:
@@ -176,23 +234,35 @@ def capture(a, soak=False):
     try:
         state = set_a2(l, a.a2)
         print("A2 is %s | kernel timestamps on USB in: %s | DIN: %s" % ("ON" if state["on"] else "off", l.kernel_time, a.din), flush=True)
-        print("press PLAY on the SONG page now (waiting up to %d s for the first note)" % a.wait, flush=True)
+        print("press PLAY on the SONG page now (waiting up to %d s for the song's MIDI Start)" % a.wait, flush=True)
+        armed = time.monotonic_ns()
         deadline = time.monotonic() + a.wait; first = None
         while first is None and time.monotonic() < deadline:
             usb.extend(l.messages(20))
+            # v0.2: the song's MIDI Start, newer than the arming moment, on either port.
             for t, m in usb + list(din.messages):
-                if len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[2]:
+                if t >= armed and list(m) == [0xFA]:
                     first = t; break
+            if len(usb) > 20000:
+                del usb[:10000]                     # idle clock bytes while waiting
         if first is None:
-            print("no note-on within %d s; nothing recorded" % a.wait); return None
+            print("no MIDI Start within %d s; nothing recorded" % a.wait); return None
         if a.audio:
-            cap = T.Capture(keep=tuple(int(c) for c in a.audio.split(","))); cap.start()
+            cap = Rec(os.path.join(a.out, "%s-rec.tmp.wav" % a.tag), tuple(int(c) for c in a.audio.split(","))); cap.start()
         l.diag(1)                                  # reset at the first note (the A2 counters too)
         before = l.health()
-        print("first note seen; counters reset; recording %d s" % a.seconds, flush=True)
+        print("song started; counters reset; recording %d s" % a.seconds, flush=True)
         t0 = time.monotonic(); end = t0 + a.seconds; next_log = t0 + a.every
         while time.monotonic() < end:
-            usb.extend(l.messages(50))
+            new = l.messages(50); usb.extend(new)
+            again = [t for t, m in new if list(m) == [0xFA] and t > first]
+            if again and not soak:                 # v0.4: PLAY again: this is the run now
+                first = again[-1]
+                if cap:
+                    cap.finish(); cap = Rec(os.path.join(a.out, "%s-rec.tmp.wav" % a.tag), tuple(int(c) for c in a.audio.split(","))); cap.start()
+                l.diag(1); before = l.health()
+                t0 = time.monotonic(); end = t0 + a.seconds
+                print("song started again; counters reset; recording %d s from here" % a.seconds, flush=True)
             if soak and time.monotonic() >= next_log:
                 next_log += a.every
                 h = l.health(); s = l.a2(7); d = l.diag(0)
@@ -213,7 +283,9 @@ def capture(a, soak=False):
         l.close()
         din_rows = din.finish()
         chans = cap.finish() if cap else {}
-    din_ev = sorted(din.messages, key=lambda x: x[0]); usb_ev = sorted(usb, key=lambda x: x[0])
+    # v0.2: only what came after the Start (less 50 ms: the two ports see it at slightly different times).
+    din_ev = sorted((x for x in din.messages if x[0] >= first - 50_000_000), key=lambda x: x[0])
+    usb_ev = sorted((x for x in usb if x[0] >= first - 50_000_000), key=lambda x: x[0])
     usb_rows = M.to_rows(usb_ev, "usb"); din_rows = [r[:6] + ("din",) for r in din_rows]
     rows = sorted(din_rows + usb_rows, key=lambda r: r[0])
     if rows:
@@ -292,9 +364,27 @@ def table(a):
     save(a.out, "table-%s-%s.txt" % (a.off, a.on), text + "\n"); print(text)
 
 
+def redo(a):
+    """v0.3: recompute the timing part of <tag>-summary.json from <tag>-din-usb.csv (the counters stay)."""
+    import csv
+    r = json.load(open(os.path.join(a.out, "%s-summary.json" % a.tag)))
+    ev = {"din": [], "usb": []}; start = None
+    for x in csv.DictReader(open(os.path.join(a.out, "%s-din-usb.csv" % a.tag))):
+        t = int(x["t_ns"])
+        if x["kind"] == "start" and start is None:
+            start = t
+        if start is not None and x["kind"] in ("note_on", "note_off"):
+            ev[x["port"]].append((t, [int(b, 16) for b in x["bytes"].split()]))
+    r["din"], r["usb"] = analyze(ev["din"]), analyze(ev["usb"])
+    r["din_usb_differences"] = same_notes(ev["din"], ev["usb"])
+    text = summary(r)
+    save(a.out, "%s-summary.json" % a.tag, json.dumps(r, indent=1)); save(a.out, "%s-summary.txt" % a.tag, text + "\n")
+    print(text)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("cmd", choices=["l2", "soak", "table"])
+    p.add_argument("cmd", choices=["l2", "soak", "table", "redo"])
     p.add_argument("--a2", choices=["off", "on", "keep"], default="keep", help="switch A2 first (keep: only read it)")
     p.add_argument("--seconds", type=float, default=125)
     p.add_argument("--wait", type=float, default=300, help="how long to wait for the first note-on")
@@ -309,6 +399,8 @@ def main():
     os.makedirs(a.out, exist_ok=True)
     if a.cmd == "table":
         table(a)
+    elif a.cmd == "redo":
+        redo(a)
     else:
         capture(a, soak=a.cmd == "soak")
 
