@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.65
+Version: 0.66
 Revision log:
+- v0.66, 2026-11-11 (Task 15 Step 5): 28.6: the overnight A2 soak, the transfer and the save while
+  stopped (A2 on against off, backups equal before and after), what was not covered.
 - v0.65, 2026-11-11 (Task 15 Step 5): 28.6, option A2 measured on the device: one line 3.67 ms on DIN
   (12.34 ms with A2 off), eight lines 3.8..6.5 ms, call cost, CPU GUARD baseline, the soak so far, the
   measuring-tool faults.
@@ -4194,7 +4196,7 @@ What the table says:
    each), with A2 off and on; and the soak below, with 75 reads, has the same 6166 note events on
    both ports. That one-line run was not repeated after the fix.
 
-**Soak with A2 on, so far (not the full hour of condition 5):**
+**Soak with A2 on (condition 5; what was and was not covered):**
 - Two hours idle (MIDI clock only) before the last timing run: 355,707 calls, 48.5 a second, mean
   23.7 us, longest 54.2 us, 1785 retries (0.5 percent); underruns 0, DMA overruns 0.
 - `run-15.py soak`, 1500 s (soak-1): the user played songs for the first 121 s (12 starts and
@@ -4203,9 +4205,35 @@ What the table says:
   first two minutes, with song 15); 3083 note-ons and 3083 note-offs on each port, the same events
   in the same order per channel; no note left on; DIN spread per line 3.60..4.46 ms in the longest
   stretch.
-- **Still open, needs the user at the desk:** the rest of the hour with panel use, one workbench
-  transfer and a save while stopped. run-15.py holds the SMK-37's USB port while it captures, so the
-  transfer is done between two soak parts; the device's audio counters run across.
+- Overnight, A2 left on, device idle on MIDI clock, about 11 h from the soak's counter reset
+  (13,631,476 audio blocks): 1,911,164 calls, 48.3 a second, mean 23.8 us, longest 55.4 us, 11,095
+  retries (0.58 percent); 5,632,778 passes, mean 7.02 ms, longest 17.4 ms; underruns 0, DMA
+  overruns 0.
+- **Transfer and save, done from the NUC without the user at the device** (the user's instruction of
+  2026-11-11: finish the testing alone; device on and connected). Both were made content-neutral
+  and checked by a full backup through the workbench page before and after
+  (tools/linux/hw/workbench.mjs, headless Chrome, the published builds/tabby-v04.2-diagA2/ page;
+  identity SMK-37 Pro_8000001, build 49b87286...): every part of the two backup files is equal
+  (workspace, 16 project slots, settings, songs, rig). DIN watched alone meanwhile
+  (`run-15.py din`), since the page holds the USB port.
+
+  | No song playing | A2 on | A2 off (same action, for comparison) |
+  | --- | --- | --- |
+  | Transfer: timing-1x16.mid written again to song 16 (7 erases, 7 writes, 2624 bytes) | longest erase 17.8 ms, write 20.2 ms; longest pass 100.8 ms, 3 passes over 10 ms; DIN clock: 3 gaps over 35 ms, longest 118 ms | 17.7 ms, 20.2 ms; 97.2 ms, 3 passes; 3 gaps, longest 121 ms |
+  | Save while stopped: project renamed, command 7 to slot 1 (5 erases, 8 writes, 4096 bytes) | longest erase 17.6 ms, write 29.1 ms; one pass of 217.9 ms; DIN clock: one gap of 232 ms | 17.6 ms, 29.0 ms; one pass of 216.8 ms; one gap of 240 ms |
+  | Underruns / DMA overruns / CPU GUARD during it | 0 / 0 / 0 | 0 / 0 / 0 |
+  | A2 calls during the save window | 206, longest 31.6 us, 1 retry | |
+
+  Flash writes hold the control pass for 100 to 220 ms with or without A2 (the MIDI clock on DIN
+  stops for that long; known since Task 12, run D); A2 changes nothing there. A save of an
+  unchanged project writes nothing (write_record compares first), so the project was renamed
+  "A2 SOAK TEST" for the A2-on save and back to "UNTITLED" for the A2-off save.
+- **Not done:** an hour of continuous song play with panel use. This build has no remote PLAY
+  (command 26 is in `DIAG=1` builds only; reply code 71 here), and installs are the user's. Song
+  play with A2 on was covered by the two 100 s timing runs, the first A2-on run (100 s), and the 12
+  starts and stops of soak-1; panel use by the user's presses in those.
+- The device was left with A2 **off** (as after a power cycle). The audio counters "adapted" and
+  render peak read 0 after the workbench page connected; why was not looked into.
 
 **Decision left to the user:** F + G was approved only if A2 measures over 4 ms. One line is under
 (3.67 ms); eight lines are over on the worst line (6.5 ms).

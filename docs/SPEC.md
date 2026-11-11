@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.33
+Version: 0.34
 Revision log:
+- v0.34, 2026-11-11 (Task 15 Step 5): 18.2: the soak, the transfer and the save.
 - v0.33, 2026-11-11 (Task 15 Step 5): 18.2: option A2 measured (one line 3.67 ms on DIN).
 - v0.32, 2026-11-10 (Task 15 Step 4): 18.1: option A2 in the diag build (the switch, the request rule,
   the counters, the stop rule); 17.3 marked superseded.
@@ -1274,6 +1275,9 @@ The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
   CPU GUARD trips about once a second on song 15 with A2 off (+97 in 100 s) and the same with A2 on
   (+100): the stop rule's "rise" is read against that baseline.
 - No stuck note; USB and DIN carry the same notes.
-- Soak with A2 on so far: two hours idle and 25 minutes with two minutes of play, clean. The full
-  hour with panel use, a transfer and a save while stopped is still to do.
+- Soak with A2 on: about 13 hours in all, mostly idle on MIDI clock (1.9 million calls overnight,
+  longest 55 us), no underrun, no DMA overrun. A song transfer and a project save while stopped
+  behave the same with A2 on and off (the pass is held 100 and 217 ms by the flash writes either
+  way); the device's content was equal before and after (full backups compared).
+- Not covered: an hour of continuous song play with panel use (this build has no remote PLAY).
 - A2 stays a diag-build option until the user decides; the normal build has no A2 code.

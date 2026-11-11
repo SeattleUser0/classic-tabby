@@ -41,7 +41,7 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.7
+Version: 0.8
 
 Revision log
     v0.1  2026-11-10  Task 15 Step 4: first version (written before the device was available; the
@@ -76,6 +76,9 @@ Revision log
                       per second over a log interval (default 1.5): song 15 trips it about once a
                       second with A2 off (measured: +94 and +97 in 100 s), so "any rise" would
                       stop at once. Underruns and DMA overruns still stop at the first one.
+    v0.8  2026-11-11  `din`: watch the DIN input alone for --seconds (the SMK-37's USB port left
+                      free for the workbench, which does the transfer): MIDI clock bytes, the
+                      longest gap between two, gaps over 35 ms, notes; a CSV of the gaps over 25 ms.
 """
 import argparse
 import json
@@ -397,9 +400,24 @@ def redo(a):
     print(text)
 
 
+def din_watch(a):
+    """v0.8: the DIN input alone; the SMK-37's USB port is not opened."""
+    din = T.Monitor(a.din); din.start()
+    t0 = time.monotonic_ns(); time.sleep(a.seconds); t1 = time.monotonic_ns()
+    din.finish()
+    ck = [t for t, m in din.messages if list(m) == [0xF8] and t0 <= t <= t1]
+    gaps = [(x, (y - x) / 1e6) for x, y in zip(ck, ck[1:])]
+    other = [m for t, m in din.messages if list(m) != [0xF8]]
+    text = ("Task 15 DIN watch %s, %.0f s, measured: %d clock bytes (%.2f per second), longest gap %.1f ms, %d gaps over 35 ms, "
+            "%d other messages" % (a.tag, a.seconds, len(ck), len(ck) / a.seconds, max((g for _, g in gaps), default=0),
+                                   sum(1 for _, g in gaps if g > 35), len(other)))
+    save(a.out, "%s-din-watch.txt" % a.tag, text + "\n" + "\n".join("%.3f s  %.1f ms" % ((x - t0) / 1e9, g) for x, g in gaps if g > 25) + "\n")
+    print(text)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("cmd", choices=["l2", "soak", "table", "redo"])
+    p.add_argument("cmd", choices=["l2", "soak", "table", "redo", "din"])
     p.add_argument("--a2", choices=["off", "on", "keep"], default="keep", help="switch A2 first (keep: only read it)")
     p.add_argument("--seconds", type=float, default=125)
     p.add_argument("--wait", type=float, default=300, help="how long to wait for the first note-on")
@@ -417,6 +435,8 @@ def main():
         table(a)
     elif a.cmd == "redo":
         redo(a)
+    elif a.cmd == "din":
+        din_watch(a)
     else:
         capture(a, soak=a.cmd == "soak")
 
