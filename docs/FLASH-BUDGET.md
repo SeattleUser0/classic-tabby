@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.26
+Version: 0.27
 Revision log:
+- v0.27, 2026-11-12 (Task 16 Goal 3): section 21: tabby-v04.3 measured, 451812 bytes, margin 67645.
 - v0.26, 2026-11-11 (Task 16 Goal 1): section 20: tabby-v04.2 measured, 449700 bytes, margin 69757.
 - v0.25, 2026-11-11 (Task 15 Step 5): section 19: note that the measurement changed no size.
 - v0.24, 2026-11-10 (Task 15 Step 4): section 19: the A2 diag build measured, 448868 bytes (+448),
@@ -1106,3 +1107,14 @@ the sizes above stand (measured). The TIMER5 release and the look-ahead stay at 
 The remote control command and its panel-key injection are about 800 bytes of the change (estimated from the difference;
 the linker merges the units, so the map shows no separate figure). RAM: 8 bytes of remote state and the 64-bit key mask
 (estimated).
+
+
+## 21. Task 16: tabby-v04.3 (measured, 2026-11-12)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.2 | 449700 | | 69757 |
+| tabby-v04.3: external clock follow (song.c follow state machine, song_prepare / song_locate, the router hook, the SONG page text, the status byte) | 451812 | +2112 | **67645** |
+
+RAM: the follow state is about 120 bytes of statics (the 8-entry message ring, the counters and the period state;
+estimated from the declarations, the linker merges them with other globals).

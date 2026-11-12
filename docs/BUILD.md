@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.68
+Version: 0.69
 Revision log:
+- v0.69, 2026-11-12 (Task 16 Goal 3): section 33, tabby-v04.3: what changed, the gate, the soak and the device results.
 - v0.68, 2026-11-11 (Task 16 Goal 1): section 32, tabby-v04.2: the merge, what changed, the gate, publishing.
 - v0.67, 2026-11-11 (tabby-v04.2 merge): the Task 14 and v04.1.1 sections are now 30 and 31 (Task 15 keeps 28);
   the timing branch's sections stay where the device-run notes point.
@@ -4414,3 +4415,29 @@ What the table says:
   replies, round trip 0.73 / 20.1 / 43.5 ms (min / median / max), no kernel USB lines (measured, 2026-11-11).
 - Full backup before the install: ~/Documents/Classic Tabby/overnight/backups/before-v04.2.json (1 project, 2 songs,
   9 blocks, USER 471040).
+
+
+### 32.4 tabby-v04.2 device results (measured, 2026-11-11 night, the device on this NUC, DIN through the H4MIDI WC port 1, audio in AUDIO4c inputs 3 and 4)
+
+Installed from this NUC through the published page builds/tabby-v04.2/ (driven with Playwright, no force flash,
+identity SMK-37 Pro_8000001 read first; one attempt; 10.2 s; "Firmware ready"). The device ran tabby-v04.1.1 before,
+not the diagA2 build the task text said (32.1). Read back afterwards: build id b926f5556483ee65, A2 on at power-up.
+
+| Run (125 s each, song 16 = one line, song 15 = eight lines) | A2 off | A2 on |
+| --- | ---: | ---: |
+| One line, DIN, band per line | 14.27 ms | 4.91 ms |
+| One line, USB, band per line | 14.22 ms | 4.98 ms |
+| One line, std (DIN) | 3.07 ms | 0.86 ms |
+| Eight lines, DIN, per line band | 13.93..14.06 ms | 4.68..4.86 ms |
+| Eight lines, DIN, all lines on one grid | 20.96 ms | 11.82 ms |
+| Eight lines, USB, per line band / all on one grid | 13.96..15.04 / 16.07 ms | 4.73..6.56 / 7.68 ms |
+| Control pass mean / max (one line) | 10.68 / 13.32 ms | 6.34 / 12.99 ms |
+| A2 calls per second, mean cost, longest (one line) | 0 | 62.2, 20.3 us, 49.1 us |
+| Engine underruns, DMA overruns, MIDI in dropped | 0, 0, 0 | 0, 0, 0 |
+| CPU GUARD adapted (125 s; eight lines) | +115 | +119 (one line: 0 and 0) |
+| Notes left on at the end | none | none |
+
+The one-line band with A2 on is 4.91 ms here against 3.67 ms in the Task 15 run of the diag build (BUILD 28.6); the
+difference is not explained (run-to-run and the DIN capture path differ; a repeat is in 32.5). USB and DIN carry the
+same notes in every run. The recorded audio (inputs 3 and 4) had no capture overrun in any run; its "silent gaps" are
+the song's own rests (the count is the same A2 off and on within 2 percent), so no dropout showed.
