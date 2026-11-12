@@ -1,12 +1,14 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 1.0, 2026-11-10. For tabby-v04.1.1 on the M-VAVE SMK-37 Pro.
+Version 1.1, 2026-11-11. For tabby-v04.2 on the M-VAVE SMK-37 Pro.
 Written for the person who plays and tests the device. No programming needed.
 
-tabby-v04.1.1 has the same firmware code as tabby-v04.1. What is new is the
-workbench page: English only, corrected Help, and this guide. If tabby-v04.1 is
-already on your SMK-37, you do not have to install again.
+tabby-v04.2 is new firmware. MIDI notes of a song now leave the device much
+sooner after they are due (the fast MIDI switch, on at power-up). It also has a
+remote control command for the workbench tools, so tests can run without anyone
+at the panel. If tabby-v04.1 or v04.1.1 is on your SMK-37, install tabby-v04.2
+to get these. The page also has English-only Help and this guide.
 
 How to read this guide
 ----------------------
@@ -76,6 +78,7 @@ Removed:
 - tabby-v04.0: Storage moved (back up first). Step editing and recording removed. The SYNC / MIDI page. STOP TO SAVE. ERASE OLD DATA. A permanent recovery page for every build.
 - tabby-v04.1: Timing fixes: the screen and workbench work wait their turn so MIDI goes out first. Knob and button names fixed. The update page is safer: no force flash button.
 - tabby-v04.1.1: Same firmware as v04.1. English-only workbench, corrected Help, this guide.
+- tabby-v04.2: Fast MIDI on by default: one line leaves about 3.7 ms after it is due instead of about 12 ms. Remote control over USB for tests. Stale screen texts fixed. The ACTIONS list has a new last entry, A2 FAST MIDI.
 
 
 3. SETUP
@@ -99,7 +102,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. For tabby-v04.1.1 it is optional.
+Install is only needed when you want a new firmware. tabby-v04.2 has new firmware: install it to get fast MIDI. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -205,10 +208,10 @@ Tempo: on HOME turn K4. Or tap the tempo: hold HOME and tap SEQ. The first tap s
 --------------------
 
 1. Press SEQ and EDIT together. The ACTIONS menu opens.
-2. Do not hold SEQ alone. It does not open ACTIONS in this firmware, even though the SYNC / MIDI page says HOLD SEQ: ACTIONS.
+2. Do not hold SEQ alone. It does not open ACTIONS. The SYNC / MIDI page of tabby-v04.2 says SEQ+EDIT: ACTIONS (older firmware said HOLD SEQ: ACTIONS, which was wrong).
 3. The first line shows the storage: USER 471040 SONG READY. FREE and RECLAIM show at the bottom.
 4. Turn K1 or K5 to choose an entry. Press the 4th button in the left group to run it. HOME leaves.
-5. The entries are: COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE, COMPACT SONG STORAGE and SEND SETUP.
+5. The entries are: COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE, COMPACT SONG STORAGE, SEND SETUP and A2 FAST MIDI: ON (or OFF). The last one switches fast MIDI for this session only.
 6. STOP ALL / REWIND stops all sound and rewinds. It is in the list; on its own it shows DONE.
 
 4.7 Song mode: choose a song, play, jump to a row
@@ -537,13 +540,13 @@ T21. The ACTIONS menu
 Set up: HOME overview.
 1. Press SEQ and EDIT together.
 2. Turn K5 right until you have seen all seven entries.
-You should see: COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE, COMPACT SONG STORAGE, SEND SETUP. The bottom line says K1/K5 ACTION 4TH LEFT BTN DOES IT.
+You should see: COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE, COMPACT SONG STORAGE, SEND SETUP, A2 FAST MIDI: ON. The bottom line says K1/K5 ACTION 4TH LEFT BTN DOES IT.
 Result: PASS / FAIL   Notes: ________________________________
 
 T22. Holding SEQ alone
 Set up: HOME overview.
 1. Hold SEQ alone for two seconds.
-You should see: SYNC / MIDI opens, not ACTIONS. This is expected. The page text HOLD SEQ: ACTIONS is wrong.
+You should see: SYNC / MIDI opens, not ACTIONS. This is expected. Older firmware showed the wrong text HOLD SEQ: ACTIONS; tabby-v04.2 shows SEQ+EDIT: ACTIONS.
 Result: PASS / FAIL   Notes: ________________________________
 
 T23. Save a project
@@ -734,7 +737,7 @@ Result: PASS / FAIL   Notes: ________________________________
 
 Do not spend time testing these. They are known.
 
-- MIDI timing spread: about 10 to 14 milliseconds between notes. It comes from the SDK's 10 ms control timer. The planned A2 fix (the test build tabby-v04.2-diagA2) aims to bring it under 4 ms. It is not in tabby-v04.1.1.
+- MIDI timing: with fast MIDI on, one line leaves about 3.7 ms after it is due (measured, DIN out). Eight lines at the same step leave within about 6.5 ms; most of that is the DIN cable's own byte time, and wiring each line to its own DIN output (the H4MIDI fan-out) removes it. With fast MIDI off the old spread of about 10 to 14 ms comes back.
 - No step editing and no recording on the device. Songs come from the workbench. The metronome and count-in are planned for a later version.
 - No external clock in song mode. A song runs on the internal clock. With CLOCK on MIDI the song does not start.
 - The TRS jack is output only. A DIN clock cannot come in through it. Use USB or Bluetooth for clock in.
@@ -744,12 +747,10 @@ Do not spend time testing these. They are known.
 - Bluetooth MIDI adds delay. Use cables for notes and clock.
 - The factory restore overwrites the last 10 sectors of song storage.
 - Some old screen texts are still wrong in the firmware and will be fixed in a later firmware release:
-  - HOLD SEQ: ACTIONS on the SYNC / MIDI page. Press SEQ and EDIT together instead.
-  - PAD/STEP STEP EDIT on the SHIFT list. There is no step editing.
-  - K2 CLK IN shows DIN as a choice. It receives nothing.
+  - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
+  - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-  - ERASE OLD SAMPLE DATA on one rare message. It means ERASE OLD DATA.
-- The page badge shows tabby-v04.1. That is correct: the firmware in this release is the tabby-v04.1 firmware. The page is v04.1.1.
+- The page badge and the boot screen show tabby-v04.2.
 
 
 8. HOW TO REPORT A PROBLEM

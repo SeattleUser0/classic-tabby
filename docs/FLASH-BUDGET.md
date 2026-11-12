@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.25
+Version: 0.26
 Revision log:
+- v0.26, 2026-11-11 (Task 16 Goal 1): section 20: tabby-v04.2 measured, 449700 bytes, margin 69757.
 - v0.25, 2026-11-11 (Task 15 Step 5): section 19: note that the measurement changed no size.
 - v0.24, 2026-11-10 (Task 15 Step 4): section 19: the A2 diag build measured, 448868 bytes (+448),
   margin 70589; the normal build unchanged at 448420.
@@ -1093,3 +1094,15 @@ globals, so the map does not show it apart).
 Step 5 (2026-11-11) measured the diag build on the device (BUILD.md 28.6); nothing was rebuilt, so
 the sizes above stand (measured). The TIMER5 release and the look-ahead stay at their estimate
 (about 800 bytes, 0.3 KB), not built.
+
+
+## 20. Task 16: tabby-v04.2 (measured, 2026-11-11)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.1.1 (= v04.1 image) | 448420 | | 71037 |
+| tabby-v04.2: A2 in the normal build (+448 as measured for the diag build), command 29 remote control, the stale text fixes, the two range tests | 449700 | +1280 | **69757** |
+
+The remote control command and its panel-key injection are about 800 bytes of the change (estimated from the difference;
+the linker merges the units, so the map shows no separate figure). RAM: 8 bytes of remote state and the 64-bit key mask
+(estimated).

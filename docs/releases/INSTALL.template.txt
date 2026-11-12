@@ -1,5 +1,5 @@
 INSTALL {TAG} ON THE SMK-37 PRO  (from the MacBook, in Chrome, SMK-37 plugged straight into the Mac)
-Template version 1.0, 2026-11-10 (Task 13 Step 4). Each release's INSTALL-<tag>.txt is written from
+Template version 1.1, 2026-11-11 (Task 16: ACTIONS now has a last entry, A2 FAST MIDI). Each release's INSTALL-<tag>.txt is written from
 this file; the control names follow docs/SPEC.md 17.4: knobs K1-K8 by their printed numbers (the
 firmware calls K5 SELECT, K6 PAGE, K7 PRESETS), and the button the firmware calls SAVE is named by
 its position: the 4th button in the left group (after SHIFT, FADER BANK, HOME). Never "SAVE".
@@ -26,7 +26,7 @@ STEP 2  INSTALL FROM THE MAIN PAGE
 
 STEP 3  CHECK
   Boot screen: SMK37 / OFFICIAL OPEN / {TAG}. Press SEQ and EDIT together to open ACTIONS; the storage
-  lines read USER 471040 and SONG READY. Your projects and songs are still there.
+  lines read USER 471040 and SONG READY, and the last entry reads A2 FAST MIDI: ON (tabby-v04.2 and later). Your projects and songs are still there.
 
 IF THE INSTALL STALLS (progress stops for more than two minutes, or the page says the device
 stopped requesting data or timed out waiting for the device)

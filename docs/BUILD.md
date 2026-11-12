@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.67
+Version: 0.68
 Revision log:
+- v0.68, 2026-11-11 (Task 16 Goal 1): section 32, tabby-v04.2: the merge, what changed, the gate, publishing.
 - v0.67, 2026-11-11 (tabby-v04.2 merge): the Task 14 and v04.1.1 sections are now 30 and 31 (Task 15 keeps 28);
   the timing branch's sections stay where the device-run notes point.
 - v0.66, 2026-11-11 (Task 15 Step 5): 28.6: the overnight A2 soak, the transfer and the save while
@@ -4373,3 +4374,43 @@ What the table says:
 
 **Decision left to the user:** F + G was approved only if A2 measures over 4 ms. One line is under
 (3.67 ms); eight lines are over on the worst line (6.5 ms).
+
+
+## 32. Task 16 — tabby-v04.2 (2026-11-11 night; task text docs/tasks/TASK-16-overnight.md)
+
+### 32.1 Setup found, and what changed against the task text
+
+- **The device was running tabby-v04.1.1, not tabby-v04.2-diagA2** (read-only: build id 1249d59746334fcf, command 25
+  request 7 refused). The task's "CURRENT SETUP" said diagA2; the install order below therefore starts from v04.1.1.
+- Other worktrees: ../firmware-timing (classic-tabby/timing-research, 70ec9de), ../firmware-help-audit, -task02,
+  -devchecks, -diag-r2; the build lock /tmp/tabby-suite.lock was free. tabby-v04.1.1 was published by the earlier
+  session (gh-pages f1cff8b), and is the base here.
+
+### 32.2 What is in tabby-v04.2
+
+- classic-tabby/timing-research (Task 15: A2 behind a build switch, counters, run-15) merged into classic-tabby/v04.2,
+  which carries the English-only workbench, the Help fixes and the testing guide (tabby-v04.1.1). Merge conflicts were
+  only revision logs and appended sections; Task 14's BUILD sections became 30 and 31 so that Task 15's 28.x
+  references (device-run notes, release notes) stay valid.
+- A2 on by default: tools/linux/build.py v0.11 (`--a2` default, `--no-a2` / Makefile `A2=0` builds the v04.1 firmware);
+  app/midi_router.c `a2_on = 1` at boot; ACTIONS entry "A2 FAST MIDI: ON/OFF" (screen.c v0.8).
+- Remote control: command 29 (app/transfer.c v0.6), SPEC 19.2; host tests tests/host/smoke.c section 17 (49 new
+  checks); tools/linux/hw/tabby_link.py v0.8, run-15.py v0.9 (`--play N`).
+- Workbench Diagnostics shows the A2 counters (sdk/WebUpdate.js diagRead / diagText).
+- Goal 4 (shipped here): the stale screen texts (screen.c v0.9), the two out-of-bound lint findings (song_storage.c
+  v0.9). cppcheck also found a real bug in the first draft of command 29: a 37-key mask in 32 bits (shift by 36);
+  fixed before any build (a 64-bit mask; a host test presses key id 36).
+- Lint after: the remaining findings are project.c (6 tidy, 1 cppcheck uninitvar on a struct read after a size test),
+  screen.c (2 tidy, 1 cppcheck conditional index), transfer.c (1 tidy), board/audio.c (1) and the memcmp-without-compare
+  style findings; none changes behaviour; they stay on the list.
+
+### 32.3 The gate
+
+- `make suite DISPLAY_VERSION=tabby-v04.2`: passed 2026-11-12T05:31:29Z at 1d9b27d (crosscheck IDENTICAL, test,
+  midi-import-sim, host-sanitize).
+- Build id b926f5556483ee65 (full b926f5556483ee65 6049...; see the package); app image 449700 bytes, margin 69757
+  (FLASH-BUDGET 20).
+- Read-only USB soak through the hub before any install: 2500 rounds (5000 queries), 0 timeouts, 0 malformed, 0 differing
+  replies, round trip 0.73 / 20.1 / 43.5 ms (min / median / max), no kernel USB lines (measured, 2026-11-11).
+- Full backup before the install: ~/Documents/Classic Tabby/overnight/backups/before-v04.2.json (1 project, 2 songs,
+  9 blocks, USER 471040).
