@@ -1420,6 +1420,12 @@
           midi_in:{calls:u(p5,16),mean_ms:ms(u(p5,20)),max_ms:ms(u(p5,24))}};
       }
     }catch(error){if(!error.deviceCode)throw error;}
+    // Task 16: option A2 (fast MIDI), command 25 request 7 (tabby-v04.2 and later; older firmware answers
+    // an error): the switch, the audio blocks, the pass requests made from the audio interrupt, the call
+    // cost (24 MHz ticks, shown in microseconds) and its histogram (BUILD.md 28.4).
+    try{const q=await this.query(25,[7]);if(q.length===48){const bl=u(q,4),calls=u(q,8);
+      out.a2={on:u(q,0)===1,blocks:bl,calls,calls_per_s:bl?calls*44118/(bl*128):0,mean_us:u(q,12)/24,max_us:u(q,16)/24,retries:u(q,20),bins:[0,1,2,3,4,5].map(i=>u(q,24+4*i))};}}
+    catch(error){if(!error.deviceCode)throw error;}
     return out;
   };
   // Task 12 A4: the section names as the report and docs/BUILD.md 26.4 use them.
@@ -1432,6 +1438,7 @@
       'L.4 key/pad note-on to router: '+d.keys.count+' notes, max '+f(d.keys.max_ms)+' ms; <0.5 '+d.keys.bins[0]+', <1 '+d.keys.bins[1]+', <2 '+d.keys.bins[2]+', <4 '+d.keys.bins[3]+', <8 '+d.keys.bins[4]+', <16 '+d.keys.bins[5]+', <32 '+d.keys.bins[6]+', >=32 '+d.keys.bins[7]+' (ms)',
       'L.5 matrix scan: '+d.scan.count+' scans, '+d.scan.per_second.toFixed(1)+' per second, longest gap '+f(d.scan.gap_max_ms)+' ms; scan ISR peak '+f(d.scan.isr_peak_ms)+' ms, ADC ISR peak '+f(d.scan.adc_peak_ms)+' ms'];
     if(d.screen)lines.push('screen: '+d.screen.controls+' control calls, mean '+f(d.screen.control_mean_ms)+' ms, max '+f(d.screen.control_max_ms)+' ms; '+d.screen.paints+' band paints ('+d.screen.bands+' bands), mean '+f(d.screen.paint_mean_ms)+' ms, max '+f(d.screen.paint_max_ms)+' ms');
+    if(d.a2)lines.push('A2 fast MIDI: '+(d.a2.on?'ON':'OFF')+'; '+d.a2.calls+' pass requests from the audio interrupt in '+d.a2.blocks+' audio blocks ('+d.a2.calls_per_s.toFixed(1)+' per second); call cost mean '+d.a2.mean_us.toFixed(1)+' us, longest '+d.a2.max_us.toFixed(1)+' us; '+d.a2.retries+' retries; calls <5, <10, <20, <50, <100, >=100 us: '+d.a2.bins.join(', '));
     if(d.profile){
       const p=d.profile;
       lines.push('control pass (SDK call of groove_midi_poll to the next): '+p.passes+' passes, mean '+f(p.pass_mean_ms)+' ms, max '+f(p.pass_max_ms)+' ms; per section, per pass (mean / max, exclusive):');

@@ -1413,6 +1413,11 @@ int main(void)
           CHECK(n == 13 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
           rc_n = 0; n = RCMD(29, 6, 1, 0, 0); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
           CHECK(reply[0] == 0 && (any_off(m, np)), "remote: key 1 release ends it"); }
+        { struct message m[64]; unsigned np;   /* the last key (36): 37 keys do not fit a 32-bit mask */
+          rc_n = 0; n = RCMD(29, 6, 1, 36, 100); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i];
+          CHECK(reply[0] == 0 && any_on(rc_log, rc_n, 100), "remote: key 37 (id 36) press sends a note");
+          rc_n = 0; n = RCMD(29, 7); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i];
+          CHECK(reply[0] == 0 && any_off(rc_log, rc_n), "remote: release-all lets go of a held key above bit 31"); }
         /* The same request twice is a cached retry; the tool changes the token, so each press acts. */
         /* Refusals: SAVE (physical 3), bad kind, bad ids, bad length. */
         n = RCMD(29, 6, 0, 3, 1); CHECK(n >= 0 && reply[0] == 71, "remote: the SAVE button (physical 3) is refused (code %u)", reply[0]);

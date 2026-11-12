@@ -25,9 +25,14 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.7
+Version: 0.8
 
 Revision log
+    v0.8  2026-11-11  Task 16: remote control (command 29, every build from tabby-v04.2): remote_status(),
+                      select_song(), play_song(), stop_song(), jump(), set_a2(), key(), press() / hold() /
+                      release() by control name (PANEL), release_all(). play() and stop() use command 29 when the
+                      firmware has it and fall back to command 26 (diag builds). None of it writes flash; the
+                      firmware refuses the SAVE button (physical 3).
     v0.7  2026-11-11  Task 15 Step 5: query() goes through the whole read before it returns; the
                       events one read brought after the reply were dropped (run-15's USB capture
                       lost up to 167 ms after the counter reset at the song start; a 20 s probe with
@@ -232,10 +237,81 @@ class Link:
                 "line2": "FREE %dK  RECLAIM %dK" % (free // 1024, recl // 1024)}
 
     def play(self, song):
-        self.query(26, bytes([1, song]))
+        """Start a song. v0.8: command 29 (tabby-v04.2 and later), else command 26 (diag builds)."""
+        try:
+            self.query(29, bytes([2, song]), attempts=1)
+        except DeviceError as e:
+            if e.code != 71 and e.code != 70:
+                raise
+            self.query(26, bytes([1, song]))
 
     def stop(self):
-        self.query(26, bytes([0]))
+        try:
+            self.query(29, bytes([3]), attempts=1)
+        except DeviceError as e:
+            if e.code != 71 and e.code != 70:
+                raise
+            self.query(26, bytes([0]))
+
+    # ---- remote control, command 29 (v0.8) -----------------------------------------------------
+    PAGES = {0: "OVERVIEW", 1: "STEPS", 2: "FM_EDIT", 3: "FM_ENV", 4: "FM_LFO", 5: "TONE_EDIT", 6: "MIX", 7: "BLE",
+             8: "PROJECT", 9: "NAME", 10: "EFFECTS", 11: "SOURCE", 12: "ACTIONS", 13: "STEP_EDIT", 14: "RHYTHM",
+             15: "FM_QUICK", 16: "PRESET_BROWSER", 17: "ARP_EDIT", 18: "STARTUP", 19: "SONG", 20: "TRACK_LAUNCH"}
+    # Physical button ids (app/smk37_controls.c button_map) by the firmware's names. SAVE (physical 3) is
+    # refused by the device on purpose. HOME has two physical ids (2 and 12); 12 is HOME / SRC.
+    PANEL = {"SHIFT": 0, "FADER_BANK": 1, "HOME": 2, "OCT_DOWN": 4, "OCT_UP": 5, "ARP": 6, "PAD_STEP": 7, "SCL": 8,
+             "ENV": 9, "GLO": 10, "BLUETOOTH": 11, "SRC": 12, "EDIT": 13, "FX": 14, "SEQ": 15, "PLAY": 16, "REC": 17}
+
+    def remote(self, *ops):
+        d = self.query(29, bytes(ops), attempts=1)
+        if len(d) < 12:
+            raise DeviceError(-1)
+        return {"page": d[1], "page_name": self.PAGES.get(d[1], str(d[1])), "song_state": d[2], "loaded": d[3],
+                "row": d[4], "queued": d[5], "a2": d[6], "shift": d[7], "transport": d[8], "bar": d[9] | d[10] << 8,
+                "action": d[11]}
+
+    def remote_status(self):
+        return self.remote(0)
+
+    def select_song(self, song):
+        return self.remote(1, song)
+
+    def play_song(self, song=None):
+        return self.remote(2) if song is None else self.remote(2, song)
+
+    def stop_song(self):
+        return self.remote(3)
+
+    def jump(self, row):
+        return self.remote(4, row)
+
+    def set_a2(self, on):
+        return self.remote(5, 1 if on else 0)
+
+    def key(self, kind, ident, value):
+        """kind 0 button (physical id), 1 key, 3 pad, 4 encoder (signed detents); value 0 releases."""
+        return self.remote(6, kind, ident, value & 255)
+
+    def press(self, name, hold=0.05):
+        """Press, hold for `hold` seconds, release a named button (PANEL) or a physical id."""
+        ident = self.PANEL[name] if isinstance(name, str) else name
+        self.key(0, ident, 1)
+        time.sleep(hold)
+        return self.key(0, ident, 0)
+
+    def hold(self, names, seconds=0.1):
+        """Press several buttons in order, hold, release them in reverse order (SEQ + EDIT, SHIFT + SRC...)."""
+        ids = [self.PANEL[n] if isinstance(n, str) else n for n in names]
+        for i in ids:
+            self.key(0, i, 1)
+        time.sleep(seconds)
+        r = None
+        for i in reversed(ids):
+            r = self.key(0, i, 0)
+        return r
+
+    def release_all(self):
+        return self.remote(7)
 
     def compact(self):
         self.query(26, bytes([2]))

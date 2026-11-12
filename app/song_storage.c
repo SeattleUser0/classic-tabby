@@ -36,6 +36,8 @@
  * Version: 0.8
  *
  * Revision log
+ *   v0.9  2026-11-11  Task 16 Goal 4: the two out-of-bound lint findings closed (explicit range tests in
+ *                     the staged-block bookkeeping and in song_storage_compact_sector); behaviour unchanged.
  *   v0.8  2026-11-08  Task 12 A3: a confirmed erase or a compaction pauses while the transport
  *                     runs (no flash write during play) and resumes after the stop.
  *   v0.7  2026-11-07  Task 11: the region size follows the layout setting (song_storage.h v0.7);
@@ -270,7 +272,9 @@ int song_storage_prepare(void)
                 if (!same_as_image(target, n, block)) {
                     r = program(target, n);
                     if (r) return r;
-                    if (block) {
+                    if (block && target >= SONG_FIRST_BLOCK_SECTOR && target - SONG_FIRST_BLOCK_SECTOR < SONG_BLOCK_SECTORS) {
+                        /* Task 16 Goal 4: staged_target() already proves the range; the explicit test is for the reader
+                         * (and clang-tidy's ArrayBound, lint finding 1 of 2); same behaviour. */
                         unsigned b = target - SONG_FIRST_BLOCK_SECTOR;
                         sectors[b].gen = le32(image + 8); sectors[b].songs = (uint16_t)le16(image + 12);
                         sectors[b].used = SONG_USED_UNKNOWN;
@@ -587,6 +591,7 @@ static int scan_live(uint16_t live[SONG_BLOCK_SECTORS], uint32_t *bits, unsigned
 int song_storage_compact_sector(unsigned b)
 {
     uint32_t bits[32];
+    if (b >= SONG_BLOCK_SECTORS) return FM1_FLASH_INVALID;   /* Task 16 Goal 4: lint finding 2 of 2; both callers pass a valid sector */
     int r = song_storage_prepare();
     if (!r) r = scan_live(live_bytes, bits, b);
     if (r) return r;

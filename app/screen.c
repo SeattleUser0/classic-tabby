@@ -4,6 +4,9 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.9  2026-11-11  Task 16 Goal 4: stale screen texts: "K2 CLK IN AUTO USB BLE" (DIN receives nothing), "ERASE OLD DATA"
+ *                     (was ERASE OLD SAMPLE DATA), "SEQ+EDIT: ACTIONS" (was HOLD SEQ: ACTIONS), the SHIFT
+ *                     list's "PAD/STEP KEY-PAD", the unused STEP knob label. No behaviour changes.
  *   v0.8  2026-11-11  Task 16 Goal 1: ct_screen_page / ct_screen_action / ct_screen_song_select (the remote
  *                     status and the remote song select); the A2 switch is ON at boot, so the ACTIONS
  *                     entry reads "A2 FAST MIDI: ON" and the switch turns it off.
@@ -633,7 +636,7 @@ static __attribute__((noinline)) void sync_draw(const struct groove_view *v)
         return;
     }
     dim_text(8, 55, "K1 CLOCK   INT / MIDI");
-    dim_text(8, 69, "K2 CLK IN  AUTO USB BLE DIN");
+    dim_text(8, 69, "K2 CLK IN  AUTO USB BLE");   /* Task 16 Goal 4: DIN receives nothing (SPEC 17.6) */
     dim_text(8, 83, "K3 SWING");
     dim_text(8, 97, "K4 SEQ OUT OFF / ON / CLOCK");
     plain_text(8, 115, "K7 KEY OUT:");
@@ -712,7 +715,7 @@ static __attribute__((noinline)) void project_draw(void)
     if (cache->row_cache[1] == sig) return;
     cache->row_cache[1] = sig;
     const char *status = project_result == GROOVE_PROJECT_EMPTY     ? "NO VALID SAVE"
-                         : project_result == GROOVE_PROJECT_TUNING_SPACE ? "ERASE OLD SAMPLE DATA"
+                         : project_result == GROOVE_PROJECT_TUNING_SPACE ? "ERASE OLD DATA"   /* Task 16 Goal 4: the action's name since Task 12 A1 */
                          : project_result == GROOVE_PROJECT_PLAYING ? "STOP TO SAVE"   /* Task 12 A3 */
                          : project_result == GROOVE_PROJECT_MEMORY  ? "NOT ENOUGH MEMORY"
                          : project_result == GROOVE_PROJECT_INVALID ? "INVALID PROJECT"
@@ -1146,7 +1149,7 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
             cache->seq_cache = strip;
             erase(0, 184, 240, 11);
             accent_text(8, 186, seq_pages[seq_page]);
-            dim_text(150, 186, seq_page == SEQ_SYNC ? "HOLD SEQ: ACTIONS" : "K5: TRACK");
+            dim_text(150, 186, seq_page == SEQ_SYNC ? "SEQ+EDIT: ACTIONS" : "K5: TRACK");
         }
     }
     for (unsigned col = 0; col < 4; ++col) {
@@ -1180,7 +1183,7 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
             color = colors[t];
             decimal(value, views[t].volume, 1);
         } else {
-            static const char *const labels[4] = {"LEVEL", "STEP", "NOTE", "BPM"};
+            static const char *const labels[4] = {"LEVEL", "-", "NOTE", "BPM"};
             label = labels[col];
             if (col == 0)
                 decimal(value, v->volume, 1);
@@ -1236,7 +1239,7 @@ static void draw_page(const struct fm1_ble_status *ble)
         text(8, 198, "SHIFT SHORTCUTS", 1, ACCENT, PANEL);
         text(8, 209, "PADS 1-8 TRACK   PADS 9-16 MUTE", 1, TEXT, PANEL);
         text(8, 220, "HOME/SRC SOURCE  SEQ MIDI", 1, TEXT, PANEL);
-        text(8, 231, "PAD/STEP STEP EDIT  RELEASE TO RETURN", 1, DIM, PANEL);
+        text(8, 231, "PAD/STEP KEY-PAD  RELEASE TO RETURN", 1, DIM, PANEL);
     }
     if (boot_active || (paint_rendering && paint_top >= 30)) return;
     uint32_t since = 0;

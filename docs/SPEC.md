@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.35
+Version: 0.36
 Revision log:
+- v0.36, 2026-11-11 (Task 16 Goal 1): 17.10 the standing testing rule; section 19: the overnight hard limits,
+  A2 on by default, F + G not now, command 29 (remote control).
 - v0.35, 2026-11-11 (tabby-v04.2 merge): Task 14 and v04.1.1 entries below (v0.30-v0.33 of the guide line) are
   this file's 17.5-17.9; the Task 15 entries are 18.x.
 - v0.34, 2026-11-11 (Task 15 Step 5): 18.2: the soak, the transfer and the save.
@@ -1331,6 +1333,13 @@ tabby-v04.1.1 carries the tabby-v04.1 firmware: app/ has no change since the tag
 the build identity bytes (BUILD 31). The firmware is built with the display version forced to tabby-v04.1, so the boot
 screen and the page badge keep saying tabby-v04.1; the page release is named by the tag and by Help chapter 00.
 
+### 17.10 Standing testing rule (Task 16, 2026-11-11; the user's rule, in force until the user changes it)
+
+Tests are run by the agent, unattended, over USB and the H4MIDI WC. The user never has to be present at
+set times or press a button for a test. If a test needs a device action, a remote command is built for it
+first (section 19.2: command 29). Installs from the NUC follow the hard limits of Task 16 (19.1), and only
+then.
+
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
 - **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
@@ -1382,3 +1391,49 @@ screen and the page badge keep saying tabby-v04.1; the page release is named by 
   way); the device's content was equal before and after (full backups compared).
 - Not covered: an hour of continuous song play with panel use (this build has no remote PLAY).
 - A2 stays a diag-build option until the user decides; the normal build has no A2 code.
+
+
+## 19. Task 16 — tabby-v04.2: fast MIDI by default and remote control (2026-11-11)
+
+### 19.1 The overnight hard limits (the user's, Task 16)
+
+- Installs from the NUC are allowed, one attempt per build, only through the normal update path of the
+  build's published page (driven in Chrome), after a read-only USB soak of at least 2000 rounds with no
+  error or timeout, and after the device identity is confirmed. Never force flash, never a factory
+  restore, never the official Open V01, never the bootloader, key_mac or calibration. If an install stalls
+  or fails: no more device writes that night, the device is left as it is, and the report says what
+  happened and which recovery page is needed.
+- Never modify the SDK binary; never send anything to M-VAVE or post outside our own GitHub repository.
+- Never delete or overwrite a page under builds/; fetch gh-pages before every publish; every build gets its
+  permanent builds/<tag>/ page and an entry in builds/index.json.
+- A full backup before any release that is installed, kept. A storage format change (the v3 clip format)
+  is built and tested on the host and in the simulator only; it is not released or installed without the
+  user's review.
+
+### 19.2 Option A2 is the normal build's default; remote control
+
+- **A2 on at power-up** (app/midi_router.c). The ACTIONS entry "A2 FAST MIDI: ON / OFF" switches it for the
+  session (RAM only); command 25 requests 7 (the page), 8 (off) and 9 (on) are in every build, and the
+  workbench Diagnostics shows the counters (requests, calls per second, call cost, longest call, retries,
+  histogram). tools/linux/build.py --no-a2 (Makefile A2=0) builds the tabby-v04.1 firmware.
+- **F + G: not now** (decision, recorded on the user's instruction): option A2 alone brings one line to
+  3.67 ms (measured, BUILD.md 28.6), under the 4 ms goal; the eight-line worst case (up to 6.5 ms) is mostly
+  the DIN cable's own byte time and is fixed by the H4MIDI fan-out wiring, not by more firmware.
+- **Command 29, remote control, in every build** (app/transfer.c; capability flag bit 2 of command 27).
+  Data byte 0 is the operation; the reply is the status (12 bytes after the status code): version 1, screen
+  page (app/screen.c enum), song state (0 stopped, 1 playing, 2 stopping), loaded song (255 none), playing
+  row, queued jump row (255 none), A2 on, SHIFT held, a transport runs, bar (u16), ACTIONS entry selected.
+  - {} / {0}: status. {1, song}: select (load) a song and show it on the SONG page; refused while playing.
+  - {2} / {2, song}: PLAY the loaded song (or load and play); {3}: STOP; {4, row}: queue a jump (playing only).
+  - {5, 0|1}: A2 off / on. {7}: release everything the command holds.
+  - {6, kind, id, value}: inject a panel event: kind 0 button (physical id 0..17), 1 key (0..36), 3 pad
+    (0..15), 4 encoder (0..7, signed detents). Value 0 releases; 1..127 presses. Press, hold and release are
+    separate calls. A held control is released by itself 5 s after the last remote call.
+  - **No operation writes flash.** The firmware's SAVE button (physical id 3, the 4th button in the left
+    group) is refused with code 71, because it saves projects and confirms ACTIONS erase and compaction. A
+    song select or play only reads flash. Other refused values also answer code 71.
+- The simulator-level host tests (tests/host/smoke.c section 17) drive every operation through the real
+  SysEx path and check the reported page, song state, A2 switch, MIDI output, the refusals, the SHIFT +
+  HOME / SRC and SEQ + EDIT flows and the 5 s watchdog.
+- tools/linux/hw/tabby_link.py v0.8: remote_status, select_song, play_song, stop_song, jump, set_a2, key,
+  press, hold, release_all.

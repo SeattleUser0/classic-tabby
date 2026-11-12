@@ -166,7 +166,8 @@ static void put32(uint8_t *p, uint32_t value)
  *                      firmware's SAVE (4th button in the left group): refused (code -7), because the
  *                      button writes flash and it also confirms the ACTIONS erase
  *   {7}                release everything this command holds */
-static uint32_t remote_buttons, remote_keys, remote_pads, remote_at;
+static uint32_t remote_buttons, remote_pads, remote_at;
+static uint64_t remote_keys;   /* 37 keys: more than 32 bits (cppcheck found the shift by 36 in the first draft) */
 static void remote_release_all(void)
 {
     for (unsigned i = 0; i < 18; ++i) if (remote_buttons & (1U << i)) smk37_control_event(SMK37_BUTTON, i, 0);
@@ -220,7 +221,7 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
             if (v) remote_buttons |= 1U << id; else remote_buttons &= ~(1U << id);
             smk37_control_event(SMK37_BUTTON, id, v ? 1 : 0);
         } else if (kind == SMK37_KEY && id < 37) {
-            if (v) remote_keys |= (uint32_t)1 << id; else remote_keys &= ~((uint32_t)1 << id);
+            if (v) remote_keys |= (uint64_t)1 << id; else remote_keys &= ~((uint64_t)1 << id);
             smk37_control_event(SMK37_KEY, id, v);
         } else if (kind == SMK37_PAD && id < 16) {
             if (v) remote_pads |= 1U << id; else remote_pads &= ~(1U << id);

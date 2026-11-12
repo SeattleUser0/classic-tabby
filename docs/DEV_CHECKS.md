@@ -1,6 +1,6 @@
 # Development checks (Task 07)
 
-Version 0.2, 2026-11-04. The opt-in checks between builds, what each catches, how long it takes, and
+Version 0.3, 2026-11-11. The opt-in checks between builds, what each catches, how long it takes, and
 the standing rules for every Classic Tabby session on this machine. The default build is unchanged:
 `make firmware`, `make package` and `make hosted` produce the same bytes as before Task 07 (the gate at
 the end). The measurement series that led here is docs/tasks/TASK-07-step1-assessment.md. The shape of
@@ -10,11 +10,17 @@ compiles 16 firmware units and 36 host units separately, its whole test cycle is
 here needed Orange Cat's per-compile profile, dependency database or `--changed` tier.
 
 Revision log
+- v0.3 2026-11-11: Task 16: rule 0, the standing testing rule (unattended, remote commands).
 - v0.2 2026-11-04: Task 08: the display version (DISPLAY_VERSION, tests/display-version.mjs in web-smoke);
   web-smoke and midi-import-sim depend on `web` (the stale-wasm trap below is closed).
 - v0.1 2026-11-04: first version, Task 07 Steps 2 and 3.
 
 ## The standing rules
+
+0. **Tests are run by the agent, unattended** (Task 16, 2026-11-11; SPEC 17.10). Hardware tests go over USB and the
+   H4MIDI WC from this machine; the user is never asked to be present or to press a button. When a test needs a device
+   action, build a remote command for it first: transfer command 29 (SPEC 19.2, tools/linux/hw/tabby_link.py v0.8)
+   starts and stops songs, jumps, switches A2 and presses panel controls without writing flash.
 
 1. **Before any firmware build**: `make check` and `make lint`. A unit that would fail the build fails
    here in about two seconds, through the same compiler with the same options; the lint shows what the

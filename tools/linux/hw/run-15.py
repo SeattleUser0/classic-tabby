@@ -41,9 +41,11 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.8
+Version: 0.9
 
 Revision log
+    v0.9  2026-11-11  Task 16: --play N starts song N by remote command 29 (nobody presses PLAY) and stops it
+                      before the capture ends; works with l2 and soak on tabby-v04.2 and later.
     v0.1  2026-11-10  Task 15 Step 4: first version (written before the device was available; the
                       analysis was checked on synthetic rows, the device calls on the simulator's
                       page layouts only).
@@ -247,8 +249,13 @@ def capture(a, soak=False):
     try:
         state = set_a2(l, a.a2)
         print("A2 is %s | kernel timestamps on USB in: %s | DIN: %s" % ("ON" if state["on"] else "off", l.kernel_time, a.din), flush=True)
-        print("press PLAY on the SONG page now (waiting up to %d s for the song's MIDI Start)" % a.wait, flush=True)
         armed = time.monotonic_ns()
+        if a.play:
+            # v0.9 (Task 16): remote PLAY (transfer command 29, tabby-v04.2 and later): nobody presses PLAY.
+            r = l.play_song(a.play - 1)
+            print("remote PLAY song %d: %s" % (a.play, r), flush=True)
+        else:
+            print("press PLAY on the SONG page now (waiting up to %d s for the song's MIDI Start)" % a.wait, flush=True)
         deadline = time.monotonic() + a.wait; first = None
         seen = 0
         while first is None and time.monotonic() < deadline:
@@ -295,6 +302,10 @@ def capture(a, soak=False):
                     rise.append("CPU GUARD (%.2f trips per second)" % rate)
                 if rise and a.stop_on_rise:
                     stopped = "STOPPED at %.0f s: %s rose" % (time.monotonic() - t0, ", ".join(rise)); print(stopped, flush=True); break
+        if a.play:
+            l.stop_song(); end_stop = time.monotonic() + 0.5       # v0.9: the song stops before the capture ends
+            while time.monotonic() < end_stop:
+                usb.extend(l.messages(50))
         usb.extend(l.other); l.other = []
         after = l.health(); a2page = l.a2(7); d = l.diag(0); st = l.song_status()
     finally:
@@ -424,6 +435,7 @@ def main():
     p.add_argument("--every", type=float, default=60, help="soak: seconds between log lines")
     p.add_argument("--stop-on-rise", action="store_true", help="soak: stop at the first rise of underruns, DMA overruns or CPU GUARD")
     p.add_argument("--guard-rate", type=float, default=1.5, help="soak: CPU GUARD trips per second that stop it")
+    p.add_argument("--play", type=int, default=0, help="v0.9: start this song (1 to 16, as on the screen) by remote command 29, and stop it at the end")
     p.add_argument("--audio", default="", help="AUDIO4c input channels to record, e.g. 0,1")
     p.add_argument("--din", default="H4MIDI-WC Port 1")
     p.add_argument("--tag", default="run")
