@@ -1531,13 +1531,26 @@ int main(void)
         { int32_t want = (int32_t)(base_units + (pulses_sent - base_pulses) * 80U), got = (int32_t)sim_song_units(), e = got - want;
           CHECK(e > -90 && e < 90, "follow: after 150 BPM the position is within one pulse (%d units off over %u pulses)", e, pulses_sent - base_pulses); }
         CHECK(FOLLOW() == RUNNING && sim_song_status(2) == 0, "follow: still running, no underrun (%u)", sim_song_status(2));
+        /* No drift (TASK-10 Phase 1): 400 pulses at 133 BPM (what is left of the 768-pulse song); the position keeps within a pulse of the pulses, at every 50th pulse. */
+        MASTER_SET(133);
+        { unsigned worst = 0; uint32_t u0 = sim_song_units(), p0 = pulses_sent; unsigned seen = 0;
+          for (int i = 0; i < 25000 && pulses_sent - p0 < 400; ++i) {
+              unsigned before = pulses_sent; BLOCK_RUN();
+              if (pulses_sent != before && (pulses_sent - p0) % 50 == 0) {
+                  int32_t want = (int32_t)(u0 + (pulses_sent - p0) * 80U), e = (int32_t)sim_song_units() - want; if (e < 0) e = -e;
+                  if ((unsigned)e > worst) worst = (unsigned)e; ++seen;
+              }
+              if (FOLLOW() != RUNNING) break;
+          }
+          CHECK(seen >= 5 && worst <= 100 && FOLLOW() == RUNNING, "follow: 400 pulses at 133 BPM: the position stays within %u units of the pulses at %u checkpoints (no drift)", worst, seen); }
         /* Missed pulses: 4 periods of silence: HELD, notes released, no advance; pulses back inside 2 s: relock. */
         MASTER_SET(120); for (int i = 0; i < 30; ++i) BLOCK_RUN();
         uint32_t held_at = sim_song_units();
         (void)drain(mm, 64);
         for (int i = 0; i < 40; ++i) BLOCK_SILENT();             /* 40 blocks = 5.5 pulses of 120 BPM */
         CHECK(FOLLOW() == HELD, "follow: 3 missed pulses: HELD (state %u)", FOLLOW());
-        { uint32_t u = sim_song_units(); CHECK(u >= held_at && u <= held_at + 80, "follow: HELD does not advance (%u -> %u)", held_at, u); }
+        { uint32_t u = sim_song_units(); for (int i = 0; i < 20; ++i) BLOCK_SILENT();
+          CHECK(sim_song_units() == u && u <= held_at + 200 && FOLLOW() == HELD, "follow: HELD does not advance (%u, then %u after 20 more blocks; the prediction ran at most one pulse past %u)", u, sim_song_units(), held_at); }
         { int on = 0, off = 0; for (int i = 0; i < 4; ++i) BLOCK_SILENT(); pn = drain(mm, 64);
           for (unsigned k = 0; k < pn && k < 64; ++k) { if ((mm[k].data[0] & 0xf0U) == 0x90 && mm[k].data[2]) ++on; if ((mm[k].data[0] & 0xf0U) == 0x80 || ((mm[k].data[0] & 0xf0U) == 0x90 && !mm[k].data[2])) ++off; }
           CHECK(on == 0, "follow: no note starts while held (%d)", on); (void)off; }

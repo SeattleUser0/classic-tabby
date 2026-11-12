@@ -331,7 +331,10 @@ def main():
         r.say("health: " + json.dumps(h))
     finally:
         try:
-            r.l.stop_song()
+            r.l.stop_song(); time.sleep(0.4)
+            r.l.press("HOME"); r.l.press("SEQ")      # back on SYNC / MIDI: K1 one detent down = CLOCK INT again (the device is left as it was)
+            r.l.key(4, 0, 255); time.sleep(0.3)
+            r.l.press("HOME")
         except Exception:
             pass
         r.close()
