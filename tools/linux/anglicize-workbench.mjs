@@ -6,7 +6,7 @@
 // Purpose
 //   Classic Tabby's workbench is English only (SPEC 17.7, Task 14, 2026-11-10). Upstream (M-VAVE's
 //   SMK37 OPEN) writes its page text in Chinese and supplies English through a translation table in
-//   sdk/I18n.js. When upstream workbench files are merged in (BUILD.md 28.5), they arrive in that
+//   sdk/I18n.js. When upstream workbench files are merged in (BUILD.md 30.5), they arrive in that
 //   form again. This script converts them the way Task 14 did:
 //     * every text node and title / aria-label / placeholder / alt / value attribute of
 //       sdk/Update.html.in that is a key of the table is replaced by its English value;

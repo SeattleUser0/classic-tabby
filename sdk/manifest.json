@@ -8,7 +8,7 @@
                   "sdk/firmware/SMK37-Pro-V16.fwsc":  "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0",
                   "sdk/Build.ps1":  "c75e2858efca0c9773c58230b9ae0d2f468c9152f5a363ac3ef02860fe17ed24",
                   "sdk/config/layout.h":  "a00c6e7f0c1f7f6b4f166168f9dd8d29184295d176370409af7b19768a92459f",
-                  "sdk/I18n.js":  "83c67ecf9d978c6427514de74a40b77f3194e7a67053fae808ae365e4de80ef3",
+                  "sdk/I18n.js":  "3feaeb767b6a43c525162fcfbbeca47b74a87525c01daccc4775e70bb6ebc79c",
                   "sdk/include/fm1.h":  "6a045469bfa41e82732f76c715f1b0c975c45c5f7d11617bf7135f7c37a0b2ee",
                   "sdk/include/fm1_audio_io.h":  "3c82758517f004ce02b1c0d89cadad4dc1e43d6b06f747daa6e8754c736e05df",
                   "sdk/include/fm1_block.h":  "25be4238581552b1c9075f0ea51f919d353faaa8349e6f11f6bf268b6c96fa60",

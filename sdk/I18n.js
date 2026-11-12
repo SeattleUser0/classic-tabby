@@ -13,7 +13,7 @@
  *     FM1I18n.attr(node, name, v)  node.setAttribute(name, value)
  *   A later cleanup can replace the calls by plain DOM code and delete this file.
  *   Upstream merges: new workbench text must be written in English at the source, never added
- *   through a table (BUILD.md 28.5).
+ *   through a table (BUILD.md 30.5).
  *
  * Version: 1.0
  *

@@ -55,6 +55,8 @@
 #     make release           GitHub release for TAG with the release assets attached
 #                            (needs docs/releases/<TAG>.md as the notes)
 #     make clean             remove build/ (also detaches the gh-pages worktree)
+#     A2=1                   Task 15: the diag build with option A2, the control pass on demand (firmware,
+#                            check, package, publish); off at boot, switched on the device (BUILD.md 28.4)
 #     DIAG=1 / USER_BYTES=N  Task 11: the diagnostic build / the USER size (any firmware, check,
 #                            package or web target); make web-old536: the old 536576-layout simulator
 #
@@ -76,15 +78,20 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.24
+# Version: 0.25
 #
 # Revision log
+#   v0.25 2026-11-11  tabby-v04.2: merge of the timing branch (A2=1 build switch, host tests always build the A2
+#                     code) with the guide test; v0.22 of the timing branch is listed below as v0.22t.
 #   v0.24 2026-11-10  tabby-v04.1.1: workbench-test runs tests/workbench/guide.mjs (the testing guide's
 #                     shape).
 #   v0.23 2026-11-10  Task 14: English only: tests/workbench/manual-i18n.mjs became manual-structure.mjs (no
 #                     translation table any more); help-banned.mjs also fails on any CJK in a user-facing string.
 #   v0.22 2026-11-10  Task 14: workbench-test runs tests/workbench/help-banned.mjs (no Help, panel or
 #                     tooltip string names a removed page, mode, action or flow, in both languages).
+#   v0.22t2026-11-10  Task 15 Step 4: A2=1 (build.py --a2, -DCT_A2=1: option A2, the control pass on demand) for
+#                     firmware, check and package; the host tests always build the A2 code (HOST_FLAGS
+#                     -DCT_A2=1). Unset, every command line is as before.
 #   v0.21 2026-11-09  workbench-test runs tests/workbench/update-safety.mjs (no force flash after a timeout; the
 #                     zero-tag loader resumes; sdk/WebUpdate.js, BUILD.md 26.8).
 #   v0.20 2026-11-09  workbench-test runs tests/workbench/recover-page.mjs (the tabby-v04.0 recovery page:
@@ -198,8 +205,12 @@ DV         := $(if $(DISPLAY_VERSION),--display-version "$(DISPLAY_VERSION)",)
 DIAG       ?=
 USER_BYTES ?=
 OPTS       := $(if $(filter 1,$(DIAG)),--diag,) $(if $(USER_BYTES),--user-bytes $(USER_BYTES),)
-NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV) $(OPTS)
-WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV) $(OPTS)
+# Task 15 Step 4 (v0.22): A2=1 builds option A2 (the control pass on demand, -DCT_A2=1) into the firmware:
+# the diag build tabby-v04.2-diagA2. build.py only (the simulator has no A2); the host tests always have it.
+A2         ?=
+A2OPT      := $(if $(filter 1,$(A2)),--a2,)
+NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV) $(OPTS) $(A2OPT)
+WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV) $(OPTS) $(A2OPT)
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
         package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test \
@@ -212,7 +223,7 @@ WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 # used here (it stays on in the wasm build). CC=clang works too when clang is installed.
 HOST_SRCS  := $(shell find app web third_party/synth -name '*.c' ! -path 'app/board/*' | sort)
 HOST_WARN_OFF := -Wno-unused-function -Wno-array-parameter -Wno-attributes -Wno-misleading-indentation
-HOST_FLAGS := -std=c11 -O1 -g -fwrapv -fno-fast-math -ffp-contract=off -DFM1_HOST_TEST -DFM1_OPEN_WEB \
+HOST_FLAGS := -std=c11 -O1 -g -fwrapv -fno-fast-math -ffp-contract=off -DFM1_HOST_TEST -DFM1_OPEN_WEB -DCT_A2=1 \
               -Wall -Wextra $(HOST_WARN_OFF) \
               -Iweb/engine -Iweb/synth -Ithird_party/synth -Isdk/include -Iapp/synth -Iapp
 # Task 07: one object per source (build/host/obj/<path>.o) with a depfile each, so an edited header
@@ -367,7 +378,7 @@ suite-run: crosscheck-run test midi-import-sim host-sanitize-run
 
 # Task 07: the compile check and the lint (tools/linux/lint.sh reads the check's compile database).
 check:
-	$(T) $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --check-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV) $(OPTS)
+	$(T) $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --check-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV) $(OPTS) $(A2OPT)
 
 lint: check
 	$(T) env MODEL=$(MODEL) LINT_JOBS=$(JOBS) LINT_SRCS="$(HOST_SRCS)" \
@@ -413,7 +424,7 @@ midi-guide:
 # ---- Task 02: distribution package, static site, GitHub Pages and release ----------------
 package:
 	$(T) env FM1_WASI_SDK="$(FM1_WASI_SDK)" $(NICE) $(PYTHON) -I $(BUILD) --model $(MODEL) --package --toolchain-kind native \
-	    --toolchain "$(JIELI_LINUX)" --source-url "$(FM1_SOURCE_URL)" $(DV) $(OPTS)
+	    --toolchain "$(JIELI_LINUX)" --source-url "$(FM1_SOURCE_URL)" $(DV) $(OPTS) $(A2OPT)
 	@echo "Distribution: $(PACKAGE_HTML)  (source link: $(FM1_SOURCE_URL))"
 
 hosted:

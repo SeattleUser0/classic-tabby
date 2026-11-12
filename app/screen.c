@@ -4,6 +4,8 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.7  2026-11-10  Task 15 Step 4: CT_A2 diag builds only: the ACTIONS entry "A2 FAST MIDI",
+ *                     the run-time switch of option A2 (off at boot). The normal build has no such entry.
  *   v0.6  2026-11-10  Task 13 Step 4: the panel wording: knobs by their printed numbers (the
  *                     firmware's SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8; K1-K4 were right),
  *                     the firmware's SAVE button by position ("4TH LEFT BTN" on the LCD: the 4th
@@ -183,8 +185,14 @@ enum { SOURCE_CHOICES = GROOVE_SAMPLE };
  * CLOCK" left with their pages; the clock source is on SYNC / MIDI, Bluetooth in the workbench.) */
 static const char *const actions[] = {"COPY TIMBRE", "PASTE TIMBRE", "STOP ALL / REWIND",
     "ERASE OLD DATA", /* Task 12 A1: was ERASE OLD SAMPLE/DX7 */
-    "SONG MODE", "COMPACT SONG STORAGE", "SEND SETUP"};
-enum { ACT_COPY_TIMBRE, ACT_PASTE_TIMBRE, ACT_STOP_ALL, ACT_ERASE_OLD, ACT_SONG_MODE, ACT_COMPACT, ACT_SEND_SETUP };
+    "SONG MODE", "COMPACT SONG STORAGE", "SEND SETUP"
+#ifdef CT_A2
+    /* Task 15 Step 4 (CT_A2 diag builds only): the run-time switch of option A2, the control
+     * pass on demand (app/midi_router.c). Off at boot; the entry's text shows the state. */
+    , "A2 FAST MIDI: OFF"
+#endif
+    };
+enum { ACT_COPY_TIMBRE, ACT_PASTE_TIMBRE, ACT_STOP_ALL, ACT_ERASE_OLD, ACT_SONG_MODE, ACT_COMPACT, ACT_SEND_SETUP, ACT_A2 };
 enum { ACTION_COUNT = sizeof actions / sizeof actions[0] };
 static unsigned source_preview, action, action_confirm, tone_clip_ready;
 /* Task 12 A1: the question the ACTIONS page asks before a destructive entry runs. */
@@ -820,6 +828,9 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         if (visible == ACTIONS) {   /* Task 11: redraw when the storage lines change */
             char a[40], b[40]; ct_diag_storage_lines(a, b);
             sig = signature(sig, a, (unsigned)strlen(a)); sig = signature(sig, b, (unsigned)strlen(b));
+#ifdef CT_A2
+            sig = sig * 33U + ct_a2_get();   /* Task 15: redraw when A2 is switched (also by command 25) */
+#endif
         }
         if (visible == FM_QUICK) {
             sig = signature(sig, frame_patch, 156);
@@ -878,7 +889,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             unsigned at = first + i, y = 57 + i * 19;
             uint16_t bg = at == action ? PANEL : BACK;
             paint_fill(6, y, 228, 17, bg);
-            text(10, y + 5, actions[at], 1, at == action ? ACCENT : DIM, bg);
+            const char *label = actions[at];
+#ifdef CT_A2
+            if (at == ACT_A2 && ct_a2_get()) label = "A2 FAST MIDI: ON";   /* Task 15 */
+#endif
+            text(10, y + 5, label, 1, at == action ? ACCENT : DIM, bg);
         }
         plain_text(8, 213, notice ? notice : diag_song);
         dim_text(8, 231, action_confirm ? "4TH LEFT BTN CONFIRM  HOME CANCEL" : "K1/K5 ACTION  4TH LEFT BTN DOES IT");
@@ -1787,6 +1802,15 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 cache->middle_cache = ~0U;
                 goto controls_done;
             }
+#ifdef CT_A2
+            else if (action == ACT_A2) {
+                /* Task 15 Step 4: switch A2 (RAM only; a power cycle is off again). */
+                ct_a2_set(!ct_a2_get());
+                announce(ct_a2_get() ? "A2 ON - PASS ON DEMAND" : "A2 OFF - 10 MS PASSES", now + 2000U);
+                cache->middle_cache = ~0U;
+                goto controls_done;
+            }
+#endif
             else {
                 if (!post(0xff, 0, 0, 1)) return 0;
                 memset(key_note, 0xff, sizeof key_note); project_keys = 0; page = OVERVIEW;

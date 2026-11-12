@@ -212,7 +212,101 @@ FM1_AUDIO_CODE void groove_midi_transport(unsigned owner, uint8_t status)
     }
     enqueue(0, 0, config.flags & 7U, status == 0xff ? 0xfc : status, 0, 0);
 }
+#ifdef CT_A2
+/* ---- Classic Tabby Task 15 Step 4: option A2, the control pass on demand (diag builds only) ----
+ * Revision notes
+ *   v0.1  2026-11-10  First version. Built only with CT_A2 (tools/linux/build.py --a2, Makefile
+ *                     A2=1; the host tests always have it). Off at boot; switched at run time
+ *                     (ACTIONS "A2 FAST MIDI", or transfer command 25 requests 8 = off, 9 = on).
+ *
+ * What it does. The song tick runs in the audio interrupt (fm1_audio_irq, IRQ 11) and can only
+ * queue notes into the lock-free lanes; the control pass that sends them runs on the SDK's 10 ms
+ * timer, so a note waits 0..10 ms (BUILD.md 26.9). With A2 on, the audio interrupt asks the SDK
+ * for a control pass (fm1_control_request, sdk/include/fm1.h) in every block that ends with an
+ * event still waiting in lane 0 or 1. The pass starts with the router flush, so the note leaves
+ * about one task switch after the audio interrupt returns.
+ *
+ * Why the call is allowed here (BUILD.md 28.2 and 28.4 have the evidence): this SDK's kernel
+ * masks every interrupt in its critical sections, defers the task switch to a soft interrupt,
+ * and its own interrupt handlers post to task queues through the same __os_taskq_post.
+ *
+ * Rules kept here:
+ *   - At most ONE request per audio block, never a loop. The SDK drops a request made while a
+ *     pass waits or runs (its control_pending flag); the retry is simply the next block's
+ *     request, while events still wait ("retries" counts the requests made while nothing had
+ *     been drained since the block before asked).
+ *   - Every call is timed with TIMER4 (24 MHz) inside the interrupt: count, sum, longest and a
+ *     histogram, read by command 25 request 7 (ct_a2_read). The time is part of the audio
+ *     render's budget (CPU GUARD), which is why it is measured.
+ *   - No request is ever made with A2 off: the build then behaves as the normal build does. */
+static volatile uint8_t a2_on, a2_reset_request;
+static struct {
+    uint32_t blocks;      /* audio blocks seen (one per 128 frames): the time base for calls per second */
+    uint32_t calls;       /* fm1_control_request calls made from the audio interrupt */
+    uint32_t retries;     /* of those, repeats: the block before asked and nothing was drained since */
+    uint32_t max;         /* longest call, TIMER4 ticks */
+    uint32_t bins[6];     /* calls < 5, < 10, < 20, < 50, < 100, >= 100 microseconds */
+    uint64_t sum;         /* ticks of all calls */
+    uint8_t waiting;      /* the previous block asked */
+    unsigned drained;     /* the lanes' read positions when it asked */
+} a2;
+static FM1_AUDIO_CODE uint32_t a2_ticks(void)
+{
+#ifdef FM1_HOST_TEST
+    return ct_diag_ticks();
+#else
+    return *(volatile uint32_t *)0x10804U;   /* TIMER4 count (app/board/smk37_hw.h), no call */
+#endif
+}
+/* Audio interrupt, once per block, after the song tick and the MIDI clock. */
+static FM1_AUDIO_CODE void a2_block(void)
+{
+    if (a2_reset_request) {
+        /* Field by field: no libc call from the audio interrupt. */
+        a2.blocks = a2.calls = a2.retries = a2.max = 0; a2.sum = 0;
+        for (unsigned i = 0; i < 6; ++i) a2.bins[i] = 0;
+        a2_reset_request = 0;
+    }
+    ++a2.blocks;
+    if (!a2_on || (events[0].write == events[0].read && events[1].write == events[1].read)) { a2.waiting = 0; return; }
+    unsigned drained = events[0].read + events[1].read;
+    if (a2.waiting && drained == a2.drained) ++a2.retries;   /* the last request got no pass yet */
+    a2.waiting = 1; a2.drained = drained;
+    uint32_t t0 = a2_ticks();
+    fm1_control_request();                   /* the one call of this block */
+    uint32_t dt = a2_ticks() - t0;
+    ++a2.calls; a2.sum += dt;
+    if (dt > a2.max) a2.max = dt;
+    ++a2.bins[dt < 120U ? 0 : dt < 240U ? 1 : dt < 480U ? 2 : dt < 1200U ? 3 : dt < 2400U ? 4 : 5];
+}
+/* Control task. */
+void ct_a2_set(unsigned on) { a2_on = on ? 1 : 0; barrier(); }
+unsigned ct_a2_get(void) { return a2_on; }
+void ct_a2_reset(void) { a2_reset_request = 1; barrier(); }
+/* Command 25 request 7 (48 bytes, little-endian u32): on (0/1), audio blocks, calls, mean call
+ * ticks, longest call ticks, retries, then the six histogram bins. Calls per second =
+ * calls * 44118 / (blocks * 128). The snapshot is repeated until no block ended inside it. */
+int ct_a2_read(uint8_t *out)
+{
+    uint32_t v[12], blocks;
+    do {
+        blocks = a2.blocks;
+        v[0] = a2_on; v[1] = blocks; v[2] = a2.calls;
+        v[3] = v[2] ? (uint32_t)(a2.sum / v[2]) : 0; v[4] = a2.max; v[5] = a2.retries;
+        for (unsigned i = 0; i < 6; ++i) v[6 + i] = a2.bins[i];
+    } while (blocks != a2.blocks);
+    for (unsigned i = 0; i < 12; ++i) for (unsigned b = 0; b < 4; ++b) out[i * 4 + b] = (uint8_t)(v[i] >> (8U * b));
+    return 48;
+}
+#endif   /* CT_A2 */
+#ifdef CT_A2
+/* Task 15 (A2): the block's work is this body; the wrapper below asks for the pass after it, so
+ * the block's clock byte (queued at the end of the body) is covered by the same request. The
+ * normal build compiles the body as groove_midi_clock itself, unchanged. */
+static FM1_AUDIO_CODE void midi_clock_body(unsigned owner, unsigned tempo)
+#else
 FM1_AUDIO_CODE void groove_midi_clock(unsigned owner, unsigned tempo)
+#endif
 {
     if (!owner) {
         /* Task 03 d: the song sequencer ticks here, once per block, with the song's
@@ -230,6 +324,13 @@ FM1_AUDIO_CODE void groove_midi_clock(unsigned owner, unsigned tempo)
     }
     clock_phase += tempo * 24U * FM1_BLOCK_FRAMES;
 }
+#ifdef CT_A2
+FM1_AUDIO_CODE void groove_midi_clock(unsigned owner, unsigned tempo)
+{
+    midi_clock_body(owner, tempo);
+    if (!owner) a2_block();   /* Task 15 (A2): at most one pass request per block, see above */
+}
+#endif
 static unsigned owner_channel(unsigned owner)
 { return owner < THRU_OWNER || owner >= SONG_OWNER ? channel(owner & 7U) : owner - THRU_OWNER; }
 static int held_elsewhere(const struct output *o, unsigned owner, unsigned ch, unsigned note)

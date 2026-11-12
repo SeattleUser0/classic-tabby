@@ -1,11 +1,31 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.62
+Version: 0.67
 Revision log:
-- v0.62, 2026-11-10 (tabby-v04.1.1): section 29, the testing guide and the Help/text-only release.
-- v0.61, 2026-11-10 (Task 14, English only): 28.5, the conversion and what a future upstream merge needs.
-- v0.60, 2026-11-10 (Task 14, second pass): 28.4 settled: the restore sectors, the TRS jack, the demo samples.
-- v0.59, 2026-11-10 (Task 14): section 28, the Help audit against tabby-v04.1 (counts, the banned-phrase
+- v0.67, 2026-11-11 (tabby-v04.2 merge): the Task 14 and v04.1.1 sections are now 30 and 31 (Task 15 keeps 28);
+  the timing branch's sections stay where the device-run notes point.
+- v0.66, 2026-11-11 (Task 15 Step 5): 28.6: the overnight A2 soak, the transfer and the save while
+  stopped (A2 on against off, backups equal before and after), what was not covered.
+- v0.65, 2026-11-11 (Task 15 Step 5): 28.6, option A2 measured on the device: one line 3.67 ms on DIN
+  (12.34 ms with A2 off), eight lines 3.8..6.5 ms, call cost, CPU GUARD baseline, the soak so far, the
+  measuring-tool faults.
+- v0.64, 2026-11-10 (Task 15 Step 4): 28.5, the publication record of tabby-v04.2-diagA2.
+- v0.63, 2026-11-10 (Task 15 Step 4): section 28.5, the diag build tabby-v04.2-diagA2: build record, where
+  it is published (builds/ only), the install and the Step 5 plan.
+- v0.62, 2026-11-10 (Task 15 Step 4): section 28.4, option A2 as a diag build: why 27.2's "not safe"
+  verdict was wrong (the evidence), what was built (A2=1, the run-time switch, the call-cost counters),
+  tests and the unchanged normal build.
+- v0.61, 2026-11-10 (Task 15 Step 3): section 28.3, the ranking and the recommendation (the pass request
+  from the song tick first, the TIMER5 release second), the floor on the SDK's send path.
+- v0.60, 2026-11-10 (Task 15 Step 2): section 28.2, the options from the disassembly and JieLi's public
+  headers: the pass request from the audio interrupt is the SDK's own pattern (27.2's verdict revised),
+  no OS calls exported, UART1 and TIMER5 facts, the SDK may not be modified, the M-VAVE request draft.
+- v0.59, 2026-11-10 (Task 15 Step 1): section 28.1, the baseline: the SMK-37 is not on the NUC, so the
+  Task 12 B1 numbers (tabby-v04.0) stand until tabby-v04.1 is installed and measured.
+- v0.62, 2026-11-10 (tabby-v04.1.1): section 31 (was 29), the testing guide and the Help/text-only release.
+- v0.61, 2026-11-10 (Task 14, English only): 30.5 (was 28.5), the conversion and what a future upstream merge needs.
+- v0.60, 2026-11-10 (Task 14, second pass): 28.4 (30.4) settled: the restore sectors, the TRS jack, the demo samples.
+- v0.59, 2026-11-10 (Task 14): section 30 (was 28), the Help audit against tabby-v04.1 (counts, the banned-phrase
   guard, stale firmware texts for the left-to-build list, open questions).
 - v0.58, 2026-11-10 (Task 13 Step 5): 9.1, tabby-v04.1 is the current release; 27.5 its publication and
   verification record.
@@ -3722,6 +3742,10 @@ measured in Step 6.
 
 ### 27.2 Step 2: option A safety check (from the disassembly of build/pro/sdk.elf) — NOT SAFE, not built
 
+**Superseded 2026-11-10 by 28.2 and 28.4 (Task 15): the verdict below judged JieLi's kernel by stock
+FreeRTOS rules and is wrong. The call chain it lists is right; the evidence against the verdict is in
+28.4. The text stays as the record of what Task 13 concluded.**
+
 Option A would call `fm1_control_request` from `song_tick` when a note is queued. Findings:
 
 - **The calling context is an interrupt.** `song_tick` is called by `groove_midi_clock` <-
@@ -3861,14 +3885,14 @@ tabby-v04.1 badge and the new wording. The plain `builds/tabby-v04.1/` URL answe
 minutes after the deploy (the CDN kept the 404 of a request made just before it; the same URL with a
 query string, and later without, answers 200).
 
-## 28. Task 14 — Help audit against tabby-v04.1 (2026-11-10)
+## 30. Task 14 — Help audit against tabby-v04.1 (2026-11-10)
 
 Task text: docs/tasks/TASK-14-help-audit.md. Branch classic-tabby/help-audit (worktree
 ../firmware-help-audit), made from classic-tabby/linux-build 5ae7626. Text only: no firmware behavior
 changed (app/ is untouched), nothing was written to the device. The workbench is part of the next
 release only; tabby-v04.1 is not republished.
 
-### 28.1 What the audit covered and found
+### 30.1 What the audit covered and found
 
 Every user-facing string of sdk/Update.html.in (HTML text and attributes, script literals),
 sdk/Simulator.js, sdk/WebUpdate.js, sdk/Samples.js, the translation table sdk/I18n.js (1029 keys), both
@@ -3899,13 +3923,13 @@ Chapters 01 to 12 (English) were already current after Tasks 12 and 13, apart fr
 (the OUT CH readout is on the MIDI TRACK page, not "the SEQ page"). The song help's "64 steps, at most 4
 notes per step" was checked against app/song_storage.h and stays (SONG_BLOCK_STEPS 64, SONG_NOTES_PER_STEP 4).
 
-### 28.2 The guard
+### 30.2 The guard
 
 tests/workbench/help-banned.mjs reads 4761 strings with tests/workbench/help-banned-phrases.json (52 phrases, 19 allow fragments, 5 exact allows). Run against the published tabby-v04.1 sources it
 reports 263 hits; now 0. tests/workbench/manual-i18n.mjs v0.3 expects 22 chapters. Both are in
 `make workbench-test`. SPEC 17.5 has the rules.
 
-### 28.3 Left to build: firmware screen texts that are stale (listed, not changed here)
+### 30.3 Left to build: firmware screen texts that are stale (listed, not changed here)
 
 Found while auditing; all in app/, so out of this task's scope. Check whether each is still reachable.
 - app/screen.c, the overview knob labels `{"LEVEL", "STEP", "NOTE", "BPM"}`: K3 STEP and K2 NOTE are
@@ -3922,7 +3946,7 @@ Found while auditing; all in app/, so out of this task's scope. Check whether ea
 - The firmware still lists SAMPLER in `source_names` (it is not selectable; a project with a sampler track
   loads as the 808 kit).
 
-### 28.4 The three open items, settled (second pass)
+### 30.4 The three open items, settled (second pass)
 1. **Factory V16 restore** overwrites 40960 bytes at 0xF4000..0xFDFFF. In the v04 layout that is block
    sectors 70..79 of the 80 (SPEC 16.1 has the arithmetic); 86..95 of 96 only in the old 536576 layout.
    Chapter 11, the song-editor note and the confirmation dialog now say so, in both languages.
@@ -3936,7 +3960,7 @@ Found while auditing; all in app/, so out of this task's scope. Check whether ea
    source list still offers SAMPLER, so the line stays, reworded to say it applies only to that source and
    that the device has no sampler. Left to decide: whether the simulator should stop offering SAMPLER.
 
-### 28.5 English only: the conversion, and future upstream merges (the user's decision, 2026-11-10; SPEC 17.7)
+### 30.5 English only: the conversion, and future upstream merges (the user's decision, 2026-11-10; SPEC 17.7)
 
 What was done (sdk/Update.html.in, Simulator.js, WebUpdate.js, Samples.js): 840 text nodes, attributes and
 string literals that were Chinese keys of the table were replaced by their English values by script
@@ -3958,14 +3982,14 @@ files (tools/linux/pin-sdk-files.py). Upstream's license and notice files are ta
 Size of the built local preview (build/preview/index.html, `make web`): 1492495 bytes before, 1365411 after
 (127084 bytes, 8.5 percent smaller). The release page carries the same saving on top of its firmware.
 
-## 29. tabby-v04.1.1: the testing guide and the Help release (2026-11-10)
+## 31. tabby-v04.1.1: the testing guide and the Help release (2026-11-10)
 
-### 29.1 What it is
+### 31.1 What it is
 Text only: the same firmware as tabby-v04.1 plus the English-only workbench (SPEC 17.7), the corrected Help and
 docs/TESTING-GUIDE.md. Built from classic-tabby/linux-build at the commit the tag tabby-v04.1.1 names, with
 `DISPLAY_VERSION=tabby-v04.1` forced (the gate pattern of 9.3d/e), so the app image is the tabby-v04.1 image.
 
-### 29.2 The gate
+### 31.2 The gate
 - `git diff tabby-v04.1 HEAD -- app` is empty.
 - `cmp -l` of the new SMK37_PRO_OPEN.fwsc against the tabby-v04.1 release asset: 46 bytes differ, offsets 173888..173919
   (the 32-byte build identity) and 0-3, 69-70, 17428-17431, 17460-17463 (package checksums). Size equal (487988).
@@ -3974,15 +3998,378 @@ docs/TESTING-GUIDE.md. Built from classic-tabby/linux-build at the commit the ta
 - `make suite DISPLAY_VERSION=tabby-v04.1` green at 0e67c3e; `make crosscheck` IDENTICAL (sdk.elf cd6cc4ed..., fwsc
   25077dd8..., app-image 1b87aeda...).
 
-### 29.3 What the guide check found (simulator, current source)
+### 31.3 What the guide check found (simulator, current source)
 Every device step of the guide was driven on build/web/simulator.wasm through the SMK-37 control events (the
 harness reads the 240x240 LCD). Two documentation errors came out and were fixed in the text: holding SEQ does not open
 ACTIONS (screen.c: the long-press needs the removed STEPS page; SPEC 17.8; the firmware line HOLD SEQ: ACTIONS is in
 28.3), and SHIFT + HOME means SHIFT + HOME / SRC. Steps that cannot run in the simulator (USB, flashing, outside gear,
 the workbench against a device, a few messages) carry the marker in the guide (33 of them).
 
-### 29.4 Publishing
+### 31.4 Publishing
 The site gets guide/index.html from tools/linux/guide-html.py (publish-pages.py v0.5), at the root and in
 builds/<tag>/. gh-pages was fetched from origin first (it already held builds/tabby-v04.2-diagA2/, 686e4cc); the root
 publish keeps builds/ and recover/. The timing session's clean build/gh-pages worktree had to be removed so this
 checkout could use the branch; it recreates it at its next publish.
+
+## 28. Task 15 — past the 10 ms MIDI timing floor: research (2026-11-10)
+
+Task text: docs/tasks/TASK-15-timing-research.md. Branch classic-tabby/timing-research (worktree
+../firmware-timing), from linux-build 5ae7626. Steps 1 to 3 are read-only: nothing built, nothing
+written to the device, nothing pushed.
+
+### 28.1 Step 1: the baseline
+
+**The SMK-37 is not on this NUC** (2026-11-10): `lsusb` shows the AUDIO4c and the H4MIDI-WC only, and
+ALSA has no "SMK37 Open" port. Its build id could not be read, so Task 13 Step 6 (the tabby-v04.1
+measurement) was not run. Until the user installs tabby-v04.1 and puts the device back on the NUC,
+the baseline is Task 12 B1 (26.9), **measured on tabby-v04.0**, before option B:
+
+| Run (measured, tabby-v04.0, 2026-11-09) | Band DIN | Band USB | std |
+|---|---|---|---|
+| One line (song 16) | 13.97 ms | 14.10 ms | 3.14 ms |
+| Eight lines, per line (song 15) | 14.4..16.5 ms | 14.4..16.0 ms | 3.3..3.4 ms |
+| Eight lines, all lines on one grid | 23.34 ms | 17.11 ms | 4.10 / 3.47 ms |
+| Control pass, one line / eight lines (mean / max) | 10.61 / 14.03 ms | 12.49 / 19.21 ms | |
+
+tabby-v04.1 (option B) is **estimated** at 10 to 11 ms on one line with the 20 ms cases gone (27.1);
+not measured yet.
+
+### 28.2 Step 2: the options, read only
+
+Sources: the disassembly of the tabby-v04.1 build (build/pro/sdk.elf, build id 013976a5…, pi32v2
+objdump; addresses below are from that ELF), the symbol table of sdk/lib/libfm1_engine.a, sdk/include,
+app/board, THIRD_PARTY.md, and JieLi's public AC79 SDK at the commit THIRD_PARTY.md names (5fa84a9:
+WL82.h register map, hwi.h interrupt numbers, os_api.h, timer.h). Nothing here is measured; every
+timing figure in 28.2 and 28.3 is an estimate.
+
+**What the app can link against.** libfm1_engine.a has 224 global symbols; none is an OS call (no
+`os_*`, `task_create`, `thread_fork`, semaphore or timer function; all are local). The app does get:
+`fm1_control_request` (global, and in fm1.h: "Request deferred control work after queuing a message"),
+`fm1_device_irq_attach(index, handler, priority)` (accepts any index below 64, or 122, priority 0..7),
+the soft interrupt 122 (bit 2 of 0x1eef1a0, used by app/board/scan.c), and direct register access
+(app/board already drives ALNK, SPI2, ADC and TIMER4 itself).
+
+**A2 (new): the pass request from the audio interrupt, looked at again. Task 13's "not safe" does
+not hold up.** 27.2 judged the call by stock FreeRTOS rules. This SDK's kernel is JieLi's variant:
+- `__local_irq_disable` (0x1c07b08) is a global `cli` plus a per-CPU nesting count; `__local_irq_enable`
+  (0x1c07b20) does `sti` when the count is back to 0. There is no "highest priority that may call the
+  OS": every kernel critical section masks every interrupt, the audio interrupt included.
+- `vTaskSuspendAll` (0x202fa8c) is exactly `__local_irq_disable` plus `uxSchedulerSuspended++`; so
+  nothing can run between suspend and resume, and the name search in `xTaskGetHandle` is one masked
+  section, the same in a task or an interrupt.
+- `vPortYield` (0x202fa28) does not switch: it picks the next task and sets soft interrupt 7
+  (`0x1eef1a0 |= 0x80`); the switch happens in `vSoftwareInterruptISR` (priority 0) after every
+  hardware handler has returned. That is the deferred, interrupt-safe pattern.
+- **The SDK's own interrupt handlers use the same call.** `midi_tx_irq` (0x1c07ae2, IRQ 20, priority
+  1) -> `smk37_connectivity_platform_uart_transmit_ready` -> `connectivity_wl82_midi_signal` ->
+  `os_taskq_post_msg` -> `__os_taskq_post` (0x20305f0), after every DIN burst. `timer4_isr` (IRQ 62,
+  priority 5, above the audio interrupt's 4) and `slot_timer_irq_handler` (IRQ 41, priority 2) ->
+  `os_taskq_post_type` -> `__os_taskq_post`; `timer1_isr` and `sbc_isr` -> `os_sem_post`.
+- JieLi's os_api.h marks the waiting calls (`os_time_dly`, `os_sem_pend`, `os_sem_accept`, the mutex
+  calls) "not from an interrupt or a critical section" and puts no such note on `os_taskq_post`,
+  `__os_taskq_post` or `os_sem_post`.
+What stays true from 27.2: a request made while a pass runs is dropped (`control_pending`, 0x1c3d19c,
+is cleared only after the pass), and the flag is unguarded (worst case one extra, empty pass). The
+cure is in the app: the song tick asks again on every audio block while lane 0 is not empty, and the
+pass already flushes after every LCD band. The name search costs time inside the audio interrupt (it
+counts toward the render budget behind CPU GUARD), only on blocks that queue a note.
+Limit of A2: a task cannot run while the audio interrupt renders, and notes are found once per
+2.9 ms block; estimated one-line band 3 to 4.5 ms on DIN and USB.
+
+**E. Our own high-priority task: no (and not needed).** No task creation and no interrupt-safe
+signal is exported, so the app cannot make or wake a task of its own through the API. The wake E
+wanted exists as A2, on the control task (`app_core`, priority 15 in `task_info_table` 0x202a9cc;
+the Bluetooth tasks 16 to 21 and `sys_event` 29 are above it). `fm1_midi_send_port` (0x2024e90) is
+built for more than one caller (a lock and a per-port busy byte, -2 when busy), so a second sending
+task would work if we could create one. Any task, at any priority, waits for the audio interrupt.
+
+**D. DIN straight from an interrupt: possible, with a takeover.** The TRS out is UART1 (0x12100,
+JL_UART1; TX on gpio 39 = PC7 through output channel 17; BAUD from the clock / 125000, 31250 baud;
+`smk37_uart_start` 0x2024f90). The SDK sends by DMA: `request_uart_transmit` (0x200ffcc) packs up to
+126 bytes with running status into `uart_midi_tx_buf` and `smk37_uart_write` (0x2025006) sets TXADR
+(0x12114) and TXCNT (0x12118); the end-of-burst interrupt (IRQ 20, `midi_tx_irq`) acknowledges and
+signals the MIDI task, which sends the next burst and keeps a busy bit. Two writers on TXADR/TXCNT
+would cut each other's bursts, so D needs the app to be the only DIN writer: no
+`fm1_midi_send_port(FM1_MIDI_DIN)` at all (keys, clock and song all through the app's own ring), IRQ
+20 re-attached to an app handler (index 20 is allowed), our own running status. Not settled from the
+static image: whether the SDK's own routes (`connectivity_midi_routes`, 0x202c384; source counts are
+set at run time) ever queue to DIN without the app, for example update or SysEx replies; that would
+have to be read from the running device. DIN only; USB cannot be written from an interrupt.
+
+**F. A hardware timer interrupt: yes.** TIMER5 (0x10900, IRQ 63) is free: sdk.elf never touches it,
+fm1_device.h gives TIMER4/TIMER5 to the board code, and scan.c uses only TIMER4 (the 24 MHz counter
+at 0x10800). IRQ 63 can be attached. A 1 ms tick, or one shot per due note. By itself it changes
+nothing; it needs G for due times and A2 or D to send.
+
+**G. Look-ahead: yes, app code only.** The song tick already knows the next block's notes; it can
+queue them one block early with a due time on the 24 MHz counter. Useful only with F.
+
+**H. The 10 ms constant: found, dropped.** `app_task_handler` 0x201fc3a: `r2 = 10`, then
+`sys_timer_add(NULL, tick, 10)`; `tick` (0x201fdd6) calls `fm1_control_request`. THIRD_PARTY.md lets
+us download, copy, link and redistribute libfm1_engine.a in binary form; it grants no right to modify
+it and supplies no source. Patching the constant is not allowed. With A2 it is also not needed.
+
+**I. The request to M-VAVE** (draft, not sent):
+
+> Subject: SMK37 Open SDK: MIDI output timing from the sequencer
+>
+> Hello. We build open firmware for the SMK-37 Pro with your SDK (libfm1_engine.a). Notes scheduled
+> in the audio interrupt can only be sent from the control task, which runs every 10 ms, so MIDI
+> output has about 10 to 14 ms of jitter (measured on DIN and USB).
+> Could you tell us, or add, one of these:
+> 1. Is `fm1_control_request()` safe to call from the audio interrupt (`fm1_engine_render` context)?
+>    Your own UART interrupt posts to a task the same way, so we believe it is. If yes, please say so
+>    in fm1.h, and let a request made during a pass run one more pass instead of being dropped.
+> 2. Or a send call that is safe from an interrupt, or one that takes a time stamp
+>    (`fm1_midi_send_port_at(port, message, bytes, ticks)`).
+> 3. Or a setting for the control timer period (10 ms today).
+> Thank you.
+
+### 28.3 Step 3: ranking and recommendation (all figures estimated; nothing built)
+
+Flash margin today 71037 bytes (measured, FLASH-BUDGET 18); every option fits.
+
+| Rank | Option | One-line band (estimated) | Risk | Flash, RAM (estimated) | Proof on hardware |
+|---|---|---|---|---|---|
+| 1 | **A2**: the song tick calls `fm1_control_request` when lane 0 has a note, and again each block while it is not empty | 3 to 4.5 ms, DIN and USB | low to medium: one exported, documented SDK call in a context the SDK's own handlers already use; a little time inside the audio interrupt | about 200 B, 4 B | diag build: one line and eight lines on DIN and USB, profile page 6 (passes, lost ticks), CPU GUARD count, audio recorded through the AUDIO4c, a one-hour soak with panel use, a workbench transfer and a song save while playing |
+| 2 | **A2 + F + G**: notes queued one block early with a due time; TIMER5 (priority 5) fires at the due time and requests the pass | 1.5 to 3 ms, DIN and USB (what is left: the audio render that no task can interrupt, and a pass in progress) | medium: a new interrupt above the audio one (short, RAM code) | about 800 B, 0.3 KB | as rank 1, plus the band against audio load (one voice, eight voices) |
+| 3 | **D + F + G**: DIN bytes written by the timer interrupt, USB as rank 1 | DIN under 0.5 ms plus the wire; USB as A2 | high: takes UART1 and IRQ 20 from the SDK; SDK-side DIN traffic not yet ruled out; DIN in, update and SysEx paths to retest | about 1.5 KB, 0.3 KB | as rank 2, plus DIN in, clock out, keys and song together, an update from the workbench |
+| - | I: the M-VAVE request | no change by itself | none | 0 | send it whatever we build; a yes to its point 1 settles A2 |
+| no | E: our own task | | not possible: no task or signal call exported | | |
+| no | H: patch the 10 ms constant | | not allowed by the SDK terms | | |
+
+**Recommendation: A2 as the diag build, with F + G as the next step on the same path if A2 measures
+over 4 ms.** A2 is one call in song.c plus a retry, it helps DIN and USB alike, it leaves the SDK's
+send path, UART and update code alone, and its measurement tells us how much the audio render really
+costs before we add a timer. D stays in reserve for the case where DIN must be tighter than the
+audio render allows.
+
+**The floor.** On the SDK's send path a note cannot leave while the audio interrupt renders; the
+render budget is 52244 or 59210 ticks of 24 MHz (2.18 or 2.47 ms, SPEC 17.2), so about 2.5 ms is the
+worst case under full load and less at normal load. Under that only D goes (DIN only). The 4 ms goal
+looks reachable; it is not proven until measured.
+
+### 28.4 Step 4: option A2 built as a diag build (approved 2026-11-10, with six conditions)
+
+#### Why Task 13's "not safe" verdict (27.2) was wrong: the record
+
+Do not reverse this again without new evidence. 27.2 read the call chain correctly
+(`fm1_control_request` -> `os_taskq_post_type` -> `__os_taskq_post` -> `xTaskGetHandle` with
+`vTaskSuspendAll` / `xTaskResumeAll`, then `vPortYield`) and then judged it by the rules of stock
+FreeRTOS, where suspending the scheduler and yielding are task-only. This SDK's kernel is JieLi's
+variant and those rules do not describe it. The evidence, from the tabby-v04.1 ELF (build id
+013976a5…) and JieLi's public AC79 SDK (commit 5fa84a9, the one THIRD_PARTY.md names):
+
+1. **Critical sections mask every interrupt.** `__local_irq_disable` (0x1c07b08) is `cli` plus a
+   per-CPU nesting count (`irq_lock_cnt`); `__local_irq_enable` (0x1c07b20) is `sti` when the count
+   returns to 0. `vTaskSuspendAll` (0x202fa8c) is exactly `__local_irq_disable` plus
+   `uxSchedulerSuspended++`. So "scheduler suspended" here means "interrupts off": nothing, task or
+   interrupt, runs inside it, the pending-ready list and pended ticks that make the stock call
+   dangerous in an interrupt cannot fill, and there is no priority level above which the OS may not
+   be called. The audio interrupt (priority 4) is masked by it like any other.
+2. **The yield is deferred.** `vPortYield` (0x202fa28) picks the next task (`xTaskSwitchContext`)
+   and sets soft interrupt 7 (`0x1eef1a0 |= 0x80`); the switch itself happens in
+   `vSoftwareInterruptISR` at priority 0, after every hardware handler has returned. 27.2 called
+   this "a task-level yield"; it is the interrupt-safe pattern.
+3. **The SDK's own interrupt handlers post through the same function.** `midi_tx_irq` (0x1c07ae2,
+   IRQ 20, priority 1, after every DIN burst) -> `smk37_connectivity_platform_uart_transmit_ready`
+   -> `connectivity_wl82_midi_signal` -> `os_taskq_post_msg` -> `__os_taskq_post` (0x20305f0).
+   `timer4_isr` (0x201343a, IRQ 62, priority 5, above the audio interrupt) -> `os_taskq_post_type`
+   -> `__os_taskq_post`. Also `slot_timer_irq_handler` (IRQ 41, priority 2) -> `os_taskq_post_type`,
+   and `timer1_isr`, `sbc_isr` -> `os_sem_post`.
+4. **The API offers the call.** sdk/include/fm1.h declares `fm1_control_request` ("Request deferred
+   control work after queuing a message"), the library exports it, and the SDK calls it outside the
+   control task itself (`fm1_app_sysex`, the routing task). JieLi's os_api.h marks the waiting calls
+   (`os_time_dly`, `os_sem_pend`, `os_sem_accept`, the mutex calls) "not from an interrupt or a
+   critical section" and puts no such note on `os_taskq_post`, `__os_taskq_post` or `os_sem_post`.
+
+What 27.2 had right, and A2 handles: a request made while a pass waits or runs is dropped
+(`control_pending`); the flag is unguarded (worst case one extra, empty pass); the name search costs
+time inside the audio interrupt. Still open until measured on the device (Step 5): the cost of the
+call inside the audio interrupt and what the extra passes do to audio and CPU GUARD.
+
+#### What was built
+
+- **Build flag.** `A2=1` (Makefile v0.22) -> tools/linux/build.py `--a2` (v0.10) -> `-DCT_A2=1`,
+  folded into the build identity (`a2:1`; build-identity.json and the package JSON say `"a2": true`).
+  Without it no A2 code is compiled. The host tests always build it (HOST_FLAGS).
+- **The request** (app/midi_router.c, `a2_block`, in RAM with the audio code): once per audio block,
+  after the song tick and the MIDI clock, if A2 is on and lane 0 or 1 holds an event, one call of
+  `fm1_control_request`. At most one per block, no loop; a dropped request is repeated by the next
+  block while events still wait. The lanes carry the song's notes and row events, the pattern and
+  arpeggio notes and the MIDI clock byte, so all of them leave sooner; the song's local-engine notes
+  are posted at the same drain, so the internal sound follows the same timing.
+- **The switch** (condition 1): off at boot, RAM only. On the device: ACTIONS, the last entry
+  "A2 FAST MIDI: OFF / ON" (K1 or K5 to it, the 4th left button switches it; the screen says "A2 ON -
+  PASS ON DEMAND" or "A2 OFF - 10 MS PASSES"). From the NUC: transfer command 25, request 8 = off,
+  9 = on, 7 = read (tools/linux/hw/tabby_link.py `a2()`, run-15.py `--a2 off|on`). A power cycle is
+  off again. With A2 off the build makes no request: it measures option B alone.
+- **The counters** (condition 2; command 25 request 7, 48 bytes): on, audio blocks, calls, mean and
+  longest call (TIMER4 ticks, taken inside the audio interrupt around the call), retries (requests
+  made while nothing had been drained since the block before asked), and a histogram of the call
+  time (< 5, < 10, < 20, < 50, < 100, >= 100 microseconds). Calls per second = calls x 44118 /
+  (blocks x 128). Request 1 (reset) clears them, not the switch.
+- **Tools.** tools/linux/hw/tabby_link.py v0.6 (`a2()`, `health()`: commands 17, 18, 19, the audio
+  counters and CPU GUARD's "adapted"); tools/linux/hw/run-15.py v0.1 (`l2` for one run with A2 off
+  or on, DIN and USB together, optional AUDIO4c recording; `soak`; `table` for the off / on
+  comparison). run-15.py's analysis was checked on synthetic notes only; it has not met the device.
+
+#### Tests and gates (measured on this machine)
+
+- Host tests, tests/host/smoke.c v0.12 section 16 (14 checks; the simulator's `fm1_control_request`
+  counts calls, and `sim_test_request_passes` gives a request its pass as the SDK does): off at
+  boot; off = no request and the note waits for the 10 ms pass; on = one request and the note
+  leaves in the block that queued it; a request that gets no pass is repeated once per block; never
+  more calls than blocks; idle blocks ask only for the MIDI clock; reset, request 8, the ACTIONS
+  entry. `make test-fast`: 189 host checks and the rest pass.
+- **The normal build is unchanged**: built from this tree with DISPLAY_VERSION=tabby-v04.1, its
+  app image (448420 bytes) differs from the released tabby-v04.1 image in 32 bytes, the build id
+  (offsets 156173..156204; app/ sources are part of the id), and nowhere else.
+- The A2 build: app image 448868 bytes, +448 against the normal build, margin 70589 (FLASH-BUDGET
+  19). `a2_block` and the wrapper are in the RAM code section with the audio code (0x1c031f8).
+
+### 28.5 The diag build tabby-v04.2-diagA2 (2026-11-10)
+
+**Build.** `make check`, `make lint` (3 target warnings, all from before Task 15), `make suite`
+(normal build) and `make suite A2=1 DISPLAY_VERSION=tabby-v04.2-diagA2` passed at f883476: crosscheck
+IDENTICAL on both tracks (sdk.elf, .fwsc, app-image.bin), test, midi-import-sim, host-sanitize.
+`make package TAG=tabby-v04.2-diagA2 DISPLAY_VERSION=tabby-v04.2-diagA2 A2=1`: build id
+49b872869fdda9f1218e8041639a1ab9dbd55271337127cdd1f06d46a67e0c3d (build number 49b872869fdda9f1,
+loader `ota-SMK3749b872869fdda9f1`), `.fwsc` SHA-256
+d10fd71d0f57ee122121fe8f31da0606aa060537545f7cd07422dbb37b0203c8 (487988 bytes), offline workbench
+SHA-256 30eb5c0b05efacfd19d077e6f198f4b85a5ec6a98a826255f5164d43384c7f07 (3144055 bytes). App image
+448868 bytes, margin 70589. The tree adds only docs after f883476, which the build id does not hash.
+
+**Where it is published:** only `builds/tabby-v04.2-diagA2/` (`make publish TAG=tabby-v04.2-diagA2
+DISPLAY_VERSION=tabby-v04.2-diagA2 A2=1 SITE_DIR=builds/tabby-v04.2-diagA2`), with its entry in
+builds/index.json so another build's page can name it for a stale loader. The main page stays
+tabby-v04.1. No GitHub release.
+
+**Install** (the user, from the MacBook; full text ~/Documents/Classic Tabby/INSTALL-tabby-v04.2-diagA2.txt):
+a normal update from tabby-v04.0 or tabby-v04.1 through the build's own page; check the boot screen
+(tabby-v04.2-diagA2) and the new last ACTIONS entry "A2 FAST MIDI: OFF"; then back to the NUC (USB
+back port, TRS out to H4MIDI WC DIN in 1, audio to the AUDIO4c). Never force flash.
+
+**Step 5, after the user says it is installed and on the NUC** (tools/linux/hw/run-15.py, the
+user present, PLAY pressed by the user):
+1. A2 off, then on: one line (song 16) and eight lines (song 15), DIN and USB together, the control
+   pass profile, CPU GUARD count, the call cost; the AUDIO4c recording during the eight-line runs.
+2. A one-hour soak with A2 on, with the user's panel use, one transfer and a save while stopped.
+3. Stop at once and report on any audio dropout, a rise in CPU GUARD trips, a stuck note or a USB
+   MIDI error with A2 on.
+4. F + G only if A2 measures over 4 ms.
+
+**Publication (2026-11-10).** Branch classic-tabby/timing-research and tag tabby-v04.2-diagA2 pushed
+(9283860). gh-pages b0934f7 added `builds/tabby-v04.2-diagA2/` and its index entry; 686e4cc added the
+entry's note ("TEST BUILD ..."). Both commits change files under builds/ only (`git diff --name-only`
+shows nothing outside it); the root index.html and assets.json are the tabby-v04.1 ones, byte for
+byte. To publish from this worktree, the main checkout's build/gh-pages worktree (clean, at the
+remote's b0f765a) was removed first, as publish-pages.py does with its own; the next publish from
+the main checkout recreates it from the remote.
+
+### 28.6 Step 5: A2 off against on, measured on the device (2026-11-10 and 11)
+
+Device: tabby-v04.2-diagA2 installed by the user from the MacBook; SMK-37 on the NUC's USB back
+port, TRS out through the type A adapter to H4MIDI-WC DIN in 1, audio out to AUDIO4c inputs 1 and 2.
+PLAY pressed by the user; `tools/linux/hw/run-15.py l2`, 100 s from the song's MIDI Start, kernel
+receive timestamps on both ports. Song 16 = timing-1x16 (one line), song 15 = timing-8x16 (eight
+lines, the internal engine sounding). "Spread" = largest minus smallest error of the note-ons
+against a least-squares line, per line. Raw files: build/task15/ (not committed). **All figures in
+this section are measured.**
+
+| | One line, A2 off | One line, A2 on | Eight lines, A2 off | Eight lines, A2 on |
+| --- | ---: | ---: | ---: | ---: |
+| Notes per line | 715 | 804 | 808 | about 805 |
+| DIN spread per line, ms | 12.34 | **3.67** | 14.38..15.45 | 3.77..6.50 |
+| USB spread per line, ms | 12.29 | 3.68 | 14.50..15.71 | 3.71..5.39 |
+| DIN standard deviation, ms | 3.25 | 0.84 | 3.37 | 0.98 |
+| All lines on one grid, DIN / USB, ms | | | 21.46 / 17.28 | 12.44 / 6.57 |
+| Control pass period, mean / max, ms | 11.63 / 14.52 | 6.61 / 13.47 | 12.71 / 19.01 | 7.74 / 18.92 |
+| Pass periods over 15 ms ("lost ticks") | 0 | 0 | 727 | 111 |
+| Pass busy time, mean / max, ms | 1.42 / 3.01 | 0.84 / 2.49 | 2.20 / 7.54 | 1.44 / 7.25 |
+| A2 calls per second | 0 | 62.7 | 0 | 64.0 |
+| A2 call inside the audio interrupt, mean / longest, us | | 23.3 / 53.0 | | 18.3 / 49.5 |
+| A2 retries in 100 s | 0 | 14 | 0 | 1 |
+| CPU GUARD "adapted" | +0 | +0 | +97 | +100 |
+| Engine underruns / DMA overruns | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| Render peak, ms (deadline 2.902) | 0.886 | (1.478, carried over from song 15) | 1.471 | 1.475 |
+| AUDIO4c recording: silent gaps of 2 ms or more, recorder overruns | | | 0, 0 | 0, 0 |
+| Notes left on / USB differing from DIN | 0 / 0 | 0 / see below | 0 / 0 | 0 / 0 |
+
+What the table says:
+- **The goal is met on one line: 3.67 ms on DIN** (a first A2-on run gave 3.78 ms). The errors lie
+  in a flat band about 2.9 ms wide (1st to 99th percentile 2.91 ms): one audio block, which is how
+  often the song tick runs. A2 cannot go under that; F + G could.
+- **Eight lines: 3.8 to 6.5 ms per line on DIN**, so the worst line is over 4 ms; all eight lines on
+  one grid 12.4 ms on DIN (the DIN wire carries 8 notes one after the other, 0.96 ms each) and
+  6.6 ms on USB.
+- **Option B alone is 12.3 ms on one line, not the 10 to 11 ms Task 13 expected**: the SDK's pass
+  comes round every 11.6 ms on average (10.1 ms with no song playing, read on this build), not every 10 ms. Run to run the
+  A2-off eight-line spread moved by about 2 ms (12.2..14.2 ms in another clean run with +94
+  CPU GUARD).
+- **Cost of A2:** 18 to 24 us per call inside the audio interrupt, longest 53 us in every run
+  (2 percent of the 2.9 ms block), 49 to 64 calls a second (48 of them the MIDI clock at 120 BPM).
+  Passes run more often (every 6.6 to 7.7 ms) and are shorter.
+- **CPU GUARD trips on song 15 with A2 off**, about once a second (+94, +97 in 100 s; render peak
+  1.47 ms of 2.90 ms). A2 does not change it (+100). This is the song's eight internal voices, not
+  A2; it was not looked into further here. The stop rule "a rise in CPU GUARD trips" was therefore
+  read as a rise over this baseline (soak: over 1.5 a second across a minute).
+- No stop condition occurred: no underrun, no DMA overrun, no silent gap in the recording, no note
+  left on, no USB MIDI error from the device.
+
+**Faults of the measuring tools found on the way (all on the NUC, none in the firmware):**
+1. run-15.py v0.1 treated the receive times (ns) as seconds and started at the first note-on; a key
+   pressed before PLAY started one run early (v0.2: starts at the MIDI Start).
+2. PLAY, STOP, PLAY inside one capture gave a false 231 ms spread (v0.3: the longest unbroken
+   stretch is fitted; v0.4: the capture starts over at every new Start).
+3. The in-process audio capture overran 810 times in one run (v0.5: `arecord` with a 0.5 s buffer).
+4. After a 5.4 h wait for PLAY the script scanned 930,000 stored clock bytes per turn and did not
+   read the USB port for seconds; that run's USB capture lost 0.6 s and 125 ms (v0.6).
+5. tabby_link `query()` returned at the reply and dropped what the same read brought after it; the
+   A2-on one-line run's USB capture has a 167 ms hole right after the Start for that reason (one
+   note-on, one note-off; DIN complete). Fixed in tabby_link v0.7. Proof that it is not the device:
+   a 20 s probe with about 230 read commands counted the same clock bytes on USB and DIN (942..952
+   each), with A2 off and on; and the soak below, with 75 reads, has the same 6166 note events on
+   both ports. That one-line run was not repeated after the fix.
+
+**Soak with A2 on (condition 5; what was and was not covered):**
+- Two hours idle (MIDI clock only) before the last timing run: 355,707 calls, 48.5 a second, mean
+  23.7 us, longest 54.2 us, 1785 retries (0.5 percent); underruns 0, DMA overruns 0.
+- `run-15.py soak`, 1500 s (soak-1): the user played songs for the first 121 s (12 starts and
+  stops), then the device idled. 73,335 calls, mean 23.6 us, longest 52.1 us, 353 retries; 213,623
+  passes, mean 7.02 ms, longest 17.4 ms; underruns 0, DMA overruns 0, CPU GUARD +44 (all in the
+  first two minutes, with song 15); 3083 note-ons and 3083 note-offs on each port, the same events
+  in the same order per channel; no note left on; DIN spread per line 3.60..4.46 ms in the longest
+  stretch.
+- Overnight, A2 left on, device idle on MIDI clock, about 11 h from the soak's counter reset
+  (13,631,476 audio blocks): 1,911,164 calls, 48.3 a second, mean 23.8 us, longest 55.4 us, 11,095
+  retries (0.58 percent); 5,632,778 passes, mean 7.02 ms, longest 17.4 ms; underruns 0, DMA
+  overruns 0.
+- **Transfer and save, done from the NUC without the user at the device** (the user's instruction of
+  2026-11-11: finish the testing alone; device on and connected). Both were made content-neutral
+  and checked by a full backup through the workbench page before and after
+  (tools/linux/hw/workbench.mjs, headless Chrome, the published builds/tabby-v04.2-diagA2/ page;
+  identity SMK-37 Pro_8000001, build 49b87286...): every part of the two backup files is equal
+  (workspace, 16 project slots, settings, songs, rig). DIN watched alone meanwhile
+  (`run-15.py din`), since the page holds the USB port.
+
+  | No song playing | A2 on | A2 off (same action, for comparison) |
+  | --- | --- | --- |
+  | Transfer: timing-1x16.mid written again to song 16 (7 erases, 7 writes, 2624 bytes) | longest erase 17.8 ms, write 20.2 ms; longest pass 100.8 ms, 3 passes over 10 ms; DIN clock: 3 gaps over 35 ms, longest 118 ms | 17.7 ms, 20.2 ms; 97.2 ms, 3 passes; 3 gaps, longest 121 ms |
+  | Save while stopped: project renamed, command 7 to slot 1 (5 erases, 8 writes, 4096 bytes) | longest erase 17.6 ms, write 29.1 ms; one pass of 217.9 ms; DIN clock: one gap of 232 ms | 17.6 ms, 29.0 ms; one pass of 216.8 ms; one gap of 240 ms |
+  | Underruns / DMA overruns / CPU GUARD during it | 0 / 0 / 0 | 0 / 0 / 0 |
+  | A2 calls during the save window | 206, longest 31.6 us, 1 retry | |
+
+  Flash writes hold the control pass for 100 to 220 ms with or without A2 (the MIDI clock on DIN
+  stops for that long; known since Task 12, run D); A2 changes nothing there. A save of an
+  unchanged project writes nothing (write_record compares first), so the project was renamed
+  "A2 SOAK TEST" for the A2-on save and back to "UNTITLED" for the A2-off save.
+- **Not done:** an hour of continuous song play with panel use. This build has no remote PLAY
+  (command 26 is in `DIAG=1` builds only; reply code 71 here), and installs are the user's. Song
+  play with A2 on was covered by the two 100 s timing runs, the first A2-on run (100 s), and the 12
+  starts and stops of soak-1; panel use by the user's presses in those.
+- The device was left with A2 **off** (as after a power cycle). The audio counters "adapted" and
+  render peak read 0 after the workbench page connected; why was not looked into.
+
+**Decision left to the user:** F + G was approved only if A2 measures over 4 ms. One line is under
+(3.67 ms); eight lines are over on the worst line (6.5 ms).

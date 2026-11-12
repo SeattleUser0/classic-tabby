@@ -1,7 +1,11 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.22
+Version: 0.25
 Revision log:
+- v0.25, 2026-11-11 (Task 15 Step 5): section 19: note that the measurement changed no size.
+- v0.24, 2026-11-10 (Task 15 Step 4): section 19: the A2 diag build measured, 448868 bytes (+448),
+  margin 70589; the normal build unchanged at 448420.
+- v0.23, 2026-11-10 (Task 15 Step 3): section 19: estimates for the timing options (nothing built).
 - v0.22, 2026-11-10 (Task 13 Step 5): section 18: the tabby-v04.1 release build, 448420 bytes, margin 71037.
 - v0.21, 2026-11-10 (Task 13 Step 1): section 18: the pass budget (option B), +768 bytes, margin 70941.
 - v0.20, 2026-11-08 (Task 12 A6): section 17: the tabby-v04.0 release build measured, 447716 bytes,
@@ -1067,4 +1071,25 @@ Package layout: FLASH_BIN_SIZE 471040, VM 471040..503808 (32768 bytes, minimum 3
 
 ### 18.x tabby-v04.1.1 (2026-11-10)
 
-No change: the app image is the tabby-v04.1 image (448420 bytes, margin 71037); only the 32-byte build identity differs (BUILD 29.2).
+No change: the app image is the tabby-v04.1 image (448420 bytes, margin 71037); only the 32-byte build identity differs (BUILD 31.2).
+
+## 19. Task 15: timing research (estimated; nothing built)
+
+Margin today 71037 bytes (measured, section 18). Estimates for the options of BUILD.md 28.3, none
+built: A2 (the pass request from the song tick) about 200 bytes of flash and 4 bytes of RAM; A2 with
+the TIMER5 release and the look-ahead about 800 bytes and 0.3 KB; the direct DIN writer about 1.5 KB
+and 0.3 KB. Measured figures replace these in Step 4.
+
+
+| Build (measured, 2026-11-10, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| Normal build from the Task 15 tree (DISPLAY_VERSION=tabby-v04.1): equal to tabby-v04.1 except the build id | 448420 | 0 | **71037** |
+| Diag build tabby-v04.2-diagA2 (`A2=1`): the pass request, its counters, command 25 requests 7 to 9, the ACTIONS entry | 448868 | +448 | **70589** |
+
+The A2 estimate above (about 200 bytes) was low: the counters, the histogram and the ACTIONS entry
+are more than half of the +448. RAM: about 60 bytes of counters (estimated from the struct; the linker merges it with other
+globals, so the map does not show it apart).
+
+Step 5 (2026-11-11) measured the diag build on the device (BUILD.md 28.6); nothing was rebuilt, so
+the sizes above stand (measured). The TIMER5 release and the look-ahead stay at their estimate
+(about 800 bytes, 0.3 KB), not built.

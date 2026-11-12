@@ -1,7 +1,16 @@
 # Classic Tabby — Specification
 
-Version: 0.33
+Version: 0.35
 Revision log:
+- v0.35, 2026-11-11 (tabby-v04.2 merge): Task 14 and v04.1.1 entries below (v0.30-v0.33 of the guide line) are
+  this file's 17.5-17.9; the Task 15 entries are 18.x.
+- v0.34, 2026-11-11 (Task 15 Step 5): 18.2: the soak, the transfer and the save.
+- v0.33, 2026-11-11 (Task 15 Step 5): 18.2: option A2 measured (one line 3.67 ms on DIN).
+- v0.32, 2026-11-10 (Task 15 Step 4): 18.1: option A2 in the diag build (the switch, the request rule,
+  the counters, the stop rule); 17.3 marked superseded.
+- v0.31, 2026-11-10 (Task 15 Step 3): section 18: the recommended next step.
+- v0.30, 2026-11-10 (Task 15 Step 2): section 18: the timing research; 17.3's finding is superseded
+  (the rule stays until a diag build is measured).
 - v0.33, 2026-11-10 (tabby-v04.1.1): 17.8 ACTIONS opens with SEQ + EDIT only (holding SEQ does nothing); HOME / SRC,
   not the left HOME, is the source-page button; 17.9 the testing guide and the v04.1.1 release rule.
 - v0.32, 2026-11-10 (Task 14, English only): 17.7, the workbench and the docs are English only; 17.5 no longer
@@ -1185,6 +1194,9 @@ router flushes) so the old numbers stay comparable; the pass period is the profi
 
 ### 17.3 No extra control passes from the audio interrupt (Step 2)
 
+**Superseded 2026-11-10 (Task 15, section 18; evidence in BUILD.md 28.4).** The rule below stays in
+force for the normal build until the diag build tabby-v04.2-diagA2 has been measured.
+
 - The song tick runs inside the audio interrupt (`fm1_audio_irq`, IRQ 11). App code there must not
   call `fm1_control_request` or any other SDK call that posts to a task queue: the post looks the
   task up by name under `vTaskSuspendAll` and may yield directly (BUILD.md 27.2).
@@ -1272,7 +1284,7 @@ Evidence (read from the source and from the disassembly of build/pro/sdk.elf, no
   the SDK never delivers. With CLOCK = MIDI and CLK IN = DIN the device waits for a clock that cannot come.
 So the TRS jack cannot be a MIDI input by cable or by setting; it is not switched at all. A DIN device's
 clock reaches the SMK-37 only over USB or Bluetooth (MIDI guide section 14, not tried on this rig).
-The firmware's own screen line "K2 CLK IN  AUTO USB BLE DIN" is in the left-to-build list (BUILD 28.3).
+The firmware's own screen line "K2 CLK IN  AUTO USB BLE DIN" is in the left-to-build list (BUILD 30.3).
 
 ### 17.7 English only (Task 14, 2026-11-10; the user's decision)
 
@@ -1301,7 +1313,7 @@ exists (SEQ opens SYNC / MIDI), so holding SEQ never opens ACTIONS in tabby-v04.
 `SEQ + EDIT` pressed together (either order), does. The simulator confirms it (hold SEQ 0.9 s: stays on SYNC / MIDI;
 SEQ + EDIT: ACTIONS). Help, the install template, the README and the simulator tooltip said "hold SEQ about 0.6 s";
 they now say "press SEQ and EDIT together", and `hold SEQ` and its variants are banned phrases. The firmware's own
-line "HOLD SEQ: ACTIONS" on SYNC / MIDI (screen.c:1125) is wrong and is in the left-to-build list (BUILD 28.3).
+line "HOLD SEQ: ACTIONS" on SYNC / MIDI (screen.c:1125) is wrong and is in the left-to-build list (BUILD 30.3).
 
 HOME / SRC. With SHIFT held, the source page opens from the button the panel map calls HOME / SRC (physical id 12,
 the 7th button of the right group after ARP, PAD / STEP, SCL, ENV, MIX, BT), not from the HOME in the left group
@@ -1316,5 +1328,57 @@ be (USB, flashing, outside gear, the workbench against a real device) carries "[
 tests/workbench/guide.mjs keeps its shape (sections, numbering, control names, no "hold SEQ"); the site shows it at
 <site>/guide/ (tools/linux/guide-html.py, staged by publish-pages.py for the main page and every builds/<tag>/).
 tabby-v04.1.1 carries the tabby-v04.1 firmware: app/ has no change since the tag and the app image differs only in
-the build identity bytes (BUILD 29). The firmware is built with the display version forced to tabby-v04.1, so the boot
+the build identity bytes (BUILD 31). The firmware is built with the display version forced to tabby-v04.1, so the boot
 screen and the page badge keep saying tabby-v04.1; the page release is named by the tag and by Help chapter 00.
+
+## 18. Task 15 — Timing research (2026-11-10; nothing built)
+
+- **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
+  otherwise.** The reading in BUILD.md 28.2: this SDK's kernel masks all interrupts in its critical
+  sections, defers the task switch to a soft interrupt, and its own interrupt handlers (the DIN
+  transmit interrupt among them) post to task queues with the same call. A pass request from the song
+  tick is therefore expected to be safe. No normal build calls it from the audio interrupt until the
+  user approves Step 4 and the diag build has been measured.
+- The app cannot create tasks or use OS signals (none exported). It can attach interrupts below 64,
+  and TIMER5 (IRQ 63) is free.
+- The SDK library is not modified (THIRD_PARTY.md grants copy, link and binary redistribution only).
+
+- Recommended next step (BUILD.md 28.3, waiting for approval): the pass request from the song tick
+  in a diag build behind a build flag, off in the normal build; goal 4 ms or less on one line (DIN).
+
+
+### 18.1 Option A2 in the diag build tabby-v04.2-diagA2 (Step 4, 2026-11-10)
+
+- Built only with `A2=1` (`-DCT_A2`). The normal build has no A2 code; its image equals tabby-v04.1
+  except the build id.
+- A2 is **off at boot** and lives in RAM. Switch: ACTIONS, last entry "A2 FAST MIDI: OFF / ON" (K1
+  or K5 to choose, the 4th left button switches), or transfer command 25 request 8 (off) / 9 (on).
+- With A2 on, the audio interrupt asks the SDK for a control pass (`fm1_control_request`) at the end
+  of every audio block in which a MIDI event still waits in lane 0 or 1: at most one request per
+  block, never a loop; a request the SDK drops is repeated by the next block.
+- Counters, command 25 request 7 (48 bytes): on, audio blocks, calls, mean and longest call time
+  inside the audio interrupt, retries, a six-bin histogram of the call time.
+- Stop rule for the hardware run (the user's condition 6): any audio dropout, a rise in CPU GUARD
+  trips, a stuck note or a USB MIDI error with A2 on ends the run and is reported.
+- F + G (the TIMER5 release and the look-ahead) only after A2 is measured, and only if it is over
+  4 ms.
+
+### 18.2 Option A2 measured (Step 5, 2026-11-11; all figures measured, BUILD.md 28.6)
+
+- One line (song 16), DIN: 12.34 ms spread with A2 off (option B alone), **3.67 ms with A2 on**;
+  USB 12.29 and 3.68 ms. The remaining spread is one audio block (2.9 ms), the song tick's period.
+- Eight lines (song 15), DIN, per line: 14.4..15.5 ms off, 3.8..6.5 ms on; all lines on one grid
+  21.5 ms off, 12.4 ms on (USB 17.3 and 6.6 ms).
+- Cost: 18 to 24 us per call inside the audio interrupt, longest 53 us; 49 to 64 calls a second;
+  retries under 1 percent of calls. The control pass runs every 6.6 to 7.7 ms instead of 11.6 to
+  12.7 ms.
+- Audio: no engine underrun, no DMA overrun, no silent gap in the AUDIO4c recording, off or on.
+  CPU GUARD trips about once a second on song 15 with A2 off (+97 in 100 s) and the same with A2 on
+  (+100): the stop rule's "rise" is read against that baseline.
+- No stuck note; USB and DIN carry the same notes.
+- Soak with A2 on: about 13 hours in all, mostly idle on MIDI clock (1.9 million calls overnight,
+  longest 55 us), no underrun, no DMA overrun. A song transfer and a project save while stopped
+  behave the same with A2 on and off (the pass is held 100 and 217 ms by the flash writes either
+  way); the device's content was equal before and after (full backups compared).
+- Not covered: an hour of continuous song play with panel use (this build has no remote PLAY).
+- A2 stays a diag-build option until the user decides; the normal build has no A2 code.

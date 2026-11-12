@@ -25,9 +25,18 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.5
+Version: 0.7
 
 Revision log
+    v0.7  2026-11-11  Task 15 Step 5: query() goes through the whole read before it returns; the
+                      events one read brought after the reply were dropped (run-15's USB capture
+                      lost up to 167 ms after the counter reset at the song start; a 20 s probe with
+                      230 queries then counted the same clock bytes on USB and DIN, A2 off and on).
+    v0.6  2026-11-10  Task 15 Step 4: a2() reads the A2 page (command 25 request 7) and switches option A2
+                      (requests 8 = off, 9 = on; CT_A2 diag builds only, a RAM switch, off at boot);
+                      health() reads the audio counters (commands 17, 18, 19: engine underruns and dropped
+                      MIDI, the render time and CPU GUARD's "adapted" count, the DMA overruns); a2_lines()
+                      and health_lines() print them. None of these writes flash.
     v0.5  2026-11-10  Task 13 Step 1: diag() reads profile page 6 when the firmware has it (tabby-v04.1 and
                       later): busy time per pass, passes busy over 10 ms, lost ticks, deferrals;
                       profile_lines() prints it.
@@ -179,15 +188,20 @@ class Link:
             self.send(frame(command, token, payload))
             end = time.monotonic() + timeout
             while time.monotonic() < end:
+                # v0.7: the whole batch is gone through before returning: what one read brings
+                # after the reply (clock bytes, notes) used to be dropped with the return.
+                found = None
                 for t, m in self.messages(50):
                     if m[0] != 0xF0:
                         self.other.append((t, m)); continue
                     r = parse(m)
-                    if r and r["command"] == (command | 64) and r["token"] == token:
-                        code = r["data"][0]
-                        if code and not (empty_ok and code == 1):
-                            raise DeviceError(code)
-                        return r["data"][1:]
+                    if found is None and r and r["command"] == (command | 64) and r["token"] == token:
+                        found = r
+                if found is not None:
+                    code = found["data"][0]
+                    if code and not (empty_ok and code == 1):
+                        raise DeviceError(code)
+                    return found["data"][1:]
         raise TimeoutError("no reply to command %d" % command)
 
     # ---- commands --------------------------------------------------------------------------
@@ -245,6 +259,30 @@ class Link:
             try: self.query(6)
             except Exception: pass
 
+    def a2(self, request=7):
+        """v0.6: command 25 request 7 (read), 8 (A2 off) or 9 (A2 on): the A2 page as a dict, or None
+        when the firmware has no A2 (the normal build refuses the request)."""
+        try:
+            p = self.query(25, bytes([request]), attempts=1)
+        except (DeviceError, TimeoutError):
+            return None
+        if len(p) != 48:
+            return None
+        v = struct.unpack("<12I", p)
+        us = lambda t: t / 24.0
+        return {"on": v[0], "blocks": v[1], "calls": v[2], "mean_us": us(v[3]), "max_us": us(v[4]), "retries": v[5],
+                "bins": list(v[6:12]), "calls_per_second": v[2] * 44118.0 / (v[1] * 128.0) if v[1] else 0.0}
+
+    def health(self):
+        """v0.6: commands 17, 18, 19 (read only): the audio counters that show a dropout or CPU GUARD."""
+        e = self.query(17); r = self.query(18); d = self.query(19)
+        u = lambda p, i: struct.unpack_from("<I", p, i)[0]
+        ms = lambda t: t / 24000.0
+        return {"underruns": u(e, 8), "midi_dropped": u(e, 12),
+                "render_ms": ms(u(r, 0)), "render_peak_ms": ms(u(r, 4)), "adapted": u(r, 12), "overloads": u(r, 16),
+                "voice_capacity": u(r, 20), "deadline_ms": ms(u(r, 28)),
+                "dma_blocks": u(d, 0), "short_intervals": u(d, 4), "dma_overruns": u(d, 8), "irq_peak_ms": ms(u(d, 12))}
+
     def diag(self, request=0):
         """Command 25: page 1 (request 0 or 1 = reset first) and page 2, as a dict in ms."""
         a = self.query(25, bytes([request])); b = self.query(25, bytes([2]))
@@ -290,6 +328,29 @@ class Link:
                 "keys": {"count": u(a, 40), "max_ms": ms(u(a, 44)), "bins": [a[48 + 2 * i] | a[49 + 2 * i] << 8 for i in range(8)]},
                 "scan": {"count": u(b, 0), "per_second": u(b, 0) / secs if secs else 0, "gap_max_ms": ms(u(b, 4)),
                          "isr_peak_ms": ms(u(b, 8)), "adc_peak_ms": ms(u(b, 12))}}
+
+
+A2_BINS = ["<5", "<10", "<20", "<50", "<100", ">=100"]   # microseconds, app/midi_router.c a2.bins
+
+
+def a2_lines(a):
+    """v0.6: the A2 page as text."""
+    if a is None:
+        return ["A2: not in this build (command 25 request 7 refused)"]
+    return ["A2 (pass request from the audio interrupt): %s; %d calls in %d audio blocks (%.1f calls per second), "
+            "mean %.1f us, longest %.1f us, %d retries" % ("ON" if a["on"] else "off", a["calls"], a["blocks"], a["calls_per_second"],
+                                                             a["mean_us"], a["max_us"], a["retries"]),
+            "  call cost histogram (us): " + ", ".join("%s %d" % (n, v) for n, v in zip(A2_BINS, a["bins"]))]
+
+
+def health_lines(h, before=None):
+    """v0.6: the audio counters; with `before`, the rise since then."""
+    d = lambda k: (" (+%d)" % (h[k] - before[k])) if before else ""
+    return ["audio: engine underruns %d%s, MIDI in dropped %d%s; DMA overruns %d%s, short intervals %d%s, IRQ peak %.3f ms"
+            % (h["underruns"], d("underruns"), h["midi_dropped"], d("midi_dropped"), h["dma_overruns"], d("dma_overruns"),
+               h["short_intervals"], d("short_intervals"), h["irq_peak_ms"]),
+            "render: last %.3f ms, peak %.3f ms, deadline %.3f ms; CPU GUARD adapted %d%s, overloads %d%s"
+            % (h["render_ms"], h["render_peak_ms"], h["deadline_ms"], h["adapted"], d("adapted"), h["overloads"], d("overloads"))]
 
 
 def diag_text(d):

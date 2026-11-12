@@ -26,9 +26,11 @@
  *   Control-loop timing is taken at groove_midi_poll() because that call sends MIDI out: its
  *   period is the MIDI-out quantum during playback (SPEC 9.6, SPEC 14.3).
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-10  Task 15 Step 4: CT_A2 builds: command 25 request 7 (the A2 page), 8 and 9
+ *                     (A2 off / on, then the page); request 1 also clears the A2 counters.
  *   v0.4  2026-11-10  Task 13 Step 1: the pass budget (ct_pass_elapsed / ct_pass_over /
  *                     ct_pass_defer / ct_pass_busy_end) and command 25 request 6, profile page 6:
  *                     the pass's busy time (pass start to the end of the screen hook, the last app
@@ -124,7 +126,17 @@ int ct_diag_read(unsigned request, uint8_t out[CT_DIAG_REPLY_BYTES])
     /* request 0: page 1 (64 bytes); 1: reset everything, then page 1; 2: page 2 (20 bytes). */
     uint32_t now = ticks();
     if (request >= 4 && request <= 6) return ct_prof_read(request, out);   /* Task 12 A4; 6: Task 13 */
+#ifdef CT_A2
+    /* Task 15 (A2): 7 = the A2 page; 8 / 9 = switch A2 off / on first (RAM only, off at boot). */
+    if (request >= 7 && request <= 9) {
+        if (request != 7) ct_a2_set(request == 9);
+        return ct_a2_read(out);
+    }
+#endif
     if (request == 1) {
+#ifdef CT_A2
+        ct_a2_reset();   /* Task 15: the A2 call counters too (not the switch) */
+#endif
         memset(&d, 0, sizeof d); ct_prof_reset();
         ct_diag_scan_count = 0; ct_diag_scan_gap_max = 0;
 #ifndef FM1_HOST_TEST
