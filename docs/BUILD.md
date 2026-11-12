@@ -4514,3 +4514,13 @@ the song end arms again, PLAY leaves follow; a fuzz of 6000 random Start / Stop 
   `fm1_control_request` (option A2) lives in flash (0x201ecb0) and so does `os_taskq_post_type` it calls, while every other call in
   the audio interrupt is RAM code (FM1_AUDIO_CODE); during a flash operation by the worker that call may stall. This is a reading,
   not a proof; the checks above (A2 off against on) decide it.
+
+- **The timing points at the settings save, not at the CLOCK change itself.** After a settings change the firmware saves the
+  settings 1500 ms later from `groove_project_poll` (app/project.c: `settings_dirty`, `groove_performance_idle(1500)`; it
+  runs `tuning_upgrade`, `recover_staging`, `latest`, a sector read, an erase and writes through the SDK's flash functions).
+  The reply to select song that timed out came about 1.5 s after the K1 detent; the first status answer 5 s later; the device
+  was dead by the time the identity query ran, 10 to 30 s later. This is the first settings save that ran on a firmware with
+  option A2 on in this series (the Task 15 soak and the tests of this night saved projects and songs through commands, not
+  through this deferred path). Prime suspect: a flash erase / write in `groove_project_poll` while the audio interrupt asks for
+  control passes (A2). Check: after the power cycle, switch A2 off (command 29 op 5), change CLOCK (a settings save), see
+  whether the device still answers 5 s later; then repeat with A2 on. tabby-v04.2's release notes now carry a known-issue line.
