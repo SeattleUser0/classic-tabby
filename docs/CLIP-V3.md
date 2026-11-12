@@ -22,7 +22,7 @@ A **clip** is what v2 calls a block: the notes one track plays for one scene (ro
 length. In v3 it is a header and a list of events sorted by time; time is in the same units as the timed
 note (1 unit = 1/480 of a 16th step; 1920 units per quarter note), counted from the clip's start. A clip is
 1 to 128 steps long (a row's `steps` field still sets how long the row plays; the clip's own `steps` says how
-long its event list is; a clip shorter than its row loops inside it as a v2 block does).
+long its event list is; a clip shorter than its row is played, until the cursor lands, as a v2 block padded with empty steps).
 
 ## 2. The bytes
 
