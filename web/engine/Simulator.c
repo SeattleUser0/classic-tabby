@@ -2,6 +2,7 @@
 /* Browser platform adapter: in-memory display, storage and MIDI input.
  *
  * Classic Tabby revision log (the upstream file had no header)
+ *   v0.3  2026-11-12  Task 16: sim_test_flash_hook / _ops / _unguarded (flash guard test).
  *   v0.2  2026-11-10  Task 15 Step 4: fm1_control_request counts its calls
  *                     (sim_test_control_requests), for the A2 host tests; sim_test_request_passes(1)
  *                     makes sim_render run a control pass after a block that asked for one, as
@@ -161,8 +162,22 @@ int fm1_flash_read(uint32_t at, void *data, size_t bytes)
     if (!data || at > sizeof flash || bytes > sizeof flash - at) return FM1_FLASH_INVALID;
     memcpy(data, flash + at, bytes); return 0;
 }
+/* Task 16 hang fix: the audio interrupt keeps running during a flash erase or write on the device, and
+ * must not call into flash-resident SDK code then. The host tests set sim_test_flash_hook (called inside
+ * every erase and write, as the audio interrupt would be) and read the count of operations that began
+ * without ct_flash_busy set. */
+extern volatile uint8_t ct_flash_busy;
+uint32_t sim_test_flash_unguarded, sim_test_flash_ops;
+void (*sim_test_flash_hook)(void);
+static void flash_op_begin(void)
+{
+    ++sim_test_flash_ops;
+    if (!ct_flash_busy) ++sim_test_flash_unguarded;
+    if (sim_test_flash_hook) { void (*h)(void) = sim_test_flash_hook; sim_test_flash_hook = 0; h(); sim_test_flash_hook = h; }
+}
 int fm1_flash_write(uint32_t at, const void *data, size_t bytes)
 {
+    flash_op_begin();
     if (!data || at > sizeof flash || bytes > sizeof flash - at) return FM1_FLASH_INVALID;
     const uint8_t *source = data;
     for (size_t i = 0; i < bytes; ++i)
@@ -171,6 +186,7 @@ int fm1_flash_write(uint32_t at, const void *data, size_t bytes)
 }
 int fm1_flash_erase(uint32_t at)
 {
+    flash_op_begin();
     if (at % FM1_FLASH_SECTOR_BYTES || at > sizeof flash - FM1_FLASH_SECTOR_BYTES) return FM1_FLASH_INVALID;
     memset(flash + at, 255, FM1_FLASH_SECTOR_BYTES); ++flash_revision; return 0;
 }

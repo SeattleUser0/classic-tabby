@@ -50,9 +50,10 @@
  *   radio switches, the MIDI configuration) and the session settings in the tuning sector (track
  *   roles, input channels, panel preferences). docs/BACKUP-FORMAT.md describes it.
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-12  Task 16: ct_flash_busy; the A2 page is 52 bytes.
  *   v0.5  2026-11-10  Task 15 Step 4: option A2 (ct_a2_*: the pass request from the audio
  *                     interrupt, CT_A2 builds only) and command 25 requests 7, 8 and 9.
  *   v0.4  2026-11-10  Task 13 Step 1: the pass budget (ct_pass_*: option B, no pass over the
@@ -140,7 +141,7 @@ void ct_pass_busy_end(void);             /* the pass's last app hook ended: its 
  * tools/linux/build.py --a2 (Makefile A2=1) defines CT_A2; the host tests always build it. The
  * normal build has none of this code. A2 is OFF at boot and lives in RAM only: one install
  * measures option B alone (off) and B + A2 (on). The code and its rules are in app/midi_router.c.
- * Command 25: request 7 reads the A2 page (48 bytes, ct_a2_read), 8 switches A2 off and 9 on
+ * Command 25: request 7 reads the A2 page (52 bytes, ct_a2_read), 8 switches A2 off and 9 on
  * (both answer with the page); request 1 (reset everything) also clears the A2 counters. */
 #if defined(FM1_HOST_TEST) && !defined(CT_A2)
 #define CT_A2 1
@@ -149,7 +150,8 @@ void ct_pass_busy_end(void);             /* the pass's last app hook ended: its 
 void ct_a2_set(unsigned on);             /* control task: switch A2 */
 unsigned ct_a2_get(void);
 void ct_a2_reset(void);                  /* clear the counters at the next audio block */
-int ct_a2_read(uint8_t *out);            /* the A2 page, 48 bytes */
+int ct_a2_read(uint8_t *out);            /* the A2 page, 52 bytes (the last u32: blocks skipped during flash writes) */
+extern volatile uint8_t ct_flash_busy;   /* nonzero while an app flash erase or write runs: no A2 request then */
 #endif
 #ifdef FM1_HOST_TEST
 /* Host tests only: extra ticks added to the diag clock, so a test can make a band paint or a

@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.14
+ * Version: 0.15
  *
  * Revision log
+ *   v0.15 2026-11-12  Task 16: flash guard checks in section 17 (an audio block inside every flash operation).
  *   v0.14 2026-11-12  Task 16 Goal 3: section 18, external clock follow: arm, Start, the first pulse, the step-4 note
  *                     on its pulse, tempo changes, 3 missed pulses (HELD), relock inside 2 s, LOST after 2 s and
  *                     the pulses-alone rule, Continue, Stop wins, SPP stopped and running, Start from the
@@ -175,6 +176,18 @@ struct message { unsigned port, bytes; uint8_t data[8]; };
 
 /* Run audio blocks so queued MIDI is polled (Simulator.c polls every 10 ms of audio). */
 static void settle(void) { for (int i = 0; i < 8; ++i) (void)sim_render(); }
+/* Flash guard test (Task 16): an audio block inside a flash operation, with a note waiting for an A2 pass. */
+static unsigned flash_hook_requests;
+#define PG32(p_, i_) ((uint32_t)(p_)[4 * (i_)] | (uint32_t)(p_)[4 * (i_) + 1] << 8 | (uint32_t)(p_)[4 * (i_) + 2] << 16 | (uint32_t)(p_)[4 * (i_) + 3] << 24)
+static void flash_hook_block(void)
+{
+    uint8_t pg[64]; (void)ct_diag_read(7, pg); uint32_t before = PG32(pg, 2);
+    groove_midi_song_note(0, 70, 100);
+    (void)sim_render();
+    (void)ct_diag_read(7, pg);
+    flash_hook_requests += PG32(pg, 2) - before;
+    groove_midi_song_note(0, 70, 0);
+}
 
 static unsigned drain(struct message *out, unsigned max)
 {
@@ -1318,7 +1331,7 @@ int main(void)
         #define AFTER_PASS() do { sim_test_log_reset(); while (!strchr(sim_test_log(), 'P')) (void)sim_render(); } while (0)
         sim_boot(1); sim_midi_capture(1); sim_test_request_passes(0); sim_test_costs(0, 0);
         settle(); (void)drain(m, 64);
-        CHECK(ct_diag_read(7, a2) == 48 && U32(a2, 0) == 1 && ct_a2_get(), "A2: on at boot, the normal build's default since Task 16 (page %u bytes)", 48U);
+        CHECK(ct_diag_read(7, a2) == 52 && U32(a2, 0) == 1 && ct_a2_get(), "A2: on at boot, the normal build's default since Task 16 (page %u bytes)", 52U);
         (void)ct_diag_read(8, a2);   /* the "off" checks below start from the switch off */
         /* Off: a waiting note asks for nothing and leaves with the 10 ms pass, as in the normal build. */
         (void)ct_diag_read(1, a2); AFTER_PASS(); (void)drain(m, 64);
@@ -1332,7 +1345,7 @@ int main(void)
         CHECK(count(m, n, 0x90, 61, 100, &ports) >= 1, "A2 off: the note leaves with the 10 ms pass");
         groove_midi_song_note(0, 61, 0); settle(); (void)drain(m, 64);
         /* On, and the request gets its pass (the device): the note leaves in the block that queued it. */
-        CHECK(ct_diag_read(9, a2) == 48 && U32(a2, 0) == 1 && ct_a2_get(), "A2: request 9 switches it on");
+        CHECK(ct_diag_read(9, a2) == 52 && U32(a2, 0) == 1 && ct_a2_get(), "A2: request 9 switches it on");
         sim_test_request_passes(1);
         /* (The MIDI clock's F8 travels in lane 0 too and asks for its own passes, so the checks
          * here count from the state just before the note.) */
@@ -1376,7 +1389,7 @@ int main(void)
         /* Reset clears the counters at the next block and keeps the switch; request 8 is off. */
         (void)ct_diag_read(1, a2); (void)sim_render(); (void)ct_diag_read(7, a2);
         CHECK(U32(a2, 2) == 0 && U32(a2, 4) == 0 && U32(a2, 1) >= 1 && U32(a2, 1) < 4 && U32(a2, 0) == 1, "A2: the reset clears the counters, not the switch");
-        CHECK(ct_diag_read(8, a2) == 48 && U32(a2, 0) == 0, "A2: request 8 switches it off");
+        CHECK(ct_diag_read(8, a2) == 52 && U32(a2, 0) == 0, "A2: request 8 switches it off");
         groove_midi_song_note(0, 64, 100); (void)sim_render(); (void)ct_diag_read(7, a2);
         CHECK(U32(a2, 2) == 0, "A2 off again: no request");
         groove_midi_song_note(0, 64, 0); settle(); (void)drain(m, 64);
@@ -1452,7 +1465,22 @@ int main(void)
         { void groove_clock_set(unsigned mode); unsigned groove_clock_mode(void);
           (void)sim_open(0); settle();
           n = RCMD(29, 6, 0, 15, 1); n = RCMD(29, 6, 0, 15, 0); settle();
-          n = RCMD(29, 6, 4, 0, 1); for (unsigned i = 0; i < 600; ++i) (void)sim_render();
+          /* The hang of 2026-11-11 22:53 (BUILD 33.3, 34): the settings save 1.5 s after the CLOCK change, with notes
+           * waiting for A2 passes. The hook plays the audio interrupt inside every flash operation. */
+          { extern uint32_t sim_test_flash_unguarded, sim_test_flash_ops, sim_test_control_requests;
+            extern void (*sim_test_flash_hook)(void);
+            uint8_t pg[64]; (void)ct_diag_read(7, pg); uint32_t skipped0 = PG32(pg, 12);
+            sim_test_flash_unguarded = sim_test_flash_ops = 0; flash_hook_requests = 0;
+            sim_test_flash_hook = flash_hook_block;
+            n = RCMD(29, 6, 4, 0, 1); for (unsigned i = 0; i < 600; ++i) (void)sim_render();
+            sim_test_flash_hook = 0;
+            (void)ct_diag_read(7, pg);
+            CHECK(sim_test_flash_ops >= 1, "flash guard: the CLOCK change caused a settings save (%u flash operations)", sim_test_flash_ops);
+            CHECK(sim_test_flash_unguarded == 0, "flash guard: every flash operation began with ct_flash_busy set (%u without)", sim_test_flash_unguarded);
+            CHECK(flash_hook_requests == 0, "flash guard: no A2 request from an audio block inside a flash operation (%u)", flash_hook_requests);
+            CHECK(PG32(pg, 12) > skipped0, "flash guard: the A2 page counts the skipped blocks (%u)", (unsigned)(PG32(pg, 12) - skipped0));
+            extern volatile uint8_t ct_flash_busy;
+            CHECK(ct_flash_busy == 0, "flash guard: the flag is clear after the save"); }
           CHECK(groove_clock_mode() == 1 && ct_a2_get(), "remote: SEQ then K1 up sets CLOCK = MIDI (mode %u), A2 still on", groove_clock_mode());
           n = RCMD(29, 0); CHECK(n == 14 && reply[0] == 0, "remote: the status still answers with CLOCK = MIDI");
           n = RCMD(29, 6, 4, 0, 255); for (unsigned i = 0; i < 600; ++i) (void)sim_render();

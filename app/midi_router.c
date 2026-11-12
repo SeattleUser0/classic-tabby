@@ -215,6 +215,8 @@ FM1_AUDIO_CODE void groove_midi_transport(unsigned owner, uint8_t status)
 #ifdef CT_A2
 /* ---- Classic Tabby Task 15 Step 4: option A2, the control pass on demand (diag builds only) ----
  * Revision notes
+ *   v0.2  2026-11-12  Task 16: ct_flash_busy: no request while an app flash erase or write runs (BUILD 34); the A2
+ *                     page is 52 bytes (blocks skipped).
  *   v0.1  2026-11-10  First version. Built only with CT_A2 (tools/linux/build.py --a2, Makefile
  *                     A2=1; the host tests always have it). Off at boot; switched at run time
  *                     (ACTIONS "A2 FAST MIDI", or transfer command 25 requests 8 = off, 9 = on).
@@ -239,6 +241,7 @@ FM1_AUDIO_CODE void groove_midi_transport(unsigned owner, uint8_t status)
  *     histogram, read by command 25 request 7 (ct_a2_read). The time is part of the audio
  *     render's budget (CPU GUARD), which is why it is measured.
  *   - No request is ever made with A2 off: the build then behaves as the normal build does. */
+volatile uint8_t ct_flash_busy;   /* depth of app flash erases / writes in progress (RAM: read by the audio interrupt) */
 static volatile uint8_t a2_on = 1, a2_reset_request;   /* Task 16: ON at boot (tabby-v04.2) */
 static struct {
     uint32_t blocks;      /* audio blocks seen (one per 128 frames): the time base for calls per second */
@@ -247,6 +250,7 @@ static struct {
     uint32_t max;         /* longest call, TIMER4 ticks */
     uint32_t bins[6];     /* calls < 5, < 10, < 20, < 50, < 100, >= 100 microseconds */
     uint64_t sum;         /* ticks of all calls */
+    uint32_t skipped;     /* blocks that did not ask because a flash erase or write was running (ct_flash_busy) */
     uint8_t waiting;      /* the previous block asked */
     unsigned drained;     /* the lanes' read positions when it asked */
 } a2;
@@ -263,11 +267,17 @@ static FM1_AUDIO_CODE void a2_block(void)
 {
     if (a2_reset_request) {
         /* Field by field: no libc call from the audio interrupt. */
-        a2.blocks = a2.calls = a2.retries = a2.max = 0; a2.sum = 0;
+        a2.blocks = a2.calls = a2.retries = a2.max = a2.skipped = 0; a2.sum = 0;
         for (unsigned i = 0; i < 6; ++i) a2.bins[i] = 0;
         a2_reset_request = 0;
     }
     ++a2.blocks;
+    /* Task 16 hang fix: fm1_control_request and the SDK's task-queue post (os_taskq_post_type,
+     * __os_taskq_post, xQueueGenericSendFromISR, get_taskq) are in FLASH (.text / .os_code,
+     * build/pro/sdk.map) while this interrupt and the render are in RAM and keep running during a
+     * flash erase or write. A call made then fetches code from flash that the SPI controller is busy
+     * with: the chip freezes (BUILD 33.3, 34). Every app flash operation sets ct_flash_busy first. */
+    if (ct_flash_busy) { ++a2.skipped; return; }
     if (!a2_on || (events[0].write == events[0].read && events[1].write == events[1].read)) { a2.waiting = 0; return; }
     unsigned drained = events[0].read + events[1].read;
     if (a2.waiting && drained == a2.drained) ++a2.retries;   /* the last request got no pass yet */
@@ -288,15 +298,15 @@ void ct_a2_reset(void) { a2_reset_request = 1; barrier(); }
  * calls * 44118 / (blocks * 128). The snapshot is repeated until no block ended inside it. */
 int ct_a2_read(uint8_t *out)
 {
-    uint32_t v[12], blocks;
+    uint32_t v[13], blocks;
     do {
         blocks = a2.blocks;
-        v[0] = a2_on; v[1] = blocks; v[2] = a2.calls;
+        v[0] = a2_on; v[1] = blocks; v[12] = a2.skipped; v[2] = a2.calls;
         v[3] = v[2] ? (uint32_t)(a2.sum / v[2]) : 0; v[4] = a2.max; v[5] = a2.retries;
         for (unsigned i = 0; i < 6; ++i) v[6 + i] = a2.bins[i];
     } while (blocks != a2.blocks);
-    for (unsigned i = 0; i < 12; ++i) for (unsigned b = 0; b < 4; ++b) out[i * 4 + b] = (uint8_t)(v[i] >> (8U * b));
-    return 48;
+    for (unsigned i = 0; i < 13; ++i) for (unsigned b = 0; b < 4; ++b) out[i * 4 + b] = (uint8_t)(v[i] >> (8U * b));
+    return 52;
 }
 #endif   /* CT_A2 */
 #ifdef CT_A2

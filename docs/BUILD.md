@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.69
+Version: 0.70
 Revision log:
+- v0.70, 2026-11-12 (Task 16, second night): section 34, the hang: the map-file evidence, the flash guard (ct_flash_busy), the
+  host test; 34.4 why the one-line band measured 4.91 ms against 3.67.
 - v0.69, 2026-11-12 (Task 16 Goal 3): section 33, tabby-v04.3: what changed, the gate, the soak and the device results.
 - v0.68, 2026-11-11 (Task 16 Goal 1): section 32, tabby-v04.2: the merge, what changed, the gate, publishing.
 - v0.67, 2026-11-11 (tabby-v04.2 merge): the Task 14 and v04.1.1 sections are now 30 and 31 (Task 15 keeps 28);
@@ -4524,3 +4526,74 @@ the song end arms again, PLAY leaves follow; a fuzz of 6000 random Start / Stop 
   through this deferred path). Prime suspect: a flash erase / write in `groove_project_poll` while the audio interrupt asks for
   control passes (A2). Check: after the power cycle, switch A2 off (command 29 op 5), change CLOCK (a settings save), see
   whether the device still answers 5 s later; then repeat with A2 on. tabby-v04.2's release notes now carry a known-issue line.
+
+
+## 34. Task 16 (second night) — the hang and its fix: no A2 request while flash is being written (2026-11-12)
+
+### 34.1 The evidence (read only: build/pro/sdk.map and the objdump of build/pro/sdk.elf, tabby-v04.3)
+
+| What | Where | Address |
+| --- | --- | --- |
+| the audio interrupt, render, mixer, MIDI router lanes (FM1_AUDIO_CODE, `.volatile_ram_code`) | RAM (`.ram0_data`, 0x1c00000..0x1c11e74) | RAM |
+| the SPI flash driver (`.spi_code`: norflash erase / write / read, cache flush), the irq enable / disable, p33 | RAM | RAM |
+| `fm1_control_request` (engine_startup.S, 0x2c bytes) | `.text`, rom | **0x0201ecb0 (flash)** |
+| `os_taskq_post_type` (0x2030ebc), `__os_taskq_post` (0x2030e10, 0xac bytes), `xQueueGenericSendFromISR` (0x2030db2), `get_taskq` (0x2030d7c), `xTaskGetHandle` (0x2030cf4) | `.os_code`, rom | **0x02030cf4..0x02030ebc (flash)** |
+
+`fm1_control_request` calls `os_taskq_post_type` (disassembly: `call 2030ebc`). So an A2 request runs about 0x2c + 0xe + 0xac +
+0x5e + 0x36 bytes of **flash-resident** code from inside an interrupt that is itself RAM code on purpose: the audio interrupt
+keeps running while the SDK erases or writes flash (`fm1_audio_suspend` only mutes the output and zeroes the buffers; it does not
+mask the interrupt; the SDK's flash worker and `.spi_code` are in RAM for the same reason). While the SPI controller is busy with
+an erase or a write the flash is not readable through the cache: an instruction fetch from 0x02xxxxxx then stalls or returns
+garbage, and the chip freezes (USB, a hardware block, stays enumerated; both protocols are silent; this is what the device did).
+
+Why the earlier tests did not see it: the one-hour soak's save ran while stopped, with no MIDI flowing, so no block had an event
+waiting and `a2_block` made no request (`a2_block` asks only for an event waiting in lane 0 or 1). In the failed run CLOCK was
+being set to MIDI while the NUC sent clock, so lane events kept arriving during the settings save 1.5 s after the change.
+v04.2 on the main page has the same fault in the same circumstances (a flash write while MIDI is being routed with A2 on).
+**The evidence supports the hypothesis**; it is a reading of the binary plus the timing of the incident, not yet a hardware
+proof (the device did not answer on the second night, see 34.3).
+
+### 34.2 The fix (app/midi_router.c, app/diag.c, app/diag.h)
+
+- `volatile uint8_t ct_flash_busy` (RAM): a depth count of app flash erases and writes in progress. Every flash erase and write of
+  the app already goes through `ct_diag_flash_erase` / `ct_diag_flash_write` (diag.h redefines `fm1_flash_erase` / `fm1_flash_write`
+  for all app files); both now raise the count before the SDK call and lower it after, with a compiler barrier each side.
+- `a2_block` (audio interrupt) tests it **first**, after counting the block: if set it counts a skipped block and returns; no
+  `fm1_control_request`. The event waits for the SDK's own 10 ms control pass (the A2-off behaviour), which is the
+  v04.1.1 situation. A request that began just before the flag was raised has finished before the control task can continue
+  (the interrupt is not preempted by a task), so the window is closed on a single core.
+- The A2 page (command 25, request 7) grows from 48 to 52 bytes: the last u32 is the number of blocks skipped because of a flash
+  operation, so the hardware run can show the guard working. The web page reads by index and ignores the extra word.
+- **Not covered, stated plainly:** flash operations the SDK starts itself (outside `fm1_flash_erase` / `fm1_flash_write`: the SDK's
+  VM, the loader, the update protocol's own writes while Firmware Update runs). There is no hook in the closed SDK; none of them
+  runs while a song plays, and the Firmware Update path stops the app's MIDI routing first.
+- Host test (tests/host/smoke.c section 17, "flash guard"): the simulator calls a hook inside every flash erase and write that
+  queues a note and renders a block (the audio interrupt during the write). Run with the real sequence of the incident (SEQ, K1 up,
+  settings save after 1.5 s): 16 flash operations, 0 without the flag, 0 A2 requests inside them, 8 blocks skipped, flag clear after.
+  With the guard line disabled the test fails (8 requests inside a flash operation), so it catches the fault.
+
+### 34.3 Device state on the second night
+
+The SMK-37 was still not answering at 08:41 PST on 2026-11-12 (device number 41, unchanged since the hang: it has not
+re-enumerated, so it has not lost power). The hang tests (`run-follow.py --a2 off`, then `--a2 on`) are therefore not done.
+
+### 34.4 Why one line with A2 on measured 4.91 ms and not 3.67 ms (analysis of the raw captures)
+
+"Band" is the largest minus the smallest residual of a straight-line fit: two extreme notes decide it. The residuals of the
+four one-line captures (DIN, note-on time against the fitted grid):
+
+| Capture | notes | p1 | p5 | p50 | p95 | p99 | min..max | band | p5..p95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| Task 15 diag, A2 on (longwait) | 821 | -1.44 | -1.32 | 0.00 | 1.28 | 1.46 | -1.55..2.23 | 3.78 | 2.60 |
+| v04.2, A2 on (overnight) | 960 | -1.47 | -1.31 | -0.01 | 1.31 | 1.46 | -1.54..3.38 | 4.91 | 2.62 |
+| Task 15 diag, A2 off | 606 | -5.46 | -4.89 | -0.46 | 5.43 | 5.83 | -5.65..7.36 | 13.01 | 10.31 |
+| v04.2, A2 off | 960 | -4.94 | -4.37 | -0.51 | 5.60 | 6.58 | -5.10..9.18 | 14.27 | 9.97 |
+
+The body of the distribution is identical with A2 on (p1 to p99 within 0.1 ms, p5 to p95 2.62 against 2.60 ms): nothing we added
+moved the typical note. The v04.2 run has **three** notes above 1.9 ms (2.68 ms at 0.9 s, 3.38 ms at 85.1 s, 2.58 ms at 108.2 s,
+of 960); the Task 15 capture has none above 2.23 ms. The band is the extreme of a tail, so a run of 960 notes against 821 and one
+bad note give 4.91 against 3.78. Whether the tail is more frequent now (the remote status reads, the control loop's added
+`groove_remote_poll`, the song-follow hook) or the same, needs repeated runs: each of three or more 125 s A2-on runs, comparing
+the count of notes beyond 2.3 ms; this needs the device and is queued after the hang tests. It is not an A2 effect (A2 off also
+shows the wider tail: 14.27 against 13.01). No fix is justified from this data.
+

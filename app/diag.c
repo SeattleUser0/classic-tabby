@@ -26,9 +26,10 @@
  *   Control-loop timing is taken at groove_midi_poll() because that call sends MIDI out: its
  *   period is the MIDI-out quantum during playback (SPEC 9.6, SPEC 14.3).
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-12  Task 16: the flash wrappers raise ct_flash_busy (no A2 request during a flash erase or write).
  *   v0.5  2026-11-10  Task 15 Step 4: CT_A2 builds: command 25 request 7 (the A2 page), 8 and 9
  *                     (A2 off / on, then the page); request 1 also clears the A2 counters.
  *   v0.4  2026-11-10  Task 13 Step 1: the pass budget (ct_pass_elapsed / ct_pass_over /
@@ -106,7 +107,9 @@ void ct_diag_key(uint32_t queued)
 int ct_diag_flash_erase(uint32_t offset)
 {
     uint32_t start = ticks();
+    ++ct_flash_busy; __atomic_signal_fence(__ATOMIC_SEQ_CST);
     int r = fm1_flash_erase(offset);
+    __atomic_signal_fence(__ATOMIC_SEQ_CST); --ct_flash_busy;
     uint32_t used = ticks() - start;
     ++d.erase_count; if (used > d.erase_max) d.erase_max = used;
     return r;
@@ -114,7 +117,9 @@ int ct_diag_flash_erase(uint32_t offset)
 int ct_diag_flash_write(uint32_t offset, const void *data, size_t bytes)
 {
     uint32_t start = ticks();
+    ++ct_flash_busy; __atomic_signal_fence(__ATOMIC_SEQ_CST);
     int r = fm1_flash_write(offset, data, bytes);
+    __atomic_signal_fence(__ATOMIC_SEQ_CST); --ct_flash_busy;
     uint32_t used = ticks() - start;
     ++d.write_count;
     if (used > d.write_max) { d.write_max = used; d.write_max_bytes = (uint32_t)bytes; }
