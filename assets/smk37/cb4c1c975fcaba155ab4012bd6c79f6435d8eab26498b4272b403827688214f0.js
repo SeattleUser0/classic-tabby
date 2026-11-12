@@ -13,7 +13,7 @@
  *     FM1I18n.attr(node, name, v)  node.setAttribute(name, value)
  *   A later cleanup can replace the calls by plain DOM code and delete this file.
  *   Upstream merges: new workbench text must be written in English at the source, never added
- *   through a table (BUILD.md 28.5).
+ *   through a table (BUILD.md 30.5).
  *
  * Version: 1.0
  *
@@ -33,7 +33,7 @@
   };
 })();
 
-const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.1","build_id":"1249d59746334fcf353ef6ca422cf5353f89c0ba111dcbd67340f992b8c2fa41","sha256":"25077dd807010ffaf60de4a70f08805909d4b028dc73f6f7138380ee9f9f46e3","bytes":487988,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"url":"./assets/smk37/25077dd807010ffaf60de4a70f08805909d4b028dc73f6f7138380ee9f9f46e3.bin"};
+const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.2","build_id":"b926f5556483ee65c05a605284a09ac1263f199c236b6a6e9050252850c2cd98","sha256":"49de1fcc110662ef82a97b76eac70455fccd6e34cd23f5cd089b719084185773","bytes":487988,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/49de1fcc110662ef82a97b76eac70455fccd6e34cd23f5cd089b719084185773.bin"};
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. */
 /* SMK37 OPEN browser updater.
@@ -1456,6 +1456,12 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
           midi_in:{calls:u(p5,16),mean_ms:ms(u(p5,20)),max_ms:ms(u(p5,24))}};
       }
     }catch(error){if(!error.deviceCode)throw error;}
+    // Task 16: option A2 (fast MIDI), command 25 request 7 (tabby-v04.2 and later; older firmware answers
+    // an error): the switch, the audio blocks, the pass requests made from the audio interrupt, the call
+    // cost (24 MHz ticks, shown in microseconds) and its histogram (BUILD.md 28.4).
+    try{const q=await this.query(25,[7]);if(q.length===48){const bl=u(q,4),calls=u(q,8);
+      out.a2={on:u(q,0)===1,blocks:bl,calls,calls_per_s:bl?calls*44118/(bl*128):0,mean_us:u(q,12)/24,max_us:u(q,16)/24,retries:u(q,20),bins:[0,1,2,3,4,5].map(i=>u(q,24+4*i))};}}
+    catch(error){if(!error.deviceCode)throw error;}
     return out;
   };
   // Task 12 A4: the section names as the report and docs/BUILD.md 26.4 use them.
@@ -1468,6 +1474,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       'L.4 key/pad note-on to router: '+d.keys.count+' notes, max '+f(d.keys.max_ms)+' ms; <0.5 '+d.keys.bins[0]+', <1 '+d.keys.bins[1]+', <2 '+d.keys.bins[2]+', <4 '+d.keys.bins[3]+', <8 '+d.keys.bins[4]+', <16 '+d.keys.bins[5]+', <32 '+d.keys.bins[6]+', >=32 '+d.keys.bins[7]+' (ms)',
       'L.5 matrix scan: '+d.scan.count+' scans, '+d.scan.per_second.toFixed(1)+' per second, longest gap '+f(d.scan.gap_max_ms)+' ms; scan ISR peak '+f(d.scan.isr_peak_ms)+' ms, ADC ISR peak '+f(d.scan.adc_peak_ms)+' ms'];
     if(d.screen)lines.push('screen: '+d.screen.controls+' control calls, mean '+f(d.screen.control_mean_ms)+' ms, max '+f(d.screen.control_max_ms)+' ms; '+d.screen.paints+' band paints ('+d.screen.bands+' bands), mean '+f(d.screen.paint_mean_ms)+' ms, max '+f(d.screen.paint_max_ms)+' ms');
+    if(d.a2)lines.push('A2 fast MIDI: '+(d.a2.on?'ON':'OFF')+'; '+d.a2.calls+' pass requests from the audio interrupt in '+d.a2.blocks+' audio blocks ('+d.a2.calls_per_s.toFixed(1)+' per second); call cost mean '+d.a2.mean_us.toFixed(1)+' us, longest '+d.a2.max_us.toFixed(1)+' us; '+d.a2.retries+' retries; calls <5, <10, <20, <50, <100, >=100 us: '+d.a2.bins.join(', '));
     if(d.profile){
       const p=d.profile;
       lines.push('control pass (SDK call of groove_midi_poll to the next): '+p.passes+' passes, mean '+f(p.pass_mean_ms)+' ms, max '+f(p.pass_max_ms)+' ms; per section, per pass (mean / max, exclusive):');
@@ -4120,7 +4127,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();
 
-const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.1","sha256":"f020056a07b584abe047521923141ad00471360402d5acc8e6a1a9244c167a01","source_sha256":"0be8507cee6ff3a930cd87a84cc40bb3fb01072bd10812167a0ab6318216dde9","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":288956,"url":"./assets/smk37/f020056a07b584abe047521923141ad00471360402d5acc8e6a1a9244c167a01.wasm"};
+const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.2","sha256":"5ad44f21f2f67fbd90b5ed5053194fe9084bb50ba97d710141c62d3b2f331584","source_sha256":"86ab1595aa7a964959c40756d97b5f62c2158c95782d1c9206a2e5e3b03c454e","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":291525,"url":"./assets/smk37/5ad44f21f2f67fbd90b5ed5053194fe9084bb50ba97d710141c62d3b2f331584.wasm"};
 (() => {
   const $=id=>document.getElementById(id);
   // Task 08: the badge shows the Classic Tabby display version (the git tag); the Open label is the fallback.
