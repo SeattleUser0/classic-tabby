@@ -361,15 +361,16 @@ static int held_elsewhere(const struct output *o, unsigned owner, unsigned ch, u
  * when a later write to that port follows. With CLOCK = INT and clock out on USB the next F8 (48 per
  * second) does that; with CLOCK = MIDI, or clock out off, a SysEx reply (and the last note) stayed in
  * the SDK until the next write: the workbench saw no reply ("the device hangs"). Every USB write of
- * the app goes through ct_midi_send_port; when no clock is being sent on USB, the two control passes
+ * the app goes through ct_midi_send_port; when no clock is being sent on USB, the four control passes
  * after the last write each send one undefined real-time byte (0xF9, ignored by receivers, never
  * re-armed by itself), so the message before it leaves. Control task only. */
+enum { USB_PUSHES = 4 };   /* two were enough in 2000 of 2001 replies on the device; four for margin (40 ms) */
 static uint8_t usb_push;
 static uint32_t pass_number, usb_write_pass;
 int ct_midi_send_port(unsigned port, const uint8_t *m, size_t n)
 {
     int r = fm1_midi_send_port(port, m, n);
-    if (!r && port == FM1_MIDI_USB) { usb_push = 2; usb_write_pass = pass_number; }
+    if (!r && port == FM1_MIDI_USB) { usb_push = USB_PUSHES; usb_write_pass = pass_number; }
     return r;
 }
 static void usb_pusher(void)

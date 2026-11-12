@@ -25,9 +25,10 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.8
+Version: 0.9
 
 Revision log
+    v0.9  2026-11-12  a2(): the 52-byte A2 page of tabby-v04.3 (flash_skipped).
     v0.8  2026-11-11  Task 16: remote control (command 29, every build from tabby-v04.2): remote_status(),
                       select_song(), play_song(), stop_song(), jump(), set_a2(), key(), press() / hold() /
                       release() by control name (PANEL), release_all(). play() and stop() use command 29 when the
@@ -342,12 +343,13 @@ class Link:
             p = self.query(25, bytes([request]), attempts=1)
         except (DeviceError, TimeoutError):
             return None
-        if len(p) != 48:
+        if len(p) not in (48, 52):            # v0.9: 52 bytes since tabby-v04.3 (the last u32: blocks skipped during flash writes)
             return None
-        v = struct.unpack("<12I", p)
+        v = struct.unpack("<12I", p[:48])
         us = lambda t: t / 24.0
         return {"on": v[0], "blocks": v[1], "calls": v[2], "mean_us": us(v[3]), "max_us": us(v[4]), "retries": v[5],
-                "bins": list(v[6:12]), "calls_per_second": v[2] * 44118.0 / (v[1] * 128.0) if v[1] else 0.0}
+                "bins": list(v[6:12]), "calls_per_second": v[2] * 44118.0 / (v[1] * 128.0) if v[1] else 0.0,
+                "flash_skipped": struct.unpack_from("<I", p, 48)[0] if len(p) == 52 else None}
 
     def health(self):
         """v0.6: commands 17, 18, 19 (read only): the audio counters that show a dropout or CPU GUARD."""

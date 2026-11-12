@@ -1485,8 +1485,8 @@ int main(void)
             CHECK(ct_flash_busy == 0, "flash guard: the flag is clear after the save"); }
           CHECK(groove_clock_mode() == 1 && ct_a2_get(), "remote: SEQ then K1 up sets CLOCK = MIDI (mode %u), A2 still on", groove_clock_mode());
           n = RCMD(29, 0); CHECK(n == 14 && reply[0] == 0, "remote: the status still answers with CLOCK = MIDI");
-          /* The USB pusher (BUILD 35): with no clock going out on USB, the two passes after a USB write each send one 0xF9
-           * on USB, so the SDK transmits the reply; nothing on DIN or Bluetooth, and no more than two. */
+          /* The USB pusher (BUILD 35): with no clock going out on USB, the four passes after a USB write each send one 0xF9
+           * on USB, so the SDK transmits the reply; nothing on DIN or Bluetooth, and no more than four. */
           { unsigned f9[3] = {0, 0, 0}, nm; struct message m[64];
             for (unsigned i = 0; i < 40; ++i) (void)sim_render();
             (void)drain(m, 64); rc_n = 0; rc_source = 1;
@@ -1494,7 +1494,7 @@ int main(void)
             nm = drain(m, 64);
             for (unsigned i = 0; i < rc_n; ++i) if (rc_log[i].bytes == 1 && rc_log[i].data[0] == 0xf9 && rc_log[i].port < 3) ++f9[rc_log[i].port];
             for (unsigned i = 0; i < nm && i < 64; ++i) if (m[i].bytes == 1 && m[i].data[0] == 0xf9 && m[i].port < 3) ++f9[m[i].port];
-            CHECK(f9[1] == 2 && f9[0] == 0 && f9[2] == 0, "USB pusher: CLOCK = MIDI, a reply is followed by two 0xF9 on USB only (DIN %u, USB %u, BLE %u)", f9[0], f9[1], f9[2]); }
+            CHECK(f9[1] == 4 && f9[0] == 0 && f9[2] == 0, "USB pusher: CLOCK = MIDI, a reply is followed by four 0xF9 on USB only (DIN %u, USB %u, BLE %u)", f9[0], f9[1], f9[2]); }
           n = RCMD(29, 6, 4, 0, 255); for (unsigned i = 0; i < 600; ++i) (void)sim_render();
           CHECK(groove_clock_mode() == 0, "remote: K1 down sets CLOCK = INT again (mode %u)", groove_clock_mode()); (void)sim_open(0);
           { unsigned f9 = 0, nm; struct message m[64];
