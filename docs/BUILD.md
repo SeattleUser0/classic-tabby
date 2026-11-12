@@ -4502,3 +4502,15 @@ the song end arms again, PLAY leaves follow; a fuzz of 6000 random Start / Stop 
 - Decision taken (the conservative one): **tabby-v04.3 is not released** (main page, GitHub release) until it has passed on the
   device; tabby-v04.2 stays the release. The hard limit "one attempt per build, no more device writes after a failure" was
   applied to the incident as well: no further write was sent.
+
+- **What the disassembly of the SDK shows about the CLOCK change** (read only, build/pro/sdk.elf of v04.3, objdump of the JieLi
+  pi32v2 toolchain; the SDK binary is not touched): `groove_clock_set` (SDK engine, 0xBE bytes) starts with a call to
+  `fm1_r_7e5e04f16253` and ends with `fm1_r_aa9848f062ec`. The first raises a nesting counter and a "hold" flag in the SDK's flash
+  state (the same structure `fm1_flash_read` and `norflash_read` use), then **spins, with interrupts enabled, until the flash
+  worker's busy flag is 0**; the second lowers the counter and the flag. The worker is a RAM thread (`fm1_r_2c729ca92be9`) that
+  loops over `fm1_r_e7d3da61dac2`: it runs one queued flash operation at a time and is held off while the flag is up. So a CLOCK
+  change waits for any flash operation in progress. If that wait never ends the control task never returns: both protocols go
+  silent while USB (an interrupt) stays up, which is what the device does. Not ruled out: the audio interrupt's call of
+  `fm1_control_request` (option A2) lives in flash (0x201ecb0) and so does `os_taskq_post_type` it calls, while every other call in
+  the audio interrupt is RAM code (FM1_AUDIO_CODE); during a flash operation by the worker that call may stall. This is a reading,
+  not a proof; the checks above (A2 off against on) decide it.
