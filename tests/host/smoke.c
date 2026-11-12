@@ -44,9 +44,13 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.13
+ * Version: 0.14
  *
  * Revision log
+ *   v0.14 2026-11-12  Task 16 Goal 3: section 18, external clock follow: arm, Start, the first pulse, the step-4 note
+ *                     on its pulse, tempo changes, 3 missed pulses (HELD), relock inside 2 s, LOST after 2 s and
+ *                     the pulses-alone rule, Continue, Stop wins, SPP stopped and running, Start from the
+ *                     middle, the song end arms again, PLAY leaves follow.
  *   v0.13 2026-11-11  Task 16 Goal 1: section 17, command 29 (remote control) through the SysEx path:
  *                     status, A2, key press and release, refusals (SAVE, ids, kinds), SHIFT + HOME / SRC and
  *                     SEQ + EDIT against the reported page, the 5 s watchdog, song select / play / jump /
@@ -1399,18 +1403,18 @@ int main(void)
         { uint8_t a[64]; (void)ct_diag_read(9, a); }   /* section 16 left A2 off; the device boots with it on */
         { struct message m[64]; (void)drain(m, 64); }
         int n = RCMD(29, 0);
-        CHECK(n == 13 && reply[0] == 0 && reply[1] == 1 && reply[2] == 0 && reply[3] == 0 && reply[4] == 255 && reply[5] == 255 && reply[7] == 1,
+        CHECK(n == 14 && reply[0] == 0 && reply[1] == 1 && reply[2] == 0 && reply[3] == 0 && reply[4] == 255 && reply[5] == 255 && reply[7] == 1,
               "remote: status at boot: version 1, page OVERVIEW, stopped, nothing loaded (%d bytes: %u %u %u %u %u %u %u)", n, reply[0], reply[1], reply[2], reply[3], reply[4], reply[5], reply[7]);
         { uint8_t caps[96]; int k = rcmd(27, (const uint8_t[]){0}, 0, caps); (void)k;
           CHECK(k >= 8 && (caps[2] & 4U), "remote: capability flag bit 2 (command 29) is set"); }
         /* A2 */
-        n = RCMD(29, 5, 0); CHECK(n == 13 && reply[0] == 0 && reply[7] == 0 && !ct_a2_get(), "remote: A2 off");
-        n = RCMD(29, 5, 1); CHECK(n == 13 && reply[7] == 1 && ct_a2_get(), "remote: A2 on");
+        n = RCMD(29, 5, 0); CHECK(n == 14 && reply[0] == 0 && reply[7] == 0 && !ct_a2_get(), "remote: A2 off");
+        n = RCMD(29, 5, 1); CHECK(n == 14 && reply[7] == 1 && ct_a2_get(), "remote: A2 on");
         CHECK(RCMD(29, 5, 2) >= 0 && reply[0] != 0, "remote: A2 value 2 refused (code %u)", reply[0]);
         /* A key press and release: the note leaves on the MIDI out, the release ends it. */
         { struct message m[64]; unsigned np;
           rc_n = 0; n = RCMD(29, 6, 1, 0, 100); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
-          CHECK(n == 13 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
+          CHECK(n == 14 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
           rc_n = 0; n = RCMD(29, 6, 1, 0, 0); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
           CHECK(reply[0] == 0 && (any_off(m, np)), "remote: key 1 release ends it"); }
         { struct message m[64]; unsigned np;   /* the last key (36): 37 keys do not fit a 32-bit mask */
@@ -1451,24 +1455,143 @@ int main(void)
           memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "REMOTE      ", 12); f[40] = 2; f[48] = 5;
           f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;
           CHECK(sim_song_record_write(0) == 0, "remote: test song stored"); }
-        n = RCMD(29, 1, 0); CHECK(n == 13 && reply[0] == 0 && reply[4] == 0 && reply[3] == 0, "remote: select song 1 loads it (loaded %u)", reply[4]);
+        n = RCMD(29, 1, 0); CHECK(n == 14 && reply[0] == 0 && reply[4] == 0 && reply[3] == 0, "remote: select song 1 loads it (loaded %u)", reply[4]);
         n = RCMD(29, 1, 7); CHECK(n >= 0 && reply[0] != 0, "remote: select an empty song is refused (code %u)", reply[0]);
         n = RCMD(29, 4, 1); CHECK(n >= 0 && reply[0] == 71, "remote: a jump while stopped is refused");
         n = RCMD(29, 1, 0);   /* a refused select of an empty song leaves nothing loaded; load song 1 again */
-        n = RCMD(29, 2); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); n = RCMD(29, 0); CHECK(n == 13 && reply[0] == 0 && reply[3] == 1 && reply[9] == 1, "remote: PLAY starts the loaded song (state %u, transport %u, code %u, loaded %u)", reply[3], reply[9], reply[0], reply[4]);
+        n = RCMD(29, 2); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); n = RCMD(29, 0); CHECK(n == 14 && reply[0] == 0 && reply[3] == 1 && reply[9] == 1, "remote: PLAY starts the loaded song (state %u, transport %u, code %u, loaded %u)", reply[3], reply[9], reply[0], reply[4]);
         for (unsigned i = 0; i < 20; ++i) (void)sim_render();
         n = RCMD(29, 2); CHECK(n >= 0 && reply[0] != 0, "remote: PLAY while playing is refused");
-        n = RCMD(29, 4, 1); CHECK(n == 13 && reply[0] == 0 && reply[6] == 1, "remote: jump to row 2 is queued (queued %u)", reply[6]);
+        n = RCMD(29, 4, 1); CHECK(n == 14 && reply[0] == 0 && reply[6] == 1, "remote: jump to row 2 is queued (queued %u)", reply[6]);
         { uint8_t save[96]; int k = rcmd(7, (const uint8_t[]){0}, 0, save); (void)k;
           CHECK(save[0] != 0, "remote: project save refuses while playing (code %u)", save[0]); }
-        n = RCMD(29, 3); CHECK(n == 13 && reply[0] == 0, "remote: STOP");
+        n = RCMD(29, 3); CHECK(n == 14 && reply[0] == 0, "remote: STOP");
         for (unsigned i = 0; i < 200; ++i) (void)sim_render();
         n = RCMD(29, 0); CHECK(reply[3] == 0 && reply[9] == 0, "remote: stopped and no transport after STOP (%u, %u)", reply[3], reply[9]);
-        n = RCMD(29, 2, 0); CHECK(n == 13 && reply[0] == 0 && reply[3] == 1, "remote: PLAY with a song number loads and plays it");
+        n = RCMD(29, 2, 0); CHECK(n == 14 && reply[0] == 0 && reply[3] == 1, "remote: PLAY with a song number loads and plays it");
         n = RCMD(29, 3); for (unsigned i = 0; i < 200; ++i) (void)sim_render();
         #undef RCMD
         #undef STATUS_PAGE
         sim_test_request_passes(0); (void)sim_open(0);
+    }
+
+
+    /* ---- 18. Task 16 Goal 3: external clock follow (song mode with CLOCK = MIDI) ----------------- */
+    {
+        enum { ARMED = 1, WAITING = 3, RUNNING = 4, HELD = 5, LOST = 6, STOPPED = 7 };
+        void groove_clock_set(unsigned mode);
+        unsigned sim_song_units(void);
+        /* A master clock sent block by block: bpm * 24 pulses a minute, one pulse every 861.33 / bpm blocks. */
+        static double phase, period; static unsigned pulses_sent;
+        #define MASTER_SET(bpm) (period = 861.328125 / (double)(bpm))
+        #define SEND1(b) do { sim_file()[0] = (uint8_t)(b); (void)sim_midi_from(0, 1); } while (0)
+        #define FOLLOW() (sim_song_status(5))
+        /* One audio block of a running master: its pulse if one is due, then the block. */
+        #define BLOCK_RUN() do { phase += 1.0; if (phase >= period) { phase -= period; SEND1(0xf8); ++pulses_sent; } (void)sim_render(); } while (0)
+        #define BLOCK_SILENT() do { (void)sim_render(); } while (0)
+        struct message mm[64]; unsigned pn;
+        sim_boot(1); sim_midi_capture(1); sim_test_request_passes(1); sim_midi_drain(1);
+        { uint8_t *f = sim_file(); uint8_t b1[70], b2[67]; memset(b1, 0, sizeof b1); memset(b2, 0, sizeof b2);
+          unsigned at = 0; b1[at++] = 1; b1[at++] = 60; b1[at++] = 100; b1[at++] = 2; at += 3; b1[at++] = 1; b1[at++] = 62; b1[at++] = 90; b1[at++] = 1;
+          b2[0] = 1; b2[1] = 64; b2[2] = 80; b2[3] = 1;
+          memcpy(f, b1, sizeof b1); (void)sim_block_write(0, 1, sizeof b1);
+          memcpy(f, b2, sizeof b2); (void)sim_block_write(0, 2, sizeof b2);
+          memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "FOLLOW      ", 12); f[40] = 2; f[48] = 5;
+          f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 64; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 64;   /* two rows of 64 steps */
+          CHECK(sim_song_record_write(0) == 0, "follow: test song stored"); }
+        CHECK(sim_song_load(0) == 0, "follow: song loaded");
+        groove_clock_set(1);                                      /* CLOCK = MIDI */
+        CHECK(sim_song_play() == 0, "follow: PLAY with CLOCK = MIDI arms the song (it used to refuse)");
+        for (int i = 0; i < 4; ++i) (void)sim_render();
+        CHECK(FOLLOW() == ARMED && (sim_song_status(0) >> 8 & 255U) == 1, "follow: armed, waiting for Start (state %u)", FOLLOW());
+        /* No clock yet: pulses without a Start never start it (the song is armed, the master has not started). */
+        MASTER_SET(120); for (int i = 0; i < 60; ++i) BLOCK_RUN();
+        { struct message m0[64]; unsigned n0 = drain(m0, 64), p0; CHECK(!count(m0, n0, 0x94, 61, 100, &p0) && FOLLOW() == ARMED && sim_song_units() == 0, "follow: pulses alone do not start an armed song (position %u)", sim_song_units()); }
+        /* Start: from the first pulse after it. */
+        SEND1(0xfa); pulses_sent = 0; (void)drain(mm, 64);
+        unsigned first_note_block = 0, blocks = 0, block_at_pulse24 = 0, note62_block = 0;
+        uint32_t pulses_at_start = pulses_sent;
+        for (; blocks < 400 && !(first_note_block && note62_block); ++blocks) {
+            unsigned before = pulses_sent; BLOCK_RUN();
+            if (pulses_sent == before + 1 && pulses_sent - pulses_at_start == 25) block_at_pulse24 = blocks;
+            pn = drain(mm, 64); unsigned pp;
+            if (!first_note_block && count(mm, pn, 0x94, 60, 100, &pp)) first_note_block = blocks + 1;
+            if (!note62_block && count(mm, pn, 0x94, 62, 90, &pp)) note62_block = blocks + 1;
+        }
+        CHECK(FOLLOW() == RUNNING, "follow: Start then pulses: running (state %u)", FOLLOW());
+        CHECK(first_note_block >= 1 && first_note_block <= 12, "follow: the step-0 note leaves with the first pulse (block %u)", first_note_block);
+        { int d = (int)note62_block - (int)block_at_pulse24; if (d < 0) d = -d;
+          CHECK(note62_block && d <= 3, "follow: step 4 (the 25th pulse: the first is position 0) leaves within 3 blocks of its pulse (%u vs %u)", note62_block, block_at_pulse24); }
+        /* The position follows the pulses, and a tempo change (120 to 90 to 150 BPM) is followed. */
+        unsigned base_pulses = pulses_sent; uint32_t base_units = sim_song_units();
+        MASTER_SET(90); for (int i = 0; i < 700; ++i) BLOCK_RUN();
+        { int32_t want = (int32_t)(base_units + (pulses_sent - base_pulses) * 80U), got = (int32_t)sim_song_units(), e = got - want;
+          CHECK(e > -90 && e < 90, "follow: after a change to 90 BPM the position is within one pulse of the pulses (%d units off over %u pulses)", e, pulses_sent - base_pulses); }
+        MASTER_SET(150); for (int i = 0; i < 500; ++i) BLOCK_RUN();
+        { int32_t want = (int32_t)(base_units + (pulses_sent - base_pulses) * 80U), got = (int32_t)sim_song_units(), e = got - want;
+          CHECK(e > -90 && e < 90, "follow: after 150 BPM the position is within one pulse (%d units off over %u pulses)", e, pulses_sent - base_pulses); }
+        CHECK(FOLLOW() == RUNNING && sim_song_status(2) == 0, "follow: still running, no underrun (%u)", sim_song_status(2));
+        /* Missed pulses: 4 periods of silence: HELD, notes released, no advance; pulses back inside 2 s: relock. */
+        MASTER_SET(120); for (int i = 0; i < 30; ++i) BLOCK_RUN();
+        uint32_t held_at = sim_song_units();
+        (void)drain(mm, 64);
+        for (int i = 0; i < 40; ++i) BLOCK_SILENT();             /* 40 blocks = 5.5 pulses of 120 BPM */
+        CHECK(FOLLOW() == HELD, "follow: 3 missed pulses: HELD (state %u)", FOLLOW());
+        { uint32_t u = sim_song_units(); CHECK(u >= held_at && u <= held_at + 80, "follow: HELD does not advance (%u -> %u)", held_at, u); }
+        { int on = 0, off = 0; for (int i = 0; i < 4; ++i) BLOCK_SILENT(); pn = drain(mm, 64);
+          for (unsigned k = 0; k < pn && k < 64; ++k) { if ((mm[k].data[0] & 0xf0U) == 0x90 && mm[k].data[2]) ++on; if ((mm[k].data[0] & 0xf0U) == 0x80 || ((mm[k].data[0] & 0xf0U) == 0x90 && !mm[k].data[2])) ++off; }
+          CHECK(on == 0, "follow: no note starts while held (%d)", on); (void)off; }
+        uint32_t held_units = sim_song_units();
+        for (int i = 0; i < 20; ++i) BLOCK_RUN();                  /* the pulses are back after about 0.2 s */
+        CHECK(FOLLOW() == RUNNING, "follow: pulses back inside 2 s without Stop: relocked (state %u)", FOLLOW());
+        { uint32_t u = sim_song_units(); CHECK(u > held_units && u < held_units + 6 * 80 + 80, "follow: it goes on from the held position, not from where the clock would be (%u -> %u)", held_units, u); }
+        /* A gap of 2 s or more: LOST; pulses alone never restart; Continue does. */
+        for (int i = 0; i < 40; ++i) BLOCK_SILENT();
+        for (int i = 0; i < 700; ++i) BLOCK_SILENT();             /* > 2 s */
+        CHECK(FOLLOW() == LOST, "follow: a gap over 2 s: LOST (state %u)", FOLLOW());
+        uint32_t lost_units = sim_song_units();
+        for (int i = 0; i < 100; ++i) BLOCK_RUN();
+        CHECK(FOLLOW() == LOST && sim_song_units() == lost_units, "follow: clock pulses alone do not restart a LOST song (state %u, %u -> %u)", FOLLOW(), lost_units, sim_song_units());
+        SEND1(0xfb); for (int i = 0; i < 40; ++i) BLOCK_RUN();
+        CHECK(FOLLOW() == RUNNING && sim_song_units() > lost_units, "follow: Continue restarts it from the held position (state %u, %u -> %u)", FOLLOW(), lost_units, sim_song_units());
+        /* Stop always wins. */
+        (void)drain(mm, 64);
+        SEND1(0xfc); for (int i = 0; i < 30; ++i) BLOCK_RUN();
+        CHECK(FOLLOW() == STOPPED, "follow: Stop: stopped (state %u)", FOLLOW());
+        uint32_t stop_units = sim_song_units(); for (int i = 0; i < 60; ++i) BLOCK_RUN();
+        CHECK(sim_song_units() == stop_units && FOLLOW() == STOPPED, "follow: pulses after a Stop do not move the song (%u -> %u)", stop_units, sim_song_units());
+        /* Song position pointer while stopped, then Continue: the song goes on from the new position. */
+        sim_file()[0] = 0xf2; sim_file()[1] = 64; sim_file()[2] = 0; (void)sim_midi_from(0, 3);   /* SPP 64 = row 2 (64 steps in) */
+        for (int i = 0; i < 40; ++i) BLOCK_RUN();
+        CHECK(FOLLOW() == STOPPED && sim_song_units() == 64U * 480U && (sim_song_status(0) >> 16 & 255U) == 1,
+              "follow: SPP while stopped moves to row 2 (units %u, row %u) and stays stopped", sim_song_units(), sim_song_status(0) >> 16 & 255U);
+        (void)drain(mm, 64);
+        SEND1(0xfb); unsigned e_block = 0;
+        for (int i = 0; i < 60; ++i) { BLOCK_RUN(); pn = drain(mm, 64); unsigned pp; if (!e_block && count(mm, pn, 0x94, 64, 80, &pp)) e_block = (unsigned)i + 1; }
+        CHECK(FOLLOW() == RUNNING && e_block && e_block <= 12, "follow: Continue after SPP starts row 2's note at its first pulse (block %u)", e_block);
+        /* SPP while running jumps; to the middle of a row: row 1 step 4. */
+        sim_file()[0] = 0xf2; sim_file()[1] = 4; sim_file()[2] = 0; (void)sim_midi_from(0, 3);
+        for (int i = 0; i < 40; ++i) BLOCK_RUN();
+        CHECK(FOLLOW() == RUNNING && (sim_song_status(0) >> 16 & 255U) == 0 && sim_song_units() >= 4U * 480U && sim_song_units() < 4U * 480U + 600U,
+              "follow: SPP while running jumps back to step 4 of row 1 (units %u)", sim_song_units());
+        /* Start from the middle restarts at the beginning; the song runs to its end and arms again. */
+        SEND1(0xfa); for (int i = 0; i < 60; ++i) BLOCK_RUN();
+        CHECK(FOLLOW() == RUNNING && sim_song_units() < 800U, "follow: Start restarts from the beginning (units %u)", sim_song_units());
+        sim_file()[0] = 0xf2; sim_file()[1] = 120; sim_file()[2] = 0; (void)sim_midi_from(0, 3);   /* SPP 120: eight steps from the end */
+        for (int i = 0; i < 6000 && FOLLOW() != ARMED; ++i) BLOCK_RUN();
+        for (int i = 0; i < 200; ++i) BLOCK_RUN();
+        CHECK((sim_song_status(0) >> 8 & 255U) == 1 && (FOLLOW() == ARMED || FOLLOW() == WAITING), "follow: at the song end it arms again for the next Start (state %u)", FOLLOW());
+        /* PLAY while following stops it; back to the internal clock everything is as before. */
+        (void)drain(mm, 64);
+        sim_song_stop(); for (int i = 0; i < 30; ++i) BLOCK_SILENT();
+        CHECK((sim_song_status(0) >> 8 & 255U) == 0 && FOLLOW() == 0, "follow: PLAY (stop) leaves follow mode (state %u)", FOLLOW());
+        groove_clock_set(0);
+        #undef MASTER_SET
+        #undef SEND1
+        #undef FOLLOW
+        #undef BLOCK_RUN
+        #undef BLOCK_SILENT
+        sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

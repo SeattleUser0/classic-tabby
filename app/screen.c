@@ -4,6 +4,8 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.10 2026-11-12  Task 16 Goal 3: the SONG page shows the follow state (ARMED: START?, WAIT PULSE, FOLLOWING, HOLD: NO
+ *                     CLOCK, LOST - CONTINUE, STOP BY MASTER) when CLOCK = MIDI; PLAY arms instead of refusing.
  *   v0.9  2026-11-11  Task 16 Goal 4: stale screen texts: "K2 CLK IN AUTO USB BLE" (DIN receives nothing), "ERASE OLD DATA"
  *                     (was ERASE OLD SAMPLE DATA), "SEQ+EDIT: ACTIONS" (was HOLD SEQ: ACTIONS), the SHIFT
  *                     list's "PAD/STEP KEY-PAD", the unused STEP knob label. No behaviour changes.
@@ -852,7 +854,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         if (visible == SONG || visible == TRACK_LAUNCH) {
             struct song_status st; song_status_read(&st);
             sig = signature(sig, &st, sizeof st);
-            sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24);
+            sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24) + (song_follow_state() << 27);   /* Task 16: the follow state */
         }
         if (visible == ARP_EDIT) {
             sig = sig * 33U + track + (groove_arp_enabled(track) << 8) + (arp_page << 9);
@@ -934,6 +936,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             dim_text(118, 70, "/"); small_number(124, 70, r->repeat, 2, TEXT);
             dim_text(150, 70, "BAR"); small_number(174, 70, st.step / 16U + 1U, 1, TEXT);
             dim_text(186, 70, "/"); small_number(192, 70, (r->steps ? r->steps : 64U) / 16U, 1, TEXT);
+            if (st.playing == 1 && st.follow) {
+                /* Task 16 Goal 3: CLOCK = MIDI: the song follows the master (SPEC 19.3). */
+                static const char *const fol[] = {"", "ARMED: START?", "PREPARING", "WAIT PULSE", "FOLLOWING", "HOLD: NO CLOCK", "LOST - CONTINUE", "STOP BY MASTER"};
+                color_text(8, 88, fol[st.follow < 8 ? st.follow : 0], st.follow == 4 ? GREEN : st.follow == 5 || st.follow == 6 ? AMBER : DIM);
+            } else
             color_text(8, 88, st.playing == 2 ? "STOPPING" : st.playing ? "PLAYING" : "STOPPED - PLAY STARTS", st.playing ? GREEN : DIM);
             if (st.queued != SONG_NONE) { dim_text(104, 88, "JUMP TO ROW"); small_number(176, 88, st.queued + 1U, 3, AMBER); }
             else if (st.playing && st.next_row != SONG_NONE) { dim_text(104, 88, "NEXT ROW"); small_number(158, 88, st.next_row + 1U, 3, TEXT); }
@@ -1716,7 +1723,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 if (song_loaded() != song_select) (void)song_load(song_select);
                 int r = song_play();
                 if (r == SONG_EMPTY) announce("NO SONG - UPLOAD FROM WORKBENCH", now + 2000U);
-                else if (r == SONG_INVALID) announce("SONG NEEDS INTERNAL CLOCK", now + 2000U);
+                else if (r == SONG_INVALID) announce("SONG CANNOT START", now + 2000U);
                 else if (r) announce("SONG STORAGE BUSY", now + 2000U);
                 else { struct groove_view view; groove_get_view(track, cursor, &view);
                        if (view.playing && !post(0xfc, 0, 0, 1)) return 0; } /* stock patterns stop */
@@ -1747,7 +1754,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 if (song_loaded() != song_select) (void)song_load(song_select);
                 int r = song_play();
                 if (r == SONG_EMPTY) announce("NO SONG - UPLOAD FROM WORKBENCH", now + 2000U);
-                else if (r == SONG_INVALID) announce("SONG NEEDS INTERNAL CLOCK", now + 2000U);
+                else if (r == SONG_INVALID) announce("SONG CANNOT START", now + 2000U);
                 else if (r) announce("SONG STORAGE BUSY", now + 2000U);
                 else { struct groove_view view; groove_get_view(track, cursor, &view);
                        if (view.playing && !post(0xfc, 0, 0, 1)) return 0; }

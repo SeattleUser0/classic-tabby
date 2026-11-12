@@ -41,9 +41,12 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.9
+Version: 0.11
 
 Revision log
+    v0.11 2026-11-12  set_a2 retries four times before it says the firmware has no A2.
+    v0.10 2026-11-11  Task 16: soak --probe-writes: STOP TO SAVE checked on the device (a save and an upload while the
+                      song plays are refused with code 76).
     v0.9  2026-11-11  Task 16: --play N starts song N by remote command 29 (nobody presses PLAY) and stops it
                       before the capture ends; works with l2 and soak on tabby-v04.2 and later.
     v0.1  2026-11-10  Task 15 Step 4: first version (written before the device was available; the
@@ -233,7 +236,12 @@ class Rec:
 
 
 def set_a2(l, want):
-    a = l.a2(9 if want == "on" else 8) if want in ("on", "off") else l.a2(7)
+    a = None
+    for _ in range(4):            # v0.11: one refused or lost query is not "no A2" (the run after a stopped song saw one)
+        a = l.a2(9 if want == "on" else 8) if want in ("on", "off") else l.a2(7)
+        if a is not None:
+            break
+        time.sleep(1.5)
     if a is None:
         raise SystemExit("this firmware has no A2 (command 25 request 7 refused): install tabby-v04.2-diagA2")
     if want in ("on", "off") and a["on"] != (want == "on"):
@@ -244,7 +252,7 @@ def set_a2(l, want):
 def capture(a, soak=False):
     din = T.Monitor(a.din); din.start()
     l = T.Link()
-    usb = []; log = []; stopped = None
+    usb = []; log = []; stopped = None; probed = False; res_probe = []
     cap = None
     try:
         state = set_a2(l, a.a2)
@@ -285,6 +293,17 @@ def capture(a, soak=False):
                 l.diag(1); before = l.health()
                 t0 = time.monotonic(); end = t0 + a.seconds
                 print("song started again; counters reset; recording %d s from here" % a.seconds, flush=True)
+            if soak and a.probe_writes and not probed and time.monotonic() - t0 >= 30:
+                # v0.10 (Task 16): STOP TO SAVE: while the song plays, a project save (command 7) and a song
+                # upload (command 3, kind 5) must be refused with code 76 and write nothing.
+                probed = True
+                for name, cmd, pay in (("project save slot 1", 7, bytes([0])), ("song upload begin (kind 5)", 3, bytes([5, 3, 0, 16]))):
+                    try:
+                        l.query(cmd, pay, attempts=1, timeout=3)
+                        res_probe.append("%s: ACCEPTED while playing (BAD)" % name)
+                    except T.DeviceError as e:
+                        res_probe.append("%s: refused, code %d%s" % (name, e.code, " (as expected)" if e.code == 76 else " (UNEXPECTED)"))
+                for s_ in res_probe: print("probe: " + s_, flush=True); log.append("probe: " + s_)
             if soak and time.monotonic() >= next_log:
                 next_log += a.every
                 h = l.health(); s = l.a2(7); d = l.diag(0)
@@ -435,6 +454,7 @@ def main():
     p.add_argument("--every", type=float, default=60, help="soak: seconds between log lines")
     p.add_argument("--stop-on-rise", action="store_true", help="soak: stop at the first rise of underruns, DMA overruns or CPU GUARD")
     p.add_argument("--guard-rate", type=float, default=1.5, help="soak: CPU GUARD trips per second that stop it")
+    p.add_argument("--probe-writes", action="store_true", help="v0.10: soak: 30 s in, try a project save and a song upload while playing (both must be refused, code 76)")
     p.add_argument("--play", type=int, default=0, help="v0.9: start this song (1 to 16, as on the screen) by remote command 29, and stop it at the end")
     p.add_argument("--audio", default="", help="AUDIO4c input channels to record, e.g. 0,1")
     p.add_argument("--din", default="H4MIDI-WC Port 1")

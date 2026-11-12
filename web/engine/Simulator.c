@@ -355,6 +355,7 @@ EXPORT("sim_song_status") uint32_t sim_song_status(unsigned word)
     if (word == 2) return st.underruns | (uint32_t)st.late << 16;   /* Task 04: late count in the high half */
     if (word == 3) return st.events;
     if (word == 4) return st.bar | (uint32_t)st.bar_step << 16 | (uint32_t)st.song_over << 24;   /* Task 06: the master clock */
+    if (word == 5) return st.follow;   /* Task 16: external clock follow state (song.h) */
     return st.song | (uint32_t)st.playing << 8 | (uint32_t)st.row << 16 | (uint32_t)st.step << 24;
 }
 EXPORT("sim_control") void sim_control(unsigned kind, unsigned index, int value)

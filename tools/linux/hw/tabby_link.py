@@ -268,7 +268,7 @@ class Link:
             raise DeviceError(-1)
         return {"page": d[1], "page_name": self.PAGES.get(d[1], str(d[1])), "song_state": d[2], "loaded": d[3],
                 "row": d[4], "queued": d[5], "a2": d[6], "shift": d[7], "transport": d[8], "bar": d[9] | d[10] << 8,
-                "action": d[11]}
+                "action": d[11], "follow": d[12] if len(d) > 12 else 0}
 
     def remote_status(self):
         return self.remote(0)

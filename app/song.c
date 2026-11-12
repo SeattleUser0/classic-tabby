@@ -62,15 +62,19 @@
  *   Each buffer is filled by control only while its ready flag is 0 and read by audio only
  *   while it is 1 (a playing buffer keeps ready = 1 until it is swapped out).
  *
- *   Known limits: internal clock only (song mode refuses to start in MIDI clock mode); the
- *   alt-tuning bit of a step is stored but not applied. The look-ahead fires the notes of
+ *   Known limits: (v0.6: with CLOCK = MIDI the song follows the external clock, see the follow
+ *   section below; the engine's pattern sequencer does not see the clock then); the alt-tuning bit of a step is stored but not applied. The look-ahead fires the notes of
  *   the frame it expects; a queue or jump placed after that lands elsewhere and those few
  *   notes play anyway (their note-offs follow as usual). A hand-edited note due at or past
  *   its pattern's end (offset +240 on the last step) fires one unit before the end.
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-12  Task 16 Goal 3: external clock follow (SPEC 19.3): with CLOCK = MIDI a song follows the
+ *                     incoming MIDI clock, Start, Stop, Continue and Song Position Pointer (song_clock_in), holds
+ *                     after 3 missed pulses, relocks inside 2 s, shows LOST after that; the transport is the
+ *                     master's. Internal-clock behaviour is unchanged.
  *   v0.5  2026-11-08  Task 12 A1/A3: ct_transport_running() (song or stock transport).
  *   v0.4  2026-11-04  Task 06: per-track playheads (master clock, per-track frames and
  *                     buffers, launch / stop / back-to-song queues landing on bars, scene
@@ -170,6 +174,41 @@ static struct stream streams[1 + SONG_TRACKS];
 static uint8_t armed[2], streamed[2], armed_row[2];
 static uint8_t tstreamed[SONG_TRACKS], seen_kind[SONG_TRACKS], seen_row[SONG_TRACKS];
 static volatile unsigned late_count, setup_request;   /* audio -> control, control -> audio */
+
+/* ---- Task 16 Goal 3: external clock follow (SPEC 19.3) -----------------------------------------------
+ * With CLOCK = MIDI (SYNC / MIDI, K1) PLAY ARMS the song instead of refusing: the buffers of row 0 are
+ * decoded and the song waits for the master's Start (FA) or Continue (FB). From then on the transport is
+ * the master's:
+ *   - every clock pulse (F8, 24 per quarter note = 80 units) moves the song 80 units; between two pulses
+ *     the song moves at the pulse period estimated from the last pulses, nudged by a quarter of its
+ *     phase error per block (so one block of arrival jitter does not become note jitter);
+ *   - Start (FA): from the beginning, at the first pulse after it; Continue (FB): from the held position
+ *     at the next pulse; Stop (FC): note-offs for everything that sounds, position kept, ALWAYS wins;
+ *   - Song Position Pointer (F2, in 16th notes = steps = 480 units): accepted stopped and running; the
+ *     control task decodes the row that holds the position (song_locate) and the audio thread restarts the
+ *     frames at it; a running song goes on at the next pulse, a stopped one waits for Continue;
+ *   - 3 missed pulses (no pulse for 3.5 periods): the song stops advancing and sends note-offs (HELD);
+ *     pulses back within 2 s without a Stop: relock and go on from the held position; a gap of 2 s or more:
+ *     LOST, and clock pulses alone never restart it: only Continue or Start do.
+ * Threads: the routing task (MIDI-in callback) counts pulses (ext_pulses, one writer) and queues the other
+ * messages in a ring with the pulse count at their arrival (so a Start keeps its place among the pulses);
+ * the audio thread (ext_block, once per block) owns the state machine; the control task (song_poll) only
+ * decodes when the audio thread asks for a position (ext_prep_*). Nothing here is built into a song that
+ * does not follow: follow_on is 0 and every path below is skipped. */
+enum { EXT_OFF, EXT_IDLE, EXT_PREP, EXT_WAIT, EXT_RUN, EXT_HELD, EXT_LOST, EXT_STOP };
+enum { EXT_PULSE_UNITS = UNITS / 6, EXT_RELOCK_BLOCKS = 2 * 44100 / 128, EXT_ADV_MAX = 28 };
+enum { EXT_MSG_START = 1, EXT_MSG_CONTINUE = 2, EXT_MSG_STOP = 3, EXT_MSG_SPP = 4 };
+struct ext_msg { uint16_t arg; uint8_t kind; uint32_t pulses; };
+static volatile unsigned follow_on, ext_state, user_stop;     /* follow_on / user_stop: control; ext_state: audio */
+static volatile uint32_t ext_pulses;                           /* routing task: F8 count */
+static volatile struct ext_msg ext_ring[8];
+static volatile unsigned ext_wr, ext_rd;
+static volatile unsigned ext_prep_request, ext_prep_done, ext_prep_steps, ext_after_resume, ext_start_row, ext_start_repeat, ext_start_step;
+static volatile uint32_t ext_pos;                              /* units: where the prepared buffers start */
+static volatile uint32_t ext_resume_at;
+static int32_t ext_frac;
+static uint32_t ext_block_no, ext_seen, ext_last_block, ext_ref_pulses, ext_ref_master, ext_period_q8 = 7U * 256U, ext_adv;
+static unsigned ext_stay_state, ext_use_adv;
 
 static FM1_AUDIO_CODE void barrier(void)
 {
@@ -401,7 +440,7 @@ static FM1_AUDIO_CODE void prefire_track(unsigned t, unsigned tempo, uint32_t m0
 static FM1_AUDIO_CODE void stop_now(void)
 {
     release_all();
-    playing = 0; master = 0; song_over = 0;
+    playing = 0; master = 0; song_over = 0; ext_use_adv = 0; ext_state = EXT_OFF;
     for (unsigned s = 0; s <= SONG_TRACKS; ++s) streams[s].active = 0;
     groove_midi_transport(0, 0xfc);
 }
@@ -490,8 +529,9 @@ static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
  * inside the window and the look-ahead into the frames that follow. */
 static FM1_AUDIO_CODE void tick(unsigned tempo)
 {
-    acc += tempo * ADV_MUL;
-    unsigned adv = acc / ADV_DIV; acc %= ADV_DIV;
+    unsigned adv;
+    if (ext_use_adv) adv = ext_adv;           /* Task 16: a follow song advances as the clock pulses say (ext_block) */
+    else { acc += tempo * ADV_MUL; adv = acc / ADV_DIV; acc %= ADV_DIV; }
     uint32_t m0 = master, m1 = master + adv, bar = next_bar(m0), sbd;
     unsigned snext = song_next(m0, &sbd);
     prefire(tempo, m0, sbd, snext);
@@ -589,6 +629,100 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         }
     master = m1;
 }
+
+/* ---- external clock follow, audio thread (Task 16 Goal 3) ---------------------------------------------- */
+/* Release everything that sounds (note-offs into lane 0), as a Stop or a hold must. */
+static FM1_AUDIO_CODE void ext_prepare(uint32_t units, unsigned resume)
+{
+    release_all();
+    ext_state = EXT_PREP;
+    ext_after_resume = resume;
+    ext_prep_steps = units / UNITS;
+    barrier();
+    ext_prep_request = 1;
+}
+/* Accept a resume (Start or Continue): wait for the first pulse after the message. The first pulse is the
+ * resume point (position ext_ref_master); the pulses after it add EXT_PULSE_UNITS each. */
+static FM1_AUDIO_CODE void ext_resume(uint32_t at_pulses)
+{
+    ext_state = EXT_WAIT;
+    ext_ref_pulses = at_pulses + 1U; ext_ref_master = master; ext_seen = at_pulses; ext_last_block = ext_block_no;
+}
+static FM1_AUDIO_CODE void ext_message(const struct ext_msg *m)
+{
+    switch (m->kind) {
+    case EXT_MSG_START:
+        release_all();
+        if (ext_state == EXT_IDLE && ext_pos == 0) { master = 0; ext_resume(m->pulses); }
+        else { ext_resume_at = m->pulses; ext_prepare(0, 1); }
+        break;
+    case EXT_MSG_CONTINUE:
+        if (ext_state == EXT_PREP) { ext_after_resume = 1; ext_resume_at = m->pulses; }
+        else if (ext_state == EXT_IDLE || ext_state == EXT_STOP || ext_state == EXT_HELD || ext_state == EXT_LOST) ext_resume(m->pulses);
+        break;
+    case EXT_MSG_STOP:                                   /* Stop always wins */
+        release_all();
+        if (ext_state == EXT_PREP) ext_after_resume = 0;
+        else if (ext_state != EXT_IDLE) ext_state = EXT_STOP;
+        break;
+    case EXT_MSG_SPP: {
+        unsigned running = ext_state == EXT_RUN || ext_state == EXT_WAIT || ext_state == EXT_HELD;
+        if (ext_state == EXT_PREP) { ext_after_resume = ext_after_resume || running; ext_prep_steps = m->arg; ext_prep_request = 1; break; }
+        ext_stay_state = ext_state == EXT_IDLE ? EXT_IDLE : EXT_STOP;
+        ext_resume_at = m->pulses;
+        ext_prepare((uint32_t)m->arg * UNITS, running);
+        break; }
+    }
+}
+/* Once per block, from song_tick while a follow song plays. Returns 1 when this block advances the song
+ * (ext_adv units, *tempo for the look-ahead), 0 when it does not. */
+static FM1_AUDIO_CODE int ext_block(unsigned *tempo)
+{
+    ++ext_block_no;
+    uint32_t pulses = ext_pulses;
+    while (ext_rd != ext_wr) {
+        struct ext_msg m;
+        m.arg = ext_ring[ext_rd & 7U].arg; m.kind = ext_ring[ext_rd & 7U].kind; m.pulses = ext_ring[ext_rd & 7U].pulses;
+        ++ext_rd;
+        ext_message(&m);
+    }
+    if (ext_state == EXT_PREP || ext_state == EXT_IDLE || ext_state == EXT_STOP) { ext_seen = pulses; return 0; }
+    uint32_t newp = pulses - ext_seen;
+    if (ext_state == EXT_LOST) { ext_seen = pulses; ext_last_block = ext_block_no; return 0; }
+    if (ext_state == EXT_WAIT) {
+        if (pulses < ext_ref_pulses) return 0;           /* the first pulse after the message has not come */
+        ext_state = EXT_RUN; ext_last_block = ext_block_no; ext_seen = pulses; ext_frac = 0; newp = 0;
+    } else if (newp) {
+        uint32_t gap = ext_block_no - ext_last_block;
+        if (ext_state == EXT_HELD) {                    /* pulses are back inside the 2 s: relock, go on from the hold */
+            ext_state = EXT_RUN; ext_ref_pulses = pulses; ext_ref_master = master; ext_frac = 0;
+        } else {
+            uint32_t per = (gap << 8) / newp;
+            if (per >= 2U * 256U && per <= 60U * 256U) ext_period_q8 = (uint32_t)((int32_t)ext_period_q8 + ((int32_t)per - (int32_t)ext_period_q8) / 8);
+        }
+        ext_last_block = ext_block_no; ext_seen = pulses;
+    } else {
+        uint32_t gap = ext_block_no - ext_last_block;
+        if (ext_state == EXT_RUN && gap * 256U > ext_period_q8 * 7U / 2U) { release_all(); ext_state = EXT_HELD; }
+        if (ext_state == EXT_HELD && gap >= EXT_RELOCK_BLOCKS) ext_state = EXT_LOST;
+        if (ext_state != EXT_RUN) return 0;
+    }
+    /* RUN: the predicted position and the advance toward it. */
+    uint32_t frac = ((ext_block_no - ext_last_block) * 256U * EXT_PULSE_UNITS) / ext_period_q8;
+    if (frac > EXT_PULSE_UNITS - 1U) frac = EXT_PULSE_UNITS - 1U;
+    int32_t pred = (int32_t)(ext_ref_master + (pulses - ext_ref_pulses) * EXT_PULSE_UNITS + frac);
+    int32_t err = pred - (int32_t)master;
+    int32_t q8 = (int32_t)((EXT_PULSE_UNITS << 16) / ext_period_q8) + err * 64;   /* nominal + a quarter of the error, units x 256 */
+    ext_frac += q8;
+    int32_t adv = ext_frac >> 8;
+    ext_frac -= adv * 256;
+    if (adv < 0) { adv = 0; ext_frac = 0; }
+    if (adv > EXT_ADV_MAX) { adv = EXT_ADV_MAX; ext_frac = 0; }
+    ext_adv = (uint32_t)adv;
+    unsigned bpm = 220500U / ext_period_q8;
+    *tempo = bpm < 30U ? 30U : bpm > 300U ? 300U : bpm;
+    return 1;
+}
 FM1_AUDIO_CODE unsigned song_tempo(void) { return playing ? tempo_override : 0; }
 #if defined(FM1_HOST_TEST) || defined(FM1_OPEN_WEB)
 /* Simulator and host tests only: the master position in units and the advance remainder,
@@ -602,23 +736,36 @@ FM1_AUDIO_CODE void song_tick(unsigned tempo)
         /* The caller read song_tempo() before `playing` was set: the first block must
          * already advance at the song's own tempo (an exact-clock requirement, 9.12). */
         if (tempo_override) tempo = tempo_override;
+        unsigned fol = follow_on;                  /* Task 16: a follow song starts at a position (ext_pos) and waits for the clock */
+        uint32_t from = fol ? ext_pos : 0, offset = fol ? ext_start_step * UNITS : 0;
+        unsigned fresh = !fol || (!ext_start_step && !ext_start_repeat);
+        if (fol) release_all();
         memset(sounding_count, 0, sizeof sounding_count);
-        master = 0; acc = 0; repeat = 0; song_over = 0; song_start = 0;
+        master = from; acc = 0; repeat = fol ? ext_start_repeat : 0; song_over = 0; song_start = from - offset;
         song_len = rowset[0].steps * UNITS;
         playing = 1;
-        groove_midi_transport(0, 0xfa);
+        if (!fol) groove_midi_transport(0, 0xfa);
         /* Row 0's events go out before its first notes; no lead exists at PLAY (SEND
          * SETUP is the way to send them early), so this is not counted as late. Its
-         * step-0 notes with a negative offset play at the start and are (9.12). */
+         * step-0 notes with a negative offset play at the start and are (9.12). A follow
+         * start in the middle of a row sends no row events. */
         for (unsigned s = 0; s <= SONG_TRACKS; ++s) streams[s].active = 0;
-        armed[0] = 1; armed_row[0] = rowset[0].row; armed[1] = 0; streamed[0] = 1; stream_begin(0, 0, 0); stream_run_one(&streams[0]);
+        armed[0] = 1; armed_row[0] = rowset[0].row; armed[1] = 0; streamed[0] = 1;
+        if (fresh) { stream_begin(0, 0, 0); stream_run_one(&streams[0]); }
         memset(roll_step, 255, sizeof roll_step);
         for (unsigned t = 0; t < SONG_TRACKS; ++t) {
             struct track *k = &tr[t];
-            k->cur = 0; k->state = 0; k->pass = 0; k->waiting = 0; k->row = 0; k->start = 0; k->len = song_len;
+            k->cur = 0; k->state = 0; k->pass = 0; k->waiting = 0; k->row = 0; k->start = song_start; k->len = song_len;
             tbuf[t][0].look_from = tbuf[t][1].look_from = LOOK_NONE;
             tstreamed[t] = 0; seen_kind[t] = Q_NONE; seen_row[t] = 0;
-            enter_frame(t, 0, 0, 1);
+            enter_frame(t, 0, 0, fresh);
+        }
+        if (fol) {
+            ext_use_adv = 1; ext_prep_done = 1;
+            if (ext_after_resume) ext_resume(ext_resume_at);
+            else ext_state = ext_stay_state == EXT_STOP ? EXT_STOP : EXT_IDLE;
+            ext_stay_state = EXT_IDLE;
+            return;
         }
         tick(tempo);
         return;
@@ -630,6 +777,7 @@ FM1_AUDIO_CODE void song_tick(unsigned tempo)
         return;
     }
     if (stop_request) { stop_request = 0; stop_now(); return; }
+    if (follow_on && !ext_block(&tempo)) return;   /* Task 16: held, stopped, waiting for a pulse or for a position */
     stream_run();
     tick(tempo);
 }
@@ -747,12 +895,60 @@ static void leave_song(void)
     ct_midi_flush();   /* Task 12 A4 */
     groove_midi_song_channels(NULL);
     state = 0; jump_row = SONG_NONE;
+    follow_on = 0; user_stop = 0; ext_state = EXT_OFF; ext_prep_request = 0;   /* Task 16 */
     memset((void *)queue_kind, 0, sizeof queue_kind);
+}
+/* Task 16: where does 16th-note position `steps` (counted from the start of the song, rows with their
+ * repeats, loops followed) fall: row, repeat inside the row, step inside the repeat. A position past the
+ * end of a song that does not loop clamps to its last step. Returns the (clamped) position in steps. */
+static unsigned song_locate(unsigned steps, unsigned *row, unsigned *rep, unsigned *step)
+{
+    unsigned r = 0, base = 0, last_row = 0, last_rep = 0, last_step = 0, last_pos = 0;
+    for (unsigned guard = 0; guard < 2048 && r != SONG_NONE && r < record.rows; ++guard) {
+        const struct song_row *w = &record.row[r];
+        unsigned len = w->steps ? w->steps : SONG_BLOCK_STEPS, reps = w->repeat ? w->repeat : 1U, total = len * reps;
+        last_row = r; last_rep = reps - 1U; last_step = len - 1U; last_pos = base + total - 1U;
+        if (steps - base < total) { *row = r; *rep = (steps - base) / len; *step = (steps - base) % len; return steps; }
+        base += total;
+        r = natural_next(r);
+    }
+    *row = last_row; *rep = last_rep; *step = last_step;
+    return last_pos;
+}
+/* Decode the song's buffers at 16th-note position `steps` and ask the audio thread to start there (a follow
+ * song: it then waits for the clock). Control task. */
+static int song_prepare(unsigned steps)
+{
+    unsigned row, rep, step;
+    steps = song_locate(steps, &row, &rep, &step);
+    rowset[0].ready = rowset[1].ready = 0;
+    for (unsigned t = 0; t < SONG_TRACKS; ++t) { tbuf[t][0].ready = tbuf[t][1].ready = 0; tr[t].cur = 0; tr[t].state = 0; tr[t].waiting = 0; }
+    cur = 0; jump_row = SONG_NONE; setup_request = 0; song_over = 0;
+    memset((void *)queue_kind, 0, sizeof queue_kind);
+    ct_midi_flush();
+    for (unsigned t = 0; t < SONG_TRACKS; ++t) decode_track(t, &tbuf[t][0], row, P_SONG);
+    decode_rowinfo(&rowset[0], row);
+    unsigned next = natural_next(row);
+    song_end = next == SONG_NONE && !rowset[0].loop_here;
+    if (next != SONG_NONE) {
+        for (unsigned t = 0; t < SONG_TRACKS; ++t) decode_track(t, &tbuf[t][1], next, P_SONG);
+        decode_rowinfo(&rowset[1], next);
+    }
+    ext_pos = (uint32_t)steps * UNITS; ext_start_row = row; ext_start_repeat = rep; ext_start_step = step;
+    barrier();
+    start_request = 1;
+    return 0;
 }
 void song_poll(void)
 {
     if (!state) return;
-    if (!playing) { if (!start_request) leave_song(); return; } /* stopped or ended */
+    if (follow_on && ext_prep_request) { ext_prep_request = 0; (void)song_prepare(ext_prep_steps); return; }   /* Task 16 */
+    if (follow_on && groove_clock_mode() == GROOVE_CLOCK_INTERNAL && !user_stop) { user_stop = 1; stop_request = 1; }   /* the clock source was switched away */
+    if (!playing) {
+        if (start_request) return;
+        if (follow_on && !user_stop && state == 1) { ext_after_resume = 0; ext_stay_state = EXT_IDLE; (void)song_prepare(0); return; }   /* a follow song ended: arm again */
+        leave_song(); return;                                                                /* stopped or ended */
+    }
     if (state == 2) return;
     /* Each track's free buffer: what it will need next (one block read per decode). */
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
@@ -792,7 +988,7 @@ int song_play(void)
 {
     if (loaded == SONG_NONE) return SONG_EMPTY;
     if (state || song_storage_state() != SONG_STORAGE_READY) return SONG_BUSY;
-    if (groove_clock_mode() != GROOVE_CLOCK_INTERNAL) return SONG_INVALID; /* v1: internal clock only */
+    unsigned follow = groove_clock_mode() != GROOVE_CLOCK_INTERNAL;   /* Task 16: CLOCK = MIDI arms the song and follows the clock */
     /* Swing (9.12): v1 blocks follow the project setting as on tabby-v02.0; v2 blocks only
      * when the song's flag says so. Both values are read once, at PLAY. */
     swing_project = groove_sequence_setting(0);
@@ -814,6 +1010,12 @@ int song_play(void)
         decode_rowinfo(&rowset[1], next);
     }
     state = 1;
+    if (follow) {
+        follow_on = 1; user_stop = 0; ext_after_resume = 0; ext_stay_state = EXT_IDLE; ext_pos = 0;
+        ext_start_row = 0; ext_start_repeat = 0; ext_start_step = 0; ext_prep_request = 0;
+        ext_period_q8 = tempo_override ? 220500U / tempo_override : 7U * 256U;
+        ext_wr = ext_rd = 0; ext_pulses = 0;
+    }
     barrier();
     start_request = 1;
     return 0;
@@ -822,8 +1024,26 @@ void song_stop(void)
 {
     if (state != 1) return;
     state = 2;
+    user_stop = 1;
     stop_request = 1;
 }
+/* Task 16: the MIDI-in callback (routing task) hands the clock messages of the accepted source to a follow
+ * song; returns 1 when the song took the message (the engine's own sequencer must not see it). status 0xf8
+ * pulse, 0xfa Start, 0xfb Continue, 0xfc Stop, 0xf2 Song Position Pointer (a = lsb, b = msb). */
+int song_clock_in(unsigned status, unsigned a, unsigned b)
+{
+    if (!follow_on || user_stop) return 0;
+    if (status == 0xf8) { ++ext_pulses; return 1; }
+    unsigned kind = status == 0xfa ? EXT_MSG_START : status == 0xfb ? EXT_MSG_CONTINUE : status == 0xfc ? EXT_MSG_STOP : status == 0xf2 ? EXT_MSG_SPP : 0U;
+    if (!kind) return 0;
+    unsigned w = ext_wr;
+    if (w - ext_rd >= 8U) return 1;                        /* a flood of transport messages: the ring keeps the oldest */
+    ext_ring[w & 7U].arg = (uint16_t)((a & 127U) | (b & 127U) << 7); ext_ring[w & 7U].kind = (uint8_t)kind; ext_ring[w & 7U].pulses = ext_pulses;
+    barrier();
+    ext_wr = w + 1U;
+    return 1;
+}
+unsigned song_follow_state(void) { return follow_on ? ext_state : 0U; }
 int song_queue_jump(unsigned row)
 {
     if (state != 1 || row >= record.rows) return SONG_INVALID;
@@ -890,6 +1110,7 @@ void song_status_read(struct song_status *out)
     out->error = (uint8_t)last_error;
     out->underruns = (uint16_t)underruns;
     out->late = (uint16_t)late_count;
+    out->follow = (uint8_t)(follow_on ? ext_state : 0U);   /* Task 16: EXT_* (song.h) */
     out->events = (uint16_t)(loaded == SONG_NONE ? 0 : song_event_count(&record));
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
         const struct track *k = &tr[t];

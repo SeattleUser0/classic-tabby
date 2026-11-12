@@ -571,8 +571,12 @@ static void midi_received_body(unsigned source, const uint8_t *m, size_t n)
 {
     if (source >= 3 || !m || !n || n > 3) return;
     unsigned clock = m[0] == 0xf8 || m[0] == 0xfa || m[0] == 0xfb || m[0] == 0xfc || m[0] == 0xf2;
-    if (clock && !groove_midi_clock_accept(source, m[0])) return;
-    (void)fm1_midi_post(m, n);
+    unsigned taken = 0;
+    if (clock) {
+        if (!groove_midi_clock_accept(source, m[0])) return;
+        taken = song_clock_in(m[0], n > 1 ? m[1] : 0, n > 2 ? m[2] : 0);   /* Task 16: a follow song takes the clock */
+    }
+    if (!taken) (void)fm1_midi_post(m, n);
     if (m[0] == 0xff) enqueue(2, 0, (config.flags | config.thru) & 7U, 0xff, 0, 0);
     if (((config.thru >> 3) & 3U) == source && m[0] != 0xff && (m[0] < 0xf0 || clock)) {
         unsigned ports = config.thru & 7U & ~(1U << source) & fm1_midi_output_ports();

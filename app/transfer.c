@@ -4,6 +4,7 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.7  2026-11-12  Task 16 Goal 3: the remote status carries the follow state (byte 12 of the payload).
  *   v0.6  2026-11-11  Task 16 Goal 1: command 29, remote control in every build (status, song select, play,
  *                     stop, jump to a row, A2 on / off, panel-key injection with a 5 s watchdog); capability
  *                     flag bit 2. No command writes flash: the SAVE button cannot be injected, a song
@@ -187,7 +188,8 @@ static void remote_status(uint8_t *out, unsigned *count)
     out[4] = st.playing ? st.row : 255; out[5] = st.queued; out[6] = (uint8_t)ct_a2_get();
     out[7] = (uint8_t)smk37_shift(); out[8] = (uint8_t)ct_transport_running();
     out[9] = (uint8_t)st.bar; out[10] = (uint8_t)(st.bar >> 8); out[11] = (uint8_t)ct_screen_action();
-    *count = 12;
+    out[12] = st.follow;   /* v0.7: external clock follow state (song.h: 0 off, 1 armed, 4 running, 5 held, 6 lost, 7 stopped) */
+    *count = 13;
 }
 static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count)
 {

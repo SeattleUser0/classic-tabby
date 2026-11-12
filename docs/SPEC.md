@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.36
+Version: 0.37
 Revision log:
+- v0.37, 2026-11-12 (Task 16 Goal 3): 19.3 external clock follow in song mode (decision 10).
 - v0.36, 2026-11-11 (Task 16 Goal 1): 17.10 the standing testing rule; section 19: the overnight hard limits,
   A2 on by default, F + G not now, command 29 (remote control).
 - v0.35, 2026-11-11 (tabby-v04.2 merge): Task 14 and v04.1.1 entries below (v0.30-v0.33 of the guide line) are
@@ -1437,3 +1438,37 @@ then.
   HOME / SRC and SEQ + EDIT flows and the 5 s watchdog.
 - tools/linux/hw/tabby_link.py v0.8: remote_status, select_song, play_song, stop_song, jump, set_a2, key,
   press, hold, release_all.
+
+### 19.3 External clock follow in song mode (Task 16 Goal 3, decision 10; tabby-v04.3)
+
+With CLOCK = MIDI (SYNC / MIDI, K1) the song no longer refuses to start: PLAY on the SONG page (or remote PLAY)
+**arms** it (row 0 decoded, "ARMED: START?") and the master's transport takes over. The engine's own pattern
+sequencer does not see the clock messages while a song is armed or following.
+
+- **Pulses.** Each MIDI clock pulse (24 per quarter note) moves the song 80 units (1/6 of a 16th step). Between
+  pulses the song moves at the pulse period estimated from the last pulses (smoothed over 8 pulses) and is nudged
+  by a quarter of its phase error per audio block, capped at 28 units a block; so one block of arrival jitter is
+  not note jitter, and a tempo change is followed within about 8 pulses.
+- **Start (FA)**: from the beginning, at the first pulse after it (that pulse is position 0). **Continue (FB)**: from
+  the held or stopped position at the next pulse; on an armed song from its position (the last SPP, or 0).
+  **Stop (FC)**: note-offs for everything that sounds, the position is kept, the state is STOP BY MASTER; Stop always
+  wins, in every state. Pulses after a Stop do nothing.
+- **Song Position Pointer (F2)**, in 16th notes (steps, 480 units), accepted stopped and running: the control task
+  decodes the row that holds the position (rows with their repeats and loops; a position past the end of a song
+  that does not loop clamps to its last step), the audio thread restarts the frames there with note-offs first. A
+  running song goes on at the next pulse; a stopped one waits for Continue. A start in the middle of a row sends no
+  row events.
+- **Clock loss.** No pulse for 3.5 pulse periods (about 3 missed pulses): the song stops advancing and sends
+  note-offs (HOLD: NO CLOCK). Pulses back within 2 s without a Stop: it relocks and goes on from the held position.
+  A gap of 2 s or more: LOST - CONTINUE; clock pulses alone never restart a LOST song, only Continue or Start do.
+- **End of song.** At the last row the song stops and arms again, ready for the next Start. PLAY stops following.
+  Switching CLOCK back to INT stops a following song.
+- **Sources.** Over USB (CLK IN AUTO or USB) and Bluetooth. The TRS jack is output only (17.6); no DIN input exists
+  (the CLK IN line no longer lists DIN). The song sends no Start, Stop or clock of its own while following.
+- **Status.** The remote status (command 29) carries the follow state (byte 12: 0 off, 1 armed, 4 running, 5 held,
+  6 lost, 7 stopped); song_status.follow in the firmware; the SONG page prints it.
+- Rules kept from the other tasks: nothing here writes flash; a following song counts as a running transport
+  (STOP TO SAVE applies). Every internal-clock path is unchanged (tests/host/smoke.c sections 7 to 15).
+- Tests: tests/host/smoke.c section 18 (arm, start, first pulse, the step-4 note on its pulse, 120 -> 90 -> 150 BPM,
+  hold, relock, LOST, pulses alone, Continue, Stop, SPP stopped and running, Start from the middle, song end arms
+  again, PLAY leaves follow); tools/linux/hw/run-follow.py drives the device (BUILD.md 33).

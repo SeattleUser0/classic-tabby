@@ -54,7 +54,11 @@ struct song_status {
     uint8_t track_state[8];  /* bits 0-1 SONG_TRACK_*, bits 2-3 SONG_QUEUE_* pending, bit 4 waiting for its buffer */
     uint8_t track_row[8];    /* the pattern (row) the track plays, SONG_NONE when silent or stopped */
     uint8_t track_queued[8]; /* the queued pattern row (launch) or the row it returns to (attach), else SONG_NONE */
+    uint8_t follow;      /* Task 16: external clock follow: 0 off, 1 armed (waiting for Start), 2 preparing, 3 waiting for a pulse, 4 running, 5 held (missed pulses), 6 LOST, 7 stopped */
 };
+/* Task 16 Goal 3: the MIDI-in callback gives a follow song the clock messages; 1 = taken (SPEC 19.3). */
+int song_clock_in(unsigned status, unsigned a, unsigned b);
+unsigned song_follow_state(void);
 void song_init(void);                 /* once, before audio starts */
 void song_poll(void);                 /* control task: decode ahead, finish stops */
 int song_load(unsigned song);         /* read the record and build its directory */
