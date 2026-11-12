@@ -73,6 +73,6 @@ The 150 KB of heap above the SDK minimum (TASK-10, measured) takes the estimated
 ## 6. Tests
 
 `make clip-v3-test` (in test and test-fast): tests/host/clip_v3_test.c (22100 checks: 20000 random round trips, the 550
-fixture blocks, the cursor, 25 rejections), tests/clip-v3/run.mjs (the JavaScript twin identical to C on every block, 1133
+fixture blocks, the cursor, the rejection cases), tests/clip-v3/run.mjs (the JavaScript twin identical to C on every block, 1133
 checks), tests/clip-v3/importer.mjs (1143 checks). tests/host/smoke.c section 19 (the simulator plays v3 as v2). `make
-test-fast` passed on the branch.
+test-fast` and `make suite DISPLAY_VERSION=tabby-v04.3` (crosscheck, the whole test run, the simulator import test and the ASan / UBSan run) passed at adaa7e6.
