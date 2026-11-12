@@ -4408,7 +4408,7 @@ What the table says:
 
 - `make suite DISPLAY_VERSION=tabby-v04.2`: passed 2026-11-12T05:31:29Z at 1d9b27d (crosscheck IDENTICAL, test,
   midi-import-sim, host-sanitize).
-- Build id b926f5556483ee65 (full b926f5556483ee65 6049...; see the package); app image 449700 bytes, margin 69757
+- Build id b926f5556483ee65 (full b926f5556483ee65c05a605284a09ac1263f199c236b6a6e9050252850c2cd98); app image 449700 bytes, margin 69757
   (FLASH-BUDGET 20).
 - Read-only USB soak through the hub before any install: 2500 rounds (5000 queries), 0 timeouts, 0 malformed, 0 differing
   replies, round trip 0.73 / 20.1 / 43.5 ms (min / median / max), no kernel USB lines (measured, 2026-11-11).
