@@ -4,6 +4,8 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.8  2026-11-12  Task 16 Goal 5 (branch mc707-phase2): a kind-6 download of a v3 block is handed over as v2 (or refused),
+ *                     kind 7 accepts block records of format 2.
  *   v0.7  2026-11-12  Task 16 Goal 3: the remote status carries the follow state (byte 12 of the payload).
  *   v0.6  2026-11-11  Task 16 Goal 1: command 29, remote control in every build (status, song select, play,
  *                     stop, jump to a row, A2 on / off, panel-key injection with a 5 s watchdog); capability
@@ -33,6 +35,7 @@
 #include "song.h"
 #include "fm1_engine_control.h"
 #include "smk37_controls.h"   /* Task 16: remote key injection */
+#include "clip_v3.h"   /* Task 16 Goal 5 */
 #include "diag.h"   /* Classic Tabby Task 11: kind 8 and command 25 (every build since Task 12 A4) */
 /* Task 12: command 27 feature flags (bit 0: flash writes refused while the transport runs, A3;
  * bit 1: command 28 ERASE OLD DATA, A1). */
@@ -111,7 +114,7 @@ static int transfer_begin(unsigned kind, unsigned target, unsigned size, unsigne
      * upgrades a stored v1 block on download. v1 payloads travel in kind-7 streams only. */
     if (kind == 6 && ((target >> 16) >= SONG_SONGS || !(target & 0xffffU) ||
                       size < SONG_PAYLOAD_MIN || size > SONG_PAYLOAD_MAX)) return GROOVE_PROJECT_INVALID;
-    if (kind == 7 && (!writing || target >= SONG_SONGS || size < SONG_BLOCK_HEADER + SONG_PAYLOAD_MIN ||
+    if (kind == 7 && (!writing || target >= SONG_SONGS || size < SONG_BLOCK_HEADER + SONG_PAYLOAD_V3_MIN ||
                       size > SONG_BATCH_BYTES)) return GROOVE_PROJECT_INVALID;
     /* Task 11: kind 8 = the device and session settings (40 bytes, target 0), both ways. */
     if (kind == 8 && (target || size != CT_SETTINGS_BYTES)) return GROOVE_PROJECT_INVALID;
@@ -407,6 +410,15 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
             r = song_block_read(data[1], block_id, next, &size, &format);
             if (r) { free(next); return r > 0 ? GROOVE_PROJECT_EMPTY : r; }
             if (format == SONG_FORMAT_V1) size = song_payload_upgrade(next, size);   /* Task 05: downloads are v2 */
+            if (format == SONG_FORMAT_V3) {
+                /* Task 16 Goal 5: the download has no format byte (v2 and v3 payload lengths cannot be told apart), so a v3 clip is
+                 * handed over as the v2 block when it is v2-shaped and refused when it is not (CLIP-V3-REVIEW.md, decision needed). */
+                uint8_t *v2 = calloc(1, SONG_PAYLOAD_V2_MAX);
+                int w = v2 ? clip_v3_to_v2(next, size, v2, SONG_PAYLOAD_V2_MAX) : -1;
+                free(next);
+                if (w < 0) { free(v2); return v2 ? GROOVE_PROJECT_INVALID : GROOVE_PROJECT_MEMORY; }
+                next = v2; size = (unsigned)w;
+            }
             transfer_cancel(); transfer = next; transfer_size = size; transferred = 0;
             transfer_kind = 6; transfer_target = data[1] << 16 | block_id; transfer_writing = 0;
             out[0] = (uint8_t)size; out[1] = (uint8_t)(size >> 8); *count = 2;

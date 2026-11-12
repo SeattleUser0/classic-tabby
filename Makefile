@@ -78,9 +78,10 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.26
+# Version: 0.27
 #
 # Revision log
+#   v0.27 2026-11-12  Task 16 Goal 5 (branch mc707-phase2): clip-v3-test (the v3 clip module, C and JS, and the importer's v3 output) in test and test-fast.
 #   v0.26 2026-11-11  Task 16: option A2 is on in the normal build (A2 defaults to 1; A2=0 builds without it).
 #   v0.25 2026-11-11  tabby-v04.2: merge of the timing branch (A2=1 build switch, host tests always build the A2
 #                     code) with the guide test; v0.22 of the timing branch is listed below as v0.22t.
@@ -214,7 +215,7 @@ NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV) $(OPTS) $(A2OPT)
 
 .PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
-        package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test \
+        package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test clip-v3-test \
         check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide \
         web-normal web-diag web-old536 backup-test
 
@@ -325,6 +326,18 @@ build/host-san/timed_note: tests/host/timed_note_test.c app/timed_note.c app/tim
 	@mkdir -p build/host-san
 	$(NICE) $(CC) -std=c11 -O1 -g -Wall -Wextra $(SAN_FLAGS) -Iapp app/timed_note.c tests/host/timed_note_test.c -o $@
 
+# Task 16 Goal 5 (branch mc707-phase2): the v3 clip module against the importer's blocks, C and JS, and the importer's v3 output.
+build/host/clip_v3: tests/host/clip_v3_test.c app/clip_v3.c app/clip_v3.h app/timed_note.c app/timed_note.h
+	@mkdir -p build/host
+	$(NICE) $(CC) -std=c11 -O1 -g -Wall -Wextra -Iapp app/clip_v3.c app/timed_note.c tests/host/clip_v3_test.c -o $@
+
+clip-v3-test:
+	$(T) $(MAKE) --no-print-directory build/host/clip_v3
+	$(T) $(NODE) tests/clip-v3/dump-v2.mjs
+	$(T) ./build/host/clip_v3 build/clip-v3/fixtures-v2.bin build/clip-v3/fixtures-v3-c.bin
+	$(T) $(NODE) tests/clip-v3/run.mjs
+	$(T) $(NODE) tests/clip-v3/importer.mjs
+
 timed-note-test:
 	$(T) $(MAKE) --no-print-directory build/host/timed_note
 	$(T) ./build/host/timed_note tests/timed-note/vectors.txt
@@ -362,12 +375,12 @@ workbench-test:
 	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
 	$(T) $(PYTHON) -I tests/linux/builds-index-test.py
 
-test: timed-note-test host-smoke web-smoke workbench-test backup-test
+test: timed-note-test clip-v3-test host-smoke web-smoke workbench-test backup-test
 	@echo "test: timed-note-test, host-smoke, web-smoke, workbench-test and backup-test passed"
 
 # Task 07: the tier to run while working (no sanitizers, no lock, about 20 s cold and 3 s warm),
 # and the full run before a flash or a release (through the lock; writes build/suite-passed.txt).
-test-fast: timed-note-test host-smoke web-smoke workbench-test midi-import-test backup-test
+test-fast: timed-note-test clip-v3-test host-smoke web-smoke workbench-test midi-import-test backup-test
 	@echo "test-fast: timed-note-test, host-smoke, web-smoke, workbench-test, midi-import-test and backup-test passed (no sanitizers; the full run is make suite)"
 
 suite:

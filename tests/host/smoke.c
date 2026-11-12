@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.14
+ * Version: 0.15
  *
  * Revision log
+ *   v0.15 2026-11-12  Task 16 Goal 5 (branch mc707-phase2): section 19: v3 blocks play byte-identical MIDI to v2.
  *   v0.14 2026-11-12  Task 16 Goal 3: section 18, external clock follow: arm, Start, the first pulse, the step-4 note
  *                     on its pulse, tempo changes, 3 missed pulses (HELD), relock inside 2 s, LOST after 2 s and
  *                     the pulses-alone rule, Continue, Stop wins, SPP stopped and running, Start from the
@@ -92,6 +93,7 @@
  *   v0.1  2026-11-01  Initial version.
  */
 #include "timed_note.h"
+#include "clip_v3.h"
 #include "ct_layout.h"   /* Task 12 A1: CT_USER_BYTES */
 /* Task 12 A1: block sectors of the song region of this build's layout (80 at 471040, 96 at 536576). */
 enum { SECTORS = (CT_USER_BYTES - 73728) / 4096 - 17 };
@@ -1592,6 +1594,61 @@ int main(void)
         #undef BLOCK_RUN
         #undef BLOCK_SILENT
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
+    }
+
+
+    /* ---- 19. Task 16 Goal 5: the v3 clip plays as the same notes as v2 (docs/CLIP-V3.md) ------------------ */
+    {
+        sim_boot(1); sim_midi_capture(1); sim_midi_drain(1);
+        uint8_t v2a[1600], v2b[1600], v3a[3100], v3b[3100]; unsigned la = 0, lb = 0;
+        /* Two blocks with chords, offsets before and after the step, long and short lengths, retrigger and legato. */
+        memset(v2a, 0, sizeof v2a); memset(v2b, 0, sizeof v2b);
+        struct { unsigned step; int off; unsigned pitch, vel, len, retrig; } na[] = {
+            {0, -100, 60, 100, 960, 1}, {0, 0, 64, 90, 480, 1}, {0, 200, 67, 80, 240, 0}, {3, 60, 62, 70, 120, 1}, {4, -240, 65, 96, 700, 1},
+            {8, 0, 48, 110, 1920, 1}, {8, 0, 55, 100, 1920, 1}, {8, 10, 59, 90, 1900, 0}, {8, 20, 64, 80, 1800, 1}, {12, 240, 71, 60, 100, 1}, {15, -50, 72, 127, 300, 1} };
+        for (int pass = 0; pass < 2; ++pass) {
+            uint8_t *out = pass ? v2b : v2a; unsigned at = 0; unsigned shift = pass ? 5 : 0;
+            for (unsigned step = 0; step < 64; ++step) {
+                unsigned count = 0; uint8_t notes[4][6];
+                for (unsigned i = 0; i < sizeof na / sizeof na[0]; ++i) if (na[i].step == step) {
+                    struct timed_note n; n.pitch = (uint8_t)(na[i].pitch + shift); n.velocity = (uint8_t)na[i].vel; n.retrigger = (uint8_t)na[i].retrig; n.offset = (int16_t)na[i].off; n.length = na[i].len;
+                    (void)timed_note_encode(&n, notes[count++]);
+                }
+                out[at++] = (uint8_t)count;
+                for (unsigned i = 0; i < count; ++i) { memcpy(out + at, notes[i], 6); at += 6; }
+            }
+            if (pass) lb = at; else la = at;
+        }
+        int ra = clip_v3_from_v2(v2a, la, v3a, sizeof v3a, NULL), rb = clip_v3_from_v2(v2b, lb, v3b, sizeof v3b, NULL);
+        CHECK(ra > 0 && rb > 0, "v3: the two test blocks migrate (%d, %d bytes against %u, %u as v2)", ra, rb, la, lb);
+        uint8_t *f = sim_file();
+        for (unsigned version = 2; version <= 3; ++version) {            /* song 2 = v2 blocks, song 3 = the same notes as v3 blocks */
+            unsigned song = version, format = version == 2 ? 1 : 2;
+            memcpy(f, version == 2 ? v2a : v3a, version == 2 ? la : (unsigned)ra); int r = sim_block_write2(song, 1, format, version == 2 ? la : (unsigned)ra);
+            CHECK(r == 0, "v%u: block 1 stored (%d)", version, r);
+            memcpy(f, version == 2 ? v2b : v3b, version == 2 ? lb : (unsigned)rb); r = sim_block_write2(song, 2, format, version == 2 ? lb : (unsigned)rb);
+            CHECK(r == 0, "v%u: block 2 stored (%d)", version, r);
+            memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "CLIP COMPARE", 12); f[40] = 2; f[48] = 5;
+            f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;
+            CHECK(sim_song_record_write(song) == 0, "v%u: song record stored", version);
+        }
+        static struct log_entry log[2][4096]; unsigned logged[2] = {0, 0};
+        for (unsigned version = 2; version <= 3; ++version) {
+            CHECK(sim_song_load(version) == 0, "v%u: song loaded", version);
+            { struct message m[64]; (void)drain(m, 64); }
+            CHECK(sim_song_play() == 0, "v%u: song started", version);
+            (void)play_log(log[version - 2], 4096, &logged[version - 2], 4000, -1, 0);
+        }
+        CHECK(logged[0] > 20 && logged[0] == logged[1], "v3 plays as many messages as v2 (%u, %u)", logged[0], logged[1]);
+        unsigned differ = 0;
+        for (unsigned i = 0; i < logged[0] && i < logged[1]; ++i) if (memcmp(&log[0][i], &log[1][i], sizeof log[0][i])) ++differ;
+        CHECK(differ == 0, "v3 plays byte-identical MIDI to v2, each message in the same block (%u of %u differ)", differ, logged[0]);
+        /* A v3 clip the grid cannot hold is refused as an error at playback; storage still takes it (it is valid v3). */
+        uint8_t big[16 + 6 * 5]; memset(big, 0, sizeof big); big[0] = 64; big[6] = 5;
+        for (unsigned i = 0; i < 5; ++i) { uint8_t *q = big + 16 + 6 * i; q[0] = 240; q[2] = (uint8_t)(60 + i); q[3] = 100; q[4] = 100; }
+        memcpy(f, big, sizeof big); CHECK(sim_block_write2(2, 9, 2, sizeof big) == 0, "v3: a five-note step is a valid block");
+        big[0] = 129; memcpy(f, big, sizeof big); CHECK(sim_block_write2(2, 10, 2, sizeof big) != 0, "v3: 129 steps is refused by the storage");
+        sim_midi_drain(0); (void)sim_open(0);
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

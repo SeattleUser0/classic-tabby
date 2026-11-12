@@ -12,9 +12,10 @@
  *   construction), the first-boot migration API (checkpoint a) and the record, block,
  *   directory, reclaim and status API (checkpoint d).
  *
- * Version: 0.7
+ * Version: 0.8
  *
  * Revision log
+ *   v0.8  2026-11-12  Task 16 Goal 5 (branch mc707-phase2): SONG_FORMAT_V3 (the v3 clip), per-format payload limits.
  *   v0.7  2026-11-07  Task 11 Step 4: the region's sector count follows the USER size
  *                     (app/ct_layout.h): (CT_USER_BYTES - 69632 - 4096) / 4096 sectors, 113 in the
  *                     stock layout and 97 in the 471040 probe layout; block sectors = that - 17
@@ -66,8 +67,10 @@ enum {
 enum {
     SONG_ROWS = 128, SONG_TRACKS = 8, SONG_BLOCK_STEPS = 64, SONG_NOTES_PER_STEP = 4,
     SONG_PAYLOAD_MIN = 64, SONG_PAYLOAD_V1_MAX = 64 + 64 * 12,    /* 832: format 0, 3-byte notes */
-    SONG_PAYLOAD_MAX = 64 + 64 * 24,                             /* 1600: format 1, 6-byte timed notes (9.12) */
-    SONG_FORMAT_V1 = 0, SONG_FORMAT_V2 = 1,                      /* block record byte 1 (9.4 v0.7) */
+    SONG_PAYLOAD_V2_MAX = 64 + 64 * 24,                          /* 1600: format 1, 6-byte timed notes (9.12) */
+    SONG_PAYLOAD_V3_MIN = 16, SONG_PAYLOAD_V3_MAX = 16 + 512 * 6, /* 16 .. 3088: format 2, the v3 clip (docs/CLIP-V3.md) */
+    SONG_PAYLOAD_MAX = SONG_PAYLOAD_V3_MAX,                      /* the largest payload of any format: buffers use it (v0.8) */
+    SONG_FORMAT_V1 = 0, SONG_FORMAT_V2 = 1, SONG_FORMAT_V3 = 2,  /* block record byte 1 (9.4 v0.7; v3: Task 16 Goal 5) */
     SONG_RECORD_BYTES = 4096, SONG_RECORD_BODY_END = 2624,       /* CRC covers 20..2623 */
     SONG_BLOCK_AREA = 20, SONG_BLOCK_AREA_BYTES = 4096 - 20,     /* record area 20..4095 */
     SONG_BLOCK_HEADER = 6,                                       /* song, 0, id16, length16 */

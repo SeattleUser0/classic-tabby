@@ -42,9 +42,12 @@
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.6
+ * Version: 0.7
  *
  * Revision log
+ *   v0.7  2026-11-12  Task 16 Goal 5 (branch mc707-phase2): block payload format 2, the v3 clip (docs/CLIP-V3.md):
+ *                     encodeBlockRecord(block, song, 2) and encodeFile(song, { format: 2 }) write it, decodeBlock and
+ *                     decodeFile read it (as the v2 notes when a v2 grid holds the clip). Default output is still v2.
  *   v0.6  2026-11-08  Task 12 A1: the block pool of the normal layout (USER 471040) is 80 sectors,
  *                     80 x 4076 = 326080 bytes (was 96 sectors, 391296 bytes, in the old 536576
  *                     layout). The device's own song status (command 23) still decides a write.
@@ -67,12 +70,14 @@
   'use strict';
 
   const fail = text => { throw new Error(text); };
+  /* Task 16 Goal 5: the v3 clip twin (web/clip-v3/clip-v3.js), loaded like the timed note. */
+  const V3 = () => globalThis.TabbyClipV3 || (typeof require === 'function' ? require('../clip-v3/clip-v3.js') : fail('clip-v3.js not loaded'));
   const T = () => globalThis.TabbyTimedNote || (typeof require === 'function' ? require('../timed-note/timed-note.js') : fail('timed-note.js not loaded'));
 
   /* Limits and constants from section 9 (v0.7: timed notes). */
   const LIMITS = Object.freeze({
     steps: 64, notesPerStep: 4, noteBytes: 6, noteBytesV1: 3,
-    blockMin: 64, blockMax: 1600, blockMaxV1: 832, formatV1: 0, formatV2: 1,
+    blockMin: 64, blockMax: 1600, blockMaxV1: 832, formatV1: 0, formatV2: 1, formatV3: 2, blockMinV3: 16, blockMaxV3: 3088,
     unitsPerStep: 480, offsetMax: 240,
     blocksPerSong: 2048, idMax: 65535, rowsPerSong: 128, songs: 16, tracks: 8,
     repeatMin: 1, repeatMax: 64, lengthMin: 1, lengthMax: 65535 * 128, lengthStepsV1Max: 255,
@@ -145,7 +150,10 @@
    * whole-step lengths; format 1: 9.12) back to a block. */
   function decodeBlock(bytes, id = 0, format = LIMITS.formatV2) {
     const notes = [], stepFlags = {}, TN = T(), size = format === LIMITS.formatV1 ? LIMITS.noteBytesV1 : LIMITS.noteBytes;
-    if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2) fail('block payload format ' + format + ' unknown');
+    if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2 && format !== LIMITS.formatV3) fail('block payload format ' + format + ' unknown');
+    if (format === LIMITS.formatV3) {                  /* Task 16 Goal 5: a v3 clip that a v2 grid can hold (the workbench reads the rest as an error until its editor knows them) */
+      try { return decodeBlock(V3().toV2(bytes), id, LIMITS.formatV2); } catch (e) { fail('block ' + id + ' (v3 clip): ' + e.message); }
+    }
     let at = 0;
     for (let s = 0; s < LIMITS.steps; s++) {
       if (at >= bytes.length) fail('block payload ends inside step ' + s);
@@ -178,10 +186,12 @@
 
   /* ---- block record (9.4) and .tabby file (9.9) --------------------------------------- */
   const align4 = n => (n + 3) & ~3;
-  function encodeBlockRecord(block, song = 0) {
-    const payload = encodeBlock(block, 'block ' + block.id);
+  function encodeBlockRecord(block, song = 0, format = LIMITS.formatV2) {
+    let payload = encodeBlock(block, 'block ' + block.id);
+    if (format === LIMITS.formatV3) payload = V3().fromV2(payload).bytes;   /* Task 16 Goal 5: the importer's v3 output */
+    else if (format !== LIMITS.formatV2) fail('block record format ' + format + ' cannot be written');
     const out = new Uint8Array(align4(LIMITS.blockHeaderBytes + payload.length)).fill(0xff);
-    out[0] = song; out[1] = LIMITS.formatV2;                             /* 9.4 v0.7: byte 1 = payload format */
+    out[0] = song; out[1] = format;                             /* 9.4 v0.7: byte 1 = payload format */
     out[2] = block.id & 255; out[3] = block.id >> 8;                     /* 16-bit id */
     out[4] = payload.length & 255; out[5] = payload.length >> 8;
     out.set(payload, LIMITS.blockHeaderBytes);
@@ -278,9 +288,9 @@
     });
     return errors;
   }
-  function encodeFile(song) {
+  function encodeFile(song, { format = LIMITS.formatV2 } = {}) {
     const record = encodeRecord(song);
-    const parts = [record, ...song.blocks.slice().sort((a, b) => a.id - b.id).map(b => encodeBlockRecord(b, 0))];
+    const parts = [record, ...song.blocks.slice().sort((a, b) => a.id - b.id).map(b => encodeBlockRecord(b, 0, format))];
     if (song.rig) {                                     /* 9.11 trailer: workbench-only data */
       const json = new TextEncoder().encode(JSON.stringify({ rig: song.rig })), head = new Uint8Array(9);
       head[0] = 0xff; head.set([84, 82, 73, 71], 1); new DataView(head.buffer).setUint32(5, json.length, true);
@@ -300,10 +310,10 @@
       if (at + H > bytes.length) fail('.tabby block record header truncated');
       const songByte = bytes[at], format = bytes[at + 1], id = bytes[at + 2] | bytes[at + 3] << 8, length = bytes[at + 4] | bytes[at + 5] << 8;
       if (songByte !== 0) fail('.tabby block record song byte must be 0');
-      if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2) fail('.tabby block record ' + id + ' payload format ' + format + ' unknown');
+      if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2 && format !== LIMITS.formatV3) fail('.tabby block record ' + id + ' payload format ' + format + ' unknown');
       if (!id) fail('.tabby block record id 0 is invalid');
-      const max = format === LIMITS.formatV1 ? LIMITS.blockMaxV1 : LIMITS.blockMax;
-      if (length < LIMITS.blockMin || length > max || at + H + length > bytes.length) fail('.tabby block record ' + id + ' length invalid');
+      const max = format === LIMITS.formatV1 ? LIMITS.blockMaxV1 : format === LIMITS.formatV3 ? LIMITS.blockMaxV3 : LIMITS.blockMax, min = format === LIMITS.formatV3 ? LIMITS.blockMinV3 : LIMITS.blockMin;
+      if (length < min || length > max || at + H + length > bytes.length) fail('.tabby block record ' + id + ' length invalid');
       song.blocks.push(decodeBlock(bytes.subarray(at + H, at + H + length), id, format));
       at = align4(at + H + length);
     }

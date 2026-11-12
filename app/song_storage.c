@@ -33,9 +33,11 @@
  *   Everything here runs on the control task and is synchronous (a transaction takes
  *   three sector erases). The sequencer (app/song.c) only reads through the directory.
  *
- * Version: 0.8
+ * Version: 0.10
  *
  * Revision log
+ *   v0.10 2026-11-12  Task 16 Goal 5 (branch mc707-phase2): payload format 2, the v3 clip (clip_v3_validate), minimum and
+ *                     maximum per format.
  *   v0.9  2026-11-11  Task 16 Goal 4: the two out-of-bound lint findings closed (explicit range tests in
  *                     the staged-block bookkeeping and in song_storage_compact_sector); behaviour unchanged.
  *   v0.8  2026-11-08  Task 12 A3: a confirmed erase or a compaction pauses while the transport
@@ -57,6 +59,7 @@
  *   v0.1  2026-11-02  Checkpoint (a): scan, classification, confirmed erase.
  */
 #include "song_storage.h"
+#include "clip_v3.h"   /* Task 16 Goal 5 */
 #include "timed_note.h"
 #include "instrument.h"
 #include "diag.h"   /* Task 11: the diagnostic build times every flash erase and write (CT_DIAG only) */
@@ -384,11 +387,13 @@ int song_record_delete(unsigned song)
 /* ---- block payloads (9.3) ---------------------------------------------------------- */
 /* Largest payload of a format (9.3: 832, 9.12: 1600); 0 for an unknown format byte. */
 static unsigned payload_max(unsigned format)
-{ return format == SONG_FORMAT_V1 ? SONG_PAYLOAD_V1_MAX : format == SONG_FORMAT_V2 ? SONG_PAYLOAD_MAX : 0; }
+{ return format == SONG_FORMAT_V1 ? SONG_PAYLOAD_V1_MAX : format == SONG_FORMAT_V2 ? SONG_PAYLOAD_V2_MAX : format == SONG_FORMAT_V3 ? SONG_PAYLOAD_V3_MAX : 0; }
+static unsigned payload_min(unsigned format) { return format == SONG_FORMAT_V3 ? SONG_PAYLOAD_V3_MIN : SONG_PAYLOAD_MIN; }
 int song_payload_valid(unsigned format, const uint8_t *p, unsigned bytes)
 {
     unsigned size = format == SONG_FORMAT_V1 ? 3 : TIMED_NOTE_BYTES;
-    if (bytes < SONG_PAYLOAD_MIN || bytes > payload_max(format)) return SONG_INVALID;
+    if (bytes < payload_min(format) || bytes > payload_max(format)) return SONG_INVALID;
+    if (format == SONG_FORMAT_V3) return clip_v3_validate(p, bytes) ? SONG_INVALID : 0;   /* Task 16 Goal 5 */
     unsigned at = 0;
     for (unsigned step = 0; step < SONG_BLOCK_STEPS; ++step) {
         if (at >= bytes) return SONG_INVALID;
@@ -443,7 +448,7 @@ static unsigned next_record(unsigned *at, unsigned *song, unsigned *id, unsigned
     unsigned a = *at;
     if (a + SONG_BLOCK_HEADER > 4096 || image[a] == 0xff) return 0;
     unsigned len = le16(image + a + 4), size = align4(SONG_BLOCK_HEADER + len);
-    if (image[a] >= SONG_SONGS || len < SONG_PAYLOAD_MIN || len > payload_max(image[a + 1]) || a + size > 4096) return 0;
+    if (image[a] >= SONG_SONGS || len < payload_min(image[a + 1]) || len > payload_max(image[a + 1]) || a + size > 4096) return 0;
     *song = image[a]; *id = le16(image + a + 2); *bytes = len;
     *at = a + size;
     return size;
@@ -534,7 +539,7 @@ int song_block_read(unsigned song, unsigned id, uint8_t *payload, unsigned *byte
     int r = fm1_flash_read(a, head, sizeof head);
     if (r) return r;
     unsigned len = le16(head + 4);
-    if (head[0] != song || le16(head + 2) != id || len < SONG_PAYLOAD_MIN || len > payload_max(head[1])) return SONG_INVALID;
+    if (head[0] != song || le16(head + 2) != id || len < payload_min(head[1]) || len > payload_max(head[1])) return SONG_INVALID;
     r = fm1_flash_read(a + SONG_BLOCK_HEADER, payload, len);
     if (r) return r;
     *bytes = len;
@@ -687,7 +692,7 @@ static int batch_parse(unsigned song, const uint8_t *s, unsigned bytes, unsigned
     while (at < bytes) {
         if (bytes - at < SONG_BLOCK_HEADER) return SONG_INVALID;
         unsigned id = le16(s + at + 2), len = le16(s + at + 4), size = align4(SONG_BLOCK_HEADER + len);
-        if ((s[at] && s[at] != song) || s[at + 1] > SONG_FORMAT_V2 || !id || len < SONG_PAYLOAD_MIN || len > payload_max(s[at + 1]) ||
+        if ((s[at] && s[at] != song) || s[at + 1] > SONG_FORMAT_V3 || !id || len < payload_min(s[at + 1]) || len > payload_max(s[at + 1]) ||
             bytes - at < SONG_BLOCK_HEADER + len || song_payload_valid(s[at + 1], s + at + SONG_BLOCK_HEADER, len))
             return SONG_INVALID;
         if (fill + size > 4096) { ++n; fill = SONG_BLOCK_AREA; }

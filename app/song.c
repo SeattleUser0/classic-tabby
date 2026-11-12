@@ -68,9 +68,11 @@
  *   notes play anyway (their note-offs follow as usual). A hand-edited note due at or past
  *   its pattern's end (offset +240 on the last step) fires one unit before the end.
  *
- * Version: 0.6
+ * Version: 0.7
  *
  * Revision log
+ *   v0.7  2026-11-12  Task 16 Goal 5 (branch mc707-phase2): block payload format 2 (the v3 clip, docs/CLIP-V3.md) decodes
+ *                     into the step grid when it is v2-shaped; anything else is an error for now.
  *   v0.6  2026-11-12  Task 16 Goal 3: external clock follow (SPEC 19.3): with CLOCK = MIDI a song follows the
  *                     incoming MIDI clock, Start, Stop, Continue and Song Position Pointer (song_clock_in), holds
  *                     after 3 missed pulses, relocks inside 2 s, shows LOST after that; the transport is the
@@ -89,6 +91,7 @@
  */
 #include "song.h"
 #include "timed_note.h"
+#include "clip_v3.h"   /* Task 16 Goal 5: v3 clips through the step grid */
 #include "instrument.h"
 #include "diag.h"   /* Task 12 A4: ct_midi_flush */
 #include <string.h>
@@ -839,6 +842,12 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
         if (!e) e = song_payload_valid(format, payload, bytes);
         if (e) last_error = (unsigned)e;
         else {
+            if (format == SONG_FORMAT_V3) {
+                /* Task 16 Goal 5: a v3 clip that the step grid can hold plays through the grid (identical MIDI to the same notes
+                 * as v2); one it cannot hold (docs/CLIP-V3.md) is an error until the cursor replaces the grid scan. */
+                if (clip_v3_to_cells(payload, bytes, b->cell)) { last_error = (unsigned)SONG_INVALID; memset(b->cell, 0, sizeof b->cell); }
+                else b->has_block = 1;
+            } else {
             if (format == SONG_FORMAT_V1) { bytes = song_payload_upgrade(payload, bytes); b->swing = (uint8_t)swing_project; }
             for (unsigned step = 0, at = 0; step < SONG_BLOCK_STEPS; ++step) {
                 unsigned count = payload[at] & 7U;
@@ -846,6 +855,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
                 at += 1 + NOTE * count;
             }
             b->has_block = 1;
+            }
         }
     }
     b->event_count = (uint8_t)slice_events(row, groove_midi_song_track_channel(t), b->event, &b->lead);
