@@ -4441,3 +4441,33 @@ The one-line band with A2 on is 4.91 ms here against 3.67 ms in the Task 15 run 
 difference is not explained (run-to-run and the DIN capture path differ; a repeat is in 32.5). USB and DIN carry the
 same notes in every run. The recorded audio (inputs 3 and 4) had no capture overrun in any run; its "silent gaps" are
 the song's own rests (the count is the same A2 off and on within 2 percent), so no dropout showed.
+
+
+## 33. Task 16 — tabby-v04.3: external clock follow in song mode (2026-11-12)
+
+Spec: SPEC 19.3. Code: app/song.c v0.6 (the follow state machine `ext_block`, `ext_message`, the control side `song_locate`
+and `song_prepare`, the routing task's `song_clock_in`), app/midi_router.c (the hook), app/screen.c v0.10 (the SONG page
+text), app/transfer.c v0.7 (the status byte). Tools: tools/linux/hw/run-follow.py (the NUC as master over USB),
+tools/linux/hw/run-remote.py.
+
+### 33.1 Design in short (details are the comment block above `enum { EXT_OFF ...` in app/song.c)
+
+- The song keeps its own clock (units per block); in follow mode each block's advance comes from the pulses: the pulse
+  period (EMA 1/8 over blocks between pulses, bounds 2 to 60 blocks) gives the nominal advance, and a quarter of the phase
+  error against the predicted position (pulses x 80 units + the interpolation inside the pulse) is added per block,
+  capped at 28 units (the action list is sized for that, app/song.c ACTIONS).
+- States: ARMED, PREPARING (the control task decodes a position), WAIT PULSE, FOLLOWING, HOLD (3.5 periods without a
+  pulse, note-offs sent), LOST (2 s), STOPPED (by the master). Start / Continue / Stop / SPP arrive in a ring with the pulse
+  count at their arrival; the audio thread owns the state machine.
+- SPP is row-exact: `song_locate` walks the rows with their repeats and loops; the frames restart at the step (no notes
+  before it, no row events when it is not a row start).
+
+### 33.2 Tests (host and simulator; all passed in `make suite DISPLAY_VERSION=tabby-v04.3` at 1d73065, and again for the test-only commits)
+
+tests/host/smoke.c section 18 (43 checks): arm; pulses alone do not start an armed song; Start; the first note at the first
+pulse; step 4 on its pulse (25th); 120 -> 90 -> 150 BPM followed within a pulse; 400 pulses at 133 BPM, position within 22
+units of the pulses at 8 checkpoints (no drift); HOLD after 3 missed pulses, no advance while held, relock inside 2 s from
+the held position; LOST after 2 s, pulses alone never restart it, Continue does; Stop wins and pulses after it do nothing;
+SPP stopped (row 2, stays stopped), Continue after SPP, SPP while running (back to step 4 of row 1), Start from the middle,
+the song end arms again, PLAY leaves follow; a fuzz of 6000 random Start / Stop / Continue / SPP / tempo / gap operations
+(states always valid, the position inside the song, no stuck note after the last Stop).
