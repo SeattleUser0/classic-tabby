@@ -151,6 +151,8 @@ void ct_a2_set(unsigned on);             /* control task: switch A2 */
 unsigned ct_a2_get(void);
 void ct_a2_reset(void);                  /* clear the counters at the next audio block */
 int ct_a2_read(uint8_t *out);            /* the A2 page, 52 bytes (the last u32: blocks skipped during flash writes) */
+/* Task 16: every app write to a MIDI port (app/midi_router.c: arms the USB pusher). Control task. */
+int ct_midi_send_port(unsigned port, const uint8_t *m, size_t n);
 extern volatile uint8_t ct_flash_busy;   /* nonzero while an app flash erase or write runs: no A2 request then */
 #endif
 #ifdef FM1_HOST_TEST

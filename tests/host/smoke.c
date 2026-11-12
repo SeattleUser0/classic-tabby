@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.15
+ * Version: 0.16
  *
  * Revision log
+ *   v0.16 2026-11-12  Task 16: USB pusher checks in section 17.
  *   v0.15 2026-11-12  Task 16: flash guard checks in section 17 (an audio block inside every flash operation).
  *   v0.14 2026-11-12  Task 16 Goal 3: section 18, external clock follow: arm, Start, the first pulse, the step-4 note
  *                     on its pulse, tempo changes, 3 missed pulses (HELD), relock inside 2 s, LOST after 2 s and
@@ -341,6 +342,7 @@ static int any_on(const struct message *m, unsigned n, unsigned vel)
 { for (unsigned i = 0; i < n; ++i) if (m[i].port == 0 && (m[i].data[0] & 0xf0U) == 0x90 && m[i].data[2] == vel) return 1; return 0; }
 static int any_off(const struct message *m, unsigned n)
 { for (unsigned i = 0; i < n; ++i) if (m[i].port == 0 && ((m[i].data[0] & 0xf0U) == 0x80 || ((m[i].data[0] & 0xf0U) == 0x90 && !m[i].data[2]))) return 1; return 0; }
+static unsigned rc_source;   /* the port the request arrives on (0 DIN, 1 USB): the reply goes back there */
 static int rcmd(unsigned cmd, const uint8_t *d, unsigned n, uint8_t *outp)
 {
     uint8_t *f = sim_file(); unsigned at = 0, bits = 0, v = 0, sum = 0;
@@ -350,7 +352,7 @@ static int rcmd(unsigned cmd, const uint8_t *d, unsigned n, uint8_t *outp)
     if (bits) f[at++] = v & 127U;
     for (unsigned i = 1; i < at; ++i) sum += f[i];
     f[at++] = (uint8_t)((0U - sum) & 127U); f[at++] = 0xf7;
-    (void)sim_midi_from(0, at);
+    (void)sim_midi_from(rc_source, at);
     for (unsigned pass = 0; pass < 40; ++pass) {
         unsigned r;
         while ((r = sim_midi_output()) != 0) {
@@ -1483,8 +1485,26 @@ int main(void)
             CHECK(ct_flash_busy == 0, "flash guard: the flag is clear after the save"); }
           CHECK(groove_clock_mode() == 1 && ct_a2_get(), "remote: SEQ then K1 up sets CLOCK = MIDI (mode %u), A2 still on", groove_clock_mode());
           n = RCMD(29, 0); CHECK(n == 14 && reply[0] == 0, "remote: the status still answers with CLOCK = MIDI");
+          /* The USB pusher (BUILD 35): with no clock going out on USB, the two passes after a USB write each send one 0xF9
+           * on USB, so the SDK transmits the reply; nothing on DIN or Bluetooth, and no more than two. */
+          { unsigned f9[3] = {0, 0, 0}, nm; struct message m[64];
+            for (unsigned i = 0; i < 40; ++i) (void)sim_render();
+            (void)drain(m, 64); rc_n = 0; rc_source = 1;
+            n = RCMD(29, 0); rc_source = 0; for (unsigned i = 0; i < 60; ++i) (void)sim_render();
+            nm = drain(m, 64);
+            for (unsigned i = 0; i < rc_n; ++i) if (rc_log[i].bytes == 1 && rc_log[i].data[0] == 0xf9 && rc_log[i].port < 3) ++f9[rc_log[i].port];
+            for (unsigned i = 0; i < nm && i < 64; ++i) if (m[i].bytes == 1 && m[i].data[0] == 0xf9 && m[i].port < 3) ++f9[m[i].port];
+            CHECK(f9[1] == 2 && f9[0] == 0 && f9[2] == 0, "USB pusher: CLOCK = MIDI, a reply is followed by two 0xF9 on USB only (DIN %u, USB %u, BLE %u)", f9[0], f9[1], f9[2]); }
           n = RCMD(29, 6, 4, 0, 255); for (unsigned i = 0; i < 600; ++i) (void)sim_render();
-          CHECK(groove_clock_mode() == 0, "remote: K1 down sets CLOCK = INT again (mode %u)", groove_clock_mode()); (void)sim_open(0); }
+          CHECK(groove_clock_mode() == 0, "remote: K1 down sets CLOCK = INT again (mode %u)", groove_clock_mode()); (void)sim_open(0);
+          { unsigned f9 = 0, nm; struct message m[64];
+            for (unsigned i = 0; i < 40; ++i) (void)sim_render();
+            (void)drain(m, 64); rc_n = 0; rc_source = 1;
+            n = RCMD(29, 0); rc_source = 0; for (unsigned i = 0; i < 60; ++i) (void)sim_render();
+            nm = drain(m, 64);
+            for (unsigned i = 0; i < rc_n; ++i) if (rc_log[i].bytes == 1 && rc_log[i].data[0] == 0xf9) ++f9;
+            for (unsigned i = 0; i < nm && i < 64; ++i) if (m[i].bytes == 1 && m[i].data[0] == 0xf9) ++f9;
+            CHECK(f9 == 0, "USB pusher: CLOCK = INT with clock out on USB, no 0xF9 (the clock pushes) (%u)", f9); } }
         /* Songs: one stored, then select, play, jump, stop. */
         { uint8_t *f = sim_file(); uint8_t b1[70], b2[67]; memset(b1, 0, sizeof b1); memset(b2, 0, sizeof b2);
           b1[0] = 1; b1[1] = 60; b1[2] = 100; b1[3] = 2; b2[0] = 1; b2[1] = 64; b2[2] = 80; b2[3] = 1;

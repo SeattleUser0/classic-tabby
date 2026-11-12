@@ -517,7 +517,7 @@ static void transfer_poll_body(void)
     /* Retry each port independently. A blocked BLE reply never delays USB
      * notes or its transfer ACK. Cached retries also belong to that port. */
     for (unsigned p=0;p<3;++p) if (replies[p].pending) {
-        int r=fm1_midi_send_port(p,replies[p].reply,replies[p].reply_length);
+        int r=ct_midi_send_port(p,replies[p].reply,replies[p].reply_length);
         if (r!=-2 || now-replies[p].started>2000U) replies[p].pending=0;
     }
     unsigned n = incoming.length;
@@ -530,7 +530,7 @@ static void transfer_poll_body(void)
         incoming.length = 0;
         c->started=now;
         if (source==session_source || !transfer) last_activity=now;
-        c->pending=fm1_midi_send_port(source,c->reply,c->reply_length)==-2;
+        c->pending=ct_midi_send_port(source,c->reply,c->reply_length)==-2;
         return;
     }
     /* Task 13 Step 1: a new request is the transfer's only long work (a flash read, a decode, a
@@ -604,7 +604,7 @@ static void transfer_poll_body(void)
         busy[8]=64-FM1_FLASH_BUSY; busy[9]=0; unsigned sum=0;
         for (unsigned i=1;i<10;++i) sum+=busy[i];
         busy[10]=(uint8_t)((0U-sum)&127U); busy[11]=0xf7;
-        (void)fm1_midi_send_port(source,busy,sizeof busy);
+        (void)ct_midi_send_port(source,busy,sizeof busy);
         goto discard;
     }
     memcpy(c->request, message, n);
@@ -638,7 +638,7 @@ static void transfer_poll_body(void)
     c->reply[at++] = 0xf7;
     c->reply_length = at;
     c->started = last_activity = now;
-    c->pending = fm1_midi_send_port(source,c->reply,c->reply_length)==-2;
+    c->pending = ct_midi_send_port(source,c->reply,c->reply_length)==-2;
     return;
 discard:
     barrier();

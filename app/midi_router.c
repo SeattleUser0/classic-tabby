@@ -215,6 +215,7 @@ FM1_AUDIO_CODE void groove_midi_transport(unsigned owner, uint8_t status)
 #ifdef CT_A2
 /* ---- Classic Tabby Task 15 Step 4: option A2, the control pass on demand (diag builds only) ----
  * Revision notes
+ *   v0.3  2026-11-12  Task 16: the USB pusher (ct_midi_send_port, usb_pusher; BUILD 35).
  *   v0.2  2026-11-12  Task 16: ct_flash_busy: no request while an app flash erase or write runs (BUILD 34); the A2
  *                     page is 52 bytes (blocks skipped).
  *   v0.1  2026-11-10  First version. Built only with CT_A2 (tools/linux/build.py --a2, Makefile
@@ -355,6 +356,31 @@ static int held_elsewhere(const struct output *o, unsigned owner, unsigned ch, u
     }
     return 0;
 }
+/* ---- Classic Tabby Task 16: the USB pusher ------------------------------------------------------
+ * Measured on the device (BUILD 35): the SDK transmits the LAST message written to the USB port only
+ * when a later write to that port follows. With CLOCK = INT and clock out on USB the next F8 (48 per
+ * second) does that; with CLOCK = MIDI, or clock out off, a SysEx reply (and the last note) stayed in
+ * the SDK until the next write: the workbench saw no reply ("the device hangs"). Every USB write of
+ * the app goes through ct_midi_send_port; when no clock is being sent on USB, the two control passes
+ * after the last write each send one undefined real-time byte (0xF9, ignored by receivers, never
+ * re-armed by itself), so the message before it leaves. Control task only. */
+static uint8_t usb_push;
+static uint32_t pass_number, usb_write_pass;
+int ct_midi_send_port(unsigned port, const uint8_t *m, size_t n)
+{
+    int r = fm1_midi_send_port(port, m, n);
+    if (!r && port == FM1_MIDI_USB) { usb_push = 2; usb_write_pass = pass_number; }
+    return r;
+}
+static void usb_pusher(void)
+{
+    if (!usb_push) return;
+    if (!groove_clock_mode() && (config.flags & CLOCK_OUT) && (config.flags & (1U << FM1_MIDI_USB))) { usb_push = 0; return; }   /* the clock pushes */
+    if (usb_write_pass == pass_number) return;            /* written in this pass: push in the next one */
+    if (!(fm1_midi_ready_ports() & (1U << FM1_MIDI_USB))) { usb_push = 0; return; }
+    const uint8_t push = 0xf9;
+    if (!fm1_midi_send_port(FM1_MIDI_USB, &push, 1)) --usb_push;
+}
 static void deliver(unsigned port, unsigned owner, const uint8_t *m)
 {
     struct output *o = &output[port];
@@ -370,11 +396,11 @@ static void deliver(unsigned port, unsigned owner, const uint8_t *m)
         if (held_elsewhere(o, owner, ch, note) && !(on && drum)) return;
         if (on && (o->sustain & (1U << ch)) && !(o->sent_sustain & (1U << ch))) {
             uint8_t pedal[3] = {(uint8_t)(0xb0 | ch), 64, 127};
-            if (fm1_midi_send_port(port, pedal, 3)) { recover(port); ++dropped; return; }
+            if (ct_midi_send_port(port, pedal, 3)) { recover(port); ++dropped; return; }
             o->sent_sustain |= (uint16_t)(1U << ch);
         }
     }
-    if (fm1_midi_send_port(port, m, size(m[0]))) { recover(port); ++dropped; }
+    if (ct_midi_send_port(port, m, size(m[0]))) { recover(port); ++dropped; }
     else if (type == 0xb0 && m[1] == 64) {
         if (m[2] >= 64) o->sent_sustain |= (uint16_t)(1U << ch);
         else o->sent_sustain &= (uint16_t)~(1U << ch);
@@ -449,6 +475,8 @@ static void midi_poll_body(void);
 void groove_midi_poll(void)
 {
     ct_prof_pass();
+    ++pass_number;
+    usb_pusher();     /* Task 16: before this pass's own writes, for the last write of an earlier pass */
     ct_midi_flush();
 }
 void ct_midi_flush(void)
@@ -467,7 +495,7 @@ static void midi_poll_body(void)
         struct output *o = &output[p];
         if (o->stop) {
             const uint8_t stop = 0xfc;
-            if (fm1_midi_send_port(p, &stop, 1)) continue;
+            if (ct_midi_send_port(p, &stop, 1)) continue;
             o->stop = 0;
         }
         /* Recovery is bounded and independent per port. Retain desired pedal
@@ -476,7 +504,7 @@ static void midi_poll_body(void)
             unsigned ch = (unsigned)__builtin_ctz(o->recover);
             static const uint8_t neutral[5][3] = {{0xb0,64,0},{0xb0,120,0},{0xb0,1,0},{0xe0,0,64},{0xd0,0,0}};
             uint8_t m[3]; memcpy(m, neutral[o->reset], 3); m[0] |= ch;
-            if (fm1_midi_send_port(p, m, size(m[0]))) break;
+            if (ct_midi_send_port(p, m, size(m[0]))) break;
             if (++o->reset == 5) { o->reset = 0; o->recover &= (uint16_t)~(1U << ch); o->channels &= (uint16_t)~(1U << ch); }
         }
     }
