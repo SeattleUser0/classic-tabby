@@ -1,0 +1,55 @@
+{
+  "build": "a622f12971fa51622125a9e3ba881d6885c701aa7305f09c8ce5152a4c3d8858",
+  "release": "V01",
+  "version": "tabby-v04.3-rc2",
+  "entryBytes": 347059,
+  "initialBytes": 1283955,
+  "standaloneBytes": 2978380,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/26eabdb7c1e3c3ff732fa68c9b917def6bac95da2312266cb25a46072bd6213f.bin",
+      "bytes": 492084,
+      "sha256": "26eabdb7c1e3c3ff732fa68c9b917def6bac95da2312266cb25a46072bd6213f"
+    },
+    {
+      "name": "assets/smk37/5ad6d21c4014083c5312183c94fdea02c3cc3ea174442d843bb58c4daae9b417.wasm",
+      "bytes": 297105,
+      "sha256": "5ad6d21c4014083c5312183c94fdea02c3cc3ea174442d843bb58c4daae9b417"
+    },
+    {
+      "name": "assets/smk37/845ecebbdf79e95e49ef9abfc09fc3b3b18798813b7d40d38fcf78ef4ba0117f.js",
+      "bytes": 567150,
+      "sha256": "845ecebbdf79e95e49ef9abfc09fc3b3b18798813b7d40d38fcf78ef4ba0117f"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 347059,
+      "sha256": "48f66bc678dcb769d16bf8b334d67a8b8b1c7dacdffb04c06c3e1fa5f52f2fec"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 347059,
+      "sha256": "48f66bc678dcb769d16bf8b334d67a8b8b1c7dacdffb04c06c3e1fa5f52f2fec"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 2978380,
+      "sha256": "892957f4e6626b70d9f52665b7be4403540747d06a1d2e83ac48341f130e298e"
+    }
+  ]
+}
