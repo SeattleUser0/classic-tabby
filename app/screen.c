@@ -4,6 +4,9 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.8  2026-11-11  Task 16 Goal 1: ct_screen_page / ct_screen_action / ct_screen_song_select (the remote
+ *                     status and the remote song select); the A2 switch is ON at boot, so the ACTIONS
+ *                     entry reads "A2 FAST MIDI: ON" and the switch turns it off.
  *   v0.7  2026-11-10  Task 15 Step 4: CT_A2 diag builds only: the ACTIONS entry "A2 FAST MIDI",
  *                     the run-time switch of option A2 (off at boot). The normal build has no such entry.
  *   v0.6  2026-11-10  Task 13 Step 4: the panel wording: knobs by their printed numbers (the
@@ -189,7 +192,7 @@ static const char *const actions[] = {"COPY TIMBRE", "PASTE TIMBRE", "STOP ALL /
 #ifdef CT_A2
     /* Task 15 Step 4 (CT_A2 diag builds only): the run-time switch of option A2, the control
      * pass on demand (app/midi_router.c). Off at boot; the entry's text shows the state. */
-    , "A2 FAST MIDI: OFF"
+    , "A2 FAST MIDI: ON"
 #endif
     };
 enum { ACT_COPY_TIMBRE, ACT_PASTE_TIMBRE, ACT_STOP_ALL, ACT_ERASE_OLD, ACT_SONG_MODE, ACT_COMPACT, ACT_SEND_SETUP, ACT_A2 };
@@ -208,6 +211,12 @@ static unsigned music_page, subpage_return, project_return, effects_page;
 static unsigned seq_page, arp_page;
 static unsigned song_select, song_row_page; /* SONG page: selected song, pads = rows 1-16 + 16 * page */
 static unsigned launch_phase(void);         /* Task 06 (c): the TRACK LAUNCH page's flash phase */
+/* Task 16 Goal 1 (remote control, transfer command 29, app/transfer.c): what the screen state is, and
+ * the SONG page's selected song, so a remote select leaves the page and the song loaded together
+ * (the page then shows what the song state says). The page numbers are this file's enum. */
+unsigned ct_screen_page(void) { return page; }
+unsigned ct_screen_action(void) { return action; }
+void ct_screen_song_select(unsigned song) { if (song < SONG_SONGS) song_select = song; }
 static unsigned shift_visible;
 static unsigned panel_modes_seen;
 static uint32_t fader_feedback_seen;
@@ -891,7 +900,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             paint_fill(6, y, 228, 17, bg);
             const char *label = actions[at];
 #ifdef CT_A2
-            if (at == ACT_A2 && ct_a2_get()) label = "A2 FAST MIDI: ON";   /* Task 15 */
+            if (at == ACT_A2 && !ct_a2_get()) label = "A2 FAST MIDI: OFF";   /* Task 15; v0.8: on at boot */
 #endif
             text(10, y + 5, label, 1, at == action ? ACCENT : DIM, bg);
         }

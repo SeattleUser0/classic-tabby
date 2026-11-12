@@ -55,8 +55,8 @@
 #     make release           GitHub release for TAG with the release assets attached
 #                            (needs docs/releases/<TAG>.md as the notes)
 #     make clean             remove build/ (also detaches the gh-pages worktree)
-#     A2=1                   Task 15: the diag build with option A2, the control pass on demand (firmware,
-#                            check, package, publish); off at boot, switched on the device (BUILD.md 28.4)
+#     A2=0                   Task 16: build WITHOUT option A2 (the tabby-v04.1 firmware). Option A2, the control
+#                            pass on demand, is in every normal build since tabby-v04.2 (BUILD.md 28.4, 32)
 #     DIAG=1 / USER_BYTES=N  Task 11: the diagnostic build / the USER size (any firmware, check,
 #                            package or web target); make web-old536: the old 536576-layout simulator
 #
@@ -78,9 +78,10 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.25
+# Version: 0.26
 #
 # Revision log
+#   v0.26 2026-11-11  Task 16: option A2 is on in the normal build (A2 defaults to 1; A2=0 builds without it).
 #   v0.25 2026-11-11  tabby-v04.2: merge of the timing branch (A2=1 build switch, host tests always build the A2
 #                     code) with the guide test; v0.22 of the timing branch is listed below as v0.22t.
 #   v0.24 2026-11-10  tabby-v04.1.1: workbench-test runs tests/workbench/guide.mjs (the testing guide's
@@ -207,8 +208,8 @@ USER_BYTES ?=
 OPTS       := $(if $(filter 1,$(DIAG)),--diag,) $(if $(USER_BYTES),--user-bytes $(USER_BYTES),)
 # Task 15 Step 4 (v0.22): A2=1 builds option A2 (the control pass on demand, -DCT_A2=1) into the firmware:
 # the diag build tabby-v04.2-diagA2. build.py only (the simulator has no A2); the host tests always have it.
-A2         ?=
-A2OPT      := $(if $(filter 1,$(A2)),--a2,)
+A2         ?= 1
+A2OPT      := $(if $(filter 0,$(A2)),--no-a2,--a2)
 NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV) $(OPTS) $(A2OPT)
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV) $(OPTS) $(A2OPT)
 

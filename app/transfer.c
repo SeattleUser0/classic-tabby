@@ -4,6 +4,11 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.6  2026-11-11  Task 16 Goal 1: command 29, remote control in every build (status, song select, play,
+ *                     stop, jump to a row, A2 on / off, panel-key injection with a 5 s watchdog); capability
+ *                     flag bit 2. No command writes flash: the SAVE button cannot be injected, a song
+ *                     play / select only reads. Command 25 requests 7-9 (the A2 page, A2 off / on) are in
+ *                     every build: A2 is the normal build's default.
  *   v0.5  2026-11-10  Task 15 Step 4: CT_A2 builds accept command 25 requests 7, 8 and 9 (the A2
  *                     page, A2 off, A2 on; app/diag.h). The normal build still stops at 6.
  *   v0.4  2026-11-10  Task 13 Step 1 (option B): a new request (not a cached retry, not MMC) waits
@@ -26,10 +31,11 @@
 #include "fm_patch.h"
 #include "song.h"
 #include "fm1_engine_control.h"
+#include "smk37_controls.h"   /* Task 16: remote key injection */
 #include "diag.h"   /* Classic Tabby Task 11: kind 8 and command 25 (every build since Task 12 A4) */
 /* Task 12: command 27 feature flags (bit 0: flash writes refused while the transport runs, A3;
  * bit 1: command 28 ERASE OLD DATA, A1). */
-#define CT_CAPABILITY_FLAGS 3U
+#define CT_CAPABILITY_FLAGS 7U   /* v0.6: bit 2 = command 29, remote control (Task 16) */
 /* Task 12 A3: the transfer kinds whose upload writes flash: 5 song record (and delete), 6 block,
  * 7 block batch, 8 device settings. Kinds 0-3 (workspace, FM patch, timbre, tuned workspace) only
  * change RAM; the project reaches flash through command 7, which project.c refuses while playing. */
@@ -136,6 +142,96 @@ static uint32_t get32(const uint8_t *p)
 { return p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
 static void put32(uint8_t *p, uint32_t value)
 { for (unsigned i = 0; i < 4; ++i) p[i] = (uint8_t)(value >> (i * 8U)); }
+
+/* ---- Task 16 Goal 1: command 29, remote control (every build) ---------------------------------
+ * The unattended tests (SPEC 17.10) drive the device from the NUC through this command instead of
+ * through a person at the panel. Data byte 0 is the operation; every reply is the status below
+ * unless the operation reads nothing. No operation writes flash:
+ *   {}  or {0}         status, 12 bytes: [0] reply version 1, [1] screen page (app/screen.c enum:
+ *                      11 SOURCE, 12 ACTIONS, 19 SONG, 20 TRACK_LAUNCH, 0 OVERVIEW ...), [2] song
+ *                      state (0 stopped, 1 playing, 2 stopping), [3] loaded song (255 none), [4] the
+ *                      playing row, [5] queued jump row (255 none), [6] A2 on, [7] SHIFT held,
+ *                      [8] a transport runs (song or stock sequencer), [9..10] bar (u16 LE), [11] the
+ *                      ACTIONS entry selected
+ *   {1, song}          select a song: load it and make it the SONG page's song (refused while playing)
+ *   {2} / {2, song}    PLAY the loaded song (or load song and play it): the SONG page's PLAY
+ *   {3}                STOP
+ *   {4, row}           queue a jump to a row (the SONG page's pad): refused unless playing
+ *   {5, 0|1}           A2 off / on (the ACTIONS switch)
+ *   {6, kind, id, v}   inject a panel event: kind 0 button (physical id 0..17), 1 key (0..36),
+ *                      3 pad (0..15), 4 encoder (0..7, v is a signed detent count as a byte);
+ *                      v = 0 releases, 1..127 presses (key and pad velocity). Press, hold and release
+ *                      are separate calls; a held control is released by itself 5 s after the last
+ *                      remote call (the watchdog in groove_remote_poll). Physical button 3 is the
+ *                      firmware's SAVE (4th button in the left group): refused (code -7), because the
+ *                      button writes flash and it also confirms the ACTIONS erase
+ *   {7}                release everything this command holds */
+static uint32_t remote_buttons, remote_keys, remote_pads, remote_at;
+static void remote_release_all(void)
+{
+    for (unsigned i = 0; i < 18; ++i) if (remote_buttons & (1U << i)) smk37_control_event(SMK37_BUTTON, i, 0);
+    for (unsigned i = 0; i < 37; ++i) if ((remote_keys >> i) & 1U) smk37_control_event(SMK37_KEY, i, 0);
+    for (unsigned i = 0; i < 16; ++i) if (remote_pads & (1U << i)) smk37_control_event(SMK37_PAD, i, 0);
+    remote_buttons = remote_keys = remote_pads = 0;
+}
+/* Control task, every poll: the watchdog (a lost PC must not leave SHIFT held). */
+static void groove_remote_poll(uint32_t now)
+{
+    if ((remote_buttons || remote_keys || remote_pads) && now - remote_at > 5000U) remote_release_all();
+}
+static void remote_status(uint8_t *out, unsigned *count)
+{
+    struct song_status st; song_status_read(&st);
+    out[0] = 1; out[1] = (uint8_t)ct_screen_page(); out[2] = st.playing; out[3] = st.song;
+    out[4] = st.playing ? st.row : 255; out[5] = st.queued; out[6] = (uint8_t)ct_a2_get();
+    out[7] = (uint8_t)smk37_shift(); out[8] = (uint8_t)ct_transport_running();
+    out[9] = (uint8_t)st.bar; out[10] = (uint8_t)(st.bar >> 8); out[11] = (uint8_t)ct_screen_action();
+    *count = 12;
+}
+static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count)
+{
+    unsigned op = n ? data[0] : 0;
+    int r;
+    remote_at = fm1_millis();
+    if (op == 0 && n <= 1) { remote_status(out, count); return 0; }
+    if (op == 1 && n == 2 && data[1] < SONG_SONGS) {
+        if (song_playing()) return GROOVE_PROJECT_PLAYING;
+        r = song_load(data[1]);
+        if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY;
+        ct_screen_song_select(data[1]);
+    } else if (op == 2 && (n == 1 || (n == 2 && data[1] < SONG_SONGS))) {
+        if (song_playing()) return GROOVE_PROJECT_INVALID;
+        if (n == 2 && song_loaded() != data[1]) {
+            r = song_load(data[1]);
+            if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY;
+            ct_screen_song_select(data[1]);
+        }
+        if (song_loaded() == SONG_NONE) return GROOVE_PROJECT_EMPTY;
+        r = song_play();
+        if (r < 0) return r;   /* a positive result is not an error (command 26 does the same) */
+    } else if (op == 3 && n == 1) song_stop();
+    else if (op == 4 && n == 2) {
+        if (song_queue_jump(data[1])) return GROOVE_PROJECT_INVALID;
+    } else if (op == 5 && n == 2 && data[1] <= 1) ct_a2_set(data[1]);
+    else if (op == 6 && n == 4) {
+        unsigned kind = data[1], id = data[2];
+        int v = kind == SMK37_ENCODER ? (int)(int8_t)data[3] : (int)data[3];
+        if (kind == SMK37_BUTTON && id < 18 && id != 3) {
+            if (v) remote_buttons |= 1U << id; else remote_buttons &= ~(1U << id);
+            smk37_control_event(SMK37_BUTTON, id, v ? 1 : 0);
+        } else if (kind == SMK37_KEY && id < 37) {
+            if (v) remote_keys |= (uint32_t)1 << id; else remote_keys &= ~((uint32_t)1 << id);
+            smk37_control_event(SMK37_KEY, id, v);
+        } else if (kind == SMK37_PAD && id < 16) {
+            if (v) remote_pads |= 1U << id; else remote_pads &= ~(1U << id);
+            smk37_control_event(SMK37_PAD, id, v);
+        } else if (kind == SMK37_ENCODER && id < 8) smk37_control_event(SMK37_ENCODER, id, v);
+        else return GROOVE_PROJECT_INVALID;
+    } else if (op == 7 && n == 1) remote_release_all();
+    else return GROOVE_PROJECT_INVALID;
+    remote_status(out, count);
+    return 0;
+}
 static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, unsigned *count)
 {
     int r = GROOVE_PROJECT_INVALID;
@@ -158,6 +254,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
     /* Task 12 A1: ERASE OLD DATA from the workbench, the same erase as the confirmed ACTIONS entry
      * (song_storage_initialize: one old-data sector per poll; projects, tunings and settings are
      * not touched). The five bytes "ERASE" are the workbench's confirmation. */
+    if (cmd == 29) return remote(data, n, out, count);   /* Task 16 */
     if (cmd == 28) {
         if (n != 5 || memcmp(data, "ERASE", 5)) return GROOVE_PROJECT_INVALID;
         if (ct_transport_running()) return GROOVE_PROJECT_PLAYING;
@@ -205,7 +302,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
     }
 #endif   /* CT_DIAG: command 26 only (Task 12 A4) */
     /* Task 12 A4: the counters are in every build; request 4 and 5 are the loop profile. */
-#ifdef CT_A2
+#ifdef CT_A2   /* the normal build defines it since Task 16 (build.py) */
     enum { DIAG_REQUEST_MAX = 9 };   /* Task 15 Step 4: 7 = the A2 page, 8 / 9 = A2 off / on (app/diag.h) */
 #else
     enum { DIAG_REQUEST_MAX = 6 };
@@ -411,6 +508,7 @@ void groove_transfer_poll(void)
 static void transfer_poll_body(void)
 {
     uint32_t now = fm1_millis();
+    groove_remote_poll(now);   /* Task 16 */
     if (transfer && now - last_activity > 10000U)
         transfer_cancel();
     /* Retry each port independently. A blocked BLE reply never delays USB

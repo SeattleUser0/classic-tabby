@@ -44,9 +44,13 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.12
+ * Version: 0.13
  *
  * Revision log
+ *   v0.13 2026-11-11  Task 16 Goal 1: section 17, command 29 (remote control) through the SysEx path:
+ *                     status, A2, key press and release, refusals (SAVE, ids, kinds), SHIFT + HOME / SRC and
+ *                     SEQ + EDIT against the reported page, the 5 s watchdog, song select / play / jump /
+ *                     stop, and a refused project save while playing. Section 16: A2 is ON at boot.
  *   v0.12 2026-11-10  Task 15 Step 4: section 16, option A2 (the control pass on demand): off at
  *                     boot and then no request at all; on: one request per audio block with an
  *                     event waiting and the note leaves in that block; a request that gets no
@@ -313,6 +317,39 @@ static void stuck_report(const struct log_entry *log, unsigned n)
 /* The block whose window holds unit position u at `tempo`: p_k = floor(k * tempo * 1024 / 11025). */
 static unsigned block_of(uint64_t u, unsigned tempo)
 { return (unsigned)(((u + 1) * 11025 + tempo * 1024 - 1) / (tempo * 1024)) - 1; }
+/* Task 16: one remote-control request through the real SysEx path (USB source), and its reply payload. */
+static unsigned token = 100;
+static struct message rc_log[128]; static unsigned rc_n;   /* what else the device sent while a request waited */
+static int any_on(const struct message *m, unsigned n, unsigned vel)
+{ for (unsigned i = 0; i < n; ++i) if (m[i].port == 0 && (m[i].data[0] & 0xf0U) == 0x90 && m[i].data[2] == vel) return 1; return 0; }
+static int any_off(const struct message *m, unsigned n)
+{ for (unsigned i = 0; i < n; ++i) if (m[i].port == 0 && ((m[i].data[0] & 0xf0U) == 0x80 || ((m[i].data[0] & 0xf0U) == 0x90 && !m[i].data[2]))) return 1; return 0; }
+static int rcmd(unsigned cmd, const uint8_t *d, unsigned n, uint8_t *outp)
+{
+    uint8_t *f = sim_file(); unsigned at = 0, bits = 0, v = 0, sum = 0;
+    f[at++] = 0xf0; f[at++] = 0x7d; f[at++] = 'F'; f[at++] = 'M'; f[at++] = 2; f[at++] = (uint8_t)cmd;
+    ++token; f[at++] = token & 127U; f[at++] = (uint8_t)(token >> 7);
+    for (unsigned i = 0; i < n; ++i) { v |= (unsigned)d[i] << bits; bits += 8; while (bits >= 7) { f[at++] = v & 127U; v >>= 7; bits -= 7; } }
+    if (bits) f[at++] = v & 127U;
+    for (unsigned i = 1; i < at; ++i) sum += f[i];
+    f[at++] = (uint8_t)((0U - sum) & 127U); f[at++] = 0xf7;
+    (void)sim_midi_from(0, at);
+    for (unsigned pass = 0; pass < 40; ++pass) {
+        unsigned r;
+        while ((r = sim_midi_output()) != 0) {
+            unsigned len = r & 255U;
+            if (!(len > 8 && sim_file()[0] == 0xf0) && rc_n < 128) { rc_log[rc_n].port = r >> 8; rc_log[rc_n].bytes = len; memcpy(rc_log[rc_n].data, sim_file(), len > 8 ? 8 : len); ++rc_n; }
+            if (len > 8 && sim_file()[0] == 0xf0 && sim_file()[5] == (cmd | 64U)) {
+                const uint8_t *g = sim_file(); unsigned bb = 0, vv = 0, cnt = 0;
+                for (unsigned i = 8; i + 2 < len; ++i) { vv |= (unsigned)g[i] << bb; bb += 7; if (bb >= 8) { outp[cnt++] = (uint8_t)vv; vv >>= 8; bb -= 8; } }
+                return (int)cnt;
+            }
+        }
+        for (unsigned i = 0; i < 4; ++i) (void)sim_render();
+    }
+    return -1;
+}
+
 #include "v1_reference.inc"
 int main(void)
 {
@@ -1277,7 +1314,8 @@ int main(void)
         #define AFTER_PASS() do { sim_test_log_reset(); while (!strchr(sim_test_log(), 'P')) (void)sim_render(); } while (0)
         sim_boot(1); sim_midi_capture(1); sim_test_request_passes(0); sim_test_costs(0, 0);
         settle(); (void)drain(m, 64);
-        CHECK(ct_diag_read(7, a2) == 48 && U32(a2, 0) == 0 && !ct_a2_get(), "A2: off at boot (page %u bytes)", 48U);
+        CHECK(ct_diag_read(7, a2) == 48 && U32(a2, 0) == 1 && ct_a2_get(), "A2: on at boot, the normal build's default since Task 16 (page %u bytes)", 48U);
+        (void)ct_diag_read(8, a2);   /* the "off" checks below start from the switch off */
         /* Off: a waiting note asks for nothing and leaves with the 10 ms pass, as in the normal build. */
         (void)ct_diag_read(1, a2); AFTER_PASS(); (void)drain(m, 64);
         uint32_t asked = sim_test_control_requests;
@@ -1348,6 +1386,84 @@ int main(void)
         sim_test_request_passes(0); (void)sim_open(0);
         #undef AFTER_PASS
         #undef U32
+    }
+
+
+    /* ---- 17. Task 16 Goal 1: command 29, remote control, in every build -------------------- */
+    {
+        #define RCMD(cmd, ...) rcmd((cmd), (const uint8_t[]){__VA_ARGS__}, sizeof((const uint8_t[]){__VA_ARGS__}), reply)
+        uint8_t reply[96];
+        #define STATUS_PAGE reply[1]
+        sim_boot(1); sim_midi_capture(1); sim_test_request_passes(1); settle();
+        (void)sim_smk37(0, 0, 0);   /* the simulator reads the panel from the SMK-37 layer from now on, as the device does */
+        { uint8_t a[64]; (void)ct_diag_read(9, a); }   /* section 16 left A2 off; the device boots with it on */
+        { struct message m[64]; (void)drain(m, 64); }
+        int n = RCMD(29, 0);
+        CHECK(n == 13 && reply[0] == 0 && reply[1] == 1 && reply[2] == 0 && reply[3] == 0 && reply[4] == 255 && reply[5] == 255 && reply[7] == 1,
+              "remote: status at boot: version 1, page OVERVIEW, stopped, nothing loaded (%d bytes: %u %u %u %u %u %u %u)", n, reply[0], reply[1], reply[2], reply[3], reply[4], reply[5], reply[7]);
+        { uint8_t caps[96]; int k = rcmd(27, (const uint8_t[]){0}, 0, caps); (void)k;
+          CHECK(k >= 8 && (caps[2] & 4U), "remote: capability flag bit 2 (command 29) is set"); }
+        /* A2 */
+        n = RCMD(29, 5, 0); CHECK(n == 13 && reply[0] == 0 && reply[7] == 0 && !ct_a2_get(), "remote: A2 off");
+        n = RCMD(29, 5, 1); CHECK(n == 13 && reply[7] == 1 && ct_a2_get(), "remote: A2 on");
+        CHECK(RCMD(29, 5, 2) >= 0 && reply[0] != 0, "remote: A2 value 2 refused (code %u)", reply[0]);
+        /* A key press and release: the note leaves on the MIDI out, the release ends it. */
+        { struct message m[64]; unsigned np, ports2;
+          rc_n = 0; n = RCMD(29, 6, 1, 0, 100); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
+          CHECK(n == 13 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
+          rc_n = 0; n = RCMD(29, 6, 1, 0, 0); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
+          CHECK(reply[0] == 0 && (any_off(m, np)), "remote: key 1 release ends it"); }
+        /* The same request twice is a cached retry; the tool changes the token, so each press acts. */
+        /* Refusals: SAVE (physical 3), bad kind, bad ids, bad length. */
+        n = RCMD(29, 6, 0, 3, 1); CHECK(n >= 0 && reply[0] == 71, "remote: the SAVE button (physical 3) is refused (code %u)", reply[0]);
+        n = RCMD(29, 6, 0, 18, 1); CHECK(n >= 0 && reply[0] == 71, "remote: physical button 18 refused");
+        n = RCMD(29, 6, 1, 37, 1); CHECK(n >= 0 && reply[0] == 71, "remote: key 37 refused");
+        n = RCMD(29, 6, 9, 0, 1); CHECK(n >= 0 && reply[0] == 71, "remote: kind 9 refused");
+        n = RCMD(29, 9); CHECK(n >= 0 && reply[0] == 71, "remote: unknown operation refused");
+        /* Panel flows, checked against the page the firmware reports. */
+        n = RCMD(29, 6, 0, 0, 1); n = RCMD(29, 6, 0, 12, 1);       /* SHIFT + HOME / SRC */
+        CHECK(reply[8] == 1, "remote: SHIFT held (%u)", reply[8]);
+        n = RCMD(29, 6, 0, 12, 0); n = RCMD(29, 6, 0, 0, 0); settle();
+        n = RCMD(29, 0);
+        CHECK(reply[2] == 11 && reply[8] == 0, "remote: SHIFT + HOME / SRC opens SOUND SOURCE (page %u), SHIFT released", reply[2]);
+        (void)sim_open(0); settle();
+        (void)sim_open(0); settle();
+        n = RCMD(29, 6, 0, 15, 1); n = RCMD(29, 6, 0, 13, 1); settle();  /* SEQ + EDIT together */
+        n = RCMD(29, 6, 0, 15, 0); n = RCMD(29, 6, 0, 13, 0); settle(); n = RCMD(29, 0);
+        CHECK(reply[2] == 12, "remote: SEQ + EDIT opens ACTIONS (page %u)", reply[2]);
+        (void)sim_open(0);
+        /* Watchdog: a button left held is released by itself after 5 s with no remote call. */
+        n = RCMD(29, 6, 0, 0, 1);
+        CHECK(reply[8] == 1, "remote: SHIFT held");
+        for (unsigned i = 0; i < 1900; ++i) (void)sim_render();   /* about 5.5 s of audio blocks */
+        sim_test_request_passes(1); settle(); n = RCMD(29, 0);
+        CHECK(reply[8] == 0, "remote: the watchdog released SHIFT after 5 s (SHIFT %u)", reply[8]);
+        /* Songs: one stored, then select, play, jump, stop. */
+        { uint8_t *f = sim_file(); uint8_t b1[70], b2[67]; memset(b1, 0, sizeof b1); memset(b2, 0, sizeof b2);
+          b1[0] = 1; b1[1] = 60; b1[2] = 100; b1[3] = 2; b2[0] = 1; b2[1] = 64; b2[2] = 80; b2[3] = 1;
+          memcpy(f, b1, sizeof b1); (void)sim_block_write(0, 1, sizeof b1);
+          memcpy(f, b2, sizeof b2); (void)sim_block_write(0, 2, sizeof b2);
+          memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "REMOTE      ", 12); f[40] = 2; f[48] = 5;
+          f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;
+          CHECK(sim_song_record_write(0) == 0, "remote: test song stored"); }
+        n = RCMD(29, 1, 0); CHECK(n == 13 && reply[0] == 0 && reply[4] == 0 && reply[3] == 0, "remote: select song 1 loads it (loaded %u)", reply[4]);
+        n = RCMD(29, 1, 7); CHECK(n >= 0 && reply[0] != 0, "remote: select an empty song is refused (code %u)", reply[0]);
+        n = RCMD(29, 4, 1); CHECK(n >= 0 && reply[0] == 71, "remote: a jump while stopped is refused");
+        n = RCMD(29, 1, 0);   /* a refused select of an empty song leaves nothing loaded; load song 1 again */
+        n = RCMD(29, 2); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); n = RCMD(29, 0); CHECK(n == 13 && reply[0] == 0 && reply[3] == 1 && reply[9] == 1, "remote: PLAY starts the loaded song (state %u, transport %u, code %u, loaded %u)", reply[3], reply[9], reply[0], reply[4]);
+        for (unsigned i = 0; i < 20; ++i) (void)sim_render();
+        n = RCMD(29, 2); CHECK(n >= 0 && reply[0] != 0, "remote: PLAY while playing is refused");
+        n = RCMD(29, 4, 1); CHECK(n == 13 && reply[0] == 0 && reply[6] == 1, "remote: jump to row 2 is queued (queued %u)", reply[6]);
+        { uint8_t save[96]; int k = rcmd(7, (const uint8_t[]){0}, 0, save); (void)k;
+          CHECK(save[0] != 0, "remote: project save refuses while playing (code %u)", save[0]); }
+        n = RCMD(29, 3); CHECK(n == 13 && reply[0] == 0, "remote: STOP");
+        for (unsigned i = 0; i < 200; ++i) (void)sim_render();
+        n = RCMD(29, 0); CHECK(reply[3] == 0 && reply[9] == 0, "remote: stopped and no transport after STOP (%u, %u)", reply[3], reply[9]);
+        n = RCMD(29, 2, 0); CHECK(n == 13 && reply[0] == 0 && reply[3] == 1, "remote: PLAY with a song number loads and plays it");
+        n = RCMD(29, 3); for (unsigned i = 0; i < 200; ++i) (void)sim_render();
+        #undef RCMD
+        #undef STATUS_PAGE
+        sim_test_request_passes(0); (void)sim_open(0);
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

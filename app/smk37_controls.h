@@ -34,4 +34,8 @@ int smk37_screen_launch_color(unsigned pad, uint32_t *rgb);   /* Task 06: TRACK 
 enum { SMK37_PAGE_BLUETOOTH, SMK37_PAGE_SOURCE, SMK37_PAGE_MIDI };
 void smk37_screen_page(unsigned page);
 void smk37_screen_shortcut(unsigned pad);
+/* Task 16 (remote control, app/transfer.c command 29): the screen state the status reply reports. */
+unsigned ct_screen_page(void);
+unsigned ct_screen_action(void);
+void ct_screen_song_select(unsigned song);
 #endif

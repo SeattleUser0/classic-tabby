@@ -43,9 +43,12 @@ Usage (from the repository root)
         python3 tools/linux/build.py --model pro --package --toolchain-kind native --toolchain ...
     python3 tools/linux/build.py --model pro --check-only --toolchain-kind native --toolchain ...   (make check, v0.6)
 
-Version: 0.10
+Version: 0.11
 
 Revision log
+    v0.11 2026-11-11  Task 16: option A2 is part of the normal build (--a2 is the default; --no-a2 or
+                      FM1_A2=0 builds the tabby-v04.1 firmware). The identity input a2:1 and the JSON key
+                      "a2" stay, so a build with and without A2 never share a build id.
     v0.10 2026-11-10  Task 15 Step 4: --a2 (Makefile A2=1): -DCT_A2=1, option A2 (the control pass on
                       demand, app/midi_router.c) for the diag build tabby-v04.2-diagA2. Off by
                       default; when on it joins the build identity ("a2:1") and build-identity.json
@@ -1044,8 +1047,10 @@ def main(argv=None):
     # v0.8 (Task 11): the layout and the diagnostic build.
     parser.add_argument("--user-bytes", type=int, default=int(os.environ.get("FM1_USER_BYTES") or DEFAULT_USER_BYTES),
                         help="USER region size in bytes (default 471040, the normal layout since tabby-v04.0; 536576 = the old stock layout); v0.8, v0.9")
-    parser.add_argument("--a2", action="store_true", default=os.environ.get("FM1_A2") == "1",
-                        help="diag build with option A2, the control pass on demand (-DCT_A2=1); v0.10")
+    parser.add_argument("--a2", action="store_true", default=os.environ.get("FM1_A2") != "0",
+                        help="option A2, the control pass on demand (-DCT_A2=1); ON by default since v0.11 (tabby-v04.2)")
+    parser.add_argument("--no-a2", dest="a2", action="store_false",
+                        help="build without option A2 (the tabby-v04.1 firmware); v0.11")
     parser.add_argument("--diag", action="store_true", default=os.environ.get("FM1_DIAG") == "1",
                         help="diagnostic build: timing counters, settings transfer kind, ACTIONS storage line (-DCT_DIAG=1); v0.8")
     parser.add_argument("--check-only", action="store_true",

@@ -239,7 +239,7 @@ FM1_AUDIO_CODE void groove_midi_transport(unsigned owner, uint8_t status)
  *     histogram, read by command 25 request 7 (ct_a2_read). The time is part of the audio
  *     render's budget (CPU GUARD), which is why it is measured.
  *   - No request is ever made with A2 off: the build then behaves as the normal build does. */
-static volatile uint8_t a2_on, a2_reset_request;
+static volatile uint8_t a2_on = 1, a2_reset_request;   /* Task 16: ON at boot (tabby-v04.2) */
 static struct {
     uint32_t blocks;      /* audio blocks seen (one per 128 frames): the time base for calls per second */
     uint32_t calls;       /* fm1_control_request calls made from the audio interrupt */
