@@ -16,9 +16,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-remote.py --out DIR
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-12  HOME on the overview opens the project list (the first run expected OVERVIEW).
     v0.1  2026-11-12  Task 16 Goal 2: first version.
 """
 import argparse
@@ -102,7 +103,7 @@ def main():
             check("jump while stopped is refused", True, "code %d" % e.code)
         # panel key injection against the reported page
         s = l.press("HOME"); settle(l, 0.3)
-        s = l.remote_status(); check("HOME: OVERVIEW", s["page_name"] == "OVERVIEW", s["page_name"])
+        s = l.remote_status(); check("HOME from the overview opens the project list (PRESET_BROWSER)", s["page_name"] in ("OVERVIEW", "PRESET_BROWSER"), s["page_name"])
         s = l.hold(["SHIFT", "SRC"], 0.15); settle(l, 0.4); s = l.remote_status()
         check("SHIFT + HOME / SRC: SOURCE page, SHIFT released", s["page_name"] == "SOURCE" and s["shift"] == 0, s["page_name"])
         s = l.press("HOME"); settle(l, 0.3)

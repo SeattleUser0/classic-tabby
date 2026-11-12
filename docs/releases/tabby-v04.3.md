@@ -21,4 +21,5 @@ Song mode follows an external MIDI clock; reinstall to get it (Full backup first
   and SPEC 19.3 describe it.
 - Everything of tabby-v04.2 stays: fast MIDI on by default (A2), remote control, the corrected screen texts.
 
-Hardware validation: BUILD.md 33.
+**Hardware validation: INCOMPLETE. Not released on the main page.** Installed from the permanent page builds/tabby-v04.3/ on one
+device; the first follow test hung the device after the CLOCK change (BUILD.md 33.3). Host and simulator tests all pass.

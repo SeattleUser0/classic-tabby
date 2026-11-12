@@ -31,9 +31,10 @@ Purpose
 Usage (browser closed: Chrome holds the SMK-37's port)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-follow.py --song 16 --seconds 60 --out DIR [--only lock,gap]
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-12  --a2 on|off|keep; arm() waits for the device after the CLOCK change (a retry loop instead of one 1.5 s query).
     v0.1  2026-11-12  Task 16 Goal 3: first version.
 """
 import argparse
@@ -168,7 +169,15 @@ def arm(r, song):
     st = l.press("SEQ")
     r.say("SEQ pressed: page %s" % st["page_name"])
     l.key(4, 0, 1); time.sleep(0.2)          # K1: one detent up = CLOCK MIDI (read back below by arming)
-    l.select_song(song - 1)
+    for attempt in range(8):                  # v0.2: the device may be busy for seconds after the CLOCK change
+        try:
+            l.select_song(song - 1); break
+        except T.DeviceError:
+            raise
+        except TimeoutError:
+            r.say("select song: no reply yet (attempt %d)" % (attempt + 1)); time.sleep(1.0)
+    else:
+        r.say("the device does not answer after the CLOCK change"); return False
     st = l.play_song()
     r.pump(0.3)
     st = r.status()
@@ -313,12 +322,15 @@ def main():
     p.add_argument("--seconds", type=float, default=60)
     p.add_argument("--din", default="H4MIDI-WC Port 1")
     p.add_argument("--only", default="lock,tempo,gap,stop,spp")
+    p.add_argument("--a2", choices=["keep", "on", "off"], default="keep", help="v0.2: set option A2 (remote command 29) before the CLOCK change; the first run on tabby-v04.3 hung the device after the CLOCK change with A2 on (BUILD.md 33.3)")
     p.add_argument("--out", required=True)
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
     r = Rig(a)
     result = {}
     try:
+        if a.a2 != "keep":
+            st = r.l.set_a2(a.a2 == "on"); r.say("A2 set %s: reported %d" % (a.a2, st["a2"]))
         if not arm(r, a.song):
             r.say("could not arm the song (CLOCK = MIDI not set by the panel injection): stopping")
             return 1

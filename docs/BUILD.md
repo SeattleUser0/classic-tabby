@@ -4471,3 +4471,34 @@ the held position; LOST after 2 s, pulses alone never restart it, Continue does;
 SPP stopped (row 2, stays stopped), Continue after SPP, SPP while running (back to step 4 of row 1), Start from the middle,
 the song end arms again, PLAY leaves follow; a fuzz of 6000 random Start / Stop / Continue / SPP / tempo / gap operations
 (states always valid, the position inside the song, no stuck note after the last Stop).
+
+### 33.3 Install and the device incident (2026-11-11, 22:50 to 23:00 PST; what is known and what is not)
+
+- tabby-v04.3 was published only under builds/tabby-v04.3/ (the main page stayed on tabby-v04.2; no GitHub release yet) and
+  installed from this NUC through that page: identity SMK-37 Pro_8000001 first, one attempt, 10.2 s, "Firmware ready."
+  Read back: build id b136b74165821a3a, USER 471040, A2 on, command 29 status answered. A full backup was taken before
+  (overnight/backups/before-v04.3.json, equal to the one taken after the v04.2 transfer-and-save test).
+- The first follow run (tools/linux/hw/run-follow.py v0.1) set CLOCK = MIDI by the panel injection (SEQ, then K1 one detent
+  up). The next command, select song, got no reply in 1.5 s; a later status read answered after about 5 s (page SYNC / MIDI, song
+  16 loaded, CLOCK change applied). After that **the device stopped answering both protocols** (the project-library
+  commands and the update protocol's identity query). USB stays enumerated (device 41, no disconnect in the kernel log
+  since the install), the device accepts MIDI bytes, and nothing comes back. It did not recover in the minutes that followed
+  (a poll every 20 s: overnight/device-poll.log).
+- **Needs a power cycle of the SMK-37** (this account cannot reset the USB device: usbreset needs privileges; the hub has no
+  per-port power control here). Nothing was written to the device after the hang. Whether the hang interrupted a flash write
+  (the CLOCK change marks the settings dirty) is not known.
+- What the host says: the same injection sequence (SEQ, K1 up, 600 blocks, K1 down) runs without a hang in the simulator
+  (tests/host/smoke.c section 17), and nothing in the v04.3 follow code runs while no song is armed (follow_on = 0).
+- **Hypotheses, not verified** (a power cycle and the checks below tell): (H1) the CLOCK change on a firmware with option A2 on
+  deadlocks the control task against the audio interrupt's pass requests (the SDK's engine function `groove_clock_set` is not
+  ours; before tabby-v04.2 nothing in the audio interrupt called the SDK's control request, and the user's own CLOCK changes
+  on v04.0 and v04.1 never hung); (H2) a flash write of the settings (A2's pass request during an erase); (H3) something in
+  v04.3's follow or remote code that the simulator does not exercise. H1 and H2 would also hit tabby-v04.2 (on the main page);
+  H3 only v04.3.
+- **Checks after the power cycle** (all remote, nobody presses anything): (1) `run-remote.py` (v04.3, must pass 26 of 26);
+  (2) `run-follow.py --a2 off --song 16 --seconds 30 --out DIR`: the same CLOCK change with A2 off; if that runs and a
+  repeat with `--a2 on` hangs, H1 is confirmed and the fix is to switch A2 off around `groove_clock_set` in
+  `groove_settings_clock` (app/project.c) or to build A2 off when the clock mode changes.
+- Decision taken (the conservative one): **tabby-v04.3 is not released** (main page, GitHub release) until it has passed on the
+  device; tabby-v04.2 stays the release. The hard limit "one attempt per build, no more device writes after a failure" was
+  applied to the incident as well: no further write was sent.

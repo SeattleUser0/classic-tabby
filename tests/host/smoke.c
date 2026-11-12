@@ -1447,6 +1447,16 @@ int main(void)
         for (unsigned i = 0; i < 1900; ++i) (void)sim_render();   /* about 5.5 s of audio blocks */
         sim_test_request_passes(1); settle(); n = RCMD(29, 0);
         CHECK(reply[8] == 0, "remote: the watchdog released SHIFT after 5 s (SHIFT %u)", reply[8]);
+        /* The CLOCK switch by the panel injection (SEQ, then K1 up / down), as tools/linux/hw/run-follow.py does it: the clock
+         * mode follows, the device keeps running (a hang here would stop this test), and A2 is untouched. */
+        { void groove_clock_set(unsigned mode); unsigned groove_clock_mode(void);
+          (void)sim_open(0); settle();
+          n = RCMD(29, 6, 0, 15, 1); n = RCMD(29, 6, 0, 15, 0); settle();
+          n = RCMD(29, 6, 4, 0, 1); for (unsigned i = 0; i < 600; ++i) (void)sim_render();
+          CHECK(groove_clock_mode() == 1 && ct_a2_get(), "remote: SEQ then K1 up sets CLOCK = MIDI (mode %u), A2 still on", groove_clock_mode());
+          n = RCMD(29, 0); CHECK(n == 14 && reply[0] == 0, "remote: the status still answers with CLOCK = MIDI");
+          n = RCMD(29, 6, 4, 0, 255); for (unsigned i = 0; i < 600; ++i) (void)sim_render();
+          CHECK(groove_clock_mode() == 0, "remote: K1 down sets CLOCK = INT again (mode %u)", groove_clock_mode()); (void)sim_open(0); }
         /* Songs: one stored, then select, play, jump, stop. */
         { uint8_t *f = sim_file(); uint8_t b1[70], b2[67]; memset(b1, 0, sizeof b1); memset(b2, 0, sizeof b2);
           b1[0] = 1; b1[1] = 60; b1[2] = 100; b1[3] = 2; b2[0] = 1; b2[1] = 64; b2[2] = 80; b2[3] = 1;
