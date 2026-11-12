@@ -1594,6 +1594,46 @@ int main(void)
         for (int i = 0; i < 6000 && FOLLOW() != ARMED; ++i) BLOCK_RUN();
         for (int i = 0; i < 200; ++i) BLOCK_RUN();
         CHECK((sim_song_status(0) >> 8 & 255U) == 1 && (FOLLOW() == ARMED || FOLLOW() == WAITING), "follow: at the song end it arms again for the next Start (state %u)", FOLLOW());
+        /* Fuzz: random Start / Stop / Continue / SPP / pulse trains / gaps for 240000 blocks (the second half every 23 blocks): the state stays one of the
+         * known ones, the position never passes the song's end, and after a final Stop no note is left sounding. */
+        {
+            sim_song_stop(); for (int i = 0; i < 30; ++i) BLOCK_SILENT();
+            (void)drain(mm, 64);
+            CHECK(sim_song_load(0) == 0 && sim_song_play() == 0, "follow fuzz: armed again");
+            uint32_t rs = 0x9e3779b9U; static int held[16][128]; memset(held, 0, sizeof held);
+            #define FRND() (rs ^= rs << 13, rs ^= rs >> 17, rs ^= rs << 5, rs)
+            int run = 0; unsigned bad_state = 0, over_end = 0, neg = 0, ops = 0; double bpm = 120; MASTER_SET(bpm);
+            for (int blk = 0; blk < 240000; ++blk) {
+                if (blk % (blk < 120000 ? 150 : 23) == 0) {   /* the second half acts every 23 blocks (67 ms): messages arrive back to back */
+                    unsigned a = FRND() % 14; ++ops;
+                    if (a == 0) SEND1(0xfa); else if (a == 1) SEND1(0xfc); else if (a == 2) SEND1(0xfb);
+                    else if (a == 3) { sim_file()[0] = 0xf2; sim_file()[1] = (uint8_t)(FRND() % 128); sim_file()[2] = (uint8_t)(FRND() % 2); (void)sim_midi_from(0, 3); }
+                    else if (a < 9) { bpm = 60 + FRND() % 140; MASTER_SET(bpm); run = 1; }
+                    else if (a < 11) run = 0;                      /* a gap */
+                    else run = 1;
+                }
+                if (run) BLOCK_RUN(); else BLOCK_SILENT();
+                pn = drain(mm, 64);
+                for (unsigned k = 0; k < pn && k < 64; ++k) if (mm[k].port == 0) {
+                    unsigned st = mm[k].data[0] & 0xf0U, ch = mm[k].data[0] & 15U;
+                    if (st == 0x90 && mm[k].data[2]) ++held[ch][mm[k].data[1]];
+                    else if (st == 0x80 || (st == 0x90 && !mm[k].data[2])) { if (held[ch][mm[k].data[1]] > 0) --held[ch][mm[k].data[1]]; }
+                }
+                unsigned f = FOLLOW(); if (f > STOPPED && f != 0) ++bad_state;
+                if (sim_song_units() > 64U * 480U * 2U + 960U) ++over_end;
+                (void)neg;
+            }
+            SEND1(0xfc); for (int i = 0; i < 40; ++i) BLOCK_SILENT();
+            pn = drain(mm, 64);
+            for (unsigned k = 0; k < pn && k < 64; ++k) if (mm[k].port == 0) {
+                unsigned st = mm[k].data[0] & 0xf0U, ch = mm[k].data[0] & 15U;
+                if (st == 0x80 || (st == 0x90 && !mm[k].data[2])) { if (held[ch][mm[k].data[1]] > 0) --held[ch][mm[k].data[1]]; }
+            }
+            unsigned stuck_notes = 0; for (unsigned c = 0; c < 16; ++c) for (unsigned n = 0; n < 128; ++n) stuck_notes += held[c][n] > 0;
+            CHECK(bad_state == 0 && over_end == 0 && FOLLOW() != 0, "follow fuzz: %u random operations, the state always valid (%u bad), the position inside the song (%u over)", ops, bad_state, over_end);
+            CHECK(stuck_notes == 0, "follow fuzz: after the final Stop no note is left sounding (%u stuck)", stuck_notes);
+            #undef FRND
+        }
         /* PLAY while following stops it; back to the internal clock everything is as before. */
         (void)drain(mm, 64);
         sim_song_stop(); for (int i = 0; i < 30; ++i) BLOCK_SILENT();
