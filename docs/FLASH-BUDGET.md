@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.27
+Version: 0.28
 Revision log:
+- v0.28, 2026-11-12: section 22: tabby-v04.3.1 measured, 452036 bytes, margin 67421.
 - v0.27, 2026-11-12 (Task 16 Goal 3): section 21: tabby-v04.3 measured, 451812 bytes, margin 67645.
 - v0.26, 2026-11-11 (Task 16 Goal 1): section 20: tabby-v04.2 measured, 449700 bytes, margin 69757.
 - v0.25, 2026-11-11 (Task 15 Step 5): section 19: note that the measurement changed no size.
@@ -1118,3 +1119,13 @@ the linker merges the units, so the map shows no separate figure). RAM: 8 bytes 
 
 RAM: the follow state is about 120 bytes of statics (the 8-entry message ring, the counters and the period state;
 estimated from the declarations, the linker merges them with other globals).
+
+## 22. tabby-v04.3.1 (measured, 2026-11-12)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.3 (faulty, not released) | 451812 | | 67645 |
+| tabby-v04.3.1: the USB pusher, the flash guard and its counter, the Help line | 452036 | +224 | **67421** |
+
+RAM: 10 bytes of statics (usb_push, two pass counters, ct_flash_busy, the skipped counter; from the declarations).
+

@@ -1,8 +1,8 @@
 Fast MIDI on by default, remote control over USB; reinstall to get it (Full backup first; storage does not move).
 
-**Known issue under investigation (added 2026-11-12):** on the one device tested, with fast MIDI on (the default), changing CLOCK to MIDI
-was followed about 1.5 s later (the settings save) by the device no longer answering on USB until it was power-cycled (BUILD.md 33.3).
-The cause is not yet known. Until it is, switch "A2 FAST MIDI" off in ACTIONS before changing any setting on the device (A2 is on again at every power-up).
+**Known issue, fixed in tabby-v04.3.1:** with CLOCK set to MIDI (or clock out switched off) the device sends no replies over
+USB, so the workbench and Firmware Update cannot reach it; the device itself keeps working. Turn K1 on the SYNC / MIDI page
+(SEQ) back to INT, or install tabby-v04.3.1. (An earlier note here blamed fast MIDI and a settings save; that was wrong.)
 
 # Classic Tabby tabby-v04.2: fast MIDI by default, remote control, stale texts fixed
 

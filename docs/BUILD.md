@@ -4683,3 +4683,11 @@ another page showing, and the SONG page cannot be opened remotely (it needs the 
 So the difference does not come from code added to the MIDI path. A fix would be to let the painter yield while an event waits
 (not done; it belongs with F + G).
 
+### 35.5 The release: tabby-v04.3.1 (2026-11-12)
+
+The user's decision: the fix is tabby-v04.3.1; the tag tabby-v04.3 and builds/tabby-v04.3/ stay untouched except for a
+"do not install" line (SPEC 17.11). The pusher sends four bytes (USB_PUSHES). Gate: make check, make lint,
+`make suite DISPLAY_VERSION=tabby-v04.3.1` green; `make package`: build id 71df5724063bc0cb, app image 452036 bytes, margin
+67421. Published to the main page and builds/tabby-v04.3.1/, GitHub release, installed from the page (results in the
+release notes and MORNING-REPORT.txt).
+

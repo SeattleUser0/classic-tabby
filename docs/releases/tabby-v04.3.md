@@ -1,3 +1,5 @@
+**Faulty, never released: do not install. Use tabby-v04.3.1.** With CLOCK = MIDI this build sends no replies over USB (it looks hung to the workbench).
+
 Song mode follows an external MIDI clock; reinstall to get it (Full backup first; storage does not move).
 
 # Classic Tabby tabby-v04.3: external clock follow in song mode
