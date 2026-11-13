@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.37
+Version: 0.38
 Revision log:
+- v0.38, 2026-11-12 (Task 16, day 2): 17.11 pushed tags and builds/ pages are never moved or deleted; 19.4 tabby-v04.3.1
+  (the USB pusher, the flash guard; tabby-v04.3 marked faulty).
 - v0.37, 2026-11-12 (Task 16 Goal 3): 19.3 external clock follow in song mode (decision 10).
 - v0.36, 2026-11-11 (Task 16 Goal 1): 17.10 the standing testing rule; section 19: the overnight hard limits,
   A2 on by default, F + G not now, command 29 (remote control).
@@ -1341,6 +1343,14 @@ set times or press a button for a test. If a test needs a device action, a remot
 first (section 19.2: command 29). Installs from the NUC follow the hard limits of Task 16 (19.1), and only
 then.
 
+### 17.11 Pushed tags and builds/ pages are permanent (2026-11-12; the user's rule)
+
+A tag that has been pushed is never moved and never deleted, and a `builds/<tag>/` page that has been published is never
+replaced or removed: a build that was installed on a device needs its page as the recovery path. A fix gets a new tag
+(tabby-v04.3 was faulty, the fix is tabby-v04.3.1). The only change allowed to a published builds/ page or its entry in
+`builds/index.json` is a warning line the user asks for (as on builds/tabby-v04.3/). A pre-release for a device test gets
+its own tag and page (`-rcN`).
+
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
 - **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
@@ -1472,3 +1482,15 @@ sequencer does not see the clock messages while a song is armed or following.
 - Tests: tests/host/smoke.c section 18 (arm, start, first pulse, the step-4 note on its pulse, 120 -> 90 -> 150 BPM,
   hold, relock, LOST, pulses alone, Continue, Stop, SPP stopped and running, Start from the middle, song end arms
   again, PLAY leaves follow); tools/linux/hw/run-follow.py drives the device (BUILD.md 33).
+
+### 19.4 tabby-v04.3.1 (2026-11-12): replies over USB with CLOCK = MIDI; tabby-v04.3 is faulty
+
+- Found on the device (BUILD 35): the SDK transmits the last message written to the USB port only when a later write to
+  that port follows. With CLOCK = MIDI (or clock out off) no clock follows, so SysEx replies never left: the workbench,
+  the tools and Firmware Update saw a dead device, in every release up to tabby-v04.3.
+- Rule: every app write to a MIDI port goes through `ct_midi_send_port`; when no clock is being sent on USB, each of the
+  four control passes after a USB write sends one 0xF9 (undefined real time) to USB. Nothing is added while the clock runs.
+- Rule: no A2 request while an app flash erase or write is in progress (`ct_flash_busy`; the request path is flash code,
+  BUILD 34). Not seen to trigger on the device; kept as a guard.
+- tabby-v04.3 (tag and builds/tabby-v04.3/) stays as it is, marked "do not install" (17.11).
+
