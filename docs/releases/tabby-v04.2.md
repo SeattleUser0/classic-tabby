@@ -1,5 +1,11 @@
 Fast MIDI on by default, remote control over USB; reinstall to get it (Full backup first; storage does not move).
 
+**Correction, 2026-11-14 (docs/BUILD.md 36.5):** the fault described here did not exist in the device. The NUC's measuring tool (tools/linux/hw/tabby_link.py before v0.11) read one 16-byte piece of a reply per wake-up and left the rest in the ALSA library until more MIDI arrived; with CLOCK on MIDI no clock bytes arrived, so the tool saw no reply. A browser always got every reply. There is no such issue in tabby-v04.2.
+
+**Known issue, fixed in tabby-v04.3.1:** with CLOCK set to MIDI (or clock out switched off) the device sends no replies over
+USB, so the workbench and Firmware Update cannot reach it; the device itself keeps working. Turn K1 on the SYNC / MIDI page
+(SEQ) back to INT, or install tabby-v04.3.1. (An earlier note here blamed fast MIDI and a settings save; that was wrong.)
+
 # Classic Tabby tabby-v04.2: fast MIDI by default, remote control, stale texts fixed
 
 - Firmware package build ID: `b926f5556483ee65` (first 16 hex digits; the full ID is in the Device update tab's

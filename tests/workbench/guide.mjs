@@ -21,6 +21,8 @@
 // Version: 0.3
 //
 // Revision log
+//   v0.5  2026-11-14  Chapter 00 names tabby-v04.4.
+//   v0.4  2026-11-12  Chapter 00 names tabby-v04.3.1.
 //   v0.3  2026-11-12  Chapter 00 names tabby-v04.3.
 //   v0.2  2026-11-11  Chapter 00 names tabby-v04.2 (was tabby-v04.1.1).
 //   v0.1  2026-11-10  Initial version (testing guide, tabby-v04.1.1).
@@ -85,7 +87,7 @@ if (r.status === 0) {
 const help = readFileSync('sdk/Update.html.in', 'utf8');
 const links = (help.match(/https:\/\/seattleuser0\.github\.io\/classic-tabby\/guide\//g) || []).length;
 check(links >= 2, 'Help links to the guide from the Help heading and from chapter 00', `${links} links`);
-check(/manual-guide-link/.test(help) && /tabby-v04\.3/.test(help), 'chapter 00 names the page version');
+check(/manual-guide-link/.test(help) && /tabby-v04\.3\.1/.test(help), 'chapter 00 names the page version');
 
 if (failures) { console.log('FAILED'); process.exit(1); }
 console.log('all checks passed');

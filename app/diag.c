@@ -26,9 +26,11 @@
  *   Control-loop timing is taken at groove_midi_poll() because that call sends MIDI out: its
  *   period is the MIDI-out quantum during playback (SPEC 9.6, SPEC 14.3).
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.7  2026-11-13  Task 17: request 10, the F + G page (ct_fg_read); the ACTIONS storage lines are cached.
+ *   v0.6  2026-11-12  Task 16: the flash wrappers raise ct_flash_busy (no A2 request during a flash erase or write).
  *   v0.5  2026-11-10  Task 15 Step 4: CT_A2 builds: command 25 request 7 (the A2 page), 8 and 9
  *                     (A2 off / on, then the page); request 1 also clears the A2 counters.
  *   v0.4  2026-11-10  Task 13 Step 1: the pass budget (ct_pass_elapsed / ct_pass_over /
@@ -106,7 +108,9 @@ void ct_diag_key(uint32_t queued)
 int ct_diag_flash_erase(uint32_t offset)
 {
     uint32_t start = ticks();
+    ++ct_flash_busy; __atomic_signal_fence(__ATOMIC_SEQ_CST);
     int r = fm1_flash_erase(offset);
+    __atomic_signal_fence(__ATOMIC_SEQ_CST); --ct_flash_busy;
     uint32_t used = ticks() - start;
     ++d.erase_count; if (used > d.erase_max) d.erase_max = used;
     return r;
@@ -114,7 +118,9 @@ int ct_diag_flash_erase(uint32_t offset)
 int ct_diag_flash_write(uint32_t offset, const void *data, size_t bytes)
 {
     uint32_t start = ticks();
+    ++ct_flash_busy; __atomic_signal_fence(__ATOMIC_SEQ_CST);
     int r = fm1_flash_write(offset, data, bytes);
+    __atomic_signal_fence(__ATOMIC_SEQ_CST); --ct_flash_busy;
     uint32_t used = ticks() - start;
     ++d.write_count;
     if (used > d.write_max) { d.write_max = used; d.write_max_bytes = (uint32_t)bytes; }
@@ -132,6 +138,7 @@ int ct_diag_read(unsigned request, uint8_t out[CT_DIAG_REPLY_BYTES])
         if (request != 7) ct_a2_set(request == 9);
         return ct_a2_read(out);
     }
+    if (request == 10) return ct_fg_read(out);   /* Task 17: the F + G page */
 #endif
     if (request == 1) {
 #ifdef CT_A2
@@ -181,7 +188,25 @@ static char *number(char *p, uint32_t v)
     return p;
 }
 static char *word(char *p, const char *s) { while (*s) *p++ = *s++; return p; }
+static void storage_lines(char user_line[40], char song_line[40]);
+/* Task 17: the ACTIONS page asks for these two lines on every control pass, and the storage status behind
+ * them takes up to 5 ms now and then (measured: the screen hook's longest call on ACTIONS, with no band
+ * painted): a song note that came due inside it left late (eight lines on ACTIONS 4.1 to 4.5 ms, the other
+ * pages under 4; BUILD 36.6). The lines are now worked out at most twice a second, and not while a MIDI
+ * event is due within 6 ms (unless they are 2 s old); in between the last ones are given. */
 void ct_diag_storage_lines(char user_line[40], char song_line[40])
+{
+    static char user[40], song[40];
+    static uint32_t at; static uint8_t have;
+    uint32_t now = fm1_millis(), age = now - at;
+    unsigned busy = 0;
+#ifdef CT_A2
+    busy = ct_midi_due_within(144000U);
+#endif
+    if (!have || (age >= 500U && !busy) || age >= 2000U) { storage_lines(user, song); at = now; have = 1; }
+    memcpy(user_line, user, 40); memcpy(song_line, song, 40);
+}
+static void storage_lines(char user_line[40], char song_line[40])
 {
     static const char *const states[] = {"SCANNING", "READY", "OLD DATA", "ERASING", "ERROR", "COMPACTING"};
     unsigned st = song_storage_state();

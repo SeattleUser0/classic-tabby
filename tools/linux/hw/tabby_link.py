@@ -25,9 +25,15 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.8
+Version: 0.11
 
 Revision log
+    v0.11 2026-11-14  messages(): every kernel timestamp frame is read, not one per wake-up (the rest of a reply used to
+                      wait in alsa-lib until more MIDI arrived: the cause of the "no replies with CLOCK = MIDI" of
+                      Task 16, BUILD 36.5). Link(timestamps=False) reads without kernel timestamps.
+    v0.10 2026-11-13  Task 17: fg() reads the F + G page (command 25 request 10); the remote status carries CLOCK
+                      (tabby-v04.4); show_page().
+    v0.9  2026-11-12  a2(): the 52-byte A2 page of tabby-v04.3 (flash_skipped).
     v0.8  2026-11-11  Task 16: remote control (command 29, every build from tabby-v04.2): remote_status(),
                       select_song(), play_song(), stop_song(), jump(), set_a2(), key(), press() / hold() /
                       release() by control name (PANEL), release_all(). play() and stop() use command 29 when the
@@ -127,7 +133,7 @@ def crc32(data):
 class Link:
     """Duplex raw MIDI on the device's port (default: the ALSA port named "SMK37")."""
 
-    def __init__(self, port="SMK37"):
+    def __init__(self, port="SMK37", timestamps=True):
         self.name = monitor.resolve(port)
         self.inp, self.out = ctypes.c_void_p(), ctypes.c_void_p()
         r = LIB.snd_rawmidi_open(ctypes.byref(self.inp), ctypes.byref(self.out), self.name.encode(), 2)   # non-blocking
@@ -141,6 +147,7 @@ class Link:
         self.poll = select.poll()
         for i in range(max(0, n)):
             self.poll.register(fds[i].fd, fds[i].events)
+        self.fd = fds[0].fd                         # v0.11: messages() reads the kernel's timestamp frames from it
         self.parser = monitor.Parser()
         self.buf = ctypes.create_string_buffer(4096)
         self.token = 1000
@@ -148,7 +155,7 @@ class Link:
         # monitor has, so a measurement on USB out adds no Python scheduling jitter.
         self.kernel_time = False
         params = ctypes.c_void_p()
-        if hasattr(LIB, "snd_rawmidi_tread") and LIB.snd_rawmidi_params_malloc(ctypes.byref(params)) == 0:
+        if timestamps and hasattr(LIB, "snd_rawmidi_tread") and LIB.snd_rawmidi_params_malloc(ctypes.byref(params)) == 0:
             ok = (LIB.snd_rawmidi_params_current(self.inp, params) == 0 and
                   LIB.snd_rawmidi_params_set_read_mode(self.inp, params, 1) == 0 and
                   LIB.snd_rawmidi_params_set_clock_type(self.inp, params, 2) == 0 and
@@ -177,14 +184,27 @@ class Link:
         if not self.poll.poll(timeout_ms):
             return []
         if self.kernel_time:
-            ts = Timespec()
-            n = LIB.snd_rawmidi_tread(self.inp, ctypes.byref(ts), self.buf, 4096)
-            t = ts.tv_sec * 1000000000 + ts.tv_nsec if n > 0 else 0
-        else:
-            n = LIB.snd_rawmidi_read(self.inp, self.buf, 4096); t = time.monotonic_ns()
+            # v0.11: the kernel's timestamp frames (struct snd_rawmidi_framing_tstamp, 32 bytes: type, length, 2 reserved,
+            # tv_nsec u32, tv_sec u64, 16 data bytes) are read straight from the port's file descriptor, every frame that
+            # is there. Until v0.10 this called snd_rawmidi_tread once per wake-up: that returns ONE frame (at most 16
+            # bytes) and alsa-lib keeps the other frames it read in its own buffer, where poll() does not see them, so
+            # the rest of a reply (a SysEx is 3 or more frames) stayed in the library until more MIDI arrived. With a
+            # MIDI clock coming in (CLOCK = INT) that was within 21 ms; with no clock the reply "never came" (BUILD
+            # 36.5: this, not the device, was the "no replies with CLOCK = MIDI" of Task 16).
+            out = []
+            while True:
+                raw = os.read(self.fd, 32 * 128)
+                for i in range(0, len(raw) - 31, 32):
+                    _, length, nsec, sec = struct.unpack_from("<BB2xIQ", raw, i)
+                    if 0 < length <= 16:
+                        out.extend(self.parser.feed(sec * 1000000000 + nsec or time.monotonic_ns(), raw[i + 16:i + 16 + length]))
+                if not self.poll.poll(0):
+                    break
+            return out
+        n = LIB.snd_rawmidi_read(self.inp, self.buf, 4096); t = time.monotonic_ns()
         if n <= 0:
             return []
-        return self.parser.feed(t or time.monotonic_ns(), self.buf.raw[:n])
+        return self.parser.feed(t, self.buf.raw[:n])
 
     def query(self, command, payload=b"", timeout=1.5, attempts=3, empty_ok=False):
         for _ in range(attempts):
@@ -268,7 +288,26 @@ class Link:
             raise DeviceError(-1)
         return {"page": d[1], "page_name": self.PAGES.get(d[1], str(d[1])), "song_state": d[2], "loaded": d[3],
                 "row": d[4], "queued": d[5], "a2": d[6], "shift": d[7], "transport": d[8], "bar": d[9] | d[10] << 8,
-                "action": d[11], "follow": d[12] if len(d) > 12 else 0}
+                "action": d[11], "follow": d[12] if len(d) > 12 else 0,
+                "clock": d[13] if len(d) > 13 else None}
+
+    def show_page(self, name):
+        """v0.10: bring the device to a page by remote panel keys: "overview", "steps" (SYNC / MIDI, SEQ) or
+        "actions" (SEQ + EDIT). Returns the status; raises if the page did not come."""
+        want = {"overview": "OVERVIEW", "steps": "STEPS", "actions": "ACTIONS"}[name]
+        for _ in range(4):                                  # HOME from the overview opens the project list: press until it is the overview
+            s = self.remote_status()
+            if s["page_name"] == "OVERVIEW":
+                break
+            self.press("HOME"); time.sleep(0.3)
+        if name == "steps":
+            self.press("SEQ"); time.sleep(0.4)
+        elif name == "actions":
+            self.hold(["SEQ", "EDIT"], 0.15); time.sleep(0.4)
+        s = self.remote_status()
+        if s["page_name"] != want:
+            raise RuntimeError("page %s wanted, the device shows %s" % (want, s["page_name"]))
+        return s
 
     def remote_status(self):
         return self.remote(0)
@@ -342,12 +381,25 @@ class Link:
             p = self.query(25, bytes([request]), attempts=1)
         except (DeviceError, TimeoutError):
             return None
-        if len(p) != 48:
+        if len(p) not in (48, 52):            # v0.9: 52 bytes since tabby-v04.3 (the last u32: blocks skipped during flash writes)
             return None
-        v = struct.unpack("<12I", p)
+        v = struct.unpack("<12I", p[:48])
         us = lambda t: t / 24.0
         return {"on": v[0], "blocks": v[1], "calls": v[2], "mean_us": us(v[3]), "max_us": us(v[4]), "retries": v[5],
-                "bins": list(v[6:12]), "calls_per_second": v[2] * 44118.0 / (v[1] * 128.0) if v[1] else 0.0}
+                "bins": list(v[6:12]), "calls_per_second": v[2] * 44118.0 / (v[1] * 128.0) if v[1] else 0.0,
+                "flash_skipped": struct.unpack_from("<I", p, 48)[0] if len(p) == 52 else None}
+
+    def fg(self):
+        """v0.10: command 25 request 10 (tabby-v04.4): the F + G page, or None when the firmware has none."""
+        try:
+            p = self.query(25, bytes([10]), attempts=1)
+        except (DeviceError, TimeoutError):
+            return None
+        if len(p) != 56:
+            return None
+        v = struct.unpack("<14I", p)
+        return {"running": v[0], "timer_ticks": v[1], "sent": v[2], "late_max_ms": v[3] / 24000.0,
+                "late_bins": list(v[4:10]), "block_ticks": v[10], "period_ticks": v[11], "live": v[12]}
 
     def health(self):
         """v0.6: commands 17, 18, 19 (read only): the audio counters that show a dropout or CPU GUARD."""

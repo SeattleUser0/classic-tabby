@@ -4,7 +4,8 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
- *   v0.8  2026-11-12  Task 16 Goal 5 (branch mc707-phase2): a kind-6 download of a v3 block is handed over as v2 (or refused),
+ *   v0.8  2026-11-13  Task 17: the remote status carries CLOCK (byte 13); command 25 takes request 10 (the F + G page).
+ *   v0.7b 2026-11-12  Task 16 Goal 5 (branch mc707-phase2): a kind-6 download of a v3 block is handed over as v2 (or refused),
  *                     kind 7 accepts block records of format 2.
  *   v0.7  2026-11-12  Task 16 Goal 3: the remote status carries the follow state (byte 12 of the payload).
  *   v0.6  2026-11-11  Task 16 Goal 1: command 29, remote control in every build (status, song select, play,
@@ -169,7 +170,8 @@ static void put32(uint8_t *p, uint32_t value)
  *                      remote call (the watchdog in groove_remote_poll). Physical button 3 is the
  *                      firmware's SAVE (4th button in the left group): refused (code -7), because the
  *                      button writes flash and it also confirms the ACTIONS erase
- *   {7}                release everything this command holds */
+ *   {7}                release everything this command holds
+ * The status is 14 bytes from v0.8: [13] CLOCK (0 INT, 1 MIDI). */
 static uint32_t remote_buttons, remote_pads, remote_at;
 static uint64_t remote_keys;   /* 37 keys: more than 32 bits (cppcheck found the shift by 36 in the first draft) */
 static void remote_release_all(void)
@@ -192,7 +194,8 @@ static void remote_status(uint8_t *out, unsigned *count)
     out[7] = (uint8_t)smk37_shift(); out[8] = (uint8_t)ct_transport_running();
     out[9] = (uint8_t)st.bar; out[10] = (uint8_t)(st.bar >> 8); out[11] = (uint8_t)ct_screen_action();
     out[12] = st.follow;   /* v0.7: external clock follow state (song.h: 0 off, 1 armed, 4 running, 5 held, 6 lost, 7 stopped) */
-    *count = 13;
+    out[13] = (uint8_t)groove_clock_mode();   /* v0.8: CLOCK (0 INT, 1 MIDI) */
+    *count = 14;
 }
 static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count)
 {
@@ -309,7 +312,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
 #endif   /* CT_DIAG: command 26 only (Task 12 A4) */
     /* Task 12 A4: the counters are in every build; request 4 and 5 are the loop profile. */
 #ifdef CT_A2   /* the normal build defines it since Task 16 (build.py) */
-    enum { DIAG_REQUEST_MAX = 9 };   /* Task 15 Step 4: 7 = the A2 page, 8 / 9 = A2 off / on (app/diag.h) */
+    enum { DIAG_REQUEST_MAX = 10 };  /* Task 15 Step 4: 7 = the A2 page, 8 / 9 = A2 off / on (app/diag.h); Task 17: 10 = the F + G page */
 #else
     enum { DIAG_REQUEST_MAX = 6 };
 #endif
@@ -529,7 +532,7 @@ static void transfer_poll_body(void)
     /* Retry each port independently. A blocked BLE reply never delays USB
      * notes or its transfer ACK. Cached retries also belong to that port. */
     for (unsigned p=0;p<3;++p) if (replies[p].pending) {
-        int r=fm1_midi_send_port(p,replies[p].reply,replies[p].reply_length);
+        int r=ct_midi_send_port(p,replies[p].reply,replies[p].reply_length);
         if (r!=-2 || now-replies[p].started>2000U) replies[p].pending=0;
     }
     unsigned n = incoming.length;
@@ -542,7 +545,7 @@ static void transfer_poll_body(void)
         incoming.length = 0;
         c->started=now;
         if (source==session_source || !transfer) last_activity=now;
-        c->pending=fm1_midi_send_port(source,c->reply,c->reply_length)==-2;
+        c->pending=ct_midi_send_port(source,c->reply,c->reply_length)==-2;
         return;
     }
     /* Task 13 Step 1: a new request is the transfer's only long work (a flash read, a decode, a
@@ -616,7 +619,7 @@ static void transfer_poll_body(void)
         busy[8]=64-FM1_FLASH_BUSY; busy[9]=0; unsigned sum=0;
         for (unsigned i=1;i<10;++i) sum+=busy[i];
         busy[10]=(uint8_t)((0U-sum)&127U); busy[11]=0xf7;
-        (void)fm1_midi_send_port(source,busy,sizeof busy);
+        (void)ct_midi_send_port(source,busy,sizeof busy);
         goto discard;
     }
     memcpy(c->request, message, n);
@@ -650,7 +653,7 @@ static void transfer_poll_body(void)
     c->reply[at++] = 0xf7;
     c->reply_length = at;
     c->started = last_activity = now;
-    c->pending = fm1_midi_send_port(source,c->reply,c->reply_length)==-2;
+    c->pending = ct_midi_send_port(source,c->reply,c->reply_length)==-2;
     return;
 discard:
     barrier();

@@ -1,7 +1,16 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.68
+Version: 0.72
 Revision log:
+- v0.72, 2026-11-14 (Task 17): section 36, tabby-v04.4: options F + G as built, the flash and interrupt evidence, updating with
+  CLOCK on MIDI, the "late note" in clock follow, the correction of section 35 (the "no replies" fault was the NUC's tool), the
+  device results, the release.
+- v0.71, 2026-11-12 (Task 16, day 2): section 35: the real cause of the "hang" (the SDK holds the last USB write when no clock
+  goes out on USB), the USB pusher, the device results (hang tests A2 off and on, follow measurements), the band and the screen page.
+  34.1 to 34.3 corrected: the flash guard closes a hazard, it was not the cause.
+- v0.70, 2026-11-12 (Task 16, second night): section 34, the hang: the map-file evidence, the flash guard (ct_flash_busy), the
+  host test; 34.4 why the one-line band measured 4.91 ms against 3.67.
+- v0.69, 2026-11-12 (Task 16 Goal 3): section 33, tabby-v04.3: what changed, the gate, the soak and the device results.
 - v0.68, 2026-11-11 (Task 16 Goal 1): section 32, tabby-v04.2: the merge, what changed, the gate, publishing.
 - v0.67, 2026-11-11 (tabby-v04.2 merge): the Task 14 and v04.1.1 sections are now 30 and 31 (Task 15 keeps 28);
   the timing branch's sections stay where the device-run notes point.
@@ -4414,3 +4423,456 @@ What the table says:
   replies, round trip 0.73 / 20.1 / 43.5 ms (min / median / max), no kernel USB lines (measured, 2026-11-11).
 - Full backup before the install: ~/Documents/Classic Tabby/overnight/backups/before-v04.2.json (1 project, 2 songs,
   9 blocks, USER 471040).
+
+
+### 32.4 tabby-v04.2 device results (measured, 2026-11-11 night, the device on this NUC, DIN through the H4MIDI WC port 1, audio in AUDIO4c inputs 3 and 4)
+
+Installed from this NUC through the published page builds/tabby-v04.2/ (driven with Playwright, no force flash,
+identity SMK-37 Pro_8000001 read first; one attempt; 10.2 s; "Firmware ready"). The device ran tabby-v04.1.1 before,
+not the diagA2 build the task text said (32.1). Read back afterwards: build id b926f5556483ee65, A2 on at power-up.
+
+| Run (125 s each, song 16 = one line, song 15 = eight lines) | A2 off | A2 on |
+| --- | ---: | ---: |
+| One line, DIN, band per line | 14.27 ms | 4.91 ms |
+| One line, USB, band per line | 14.22 ms | 4.98 ms |
+| One line, std (DIN) | 3.07 ms | 0.86 ms |
+| Eight lines, DIN, per line band | 13.93..14.06 ms | 4.68..4.86 ms |
+| Eight lines, DIN, all lines on one grid | 20.96 ms | 11.82 ms |
+| Eight lines, USB, per line band / all on one grid | 13.96..15.04 / 16.07 ms | 4.73..6.56 / 7.68 ms |
+| Control pass mean / max (one line) | 10.68 / 13.32 ms | 6.34 / 12.99 ms |
+| A2 calls per second, mean cost, longest (one line) | 0 | 62.2, 20.3 us, 49.1 us |
+| Engine underruns, DMA overruns, MIDI in dropped | 0, 0, 0 | 0, 0, 0 |
+| CPU GUARD adapted (125 s; eight lines) | +115 | +119 (one line: 0 and 0) |
+| Notes left on at the end | none | none |
+
+The one-line band with A2 on is 4.91 ms here against 3.67 ms in the Task 15 run of the diag build (BUILD 28.6); the
+difference is not explained (run-to-run and the DIN capture path differ; a repeat is in 32.5). USB and DIN carry the
+same notes in every run. The recorded audio (inputs 3 and 4) had no capture overrun in any run; its "silent gaps" are
+the song's own rests (the count is the same A2 off and on within 2 percent), so no dropout showed.
+
+
+## 33. Task 16 — tabby-v04.3: external clock follow in song mode (2026-11-12)
+
+Spec: SPEC 19.3. Code: app/song.c v0.6 (the follow state machine `ext_block`, `ext_message`, the control side `song_locate`
+and `song_prepare`, the routing task's `song_clock_in`), app/midi_router.c (the hook), app/screen.c v0.10 (the SONG page
+text), app/transfer.c v0.7 (the status byte). Tools: tools/linux/hw/run-follow.py (the NUC as master over USB),
+tools/linux/hw/run-remote.py.
+
+### 33.1 Design in short (details are the comment block above `enum { EXT_OFF ...` in app/song.c)
+
+- The song keeps its own clock (units per block); in follow mode each block's advance comes from the pulses: the pulse
+  period (EMA 1/8 over blocks between pulses, bounds 2 to 60 blocks) gives the nominal advance, and a quarter of the phase
+  error against the predicted position (pulses x 80 units + the interpolation inside the pulse) is added per block,
+  capped at 28 units (the action list is sized for that, app/song.c ACTIONS).
+- States: ARMED, PREPARING (the control task decodes a position), WAIT PULSE, FOLLOWING, HOLD (3.5 periods without a
+  pulse, note-offs sent), LOST (2 s), STOPPED (by the master). Start / Continue / Stop / SPP arrive in a ring with the pulse
+  count at their arrival; the audio thread owns the state machine.
+- SPP is row-exact: `song_locate` walks the rows with their repeats and loops; the frames restart at the step (no notes
+  before it, no row events when it is not a row start).
+
+### 33.2 Tests (host and simulator; all passed in `make suite DISPLAY_VERSION=tabby-v04.3` at 1d73065, and again for the test-only commits)
+
+tests/host/smoke.c section 18 (43 checks): arm; pulses alone do not start an armed song; Start; the first note at the first
+pulse; step 4 on its pulse (25th); 120 -> 90 -> 150 BPM followed within a pulse; 400 pulses at 133 BPM, position within 22
+units of the pulses at 8 checkpoints (no drift); HOLD after 3 missed pulses, no advance while held, relock inside 2 s from
+the held position; LOST after 2 s, pulses alone never restart it, Continue does; Stop wins and pulses after it do nothing;
+SPP stopped (row 2, stays stopped), Continue after SPP, SPP while running (back to step 4 of row 1), Start from the middle,
+the song end arms again, PLAY leaves follow; a fuzz of 6000 random Start / Stop / Continue / SPP / tempo / gap operations
+(states always valid, the position inside the song, no stuck note after the last Stop).
+
+### 33.3 Install and the device incident (2026-11-11, 22:50 to 23:00 PST; what is known and what is not)
+
+- tabby-v04.3 was published only under builds/tabby-v04.3/ (the main page stayed on tabby-v04.2; no GitHub release yet) and
+  installed from this NUC through that page: identity SMK-37 Pro_8000001 first, one attempt, 10.2 s, "Firmware ready."
+  Read back: build id b136b74165821a3a, USER 471040, A2 on, command 29 status answered. A full backup was taken before
+  (overnight/backups/before-v04.3.json, equal to the one taken after the v04.2 transfer-and-save test).
+- The first follow run (tools/linux/hw/run-follow.py v0.1) set CLOCK = MIDI by the panel injection (SEQ, then K1 one detent
+  up). The next command, select song, got no reply in 1.5 s; a later status read answered after about 5 s (page SYNC / MIDI, song
+  16 loaded, CLOCK change applied). After that **the device stopped answering both protocols** (the project-library
+  commands and the update protocol's identity query). USB stays enumerated (device 41, no disconnect in the kernel log
+  since the install), the device accepts MIDI bytes, and nothing comes back. It did not recover in the minutes that followed
+  (a poll every 20 s: overnight/device-poll.log).
+- **Needs a power cycle of the SMK-37** (this account cannot reset the USB device: usbreset needs privileges; the hub has no
+  per-port power control here). Nothing was written to the device after the hang. Whether the hang interrupted a flash write
+  (the CLOCK change marks the settings dirty) is not known.
+- What the host says: the same injection sequence (SEQ, K1 up, 600 blocks, K1 down) runs without a hang in the simulator
+  (tests/host/smoke.c section 17), and nothing in the v04.3 follow code runs while no song is armed (follow_on = 0).
+- **Hypotheses, not verified** (a power cycle and the checks below tell): (H1) the CLOCK change on a firmware with option A2 on
+  deadlocks the control task against the audio interrupt's pass requests (the SDK's engine function `groove_clock_set` is not
+  ours; before tabby-v04.2 nothing in the audio interrupt called the SDK's control request, and the user's own CLOCK changes
+  on v04.0 and v04.1 never hung); (H2) a flash write of the settings (A2's pass request during an erase); (H3) something in
+  v04.3's follow or remote code that the simulator does not exercise. H1 and H2 would also hit tabby-v04.2 (on the main page);
+  H3 only v04.3.
+- **Checks after the power cycle** (all remote, nobody presses anything): (1) `run-remote.py` (v04.3, must pass 26 of 26);
+  (2) `run-follow.py --a2 off --song 16 --seconds 30 --out DIR`: the same CLOCK change with A2 off; if that runs and a
+  repeat with `--a2 on` hangs, H1 is confirmed and the fix is to switch A2 off around `groove_clock_set` in
+  `groove_settings_clock` (app/project.c) or to build A2 off when the clock mode changes.
+- Decision taken (the conservative one): **tabby-v04.3 is not released** (main page, GitHub release) until it has passed on the
+  device; tabby-v04.2 stays the release. The hard limit "one attempt per build, no more device writes after a failure" was
+  applied to the incident as well: no further write was sent.
+
+- **What the disassembly of the SDK shows about the CLOCK change** (read only, build/pro/sdk.elf of v04.3, objdump of the JieLi
+  pi32v2 toolchain; the SDK binary is not touched): `groove_clock_set` (SDK engine, 0xBE bytes) starts with a call to
+  `fm1_r_7e5e04f16253` and ends with `fm1_r_aa9848f062ec`. The first raises a nesting counter and a "hold" flag in the SDK's flash
+  state (the same structure `fm1_flash_read` and `norflash_read` use), then **spins, with interrupts enabled, until the flash
+  worker's busy flag is 0**; the second lowers the counter and the flag. The worker is a RAM thread (`fm1_r_2c729ca92be9`) that
+  loops over `fm1_r_e7d3da61dac2`: it runs one queued flash operation at a time and is held off while the flag is up. So a CLOCK
+  change waits for any flash operation in progress. If that wait never ends the control task never returns: both protocols go
+  silent while USB (an interrupt) stays up, which is what the device does. Not ruled out: the audio interrupt's call of
+  `fm1_control_request` (option A2) lives in flash (0x201ecb0) and so does `os_taskq_post_type` it calls, while every other call in
+  the audio interrupt is RAM code (FM1_AUDIO_CODE); during a flash operation by the worker that call may stall. This is a reading,
+  not a proof; the checks above (A2 off against on) decide it.
+
+- **The timing points at the settings save, not at the CLOCK change itself.** After a settings change the firmware saves the
+  settings 1500 ms later from `groove_project_poll` (app/project.c: `settings_dirty`, `groove_performance_idle(1500)`; it
+  runs `tuning_upgrade`, `recover_staging`, `latest`, a sector read, an erase and writes through the SDK's flash functions).
+  The reply to select song that timed out came about 1.5 s after the K1 detent; the first status answer 5 s later; the device
+  was dead by the time the identity query ran, 10 to 30 s later. This is the first settings save that ran on a firmware with
+  option A2 on in this series (the Task 15 soak and the tests of this night saved projects and songs through commands, not
+  through this deferred path). Prime suspect: a flash erase / write in `groove_project_poll` while the audio interrupt asks for
+  control passes (A2). Check: after the power cycle, switch A2 off (command 29 op 5), change CLOCK (a settings save), see
+  whether the device still answers 5 s later; then repeat with A2 on. tabby-v04.2's release notes now carry a known-issue line.
+
+
+## 34. Task 16 (second night) — the hang and its fix: no A2 request while flash is being written (2026-11-12)
+
+### 34.1 The evidence (read only: build/pro/sdk.map and the objdump of build/pro/sdk.elf, tabby-v04.3)
+
+| What | Where | Address |
+| --- | --- | --- |
+| the audio interrupt, render, mixer, MIDI router lanes (FM1_AUDIO_CODE, `.volatile_ram_code`) | RAM (`.ram0_data`, 0x1c00000..0x1c11e74) | RAM |
+| the SPI flash driver (`.spi_code`: norflash erase / write / read, cache flush), the irq enable / disable, p33 | RAM | RAM |
+| `fm1_control_request` (engine_startup.S, 0x2c bytes) | `.text`, rom | **0x0201ecb0 (flash)** |
+| `os_taskq_post_type` (0x2030ebc), `__os_taskq_post` (0x2030e10, 0xac bytes), `xQueueGenericSendFromISR` (0x2030db2), `get_taskq` (0x2030d7c), `xTaskGetHandle` (0x2030cf4) | `.os_code`, rom | **0x02030cf4..0x02030ebc (flash)** |
+
+`fm1_control_request` calls `os_taskq_post_type` (disassembly: `call 2030ebc`). So an A2 request runs about 0x2c + 0xe + 0xac +
+0x5e + 0x36 bytes of **flash-resident** code from inside an interrupt that is itself RAM code on purpose: the audio interrupt
+keeps running while the SDK erases or writes flash (`fm1_audio_suspend` only mutes the output and zeroes the buffers; it does not
+mask the interrupt; the SDK's flash worker and `.spi_code` are in RAM for the same reason). While the SPI controller is busy with
+an erase or a write the flash is not readable through the cache: an instruction fetch from 0x02xxxxxx then stalls or returns
+garbage, and the chip freezes (USB, a hardware block, stays enumerated; both protocols are silent; this is what the device did).
+
+Why the earlier tests did not see it: the one-hour soak's save ran while stopped, with no MIDI flowing, so no block had an event
+waiting and `a2_block` made no request (`a2_block` asks only for an event waiting in lane 0 or 1). In the failed run CLOCK was
+being set to MIDI while the NUC sent clock, so lane events kept arriving during the settings save 1.5 s after the change.
+v04.2 on the main page has the same fault in the same circumstances (a flash write while MIDI is being routed with A2 on).
+**The evidence supports the hypothesis**; it is a reading of the binary plus the timing of the incident, not yet a hardware
+proof (the device did not answer on the second night, see 34.3).
+
+### 34.2 The fix (app/midi_router.c, app/diag.c, app/diag.h)
+
+- `volatile uint8_t ct_flash_busy` (RAM): a depth count of app flash erases and writes in progress. Every flash erase and write of
+  the app already goes through `ct_diag_flash_erase` / `ct_diag_flash_write` (diag.h redefines `fm1_flash_erase` / `fm1_flash_write`
+  for all app files); both now raise the count before the SDK call and lower it after, with a compiler barrier each side.
+- `a2_block` (audio interrupt) tests it **first**, after counting the block: if set it counts a skipped block and returns; no
+  `fm1_control_request`. The event waits for the SDK's own 10 ms control pass (the A2-off behaviour), which is the
+  v04.1.1 situation. A request that began just before the flag was raised has finished before the control task can continue
+  (the interrupt is not preempted by a task), so the window is closed on a single core.
+- The A2 page (command 25, request 7) grows from 48 to 52 bytes: the last u32 is the number of blocks skipped because of a flash
+  operation, so the hardware run can show the guard working. The web page reads by index and ignores the extra word.
+- **Not covered, stated plainly:** flash operations the SDK starts itself (outside `fm1_flash_erase` / `fm1_flash_write`: the SDK's
+  VM, the loader, the update protocol's own writes while Firmware Update runs). There is no hook in the closed SDK; none of them
+  runs while a song plays, and the Firmware Update path stops the app's MIDI routing first.
+- Host test (tests/host/smoke.c section 17, "flash guard"): the simulator calls a hook inside every flash erase and write that
+  queues a note and renders a block (the audio interrupt during the write). Run with the real sequence of the incident (SEQ, K1 up,
+  settings save after 1.5 s): 16 flash operations, 0 without the flag, 0 A2 requests inside them, 8 blocks skipped, flag clear after.
+  With the guard line disabled the test fails (8 requests inside a flash operation), so it catches the fault.
+
+**Correction (section 35):** the device was never frozen; the cause was the USB reply path, not flash. The guard stays (the
+call path is in flash, that is a fact of the binary), but on the device the skipped-blocks counter stayed 0 through settings
+saves with notes flowing: the engine does not call the app's clock hook while a flash operation holds it, so the hazard has
+not been seen to occur.
+
+### 34.3 Device state on the second night
+
+The SMK-37 was still not answering at 08:41 PST on 2026-11-12 (device number 41, unchanged since the hang: it has not
+re-enumerated, so it has not lost power). The hang tests (`run-follow.py --a2 off`, then `--a2 on`) are therefore not done.
+
+### 34.4 Why one line with A2 on measured 4.91 ms and not 3.67 ms (analysis of the raw captures)
+
+"Band" is the largest minus the smallest residual of a straight-line fit: two extreme notes decide it. The residuals of the
+four one-line captures (DIN, note-on time against the fitted grid):
+
+| Capture | notes | p1 | p5 | p50 | p95 | p99 | min..max | band | p5..p95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| Task 15 diag, A2 on (longwait) | 821 | -1.44 | -1.32 | 0.00 | 1.28 | 1.46 | -1.55..2.23 | 3.78 | 2.60 |
+| v04.2, A2 on (overnight) | 960 | -1.47 | -1.31 | -0.01 | 1.31 | 1.46 | -1.54..3.38 | 4.91 | 2.62 |
+| Task 15 diag, A2 off | 606 | -5.46 | -4.89 | -0.46 | 5.43 | 5.83 | -5.65..7.36 | 13.01 | 10.31 |
+| v04.2, A2 off | 960 | -4.94 | -4.37 | -0.51 | 5.60 | 6.58 | -5.10..9.18 | 14.27 | 9.97 |
+
+The body of the distribution is identical with A2 on (p1 to p99 within 0.1 ms, p5 to p95 2.62 against 2.60 ms): nothing we added
+moved the typical note. The v04.2 run has **three** notes above 1.9 ms (2.68 ms at 0.9 s, 3.38 ms at 85.1 s, 2.58 ms at 108.2 s,
+of 960); the Task 15 capture has none above 2.23 ms. The band is the extreme of a tail, so a run of 960 notes against 821 and one
+bad note give 4.91 against 3.78. Whether the tail is more frequent now (the remote status reads, the control loop's added
+`groove_remote_poll`, the song-follow hook) or the same, needs repeated runs: each of three or more 125 s A2-on runs, comparing
+the count of notes beyond 2.3 ms; this needs the device and is queued after the hang tests. It is not an A2 effect (A2 off also
+shows the wider tail: 14.27 against 13.01). No fix is justified from this data.
+
+
+## 35. Task 16 (day 2) — what the "hang" was: the SDK holds the last USB write; the USB pusher (2026-11-12)
+
+### 35.1 What was measured on the device (tabby-v04.3 build b136b741, after a real power cycle and a second hub)
+
+| Observation | Result |
+| --- | --- |
+| CLOCK = MIDI, identity query and command 29 | no reply (same after power cycles: the setting is stored) |
+| a note-on sent over USB | sounds on AUDIO4c inputs 3 and 4: the firmware runs |
+| K1 back to INT at the panel | replies at once: the control task was never stuck |
+| CLOCK = MIDI set by injection with **A2 off** | replies stop at once; a blind K1 -1 injection brings them back: commands are executed, not A2, not flash |
+| a key injection in CLOCK = MIDI | the note leaves on DIN in 1.8 ms and on USB in 1 ms; the SysEx reply does not |
+| reply to request N in CLOCK = MIDI | arrives 1 to 3 ms after request N + 1 is sent (any length; 26, 34, 66, 80, 85 bytes) |
+| FE, a note-off or F8 sent by the host after the request | does not release the reply |
+| control passes per second | 100 in INT, 99 in MIDI idle, 106 with clock: the passes run |
+
+Reading: the reply is written to the SDK's USB port ring and stays there until **the next write to the USB port**. With
+CLOCK = INT and clock out on USB the next F8 follows within 21 ms (replies take 10 to 20 ms there, a note 1 ms); with
+CLOCK = MIDI (or clock out off) nothing follows. The SDK code (`fm1_midi_send_port`, `fm1_port_signal`,
+`midi_scheduler_task`, `request_usb_transmit`) was read and looks sound: the exact fault inside it was not found. It is in
+every release (the SDK is pinned): tabby-v04.2 and earlier answer nothing over USB with CLOCK = MIDI. The first night's
+"hang" (33.3) was this, seen through a tool that waits for replies.
+
+### 35.2 The fix: the USB pusher (app/midi_router.c v0.3)
+
+Every app write to a MIDI port goes through `ct_midi_send_port` (router and transfer replies). A successful USB write arms
+`usb_push` (4). At the start of each control pass, when no clock is going out on USB (CLOCK = MIDI, or clock out off, or USB
+not a clock port), the pusher sends one undefined real-time byte 0xF9 to USB and counts down; the pusher's own bytes do not
+re-arm it. With the clock running on USB nothing is sent (the clock pushes). 0xF9 is undefined in MIDI 1.0: receivers ignore
+it and the ALSA sequencer drops it. Host tests: smoke section 17 "USB pusher" (four 0xF9 on USB only after a reply in
+CLOCK = MIDI; none in CLOCK = INT). Not covered: replies the SDK sends itself during Firmware Update (the app does not run
+then); the update's identity query goes through the app's pass and is pushed.
+
+### 35.3 Device results with the fix (pre-release tabby-v04.3-rc2, build a622f12971fa5162, pusher = 2 bytes)
+
+Published only as builds/tabby-v04.3-rc2/; full backup before (projects, songs, blocks equal to the first night's), identity
+first, one install attempt, 12.1 s, read back.
+
+| Test | Result |
+| --- | --- |
+| CLOCK = MIDI, status every 0.5 s for 12 s | every reply, 7 to 22 ms |
+| 1700 status queries back to back in CLOCK = MIDI over three CLOCK changes | 0 lost (one lost in an earlier 300: about 1 in 2000, single attempt; the release sends 4 pusher bytes) |
+| settings save 1.5 s after each CLOCK change | one reply delayed to about 70 ms, none lost |
+| hang test `run-follow.py --a2 off` | pass: armed, lock, tempo 90 / 150 / 120, HELD, relock, LOST, Stop, Continue, Start, SPP; 0 underruns |
+| hang test `run-follow.py --a2 on` | pass, the same states; 0 underruns, 0 DMA overruns |
+| `run-remote.py` | 26 of 26 |
+| flash guard counter (A2 page word 12) after saves with notes flowing | 0 (34: not seen to be needed) |
+
+Clock follow, measured (NUC as master over USB, 120 BPM, note against the master's pulse; the NUC's own send jitter is in it):
+
+| | A2 off | A2 on |
+| --- | --- | --- |
+| lock time after Start (DIN / USB) | 7.1 / 6.0 ms | 4.1 / 3.1 ms |
+| note offset, mean / std (DIN, 224 notes) | 7.42 / 3.34 ms | 3.46 / 1.75 ms |
+| largest single offset | 26.6 ms | 24.1 ms |
+| after a tempo change to 90 / 150 / 120, mean | 6.1 / 6.0 / 7.3 ms | 5.5 / 2.7 / 3.7 ms |
+
+In CLOCK = MIDI the engine does not call the app's clock hook, so key and pad notes get no A2 request there (0 calls in 3.5 s
+of notes); they leave with the 10 ms pass as before A2.
+
+### 35.4 The one-line band again: it is the screen page
+
+Five more 125 s runs, one line, A2 on, DIN (USB identical):
+
+| Page shown while playing | band | notes later than +1.9 ms (of 960) | largest |
+| --- | ---: | ---: | ---: |
+| OVERVIEW (three runs) | 5.65, 5.23, 5.00 ms | 3, 3, 5 | +4.12 ms |
+| STEPS | 5.84 ms | 9 | +4.28 ms |
+| ACTIONS | 5.91 ms | 16 | +4.28 ms |
+| SONG, by hand, Task 15 diag build (two captures) | 3.78, 3.67 ms | 2, 3 | +2.23 ms |
+
+The standard deviation is 0.86 to 0.93 ms in all of them. A late note is one whose A2 request arrived while a control pass was
+painting (the SDK drops a request made during a pass; the next block asks again, 2.9 ms later). How often that happens depends
+on the page being painted. Task 15 measured with the SONG page showing (PLAY pressed there); the remote PLAY of Task 16 leaves
+another page showing, and the SONG page cannot be opened remotely (it needs the SAVE button, which the remote control refuses).
+So the difference does not come from code added to the MIDI path. A fix would be to let the painter yield while an event waits
+(not done; it belongs with F + G).
+
+### 35.5 The release: tabby-v04.3.1 (2026-11-12)
+
+The user's decision: the fix is tabby-v04.3.1; the tag tabby-v04.3 and builds/tabby-v04.3/ stay untouched except for a
+"do not install" line (SPEC 17.11). The pusher sends four bytes (USB_PUSHES). Gate: make check, make lint,
+`make suite DISPLAY_VERSION=tabby-v04.3.1` green; `make package`: build id 71df5724063bc0cb, app image 452036 bytes, margin
+67421. Published to the main page and builds/tabby-v04.3.1/, GitHub release, installed from the page (results in the
+release notes and MORNING-REPORT.txt).
+
+## 36. Task 17 — tabby-v04.4: the timer and the look-ahead (F + G), updating with CLOCK on MIDI, the "late note" (2026-11-13)
+
+### 36.1 Options F + G as built (app/midi_router.c v0.4, app/song.c, app/board/audio.c)
+
+A2 (28.4) sends a song note when the audio block that found it ends: 2.9 ms of quantization, and a pass request that arrives
+while a pass paints the screen is dropped and repeated a block later (35.4: the band depended on the page). F + G:
+
+- **G, the look-ahead.** Every event the audio interrupt queues into lane 0 or 1 gets a due time on the 24 MHz counter (TIMER4),
+  kept beside the lane (`fg_due`, 2 x 128 words of RAM): the counter at the entry of the block's audio interrupt
+  (`ct_fg_irq_ticks`, read first thing in `fm1_audio_irq`) + one block (the measured interval between interrupts, `fg_len`,
+  about 69632 ticks) + the event's place inside the block. The song tick already sorts its actions by `at` units inside the
+  window of `adv` units: `groove_midi_at(at, adv)` before each action. The MIDI clock byte is due `(phase - PERIOD)` of one
+  block's phase step before the base, which gives a pulse and a song note at the same musical time the same due time (before,
+  the pulse left one block after the note). Stock sequencer and arpeggio notes get the block's base. So MIDI out is one block
+  later than with A2, by the same amount for every event, and no longer quantized to blocks. The internal sound of a song is
+  posted when its event is sent, as before.
+- **F, the timer.** TIMER5 (0x10900, IRQ 63, unused until now) counts the same 24 MHz and interrupts every 12000 ticks (0.5 ms),
+  priority 3 (below the audio interrupt's 4: no task can run while the audio interrupt renders, so a higher priority would gain
+  nothing). The handler (`ct_fg_tick`, RAM code) asks for a control pass (`fm1_control_request`) when the head of lane 0 or 1 is
+  due within 0.25 ms (`FG_LEAD`). The pass (and every flush between LCD bands) sends what is due and leaves the rest in the lane,
+  in order. A request the SDK drops because a pass runs is repeated by the next tick, 0.5 ms later.
+- **One burst per port.** `fm1_midi_send_port` copies bytes into the port's ring and wakes the SDK's MIDI task on every call
+  (read from its code: a byte stream, at most 128 bytes a call). Eight notes due together used to be eight calls per port; when
+  the audio interrupt came between two calls the rest left 1.5 ms later. While the router drains its lanes it now collects the
+  short messages per port and hands them over in one call (`ct_midi_send_port`, `batch_flush`).
+- **The painter waits.** A screen band cannot be interrupted (0.3 ms typical, up to 5 ms). `paint_flush` does not start a band
+  while an event is due within the last band's time + 1.5 ms (`ct_midi_due_within`; the 60 ms starvation guard still lets one
+  through). The ACTIONS page's two storage lines (up to 5 ms to work out, asked for on every pass) are worked out at most twice
+  a second and not while an event is due within 6 ms.
+- **The audio block asks no more.** `a2_block` only counts blocks while F + G is live. If the timer does not tick (no tick
+  between two blocks) the block is "not live": no look-ahead, and it asks for the pass itself, which is A2 as in tabby-v04.3.1.
+- **The switch.** "A2 FAST MIDI" (ACTIONS, remote op 5) switches all of it: off = the 10 ms passes, no look-ahead.
+- **Counters.** Command 25 request 10 (56 bytes): running, timer interrupts, events sent with a due time, the latest send after
+  its due time, six bins of that lateness (< 0.25, < 0.5, < 1, < 2, < 4, >= 4 ms), block length, timer period, live. The A2 page
+  (request 7) now counts the timer's requests (calls, cost, retries).
+- **Clock follow.** With the look-ahead a follow song would sound one block after its pulses, so while F + G is live the follower
+  predicts one block ahead (`ahead` in `ext_block`); the block in which the run begins (first pulse after Start or Continue, a
+  relock) starts ahead in one step and sends its events at once (`groove_midi_immediate`), because the first pulse cannot be
+  anticipated.
+
+### 36.2 An interrupt may call the SDK while flash is written: the evidence (corrects 34.1)
+
+Section 34 feared an interrupt fetching flash-resident code while the flash chip is busy. The disassembly of the tabby-v04.3.1
+ELF shows the SDK closes that itself: every flash SPI operation runs inside `enter_spi_code` (0x1c00388) ... `exit_spi_code`
+(0x1c00470), and `enter_spi_code` calls `cpu_enter_sfc_critical` (0x1c09170), which calls `__local_irq_disable` (0x1c0802c);
+`cpu_exit_sfc_critical` (0x1c09214) calls `__local_irq_enable`. `_norflash_write` (0x1c005e6) is one such section per 256-byte
+page including the wait for the chip (`norflash_wait_ok`); the erase goes the same way through `norflash_ioctl`. No interrupt of
+any priority runs while flash is unreadable, which is also why the SDK mutes the audio around flash writes (`fm1_audio_suspend`
+in `fm1_flash_write` / `fm1_flash_erase`) and why the "blocks skipped" counter of 34.2 stayed 0. The SDK's own interrupt handlers
+rely on it (they call flash-resident OS code). So the TIMER5 handler may call `fm1_control_request`; `ct_flash_busy` is still
+tested first (one load).
+
+### 36.3 Updating with CLOCK on MIDI (item 2): nothing to handle
+
+The task assumed (from section 35) that the device holds its replies when no MIDI clock goes out on USB. A first version of
+this work built a page-side check, a "push hold" (remote op 8) and a CLOCK switch (remote op 9) for it, with a fake-device
+test. Then the first real update with CLOCK on MIDI (tabby-v04.3.1 to tabby-v04.4-rc1, through the published page in Chrome)
+simply ran: 11.4 s, the normal path, the page's check found every reply arriving. That contradiction led to 36.5: the
+replies were never held. All of that code was removed again before rc2 (sdk/WebUpdate.js and sdk/Update.html.in are the
+tabby-v04.3.1 files plus the Help text). Measured, through the published pages, nobody at the device:
+
+| Update | CLOCK | Result |
+| --- | --- | --- |
+| tabby-v04.3.1 to v04.4-rc1 | MIDI | 11.4 s, CLOCK still MIDI after |
+| rc1 to rc2 | INT | 11.7 s |
+| rc2 (no pusher) to rc3 | MIDI | 10.0 s, CLOCK still MIDI after; before it, a Full backup through the page with CLOCK on MIDI |
+| rc3 to rc4 | INT | 9.9 s |
+| rc4 to tabby-v04.4 (the main page) | MIDI | 10.0 s, CLOCK still MIDI after; Full backup before and after through the page, equal but for the CLOCK setting |
+
+In the page itself (tools/linux/hw/workbench.mjs v0.5, command `replies`): with CLOCK on MIDI on rc2, eight single update-protocol
+queries (identity and version, no retry) each got their own reply in 2 to 7 ms.
+
+### 36.4 The note 21 to 26 ms late in clock follow (item 3): the measuring tool, not the device
+
+`run-follow.py` v0.2 measured a note against "the nearest master pulse before it". Two faults of that, both on the NUC:
+
+1. A note that leaves 0.3 ms **before** its own pulse was counted against the pulse before: one pulse period late (20.83 ms at
+   120 BPM, 27.8 at 90, 16.7 at 150: the "largest offsets" of 35.3 and of the v04.3.1 runs sit at those values).
+2. The master is a Python thread on the NUC. When it sends a pulse late the follower, which predicts between pulses, is early
+   against that pulse and late against the next ones. In the first v0.3 capture the NUC sent two pulses 42.6 and 21.9 ms late
+   (another job was compiling on the NUC); the one note 15 ms off is the note right after them.
+
+v0.3 measures each note against the pulse of its own step, signed, reports the master's lateness (send time minus schedule) and
+a "clean" figure (notes with every one of the 24 pulses before them sent within 0.5 ms of schedule), and saves the raw times.
+
+Before and after (tabby-v04.3.1 against tabby-v04.4-rc3 / rc4, A2 on, 120 BPM, 60 s from Start, DIN; "clean" notes only):
+
+| | v04.3.1 (three runs) | v04.4-rc3 / rc4 (five runs) |
+| --- | --- | --- |
+| old figure, "largest offset" (nearest pulse before) | 15.0, 23.0, 7.8 ms | not used |
+| note against its own pulse, mean | 3.37 to 3.47 ms | 3.27 to 3.40 ms |
+| standard deviation | 0.86 to 0.88 ms | 0.76 to 0.82 ms |
+| band (largest minus smallest) | 5.1 to 5.9 ms | 2.7 to 3.1 ms |
+| lock time after Start | 4.2 ms | 3.6 to 5.8 ms |
+
+The firmware change behind the smaller band is F + G (36.1), not a fix for the "late note": that note was never late.
+
+### 36.5 The "no replies with CLOCK = MIDI" of Task 16 was the NUC's tool (corrects section 35, SPEC 19.4)
+
+`tools/linux/hw/tabby_link.py` reads the device's USB MIDI with kernel timestamps since v0.3 (2026-11-08). `snd_rawmidi_tread`
+returns ONE kernel frame (at most 16 bytes) per call and alsa-lib keeps the other frames it read in its own buffer, where
+`poll()` does not see them. `messages()` called it once per wake-up, so the rest of a reply (a SysEx is 3 or more frames) stayed
+in the library until more MIDI arrived. With CLOCK = INT the device's clock bytes arrived 48 times a second and released it
+within 21 ms; with CLOCK = MIDI nothing arrived and the tool reported "no reply". Everything section 35 measured fits this:
+"the reply arrives when the next write follows", "K1 back to INT brings the replies back", "one reply in 2000 lost".
+
+Proof (2026-11-14, tabby-v04.4-rc1 and rc2, CLOCK = MIDI):
+
+| Reader | one update-protocol query, no retry |
+| --- | --- |
+| tabby_link v0.10 (one frame per wake-up) | no reply in 0.5 s; the reply appears 0.2 to 0.6 ms after the NEXT query is sent (the next reply's arrival wakes the reader) |
+| the same with kernel timestamps off | own reply, 0.4 to 5 ms |
+| amidi | own reply |
+| Chrome (the workbench page) | own reply, 2 to 7 ms |
+| tabby_link v0.11 (every frame read from the port's file descriptor) | own reply, 0.3 to 0.5 ms; 500 of 500 status queries answered, slowest 18.5 ms |
+
+Consequences: the device never held a reply; tabby-v04.3 was not faulty; the USB pusher of tabby-v04.3.1 (0xF9 bytes after a
+USB write) answered nothing and is removed in tabby-v04.4 (the host test now expects no 0xF9). The same one-frame read was in
+tools/linux/midi-monitor.py (the DIN capture) and is fixed there too. The timing figures of sections 26 to 35 stand: the
+timestamps are the kernel's receive times, only the delivery to the script was late.
+
+### 36.6 Device results (item 4): A2 on, 125 s per run, DIN through the H4MIDI WC and USB, kernel timestamps
+
+Band = largest minus smallest error against a straight-line fit, per line; eight lines: the worst line.
+
+| | OVERVIEW DIN / USB | STEPS DIN / USB | ACTIONS DIN / USB |
+| --- | --- | --- | --- |
+| tabby-v04.3.1, one line | 4.62 / 4.63 | 5.10 / 5.08 | 5.70 / 5.73 |
+| tabby-v04.3.1, eight lines | 5.61 / 6.78 | 6.18 / 6.88 | 6.43 / 7.49 |
+| rc1 (F + G), one line | 1.73 / 1.70 | 1.64 / 1.64 | 2.29 / 2.30 |
+| rc1, eight lines | 3.40 / 3.77 | 3.89 / 3.75 | 4.08 / 4.47 |
+| rc3 (+ painter waits, ACTIONS lines cached), one line | 1.62 / 1.79 | 1.90 / 1.63 | 1.73 / 1.62 |
+| rc3, eight lines | 4.17, 4.26, 3.54 / 3.70, 3.79, 3.74 | 3.33 / 3.69 | 2.84 / 3.56 |
+| **rc4 (+ one burst per port), one line** | **1.79 / 1.72** | **1.89 / 1.81** | **1.76 / 1.62** |
+| **rc4, eight lines** | **2.28, 2.95, 2.32 / 2.20, 2.20, 2.26** | **2.22 / 2.13** | **2.25 / 2.15** |
+
+| rc4 | one line | eight lines |
+| --- | --- | --- |
+| standard deviation per line | 0.35 to 0.38 ms | 0.58 to 0.62 ms |
+| all eight lines on one grid, DIN / USB | | 9.1 / 2.2 ms (tabby-v04.3.1: 12.6 / 8.2; DIN carries eight notes one after the other) |
+| events sent < 0.25, < 0.5, < 1, < 2, < 4 ms after their due time | 65, 17, 15, 2.4, 0 percent | 42, 16, 17, 25, 0.1 percent; latest 2.2 ms |
+| timer interrupts | 2000 per second | the same |
+| pass requests | 51 per second, mean 28 us; longest 0.9 ms (the timer interrupt waiting behind the audio interrupt, not the call) | 57 per second (115 before the bursts), mean 27 us |
+| engine underruns / DMA overruns | 0 / 0 | 0 / 0 |
+| render peak (deadline 2.90 ms) | 0.87 ms | 1.46 ms |
+| CPU GUARD "adapted" | +0 | +120 per run, as on tabby-v04.3.1 (the song's eight voices; 28.6) |
+
+What each step fixed: rc1 ACTIONS eight lines over 4 ms: the page's storage lines (up to 5 ms inside the screen hook). rc3
+OVERVIEW eight lines 4.2 ms in two of three runs: one note in 7680, in a burst the audio interrupt cut in two. rc4: no line
+over 3 ms in five eight-line runs. Clock follow on rc4: every state of `run-follow.py` as expected with A2 off and on (armed,
+lock, HELD after 0.3 s, relock, LOST after 3 s, pulses alone do not restart, Continue, Stop, Start, SPP stopped and running);
+`run-remote.py` 27 of 27. Raw files: ~/Documents/Classic Tabby/overnight/g5/ (before, rc1 to rc4).
+
+### 36.7 Tool faults found on the way (all on the NUC)
+
+1. tabby_link `messages()` and midi-monitor `read()`: one timestamp frame per wake-up (36.5).
+2. run-follow.py: the offset against the nearest pulse before (36.4); the gap, stop and SPP scenarios need the lock scenario
+   before them (the song must be running); song 16 is 120 s long and arms again at its end, so a run of all scenarios with
+   --seconds 60 reaches the end during the tempo scenario.
+3. The F + G page's timer count was not reset with the other counters on rc2 (fixed in rc3).
+4. Another job compiling on the NUC makes the Python clock master late (up to 43 ms): the follow figures use only notes whose
+   last 24 pulses were sent within 0.5 ms of schedule.
+
+### 36.8 The release: tabby-v04.4 (2026-11-14)
+
+Gate: make check, make lint (the same 11 host and 3 target warnings as before), `make suite DISPLAY_VERSION=tabby-v04.4` green at
+7f4221b; `make package`: build id 4b9196357ae5ba07, app image 453412 bytes, margin 66045 (FLASH-BUDGET 23). Four device-test
+builds went before it, each on its own builds/ page (SPEC 17.11): rc1 (F + G, with the later-removed update check and push
+hold), rc2 (those and the USB pusher removed, the painter waits), rc3 (the ACTIONS lines cached), rc4 (one burst per port).
+
+**A breach of the gate, stated plainly:** the suite for rc4 FAILED (the sanitizer step: a 64-entry array in tests/host/smoke.c
+indexed with the count of a drain that now holds up to 128 messages; a fault of the test, not of the firmware), and rc4 was
+published to builds/tabby-v04.4-rc4/ and installed all the same, because the batch script's `set -e` does not act inside an
+`&&` list. The rc1, rc2 and rc3 suites passed before their installs. The test is fixed (drain returns no more than it stored)
+and the tabby-v04.4 suite passed before anything of tabby-v04.4 was published. The firmware sources of rc4 and tabby-v04.4 are
+the same (`git diff tabby-v04.4-rc4 7f4221b -- app web`: empty; only the Help text, the display version and the test differ).
+
+Published: the main page, builds/tabby-v04.4/, the GitHub release. Installed from the main page with CLOCK on MIDI (one
+attempt, 10.0 s). On the installed release, 125 s per run: one line 1.82 / 1.80 (OVERVIEW), 1.74 / 1.78 (STEPS), 1.69 / 1.63
+(ACTIONS) ms on DIN / USB; eight lines 2.83 / 2.25, 2.33 / 2.24, 2.40 / 2.20 (worst line); 0 underruns, 0 DMA overruns;
+`run-follow.py --only lock,gap,stop,spp` with A2 off and on: every state as expected; follow band 2.7 ms (A2 on, clean notes);
+`run-remote.py` 27 of 27. The device was left on CLOCK = INT, A2 on, OVERVIEW. Raw files: overnight/g5/final/.

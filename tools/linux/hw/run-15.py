@@ -41,9 +41,11 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.11
+Version: 0.12
 
 Revision log
+    v0.12 2026-11-13  Task 17: --page (the screen page shown while the song plays); the F + G page (command 25 request 10)
+                      in the summary; the page is recorded.
     v0.11 2026-11-12  set_a2 retries four times before it says the firmware has no A2.
     v0.10 2026-11-11  Task 16: soak --probe-writes: STOP TO SAVE checked on the device (a save and an upload while the
                       song plays are refused with code 76).
@@ -257,6 +259,9 @@ def capture(a, soak=False):
     try:
         state = set_a2(l, a.a2)
         print("A2 is %s | kernel timestamps on USB in: %s | DIN: %s" % ("ON" if state["on"] else "off", l.kernel_time, a.din), flush=True)
+        if a.page:
+            s = l.show_page(a.page)                 # v0.12: the page that is painted while the song plays
+            print("page: %s" % s["page_name"], flush=True)
         armed = time.monotonic_ns()
         if a.play:
             # v0.9 (Task 16): remote PLAY (transfer command 29, tabby-v04.2 and later): nobody presses PLAY.
@@ -326,7 +331,12 @@ def capture(a, soak=False):
             while time.monotonic() < end_stop:
                 usb.extend(l.messages(50))
         usb.extend(l.other); l.other = []
-        after = l.health(); a2page = l.a2(7); d = l.diag(0); st = l.song_status()
+        after = l.health(); a2page = l.a2(7); fgpage = l.fg(); d = l.diag(0); st = l.song_status()
+        page_end = None
+        try:
+            page_end = l.remote_status()["page_name"]
+        except Exception:
+            pass
     finally:
         l.close()
         din_rows = din.finish()
@@ -338,7 +348,7 @@ def capture(a, soak=False):
     rows = sorted(din_rows + usb_rows, key=lambda r: r[0])
     if rows:
         M.write_csv(os.path.join(a.out, "%s-din-usb.csv" % a.tag), rows, rows[0][0])
-    res = {"tag": a.tag, "a2": a2page, "seconds": a.seconds, "din": analyze(din_ev), "usb": analyze(usb_ev),
+    res = {"tag": a.tag, "a2": a2page, "fg": fgpage, "page": page_end, "seconds": a.seconds, "din": analyze(din_ev), "usb": analyze(usb_ev),
            "din_usb_differences": same_notes(din_ev, usb_ev), "health_before": before, "health_after": after,
            "profile": d.get("profile"), "song_status": st, "stopped": stopped, "audio": {}}
     for c, b in chans.items():
@@ -368,6 +378,12 @@ def port_line(name, p):
 def summary(r):
     out = ["Task 15 run %s, %d s, measured" % (r["tag"], r["seconds"])]
     out += T.a2_lines(r["a2"])
+    if r.get("page"):
+        out.append("screen page while playing: %s" % r["page"])
+    g = r.get("fg")
+    if g:
+        out.append("F + G: %s, live %d; timer interrupts %d (%.0f per second); %d events sent with a due time; sent < 0.25, < 0.5, < 1, < 2, < 4, >= 4 ms after it: %s; latest %.2f ms; block %d ticks"
+                   % ("running" if g["running"] else "not running", g["live"], g["timer_ticks"], g["timer_ticks"] / max(1.0, r["seconds"]), g["sent"], ", ".join(str(x) for x in g["late_bins"]), g["late_max_ms"], g["block_ticks"]))
     out += [port_line("DIN", r["din"]), port_line("USB", r["usb"])]
     out.append("USB against DIN: " + ("; ".join(r["din_usb_differences"]) if r["din_usb_differences"] else "the same notes on both"))
     out += T.health_lines(r["health_after"], r["health_before"])
@@ -457,6 +473,7 @@ def main():
     p.add_argument("--probe-writes", action="store_true", help="v0.10: soak: 30 s in, try a project save and a song upload while playing (both must be refused, code 76)")
     p.add_argument("--play", type=int, default=0, help="v0.9: start this song (1 to 16, as on the screen) by remote command 29, and stop it at the end")
     p.add_argument("--audio", default="", help="AUDIO4c input channels to record, e.g. 0,1")
+    p.add_argument("--page", choices=["overview", "steps", "actions"], default="", help="v0.12: show this page (remote panel keys) before PLAY; the band depended on the page painted (BUILD 35.4)")
     p.add_argument("--din", default="H4MIDI-WC Port 1")
     p.add_argument("--tag", default="run")
     p.add_argument("--off", help="table: the A2-off run's tag"); p.add_argument("--on", help="table: the A2-on run's tag")

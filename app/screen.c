@@ -1338,6 +1338,16 @@ static void paint_flush(void)
             ct_pass_defer(CT_DEFER_BAND);
             break;
         }
+#ifdef CT_A2
+        /* Task 17 (F + G): a band cannot be interrupted, so one that would run over a MIDI event's due time
+         * (the last band's time plus 1.5 ms for an audio interrupt in between) waits for the pass after the
+         * event; the same starvation guard as above. Measured before this: eight lines on ACTIONS 4.1 to
+         * 4.5 ms, the late notes being the ones that met a band (BUILD 36.6). */
+        if (ct_midi_due_within(band_ticks_last + 36000U) && fm1_millis() - band_sent_ms < CT_PASS_STARVE_MS) {
+            ct_pass_defer(CT_DEFER_BAND);
+            break;
+        }
+#endif
         paint_next = (band + 1U) % PAINT_BANDS;
         uint32_t band_start = ct_diag_ticks();
         paint_top = band * PAINT_ROWS;

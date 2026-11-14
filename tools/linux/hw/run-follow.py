@@ -31,9 +31,14 @@ Purpose
 Usage (browser closed: Chrome holds the SMK-37's port)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-follow.py --song 16 --seconds 60 --out DIR [--only lock,gap]
 
-Version: 0.1
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-13  The lock scenario also measures each note against ITS OWN pulse (the pulse of its step, signed), not
+                      only against the nearest pulse before it: a note 0.5 ms before its pulse used to count as one pulse
+                      period late (20.8 ms at 120 BPM), and a pulse the NUC sent late made the note before it look late.
+                      The master's own lateness (send time minus schedule) is reported; raw times go to follow-raw.json.
+    v0.2  2026-11-12  --a2 on|off|keep; arm() waits for the device after the CLOCK change (a retry loop instead of one 1.5 s query).
     v0.1  2026-11-12  Task 16 Goal 3: first version.
 """
 import argparse
@@ -61,6 +66,7 @@ class Master(threading.Thread):
         self.paused = True
         self.quit = False
         self.pulse_ns = []
+        self.sched_ns = []          # v0.3: when each pulse should have been sent
         self.sent = 0
 
     def say(self, data):
@@ -83,6 +89,7 @@ class Master(threading.Thread):
                 pass
             t = self.say(b"\xf8")
             self.pulse_ns.append(t)
+            self.sched_ns.append(nxt)
             self.sent += 1
             nxt += int(NS * 60.0 / (24.0 * self.bpm))
 
@@ -105,6 +112,20 @@ def offsets(notes, pulses, t_from, t_to):
         i = bisect.bisect_right(pulses, t) - 1
         if i >= 0:
             out.append((t - pulses[i]) / 1e6)
+    return out
+
+
+def own_offsets(notes, pulses, first, t_from, t_to, per_step=6):
+    """v0.3: (note time, signed ms against the pulse of the note's own step, pulse index). The step grid is every
+    per_step-th pulse from pulse index `first` (the first pulse after Start = song position 0)."""
+    out = []
+    grid = pulses[first::per_step]
+    for t, ch, n in notes:
+        if t < t_from or t >= t_to or not grid:
+            continue
+        i = bisect.bisect_left(grid, t)
+        best = min((j for j in (i - 1, i) if 0 <= j < len(grid)), key=lambda j: abs(grid[j] - t))
+        out.append((t, (t - grid[best]) / 1e6, first + best * per_step))
     return out
 
 
@@ -168,7 +189,15 @@ def arm(r, song):
     st = l.press("SEQ")
     r.say("SEQ pressed: page %s" % st["page_name"])
     l.key(4, 0, 1); time.sleep(0.2)          # K1: one detent up = CLOCK MIDI (read back below by arming)
-    l.select_song(song - 1)
+    for attempt in range(8):                  # v0.2: the device may be busy for seconds after the CLOCK change
+        try:
+            l.select_song(song - 1); break
+        except T.DeviceError:
+            raise
+        except TimeoutError:
+            r.say("select song: no reply yet (attempt %d)" % (attempt + 1)); time.sleep(1.0)
+    else:
+        r.say("the device does not answer after the CLOCK change"); return False
     st = l.play_song()
     r.pump(0.3)
     st = r.status()
@@ -190,6 +219,7 @@ def scenario_lock(r, seconds):
     t_start = time.monotonic_ns()
     r.say("Start at 120 BPM")
     with r.lock:
+        p0 = len(m.pulse_ns)                   # v0.3: the next pulse is song position 0
         r.l.send_raw(b"\xfa")
     m.paused = False
     r.pump(seconds + 2)
@@ -199,6 +229,24 @@ def scenario_lock(r, seconds):
     res = {"lock_time_ms": {k: round((first[k] - t_start) / 1e6, 1) if first[k] else None for k in first}}
     for k, e in (("din", din), ("usb", usb)):
         res[k] = stats(offsets(note_ons(e), m.pulse_ns, t_start + 3 * NS, t_start + (seconds + 1) * NS))
+    # v0.3: against the note's own pulse, signed; the master's lateness; the raw times
+    pulses, sched = list(m.pulse_ns), list(m.sched_ns)
+    late = [(a - b) / 1e6 for a, b in zip(pulses[p0:], sched[p0:])]
+    res["master_late_ms"] = {"n": len(late), "max": round(max(late), 3), "over_0.5": sum(1 for x in late if x > 0.5), "over_2": sum(1 for x in late if x > 2.0)}
+    raw = {"first": p0, "pulse_ns": pulses, "sched_ns": sched}
+    for k, e in (("din", din), ("usb", usb)):
+        own = own_offsets(note_ons(e), pulses, p0, t_start + 3 * NS, t_start + (seconds + 1) * NS)
+        res[k + "_own"] = stats([o for _, o, _ in own])
+        # clean: notes with every one of the 24 pulses before their own (one beat) sent within 0.5 ms of its schedule
+        dirty = lambda i: any(pulses[j] - sched[j] > 500_000 for j in range(max(p0, i - 24), min(len(pulses), i + 1)))
+        clean = [o for _, o, i in own if not dirty(i)]
+        res[k + "_own_clean"] = dict(stats(clean), excluded=len(own) - len(clean))
+        res[k + "_own_dirty_max_ms"] = round(max([abs(o) for _, o, i in own if dirty(i)] or [0]), 2)
+        worst = sorted(own, key=lambda x: -abs(x[1]))[:5]
+        res[k + "_own_worst"] = [{"t_s": round((t - t_start) / 1e9, 3), "ms": round(o, 2), "pulse_late_ms": round((pulses[i] - sched[i]) / 1e6, 2),
+                                  "prev_pulse_late_ms": round(max((pulses[j] - sched[j]) / 1e6 for j in range(max(p0, i - 6), i + 1)), 2)} for t, o, i in worst]
+        raw[k + "_note_on_ns"] = [t for t, _, _ in note_ons(e)]
+    r.raw = raw
     r.say("lock: " + json.dumps(res))
     return res
 
@@ -313,12 +361,15 @@ def main():
     p.add_argument("--seconds", type=float, default=60)
     p.add_argument("--din", default="H4MIDI-WC Port 1")
     p.add_argument("--only", default="lock,tempo,gap,stop,spp")
+    p.add_argument("--a2", choices=["keep", "on", "off"], default="keep", help="v0.2: set option A2 (remote command 29) before the CLOCK change; the first run on tabby-v04.3 hung the device after the CLOCK change with A2 on (BUILD.md 33.3)")
     p.add_argument("--out", required=True)
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
     r = Rig(a)
     result = {}
     try:
+        if a.a2 != "keep":
+            st = r.l.set_a2(a.a2 == "on"); r.say("A2 set %s: reported %d" % (a.a2, st["a2"]))
         if not arm(r, a.song):
             r.say("could not arm the song (CLOCK = MIDI not set by the panel injection): stopping")
             return 1
@@ -331,12 +382,18 @@ def main():
         r.say("health: " + json.dumps(h))
     finally:
         try:
-            r.l.stop_song()
+            r.l.stop_song(); time.sleep(0.4)
+            r.l.press("HOME"); r.l.press("SEQ")      # back on SYNC / MIDI: K1 one detent down = CLOCK INT again (the device is left as it was)
+            r.l.key(4, 0, 255); time.sleep(0.3)
+            r.l.press("HOME")
         except Exception:
             pass
         r.close()
         with open(os.path.join(a.out, "follow-summary.json"), "w") as f:
             json.dump({"result": result, "log": r.log}, f, indent=1, default=str)
+        if getattr(r, "raw", None):
+            with open(os.path.join(a.out, "follow-raw.json"), "w") as f:
+                json.dump(r.raw, f)
     return 0
 
 

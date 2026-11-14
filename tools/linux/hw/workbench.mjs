@@ -31,11 +31,14 @@
 //       settings  --patch JSON                       change bytes of transfer kind 8 (diag builds)
 //       workspace --steps16 TRACK                    the workspace with 16 steps on one track (L.6)
 //       info                                         capability and identity readout
+//       replies                                      Task 17: do the update replies arrive by themselves (read only)
 //   Every command prints one JSON line ({ok, ...}) and appends the page's messages to --log.
 //
-// Version: 0.4
+// Version: 0.5
 //
 // Revision log
+//   v0.5  2026-11-13  Task 17: install logs every change of the page's status line (trace); the replies command runs the
+//                     update protocol's queries one at a time in the page (does each get its own reply; nothing is armed).
 //   v0.4  2026-11-08  one dialog handler (v0.3's second handler crashed the resume before it started).
 //   v0.3  2026-11-08  Task 11B port fix: resume command (loader resume, model confirm dialog
 //                     accepted only for "SMK-37 Pro"); --port picks from the page's port list.
@@ -132,8 +135,18 @@ async function install(page, { expect, force }) {
   await page.check('#backup');
   const started = Date.now();
   await page.click('#install');
-  const done = await waitText(page, 'status', /固件已就绪|原厂固件与资源已恢复|Firmware ready|Factory firmware and resources restored/, 8 * 60000, [['error', /./]]);
-  return { identity: c.identity, installed: true, status: done, version: shown, seconds: (Date.now() - started) / 1000 };
+  // v0.5: every change of the page's status line is logged with its time (which path the update took)
+  const trace = []; let last = null, done = null;
+  const end = Date.now() + 8 * 60000;
+  while (Date.now() < end) {
+    const t = await text(page, 'status');
+    if (t !== last) { last = t; trace.push(((Date.now() - started) / 1000).toFixed(2) + ' s: ' + t); log('status: ' + t); }
+    if (/固件已就绪|原厂固件与资源已恢复|Firmware ready|Factory firmware and resources restored/.test(t)) { done = t; break; }
+    const e = await text(page, 'error'); if (e) throw new Error('error: ' + e + ' | status trace: ' + trace.join(' | '));
+    await sleep(40);
+  }
+  if (!done) throw new Error('timeout waiting for the update (now: ' + last + ')');
+  return { identity: c.identity, installed: true, status: done, version: shown, seconds: (Date.now() - started) / 1000, trace };
 }
 async function stock(page) {
   await updateTab(page);
@@ -187,6 +200,25 @@ async function run() {
     let result;
     if (command === 'install') result = await install(page, { expect: opt('expect'), force: flag('force') });
     else if (command === 'stock') result = await stock(page);
+    else if (command === 'replies') {
+      // v0.5 (Task 17): in the page, with the page's own link: the update protocol's identity (17, reply 41 bytes) and
+      // version (49, reply 64 bytes) queries, one at a time, no retry: does each get its own reply, and how fast.
+      result = await page.evaluate(async () => {
+        const pkg = { model: 'pro', family: 8, build_id: '00'.repeat(32), kind: 'open', product: 'SMK-37 Pro_8000001', loaderIdentity: 'ota-FM-1_015', image: new Uint8Array(512) };
+        const u = new FM1Web.Updater(await navigator.requestMIDIAccess({ sysex: true }), pkg, () => {});
+        const out = { connect: await u.connect({}), queries: [] };
+        try {
+          let t0 = 0, got = [];
+          const sniff = ev => got.push([Math.round(performance.now() - t0), ev.data.length]);
+          u.link.input.addEventListener('midimessage', sniff);
+          await new Promise(r => setTimeout(r, 300));
+          for (const c of [17, 49, 17, 17, 49, 49, 17, 49]) { got = []; t0 = performance.now(); u.link.send(FM1Web.frame(c)); await new Promise(r => setTimeout(r, 400)); out.queries.push({ command: c, replies: got }); }
+          u.link.input.removeEventListener('midimessage', sniff);
+          out.own = out.queries.every(q => q.replies.length === 1 && q.replies[0][1] === (q.command === 17 ? 41 : 64));
+        } finally { await u.disconnect(); }
+        return out;
+      });
+    }
     else if (command === 'resume') result = await resume(page, { expect: opt('expect') });
     else if (command === 'backup') {
       await library(page);

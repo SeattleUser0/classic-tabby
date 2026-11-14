@@ -44,10 +44,16 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.15
+ * Version: 0.18
  *
  * Revision log
- *   v0.15 2026-11-12  Task 16 Goal 5 (branch mc707-phase2): section 19: v3 blocks play byte-identical MIDI to v2.
+ *   v0.18 2026-11-14  Merge of tabby-v04.4 into the clip v3 branch: F + G is section 19, the v3 clip section is 20.
+ *   v0.17 2026-11-13  Task 17: section 19, options F + G (due times, the timer tick, the fallback to A2, lateness
+ *                     counters, a song with F + G off and on, clock follow); the USB pusher checks of v0.16 now expect
+ *                     no 0xF9 (the pusher is removed); the remote status is 14 bytes (CLOCK).
+ *   v0.16 2026-11-12  Task 16: USB pusher checks in section 17.
+ *   v0.15 2026-11-12  Task 16: flash guard checks in section 17 (an audio block inside every flash operation).
+ *   v0.15b 2026-11-12 Task 16 Goal 5 (branch mc707-phase2): section 20 (was 19): v3 blocks play byte-identical MIDI to v2.
  *   v0.14 2026-11-12  Task 16 Goal 3: section 18, external clock follow: arm, Start, the first pulse, the step-4 note
  *                     on its pulse, tempo changes, 3 missed pulses (HELD), relock inside 2 s, LOST after 2 s and
  *                     the pulses-alone rule, Continue, Stop wins, SPP stopped and running, Start from the
@@ -120,6 +126,8 @@ void sim_test_inject(int band);
 void sim_test_request_passes(unsigned on);
 extern uint32_t sim_test_control_requests;
 int ct_diag_read(unsigned request, uint8_t out[64]);
+void ct_fg_tick(void); void ct_fg_test(unsigned on); uint32_t ct_diag_ticks(void);   /* Task 17 */
+void sim_test_pass(void);
 unsigned ct_a2_get(void);
 void sim_control(unsigned kind, unsigned index, int value);
 void sim_release(void);
@@ -177,6 +185,18 @@ struct message { unsigned port, bytes; uint8_t data[8]; };
 
 /* Run audio blocks so queued MIDI is polled (Simulator.c polls every 10 ms of audio). */
 static void settle(void) { for (int i = 0; i < 8; ++i) (void)sim_render(); }
+/* Flash guard test (Task 16): an audio block inside a flash operation, with a note waiting for an A2 pass. */
+static unsigned flash_hook_requests;
+#define PG32(p_, i_) ((uint32_t)(p_)[4 * (i_)] | (uint32_t)(p_)[4 * (i_) + 1] << 8 | (uint32_t)(p_)[4 * (i_) + 2] << 16 | (uint32_t)(p_)[4 * (i_) + 3] << 24)
+static void flash_hook_block(void)
+{
+    uint8_t pg[64]; (void)ct_diag_read(7, pg); uint32_t before = PG32(pg, 2);
+    groove_midi_song_note(0, 70, 100);
+    (void)sim_render();
+    (void)ct_diag_read(7, pg);
+    flash_hook_requests += PG32(pg, 2) - before;
+    groove_midi_song_note(0, 70, 0);
+}
 
 static unsigned drain(struct message *out, unsigned max)
 {
@@ -188,7 +208,7 @@ static unsigned drain(struct message *out, unsigned max)
         }
         ++n;
     }
-    return n;
+    return n < max ? n : max;   /* v0.17: never more than were stored (the simulator's capture holds 128 since Task 17; callers index what they got) */
 }
 
 static void dump(const struct message *m, unsigned n)
@@ -330,6 +350,7 @@ static int any_on(const struct message *m, unsigned n, unsigned vel)
 { for (unsigned i = 0; i < n; ++i) if (m[i].port == 0 && (m[i].data[0] & 0xf0U) == 0x90 && m[i].data[2] == vel) return 1; return 0; }
 static int any_off(const struct message *m, unsigned n)
 { for (unsigned i = 0; i < n; ++i) if (m[i].port == 0 && ((m[i].data[0] & 0xf0U) == 0x80 || ((m[i].data[0] & 0xf0U) == 0x90 && !m[i].data[2]))) return 1; return 0; }
+static unsigned rc_source;   /* the port the request arrives on (0 DIN, 1 USB): the reply goes back there */
 static int rcmd(unsigned cmd, const uint8_t *d, unsigned n, uint8_t *outp)
 {
     uint8_t *f = sim_file(); unsigned at = 0, bits = 0, v = 0, sum = 0;
@@ -339,7 +360,7 @@ static int rcmd(unsigned cmd, const uint8_t *d, unsigned n, uint8_t *outp)
     if (bits) f[at++] = v & 127U;
     for (unsigned i = 1; i < at; ++i) sum += f[i];
     f[at++] = (uint8_t)((0U - sum) & 127U); f[at++] = 0xf7;
-    (void)sim_midi_from(0, at);
+    (void)sim_midi_from(rc_source, at);
     for (unsigned pass = 0; pass < 40; ++pass) {
         unsigned r;
         while ((r = sim_midi_output()) != 0) {
@@ -1320,7 +1341,7 @@ int main(void)
         #define AFTER_PASS() do { sim_test_log_reset(); while (!strchr(sim_test_log(), 'P')) (void)sim_render(); } while (0)
         sim_boot(1); sim_midi_capture(1); sim_test_request_passes(0); sim_test_costs(0, 0);
         settle(); (void)drain(m, 64);
-        CHECK(ct_diag_read(7, a2) == 48 && U32(a2, 0) == 1 && ct_a2_get(), "A2: on at boot, the normal build's default since Task 16 (page %u bytes)", 48U);
+        CHECK(ct_diag_read(7, a2) == 52 && U32(a2, 0) == 1 && ct_a2_get(), "A2: on at boot, the normal build's default since Task 16 (page %u bytes)", 52U);
         (void)ct_diag_read(8, a2);   /* the "off" checks below start from the switch off */
         /* Off: a waiting note asks for nothing and leaves with the 10 ms pass, as in the normal build. */
         (void)ct_diag_read(1, a2); AFTER_PASS(); (void)drain(m, 64);
@@ -1334,7 +1355,7 @@ int main(void)
         CHECK(count(m, n, 0x90, 61, 100, &ports) >= 1, "A2 off: the note leaves with the 10 ms pass");
         groove_midi_song_note(0, 61, 0); settle(); (void)drain(m, 64);
         /* On, and the request gets its pass (the device): the note leaves in the block that queued it. */
-        CHECK(ct_diag_read(9, a2) == 48 && U32(a2, 0) == 1 && ct_a2_get(), "A2: request 9 switches it on");
+        CHECK(ct_diag_read(9, a2) == 52 && U32(a2, 0) == 1 && ct_a2_get(), "A2: request 9 switches it on");
         sim_test_request_passes(1);
         /* (The MIDI clock's F8 travels in lane 0 too and asks for its own passes, so the checks
          * here count from the state just before the note.) */
@@ -1378,7 +1399,7 @@ int main(void)
         /* Reset clears the counters at the next block and keeps the switch; request 8 is off. */
         (void)ct_diag_read(1, a2); (void)sim_render(); (void)ct_diag_read(7, a2);
         CHECK(U32(a2, 2) == 0 && U32(a2, 4) == 0 && U32(a2, 1) >= 1 && U32(a2, 1) < 4 && U32(a2, 0) == 1, "A2: the reset clears the counters, not the switch");
-        CHECK(ct_diag_read(8, a2) == 48 && U32(a2, 0) == 0, "A2: request 8 switches it off");
+        CHECK(ct_diag_read(8, a2) == 52 && U32(a2, 0) == 0, "A2: request 8 switches it off");
         groove_midi_song_note(0, 64, 100); (void)sim_render(); (void)ct_diag_read(7, a2);
         CHECK(U32(a2, 2) == 0, "A2 off again: no request");
         groove_midi_song_note(0, 64, 0); settle(); (void)drain(m, 64);
@@ -1405,18 +1426,18 @@ int main(void)
         { uint8_t a[64]; (void)ct_diag_read(9, a); }   /* section 16 left A2 off; the device boots with it on */
         { struct message m[64]; (void)drain(m, 64); }
         int n = RCMD(29, 0);
-        CHECK(n == 14 && reply[0] == 0 && reply[1] == 1 && reply[2] == 0 && reply[3] == 0 && reply[4] == 255 && reply[5] == 255 && reply[7] == 1,
+        CHECK(n == 15 && reply[0] == 0 && reply[1] == 1 && reply[2] == 0 && reply[3] == 0 && reply[4] == 255 && reply[5] == 255 && reply[7] == 1,
               "remote: status at boot: version 1, page OVERVIEW, stopped, nothing loaded (%d bytes: %u %u %u %u %u %u %u)", n, reply[0], reply[1], reply[2], reply[3], reply[4], reply[5], reply[7]);
         { uint8_t caps[96]; int k = rcmd(27, (const uint8_t[]){0}, 0, caps); (void)k;
           CHECK(k >= 8 && (caps[2] & 4U), "remote: capability flag bit 2 (command 29) is set"); }
         /* A2 */
-        n = RCMD(29, 5, 0); CHECK(n == 14 && reply[0] == 0 && reply[7] == 0 && !ct_a2_get(), "remote: A2 off");
-        n = RCMD(29, 5, 1); CHECK(n == 14 && reply[7] == 1 && ct_a2_get(), "remote: A2 on");
+        n = RCMD(29, 5, 0); CHECK(n == 15 && reply[0] == 0 && reply[7] == 0 && !ct_a2_get(), "remote: A2 off");
+        n = RCMD(29, 5, 1); CHECK(n == 15 && reply[7] == 1 && ct_a2_get(), "remote: A2 on");
         CHECK(RCMD(29, 5, 2) >= 0 && reply[0] != 0, "remote: A2 value 2 refused (code %u)", reply[0]);
         /* A key press and release: the note leaves on the MIDI out, the release ends it. */
         { struct message m[64]; unsigned np;
           rc_n = 0; n = RCMD(29, 6, 1, 0, 100); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
-          CHECK(n == 14 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
+          CHECK(n == 15 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
           rc_n = 0; n = RCMD(29, 6, 1, 0, 0); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
           CHECK(reply[0] == 0 && (any_off(m, np)), "remote: key 1 release ends it"); }
         { struct message m[64]; unsigned np;   /* the last key (36): 37 keys do not fit a 32-bit mask */
@@ -1449,6 +1470,48 @@ int main(void)
         for (unsigned i = 0; i < 1900; ++i) (void)sim_render();   /* about 5.5 s of audio blocks */
         sim_test_request_passes(1); settle(); n = RCMD(29, 0);
         CHECK(reply[8] == 0, "remote: the watchdog released SHIFT after 5 s (SHIFT %u)", reply[8]);
+        /* The CLOCK switch by the panel injection (SEQ, then K1 up / down), as tools/linux/hw/run-follow.py does it: the clock
+         * mode follows, the device keeps running (a hang here would stop this test), and A2 is untouched. */
+        { void groove_clock_set(unsigned mode); unsigned groove_clock_mode(void);
+          (void)sim_open(0); settle();
+          n = RCMD(29, 6, 0, 15, 1); n = RCMD(29, 6, 0, 15, 0); settle();
+          /* The hang of 2026-11-11 22:53 (BUILD 33.3, 34): the settings save 1.5 s after the CLOCK change, with notes
+           * waiting for A2 passes. The hook plays the audio interrupt inside every flash operation. */
+          { extern uint32_t sim_test_flash_unguarded, sim_test_flash_ops, sim_test_control_requests;
+            extern void (*sim_test_flash_hook)(void);
+            uint8_t pg[64]; (void)ct_diag_read(7, pg); uint32_t skipped0 = PG32(pg, 12);
+            sim_test_flash_unguarded = sim_test_flash_ops = 0; flash_hook_requests = 0;
+            sim_test_flash_hook = flash_hook_block;
+            n = RCMD(29, 6, 4, 0, 1); for (unsigned i = 0; i < 600; ++i) (void)sim_render();
+            sim_test_flash_hook = 0;
+            (void)ct_diag_read(7, pg);
+            CHECK(sim_test_flash_ops >= 1, "flash guard: the CLOCK change caused a settings save (%u flash operations)", sim_test_flash_ops);
+            CHECK(sim_test_flash_unguarded == 0, "flash guard: every flash operation began with ct_flash_busy set (%u without)", sim_test_flash_unguarded);
+            CHECK(flash_hook_requests == 0, "flash guard: no A2 request from an audio block inside a flash operation (%u)", flash_hook_requests);
+            CHECK(PG32(pg, 12) > skipped0, "flash guard: the A2 page counts the skipped blocks (%u)", (unsigned)(PG32(pg, 12) - skipped0));
+            extern volatile uint8_t ct_flash_busy;
+            CHECK(ct_flash_busy == 0, "flash guard: the flag is clear after the save"); }
+          CHECK(groove_clock_mode() == 1 && ct_a2_get(), "remote: SEQ then K1 up sets CLOCK = MIDI (mode %u), A2 still on", groove_clock_mode());
+          n = RCMD(29, 0); CHECK(n == 15 && reply[0] == 0, "remote: the status still answers with CLOCK = MIDI");
+          /* Task 16 had a USB pusher here (0xF9 after a USB write); Task 17 removed it (BUILD 36.5): nothing is added. */
+          { unsigned f9[3] = {0, 0, 0}, nm; struct message m[64];
+            for (unsigned i = 0; i < 40; ++i) (void)sim_render();
+            (void)drain(m, 64); rc_n = 0; rc_source = 1;
+            n = RCMD(29, 0); rc_source = 0; for (unsigned i = 0; i < 60; ++i) (void)sim_render();
+            nm = drain(m, 64);
+            for (unsigned i = 0; i < rc_n; ++i) if (rc_log[i].bytes == 1 && rc_log[i].data[0] == 0xf9 && rc_log[i].port < 3) ++f9[rc_log[i].port];
+            for (unsigned i = 0; i < nm && i < 64; ++i) if (m[i].bytes == 1 && m[i].data[0] == 0xf9 && m[i].port < 3) ++f9[m[i].port];
+            CHECK(f9[1] == 0 && f9[0] == 0 && f9[2] == 0, "no USB pusher (removed in tabby-v04.4): CLOCK = MIDI, a reply is followed by no 0xF9 (DIN %u, USB %u, BLE %u)", f9[0], f9[1], f9[2]); }
+          n = RCMD(29, 6, 4, 0, 255); for (unsigned i = 0; i < 600; ++i) (void)sim_render();
+          CHECK(groove_clock_mode() == 0, "remote: K1 down sets CLOCK = INT again (mode %u)", groove_clock_mode()); (void)sim_open(0);
+          { unsigned f9 = 0, nm; struct message m[64];
+            for (unsigned i = 0; i < 40; ++i) (void)sim_render();
+            (void)drain(m, 64); rc_n = 0; rc_source = 1;
+            n = RCMD(29, 0); rc_source = 0; for (unsigned i = 0; i < 60; ++i) (void)sim_render();
+            nm = drain(m, 64);
+            for (unsigned i = 0; i < rc_n; ++i) if (rc_log[i].bytes == 1 && rc_log[i].data[0] == 0xf9) ++f9;
+            for (unsigned i = 0; i < nm && i < 64; ++i) if (m[i].bytes == 1 && m[i].data[0] == 0xf9) ++f9;
+            CHECK(f9 == 0, "no USB pusher: CLOCK = INT, no 0xF9 (%u)", f9); } }
         /* Songs: one stored, then select, play, jump, stop. */
         { uint8_t *f = sim_file(); uint8_t b1[70], b2[67]; memset(b1, 0, sizeof b1); memset(b2, 0, sizeof b2);
           b1[0] = 1; b1[1] = 60; b1[2] = 100; b1[3] = 2; b2[0] = 1; b2[1] = 64; b2[2] = 80; b2[3] = 1;
@@ -1457,20 +1520,20 @@ int main(void)
           memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "REMOTE      ", 12); f[40] = 2; f[48] = 5;
           f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;
           CHECK(sim_song_record_write(0) == 0, "remote: test song stored"); }
-        n = RCMD(29, 1, 0); CHECK(n == 14 && reply[0] == 0 && reply[4] == 0 && reply[3] == 0, "remote: select song 1 loads it (loaded %u)", reply[4]);
+        n = RCMD(29, 1, 0); CHECK(n == 15 && reply[0] == 0 && reply[4] == 0 && reply[3] == 0, "remote: select song 1 loads it (loaded %u)", reply[4]);
         n = RCMD(29, 1, 7); CHECK(n >= 0 && reply[0] != 0, "remote: select an empty song is refused (code %u)", reply[0]);
         n = RCMD(29, 4, 1); CHECK(n >= 0 && reply[0] == 71, "remote: a jump while stopped is refused");
         n = RCMD(29, 1, 0);   /* a refused select of an empty song leaves nothing loaded; load song 1 again */
-        n = RCMD(29, 2); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); n = RCMD(29, 0); CHECK(n == 14 && reply[0] == 0 && reply[3] == 1 && reply[9] == 1, "remote: PLAY starts the loaded song (state %u, transport %u, code %u, loaded %u)", reply[3], reply[9], reply[0], reply[4]);
+        n = RCMD(29, 2); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); n = RCMD(29, 0); CHECK(n == 15 && reply[0] == 0 && reply[3] == 1 && reply[9] == 1, "remote: PLAY starts the loaded song (state %u, transport %u, code %u, loaded %u)", reply[3], reply[9], reply[0], reply[4]);
         for (unsigned i = 0; i < 20; ++i) (void)sim_render();
         n = RCMD(29, 2); CHECK(n >= 0 && reply[0] != 0, "remote: PLAY while playing is refused");
-        n = RCMD(29, 4, 1); CHECK(n == 14 && reply[0] == 0 && reply[6] == 1, "remote: jump to row 2 is queued (queued %u)", reply[6]);
+        n = RCMD(29, 4, 1); CHECK(n == 15 && reply[0] == 0 && reply[6] == 1, "remote: jump to row 2 is queued (queued %u)", reply[6]);
         { uint8_t save[96]; int k = rcmd(7, (const uint8_t[]){0}, 0, save); (void)k;
           CHECK(save[0] != 0, "remote: project save refuses while playing (code %u)", save[0]); }
-        n = RCMD(29, 3); CHECK(n == 14 && reply[0] == 0, "remote: STOP");
+        n = RCMD(29, 3); CHECK(n == 15 && reply[0] == 0, "remote: STOP");
         for (unsigned i = 0; i < 200; ++i) (void)sim_render();
         n = RCMD(29, 0); CHECK(reply[3] == 0 && reply[9] == 0, "remote: stopped and no transport after STOP (%u, %u)", reply[3], reply[9]);
-        n = RCMD(29, 2, 0); CHECK(n == 14 && reply[0] == 0 && reply[3] == 1, "remote: PLAY with a song number loads and plays it");
+        n = RCMD(29, 2, 0); CHECK(n == 15 && reply[0] == 0 && reply[3] == 1, "remote: PLAY with a song number loads and plays it");
         n = RCMD(29, 3); for (unsigned i = 0; i < 200; ++i) (void)sim_render();
         #undef RCMD
         #undef STATUS_PAGE
@@ -1533,13 +1596,26 @@ int main(void)
         { int32_t want = (int32_t)(base_units + (pulses_sent - base_pulses) * 80U), got = (int32_t)sim_song_units(), e = got - want;
           CHECK(e > -90 && e < 90, "follow: after 150 BPM the position is within one pulse (%d units off over %u pulses)", e, pulses_sent - base_pulses); }
         CHECK(FOLLOW() == RUNNING && sim_song_status(2) == 0, "follow: still running, no underrun (%u)", sim_song_status(2));
+        /* No drift (TASK-10 Phase 1): 400 pulses at 133 BPM (what is left of the 768-pulse song); the position keeps within a pulse of the pulses, at every 50th pulse. */
+        MASTER_SET(133);
+        { unsigned worst = 0; uint32_t u0 = sim_song_units(), p0 = pulses_sent; unsigned seen = 0;
+          for (int i = 0; i < 25000 && pulses_sent - p0 < 400; ++i) {
+              unsigned before = pulses_sent; BLOCK_RUN();
+              if (pulses_sent != before && (pulses_sent - p0) % 50 == 0) {
+                  int32_t want = (int32_t)(u0 + (pulses_sent - p0) * 80U), e = (int32_t)sim_song_units() - want; if (e < 0) e = -e;
+                  if ((unsigned)e > worst) worst = (unsigned)e; ++seen;
+              }
+              if (FOLLOW() != RUNNING) break;
+          }
+          CHECK(seen >= 5 && worst <= 100 && FOLLOW() == RUNNING, "follow: 400 pulses at 133 BPM: the position stays within %u units of the pulses at %u checkpoints (no drift)", worst, seen); }
         /* Missed pulses: 4 periods of silence: HELD, notes released, no advance; pulses back inside 2 s: relock. */
         MASTER_SET(120); for (int i = 0; i < 30; ++i) BLOCK_RUN();
         uint32_t held_at = sim_song_units();
         (void)drain(mm, 64);
         for (int i = 0; i < 40; ++i) BLOCK_SILENT();             /* 40 blocks = 5.5 pulses of 120 BPM */
         CHECK(FOLLOW() == HELD, "follow: 3 missed pulses: HELD (state %u)", FOLLOW());
-        { uint32_t u = sim_song_units(); CHECK(u >= held_at && u <= held_at + 80, "follow: HELD does not advance (%u -> %u)", held_at, u); }
+        { uint32_t u = sim_song_units(); for (int i = 0; i < 20; ++i) BLOCK_SILENT();
+          CHECK(sim_song_units() == u && u <= held_at + 200 && FOLLOW() == HELD, "follow: HELD does not advance (%u, then %u after 20 more blocks; the prediction ran at most one pulse past %u)", u, sim_song_units(), held_at); }
         { int on = 0, off = 0; for (int i = 0; i < 4; ++i) BLOCK_SILENT(); pn = drain(mm, 64);
           for (unsigned k = 0; k < pn && k < 64; ++k) { if ((mm[k].data[0] & 0xf0U) == 0x90 && mm[k].data[2]) ++on; if ((mm[k].data[0] & 0xf0U) == 0x80 || ((mm[k].data[0] & 0xf0U) == 0x90 && !mm[k].data[2])) ++off; }
           CHECK(on == 0, "follow: no note starts while held (%d)", on); (void)off; }
@@ -1583,6 +1659,46 @@ int main(void)
         for (int i = 0; i < 6000 && FOLLOW() != ARMED; ++i) BLOCK_RUN();
         for (int i = 0; i < 200; ++i) BLOCK_RUN();
         CHECK((sim_song_status(0) >> 8 & 255U) == 1 && (FOLLOW() == ARMED || FOLLOW() == WAITING), "follow: at the song end it arms again for the next Start (state %u)", FOLLOW());
+        /* Fuzz: random Start / Stop / Continue / SPP / pulse trains / gaps for 240000 blocks (the second half every 23 blocks): the state stays one of the
+         * known ones, the position never passes the song's end, and after a final Stop no note is left sounding. */
+        {
+            sim_song_stop(); for (int i = 0; i < 30; ++i) BLOCK_SILENT();
+            (void)drain(mm, 64);
+            CHECK(sim_song_load(0) == 0 && sim_song_play() == 0, "follow fuzz: armed again");
+            uint32_t rs = 0x9e3779b9U; static int held[16][128]; memset(held, 0, sizeof held);
+            #define FRND() (rs ^= rs << 13, rs ^= rs >> 17, rs ^= rs << 5, rs)
+            int run = 0; unsigned bad_state = 0, over_end = 0, neg = 0, ops = 0; double bpm = 120; MASTER_SET(bpm);
+            for (int blk = 0; blk < 240000; ++blk) {
+                if (blk % (blk < 120000 ? 150 : 23) == 0) {   /* the second half acts every 23 blocks (67 ms): messages arrive back to back */
+                    unsigned a = FRND() % 14; ++ops;
+                    if (a == 0) SEND1(0xfa); else if (a == 1) SEND1(0xfc); else if (a == 2) SEND1(0xfb);
+                    else if (a == 3) { sim_file()[0] = 0xf2; sim_file()[1] = (uint8_t)(FRND() % 128); sim_file()[2] = (uint8_t)(FRND() % 2); (void)sim_midi_from(0, 3); }
+                    else if (a < 9) { bpm = 60 + FRND() % 140; MASTER_SET(bpm); run = 1; }
+                    else if (a < 11) run = 0;                      /* a gap */
+                    else run = 1;
+                }
+                if (run) BLOCK_RUN(); else BLOCK_SILENT();
+                pn = drain(mm, 64);
+                for (unsigned k = 0; k < pn && k < 64; ++k) if (mm[k].port == 0) {
+                    unsigned st = mm[k].data[0] & 0xf0U, ch = mm[k].data[0] & 15U;
+                    if (st == 0x90 && mm[k].data[2]) ++held[ch][mm[k].data[1]];
+                    else if (st == 0x80 || (st == 0x90 && !mm[k].data[2])) { if (held[ch][mm[k].data[1]] > 0) --held[ch][mm[k].data[1]]; }
+                }
+                unsigned f = FOLLOW(); if (f > STOPPED && f != 0) ++bad_state;
+                if (sim_song_units() > 64U * 480U * 2U + 960U) ++over_end;
+                (void)neg;
+            }
+            SEND1(0xfc); for (int i = 0; i < 40; ++i) BLOCK_SILENT();
+            pn = drain(mm, 64);
+            for (unsigned k = 0; k < pn && k < 64; ++k) if (mm[k].port == 0) {
+                unsigned st = mm[k].data[0] & 0xf0U, ch = mm[k].data[0] & 15U;
+                if (st == 0x80 || (st == 0x90 && !mm[k].data[2])) { if (held[ch][mm[k].data[1]] > 0) --held[ch][mm[k].data[1]]; }
+            }
+            unsigned stuck_notes = 0; for (unsigned c = 0; c < 16; ++c) for (unsigned n = 0; n < 128; ++n) stuck_notes += held[c][n] > 0;
+            CHECK(bad_state == 0 && over_end == 0 && FOLLOW() != 0, "follow fuzz: %u random operations, the state always valid (%u bad), the position inside the song (%u over)", ops, bad_state, over_end);
+            CHECK(stuck_notes == 0, "follow fuzz: after the final Stop no note is left sounding (%u stuck)", stuck_notes);
+            #undef FRND
+        }
         /* PLAY while following stops it; back to the internal clock everything is as before. */
         (void)drain(mm, 64);
         sim_song_stop(); for (int i = 0; i < 30; ++i) BLOCK_SILENT();
@@ -1596,8 +1712,185 @@ int main(void)
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 
+    /* ---- 19. Task 17: options F + G (the timer and the look-ahead) ------------------------------------ */
+    {
+        extern uint32_t ct_test_ticks_extra;
+        void groove_clock_set(unsigned mode);
+        void groove_midi_at(unsigned num, unsigned den);
+        enum { PERIOD = 12000, LEAD = 6000 };
+        /* The diag clock is fm1_millis() * 24000 + ct_test_ticks_extra: the test sets the time it wants. */
+        #define SET_NOW(x) (ct_test_ticks_extra += (uint32_t)(x) - ct_diag_ticks())
+        #define HAS(note) (count(m, n, 0x90, (note), 100, &ports) >= 1)
+        uint8_t pg[64], a2[64], reply[96]; struct message m[64]; unsigned n, ports;
+        sim_boot(1); sim_midi_capture(1); sim_test_request_passes(0); sim_test_costs(0, 0); sim_midi_drain(0);
+        (void)ct_diag_read(9, a2); settle(); (void)drain(m, 64);
+        CHECK(ct_diag_read(10, pg) == 56 && PG32(pg, 0) == 0 && PG32(pg, 12) == 0 && PG32(pg, 11) == PERIOD,
+              "F+G: the page is 56 bytes; not running in the host build until the test starts it");
+        ct_fg_test(1);
+        /* A block after a timer tick is live: its events are due one block after its start. */
+        ct_fg_tick();
+        uint32_t tb = ct_diag_ticks();
+        (void)sim_render(); (void)ct_diag_read(10, pg);
+        uint32_t len = PG32(pg, 10), due = tb + len;
+        CHECK(PG32(pg, 0) == 1 && PG32(pg, 12) == 1 && len > 60000 && len < 80000, "F+G: running and live after a timer tick (block %u ticks)", len);
+        SET_NOW(due + PERIOD); sim_test_pass(); (void)drain(m, 64);          /* empty the lanes (the clock's F8) */
+        groove_midi_song_note(0, 70, 100);                                     /* stamped with the block's base: due */
+        SET_NOW(due - LEAD - 1);
+        uint32_t asked = sim_test_control_requests;
+        ct_fg_tick(); sim_test_pass(); n = drain(m, 64);
+        CHECK(sim_test_control_requests == asked && !HAS(70), "F+G: before its due time (less the lead) the timer asks for no pass and a pass leaves the note (%u requests)", sim_test_control_requests - asked);
+        SET_NOW(due - LEAD);
+        (void)ct_diag_read(7, a2); uint32_t retries0 = PG32(a2, 5);
+        ct_fg_tick(); ct_fg_tick(); (void)ct_diag_read(7, a2);
+        CHECK(sim_test_control_requests == asked + 2 && PG32(a2, 5) == retries0 + 1, "F+G: at the due time the timer asks; a request that got no pass is repeated by the next tick (%u requests, %u retry)", sim_test_control_requests - asked, PG32(a2, 5) - retries0);
+        sim_test_pass(); n = drain(m, 64); (void)ct_diag_read(10, pg);
+        CHECK(HAS(70) && PG32(pg, 2) >= 1 && PG32(pg, 4) >= 1, "F+G: the pass sends the due note (%u sent with a due time)", PG32(pg, 2));
+        asked = sim_test_control_requests; ct_fg_tick();
+        CHECK(sim_test_control_requests == asked, "F+G: nothing waiting, the timer asks for nothing");
+        { unsigned ct_midi_due_within(uint32_t ticks);
+          groove_midi_song_note(0, 69, 100);                                   /* due at `due` again */
+          SET_NOW(due - 50000);
+          unsigned far = ct_midi_due_within(40000), near = ct_midi_due_within(60000);
+          SET_NOW(due + PERIOD); sim_test_pass(); (void)drain(m, 64);
+          CHECK(!far && near && !ct_midi_due_within(60000), "F+G: the painter's question: due within 2.5 ms yes, within 1.7 ms no, nothing waiting no (%u %u)", far, near);
+          groove_midi_song_note(0, 69, 0); sim_test_pass(); (void)drain(m, 64); }
+        groove_midi_song_note(0, 70, 0); SET_NOW(due + PERIOD); sim_test_pass(); (void)drain(m, 64);
+        /* Places inside the block: a quarter and three quarters of a block after the base; the order is kept. */
+        ct_fg_tick(); tb = ct_diag_ticks(); (void)sim_render(); (void)ct_diag_read(10, pg); len = PG32(pg, 10); due = tb + len;
+        SET_NOW(due + PERIOD); sim_test_pass(); (void)drain(m, 64);
+        groove_midi_at(1, 4); groove_midi_song_note(0, 71, 100);
+        groove_midi_at(3, 4); groove_midi_song_note(0, 72, 100);
+        groove_midi_at(0, 0);
+        uint32_t due_a = due + (uint32_t)((uint64_t)len * 1 / 4), due_b = due + (uint32_t)((uint64_t)len * 3 / 4);
+        SET_NOW(due_a - LEAD - 1); sim_test_pass(); n = drain(m, 64);
+        unsigned early = HAS(71) || HAS(72);
+        SET_NOW(due_a - LEAD); sim_test_pass(); n = drain(m, 64);
+        unsigned a_only = HAS(71) && !HAS(72);
+        SET_NOW(due_b - LEAD - 1); sim_test_pass(); n = drain(m, 64);
+        unsigned b_early = HAS(72);
+        SET_NOW(due_b - LEAD); sim_test_pass(); n = drain(m, 64);
+        CHECK(!early && a_only && !b_early && HAS(72), "F+G: two notes at 1/4 and 3/4 of the block leave at their own due times, in order (%u %u %u %u)", early, a_only, b_early, HAS(72));
+        /* The batch: eight notes due together are handed to each port in one call (one burst), in their order. */
+        { for (unsigned k = 0; k < 8; ++k) groove_midi_song_note(0, 80 + k, 100);
+          SET_NOW(due_b + PERIOD); sim_test_log_reset(); sim_test_pass(); n = drain(m, 64);
+          unsigned calls = 0, in_order = 1, seen = 0; for (const char *c = sim_test_log(); *c; ++c) if (*c == 'M') ++calls;
+          for (unsigned i = 0; i < n && i < 64; ++i) if (m[i].port == 0 && (m[i].data[0] & 0xf0U) == 0x90) { if (m[i].data[1] != 80 + seen) in_order = 0; ++seen; }
+          CHECK(calls == 3 && seen == 8 && in_order && n == 24, "batch: eight notes due together: one send call per port (%u calls for %u messages), in order", calls, n);
+          for (unsigned k = 0; k < 8; ++k) groove_midi_song_note(0, 80 + k, 0);
+          sim_test_pass(); (void)drain(m, 64); }
+        /* Lateness is counted: a note sent 1.25 ms after its due time is in the < 2 ms bin. */
+        (void)ct_diag_read(1, a2); sim_test_pass(); (void)drain(m, 64);
+        groove_midi_song_note(0, 73, 100);                                     /* due at the base again */
+        SET_NOW(due + 30000); sim_test_pass(); n = drain(m, 64); (void)ct_diag_read(10, pg);
+        CHECK(HAS(73) && PG32(pg, 7) == 1 && PG32(pg, 3) == 30000, "F+G: a note sent 1.25 ms late is counted (bin < 2 ms: %u, latest %u ticks)", PG32(pg, 7), PG32(pg, 3));
+        for (unsigned k = 70; k < 74; ++k) groove_midi_song_note(0, k, 0);
+        SET_NOW(due + 4 * PERIOD); sim_test_pass(); (void)drain(m, 64);
+        /* The timer stands still: the block is not live, no look-ahead, and the block asks itself (A2). */
+        sim_test_request_passes(1);
+        (void)sim_render(); (void)sim_render(); (void)drain(m, 64); (void)ct_diag_read(10, pg);
+        CHECK(PG32(pg, 12) == 0, "F+G: no timer tick since the last block: not live");
+        groove_midi_song_note(0, 74, 100); (void)sim_render(); n = drain(m, 64);
+        CHECK(HAS(74), "F+G: without the timer the block asks for the pass itself and the note leaves in that block (A2)");
+        groove_midi_song_note(0, 74, 0); settle(); (void)drain(m, 64);
+        /* A2 off: no look-ahead and no request, whatever the timer does. */
+        sim_test_request_passes(0); (void)ct_diag_read(8, a2);
+        ct_fg_tick(); (void)sim_render(); (void)ct_diag_read(10, pg); sim_test_pass(); (void)drain(m, 64);
+        groove_midi_song_note(0, 75, 100);
+        asked = sim_test_control_requests; ct_fg_tick(); sim_test_pass(); n = drain(m, 64);
+        CHECK(PG32(pg, 12) == 0 && sim_test_control_requests == asked && HAS(75), "F+G: with A2 off the note leaves with the next pass and the timer asks for nothing");
+        groove_midi_song_note(0, 75, 0); settle(); (void)drain(m, 64);
+        (void)ct_diag_read(9, a2);
+        /* The same song with F + G off and on: the same notes in the same order, none lost. */
+        { static uint8_t seq[2][600][3]; unsigned len2[2] = {0, 0};
+          for (unsigned run = 0; run < 2; ++run) {
+            sim_boot(1); sim_midi_capture(1); sim_test_costs(0, 0); sim_midi_drain(0); sim_test_request_passes(1);
+            ct_fg_test(run); (void)ct_diag_read(9, a2); ct_test_ticks_extra = 0;
+            uint8_t *f = sim_file(); uint8_t b1[76], b2[67]; memset(b1, 0, sizeof b1); memset(b2, 0, sizeof b2);
+            unsigned at = 0; b1[at++] = 1; b1[at++] = 60; b1[at++] = 100; b1[at++] = 2; at += 3; b1[at++] = 1; b1[at++] = 62; b1[at++] = 90; b1[at++] = 1;
+            b1[at++] = 2; b1[at++] = 65; b1[at++] = 80; b1[at++] = 1; b1[at++] = 67; b1[at++] = 70; b1[at++] = 3;
+            b2[0] = 1; b2[1] = 64; b2[2] = 80; b2[3] = 1;
+            memcpy(f, b1, sizeof b1); (void)sim_block_write(0, 1, sizeof b1);
+            memcpy(f, b2, sizeof b2); (void)sim_block_write(0, 2, sizeof b2);
+            memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "FG          ", 12); f[40] = 2; f[48] = 5;
+            f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;
+            (void)sim_song_record_write(0); (void)sim_song_load(0); settle(); (void)drain(m, 64);
+            (void)sim_song_play();
+            /* Run 1 keeps the device's time: a block every 69632 ticks, a timer tick every 12000, each at its own
+             * time (the simulator's millisecond clock is corrected before every block and tick). */
+            uint32_t t0 = ct_diag_ticks() + 100000U, next_tick = t0 + 3000U;
+            if (run) { SET_NOW(t0 - 1000U); ct_fg_tick(); }
+            for (unsigned b = 0; b < 1500; ++b) {
+                uint32_t tb2 = t0 + b * 69632U;
+                if (run) SET_NOW(tb2);
+                (void)sim_render();
+                while (run && (int32_t)(next_tick - (tb2 + 69632U)) < 0) {
+                    SET_NOW(next_tick); next_tick += PERIOD;
+                    uint32_t before = sim_test_control_requests; ct_fg_tick();
+                    if (sim_test_control_requests != before) sim_test_pass();
+                }
+                n = drain(m, 64);
+                for (unsigned i = 0; i < n; ++i) if (m[i].port == 0 && m[i].data[0] < 0xf0 && len2[run] < 600) { memcpy(seq[run][len2[run]], m[i].data, 3); ++len2[run]; }
+            }
+            if (run) { (void)ct_diag_read(10, pg);
+              /* (the simulator's own 10 ms pass runs with its millisecond clock up to 3 ms ahead, so "late" up to 3.3 ms here) */
+              CHECK(PG32(pg, 2) > 40 && PG32(pg, 9) == 0, "F+G: a song played with the timer: %u events sent at their due times, none 4 ms late (latest %u ticks)", PG32(pg, 2), PG32(pg, 3)); }
+            sim_song_stop(); settle(); (void)drain(m, 64);
+          }
+          CHECK(len2[0] >= 10 && len2[0] == len2[1] && !memcmp(seq[0], seq[1], (size_t)len2[0] * 3), "F+G: the song's notes are the same with F + G off and on (%u and %u messages on DIN)", len2[0], len2[1]);
+          if (memcmp(seq[0], seq[1], (size_t)len2[0] * 3)) for (unsigned i = 0; i < len2[0]; ++i) printf("     %02x %u %u | %02x %u %u\n", seq[0][i][0], seq[0][i][1], seq[0][i][2], seq[1][i][0], seq[1][i][1], seq[1][i][2]);
+          ct_fg_test(0); }
+        /* Clock follow with the look-ahead: the song runs one block ahead of the pulses (so its notes leave at their
+         * pulses, not a block later), and the first note after Start leaves in the block that saw the first pulse. */
+        { unsigned sim_song_units(void); int lead[2] = {0, 0}; unsigned first_block[2] = {999, 999};
+          for (unsigned run = 0; run < 2; ++run) {
+            sim_boot(1); sim_midi_capture(1); sim_test_costs(0, 0); sim_midi_drain(0); sim_test_request_passes(1);
+            ct_fg_test(run); (void)ct_diag_read(9, a2); ct_test_ticks_extra = 0;
+            uint8_t *f = sim_file(); uint8_t b1[67]; memset(b1, 0, sizeof b1); b1[0] = 1; b1[1] = 60; b1[2] = 100; b1[3] = 2;
+            memcpy(f, b1, sizeof b1); (void)sim_block_write(0, 1, sizeof b1);
+            memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "FGFOLLOW    ", 12); f[40] = 1; f[48] = 5;
+            f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 64;
+            (void)sim_song_record_write(0); groove_clock_set(1); (void)sim_song_load(0); (void)sim_song_play(); settle(); (void)drain(m, 64);
+            uint32_t t0 = ct_diag_ticks() + 100000U, next_tick = t0 + 3000U;
+            double phase = 0, period = 861.328125 / 120.0; unsigned pulses = 0;
+            if (run) { SET_NOW(t0 - 1000U); ct_fg_tick(); }
+            sim_file()[0] = 0xfa; (void)sim_midi_from(0, 1);
+            for (unsigned b = 0; b < 300; ++b) {
+                uint32_t tb2 = t0 + b * 69632U;
+                if (run) SET_NOW(tb2);
+                phase += 1.0; if (phase >= period) { phase -= period; sim_file()[0] = 0xf8; (void)sim_midi_from(0, 1); ++pulses; }
+                (void)sim_render();
+                while (run && (int32_t)(next_tick - (tb2 + 69632U)) < 0) {
+                    SET_NOW(next_tick); next_tick += PERIOD;
+                    uint32_t before = sim_test_control_requests; ct_fg_tick();
+                    if (sim_test_control_requests != before) sim_test_pass();
+                }
+                n = drain(m, 64);
+                if (first_block[run] == 999 && pulses && count(m, n, 0x94, 60, 100, &ports)) first_block[run] = b;   /* the song's channel 5 */
+            }
+            /* where the pulses say the song is: 80 units a pulse from the first one, plus the part of a pulse since the last */
+            lead[run] = (int)sim_song_units() - (int)((pulses - 1U) * 80U + (unsigned)(phase / period * 80.0));
+            sim_song_stop(); groove_clock_set(0); settle(); (void)drain(m, 64);
+          }
+          ct_fg_test(0);
+          CHECK(first_block[0] != 999 && first_block[1] <= first_block[0] + 1, "F+G follow: the first note after Start leaves in the block of the first pulse, as without F + G (block %u and %u)", first_block[0], first_block[1]);
+          CHECK(lead[0] >= -12 && lead[0] <= 12 && lead[1] - lead[0] >= 6 && lead[1] - lead[0] <= 16, "F+G follow: the song runs one block (11 units at 120 BPM) ahead of the pulses (%d units without, %d with)", lead[0], lead[1]); }
+        /* Command 25 request 10 through the transfer path, and the remote status with CLOCK. */
+        { sim_boot(1); sim_midi_capture(1); sim_test_request_passes(1); sim_midi_drain(0); ct_test_ticks_extra = 0; settle();
+          rc_source = 1; rc_n = 0;
+          int k = rcmd(25, (const uint8_t[]){10}, 1, reply);
+          CHECK(k == 57 && reply[0] == 0, "F+G: command 25 request 10 answers with the page (%d bytes, code %u)", k, reply[0]);
+          groove_clock_set(1); settle(); (void)drain(m, 64);
+          k = rcmd(29, (const uint8_t[]){0}, 1, reply);
+          CHECK(k == 15 && reply[0] == 0 && reply[14] == 1, "remote: the status is 14 bytes and reports CLOCK = MIDI (%d bytes, %u)", k, reply[14]);
+          k = rcmd(29, (const uint8_t[]){8, 1}, 2, reply);
+          CHECK(k >= 1 && reply[0] == 71, "remote: operation 8 does not exist (code %u)", reply[0]);
+          rc_source = 0; groove_clock_set(0); settle(); (void)drain(m, 64); }
+        #undef SET_NOW
+        #undef HAS
+        sim_test_request_passes(0); (void)sim_open(0);
+    }
 
-    /* ---- 19. Task 16 Goal 5: the v3 clip plays as the same notes as v2 (docs/CLIP-V3.md) ------------------ */
+    /* ---- 20. Task 16 Goal 5: the v3 clip plays as the same notes as v2 (docs/CLIP-V3.md) ------------------ */
     {
         sim_boot(1); sim_midi_capture(1); sim_midi_drain(1);
         uint8_t v2a[1600], v2b[1600], v3a[3100], v3b[3100]; unsigned la = 0, lb = 0;
