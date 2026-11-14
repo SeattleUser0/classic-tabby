@@ -17,4 +17,13 @@ The page of tabby-v04.5 could not import parts that need the new clip form; fixe
 
 ## Hardware validation
 
-See the release page's "Hardware validation" text (added after the install) and docs/BUILD.md 37.4.
+On one SMK-37 Pro, from the NUC, nobody at the panel (docs/BUILD.md 37.5): installed from the main page (one attempt, 12.2 s).
+Six songs imported through this page and played by remote command, the MIDI out on DIN and USB compared with the events the
+songs hold: every expected note-on is there (6, 16, 7, 16, 960 and 1600 of them), nothing extra, nothing left sounding; worst
+timing error on USB 0.0 to 1.4 ms. Among them a six-note chord (a v3 clip), controller events in a clip, and rows of 128
+steps. 0 underruns, 0 DMA overruns. Full backup and Verify against file with v3 clips on the device: PASS.
+
+## Known limits
+
+- With "keep controller events" ticked, a control change that sits exactly at a row start is sent twice (once as the row
+  event, once from the clip): the same value twice, harmless. Fixed in the next release.

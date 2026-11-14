@@ -24,9 +24,11 @@ Usage (browser closed)
     node tools/linux/hw/expected-events.mjs FILE.mid [--options JSON] > expected.json
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-clips.py --song N --expected expected.json --out DIR --tag NAME
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-14  The DIN tolerance allows for the cable's serial time of notes due together; row-event controllers
+                      are expected too (expected-events.mjs v0.2).
     v0.1  2026-11-14  Task 17: first version.
 """
 import argparse
@@ -151,8 +153,18 @@ def main():
         if not starts:
             result[name] = {"error": "no MIDI Start seen"}; ok = False; continue
         r = compare(expected, sorted(events, key=lambda x: x[0]), starts[0])
+        # v0.2: on DIN notes due together pass the cable one after the other (0.96 ms a note): the tolerance grows by that for
+        # the largest group of note-ons due within 1 ms of each other (multitrack-64bar: 1600 of 1600 notes, USB worst
+        # 1.44 ms, DIN worst 6.3 ms with up to 9 notes on a step)
+        times = sorted(n["ms"] for n in expected["notes"]); group = 1; j = 0
+        for i in range(len(times)):
+            while times[i] - times[j] > 1.0:
+                j += 1
+            group = max(group, i - j + 1)
+        r["together"] = group
+        r["tolerance_ms"] = a.tolerance + (0.96 * (group - 1) if name == "din" else 0.0)
         r["pass"] = (r["matched"] == r["expected_notes"] and not r["missing"] and not r["extra"] and not r["controls_wrong"]
-                     and not r["stuck"] and r["worst_ms"] <= a.tolerance)
+                     and not r["stuck"] and r["worst_ms"] <= r["tolerance_ms"])
         ok = ok and r["pass"]; result[name] = r
     result["audio"] = {"underruns": after["underruns"] - before["underruns"], "dma_overruns": after["dma_overruns"] - before["dma_overruns"],
                        "render_peak_ms": after["render_peak_ms"], "cpu_guard": after["adapted"] - before["adapted"]}

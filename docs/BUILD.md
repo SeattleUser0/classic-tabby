@@ -4947,3 +4947,25 @@ tests/workbench/page-bundle.mjs reads the script list out of build-web.py, runs 
 imports the chord, controller and long-row fixtures there, and checks a built page for the modules. Device results follow
 in 37.5.
 
+### 37.5 tabby-v04.5.1 on the device (2026-11-14)
+
+Full backup, identity check, one install attempt from the main page: 12.2 s. Songs imported through the published page
+(`workbench.mjs song`), played by remote command, DIN and USB compared with `expected-events.mjs` by `run-clips.py`:
+
+| Song (importer options) | blocks v2 / v3 | note-ons matched | worst timing error DIN / USB | result |
+| --- | --- | --- | --- | --- |
+| offgrid.mid | 1 / 0 | 6 of 6 | 0.28 / 0.27 ms | pass |
+| bassline-4bar.mid | 1 / 0 | 16 of 16 | 0.84 / 0.32 ms | pass |
+| five-notes.mid (a six-note chord) | 0 / 1 | 7 of 7 | 1.69 / 0.00 ms | pass |
+| tempo-cc-program.mid (controllers) | 0 / 1 | 16 of 16 | 1.77 / 0.32 ms | notes pass; CC 74 = 0 at the row start sent twice (below) |
+| timing-1x16.mid (rows of 128 steps) | 1 / 1 | 960 of 960 | 1.42 / 1.07 ms | pass |
+| multitrack-64bar.mid (3 tracks, chords) | 6 / 0 | 1600 of 1600 | 6.32 / 1.44 ms | pass on USB; on DIN up to nine notes on a step pass the cable one after the other (the tool's DIN tolerance now allows for it) |
+
+0 underruns and 0 DMA overruns in every run; render peak 0.9 ms with a v3 clip playing (0.3 to 0.5 ms with the small v2
+songs), 1.44 ms with the three-track song. The device's tempo is 0.9996 of nominal in every run (its audio clock).
+Full backup after it and Verify against file through the page: PASS, 32 items (8 songs, 21 blocks, v3 clips among them).
+
+**One fault found, in the importer (not the firmware):** a control change at a row start became a row event and was also
+put into the clip, so it went out twice. Fixed in the importer (the fix ships with tabby-v04.6); tests/midi-import/run.mjs
+checks it. tabby-v04.5.1's page still does it: harmless (the same value twice), listed in its release notes.
+
