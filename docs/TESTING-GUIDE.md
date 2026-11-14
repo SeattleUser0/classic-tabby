@@ -1,14 +1,14 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 1.7, 2026-11-14. For tabby-v04.6 on the M-VAVE SMK-37 Pro.
+Version 1.8, 2026-11-14. For tabby-v04.7 on the M-VAVE SMK-37 Pro.
 Written for the person who plays and tests the device. No programming needed.
 
-tabby-v04.6 is new firmware. MIDI notes of a song leave the device much
+tabby-v04.7 is new firmware. It adds the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
 at the time they are due, within about 2 ms (timed MIDI, on at power-up),
 and a song can now follow an external MIDI clock. It also has a remote control
 command for the workbench tools, so tests can run without anyone at the panel.
-If an older firmware is on your SMK-37, install tabby-v04.6 to get these. The page also has English-only Help and this guide.
+If an older firmware is on your SMK-37, install tabby-v04.7 to get these. The page also has English-only Help and this guide.
 
 How to read this guide
 ----------------------
@@ -81,6 +81,7 @@ Removed:
 - tabby-v04.3.1: External clock follow in song mode (Start, Stop, Continue, Song Position Pointer, clock loss). (tabby-v04.3 was never released.)
 - tabby-v04.4: Timed MIDI. A song's notes, row events and clock bytes are sent at their due times by a 0.5 ms timer: one line stays within about 1.9 ms and eight lines within about 3 ms on DIN and USB, on every screen page (before: about 5 to 7.5 ms, depending on the page). Earlier notes said the device sent no replies over USB with CLOCK on MIDI: that was a fault of the developer's measuring tool, not of the device; the workbench and Firmware Update work with CLOCK on INT or MIDI on every version.
 - tabby-v04.6: Scenes and clips. A song can be stored as scenes: each track has up to 64 clips, a scene names one clip per track, and the song has a master cycle that launches and stops land on (one bar of the file's metre; 12 steps for a waltz). The importer writes scenes with clips of up to 8 bars. Old songs play as before and are not changed. A controller at a row start is no longer sent twice.
+- tabby-v04.7: Clip launching. BT opens the CLIPS page: the pads show the selected track's clips (off empty, white stopped, green playing, blinking queued, orange muted), a pad launches or stops its clip on the next bar line, a held pad selects it. The pads of the SONG page light up and recall scenes. SHIFT and pad 9 to 16 now also holds the track's song notes back on MIDI out. See 4.8.
 - tabby-v04.5.1: The page of tabby-v04.5 could not import a part that needs the new clip form (it said "clip-v3.js not loaded"); fixed. The firmware is the same.
 - tabby-v04.5: Larger clips. A track's part in a row can now hold any number of notes on a step (it was four), controller, pitch bend and aftertouch events from the MIDI file, a program and bank of its own, and rows can be up to 128 steps (8 bars of 4/4; it was 64). The importer uses the new clip form only where a part needs it. Old songs play as before.
 - tabby-v04.2: Fast MIDI on by default: one line leaves about 3.7 ms after it is due instead of about 12 ms. Remote control over USB for tests. Stale screen texts fixed. The ACTIONS list has a new last entry, A2 FAST MIDI.
@@ -107,7 +108,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. tabby-v04.6 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips and scenes. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. tabby-v04.7 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips, scenes and clip launching. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -219,8 +220,8 @@ Tempo: on HOME turn K4. Or tap the tempo: hold HOME and tap SEQ. The first tap s
 5. The entries are: COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE, COMPACT SONG STORAGE, SEND SETUP and A2 FAST MIDI: ON (or OFF). The last one switches fast MIDI for this session only.
 6. STOP ALL / REWIND stops all sound and rewinds. It is in the list; on its own it shows DONE.
 
-4.7 Song mode: choose a song, play, jump to a row
--------------------------------------------------
+4.7 Song mode: choose a song, play, recall a scene
+--------------------------------------------------
 
 You need a song on the device first (section 5.3).
 
@@ -228,27 +229,33 @@ You need a song on the device first (section 5.3).
 2. Turn K5 until SONG MODE is lit. Press the 4th button in the left group. The SONG page opens.
 3. Turn K5 or K7 to choose song 1 to 16. An empty slot says NO SONG HERE - UPLOAD FROM THE WEB WORKBENCH.
 4. Make sure the project you want is loaded. The song uses whatever project is loaded. It does not load one for you.
-5. Press PLAY. The page says PLAYING. ROW, X (the pass of the repeat) and BAR show where it is. NEXT ROW shows what follows. Press PLAY again to stop.
-6. To jump: press a pad. The pad number is the row on the pad page. The page shows JUMP TO ROW n in amber. The jump lands on the next bar. Then the page shows the new ROW.
-7. K4 switches JUMP: NEXT BAR and JUMP: ROW END. [not checked in simulator]
-8. OCT+ and OCT- move the pad page by 16 rows. [not checked in simulator]
-9. A pad with no row, or a press while the song is stopped, says NO SUCH ROW / NOT PLAYING.
+5. Press PLAY. The page says PLAYING. SCENE, X (the pass of the repeat) and BAR show where it is. NEXT shows what follows. Press PLAY again to stop. A scene is one row of the song: one clip for each track.
+6. To recall a scene: press a pad. The pad number is the scene on the pad page. The page shows TO SCENE n in amber and the pad blinks green. The scene starts on the next bar. Then the page shows the new SCENE and its pad is green.
+7. K4 switches JUMP: NEXT CYCLE and JUMP: SCENE END. [not checked in simulator]
+8. OCT+ and OCT- move the pad page by 16 scenes. [not checked in simulator]
+9. A pad with no scene, or a press while the song is stopped, says NO SUCH SCENE / NOT PLAYING.
 10. Press HOME to leave the page. The song keeps playing.
 
 With CLOCK on MIDI (tabby-v04.3.1 and later) PLAY arms the song and the master runs it: Start, Continue, Stop and Song Position Pointer, over USB or Bluetooth. See test T32. [not checked in simulator]
 
-4.8 Track launching
--------------------
+4.8 Clip launching (tabby-v04.7)
+--------------------------------
 
-Track launching lets one track loop one of its patterns while the others follow the song. A track's pattern 5 is the block that track has in row 5.
+Clip launching lets one track loop one of its clips while the others follow the song. A clip is one pattern of one track. Each track has its own clips, numbered from 1. The pads show 16 of them at a time.
 
-1. Start a song on the SONG page. Press SCL. The page says LAUNCH and shows the track, for example T1.
-2. Hold SHIFT and press a pad from 1 to 8 to choose a track. The screen says TRACK SELECTED.
-3. Press a pad. The pad shows the pattern. The screen says LAUNCH AT NEXT BAR. The column for the track shows Q and a number. On the next bar it shows PLAY.
-4. To stop the track: press the green pad. The screen says STOP AT NEXT BAR. The column shows >STOP, then STOP.
-5. To bring the track back to the song: press ENV. The screen says TRACK BACK TO SONG AT NEXT BAR. The column shows >SONG, then FOLLOW. SHIFT and ENV together bring every track back.
-6. OCT+ and OCT- move the pattern page by 16 rows. The page then shows PATTERNS 017 - 032.
-7. Press SCL to go back to the SONG page. Press PLAY to stop the song.
+1. Press BT. The CLIPS page opens, from any page. BT again goes back where you were. (On the SONG page SCL opens it too.)
+2. Hold SHIFT and press a pad from 1 to 8 to choose a track, or turn K5. The screen says TRACK SELECTED.
+3. Look at the pads. Off: no clip. Dim white: a clip. Green: the clip that plays.
+4. Press PLAY if the song is not running. Then press a white pad. It blinks green and the screen says LAUNCH AT NEXT CYCLE. On the next bar line the clip starts and the pad is green. The column for the track shows CLIP.
+5. To stop the track: press the green pad. It blinks red and the screen says STOP AT NEXT CYCLE. On the next bar line the track is silent. The column shows STOP.
+6. Changed your mind? Press the blinking pad again before the bar line. The screen says TAKEN BACK.
+7. To look at a clip without launching it: hold its pad for half a second. The screen says SELECTED ONLY - TAKEN BACK. The pad is bright white, and the SELECTED line shows its length.
+8. To bring the track back to the song: press ENV. The screen says TRACK TO SCENES AT CYCLE. The column shows >SCN, then SCENE. SHIFT and ENV together bring every track back.
+9. To mute a track: hold SHIFT and press pad 9 to 16 for track 1 to 8. The track's pads turn orange. Its notes stop on MIDI out too, and the clip keeps running, so unmuting brings it back in time.
+10. OCT+ and OCT- (or K6) show the next 16 clips. The page then shows PADS 17 - 32.
+11. Press SCL for the SONG page, where the pads recall scenes. Press PLAY to stop the song.
+
+"The next cycle" is the next bar line. A song imported from a 3/4 file uses 3/4 bars. The complete list of what every control does on these pages is in docs/CONTROL-MAP.md.
 
 A jump on the SONG page cancels every launch and brings all tracks back to the song.
 
@@ -291,7 +298,7 @@ After a storage move, the device can announce OLD DATA IN SONG STORAGE - SEE ACT
 - FADER BANK: moves the four faders between tracks 1 to 4 and 5 to 8. Move a fader through its shown level to take over.
 - ARP: tap to switch the arpeggiator on or off for the track. Hold about 0.6 seconds for its settings.
 - FX: reverb and delay sends for the selected track.
-- BT: only says BLUETOOTH: SET IN WORKBENCH.
+- BT: opens the CLIPS page (4.8). BT again goes back.
 - REC: only says NO REC IN THIS VERSION.
 - HOME and PLAY together: stop all sound and rewind. [not checked in simulator]
 
@@ -448,7 +455,7 @@ T8. Mute with SHIFT and a pad
 Set up: HOME overview.
 1. Hold SHIFT. Press pad 9. Release SHIFT.
 2. Hold SHIFT. Press pad 9 again.
-You should see: track 1 shows MUTE, then the mute goes away. The screen says TRACK MUTE CHANGED.
+You should see: track 1 shows MUTE, then the mute goes away. The screen says TRACK MUTED, then TRACK UNMUTED.
 Result: PASS / FAIL   Notes: ________________________________
 
 T9. Mixer
@@ -605,13 +612,13 @@ Set up: T28 done. Device on HOME. CLOCK on INT.
 1. Press SEQ and EDIT together. Turn K5 to SONG MODE. Press the 4th button.
 2. Turn K5 right to song 2, then left to song 1.
 3. Press PLAY.
-You should see: SONG 01 and the name. Song 2 empty says NO SONG HERE - UPLOAD FROM THE WEB WORKBENCH. After PLAY: PLAYING, ROW, X, BAR and NEXT ROW change as it goes.
+You should see: SONG 01 and the name. Song 2 empty says NO SONG HERE - UPLOAD FROM THE WEB WORKBENCH. After PLAY: PLAYING, SCENE, X, BAR and NEXT change as it goes.
 Result: PASS / FAIL   Notes: ________________________________
 
-T30. Jump to a row
-Set up: T29 playing, a song with at least 3 rows.
+T30. Recall a scene
+Set up: T29 playing, a song with at least 3 scenes (rows).
 1. Press pad 3.
-You should see: JUMP TO ROW 003 in amber, then ROW 003 on the next bar. All tracks change together.
+You should see: TO SCENE 003 in amber and pad 3 blinking green, then SCENE 003 on the next bar with pad 3 green. All tracks change together.
 Result: PASS / FAIL   Notes: ________________________________
 
 T31. Stop the song
@@ -631,12 +638,12 @@ Set up: a DAW or MIDI app on the MacBook sends MIDI clock, Start, Stop and Conti
 You should see and hear: the song following the DAW as described. [not checked in simulator]
 Result: PASS / FAIL   Notes: ________________________________
 
-T33. Launch a pattern on one track
-Set up: T29 playing.
-1. Press SCL. Hold SHIFT and press pad 1. Release SHIFT.
-2. Press pad 2.
+T33. Launch a clip on one track
+Set up: T29 playing, a song where track 1 has at least two clips (the pads on the CLIPS page show two white or green pads).
+1. Press BT. Hold SHIFT and press pad 1. Release SHIFT.
+2. Press a white pad.
 3. Wait for the next bar.
-You should see: LAUNCH T1, TRACK SELECTED, then LAUNCH AT NEXT BAR with a Q and a number. After the bar the column says PLAY. The other tracks go on with the song.
+You should see: CLIPS T1, TRACK SELECTED, then LAUNCH AT NEXT CYCLE and the pad blinking green. After the bar line the pad is green and the column says CLIP. The other tracks go on with the song.
 Result: PASS / FAIL   Notes: ________________________________
 
 T34. Stop and bring a track back
@@ -644,7 +651,7 @@ Set up: T33 done.
 1. Press the green pad.
 2. Wait a bar. Press ENV.
 3. Wait a bar.
-You should see: STOP AT NEXT BAR and >STOP, then STOP. TRACK BACK TO SONG AT NEXT BAR and >SONG, then FOLLOW.
+You should see: STOP AT NEXT CYCLE, the pad blinking red and >STP, then STOP. TRACK TO SCENES AT CYCLE and >SCN, then SCENE.
 Result: PASS / FAIL   Notes: ________________________________
 
 T35. A jump cancels launches
@@ -768,8 +775,34 @@ T52. A song as scenes, and the master cycle (tabby-v04.6)
 Set up: a MIDI file in 3/4 or 4/4 with a few bars. Gear or a MIDI monitor.
 1. Import it with the box "write the song as scenes and clips" ticked. The warnings list says how many scenes and clips, and the master cycle (16 steps for 4/4, 12 for 3/4).
 2. Write the song. On the SMK-37 select it on the SONG page and press PLAY: it plays as the file does.
-3. Press SCL for the LAUNCH page. Press a pad that shows a pattern, a little after a bar line.
-You should hear: the launched pattern start exactly on the next bar line of the song (the next multiple of the master cycle), not earlier. In a 3/4 song it starts on a 3/4 bar line.
+3. Press BT for the CLIPS page. Press a white pad, a little after a bar line.
+You should hear: the launched clip start exactly on the next bar line of the song (the next multiple of the master cycle), not earlier. In a 3/4 song it starts on a 3/4 bar line.
+Result: PASS / FAIL   Notes: ________________________________
+
+T53. Take a launch back, and the long press (tabby-v04.7)
+Set up: T33 done, the song playing, the CLIPS page open.
+1. Press a white pad just after a bar line. While it blinks, press it again.
+2. Press and hold a white pad for a full second.
+You should see: after step 1 TAKEN BACK, and nothing changes at the bar line. After step 2 SELECTED ONLY - TAKEN BACK; the pad is bright white and nothing changes at the bar line.
+Result: PASS / FAIL   Notes: ________________________________
+
+T54. Mute from the pads (tabby-v04.7)
+Set up: a song playing with a part on track 2 that goes to outside gear (or a MIDI monitor). The CLIPS page open.
+1. Hold SHIFT and press pad 10. Release SHIFT. Wait two bars.
+2. Hold SHIFT and press pad 10 again.
+You should hear: after step 1 track 2 falls silent, on the SMK-37 and on the outside gear. After step 2 it is back, in time with the rest. With track 2 selected its pads are orange while it is muted.
+Result: PASS / FAIL   Notes: ________________________________
+
+T55. Scene recall with pad lights (tabby-v04.7)
+Set up: a song with at least two scenes, playing. The SONG page open (SCL from CLIPS).
+1. Press the pad of a scene that is not playing.
+You should see: that pad blinks green, then turns green on the next bar line; the pad of the scene before goes dim white. Tracks you had launched or stopped follow the scene again.
+Result: PASS / FAIL   Notes: ________________________________
+
+T56. BT from anywhere (tabby-v04.7)
+Set up: any page, for example the mixer (MIX).
+1. Press BT. Press BT again.
+You should see: the CLIPS page, then the page you were on.
 Result: PASS / FAIL   Notes: ________________________________
 
 
@@ -782,7 +815,8 @@ Do not spend time testing these. They are known.
 - No step editing and no recording on the device. Songs come from the workbench. The metronome and count-in are planned for a later version.
 - External clock in song mode (tabby-v04.3.1): the clock must come over USB or Bluetooth; the TRS jack cannot receive it. Song Position Pointer moves the song through its rows and repeats; a position past the end of a song that does not loop goes to its last step. The song sends no clock of its own while it follows.
 - The TRS jack is output only. A DIN clock cannot come in through it. Use USB or Bluetooth for clock in.
-- The MC-707 workflow is still to come. It is the next big part of the plan.
+- The MC-707 workflow: clip launching, scenes and mute are on the panel from tabby-v04.7 (4.8). Editing clips on the pads and recording from the keys are still to come.
+- A mute set on the MIX page, and the mute tracks 6 and 7 of a new project start with, silence the SMK-37's own sound only; the song still plays those tracks on MIDI out. SHIFT and pad 9 to 16 mutes both.
 - OUT PORT is one setting for all tracks. You cannot send track 1 on the TRS jack and track 2 on USB.
 - A clip holds up to 512 events (notes and controller events together) and up to 128 steps. A song holds up to 128 rows and 2048 blocks. The device holds 16 songs. The step editor in the workbench still shows 64 steps and four notes per step; larger clips come from the importer.
 - A clip's own program change goes out together with its first note. If your gear needs time to change sounds, use a row event with a pre-roll (5.2) instead.
@@ -792,7 +826,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.6.
+- The page badge and the boot screen show tabby-v04.7.
 
 
 8. HOW TO REPORT A PROBLEM

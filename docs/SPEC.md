@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.41
+Version: 0.42
 Revision log:
+- v0.42, 2026-11-14 (Task 17 Goal 4): 19.8 tabby-v04.7 (the CLIPS page, clip launching by place, song mute; the control
+  map is docs/CONTROL-MAP.md).
 - v0.41, 2026-11-14 (Task 17 Goal 3): 19.7 tabby-v04.6 (song record version 3, scenes, the master cycle).
 - v0.40, 2026-11-14 (Task 17 Goal 2): 19.6 tabby-v04.5 (v3 clips, rows to 128 steps, transfer kind 9); 17.11 note lines
   are tracked in tools/linux/builds-notes.json.
@@ -1545,3 +1547,35 @@ device. The pusher rule is removed in tabby-v04.4; the text stays as the record 
 - The workbench writes scenes when the song says so and the device has flag bit 4; the importer's scenes form makes clips of
   up to 8 bars and sets the cycle to the file's bar.
 
+### 19.8 tabby-v04.7 (2026-11-14): clip launching (Task 17 Goal 4)
+
+The control map is docs/CONTROL-MAP.md: what every control does on the CLIPS and SCENES pages. This section fixes the
+behaviour the firmware and its tests hold to.
+
+- **Pages.** Page 20 is the CLIPS page (it was TRACK LAUNCH); page 19, the SONG page, is the SCENES page of the control
+  map (its title on the screen stays SONG). BT (physical button 11) opens CLIPS from any page and returns to the page it was
+  opened from (the overview, SYNC / MIDI, the mixer or SONG; otherwise the overview). SCL switches between the two.
+- **Pads on CLIPS** are the selected track's clip places `bank * 16 + pad` of the song's clip table (`struct song_model`,
+  19.7), four banks. A press queues the clip (`song_clip_launch`), queues a stop when it is the playing clip, or takes the
+  queue back when the pad is the queued one (`song_track_unqueue`); the pad becomes the track's selected clip. The queue is
+  placed at the press, not at the release. A pad still held after 500 ms keeps the selection and takes back what its press
+  queued. With the song stopped a press selects only.
+- **Clip launch by place.** A clip that a scene uses is launched as that scene's pattern (row): its length is the scene's
+  and the scene's row events for the track's channel go out as for any launch. A clip no scene uses plays as a "place row"
+  (`SONG_ROWS + place` in the track status): its length is the v3 clip header's steps, 64 steps for a v2 or v1 block, and
+  it has no row events. Launches, stops, returns and scene recalls land on the master cycle (19.7).
+- **Pad states and colours** (`clips_pad_state`, `smk37_screen_launch_color`): 0 empty (off), 1 stopped (0x080808),
+  2 playing (0x083008), 3 queued (0x083008 / off, blinking), 4 stop queued (0x300808 / off); + 8 selected (0x303030, or
+  0x103c10 when playing); + 16 the track is muted (0x0c0600 stopped, 0x301808 playing; queued pads still blink). The blink
+  phase is the master clock's eighth note while the song plays, 4 Hz otherwise. SCENES page: 0 no such scene, 1 a scene,
+  2 the scene that plays, 3 the queued scene, same colours.
+- **Mute.** SHIFT + pad 9 to 16 toggles the mixer's mute as before and sets the track's song-mute bit to the same state;
+  for a track whose source is OFF it toggles the bit alone. While the bit is set the scheduler sends no note-on of the
+  track (`song_mute_set`; note-offs of sounding notes, controller and program events still go out; the clip's position
+  runs on). A mixer mute made any other way (the MIX page, a project's stored mutes, the default mute of tracks 6 and 7)
+  does not set the bit: songs that play those tracks on MIDI out are unchanged.
+- **Remote** (command 29): op 12 reads the page (page, track, clip bank, scene bank, selected place, notice flag, per pad
+  the state code and the LED colour in 15 bits), op 13 `{13, track, place}` is `song_clip_launch`, op 14 `{14, track}`
+  is `song_track_unqueue`. Panel keys go through op 6 as before; BT is physical button 11.
+- **Tests.** Host: tests/host/smoke.c section 22. Simulator, through panel events only: tests/workbench/clips-sim.mjs
+  (in `make midi-import-sim`). Device: tools/linux/hw/run-launch.py with the song of tools/linux/hw/clips-song.mjs.

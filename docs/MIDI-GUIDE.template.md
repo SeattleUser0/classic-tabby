@@ -19,7 +19,7 @@ Written for Classic Tabby {{VERSION}} and the rig profile "{{RIG_NAME}}" ({{GENE
 - The workbench web page reads the .mid file and turns it into one song. A song has up to {{TRACKS}} tracks and up to {{ROWS_MAX}} rows.
 - A row is a slice of the song, normally 4 bars of 4/4 (64 sixteenth-note steps). Each track's notes in a row form a block. Blocks that are byte for byte identical are stored once and reused.
 - Timing is kept exactly as written. The importer does not quantize. A note keeps its offset from the 16th grid and its exact length, at a resolution of 1/{{UNITS}} of a 16th note.
-- Each row is also a performance unit. On stage the player jumps the whole song to a row (a scene change), or launches one track's block from any row on its own (track launching). So rows should start where musical sections start, and each track's part in a row should make sense when it loops by itself.
+- Each row is also a performance unit. On stage the player jumps the whole song to a row (a scene change), or launches one track's clip on its own (clip launching). So rows should start where musical sections start, and each track's part in a row should make sense when it loops by itself.
 - The SMK-37 is the MIDI clock master and sends notes out over MIDI to external synths. Each Tabby track sends on one MIDI channel: the channel of the part you wrote (section 8).
 
 ## 2. File format (MUST)
@@ -99,12 +99,14 @@ Generated from the device definitions: how each device is connected and set, how
 
 {{DEVICE_SECTIONS}}
 
-## 10. Laying out a file for scene changes and track launching
+## 10. Laying out a file for scene changes and clip launching
 
 - A scene change (the player jumps to a row) sends the new row's events on every channel, pedals included, before the row's first notes. So a row that starts a section carries every device's preset for that section.
 - A track launch (the player loops one track's block from a row) sends only the events on that track's own channel. So an instrument's program change must be on the instrument's channel, in the same row as the notes it belongs to. Pedal events never travel with a launch; they fire on scene changes only.
 - Therefore: pedal events go in a notes-free track on the pedal's channel; instrument presets go on the instrument's channel at row starts; row 1 holds every device's starting state (SEND SETUP sends row 1).
 - A row's events leave in file order (track after track). A device whose rig entry has a gap ({{GAP_DEVICES}}) stalls every event that follows it in that row for the gap's length, so put such a device's track last in the file. The device then still gets its program change before the bar, because the whole stream is sent early by the sum of its gaps; only at PLAY itself (row 1 with nothing sent early) does the tail after a gap come late, which is why the player runs SEND SETUP before PLAY.
+- From tabby-v04.7 the player launches clips from the CLIPS page: each different part a track plays becomes one clip, and the pads show a track's clips in the order they first appear in the song (pad 1 = the track's first part, pad 2 its next different one, and so on, up to 64). Parts that are note-for-note the same share one clip. So give each track a small number of clearly different parts, in the order you want them on the pads.
+- A muted track (SHIFT + pad 9 to 16 on the device) sends no notes; its controller and program events still go out.
 - A launched block loops with its row's length, independently of the song. Make each track's part in a row a loop that stands on its own: no note hanging over from the previous row, no fill that only makes sense before the next row.
 - The FM6 part (channel {{INTERNAL_CHANNEL_LIST}}) is pinned to Tabby track {{INTERNAL_TRACK_LIST}} and sounds inside the SMK-37 only. It is the part to audition or to keep when no external synth is free.
 

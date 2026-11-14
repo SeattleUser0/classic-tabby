@@ -1159,3 +1159,12 @@ the block id; the payload buffer of the control task grows from 1600 to 3088). T
 
 RAM (runtime heap): 166220 -> 161548 bytes (-4672: the song model, 2125 bytes, and the 2560-byte buffer the expansion uses).
 
+## 26. tabby-v04.7 (measured, 2026-11-14)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.6 | 456900 | | 62557 |
+| tabby-v04.7: the CLIPS page (clip places, pad states and colours, long press, BT), clip launch by place and place rows, taking a queue back, song mute, the scene pad colours, remote ops 12 to 14 | 459044 | +2144 | **60413** |
+
+RAM (runtime heap): 161548 -> 161484 bytes (-64: the page's selection and hold state, the mute bits, the place lengths). The
+package's flash image is 479232 bytes (one 4096-byte block more than tabby-v04.6), the VM area 90112.

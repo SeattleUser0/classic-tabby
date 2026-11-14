@@ -235,7 +235,7 @@ static unsigned track_muted(unsigned t) { return (song_mute_bits >> t) & 1U; }
 unsigned ct_screen_track_muted(unsigned t) { return t < 8 ? track_muted(t) : 0; }
 unsigned ct_screen_page(void) { return page; }
 unsigned ct_screen_action(void) { return action; }
-void ct_screen_song_select(unsigned song) { if (song < SONG_SONGS) song_select = song; }
+void ct_screen_song_select(unsigned song) { if (song < SONG_SONGS && song != song_select) { song_select = song; memset(clip_select, SONG_NONE, sizeof clip_select); clip_bank = 0; } }
 static unsigned shift_visible;
 static unsigned panel_modes_seen;
 static uint32_t fader_feedback_seen;
@@ -1751,6 +1751,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         int delta = controls->encoders[0] + controls->encoders[6];
         if (delta && !st.playing) {
             song_select = (unsigned)clamp((int)song_select + delta, 0, SONG_SONGS - 1);
+            memset(clip_select, SONG_NONE, sizeof clip_select); clip_bank = 0;   /* another song: no clip of it is selected yet */
             int r = song_load(song_select);
             if (r == SONG_EMPTY) notice = NULL;
         }

@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.74
+Version: 0.75
 Revision log:
+- v0.75, 2026-11-14 (Task 17 Goals 3 and 4): 38.3 (tabby-v04.6 on the device), section 39 (tabby-v04.7, the CLIPS page).
 - v0.74, 2026-11-14 (Task 17 Goal 3): 37.4 and 37.5 (tabby-v04.5 and its page fault, tabby-v04.5.1 on the device), section 38
   (tabby-v04.6: scenes).
 - v0.73, 2026-11-14 (Task 17 Goals 1 and 2): section 37: the suite gate, the tracked note lines, the v3 clip finished
@@ -4998,3 +4999,77 @@ checks it. tabby-v04.5.1's page still does it: harmless (the same value twice), 
 | app image, bytes (margin) | 456196 (63261) | 456900 (62557) |
 | runtime heap, bytes | 166220 | 161548 |
 
+### 38.3 On the device (2026-11-14)
+
+Suite green on commit 2fdf9cb (the gate's marker), tagged, published (main page and builds/tabby-v04.6/), released. Full
+backup through the tabby-v04.5.1 page (overnight/backups/before-v04.6.json), one install attempt from the main page:
+identity SMK-37 Pro_8000001, "Firmware ready." after 11.1 s, version tabby-v04.6. Then, all by remote command
+(overnight/g6/v046.log):
+
+| Song (imported through the page with "scenes" on) | Blocks v2 / v3 | DIN | USB |
+| --- | --- | --- | --- |
+| offgrid | 1 / 0 | 6 of 6, worst 0.29 ms | 6 of 6, 0.31 ms |
+| bassline-4bar | 1 / 0 | 16 of 16, 0.85 ms | 16 of 16, 0.32 ms |
+| five-notes | 0 / 1 | 7 of 7, 1.62 ms | 7 of 7, 0.00 ms |
+| tempo-cc-program (controllers) | 0 / 1 | 16 of 16, 1.38 ms; 10 controller events in order | 16 of 16, 0.26 ms; 10 in order |
+| timing-1x16 (rows of 128 steps) | 1 / 1 | 960 of 960, 1.23 ms | 960 of 960, 1.18 ms |
+| multitrack-64bar (controllers) | 0 / 9 | 1600 of 1600, 6.69 ms (three lines together on one cable: 37.5) | 1600 of 1600, 1.71 ms |
+
+- Master cycle: bassline-4bar imported with a cycle of 12 steps, looping; six launches at random moments by remote op 9:
+  each first note on the next multiple of 12 steps after the command, errors -0.33 to -1.32 ms (run-scenes.py).
+- Timing (run-15.py, song 16, one line, 125 s, overview page): band 1.82 ms on DIN, 1.67 ms on USB; F + G latest event
+  1.49 ms after its due time; no underrun, no DMA overrun.
+- Full backup and verify after: PASS, 37 items (9 songs, 25 blocks).
+
+Two failures in the first run were my tools, not the device (hard limit 6: each was checked against the wire before
+anything was called a fault):
+
+1. run-clips.py reported the controller song as wrong: "sent (74, 0) first, expected starts at (74, 10)". The wire was
+   right: controller 74 = 0 at the song start is a row event since the importer fix of 37.5 and goes out once. The
+   expected list (expected-events.mjs) held the clips' controllers only. v0.2 adds the row controller events; the rerun
+   passes on both ports.
+2. run-scenes.py failed five of six launches with an error growing 1.2 ms per cycle. It scaled the cycle by the device
+   clock the wrong way round (divided by 0.9996; the device's note times are 0.9996 of nominal on every song measured).
+   v0.2 multiplies; the rerun passes six of six.
+
+## 39. Task 17 Goal 4 — tabby-v04.7: the control map and the CLIPS page (2026-11-14)
+
+### 39.1 What was built (docs/CONTROL-MAP.md; SPEC 19.8)
+
+- docs/CONTROL-MAP.md first: every control on the two pages, the stage actions with their press counts, pad colours,
+  faders, mute, transport, messages.
+- app/song.c: `song_clip_launch(track, place)` (a clip a scene uses is launched as that scene's pattern; any other as a
+  place row with the clip's own length), `song_track_unqueue`, `song_mute_set` (a muted track's note-ons stay in),
+  `song_row_place`.
+- app/screen.c: page 20 is the CLIPS page (pads = clip places in four banks, press / long press / take back, K5 track,
+  K6 and OCT bank), pad states and colours for CLIPS and for the SONG page's scene pads, BT opens the page, the song-mute
+  bit set by SHIFT + pad 9 to 16, wording (SCENE, CYCLE) on both pages.
+- app/transfer.c: remote ops 12 (page state), 13 (clip launch), 14 (take back).
+- Tests: host section 22 (14 checks); tests/workbench/clips-sim.mjs (48 checks, panel events only, MIDI out compared);
+  tools/linux/hw/run-launch.py for the device.
+
+Decisions:
+
+1. BT is the CLIPS button. It did nothing but show a notice since tabby-v03.0, it is in the right-hand group next to
+   SCL and ENV, and one press from any page was the requirement.
+2. A press queues at once and a long press takes it back, instead of waiting for the release to tell short from long: a
+   press just before the bar line must not lose the bar.
+3. Pressing the playing clip stops the track (as on the old LAUNCH page), not "restart the clip" as on the MC-707: stop
+   is the commoner stage action and had no other one-press control.
+4. Mute holds song notes back only when set by SHIFT + pad. The first version followed the mixer's mute and silenced
+   tracks 6 and 7 of every existing song on MIDI out (they start muted in the mixer); the host tests of Task 06 caught
+   it.
+5. The SONG page keeps its name on the screen; only the words on it changed (SCENE, NEXT CYCLE). Renaming the page would
+   have touched ACTIONS, Help and the guide for no gain on stage.
+6. With the song stopped a pad only selects. Starting the transport from a clip pad needs a decision about what the other
+   tracks do; left for the report.
+
+### 39.2 Measured
+
+| | tabby-v04.6 | tabby-v04.7 |
+| --- | ---: | ---: |
+| app image, bytes (margin) | 456900 (62557) | 459044 (60413) |
+| runtime heap, bytes | 161548 | 161484 |
+
+Build id `0d191b58095bef25`. make check, lint, test-fast and midi-import-sim green on the branch before the merge
+(overnight/g6/tf-v047.log); the suite result and the device results are in 39.3.

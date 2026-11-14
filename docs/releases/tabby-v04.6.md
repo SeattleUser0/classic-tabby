@@ -22,7 +22,15 @@ Songs can be stored as scenes and clips, with a master cycle for launches; reins
 
 ## Hardware validation
 
-See the release page's "Hardware validation" text (added after the install) and docs/BUILD.md 38.
+Installed on the SMK-37 Pro on 2026-11-14 through the published page (Full backup first; identity checked; one attempt;
+"Firmware ready." after 11 s). All tests by remote command, nobody at the panel (docs/BUILD.md 38.3):
+
+- Six songs imported through the page as scenes and played: every expected note-on sent (6, 16, 7, 16, 960 and 1600 of
+  them), on DIN and USB, worst timing error 0.3 to 1.7 ms (6.7 ms on DIN where three lines share the cable), controller
+  events in order, no stuck note.
+- Master cycle of 12 steps: six launches at random moments, each on the next cycle, within 1.4 ms.
+- One line of 960 notes: band 1.82 ms on DIN, 1.67 ms on USB. No audio underrun.
+- Full backup and verify after: PASS (9 songs, 25 blocks).
 
 ## Known limits
 
