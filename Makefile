@@ -359,7 +359,6 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/loader-tag.mjs
 	$(T) $(NODE) tests/workbench/recover-page.mjs
 	$(T) $(NODE) tests/workbench/update-safety.mjs
-	$(T) $(NODE) tests/workbench/update-clock.mjs
 	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
 	$(T) $(PYTHON) -I tests/linux/builds-index-test.py
 

@@ -48,8 +48,8 @@
  *
  * Revision log
  *   v0.17 2026-11-13  Task 17: section 19, options F + G (due times, the timer tick, the fallback to A2, lateness
- *                     counters, a song with F + G off and on) and the USB push hold (remote op 8); the remote status
- *                     is 15 bytes.
+ *                     counters, a song with F + G off and on, clock follow); the USB pusher checks of v0.16 now expect
+ *                     no 0xF9 (the pusher is removed); the remote status is 14 bytes (CLOCK).
  *   v0.16 2026-11-12  Task 16: USB pusher checks in section 17.
  *   v0.15 2026-11-12  Task 16: flash guard checks in section 17 (an audio block inside every flash operation).
  *   v0.14 2026-11-12  Task 16 Goal 3: section 18, external clock follow: arm, Start, the first pulse, the step-4 note
@@ -1423,18 +1423,18 @@ int main(void)
         { uint8_t a[64]; (void)ct_diag_read(9, a); }   /* section 16 left A2 off; the device boots with it on */
         { struct message m[64]; (void)drain(m, 64); }
         int n = RCMD(29, 0);
-        CHECK(n == 16 && reply[0] == 0 && reply[1] == 1 && reply[2] == 0 && reply[3] == 0 && reply[4] == 255 && reply[5] == 255 && reply[7] == 1,
+        CHECK(n == 15 && reply[0] == 0 && reply[1] == 1 && reply[2] == 0 && reply[3] == 0 && reply[4] == 255 && reply[5] == 255 && reply[7] == 1,
               "remote: status at boot: version 1, page OVERVIEW, stopped, nothing loaded (%d bytes: %u %u %u %u %u %u %u)", n, reply[0], reply[1], reply[2], reply[3], reply[4], reply[5], reply[7]);
         { uint8_t caps[96]; int k = rcmd(27, (const uint8_t[]){0}, 0, caps); (void)k;
           CHECK(k >= 8 && (caps[2] & 4U), "remote: capability flag bit 2 (command 29) is set"); }
         /* A2 */
-        n = RCMD(29, 5, 0); CHECK(n == 16 && reply[0] == 0 && reply[7] == 0 && !ct_a2_get(), "remote: A2 off");
-        n = RCMD(29, 5, 1); CHECK(n == 16 && reply[7] == 1 && ct_a2_get(), "remote: A2 on");
+        n = RCMD(29, 5, 0); CHECK(n == 15 && reply[0] == 0 && reply[7] == 0 && !ct_a2_get(), "remote: A2 off");
+        n = RCMD(29, 5, 1); CHECK(n == 15 && reply[7] == 1 && ct_a2_get(), "remote: A2 on");
         CHECK(RCMD(29, 5, 2) >= 0 && reply[0] != 0, "remote: A2 value 2 refused (code %u)", reply[0]);
         /* A key press and release: the note leaves on the MIDI out, the release ends it. */
         { struct message m[64]; unsigned np;
           rc_n = 0; n = RCMD(29, 6, 1, 0, 100); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
-          CHECK(n == 16 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
+          CHECK(n == 15 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
           rc_n = 0; n = RCMD(29, 6, 1, 0, 0); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
           CHECK(reply[0] == 0 && (any_off(m, np)), "remote: key 1 release ends it"); }
         { struct message m[64]; unsigned np;   /* the last key (36): 37 keys do not fit a 32-bit mask */
@@ -1489,9 +1489,8 @@ int main(void)
             extern volatile uint8_t ct_flash_busy;
             CHECK(ct_flash_busy == 0, "flash guard: the flag is clear after the save"); }
           CHECK(groove_clock_mode() == 1 && ct_a2_get(), "remote: SEQ then K1 up sets CLOCK = MIDI (mode %u), A2 still on", groove_clock_mode());
-          n = RCMD(29, 0); CHECK(n == 16 && reply[0] == 0, "remote: the status still answers with CLOCK = MIDI");
-          /* The USB pusher (BUILD 35): with no clock going out on USB, the four passes after a USB write each send one 0xF9
-           * on USB, so the SDK transmits the reply; nothing on DIN or Bluetooth, and no more than four. */
+          n = RCMD(29, 0); CHECK(n == 15 && reply[0] == 0, "remote: the status still answers with CLOCK = MIDI");
+          /* Task 16 had a USB pusher here (0xF9 after a USB write); Task 17 removed it (BUILD 36.5): nothing is added. */
           { unsigned f9[3] = {0, 0, 0}, nm; struct message m[64];
             for (unsigned i = 0; i < 40; ++i) (void)sim_render();
             (void)drain(m, 64); rc_n = 0; rc_source = 1;
@@ -1499,7 +1498,7 @@ int main(void)
             nm = drain(m, 64);
             for (unsigned i = 0; i < rc_n; ++i) if (rc_log[i].bytes == 1 && rc_log[i].data[0] == 0xf9 && rc_log[i].port < 3) ++f9[rc_log[i].port];
             for (unsigned i = 0; i < nm && i < 64; ++i) if (m[i].bytes == 1 && m[i].data[0] == 0xf9 && m[i].port < 3) ++f9[m[i].port];
-            CHECK(f9[1] == 4 && f9[0] == 0 && f9[2] == 0, "USB pusher: CLOCK = MIDI, a reply is followed by four 0xF9 on USB only (DIN %u, USB %u, BLE %u)", f9[0], f9[1], f9[2]); }
+            CHECK(f9[1] == 0 && f9[0] == 0 && f9[2] == 0, "no USB pusher (removed in tabby-v04.4): CLOCK = MIDI, a reply is followed by no 0xF9 (DIN %u, USB %u, BLE %u)", f9[0], f9[1], f9[2]); }
           n = RCMD(29, 6, 4, 0, 255); for (unsigned i = 0; i < 600; ++i) (void)sim_render();
           CHECK(groove_clock_mode() == 0, "remote: K1 down sets CLOCK = INT again (mode %u)", groove_clock_mode()); (void)sim_open(0);
           { unsigned f9 = 0, nm; struct message m[64];
@@ -1509,7 +1508,7 @@ int main(void)
             nm = drain(m, 64);
             for (unsigned i = 0; i < rc_n; ++i) if (rc_log[i].bytes == 1 && rc_log[i].data[0] == 0xf9) ++f9;
             for (unsigned i = 0; i < nm && i < 64; ++i) if (m[i].bytes == 1 && m[i].data[0] == 0xf9) ++f9;
-            CHECK(f9 == 0, "USB pusher: CLOCK = INT with clock out on USB, no 0xF9 (the clock pushes) (%u)", f9); } }
+            CHECK(f9 == 0, "no USB pusher: CLOCK = INT, no 0xF9 (%u)", f9); } }
         /* Songs: one stored, then select, play, jump, stop. */
         { uint8_t *f = sim_file(); uint8_t b1[70], b2[67]; memset(b1, 0, sizeof b1); memset(b2, 0, sizeof b2);
           b1[0] = 1; b1[1] = 60; b1[2] = 100; b1[3] = 2; b2[0] = 1; b2[1] = 64; b2[2] = 80; b2[3] = 1;
@@ -1518,20 +1517,20 @@ int main(void)
           memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "REMOTE      ", 12); f[40] = 2; f[48] = 5;
           f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;
           CHECK(sim_song_record_write(0) == 0, "remote: test song stored"); }
-        n = RCMD(29, 1, 0); CHECK(n == 16 && reply[0] == 0 && reply[4] == 0 && reply[3] == 0, "remote: select song 1 loads it (loaded %u)", reply[4]);
+        n = RCMD(29, 1, 0); CHECK(n == 15 && reply[0] == 0 && reply[4] == 0 && reply[3] == 0, "remote: select song 1 loads it (loaded %u)", reply[4]);
         n = RCMD(29, 1, 7); CHECK(n >= 0 && reply[0] != 0, "remote: select an empty song is refused (code %u)", reply[0]);
         n = RCMD(29, 4, 1); CHECK(n >= 0 && reply[0] == 71, "remote: a jump while stopped is refused");
         n = RCMD(29, 1, 0);   /* a refused select of an empty song leaves nothing loaded; load song 1 again */
-        n = RCMD(29, 2); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); n = RCMD(29, 0); CHECK(n == 16 && reply[0] == 0 && reply[3] == 1 && reply[9] == 1, "remote: PLAY starts the loaded song (state %u, transport %u, code %u, loaded %u)", reply[3], reply[9], reply[0], reply[4]);
+        n = RCMD(29, 2); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); n = RCMD(29, 0); CHECK(n == 15 && reply[0] == 0 && reply[3] == 1 && reply[9] == 1, "remote: PLAY starts the loaded song (state %u, transport %u, code %u, loaded %u)", reply[3], reply[9], reply[0], reply[4]);
         for (unsigned i = 0; i < 20; ++i) (void)sim_render();
         n = RCMD(29, 2); CHECK(n >= 0 && reply[0] != 0, "remote: PLAY while playing is refused");
-        n = RCMD(29, 4, 1); CHECK(n == 16 && reply[0] == 0 && reply[6] == 1, "remote: jump to row 2 is queued (queued %u)", reply[6]);
+        n = RCMD(29, 4, 1); CHECK(n == 15 && reply[0] == 0 && reply[6] == 1, "remote: jump to row 2 is queued (queued %u)", reply[6]);
         { uint8_t save[96]; int k = rcmd(7, (const uint8_t[]){0}, 0, save); (void)k;
           CHECK(save[0] != 0, "remote: project save refuses while playing (code %u)", save[0]); }
-        n = RCMD(29, 3); CHECK(n == 16 && reply[0] == 0, "remote: STOP");
+        n = RCMD(29, 3); CHECK(n == 15 && reply[0] == 0, "remote: STOP");
         for (unsigned i = 0; i < 200; ++i) (void)sim_render();
         n = RCMD(29, 0); CHECK(reply[3] == 0 && reply[9] == 0, "remote: stopped and no transport after STOP (%u, %u)", reply[3], reply[9]);
-        n = RCMD(29, 2, 0); CHECK(n == 16 && reply[0] == 0 && reply[3] == 1, "remote: PLAY with a song number loads and plays it");
+        n = RCMD(29, 2, 0); CHECK(n == 15 && reply[0] == 0 && reply[3] == 1, "remote: PLAY with a song number loads and plays it");
         n = RCMD(29, 3); for (unsigned i = 0; i < 200; ++i) (void)sim_render();
         #undef RCMD
         #undef STATUS_PAGE
@@ -1710,7 +1709,7 @@ int main(void)
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 
-    /* ---- 19. Task 17: options F + G (the timer and the look-ahead), and the USB push hold ------------ */
+    /* ---- 19. Task 17: options F + G (the timer and the look-ahead) ------------------------------------ */
     {
         extern uint32_t ct_test_ticks_extra;
         void groove_clock_set(unsigned mode);
@@ -1745,6 +1744,13 @@ int main(void)
         CHECK(HAS(70) && PG32(pg, 2) >= 1 && PG32(pg, 4) >= 1, "F+G: the pass sends the due note (%u sent with a due time)", PG32(pg, 2));
         asked = sim_test_control_requests; ct_fg_tick();
         CHECK(sim_test_control_requests == asked, "F+G: nothing waiting, the timer asks for nothing");
+        { unsigned ct_midi_due_within(uint32_t ticks);
+          groove_midi_song_note(0, 69, 100);                                   /* due at `due` again */
+          SET_NOW(due - 50000);
+          unsigned far = ct_midi_due_within(40000), near = ct_midi_due_within(60000);
+          SET_NOW(due + PERIOD); sim_test_pass(); (void)drain(m, 64);
+          CHECK(!far && near && !ct_midi_due_within(60000), "F+G: the painter's question: due within 2.5 ms yes, within 1.7 ms no, nothing waiting no (%u %u)", far, near);
+          groove_midi_song_note(0, 69, 0); sim_test_pass(); (void)drain(m, 64); }
         groove_midi_song_note(0, 70, 0); SET_NOW(due + PERIOD); sim_test_pass(); (void)drain(m, 64);
         /* Places inside the block: a quarter and three quarters of a block after the base; the order is kept. */
         ct_fg_tick(); tb = ct_diag_ticks(); (void)sim_render(); (void)ct_diag_read(10, pg); len = PG32(pg, 10); due = tb + len;
@@ -1857,32 +1863,16 @@ int main(void)
           ct_fg_test(0);
           CHECK(first_block[0] != 999 && first_block[1] <= first_block[0] + 1, "F+G follow: the first note after Start leaves in the block of the first pulse, as without F + G (block %u and %u)", first_block[0], first_block[1]);
           CHECK(lead[0] >= -12 && lead[0] <= 12 && lead[1] - lead[0] >= 6 && lead[1] - lead[0] <= 16, "F+G follow: the song runs one block (11 units at 120 BPM) ahead of the pulses (%d units without, %d with)", lead[0], lead[1]); }
-        /* The USB push hold (remote op 8): with CLOCK = MIDI every pass sends one 0xF9 on USB while it is held. */
+        /* Command 25 request 10 through the transfer path, and the remote status with CLOCK. */
         { sim_boot(1); sim_midi_capture(1); sim_test_request_passes(1); sim_midi_drain(0); ct_test_ticks_extra = 0; settle();
-          groove_clock_set(1); settle(); (void)drain(m, 64);
           rc_source = 1; rc_n = 0;
-          int k = rcmd(29, (const uint8_t[]){8, 1}, 2, reply);
-          CHECK(k == 16 && reply[0] == 0 && reply[14] == 1 && reply[15] == 1, "push hold: remote op 8 switches it on; the status reports CLOCK = MIDI and the hold (%d bytes, %u, %u)", k, reply[14], reply[15]);
-          for (unsigned i = 0; i < 60; ++i) (void)sim_render();
-          (void)drain(m, 64);
-          unsigned f9 = 0, other = 0;
-          for (unsigned r = 0; r < 4; ++r) { for (unsigned i = 0; i < 25; ++i) (void)sim_render(); n = drain(m, 64);
-            for (unsigned i = 0; i < n; ++i) { if (m[i].bytes == 1 && m[i].data[0] == 0xf9 && m[i].port == 1) ++f9; else ++other; } }
-          CHECK(f9 >= 20 && f9 <= 32 && other == 0, "push hold: one 0xF9 per control pass on USB only, nothing else (%u in 100 blocks, %u other)", f9, other);
-          k = rcmd(29, (const uint8_t[]){8, 0}, 2, reply);
-          for (unsigned i = 0; i < 60; ++i) (void)sim_render();
-          (void)drain(m, 64); f9 = 0;
-          for (unsigned i = 0; i < 100; ++i) (void)sim_render();
-          n = drain(m, 64); for (unsigned i = 0; i < n; ++i) if (m[i].data[0] == 0xf9) ++f9;
-          CHECK(k == 16 && reply[15] == 0 && f9 == 0, "push hold: switched off, no more 0xF9 (%u)", f9);
+          int k = rcmd(25, (const uint8_t[]){10}, 1, reply);
+          CHECK(k == 57 && reply[0] == 0, "F+G: command 25 request 10 answers with the page (%d bytes, code %u)", k, reply[0]);
+          groove_clock_set(1); settle(); (void)drain(m, 64);
+          k = rcmd(29, (const uint8_t[]){0}, 1, reply);
+          CHECK(k == 15 && reply[0] == 0 && reply[14] == 1, "remote: the status is 14 bytes and reports CLOCK = MIDI (%d bytes, %u)", k, reply[14]);
           k = rcmd(29, (const uint8_t[]){8, 1}, 2, reply);
-          for (unsigned i = 0; i < 42000; ++i) { (void)sim_render(); if (i % 50 == 49) (void)drain(m, 64); }   /* 122 s */
-          f9 = 0; for (unsigned i = 0; i < 100; ++i) (void)sim_render();
-          n = drain(m, 64); for (unsigned i = 0; i < n; ++i) if (m[i].data[0] == 0xf9) ++f9;
-          rc_n = 0; k = rcmd(29, (const uint8_t[]){0}, 1, reply);
-          CHECK(f9 == 0 && k == 16 && reply[15] == 0, "push hold: it ends by itself after 120 s (%u bytes after, held %u)", f9, reply[15]);
-          k = rcmd(29, (const uint8_t[]){8, 2}, 2, reply);
-          CHECK(k >= 1 && reply[0] == 71, "push hold: value 2 refused (code %u)", reply[0]);
+          CHECK(k >= 1 && reply[0] == 71, "remote: operation 8 does not exist (code %u)", reply[0]);
           rc_source = 0; groove_clock_set(0); settle(); (void)drain(m, 64); }
         #undef SET_NOW
         #undef HAS

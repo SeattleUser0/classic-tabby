@@ -229,7 +229,8 @@ FM1_AUDIO_CODE void groove_midi_transport(unsigned owner, uint8_t status)
 #ifdef CT_A2
 /* ---- Classic Tabby Task 15 Step 4: option A2, the control pass on demand (diag builds only) ----
  * Revision notes
- *   v0.4  2026-11-13  Task 17: options F + G (the timer and the look-ahead, below); ct_usb_push_hold (remote op 8).
+ *   v0.4  2026-11-13  Task 17: options F + G (the timer and the look-ahead, below); the USB pusher of v0.3 removed
+ *                     (the fault it answered was in the NUC's tool, BUILD 36.5).
  *   v0.3  2026-11-12  Task 16: the USB pusher (ct_midi_send_port, usb_pusher; BUILD 35).
  *   v0.2  2026-11-12  Task 16: ct_flash_busy: no request while an app flash erase or write runs (BUILD 34); the A2
  *                     page is 52 bytes (blocks skipped).
@@ -425,6 +426,21 @@ int ct_fg_read(uint8_t *out)
     return 56;
 }
 static volatile uint8_t fg_reset_request;
+/* Control task (the screen painter, before it starts a band): 1 when an event in lane 0 or 1 is due within
+ * `ticks` from now, while F + G is live. A band takes 2 to 6 ms and cannot be interrupted; one that would
+ * run over a due time waits for the pass after the event (app/screen.c paint_flush). */
+unsigned ct_midi_due_within(uint32_t ticks)
+{
+    if (!fg_live) return 0;
+    uint32_t now = a2_ticks();
+    for (unsigned i = 0; i < 2; ++i) {
+        unsigned r = events[i].read;
+        if (r == events[i].write) continue;
+        int32_t wait = (int32_t)(fg_due[i][r & (QUEUE - 1)] - now);
+        if (wait <= (int32_t)ticks || wait > FG_FAR) return 1;
+    }
+    return 0;
+}
 /* Control task. */
 void ct_a2_set(unsigned on) { a2_on = on ? 1 : 0; barrier(); }
 unsigned ct_a2_get(void) { return a2_on; }
@@ -509,42 +525,11 @@ static int held_elsewhere(const struct output *o, unsigned owner, unsigned ch, u
     }
     return 0;
 }
-/* ---- Classic Tabby Task 16: the USB pusher ------------------------------------------------------
- * Measured on the device (BUILD 35): the SDK transmits the LAST message written to the USB port only
- * when a later write to that port follows. With CLOCK = INT and clock out on USB the next F8 (48 per
- * second) does that; with CLOCK = MIDI, or clock out off, a SysEx reply (and the last note) stayed in
- * the SDK until the next write: the workbench saw no reply ("the device hangs"). Every USB write of
- * the app goes through ct_midi_send_port; when no clock is being sent on USB, the four control passes
- * after the last write each send one undefined real-time byte (0xF9, ignored by receivers, never
- * re-armed by itself), so the message before it leaves. Control task only. */
-enum { USB_PUSHES = 4 };   /* two were enough in 2000 of 2001 replies on the device; four for margin (40 ms) */
-static uint8_t usb_push;
-static uint32_t pass_number, usb_write_pass;
-int ct_midi_send_port(unsigned port, const uint8_t *m, size_t n)
-{
-    int r = fm1_midi_send_port(port, m, n);
-    if (!r && port == FM1_MIDI_USB) { usb_push = USB_PUSHES; usb_write_pass = pass_number; }
-    return r;
-}
-/* Task 17: the push hold (remote op 8, app/transfer.c). The update protocol's replies (identity, version,
- * the block requests) are written by the SDK, not through ct_midi_send_port, so with no clock on USB they
- * stay in the SDK like any last write (measured: BUILD 36.3). The update page switches the hold on before
- * it arms an update: every control pass then sends one push byte, as the MIDI clock would. It ends at
- * the restart into the loader, when switched off, or 120 s after it was switched on. */
-static uint8_t usb_hold;
-static uint32_t usb_hold_at;
-void ct_usb_push_hold(unsigned on) { usb_hold = on ? 1 : 0; usb_hold_at = fm1_millis(); }
-unsigned ct_usb_push_held(void) { return usb_hold; }
-static void usb_pusher(void)
-{
-    if (usb_hold && fm1_millis() - usb_hold_at > 120000U) usb_hold = 0;
-    if (!usb_push && !usb_hold) return;
-    if (!groove_clock_mode() && (config.flags & CLOCK_OUT) && (config.flags & (1U << FM1_MIDI_USB))) { usb_push = 0; return; }   /* the clock pushes */
-    if (usb_push && usb_write_pass == pass_number) return;   /* written in this pass: push in the next one */
-    if (!(fm1_midi_ready_ports() & (1U << FM1_MIDI_USB))) { usb_push = 0; return; }
-    const uint8_t push = 0xf9;
-    if (!fm1_midi_send_port(FM1_MIDI_USB, &push, 1) && usb_push) --usb_push;
-}
+/* Task 16 added a "USB pusher" here (one 0xF9 after a USB write when no clock went out on USB) for replies
+ * that "never arrived with CLOCK = MIDI". Task 17 found the fault in the measuring tool on the NUC, not in the
+ * device (tools/linux/hw/tabby_link.py v0.11, BUILD 36.5): the pusher is removed in tabby-v04.4. Every app
+ * write still goes through this one function. */
+int ct_midi_send_port(unsigned port, const uint8_t *m, size_t n) { return fm1_midi_send_port(port, m, n); }
 static void deliver(unsigned port, unsigned owner, const uint8_t *m)
 {
     struct output *o = &output[port];
@@ -639,8 +624,6 @@ static void midi_poll_body(void);
 void groove_midi_poll(void)
 {
     ct_prof_pass();
-    ++pass_number;
-    usb_pusher();     /* Task 16: before this pass's own writes, for the last write of an earlier pass */
     ct_midi_flush();
 }
 void ct_midi_flush(void)

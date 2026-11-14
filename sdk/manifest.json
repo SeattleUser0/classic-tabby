@@ -66,8 +66,8 @@
                   "sdk/tools/pack/cfg_tool.bin":  "276579954f076886a6a7694f65dc71c034a63a2c204b76749065c0ac7b010d1b",
                   "sdk/tools/pack/ota.bin":  "ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541",
                   "sdk/tools/pack/uboot.boot":  "b88747cb72afc554d6ca078594a89f4fdcea5a74d26345b633f8e2524e7e3415",
-                  "sdk/Update.html.in":  "e2f43b88468c314c3d805577c82ef049d3b520f972595a5187795d1704eba075",
-                  "sdk/WebUpdate.js":  "1de35bd290c7b993181f1439fdd13852767d9687057572fcef104f8f90513458",
+                  "sdk/Update.html.in":  "ebab9f91fa6749120a9e62c96e96333341736468370edaad16bb58a6393dba28",
+                  "sdk/WebUpdate.js":  "4cd1e3d004742f931f610f07b8b669c91d0e415052206b6b4535acba56bac0e4",
                   "sdk/lib/libfm1_engine.a":  "a0acbcf25273225b2224aca4964ba7491d2b0f326af9abd2da366f9ecbdd9527",
                   "sdk/synth.json":  "eb5dac7a1a82640176cbee2bd4a06a1c321061ffe037b8c66e926bbc4c219f79",
                   "sdk/config/linker.ld.in":  "2c453b48f4ba8169de37615f9240f2ebd207fdfc28a2804276f6d14651c0057c"

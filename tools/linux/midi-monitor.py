@@ -179,19 +179,29 @@ class AlsaInput:
 
     def read(self, timeout_ms=200):
         """Wait up to timeout_ms for bytes; return (t_ns, bytes), bytes empty on a timeout."""
-        if not self.poll.poll(timeout_ms):
-            return time.monotonic_ns(), b""
         if self.kernel_time:
+            # 2026-11-14: snd_rawmidi_tread returns ONE kernel frame (at most 16 bytes) per call and alsa-lib keeps the
+            # other frames it read in its own buffer, where poll() does not see them. So after a frame, the next call
+            # tries tread first (the port is non-blocking: -EAGAIN when nothing is left) and polls only then. Before,
+            # the frames after the first waited in the library until more MIDI arrived (BUILD 36.5).
             ts = self.Timespec()
-            n = self.lib.snd_rawmidi_tread(self.handle, ctypes.byref(ts), self.buffer, 4096)
+            n = self.lib.snd_rawmidi_tread(self.handle, ctypes.byref(ts), self.buffer, 4096) if getattr(self, "more", False) else -11
+            if n == -11:
+                self.more = False
+                if not self.poll.poll(timeout_ms):
+                    return time.monotonic_ns(), b""
+                n = self.lib.snd_rawmidi_tread(self.handle, ctypes.byref(ts), self.buffer, 4096)
             if n == -11:                           # -EAGAIN
                 return time.monotonic_ns(), b""
+            self.more = n > 0
             if n < 0:
                 raise OSError("snd_rawmidi_tread: %s" % self.error(n))
             t = ts.tv_sec * 1000000000 + ts.tv_nsec
             if t == 0:
                 t = time.monotonic_ns()
             return t, self.buffer.raw[:n]
+        if not self.poll.poll(timeout_ms):
+            return time.monotonic_ns(), b""
         n = self.lib.snd_rawmidi_read(self.handle, self.buffer, 4096)
         t = time.monotonic_ns()
         if n == -11:                               # -EAGAIN
