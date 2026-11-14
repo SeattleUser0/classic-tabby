@@ -329,14 +329,63 @@ static int events_valid(const struct song_record *r)
     for (unsigned i = end; i < SONG_RECORD_V2_END - SONG_RECORD_BODY_END; ++i) if (t[i] != 0xff) return SONG_INVALID;
     return 0;
 }
+/* Task 17 Goal 3: the body of a version-3 record (scenes and the clip table). */
+static int scenes_valid(const struct song_record *r)
+{
+    const struct song_scenes_body *b = (const struct song_scenes_body *)(const void *)r->row;
+    if (r->reserved[0] && (r->reserved[0] < 2 || r->reserved[0] > SONG_CYCLE_MAX)) return SONG_INVALID;
+    for (unsigned i = 0; i < r->rows; ++i) {
+        const struct song_scene *s = &b->scene[i];
+        if (s->repeat < 1 || s->repeat > 64 || (s->flags & ~1U) || s->reserved ||
+            s->steps < 16 || s->steps > SONG_ROW_STEPS_MAX || s->steps % 16) return SONG_INVALID;
+        for (unsigned t = 0; t < SONG_TRACKS; ++t)
+            if (s->clip[t] > SONG_CLIPS || (s->clip[t] && !b->clip[t][s->clip[t] - 1U])) return SONG_INVALID;
+    }
+    for (unsigned i = r->rows; i < SONG_ROWS; ++i)
+        for (unsigned k = 0; k < SONG_SCENE_BYTES; ++k) if (((const uint8_t *)&b->scene[i])[k]) return SONG_INVALID;
+    return 0;
+}
+void song_record_expand(struct song_record *r, struct song_model *m)
+{
+    static struct song_scenes_body body;   /* control task only; 2560 bytes, not on the stack */
+    memset(m, 0, sizeof *m);
+    m->cycle = SONG_CYCLE_DEFAULT;
+    if (r->version == 3) {
+        memcpy(&body, r->row, sizeof body);
+        if (r->reserved[0]) m->cycle = r->reserved[0];
+        memcpy(m->clip, body.clip, sizeof m->clip);
+        for (unsigned t = 0; t < SONG_TRACKS; ++t)
+            for (unsigned c = 0; c < SONG_CLIPS; ++c) if (body.clip[t][c]) m->clips[t] = (uint8_t)(c + 1U);
+        memset(r->row, 0, sizeof r->row);
+        for (unsigned i = 0; i < r->rows; ++i) {
+            const struct song_scene *s = &body.scene[i];
+            for (unsigned t = 0; t < SONG_TRACKS; ++t) {
+                m->scene_clip[i][t] = s->clip[t];
+                r->row[i].block[t] = s->clip[t] ? body.clip[t][s->clip[t] - 1U] : 0;
+            }
+            r->row[i].repeat = s->repeat; r->row[i].flags = s->flags; r->row[i].steps = s->steps;
+        }
+        r->version = 2; r->reserved[0] = 0;
+        return;
+    }
+    for (unsigned i = 0; i < r->rows; ++i)
+        for (unsigned t = 0; t < SONG_TRACKS; ++t) {
+            unsigned id = r->row[i].block[t], c;
+            if (!id) continue;
+            for (c = 0; c < m->clips[t] && m->clip[t][c] != id; ++c) { }
+            if (c == m->clips[t]) { if (c == SONG_CLIPS) continue; m->clip[t][c] = (uint16_t)id; m->clips[t] = (uint8_t)(c + 1U); }
+            m->scene_clip[i][t] = (uint8_t)(c + 1U);
+        }
+}
 int song_record_valid(const struct song_record *r)
 {
-    if ((r->version != 1 && r->version != 2) || r->project >= GROOVE_PROJECT_SLOTS || (r->flags & ~7U) ||   /* v0.7: bit 2 swing */
+    if ((r->version < 1 || r->version > 3) || r->project >= GROOVE_PROJECT_SLOTS || (r->flags & ~7U) ||   /* v0.7: bit 2 swing; Task 17: version 3 */
         r->rows < 1 || r->rows > SONG_ROWS || r->loop_row >= r->rows) return SONG_INVALID;
     /* Checkpoint (f), 9.5 v0.5.1: the tempo override is 0 (project tempo) or 30..300 BPM. */
     if (r->tempo && (r->tempo < 30 || r->tempo > 300)) return SONG_INVALID;
     for (unsigned i = 0; i < 12; ++i) if (r->name[i] < 32 || r->name[i] > 126) return SONG_INVALID;
     for (unsigned t = 0; t < SONG_TRACKS; ++t) if (r->channel[t] > 16) return SONG_INVALID;
+    if (r->version == 3) { int e = scenes_valid(r); return e ? e : events_valid(r); }
     for (unsigned i = 0; i < r->rows; ++i) {
         const struct song_row *row = &r->row[i];
         if (row->repeat < 1 || row->repeat > 64 || (row->flags & ~1U) ||
@@ -350,8 +399,8 @@ int song_record_read(unsigned song, struct song_record *out)
     int r = fm1_flash_read(sector_address(SONG_FIRST_SONG_SECTOR + song), out, sizeof *out);
     if (r) return r;
     if (out->magic != SONG_MAGIC_RECORD || out->commit != 0) return SONG_EMPTY;
-    if (out->version != 1 && out->version != 2) return SONG_INVALID;
-    unsigned end = out->version == 2 ? SONG_RECORD_V2_END : SONG_RECORD_BODY_END; /* 9.11 */
+    if (out->version < 1 || out->version > 3) return SONG_INVALID;   /* Task 17 Goal 3: version 3, scenes */
+    unsigned end = out->version >= 2 ? SONG_RECORD_V2_END : SONG_RECORD_BODY_END; /* 9.11 */
     if (out->crc != crc((const uint8_t *)out + 20, end - 20)) return SONG_INVALID;
     return song_record_valid(out);
 }
@@ -367,7 +416,7 @@ int song_record_write(unsigned song, const struct song_record *in)
     uint32_t generation = le32(head) == SONG_MAGIC_RECORD ? le32(head + 4) + 1U : 1U;
     /* Version 2 (9.11): the image runs to 4091 (the event table is inside the CRC); the
      * staging commit word at 4092 stays outside either way. */
-    unsigned end = in->version == 2 ? SONG_RECORD_V2_END : SONG_RECORD_BODY_END;
+    unsigned end = in->version >= 2 ? SONG_RECORD_V2_END : SONG_RECORD_BODY_END;
     memset(image, 0xff, sizeof image);
     memcpy(image, in, end);
     put32(image, SONG_MAGIC_RECORD); put32(image + 4, generation);

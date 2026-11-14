@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.19
+ * Version: 0.20
  *
  * Revision log
+ *   v0.20 2026-11-14  Task 17 Goal 3: section 21, song record version 3 (scenes, the clip table, the master cycle).
  *   v0.19 2026-11-14  Branch clipv3-cursor: section 20, the scheduler cursor (a v3 clip from its event list is
  *                     byte-identical to the grid; a clip the grid cannot hold plays: chord of five, a controller event).
  *   v0.18 2026-11-14  Merge of tabby-v04.4 into the clip v3 branch: F + G is section 19, the v3 clip section is 20.
@@ -101,6 +102,8 @@
  *   v0.1  2026-11-01  Initial version.
  */
 #include "timed_note.h"
+#include "song_storage.h"   /* Task 17 Goal 3: struct song_record, struct song_model (section 21) */
+#include "song.h"
 #include "clip_v3.h"
 #include "ct_layout.h"   /* Task 12 A1: CT_USER_BYTES */
 /* Task 12 A1: block sectors of the song region of this build's layout (80 at 471040, 96 at 536576). */
@@ -2060,6 +2063,80 @@ int main(void)
           song_test_cursor(0); }
         big[0] = 129; memcpy(f, big, sizeof big); CHECK(sim_block_write2(2, 10, 2, sizeof big) != 0, "v3: 129 steps is refused by the storage");
         sim_midi_drain(0); (void)sim_open(0);
+    }
+
+    /* ---- 21. Task 17 Goal 3: song record version 3 (scenes and a clip table per track) ----------------- */
+    {
+        sim_boot(1); sim_midi_capture(1); sim_midi_drain(1); sim_test_request_passes(1);
+        uint8_t *f = sim_file(); const unsigned SONG = 4;
+        uint8_t b[64 + 6]; struct timed_note tn; tn.velocity = 100; tn.retrigger = 1; tn.offset = 0; tn.length = 240;
+        for (unsigned id = 1; id <= 3; ++id) {                    /* block 1: note 60 on step 0; 2: note 62 on step 4; 3: note 64 on step 0 (track 2) */
+            unsigned step = id == 2 ? 4 : 0, at = 0; memset(b, 0, sizeof b);
+            for (unsigned k = 0; k < 64; ++k) { if (k == step) { b[at++] = 1; tn.pitch = (uint8_t)(58 + 2 * id); (void)timed_note_encode(&tn, b + at); at += 6; } else b[at++] = 0; }
+            memcpy(f, b, sizeof b); CHECK(sim_block_write2(SONG, id, 1, sizeof b) == 0, "scenes: block %u stored", id);
+        }
+        #define HEADER(version_, rows_, name_) do { memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = (version_); memcpy(f + 24, name_, 12); f[40] = (rows_); f[48] = 5; f[49] = 6; \
+            if ((version_) >= 2) { memset(f + 2624, 0xff, 4096 - 2624); memset(f + 2624, 0, 8); f[2626] = 1; } } while (0)   /* an empty event table */
+        #define CLIP(t_, c_, id_) do { f[64 + (t_) * 128 + (c_) * 2] = (uint8_t)(id_); f[65 + (t_) * 128 + (c_) * 2] = (uint8_t)((id_) >> 8); } while (0)
+        #define SCENE(i_, c0_, c1_, steps_) do { uint8_t *q_ = f + 1088 + (i_) * 12; q_[0] = (c0_); q_[1] = (c1_); q_[8] = 1; q_[10] = (steps_); } while (0)
+        /* the same song as rows (version 1) and as scenes (version 3): identical MIDI */
+        static struct log_entry la[256], lb[256]; unsigned na = 0, nb = 0;
+        HEADER(1, 3, "AS ROWS     ");
+        f[64] = 1; f[66] = 3; f[64 + 16] = 1; f[64 + 18] = 16;                    /* row 0: T1 block 1, T2 block 3 */
+        f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;                               /* row 1: T1 block 2 */
+        f[104] = 1; f[104 + 16] = 1; f[104 + 18] = 32;                            /* row 2: T1 block 1 again, 32 steps */
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0, "scenes: the song as rows stored and loaded");
+        { const struct song_model *m = song_model_current();
+          CHECK(m && m->cycle == 16 && m->clips[0] == 2 && m->clip[0][0] == 1 && m->clip[0][1] == 2 && m->clips[1] == 1 && m->clip[1][0] == 3 &&
+                m->scene_clip[0][0] == 1 && m->scene_clip[1][0] == 2 && m->scene_clip[2][0] == 1 && m->scene_clip[0][1] == 1 && m->scene_clip[1][1] == 0,
+                "scenes: a song stored as rows gets its clip table from the rows (T1: 2 clips, T2: 1), cycle 16"); }
+        { struct message m[64]; (void)drain(m, 64); } (void)sim_song_play(); (void)play_log(la, 256, &na, 6000, -1, 0);
+        HEADER(3, 3, "AS SCENES   ");
+        CLIP(0, 0, 1); CLIP(0, 1, 2); CLIP(1, 0, 3); CLIP(0, 5, 2);               /* T1 clips in places 1 and 2 (and block 2 again in place 6, unused by a scene), T2 place 1 */
+        SCENE(0, 1, 1, 16); SCENE(1, 2, 0, 16); SCENE(2, 1, 0, 32);
+        int w3 = sim_song_record_write(SONG);
+        CHECK(w3 == 0 && sim_song_load(SONG) == 0, "scenes: the same song as a version-3 record stored and loaded (%d)", w3);
+        { const struct song_model *m = song_model_current(); const struct song_record *r = song_current();
+          CHECK(m && m->clips[0] == 6 && m->clip[0][5] == 2 && m->scene_clip[1][0] == 2 && m->scene_clip[1][1] == 0 && m->cycle == 16, "scenes: the clip table, the scenes and the default cycle of the record are loaded");
+          CHECK(r && r->rows == 3 && r->row[0].block[0] == 1 && r->row[0].block[1] == 3 && r->row[1].block[0] == 2 && r->row[1].block[1] == 0 && r->row[2].steps == 32, "scenes: the scheduler sees them as rows"); }
+        { struct message m[64]; (void)drain(m, 64); } (void)sim_song_play(); (void)play_log(lb, 256, &nb, 6000, -1, 0);
+        unsigned differ = 0; for (unsigned i = 0; i < na && i < nb; ++i) if (memcmp(&la[i], &lb[i], sizeof la[i])) ++differ;
+        CHECK(na >= 8 && na == nb && differ == 0, "scenes: the version-3 record plays byte-identical MIDI to the rows, each message in the same block (%u and %u messages, %u differ)", na, nb, differ);
+        memset(f, 0, 4096); CHECK(sim_song_record_read(SONG) == 0 && f[20] == 3 && f[64] == 1 && f[1088] == 1 && f[1088 + 12] == 2, "scenes: the stored record is still version 3 (the firmware rewrites nothing)");
+        /* what the validator refuses */
+        #define REFUSED(what_) do { int r_ = sim_song_record_write(SONG + 1); CHECK(r_ != 0, "scenes: refused: " what_ " (%d)", r_); } while (0)
+        HEADER(3, 1, "BAD         "); CLIP(0, 0, 1); SCENE(0, 2, 0, 16); REFUSED("a scene names a place with no clip");
+        HEADER(3, 1, "BAD         "); CLIP(0, 0, 1); SCENE(0, 65, 0, 16); REFUSED("a clip place above 64");
+        HEADER(3, 1, "BAD         "); CLIP(0, 0, 1); SCENE(0, 1, 0, 0); REFUSED("a scene of 0 steps");
+        HEADER(3, 1, "BAD         "); CLIP(0, 0, 1); SCENE(0, 1, 0, 144); REFUSED("a scene of 144 steps");
+        HEADER(3, 1, "BAD         "); CLIP(0, 0, 1); SCENE(0, 1, 0, 16); f[43] = 1; REFUSED("a master cycle of 1 step");
+        HEADER(3, 1, "BAD         "); CLIP(0, 0, 1); SCENE(0, 1, 0, 16); f[43] = 129; REFUSED("a master cycle of 129 steps");
+        HEADER(3, 1, "BAD         "); CLIP(0, 0, 1); SCENE(0, 1, 0, 16); f[1088 + 12 + 8] = 1; REFUSED("a scene beyond the scene count that is not empty");
+        HEADER(4, 1, "BAD         "); f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; REFUSED("record version 4");
+        /* the master cycle: a launch lands on the next multiple of it (12 steps here, a bar of 3/4), not of 16 */
+        HEADER(3, 2, "CYCLE 12    "); f[43] = 12;
+        CLIP(0, 0, 1); CLIP(1, 0, 3); SCENE(0, 1, 0, 48); f[1088 + 9] = 1;          /* scene 1: T1, loops here */
+        SCENE(1, 0, 1, 16);                                                           /* scene 2 holds T2's clip (never reached: launched by hand) */
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0 && song_model_current()->cycle == 12, "scenes: a record with a master cycle of 12 steps loads");
+        { struct message m[64]; (void)drain(m, 64); }
+        static struct log_entry lc[256]; unsigned nc = 0, blocks = 0; int queued = 0;
+        (void)sim_song_play();
+        for (; blocks < 2400; ++blocks) {
+            if (blocks == 300) queued = sim_song_track(0, 1, 1);                    /* at block 300 (step 7 of the first cycle): launch T2's clip of scene 2 */
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && m[k].data[0] != 0xf8 && nc < 256) { lc[nc].s = m[k].data[0]; lc[nc].d1 = m[k].data[1]; lc[nc].d2 = m[k].data[2]; lc[nc].block = blocks; ++nc; }
+        }
+        sim_song_stop(); settle();
+        { int first = find_log(lc, nc, 0x94, 60, 100, 0), launch = find_log(lc, nc, 0x95, 64, 100, 0);
+          /* 12 steps = 12 x 480 units = 516.8 blocks at 120 BPM: queued at block 300, the launch lands at the cycle that begins at step 12 */
+          unsigned d = launch >= 0 && first >= 0 ? lc[launch].block - lc[first].block : 0;
+          CHECK(queued == 0 && launch > first && d >= 515 && d <= 519, "scenes: with a master cycle of 12 steps a launch queued in the first cycle starts at step 12 (%u blocks after the song's first note; 16 steps would be 689)", d); }
+        #undef HEADER
+        #undef CLIP
+        #undef SCENE
+        #undef REFUSED
+        sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

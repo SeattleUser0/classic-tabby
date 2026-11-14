@@ -121,11 +121,40 @@ struct song_record {
     struct song_row row[SONG_ROWS]; /* offset 64, 2560 bytes */
     uint8_t tail[SONG_RECORD_BYTES - SONG_RECORD_BODY_END]; /* 2624..4095: event table (v2) or 0xFF */
 };
+/* ---- Song record version 3 (Task 17 Goal 3, tabby-v04.6): rows become scenes ---------------------------
+ * The header (bytes 0..63) and the event table (2624..4091) are as in version 2. The body (64..2623) is:
+ *   64..1087    the clip table: 8 tracks x 64 clips, a block id (u16 LE) each, 0 = no clip in that place
+ *   1088..2623  128 scenes of 12 bytes: clip[8] (per track: 0 = silent, 1..64 = the clip's place + 1 in that
+ *               track's table), repeat (1..64), flags (bit 0: loop here), steps (16..128, a multiple of 16:
+ *               the scene's length), reserved (0)
+ * `rows` is the number of scenes. Header byte 43 (reserved[0] in struct song_record) is the master cycle in
+ * steps (2..128; 0 = 16): launches, stops and scene recalls land on its multiples. The CRC covers 20..4091.
+ * The firmware reads versions 1, 2 and 3 and never rewrites a record: song_record_expand turns a loaded record
+ * of any version into rows (the scheduler's form) and a clip table (the clip launcher's form). */
+enum { SONG_CLIPS = 64, SONG_V3_CLIPS_OFFSET = 64, SONG_V3_SCENES_OFFSET = 1088, SONG_SCENE_BYTES = 12, SONG_CYCLE_DEFAULT = 16, SONG_CYCLE_MAX = 128 };
+struct song_scene { uint8_t clip[SONG_TRACKS]; uint8_t repeat, flags, steps, reserved; };
+struct song_scenes_body { uint16_t clip[SONG_TRACKS][SONG_CLIPS]; struct song_scene scene[SONG_ROWS]; };
+_Static_assert(sizeof(struct song_scene) == SONG_SCENE_BYTES, "song scene layout");
+_Static_assert(sizeof(struct song_scenes_body) == SONG_RECORD_BODY_END - 64, "song record v3 body layout");
+/* What a loaded song is to the clip workflow, whatever its record version: per track the clips in their
+ * places (block ids; `clips` = the highest used place + 1), per scene the place + 1 of each track's clip
+ * (0: silent, or a block that found no place), and the master cycle in steps. */
+struct song_model {
+    uint16_t clip[SONG_TRACKS][SONG_CLIPS];
+    uint8_t scene_clip[SONG_ROWS][SONG_TRACKS];
+    uint8_t clips[SONG_TRACKS];
+    uint8_t cycle;
+};
+/* Turn a valid record (as read) into the row form in place and fill `model`. A version-3 record becomes rows
+ * (block ids from its clip table) and reports version 2 afterwards (its event table is the version-2 one); a
+ * version-1 or -2 record keeps its rows, and its clip table is made from them: per track every distinct block in
+ * the order of its first row, up to 64. */
+void song_record_expand(struct song_record *record, struct song_model *model);
 _Static_assert(sizeof(struct song_row) == 20, "song row layout");
 _Static_assert(sizeof(struct song_record) == SONG_RECORD_BYTES, "song record layout");
 /* Event table accessors (9.11): count 0 for a version-1 record; event i's 5 bytes. */
 static inline unsigned song_event_count(const struct song_record *r)
-{ return r->version == 2 ? (unsigned)(r->tail[0] | r->tail[1] << 8) : 0; }
+{ return r->version >= 2 ? (unsigned)(r->tail[0] | r->tail[1] << 8) : 0; }   /* version 3 carries the same table */
 static inline const uint8_t *song_event(const struct song_record *r, unsigned i)
 { return r->tail + (SONG_EVENTS_START - SONG_RECORD_BODY_END) + SONG_EVENT_BYTES * i; }
 enum { SONG_FLAG_LOOP = 1, SONG_FLAG_JUMP_ROW = 2, SONG_FLAG_SWING = 4 /* v0.7: v2 blocks follow the project swing */, SONG_ROW_FLAG_LOOP_HERE = 1 };

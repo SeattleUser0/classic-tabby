@@ -152,6 +152,8 @@ struct rowinfo {
 static struct trackbuf tbuf[SONG_TRACKS][2];
 static struct rowinfo rowset[2];
 static struct song_record record;
+static struct song_model model;                    /* Task 17 Goal 3: the loaded song's clip table, scenes and master cycle */
+static volatile uint32_t cycle_units = 16 * TIMED_NOTE_UNITS_PER_STEP;   /* the master cycle: launches, stops and scene recalls land on its multiples */
 static unsigned loaded = SONG_NONE, state, last_error; /* state: 0 stopped, 1 playing, 2 stopping */
 static uint8_t payload[SONG_PAYLOAD_MAX];
 /* control -> audio */
@@ -401,7 +403,7 @@ static FM1_AUDIO_CODE unsigned scan(unsigned t, unsigned buf, int32_t from, int3
 /* The next bar for a queue placed before master time m: the first bar at or after m (a
  * window that ended exactly on a bar did not cross it, so the bar belongs to the window that
  * starts there), except at the song start, which is bar 0 itself: there the next bar is bar 1. */
-static FM1_AUDIO_CODE uint32_t next_bar(uint32_t m) { return m ? (m + BAR - 1U) / BAR * BAR : BAR; }
+static FM1_AUDIO_CODE uint32_t next_bar(uint32_t m) { uint32_t c = cycle_units; return m ? (m + c - 1U) / c * c : c; }   /* Task 17: the next master cycle (a bar of 16 steps unless the song says otherwise) */
 /* Does buffer `b` hold what track t should play: row `row`, decoded for `purpose`? */
 static FM1_AUDIO_CODE int holds(const struct trackbuf *b, unsigned row, unsigned purpose)
 { return b->ready && b->row == row && b->purpose == purpose; }
@@ -999,7 +1001,7 @@ static unsigned wanted(unsigned t, unsigned *row, unsigned *purpose)
     if (qk == Q_ATTACH) {
         /* The row the song is in at the next bar: when the current row ends exactly there,
          * the one that follows it (a scene jump's target, or the natural next row). */
-        uint32_t m = master, bar = m ? (m + BAR - 1U) / BAR * BAR : BAR;
+        uint32_t m = master, c = cycle_units, bar = m ? (m + c - 1U) / c * c : c;
         if (!song_over && song_start + song_len == bar) {
             unsigned next = jump_row != SONG_NONE ? jump_row : natural_next(now);
             if (next != SONG_NONE) now = next;
@@ -1106,12 +1108,15 @@ int song_load(unsigned song)
     if (!r) r = song_directory_build(song);
     last_error = r ? (unsigned)r : 0;
     if (r) return r;
+    song_record_expand(&record, &model);   /* Task 17 Goal 3: a version-3 record (scenes) becomes rows; every version gets its clip table */
+    cycle_units = (uint32_t)model.cycle * UNITS;
     loaded = song;
     jump_mode = (record.flags & SONG_FLAG_JUMP_ROW) ? 1U : 0U;
     return 0;
 }
 unsigned song_loaded(void) { return loaded; }
 const struct song_record *song_current(void) { return loaded == SONG_NONE ? NULL : &record; }
+const struct song_model *song_model_current(void) { return loaded == SONG_NONE ? NULL : &model; }
 int song_play(void)
 {
     if (loaded == SONG_NONE) return SONG_EMPTY;

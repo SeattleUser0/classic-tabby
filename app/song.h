@@ -64,6 +64,7 @@ void song_poll(void);                 /* control task: decode ahead, finish stop
 int song_load(unsigned song);         /* read the record and build its directory */
 unsigned song_loaded(void);           /* SONG_NONE when nothing is loaded */
 const struct song_record *song_current(void);
+const struct song_model *song_model_current(void);   /* Task 17 Goal 3: clip table, scene clips, master cycle of the loaded song */
 int song_play(void);                  /* start the loaded song at row 0 */
 void song_stop(void);                 /* release everything, device channels return */
 int song_queue_jump(unsigned row);    /* lands at the next bar / row end */
