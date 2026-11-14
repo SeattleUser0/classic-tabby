@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.72
+Version: 0.73
 Revision log:
+- v0.73, 2026-11-14 (Task 17 Goals 1 and 2): section 37: the suite gate, the tracked note lines, the v3 clip finished
+  (RAM, the 16-bit time fault, fuzz, kind 9), the validation tools, tabby-v04.5.
 - v0.72, 2026-11-14 (Task 17): section 36, tabby-v04.4: options F + G as built, the flash and interrupt evidence, updating with
   CLOCK on MIDI, the "late note" in clock follow, the correction of section 35 (the "no replies" fault was the NUC's tool), the
   device results, the release.
@@ -4876,3 +4878,57 @@ attempt, 10.0 s). On the installed release, 125 s per run: one line 1.82 / 1.80 
 (ACTIONS) ms on DIN / USB; eight lines 2.83 / 2.25, 2.33 / 2.24, 2.40 / 2.20 (worst line); 0 underruns, 0 DMA overruns;
 `run-follow.py --only lock,gap,stop,spp` with A2 off and on: every state as expected; follow band 2.7 ms (A2 on, clean notes);
 `run-remote.py` 27 of 27. The device was left on CLOCK = INT, A2 on, OVERVIEW. Raw files: overnight/g5/final/.
+
+## 37. Task 17 (clips, scenes, clip launching) — Goals 1 and 2: the publish gate, the v04.3 note, tabby-v04.5 (2026-11-14)
+
+### 37.1 The gate and the note line (hard limits 5 and 6, Goal 1)
+
+- **Suite gate.** `make suite DISPLAY_VERSION=<tag>` writes build/suite-gate.json (commit, display version) only when every
+  part passed, HEAD did not move and the tree was clean from start to end. `make publish`, `make release-assets` and
+  tools/linux/publish-pages.py itself (`--commit` / `--push`) refuse any other commit, display version or a tree that is not
+  clean (tools/linux/suite-gate.py; tests/linux/suite-gate-test.py: nine scenarios, the rc4 case among them). DEV_CHECKS 0b.
+- **Second tool before a fault report** is rule 0c of DEV_CHECKS.
+- **The tabby-v04.3 note line** is now "Never released; superseded by tabby-v04.4. (An earlier note called it faulty; that
+  was a measuring error.)". A direct edit and push of the gh-pages checkout was refused by the session's permission
+  system, and the publish script rebuilds that checkout from the remote anyway, so note lines are now kept in
+  tools/linux/builds-notes.json and applied by tools/linux/builds-index.py on every publish: the index entry, the list
+  page, and the text of a page's existing note banner (with its assets.json entry). SPEC 17.11. The correction went out
+  with the tabby-v04.5 publish. The release notes of v04.2, v04.3 and v04.3.1 and SPEC 17.11 / 19.4 no longer call the
+  build faulty.
+
+### 37.2 The v3 clip, finished (Goal 2; branch classic-tabby/clipv3-cursor, merged)
+
+What was built is in docs/CLIP-V3.md sections 4 to 6 and SPEC 19.6. Measured:
+
+| | tabby-v04.4 | tabby-v04.5 |
+| --- | ---: | ---: |
+| app image, bytes (margin below 519457) | 453412 (66045) | 456196 (63261) |
+| runtime heap, bytes (the build's minimum 49152) | 194956 | 166220 |
+| decode buffers (16) with grid and list side by side | | heap 141004 (measured, first build of the branch) |
+| decode buffers as a union of grid and list | | heap 166220 (as released) |
+
+- **RAM.** The first device build of the branch (each buffer holding the 1600-byte grid and a 3088-byte event list) took
+  53952 bytes of heap. The grid and the list are never used together, so the buffer is now a union: 28736 bytes.
+- **A fault found on the way:** `struct clip_v3_event.time` was 16 bits signed, wrong for a clip longer than 68 steps
+  (61200 units at 128 steps). It is 32 bits now (app/clip_v3.h v0.2); the 128-step host test covers it.
+- **Fuzz.** 60000 payloads through the clip module (22102 checks in all) and 1500 through the storage and scheduler,
+  under ASan and UBSan in `make suite`: nothing accepted breaks a rule, the storage takes exactly what the validator
+  accepts, 37 random valid clips play to the end with every note released.
+- **Decision: transfer kind 9.** Option B (kind 6 hands over v2 or refuses) would have made a full backup lose every clip
+  the grid cannot hold. Kind 9 downloads a block as stored, with its format byte; kind 6 is unchanged.
+- **Decision: controllers are an importer option** (`controllers`, the page's box ticked at the start; off in the
+  importer's own defaults so the fixture tests stay comparable), thinned to one value per controller per 1/8 step.
+- **Decision: the default row length stays within 64 steps** when a whole-bar length of at most 64 steps exists, so a plain
+  import still writes v2 blocks that older firmware plays.
+
+### 37.3 Tools for the device validation
+
+- tools/linux/hw/expected-events.mjs: the repository's importer on a MIDI file with given options, as a flat list of
+  note-ons (time from the song start, track, pitch, velocity), clip controller events and the block formats.
+- tools/linux/hw/run-clips.py: remote PLAY, DIN and USB capture until the song ends, then every expected note-on matched
+  per channel, a straight-line fit of measured against expected times (slope = the device's tempo ratio, residuals = timing
+  errors), the clip controller events in order, stuck notes, the audio counters.
+- tools/linux/hw/workbench.mjs v0.6: `song --options JSON` (importer options through the published page).
+- First use, on tabby-v04.4 with a v2 song (offgrid.mid through the main page): 6 of 6 note-ons, worst 0.20 ms,
+  tempo ratio 0.99972 on DIN (the device's audio clock against the nominal 44100).
+

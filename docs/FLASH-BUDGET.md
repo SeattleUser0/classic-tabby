@@ -1,6 +1,6 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.29
+Version: 0.30
 Revision log:
 - v0.28, 2026-11-12: section 22: tabby-v04.3.1 measured, 452036 bytes, margin 67421.
 - v0.27, 2026-11-12 (Task 16 Goal 3): section 21: tabby-v04.3 measured, 451812 bytes, margin 67645.
@@ -1138,4 +1138,15 @@ RAM: 10 bytes of statics (usb_push, two pass counters, ct_flash_busy, the skippe
 
 RAM: `fg_due` 1024 bytes (2 lanes x 128 due times), the batch 180 bytes (3 ports x 60), the cached ACTIONS lines 80 bytes,
 about 90 bytes of F + G state and counters (from the declarations and build/pro/sdk.map: `.bss.fg_due` 0x400).
+
+## 24. tabby-v04.5 (measured, 2026-11-14)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.4 | 453412 | | 66045 |
+| tabby-v04.5: the v3 clip played from its event list (scan_v3, the RAM-code event reader, the header program and bank), rows to 128 steps, transfer kind 9, the Help text | 456196 | +2784 | **63261** |
+
+RAM (firmware-report.json, runtime heap): 194956 bytes in tabby-v04.4, 166220 in tabby-v04.5 (-28736: each of the 16 decode
+buffers grows from the 1600-byte grid to the 3088-byte union of grid and event list, plus 128 bytes of step probabilities and
+the block id; the payload buffer of the control task grows from 1600 to 3088). The build's minimum is 49152.
 
