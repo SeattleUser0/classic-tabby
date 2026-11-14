@@ -1,0 +1,55 @@
+{
+  "build": "0d191b58095bef25721c6e853b7f5a58376545e0146c2e4aaa3b92c113c1052b",
+  "release": "V01",
+  "version": "tabby-v04.7",
+  "entryBytes": 353314,
+  "initialBytes": 1341578,
+  "standaloneBytes": 3051728,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/428f578c7d3faed59f6588cf8263cfa15aa4b87b748c8ded237ac268b23e57e1.bin",
+      "bytes": 500276,
+      "sha256": "428f578c7d3faed59f6588cf8263cfa15aa4b87b748c8ded237ac268b23e57e1"
+    },
+    {
+      "name": "assets/smk37/0d3cff13b67ca139185db0aec2465c11d4a16343ca4680f1eeddf5ff64523585.wasm",
+      "bytes": 311508,
+      "sha256": "0d3cff13b67ca139185db0aec2465c11d4a16343ca4680f1eeddf5ff64523585"
+    },
+    {
+      "name": "assets/smk37/7a684dda9f560d1c24b026922b7bf1746f935530851d5bfeaf7233e3385df940.js",
+      "bytes": 604115,
+      "sha256": "7a684dda9f560d1c24b026922b7bf1746f935530851d5bfeaf7233e3385df940"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 353314,
+      "sha256": "619d94dab2cdbbf883d7f14de5ad31bcbffa6089bfe985b55de0a40f7acdf03b"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 353314,
+      "sha256": "619d94dab2cdbbf883d7f14de5ad31bcbffa6089bfe985b55de0a40f7acdf03b"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3051728,
+      "sha256": "2ee940eb752d7e28e0a1b139c6bfe789a190b359326a0f8f1ae9ef5bce5423fe"
+    }
+  ]
+}
