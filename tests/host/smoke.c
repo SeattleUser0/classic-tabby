@@ -205,7 +205,7 @@ static unsigned drain(struct message *out, unsigned max)
         }
         ++n;
     }
-    return n;
+    return n < max ? n : max;   /* v0.17: never more than were stored (the simulator's capture holds 128 since Task 17; callers index what they got) */
 }
 
 static void dump(const struct message *m, unsigned n)
