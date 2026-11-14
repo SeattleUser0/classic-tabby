@@ -39,9 +39,10 @@ Usage (from the repository root)
     FM1_WASI_SDK=/path/to/wasi-sdk-27.0-x86_64-linux python3 tools/linux/build-web.py --local-preview
     python3 tools/linux/build-web.py --package-json build/pro/web-package.json --source-url https://...
 
-Version: 0.5
+Version: 0.6
 
 Revision log
+    v0.6  2026-11-14  tabby-v04.5.1: web/clip-v3/clip-v3.js is part of the page's import script.
     v0.5  2026-11-08  Classic Tabby Task 12 A1: the default --user-bytes is 471040 (the normal
                       layout); -DCT_USER_BYTES only when the size is not 471040.
     v0.4  2026-11-07  Classic Tabby Task 11: --user-bytes N and --diag, passed by build.py from its
@@ -296,8 +297,11 @@ def build(args, log):
         "/*FM1_GUIDE_TEMPLATE*/": "globalThis.FM1_GUIDE_TEMPLATE = " + json.dumps((ROOT / "docs/MIDI-GUIDE.template.md").read_text(encoding="utf-8")) + ";",
         # Task 02 Step 4: the MIDI importer (web/import/, classic scripts) inlined in load order.
         # Task 05: the timed note module first (the song editor and the importer both use it).
+        # tabby-v04.5.1: the v3 clip module (web/clip-v3/clip-v3.js) after it: song-format.js needs it for every block that
+        # is a v3 clip. tabby-v04.5 shipped without it and its page could not import such a part
+        # (tests/workbench/page-bundle.mjs now loads the same list the way the page does).
         "/*FM1_IMPORT_SCRIPT*/": "\n".join((ROOT / name).read_text(encoding="utf-8")
-                                           for name in ("web/timed-note/timed-note.js", "web/import/midi-parse.js", "web/import/song-format.js", "web/import/midi-song.js", "web/import/song-transfer.js", "web/import/import-ui.js")),
+                                           for name in ("web/timed-note/timed-note.js", "web/clip-v3/clip-v3.js", "web/import/midi-parse.js", "web/import/song-format.js", "web/import/midi-song.js", "web/import/song-transfer.js", "web/import/import-ui.js")),
     }
     for name in ("THIRD_PARTY.md", "LICENSE.md"):
         notice = (ROOT / name).read_text(encoding="utf-8")
