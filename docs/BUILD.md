@@ -1,7 +1,9 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.73
+Version: 0.74
 Revision log:
+- v0.74, 2026-11-14 (Task 17 Goal 3): 37.4 and 37.5 (tabby-v04.5 and its page fault, tabby-v04.5.1 on the device), section 38
+  (tabby-v04.6: scenes).
 - v0.73, 2026-11-14 (Task 17 Goals 1 and 2): section 37: the suite gate, the tracked note lines, the v3 clip finished
   (RAM, the 16-bit time fault, fuzz, kind 9), the validation tools, tabby-v04.5.
 - v0.72, 2026-11-14 (Task 17): section 36, tabby-v04.4: options F + G as built, the flash and interrupt evidence, updating with
@@ -4968,4 +4970,31 @@ Full backup after it and Verify against file through the page: PASS, 32 items (8
 **One fault found, in the importer (not the firmware):** a control change at a row start became a row event and was also
 put into the clip, so it went out twice. Fixed in the importer (the fix ships with tabby-v04.6); tests/midi-import/run.mjs
 checks it. tabby-v04.5.1's page still does it: harmless (the same value twice), listed in its release notes.
+
+## 38. Task 17 Goal 3 — tabby-v04.6: song record version 3, scenes (2026-11-14)
+
+### 38.1 What was built (the format and the behaviour are in docs/SCENES.md; SPEC 19.7)
+
+- Firmware: `scenes_valid`, `song_record_expand` (app/song_storage.c), the song model and the master cycle in app/song.c
+  (`next_bar` uses it), capability flag bit 4, remote ops 9 to 11. The scheduler is untouched: a loaded record of any version
+  is rows to it. Host tests, section 21: the same song as rows and as scenes plays byte-identical MIDI (11 messages, each
+  in the same block); the stored record stays version 3; eight refusals; a launch with a master cycle of 12 steps starts at
+  step 12 (516 blocks after the song's first note; 689 would be 16 steps).
+- Workbench: both record codecs read and write version 3; the song editor's "Stored as" and "Master cycle"; the guard for
+  older firmware; the backup round trip with a scenes song (its clip table, a clip no scene uses) against the firmware in the
+  simulator.
+- Importer: `record: 'scenes'` (clips of up to 8 bars, the cycle = the file's bar, the 64-clips-per-track limit with its
+  message); the row-event controller is no longer repeated in the clip (37.5).
+- Decisions: (1) the firmware converts a version-3 record to rows at load instead of a second scheduler path (one scheduler,
+  identical MIDI, 704 bytes of flash); (2) a version-1 or -2 song gets a clip table made from its rows, so the clip page of
+  Goal 4 needs one model only; (3) the importer's own default stays rows, the page's box asks for scenes, so the existing
+  importer tests keep their meaning; (4) a scene's length stays steps x repeat (the assessment's "LENGTH in master cycles"
+  would have made 3/4 scenes awkward).
+
+### 38.2 Measured
+
+| | tabby-v04.5.1 | tabby-v04.6 |
+| --- | ---: | ---: |
+| app image, bytes (margin) | 456196 (63261) | 456900 (62557) |
+| runtime heap, bytes | 166220 | 161548 |
 

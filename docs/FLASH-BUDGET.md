@@ -1,6 +1,6 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.30
+Version: 0.31
 Revision log:
 - v0.28, 2026-11-12: section 22: tabby-v04.3.1 measured, 452036 bytes, margin 67421.
 - v0.27, 2026-11-12 (Task 16 Goal 3): section 21: tabby-v04.3 measured, 451812 bytes, margin 67645.
@@ -1149,4 +1149,13 @@ about 90 bytes of F + G state and counters (from the declarations and build/pro/
 RAM (firmware-report.json, runtime heap): 194956 bytes in tabby-v04.4, 166220 in tabby-v04.5 (-28736: each of the 16 decode
 buffers grows from the 1600-byte grid to the 3088-byte union of grid and event list, plus 128 bytes of step probabilities and
 the block id; the payload buffer of the control task grows from 1600 to 3088). The build's minimum is 49152.
+
+## 25. tabby-v04.6 (measured, 2026-11-14)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.5.1 | 456196 | | 63261 |
+| tabby-v04.6: song record version 3 (validation, expansion to rows, the clip table), the master cycle, remote ops 9 to 11, the Help text | 456900 | +704 | **62557** |
+
+RAM (runtime heap): 166220 -> 161548 bytes (-4672: the song model, 2125 bytes, and the 2560-byte buffer the expansion uses).
 
