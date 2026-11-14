@@ -25,9 +25,10 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.11
+Version: 0.12
 
 Revision log
+    v0.12 2026-11-14  Task 17 Goal 3: launch(), stop_track(), attach() (remote ops 9 to 11, tabby-v04.6).
     v0.11 2026-11-14  messages(): every kernel timestamp frame is read, not one per wake-up (the rest of a reply used to
                       wait in alsa-lib until more MIDI arrived: the cause of the "no replies with CLOCK = MIDI" of
                       Task 16, BUILD 36.5). Link(timestamps=False) reads without kernel timestamps.
@@ -290,6 +291,16 @@ class Link:
                 "row": d[4], "queued": d[5], "a2": d[6], "shift": d[7], "transport": d[8], "bar": d[9] | d[10] << 8,
                 "action": d[11], "follow": d[12] if len(d) > 12 else 0,
                 "clock": d[13] if len(d) > 13 else None}
+
+    def launch(self, track, row):
+        """v0.12: remote op 9 (tabby-v04.6): launch row `row`'s pattern on track `track` (both 0-based) at the next master cycle."""
+        return self.remote(9, track, row)
+
+    def stop_track(self, track):
+        return self.remote(10, track)
+
+    def attach(self, track=255):
+        return self.remote(11, track)
 
     def show_page(self, name):
         """v0.10: bring the device to a page by remote panel keys: "overview", "steps" (SYNC / MIDI, SEQ) or

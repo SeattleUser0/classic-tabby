@@ -1457,7 +1457,8 @@ int main(void)
         n = RCMD(29, 6, 0, 18, 1); CHECK(n >= 0 && reply[0] == 71, "remote: physical button 18 refused");
         n = RCMD(29, 6, 1, 37, 1); CHECK(n >= 0 && reply[0] == 71, "remote: key 37 refused");
         n = RCMD(29, 6, 9, 0, 1); CHECK(n >= 0 && reply[0] == 71, "remote: kind 9 refused");
-        n = RCMD(29, 9); CHECK(n >= 0 && reply[0] == 71, "remote: unknown operation refused");
+        n = RCMD(29, 12); CHECK(n >= 0 && reply[0] == 71, "remote: unknown operation refused");
+        n = RCMD(29, 9, 0, 0); CHECK(n >= 0 && reply[0] != 0, "remote: a track launch is refused while no song plays (code %u)", reply[0]);
         /* Panel flows, checked against the page the firmware reports. */
         n = RCMD(29, 6, 0, 0, 1); n = RCMD(29, 6, 0, 12, 1);       /* SHIFT + HOME / SRC */
         CHECK(reply[8] == 1, "remote: SHIFT held (%u)", reply[8]);

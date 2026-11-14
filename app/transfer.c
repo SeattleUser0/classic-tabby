@@ -174,6 +174,9 @@ static void put32(uint8_t *p, uint32_t value)
  *                      firmware's SAVE (4th button in the left group): refused (code -7), because the
  *                      button writes flash and it also confirms the ACTIONS erase
  *   {7}                release everything this command holds
+ *   {9, track, row}    Task 17: launch that row's pattern on the track at the next master cycle
+ *   {10, track}        stop the track at the next master cycle
+ *   {11, track}        back to the song at the next master cycle (255: every track)
  * The status is 14 bytes from v0.8: [13] CLOCK (0 INT, 1 MIDI). */
 static uint32_t remote_buttons, remote_pads, remote_at;
 static uint64_t remote_keys;   /* 37 keys: more than 32 bits (cppcheck found the shift by 36 in the first draft) */
@@ -240,6 +243,14 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
         } else if (kind == SMK37_ENCODER && id < 8) smk37_control_event(SMK37_ENCODER, id, v);
         else return GROOVE_PROJECT_INVALID;
     } else if (op == 7 && n == 1) remote_release_all();
+    /* Task 17 Goal 3: the track queues by remote command (they land on the next master cycle, as from the panel):
+     * {9, track, row} launch the track's pattern of that row, {10, track} stop the track, {11, track} bring it back to
+     * the song (track 255: every track). Refused unless a song plays; an empty pattern is refused. */
+    else if (op == 9 && n == 3 && data[1] < SONG_TRACKS) { r = song_track_launch(data[1], data[2]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
+    else if (op == 10 && n == 2 && data[1] < SONG_TRACKS) { r = song_track_stop(data[1]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
+    else if (op == 11 && n == 2 && (data[1] < SONG_TRACKS || data[1] == 255)) {
+        if (data[1] == 255) song_track_attach_all(); else { r = song_track_attach(data[1]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
+    }
     else return GROOVE_PROJECT_INVALID;
     remote_status(out, count);
     return 0;
