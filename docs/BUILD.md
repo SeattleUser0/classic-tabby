@@ -4856,3 +4856,18 @@ lock, HELD after 0.3 s, relock, LOST after 3 s, pulses alone do not restart, Con
 3. The F + G page's timer count was not reset with the other counters on rc2 (fixed in rc3).
 4. Another job compiling on the NUC makes the Python clock master late (up to 43 ms): the follow figures use only notes whose
    last 24 pulses were sent within 0.5 ms of schedule.
+
+### 36.8 The release: tabby-v04.4 (2026-11-14)
+
+Gate: make check, make lint (the same 11 host and 3 target warnings as before), `make suite DISPLAY_VERSION=tabby-v04.4` green at
+7f4221b; `make package`: build id 4b9196357ae5ba07, app image 453412 bytes, margin 66045 (FLASH-BUDGET 23). Four device-test
+builds went before it, each on its own builds/ page (SPEC 17.11): rc1 (F + G, with the later-removed update check and push
+hold), rc2 (those and the USB pusher removed, the painter waits), rc3 (the ACTIONS lines cached), rc4 (one burst per port).
+
+**A breach of the gate, stated plainly:** the suite for rc4 FAILED (the sanitizer step: a 64-entry array in tests/host/smoke.c
+indexed with the count of a drain that now holds up to 128 messages; a fault of the test, not of the firmware), and rc4 was
+published to builds/tabby-v04.4-rc4/ and installed all the same, because the batch script's `set -e` does not act inside an
+`&&` list. The rc1, rc2 and rc3 suites passed before their installs. The test is fixed (drain returns no more than it stored)
+and the tabby-v04.4 suite passed before anything of tabby-v04.4 was published. The firmware sources of rc4 and tabby-v04.4 are
+the same (`git diff tabby-v04.4-rc4 7f4221b -- app web`: empty; only the Help text, the display version and the test differ).
+

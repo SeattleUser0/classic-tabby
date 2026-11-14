@@ -1,6 +1,6 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.28
+Version: 0.29
 Revision log:
 - v0.28, 2026-11-12: section 22: tabby-v04.3.1 measured, 452036 bytes, margin 67421.
 - v0.27, 2026-11-12 (Task 16 Goal 3): section 21: tabby-v04.3 measured, 451812 bytes, margin 67645.
@@ -1128,4 +1128,14 @@ estimated from the declarations, the linker merges them with other globals).
 | tabby-v04.3.1: the USB pusher, the flash guard and its counter, the Help line | 452036 | +224 | **67421** |
 
 RAM: 10 bytes of statics (usb_push, two pass counters, ct_flash_busy, the skipped counter; from the declarations).
+
+## 23. tabby-v04.4 (measured, 2026-11-14)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.3.1 | 452036 | | 67421 |
+| tabby-v04.4: F + G (due times, the TIMER5 handler, the counters page), one burst per port, the painter's wait, the cached ACTIONS lines, clock follow one block ahead, the Help text; the USB pusher removed | 453412 | +1376 | **66045** |
+
+RAM: `fg_due` 1024 bytes (2 lanes x 128 due times), the batch 180 bytes (3 ports x 60), the cached ACTIONS lines 80 bytes,
+about 90 bytes of F + G state and counters (from the declarations and build/pro/sdk.map: `.bss.fg_due` 0x400).
 
