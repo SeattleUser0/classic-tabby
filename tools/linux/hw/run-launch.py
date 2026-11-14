@@ -20,9 +20,12 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-launch.py --song N --out DIR
 
-Version: 0.1
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-14  Presses whose queued state is checked are not made in the last 700 ms before a cycle.
+    v0.2  2026-11-14  The launch loop starts from a stopped track (v0.1 pressed the playing clip half the time); the scene
+                      recall is read after its whole cycle; the scene pad is no longer read after the next scene began.
     v0.1  2026-11-14  First version.
 """
 import argparse
@@ -111,8 +114,23 @@ def main():
         playing = [i for i, x in enumerate(s["pads"]) if x["code"] & 7 == 2]
         check(len(playing) == 1 and s["pads"][playing[0]]["rgb"] in (0x083008, 0x103c10), "one pad of track 1 plays, green", ["%d:%06x" % (x["code"], x["rgb"]) for x in s["pads"][:3]])
         # ---- launches and stops on the master cycle ----
+        # v0.2: track 1 follows the scenes, which alternate its two clips, so "pad 2" is the playing clip in every other
+        # cycle and a press there is a stop, not a launch (v0.1 pressed it blind and failed its own checks). Stop the
+        # track first, early in a cycle, by pressing whichever pad is green; every launch below then starts from a stopped track.
+        while not 300.0 < ((time.monotonic_ns() - t0) / 1e6) % CYCLE_MS < 900.0:
+            idle(0.02)
+        s = l.clips_state()
+        green = [i for i, x in enumerate(s["pads"]) if x["code"] & 7 == 2]
+        l.pad(green[0], hold=0.04) if green else None
+        idle(CYCLE_MS / 1000.0 + 0.3)
+        s = l.clips_state()
+        check(green and all(x["code"] & 7 != 2 for x in s["pads"]), "the playing pad pressed: track 1 is stopped after the cycle", [x["code"] for x in s["pads"][:3]])
         for i in range(a.launches):
             idle(random.uniform(0.3, 2.2))
+            # v0.3: not inside the last 700 ms before a cycle: the queued state and its blink are read after the press, and
+            # a press 22 ms before the cycle (v0.2, once) had landed before they could be seen. The device was right.
+            while ((time.monotonic_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0:
+                idle(0.02)
             tc = time.monotonic_ns()
             l.pad(1, hold=0.04)
             s = l.clips_state()
@@ -136,17 +154,21 @@ def main():
             late = ons(0, notes[0] + int(CYCLE_MS * 1e6) - 20_000_000)
             check(late and all(pitch == 72 for _, pitch in late), "launch %d: the launched clip loops over the scene change" % (i + 1), [pitch for _, pitch in late][:6])
             idle(random.uniform(0.2, 1.5))
+            while ((time.monotonic_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0:
+                idle(0.02)
             tc = time.monotonic_ns()
             l.pad(1, hold=0.04)
             s = l.clips_state()
-            stop_queued = s["pads"][1]["code"] & 7 == 4
+            stop_code = s["pads"][1]["code"]; stop_queued = stop_code & 7 == 4
             ok_blink, seen = blink(1, 0x300808, 0.5) if i == 0 else (True, [])
             cmd_ms = (tc - t0) / 1e6
             boundary = t0 + int((int(cmd_ms // CYCLE_MS) + 1) * CYCLE_MS * 1e6)
             idle(max(0.0, (boundary - time.monotonic_ns()) / 1e9) + CYCLE_MS / 1000.0 + 0.3)
             after = ons(0, boundary + 60_000_000)
             s = l.clips_state()
-            check(stop_queued and not after and s["pads"][1]["code"] == (1 | 8), "stop %d: queued at the press, no note of track 1 after the cycle, pad stopped" % (i + 1),
+            if not stop_queued:
+                print("     (stop %d: the pad read %d right after the press, %.0f ms before the cycle)" % (i + 1, stop_code, (boundary - tc) / 1e6), flush=True)
+            check((stop_queued or (stop_code & 7 == 1 and (boundary - tc) / 1e6 < 120.0)) and not after and s["pads"][1]["code"] == (1 | 8), "stop %d: queued at the press, no note of track 1 after the cycle, pad stopped" % (i + 1),
                   "%d notes after, pad %d" % (len(after), s["pads"][1]["code"]))
             if i == 0:
                 check(ok_blink, "the pad with a stop queued blinks red", seen)
@@ -185,13 +207,13 @@ def main():
         want = [i for i in range(4) if codes[i] == 2][0]        # the scene that plays now: recalled, it plays again instead of its neighbour
         tc = time.monotonic_ns()
         l.pad(want); idle(0.1); q = l.clips_state()["pads"][want]["code"]
-        idle(CYCLE_MS / 1000.0 + 0.4)
         cmd_ms = (tc - t0) / 1e6
         boundary = t0 + int((int(cmd_ms // CYCLE_MS) + 1) * CYCLE_MS * 1e6)
+        idle(max(0.0, (boundary - time.monotonic_ns()) / 1e9) + CYCLE_MS / 1000.0)      # v0.2: until the recalled scene's cycle has ended (v0.1 read it too early)
         got = [pitch for t, pitch in ons(0, boundary - 20_000_000, boundary + int(CYCLE_MS * 1e6) - 40_000_000)]
         expect = [60, 60, 60, 60] if want % 2 == 0 else [72, 72]
         s = l.clips_state()
-        check(q == 3 and s["pads"][want]["code"] == 2 and got[:len(expect)] == expect, "a scene pad recalls its scene at the next cycle (scene %d again)" % (want + 1), "queued %d, now %d, track 1 played %s" % (q, s["pads"][want]["code"], got))
+        check(q == 3 and got[:len(expect)] == expect, "a scene pad recalls its scene at the next cycle (scene %d again)" % (want + 1), "queued %d, now %d, track 1 played %s" % (q, s["pads"][want]["code"], got))
         l.press("BLUETOOTH"); idle(0.3); p1 = l.clips_state()["page_name"]
         l.press("BLUETOOTH"); idle(0.3); p2 = l.clips_state()["page_name"]
         check(p1 == "CLIPS" and p2 == "SONG", "BT from SCENES opens CLIPS; BT again returns", "%s then %s" % (p1, p2))

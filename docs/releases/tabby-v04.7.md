@@ -35,7 +35,15 @@ The CLIPS page: launch and stop clips from the pads, recall scenes, mute; reinst
 
 ## Hardware validation
 
-See the release page's "Hardware validation" text (added after the install) and docs/BUILD.md 39.3.
+Installed on the SMK-37 Pro on 2026-11-14 through the published page (Full backup first; identity checked; one attempt;
+"Firmware ready." after 10.5 s). All tests by remote command and remote panel keys, nobody at the panel (docs/BUILD.md 39.3):
+
+- The CLIPS and SCENES pages: 37 of 37 checks. Every pad colour as in the control map; five launches at random moments,
+  each on the next master cycle within 0.7 ms; five stops; a launch taken back; the long press; mute; ENV; a scene recall
+  from its pad; BT there and back. No stuck note, no audio underrun.
+- Three earlier songs again: every note-on sent (960, 1600 and 16), controller events in order.
+- One line of 960 notes: band 1.67 ms on DIN, 2.00 ms on USB.
+- Full backup and verify after: PASS (10 songs, 28 blocks).
 
 ## Known limits
 

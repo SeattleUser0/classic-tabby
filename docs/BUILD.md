@@ -5073,3 +5073,35 @@ Decisions:
 
 Build id `0d191b58095bef25`. make check, lint, test-fast and midi-import-sim green on the branch before the merge
 (overnight/g6/tf-v047.log); the suite result and the device results are in 39.3.
+
+### 39.3 The suite, the release and the device (2026-11-14)
+
+Suite green on commit 3bb9e3a (the gate's marker), tagged, published (main page and builds/tabby-v04.7/), released. Full
+backup through the tabby-v04.6 page (overnight/backups/before-v04.7.json), one install attempt from the main page: identity
+SMK-37 Pro_8000001, "Firmware ready." after 10.5 s, version tabby-v04.7. Then, all by remote command (overnight/g6/v047.log,
+v047-launch.log):
+
+- The CLIPS and SCENES pages (run-launch.py v0.3, the song of clips-song.mjs imported through the page as scenes; every
+  action a remote panel key, every check the page state of op 12 and the TRS MIDI out): 37 of 37. BT opens the page;
+  SHIFT + pad selects the track; colours empty / stopped / selected / playing / queued (blinking green) / stop queued
+  (blinking red) / muted (orange) as in the control map; five launches at random moments, each first note on the next
+  master cycle (errors -0.30 to +0.66 ms) and looping over the scene change; five stops, no note after the cycle; a
+  queue taken back; the long press; mute (no note of the track for two cycles, back on the beat after); ENV; a scene
+  recall from its pad; BT back; PLAY stops; no stuck note, no underrun.
+- Earlier songs again: timing-1x16 960 of 960 (DIN worst 1.19 ms, USB 1.01), multitrack-64bar 1600 of 1600 (USB 1.53 ms;
+  DIN 7.16 ms, the three-lines-on-one-cable case), tempo-cc-program 16 of 16 with its 10 controller events in order.
+- Master cycle of 12 steps: 6 of 6 launches on the cycle.
+- Timing (run-15.py, song 16, one line, 125 s): band 1.67 ms on DIN, 2.00 ms on USB; F + G latest event 1.63 ms after its
+  due time; no underrun, no DMA overrun.
+- Full backup and verify after: PASS, 41 items (10 songs, 28 blocks).
+
+The page test failed twice before it passed, both times through the script (hard limit 6; the MIDI on the DIN input was
+the second reader each time, and it showed the device doing the right thing):
+
+1. v0.1, 20 of 34: it pressed "pad 2" blind. Track 1 follows scenes that alternate its two clips, so in every other
+   cycle pad 2 is the playing clip and the press correctly queued a stop (the pad blinked red, as the control map says).
+   v0.2 stops the track first and launches from a stopped track. It also read the scene recall before the recalled
+   scene's cycle had ended.
+2. v0.2, 35 of 37: one press fell 22 ms before the cycle; the clip started on that cycle (error -0.09 ms), and the script
+   then looked for a queued, blinking pad. v0.3 makes the presses whose queued state it checks at least 700 ms before a cycle.
+
