@@ -75,6 +75,7 @@ static int ref_warp(int t, unsigned s)
     return pair * 960 + w;
 }
 struct walk { unsigned n, bad; int last_time; const uint8_t *p; unsigned expect_index; unsigned swing; int from, to; };
+static void sink(void *c, const struct clip_v3_event *e, int swung) { (void)c; (void)e; (void)swung; }
 static void on_event(void *c, const struct clip_v3_event *e, int swung)
 {
     struct walk *w = c;
@@ -207,6 +208,62 @@ int main(int argc, char **argv)
         h[1] = 0; h[2] = 0; h[CLIP_V3_HEADER + 2] = 0; h[CLIP_V3_HEADER + 3] = 0x80; h[CLIP_V3_HEADER + 2] = CLIP_V3_CC; h[CLIP_V3_HEADER + 4] = 7; h[CLIP_V3_HEADER + 5] = 100;
         CHECK(clip_v3_validate(h, sizeof h) == 0 && clip_v3_to_v2(h, sizeof h, back, sizeof back) == CLIP_V3_NOT_V2_SHAPED, "a CC event has no v2 form");
         CHECK(clip_v3_anchor(-240) == 0 && clip_v3_anchor(-1) == 0 && clip_v3_anchor(240) == 0 && clip_v3_anchor(241) == 1 && clip_v3_anchor(720) == 1 && clip_v3_anchor(721) == 2, "the anchor rule: halfway belongs to the earlier step");
+    }
+    /* ---- Task 17: fuzz. Random bytes, random headers over random bodies, and valid clips with random damage must
+     * never crash, hang or read outside the payload (the sanitizer run of this file is the proof), and whatever the
+     * validator accepts must be usable: every event inside the clip, in time order, the window walk ends and delivers
+     * each event exactly once, the v2 conversions return a result or a refusal. */
+    {
+        static uint8_t f[CLIP_V3_BYTES_MAX + 64], out2[4096]; static uint8_t cells[64][25];
+        uint32_t seed = 0x1234abcdU; unsigned accepted = 0, refused = 0, bad = 0, walked = 0;
+        #define RND() (seed = seed * 1664525U + 1013904223U, seed >> 8)
+        for (unsigned round = 0; round < 60000; ++round) {
+            unsigned bytes, mode = round % 4;
+            if (mode == 0) {                                   /* pure noise of a random length */
+                bytes = RND() % (CLIP_V3_BYTES_MAX + 40);
+                for (unsigned i = 0; i < bytes; ++i) f[i] = (uint8_t)RND();
+            } else if (mode == 1) {                            /* a plausible header over noise events */
+                unsigned count = RND() % 40; bytes = CLIP_V3_HEADER + 6 * count;
+                memset(f, 0, CLIP_V3_HEADER); f[0] = (uint8_t)(1 + RND() % 128); f[6] = (uint8_t)count;
+                for (unsigned i = CLIP_V3_HEADER; i < bytes; ++i) f[i] = (uint8_t)RND();
+            } else {                                           /* a valid clip built here, then (mode 3) damaged in 1 to 3 bytes */
+                unsigned steps = 1 + RND() % 128, count = RND() % 60, time = 0; bytes = CLIP_V3_HEADER + 6 * count;
+                memset(f, 0, bytes); f[0] = (uint8_t)steps; f[6] = (uint8_t)count;
+                if (RND() & 1) { f[1] |= 1; f[2] = (uint8_t)(RND() & 127); }
+                if (RND() & 1) { f[1] |= 2; f[3] = (uint8_t)(RND() & 127); f[4] = (uint8_t)(RND() & 127); }
+                for (unsigned i = 0; i < count; ++i) {
+                    uint8_t *e = f + CLIP_V3_HEADER + 6 * i;
+                    time += RND() % (steps * 480U / (count + 1U) + 1U);
+                    if (time > steps * 480U) time = steps * 480U;
+                    e[0] = (uint8_t)time; e[1] = (uint8_t)(time >> 8);
+                    if (RND() % 5) { e[2] = (uint8_t)(RND() & 127); e[3] = (uint8_t)(1 + RND() % 127); unsigned len = 1 + RND() % 4000; e[4] = (uint8_t)len; e[5] = (uint8_t)(len >> 8); }
+                    else { static const uint8_t kinds[4] = {CLIP_V3_CC, CLIP_V3_PC, CLIP_V3_BEND, CLIP_V3_PRESSURE}; e[2] = kinds[RND() & 3]; e[3] = 0x80; e[4] = (uint8_t)(RND() & 127); e[5] = (e[2] == CLIP_V3_CC || e[2] == CLIP_V3_BEND) ? (uint8_t)(RND() & 127) : 0; }
+                }
+                if (mode == 3) for (unsigned k = 1 + RND() % 3; k; --k) { unsigned at = RND() % (bytes ? bytes : 1), bit = RND() & 7; f[at] ^= (uint8_t)(1U << bit); }
+            }
+            int v = clip_v3_validate(f, bytes);
+            if (v) { ++refused; continue; }
+            ++accepted;
+            unsigned count = clip_v3_count(f), steps = clip_v3_steps(f); int last = -241;
+            for (unsigned i = 0; i < count; ++i) {
+                struct clip_v3_event e; clip_v3_event(f, i, &e);
+                if (e.time < last || e.time < -240 || e.time > (int)steps * 480 - 240) ++bad;
+                last = e.time;
+            }
+            unsigned cursor = 0, delivered = 0, swing = RND() % 51;
+            for (int from = -240; from < (int)steps * 480 + 480;) {       /* windows of 1 to 28 units, end to end */
+                int to = from + 1 + (int)(RND() % 28);
+                delivered += clip_v3_window(f, &cursor, from, to, swing, sink, NULL); from = to;
+            }
+            if (delivered != count || cursor != count) ++bad;
+            ++walked;
+            int a = clip_v3_to_v2(f, bytes, out2, sizeof out2), b = clip_v3_to_cells(f, bytes, cells);
+            if ((a < 0) != (b != 0)) ++bad;                    /* the two grid conversions agree on what a grid can hold */
+            if (a > 0) { int c = clip_v3_from_v2(out2, (unsigned)a, f, sizeof f, NULL); if (c <= 0) ++bad; }
+        }
+        CHECK(bad == 0, "fuzz: nothing the validator accepts breaks a rule (%u bad)", bad);
+        CHECK(accepted > 8000 && refused > 20000 && walked == accepted, "fuzz: 60000 payloads: %u accepted and walked through the window, %u refused", accepted, refused);
+        #undef RND
     }
     printf(failures ? "%d of %d checks FAILED\n" : "all %d checks passed\n", failures ? failures : checks, checks);
     return failures != 0;

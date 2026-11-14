@@ -155,7 +155,13 @@ async function populate(lib, c) {
   await lib.query(8, [3]);
   await lib.upload(0, 0, project(base, 'UNSAVED', 120));   // an unsaved workspace on top of slot 4
   const blocksA = new Map([[1, W.songPayloadBuild(steps(1))], [2, W.songPayloadBuild(steps(2))], [7, W.songPayloadBuild(steps(3))]]);
-  await lib.songWrite(2, song('FIRST SONG', [[1, 2, 0, 0, 0, 0, 0, 7], [2, 1, 7, 0, 0, 0, 0, 0]]), blocksA);
+  /* Task 17: block 8 is a v3 clip the v2 grid cannot hold (five notes on step 0, a controller event): it must come
+   * back from the device, the backup file, the restore and the verify as the same bytes, marked format 2. */
+  const clip = new Uint8Array(16 + 6 * 6); clip[0] = 64; clip[6] = 6;
+  for (let i = 0; i < 5; i++) clip.set([240, 0, 60 + i, 100, 200, 0], 16 + 6 * i);
+  clip.set([240 + 480 & 255, (240 + 480) >> 8, 1, 0x80, 74, 99], 16 + 30);
+  clip.format = 2; blocksA.set(8, clip);
+  await lib.songWrite(2, song('FIRST SONG', [[1, 2, 8, 0, 0, 0, 0, 7], [2, 1, 7, 0, 0, 0, 0, 0]]), blocksA);
   const blocksB = new Map(Array.from({ length: 12 }, (_, i) => [100 + i, W.songPayloadBuild(steps(10 + i))]));
   await lib.songWrite(9, song('SECOND', [[100, 101, 102, 103, 104, 105, 106, 107], [108, 109, 110, 111, 0, 0, 0, 0]],
     [{ row: 0, type: 0, channel: 4, d0: 12 }, { row: 1, type: 2, channel: 1, d0: 74, d1: 99 }]), blocksB);
@@ -171,8 +177,10 @@ check(dlib.userBytes === 536576 && dlib.songRegion === 462848, 'DIAG simulator: 
 await populate(dlib, diag);
 const before = await dlib.fullBackup(() => {}, { workbench: 'test', rig: { schema: 'tabby-rig/1', name: 'test rig' } });
 const text = JSON.stringify(before);
-check(before.counts.projects === 3 && before.counts.songs === 2 && before.counts.blocks === 15, 'backup holds 3 projects, 2 songs, 15 blocks', JSON.stringify(before.counts));
+check(before.counts.projects === 3 && before.counts.songs === 2 && before.counts.blocks === 16, 'backup holds 3 projects, 2 songs, 16 blocks', JSON.stringify(before.counts));
 check(before.settings.kind8 && before.current_slot === 3, 'backup holds the device settings (kind 8) and current slot 4');
+{ const b8 = before.songs.find(x => x.slot === 2).blocks.find(b => b.id === 8), b1 = before.songs.find(x => x.slot === 2).blocks.find(b => b.id === 1);
+  check(b8 && b8.format === 2 && b8.size === 52 && b1.format === undefined, 'Task 17: the v3 clip is in the backup file as format 2 with its own bytes (a v2 block carries no format)', JSON.stringify({ format: b8 && b8.format, size: b8 && b8.size })); }
 const parsed = W.backupParse(text);
 check(parsed.workspace.length === 4264 && W.crc32(parsed.workspace) !== W.crc32(parsed.projects[3].bytes), 'the unsaved workspace is kept apart from slot 4');
 const diagFlashBefore = flashImage(diag);
@@ -200,7 +208,7 @@ await refused(rebooted.fullRestore(text.slice(0, text.length - 200), () => {}, {
 const flipped = JSON.parse(text); { const b = W.backupParse(text).projects[0].bytes.slice(); b[100] ^= 1; flipped.projects[0].data = Buffer.from(b).toString('base64'); }
 await refused(rebooted.fullRestore(JSON.stringify(flipped), () => {}, { settleMs: 0 }), 'a flipped payload byte is refused', /checksum/);
 await refused(rebooted.fullRestore(JSON.stringify({ ...JSON.parse(text), version: 2 }), () => {}, { settleMs: 0 }), 'an unknown version is refused', /version 2/);
-await refused(rebooted.fullRestore(JSON.stringify({ ...JSON.parse(text), counts: { projects: 3, songs: 2, blocks: 14 } }), () => {}, { settleMs: 0 }), 'mismatched counts are refused', /counts/);
+await refused(rebooted.fullRestore(JSON.stringify({ ...JSON.parse(text), counts: { projects: 3, songs: 2, blocks: 15 } }), () => {}, { settleMs: 0 }), 'mismatched counts are refused', /counts/);
 const noEnd = JSON.parse(text); delete noEnd.end;
 await refused(rebooted.fullRestore(JSON.stringify(noEnd), () => {}, { settleMs: 0 }), 'a file without its end marker is refused', /incomplete/);
 check(diag.sim_flash_revision() === revision, 'no refused file wrote anything (flash revision unchanged)');

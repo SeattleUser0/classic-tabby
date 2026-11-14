@@ -130,6 +130,7 @@ extern uint32_t sim_test_control_requests;
 int ct_diag_read(unsigned request, uint8_t out[64]);
 void ct_fg_tick(void); void ct_fg_test(unsigned on); uint32_t ct_diag_ticks(void);   /* Task 17 */
 void sim_test_pass(void);
+void song_test_cursor(unsigned on);   /* app/song.c, host and simulator: every v3 clip plays from its event list */
 unsigned ct_a2_get(void);
 void sim_control(unsigned kind, unsigned index, int value);
 void sim_release(void);
@@ -1941,8 +1942,7 @@ int main(void)
         CHECK(differ == 0, "v3 plays byte-identical MIDI to v2, each message in the same block (%u of %u differ)", differ, logged[0]);
         /* The scheduler cursor (branch clipv3-cursor): the same v3 song played from its event lists (the test switch
          * sends every v3 clip that way) is byte-identical to the grid, message for message and block for block. */
-        { void song_test_cursor(unsigned on);
-          static struct log_entry clog[4096]; unsigned clogged = 0;
+        { static struct log_entry clog[4096]; unsigned clogged = 0;
           song_test_cursor(1);
           CHECK(sim_song_load(3) == 0, "cursor: the v3 song loaded again");
           { struct message m[64]; (void)drain(m, 64); }
@@ -1977,6 +1977,87 @@ int main(void)
           /* step 12 is 8 steps after step 4: 8 x 480 units at 120 BPM = 1 s = 344.5 blocks */
           CHECK(n76 > n72 && blog[n76].block - blog[n72].block >= 343 && blog[n76].block - blog[n72].block <= 346, "cursor: the note at step 12 is 8 steps after the one at step 4 (%u blocks)", n76 > 0 ? blog[n76].block - blog[n72].block : 0);
           CHECK(stuck(blog, bl) == 0 && at < 8, "cursor: every note gets its note-off; the chord starts with the song"); }
+        /* The clip header's program and bank go out once when the track enters the clip, before its first note; a repeat
+         * of the same clip sends nothing more. */
+        { uint8_t hp[16 + 6]; memset(hp, 0, sizeof hp); hp[0] = 16; hp[1] = 3; hp[2] = 5; hp[3] = 1; hp[4] = 2; hp[6] = 1;
+          hp[16] = 240; hp[18] = 67; hp[19] = 100; hp[20] = 100;
+          memcpy(f, hp, sizeof hp); CHECK(sim_block_write2(2, 11, 2, sizeof hp) == 0, "cursor: a clip with a header program and bank is stored");
+          memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "HEADER PROG ", 12); f[40] = 1; f[48] = 5;
+          f[64] = 11; f[64 + 16] = 3; f[64 + 18] = 16;                                     /* the row plays three times */
+          CHECK(sim_song_record_write(2) == 0 && sim_song_load(2) == 0, "cursor: its song stored and loaded");
+          static struct log_entry hl[256]; unsigned hn = 0;
+          { struct message m[64]; (void)drain(m, 64); }
+          (void)sim_song_play(); (void)play_log(hl, 256, &hn, 6000, -1, 0);
+          int msb = find_log(hl, hn, 0xb4, 0, 1, 0), lsb = find_log(hl, hn, 0xb4, 32, 2, 0), pc = find_log(hl, hn, 0xc4, 5, 0, 0), note = find_log(hl, hn, 0x94, 67, 100, 0);
+          unsigned notes = 0, pcs = 0; for (unsigned i = 0; i < hn; ++i) { if (hl[i].s == 0x94 && hl[i].d2) ++notes; if (hl[i].s == 0xc4) ++pcs; }
+          CHECK(msb >= 0 && lsb == msb + 1 && pc == lsb + 1 && note > pc && hl[note].block == hl[pc].block, "cursor: bank MSB, bank LSB, program, then the first note, in the same block (%d %d %d %d)", msb, lsb, pc, note);
+          CHECK(notes == 3 && pcs == 1, "cursor: three passes of the clip, the program sent once (%u notes, %u program changes)", notes, pcs); }
+        /* A row of 128 steps with a 128-step clip: the note at step 100 plays 100 steps after the first (4306.6 blocks at
+         * 120 BPM), and the song ends after 128 steps. A row of 144 steps is refused. */
+        { uint8_t lc[16 + 12]; memset(lc, 0, sizeof lc); lc[0] = 128; lc[6] = 2;
+          lc[16] = 240; lc[18] = 60; lc[19] = 100; lc[20] = 100;
+          unsigned tm = 100 * 480 + 240; lc[22] = (uint8_t)tm; lc[23] = (uint8_t)(tm >> 8); lc[24] = 62; lc[25] = 100; lc[26] = 100;
+          memcpy(f, lc, sizeof lc); CHECK(sim_block_write2(2, 12, 2, sizeof lc) == 0, "long row: a 128-step clip is stored");
+          memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "LONG ROW    ", 12); f[40] = 1; f[48] = 5;
+          f[64] = 12; f[64 + 16] = 1; f[64 + 18] = 144;
+          CHECK(sim_song_record_write(2) != 0, "long row: a row of 144 steps is refused");
+          f[64 + 18] = 128;
+          CHECK(sim_song_record_write(2) == 0 && sim_song_load(2) == 0, "long row: a row of 128 steps is stored and loads");
+          static struct log_entry ll[64]; unsigned ln = 0;
+          { struct message m[64]; (void)drain(m, 64); }
+          (void)sim_song_play(); unsigned blocks = play_log(ll, 64, &ln, 9000, -1, 0);
+          int n0 = find_log(ll, ln, 0x94, 60, 100, 0), n1 = find_log(ll, ln, 0x94, 62, 100, 0);
+          CHECK(n0 >= 0 && n1 > n0 && ll[n1].block - ll[n0].block >= 4305 && ll[n1].block - ll[n0].block <= 4308, "long row: the note at step 100 plays 100 steps after step 0 (%u blocks)", n1 > 0 ? ll[n1].block - ll[n0].block : 0);
+          CHECK(blocks >= 5510 && blocks <= 5530 && stuck(ll, ln) == 0, "long row: the song ends after 128 steps (%u blocks), nothing stuck", blocks); }
+        /* Transfer kind 9: a block as it is stored, its format byte first; kind 6 still refuses a clip the grid cannot hold. */
+        { uint8_t rp[96]; rc_source = 1; rc_n = 0;
+          int k = rcmd(1, (const uint8_t[]){9, 2, 12, 0}, 4, rp);
+          unsigned size = k == 3 ? rp[1] | (unsigned)rp[2] << 8 : 0;
+          CHECK(k == 3 && rp[0] == 0 && size == 1 + 16 + 12, "kind 9: the download of the 128-step clip begins (%d bytes, size %u)", k, size);
+          k = rcmd(2, (const uint8_t[]){0, 0, 29}, 3, rp);
+          CHECK(k == 30 && rp[0] == 0 && rp[1] == 2 && rp[2] == 128 && rp[8] == 2, "kind 9: format 2, then the clip (128 steps, 2 events)");
+          (void)rcmd(6, NULL, 0, rp);
+          k = rcmd(1, (const uint8_t[]){6, 2, 12, 0}, 4, rp);
+          CHECK(k >= 1 && rp[0] != 0, "kind 6: the same clip is refused as a v2 download (code %u)", rp[0]);
+          (void)rcmd(6, NULL, 0, rp);
+          k = rcmd(27, NULL, 0, rp);
+          CHECK(k >= 4 && (rp[2] & 8), "capability flag bit 3 (v3 clips) is set");
+          rc_source = 0; }
+        /* Fuzz through the scheduler: random valid clips play to the end with every note released; damaged payloads are
+         * stored exactly when the validator accepts them. (The sanitizer run of this file checks the memory.) */
+        { uint32_t seed = 0x51f15eedU; unsigned played = 0, stuck_total = 0, not_ended = 0, mismatch = 0, stored = 0;
+          static uint8_t c[CLIP_V3_BYTES_MAX]; static struct log_entry fl[1024];
+          #define RND() (seed = seed * 1664525U + 1013904223U, seed >> 8)
+          for (unsigned round = 0; round < 1500; ++round) {
+              unsigned steps = 16 * (1 + RND() % 2), count = RND() % 40, time = 0, bytes = 16 + 6 * count;
+              memset(c, 0, bytes); c[0] = (uint8_t)steps; c[6] = (uint8_t)count;
+              if (RND() & 1) { c[1] |= 1; c[2] = (uint8_t)(RND() & 127); }
+              for (unsigned i = 0; i < count; ++i) {
+                  uint8_t *e = c + 16 + 6 * i;
+                  time += RND() % (steps * 480U / (count + 1U) + 1U);
+                  e[0] = (uint8_t)time; e[1] = (uint8_t)(time >> 8);
+                  if (RND() % 5) { e[2] = (uint8_t)(RND() & 127); e[3] = (uint8_t)(1 + RND() % 127); unsigned len = 1 + RND() % 3000; e[4] = (uint8_t)len; e[5] = (uint8_t)(len >> 8); }
+                  else { e[2] = (RND() & 1) ? CLIP_V3_CC : CLIP_V3_BEND; e[3] = 0x80; e[4] = (uint8_t)(RND() & 127); e[5] = (uint8_t)(RND() & 127); }
+              }
+              unsigned play = round < 40;
+              if (!play) for (unsigned k = 1 + RND() % 3; k; --k) { unsigned at = RND() % bytes, bit = RND() & 7; c[at] ^= (uint8_t)(1U << bit); }
+              int valid = clip_v3_validate(c, bytes) == 0;
+              memcpy(f, c, bytes);
+              int w = sim_block_write2(3, 100 + round % 60, 2, bytes);
+              if ((w == 0) != valid) { if (!(valid && w != 0 && round >= 40)) ++mismatch; }   /* a full pool may refuse a valid clip late in the run; never the reverse */
+              if (w == 0) ++stored;
+              if (!play || !valid) continue;
+              memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "FUZZ        ", 12); f[40] = 1; f[48] = 5;
+              f[64] = (uint8_t)(100 + round % 60); f[64 + 16] = 2; f[64 + 18] = (uint8_t)steps;
+              if (sim_song_record_write(3) || sim_song_load(3)) { ++mismatch; continue; }
+              { struct message m[64]; (void)drain(m, 64); }
+              unsigned fn = 0; (void)sim_song_play(); unsigned blocks = play_log(fl, 1024, &fn, 4000, -1, 0);
+              ++played; stuck_total += (unsigned)stuck(fl, fn); if (blocks >= 4000) ++not_ended;
+          }
+          CHECK(played >= 30 && stuck_total == 0 && not_ended == 0, "fuzz: %u random valid clips played twice each from their event lists: every note released, every song ended", played);
+          CHECK(mismatch == 0 && stored > 40, "fuzz: 1500 payloads, most of them damaged: the storage took exactly the valid ones (%u stored, %u mismatches)", stored, mismatch);
+          #undef RND
+          song_test_cursor(0); }
         big[0] = 129; memcpy(f, big, sizeof big); CHECK(sim_block_write2(2, 10, 2, sizeof big) != 0, "v3: 129 steps is refused by the storage");
         sim_midi_drain(0); (void)sim_open(0);
     }

@@ -1,14 +1,14 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 1.4, 2026-11-14. For tabby-v04.4 on the M-VAVE SMK-37 Pro.
+Version 1.5, 2026-11-14. For tabby-v04.5 on the M-VAVE SMK-37 Pro.
 Written for the person who plays and tests the device. No programming needed.
 
-tabby-v04.4 is new firmware. MIDI notes of a song leave the device much
+tabby-v04.5 is new firmware. MIDI notes of a song leave the device much
 at the time they are due, within about 2 ms (timed MIDI, on at power-up),
 and a song can now follow an external MIDI clock. It also has a remote control
 command for the workbench tools, so tests can run without anyone at the panel.
-If an older firmware is on your SMK-37, install tabby-v04.4 to get these. The page also has English-only Help and this guide.
+If an older firmware is on your SMK-37, install tabby-v04.5 to get these. The page also has English-only Help and this guide.
 
 How to read this guide
 ----------------------
@@ -80,6 +80,7 @@ Removed:
 - tabby-v04.1.1: Same firmware as v04.1. English-only workbench, corrected Help, this guide.
 - tabby-v04.3.1: External clock follow in song mode (Start, Stop, Continue, Song Position Pointer, clock loss). (tabby-v04.3 was never released.)
 - tabby-v04.4: Timed MIDI. A song's notes, row events and clock bytes are sent at their due times by a 0.5 ms timer: one line stays within about 1.9 ms and eight lines within about 3 ms on DIN and USB, on every screen page (before: about 5 to 7.5 ms, depending on the page). Earlier notes said the device sent no replies over USB with CLOCK on MIDI: that was a fault of the developer's measuring tool, not of the device; the workbench and Firmware Update work with CLOCK on INT or MIDI on every version.
+- tabby-v04.5: Larger clips. A track's part in a row can now hold any number of notes on a step (it was four), controller, pitch bend and aftertouch events from the MIDI file, a program and bank of its own, and rows can be up to 128 steps (8 bars of 4/4; it was 64). The importer uses the new clip form only where a part needs it. Old songs play as before.
 - tabby-v04.2: Fast MIDI on by default: one line leaves about 3.7 ms after it is due instead of about 12 ms. Remote control over USB for tests. Stale screen texts fixed. The ACTIONS list has a new last entry, A2 FAST MIDI.
 
 
@@ -104,7 +105,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. tabby-v04.4 has new firmware: install it to get timed MIDI and the external clock follow. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. tabby-v04.5 has new firmware: install it to get timed MIDI, the external clock follow and the larger clips. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -320,6 +321,7 @@ The Play & edit tab is a simulator of the device. It runs the same firmware code
 5. Check the resulting song and the list called Dropped or changed.
 6. Choose the Song slot. Click Write song and confirm. The panel shows the plan and the time taken.
 7. If the slot already has a song, the page deletes it first and says so. Click Export .tabby first if you want to keep it.
+8. Chords of more than four notes, controller events and long rows (tabby-v04.5): the importer keeps every note of a chord. With the box "keep controller, pitch bend and aftertouch events in the clips" ticked (it is ticked at the start) it also keeps the mod wheel, sustain pedal, pitch bend and aftertouch of each part, thinned to one value per 1/8 step. Bars per row offers up to 128 steps. A part that needs any of this is stored as a "v3 clip"; the summary says how many. The step editor in Song mode cannot show a v3 clip, but it keeps it when you write or export the song. A song with v3 clips or long rows needs tabby-v04.5 on the SMK-37; the page refuses to write it to older firmware and says why.
 
 The target is chosen in the Song mode group: Device (project library) or Browser simulator. The simulator is safe to try first.
 
@@ -739,25 +741,47 @@ You should hear: every note stops. MIDI Stop is sent once. [not checked in simul
 Result: PASS / FAIL   Notes: ________________________________
 
 
+T49. A chord of more than four notes (tabby-v04.5)
+Set up: a MIDI file with a chord of five or more notes on one track. Gear or a MIDI monitor on that track's channel.
+1. Import the file (5.2). The warnings list says the block is stored as a v3 clip. Nothing says "More than 4 notes ... kept the 4".
+2. Write the song to a slot. Select it on the SONG page and press PLAY.
+You should hear: every note of the chord, together.
+Result: PASS / FAIL   Notes: ________________________________
+
+T50. Controller events from the MIDI file (tabby-v04.5)
+Set up: a MIDI file with a mod wheel or filter sweep (control changes) or pitch bend on a part. Gear that reacts to it.
+1. Import it with the box "keep controller, pitch bend and aftertouch events in the clips" ticked. The summary says how many were kept.
+2. Write the song and play it.
+You should hear: the sweep or bend, in time with the notes. With the box unticked and the song written again, the notes play without it.
+Result: PASS / FAIL   Notes: ________________________________
+
+T51. A row of 8 bars (tabby-v04.5)
+Set up: a MIDI file of at least 8 bars of 4/4 with different notes in bars 5 to 8.
+1. Import it with Bars per row set to 8 bars (128 steps). Write it and play it.
+You should hear: all 8 bars before the row repeats or the next row starts. The SONG page shows the row with 128 steps.
+Result: PASS / FAIL   Notes: ________________________________
+
+
 7. KNOWN LIMITS AND WHAT IS NOT BUILT YET
 =========================================
 
 Do not spend time testing these. They are known.
 
-- MIDI timing: with fast MIDI on, one line leaves about 3.7 ms after it is due (measured, DIN out). Eight lines at the same step leave within about 6.5 ms; most of that is the DIN cable's own byte time, and wiring each line to its own DIN output (the H4MIDI fan-out) removes it. With fast MIDI off the old spread of about 10 to 14 ms comes back.
+- MIDI timing (tabby-v04.4 and later): one line stays within about 2 ms and eight lines within about 3 ms of their times, on DIN and USB. On DIN eight notes at the same step still take 9 ms to pass the cable one after the other.
 - No step editing and no recording on the device. Songs come from the workbench. The metronome and count-in are planned for a later version.
 - External clock in song mode (tabby-v04.3.1): the clock must come over USB or Bluetooth; the TRS jack cannot receive it. Song Position Pointer moves the song through its rows and repeats; a position past the end of a song that does not loop goes to its last step. The song sends no clock of its own while it follows.
 - The TRS jack is output only. A DIN clock cannot come in through it. Use USB or Bluetooth for clock in.
 - The MC-707 workflow is still to come. It is the next big part of the plan.
 - OUT PORT is one setting for all tracks. You cannot send track 1 on the TRS jack and track 2 on USB.
-- A step holds up to 4 notes. A song holds up to 128 rows and 2048 blocks. The device holds 16 songs.
+- A clip holds up to 512 events (notes and controller events together) and up to 128 steps. A song holds up to 128 rows and 2048 blocks. The device holds 16 songs. The step editor in the workbench still shows 64 steps and four notes per step; larger clips come from the importer.
+- A clip's own program change goes out together with its first note. If your gear needs time to change sounds, use a row event with a pre-roll (5.2) instead.
 - Bluetooth MIDI adds delay. Use cables for notes and clock.
 - The factory restore overwrites the last 10 sectors of song storage.
 - Some old screen texts are still wrong in the firmware and will be fixed in a later firmware release:
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.4.
+- The page badge and the boot screen show tabby-v04.5.
 
 
 8. HOW TO REPORT A PROBLEM

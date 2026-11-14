@@ -21,6 +21,7 @@
 // Version: 0.3
 //
 // Revision log
+//   v0.6  2026-11-14  Chapter 00 names tabby-v04.5 (the check now reads the sentence that names the page's version).
 //   v0.5  2026-11-14  Chapter 00 names tabby-v04.4.
 //   v0.4  2026-11-12  Chapter 00 names tabby-v04.3.1.
 //   v0.3  2026-11-12  Chapter 00 names tabby-v04.3.
@@ -87,7 +88,7 @@ if (r.status === 0) {
 const help = readFileSync('sdk/Update.html.in', 'utf8');
 const links = (help.match(/https:\/\/seattleuser0\.github\.io\/classic-tabby\/guide\//g) || []).length;
 check(links >= 2, 'Help links to the guide from the Help heading and from chapter 00', `${links} links`);
-check(/manual-guide-link/.test(help) && /tabby-v04\.3\.1/.test(help), 'chapter 00 names the page version');
+check(/manual-guide-link/.test(help) && /The page you are on is tabby-v04\.5\./.test(help), 'chapter 00 names the page version');
 
 if (failures) { console.log('FAILED'); process.exit(1); }
 console.log('all checks passed');

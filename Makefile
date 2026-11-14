@@ -329,6 +329,11 @@ build/host-san/timed_note: tests/host/timed_note_test.c app/timed_note.c app/tim
 	@mkdir -p build/host-san
 	$(NICE) $(CC) -std=c11 -O1 -g -Wall -Wextra $(SAN_FLAGS) -Iapp app/timed_note.c tests/host/timed_note_test.c -o $@
 
+# Task 17: the v3 clip module's test (with its fuzz section) under ASan + UBSan.
+build/host-san/clip_v3: tests/host/clip_v3_test.c app/clip_v3.c app/clip_v3.h app/timed_note.c app/timed_note.h
+	@mkdir -p build/host-san
+	$(NICE) $(CC) -std=c11 -O1 -g -Wall -Wextra $(SAN_FLAGS) -Iapp app/clip_v3.c app/timed_note.c tests/host/clip_v3_test.c -o $@
+
 # Task 16 Goal 5 (branch mc707-phase2): the v3 clip module against the importer's blocks, C and JS, and the importer's v3 output.
 build/host/clip_v3: tests/host/clip_v3_test.c app/clip_v3.c app/clip_v3.h app/timed_note.c app/timed_note.h
 	@mkdir -p build/host
@@ -355,10 +360,12 @@ host-sanitize:
 	$(LOCKED) host-sanitize-run
 
 host-sanitize-run:
-	$(T) $(MAKE) --no-print-directory -j$(JOBS) build/host-san/smoke build/host-san/timed_note
+	$(T) $(MAKE) --no-print-directory -j$(JOBS) build/host-san/smoke build/host-san/timed_note build/host-san/clip_v3
 	$(T) ./build/host-san/smoke
 	$(T) ./build/host-san/timed_note tests/timed-note/vectors.txt
-	@echo "host-sanitize: smoke and timed_note passed under ASan+UBSan"
+	$(T) $(NODE) tests/clip-v3/dump-v2.mjs
+	$(T) ./build/host-san/clip_v3 build/clip-v3/fixtures-v2.bin build/clip-v3/fixtures-v3-san.bin
+	@echo "host-sanitize: smoke, timed_note and clip_v3 passed under ASan+UBSan"
 
 # Task 03 (f): the workbench's shared song write path (Node, no build needed).
 workbench-test:

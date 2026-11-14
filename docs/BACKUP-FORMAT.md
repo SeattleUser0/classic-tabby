@@ -54,7 +54,7 @@ protocol) of the decoded bytes.
 | `workspace` | entry: the workspace (4264 bytes with tuning; 4064 or 4048 on older firmware) |
 | `projects` | 16 objects in slot order: `{slot, empty: true}`, or `{slot, name, size, crc32, data}`, or `{slot, name, error}` for a slot that would not load (its device error code) |
 | `settings` | `clock` (0 internal, 1 MIDI), `kind8` (entry, 40 bytes, or null), `radio` (`{on, audio, host}` or null) |
-| `songs` | 16 objects in slot order: `{slot, empty: true}` or `{slot, record: entry (4096 bytes), blocks: [{id, size, crc32, data}, ...]}`, blocks sorted by id |
+| `songs` | 16 objects in slot order: `{slot, empty: true}` or `{slot, record: entry (4096 bytes), blocks: [{id, size, crc32, data}, ...]}`, blocks sorted by id. A block that is a v3 clip (tabby-v04.5, docs/CLIP-V3.md) carries `format: 2` and its clip bytes; a block without `format` is a v2 payload. A workbench older than tabby-v04.5 refuses a file with `format: 2` blocks at the restore (the device would refuse the bytes as a v2 block) |
 | `rig` | the browser's "My rig" profile (`tabby-rig/1` JSON, as the rig panel exports it) or null |
 | `not_included` | sentences naming what the file cannot hold (section 5) |
 | `counts` | `projects` (slots with data), `songs`, `blocks` |

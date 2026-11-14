@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.39
+Version: 0.40
 Revision log:
+- v0.40, 2026-11-14 (Task 17 Goal 2): 19.6 tabby-v04.5 (v3 clips, rows to 128 steps, transfer kind 9); 17.11 note lines
+  are tracked in tools/linux/builds-notes.json.
 - v0.39, 2026-11-14 (Task 17): 19.5 tabby-v04.4 (F + G; 19.4 withdrawn).
 - v0.38, 2026-11-12 (Task 16, day 2): 17.11 pushed tags and builds/ pages are never moved or deleted; 19.4 tabby-v04.3.1
   (the USB pusher, the flash guard; tabby-v04.3 marked faulty).
@@ -1514,3 +1516,20 @@ device. The pusher rule is removed in tabby-v04.4; the text stays as the record 
   added to the stream. The `ct_flash_busy` test stays (one load); the SDK masks every interrupt during flash operations anyway
   (BUILD 36.2).
 - Target and result (BUILD 36.6): one line under 2 ms, eight lines under 3 ms per line, DIN and USB, on OVERVIEW, STEPS and ACTIONS.
+
+### 19.6 tabby-v04.5 (2026-11-14): v3 clips play from their event lists; rows to 128 steps
+
+- Block payload format 2 is the v3 clip (docs/CLIP-V3.md): a 16-byte header and up to 512 events of 6 bytes sorted by time
+  (notes with 16-bit length, CC, program, bend, pressure, step modifiers), 1 to 128 steps, an optional program and bank.
+- A v3 clip the v2 grid can hold plays through the grid, byte-identical to v2. Any other plays from its event list (the
+  scheduler cursor, `scan_v3`): a binary search to the block's window, events of one time in list order, controller events
+  on the track's channel without a copy to the internal engine, probability per anchor step from the step modifiers.
+- The clip header's bank and program go out once when a track enters the clip, before its first events.
+- A row is 16 to 128 steps (multiples of 16). The firmware reads v1, v2 and v3 blocks and never rewrites a song.
+- Transfer kind 9 (download only): one block as stored, format byte first. Kind 6 is unchanged (decision B). Capability flag
+  bit 3 announces all of this; the workbench refuses to write v3 clips or long rows to firmware without it.
+- The importer writes a v3 clip only when a block needs one; the full backup, the .tabby file and the song read carry v3
+  clips (the block's `format: 2`).
+- RAM: a decode buffer is the larger of the grid and the event list (3088 bytes): the runtime heap is 166220 bytes against
+  194956 in tabby-v04.4 (measured on the device build; the build's minimum is 49152).
+

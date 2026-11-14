@@ -1,10 +1,10 @@
 # The v3 clip: an event list
 
-Version 0.2 (2026-11-14; first version 2026-11-12, Task 16 Goal 5, MC-707 workflow Phase 2). The block payload that replaces the
+Version 0.3 (2026-11-14; first version 2026-11-12, Task 16 Goal 5, MC-707 workflow Phase 2). The block payload that replaces the
 v2 step grid (docs/TIMED-NOTE.md, TASK-03 9.12) when a clip needs more than 64 steps, more than four
 notes in a step, or controller events. It is built and tested on the host and in the simulator on the
-branch classic-tabby/mc707-phase2; it is **not released and not installed** until the user has read
-docs/CLIP-V3-REVIEW.md (Task 16 hard limit 5). Source: docs/tasks/TASK-10-step1-assessment.md C.3 to C.5.
+branch classic-tabby/mc707-phase2; released in tabby-v04.5 (Task 17 Goal 2; the user's decisions on docs/CLIP-V3-REVIEW.md: the 240 bias, the length clamp, option B
+for kind-6 downloads). Source: docs/tasks/TASK-10-step1-assessment.md C.3 to C.5.
 
 | Piece | File |
 | --- | --- |
@@ -14,6 +14,8 @@ docs/CLIP-V3-REVIEW.md (Task 16 hard limit 5). Source: docs/tasks/TASK-10-step1-
 | Where it is used | block record byte 1 (format) = 2; `song_payload_valid`, `decode_track` (app/song.c) |
 
 Revision log
+- v0.3 2026-11-14: tabby-v04.5: sections 4 to 6 (the cursor complete, header program and bank, rows to 128 steps, kind 9, the
+  workbench and the importer, the tests); the event time is 32 bits in the C module.
 - v0.2 2026-11-14: section 4, the scheduler cursor's first step (branch clipv3-cursor).
 - v0.1 2026-11-12: first version (Task 16 Goal 5).
 
@@ -81,25 +83,53 @@ legal (it plays its length: legato over the loop, as in v2).
 - **v1 -> v2 -> v3**: v1 payloads upgrade to v2 first (`song_payload_upgrade`), then to v3.
 - Songs are never rewritten by the firmware: a v2 song stays v2 until the workbench writes it again.
 
-## 4. Playing it
+## 4. Playing it (tabby-v04.5)
 
-Two paths in `app/song.c` (branch classic-tabby/clipv3-cursor, 2026-11-14; host and simulator only, not released):
+Two paths in `app/song.c`:
 
 - A v3 clip that is v2-representable is decoded into the step grid (`clip_v3_to_cells`) and the grid scheduler plays it,
   byte-identical to the same notes stored as v2.
-- A clip the grid cannot hold (more than four notes in a step, controller events, more than 64 steps) is kept as its event
-  list in the track's decode buffer and played from it: **the scheduler cursor**, `scan_v3`. For each window `[from, to)` of
-  the block it finds the first event that can be due (a binary search: the list is sorted and a swung time lies within
-  `[time, time + 240]`), walks to the first event at or after `to`, and makes one action per due event; no empty step is
-  visited. Events of one time keep their list order (a controller before the note listed after it). Notes go through the
-  same `note_on` as grid notes (legato, retrigger, the sounding table, the note-off). CC, program, bend and pressure events
-  go out on the track's output channel with the track's song owner, by the track's SEQ mode, with no copy to the internal
-  engine. Probability is rolled per anchor step and pass from the step-modifier events (a table per buffer, built at decode).
-  The look-ahead into the next frame (events before the frame start) and the late check at a frame's entry have a v3 form.
-- Test switch (host and simulator): `song_test_cursor(1)` sends every v3 clip through the cursor. tests/host/smoke.c section
-  20: the comparison song is byte-identical through the grid and through the cursor (47 messages, each in the same block).
+- A clip the grid cannot hold (more than four notes in a step, controller events, a header program or bank, more than 64
+  steps) is kept as its event list in the track's decode buffer (the buffer is a union of the grid and the list) and played
+  from it: **the scheduler cursor**, `scan_v3`. For each window `[from, to)` of the block it finds the first event that can be
+  due (a binary search: the list is sorted and a swung time lies within `[time, time + 240]`), walks to the first event at or
+  after `to`, and makes one action per due event; no empty step is visited. Events of one time keep their list order (a
+  controller before the note listed after it). Notes go through the same `note_on` as grid notes (legato, retrigger, the
+  sounding table, the note-off). CC, program, bend and pressure events go out on the track's output channel with the track's
+  song owner, by the track's SEQ mode, with no copy to the internal engine. Probability is rolled per anchor step and pass
+  from the step-modifier events (a table per buffer, built at decode). The look-ahead into the next frame (events before the
+  frame start) and the late check at a frame's entry have a v3 form. The event reader the audio interrupt uses is RAM code.
+- **The clip header's program and bank** go out when a track enters the clip: bank select MSB (CC 0) and LSB (CC 32), then the
+  program change, on the track's channel, before the clip's first events and in the same audio block. A repeat of the same clip
+  sends nothing. (A synth that needs time to change sounds wants a row event with a pre-roll instead.)
+- **Rows are 16 to 128 steps** (multiples of 16; song record validation, `SONG_ROW_STEPS_MAX`). A v2 block in a row of more
+  than 64 steps is silent past step 64. An event at or past its row's end is not played.
+- Test switch (host and simulator): `song_test_cursor(1)` sends every v3 clip through the cursor.
 
-Not done yet (see docs/CLIP-V3-REVIEW.md, "the cursor: state"): rows are still at most 64 steps (song record v3), so the part
-of a clip past its row's end is not played; the clip header's program and bank are not sent; the stored tuning bit is not
-applied on the cursor path; RAM on the device (+3.2 KB per decode buffer, 16 buffers) is not measured and the device build
-is not made; `clip_v3_event` and `clip_v3_anchor` are flash code called from the audio interrupt on this path.
+## 5. Transfers, the workbench and the importer (tabby-v04.5)
+
+- Capability: command 27 flag bit 3 = v3 clips (format-2 blocks play whole, kind 9, rows to 128 steps).
+- Upload: kind-7 batches carry block records with format byte 2. Kind 6 (one v2 block) is unchanged.
+- Download: kind 6 hands a v2-shaped v3 clip over as v2 and refuses the others (decision "option B", unchanged). **Kind 9**
+  (new, download only) hands any block over as it is stored, its format in front (byte 0: 0 v1, 1 v2, 2 v3). The workbench
+  uses kind 9 for the song read, the full backup and the .tabby export, so a v3 clip is never lost.
+- The workbench marks a v3 payload with `.format = 2`; batches, .tabby files (block record byte 1 = 2) and the full backup
+  (`format: 2` per block, docs/BACKUP-FORMAT.md) carry the mark. Writing a song with v3 clips or rows of more than 64 steps
+  to firmware without flag bit 3 is refused with the reason, before anything is sent.
+- The importer (web/import/midi-song.js `clipFormat: 'auto'`, the default) writes a block as a v3 clip only when the v2 grid
+  cannot hold it: more than four notes on a step (all are kept; the "kept the 4 loudest" rule is `clipFormat: 'v2'`), notes
+  past step 63 (rows of 80 to 128 steps), or controller events. Controller, pitch bend and channel pressure events are kept
+  with `controllers: true` (the import page's box, ticked at the start): on the track of their part, thinned to one value per
+  controller per 1/8 step, dropped for a clip that would pass 512 events. Everything else stays v2.
+- The step editor shows clips of up to 64 steps and four notes per step; a v3 clip is kept as it is.
+
+## 6. Tests
+
+`make clip-v3-test`: tests/host/clip_v3_test.c (22102 checks: random round trips, the 550 fixture blocks, the window against
+a reference, the rejection cases, and a fuzz of 60000 random, plausible and damaged payloads through the validator, the
+window and the conversions), tests/clip-v3/run.mjs (the JavaScript twin), tests/clip-v3/importer.mjs. tests/host/smoke.c
+section 20: grid against cursor byte-identical; five-note chord and controller; header program and bank once; a 128-step
+row; kind 9; a fuzz of random valid clips through the scheduler and 1500 damaged payloads against the storage. The clip
+test and the smoke test also run under ASan and UBSan (`make host-sanitize`, part of `make suite`). tests/midi-import/run.mjs
+section 5b (the importer's v3 rule), tests/workbench/backup.mjs (a v3 clip through backup, wipe, restore, verify against the
+firmware in the simulator). On the device: tools/linux/hw/run-clips.py (docs/BUILD.md 37).
