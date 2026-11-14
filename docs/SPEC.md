@@ -1348,9 +1348,10 @@ then.
 
 A tag that has been pushed is never moved and never deleted, and a `builds/<tag>/` page that has been published is never
 replaced or removed: a build that was installed on a device needs its page as the recovery path. A fix gets a new tag
-(tabby-v04.3 was faulty, the fix is tabby-v04.3.1). The only change allowed to a published builds/ page or its entry in
-`builds/index.json` is a warning line the user asks for (as on builds/tabby-v04.3/). A pre-release for a device test gets
-its own tag and page (`-rcN`).
+(the case that set this rule: tabby-v04.3 was thought faulty and tabby-v04.3.1 followed; the fault turned out to be a measuring error, 19.5). The only change allowed to a published builds/ page or its entry in
+`builds/index.json` is a note line the user asks for (as on builds/tabby-v04.3/). Note lines are kept in
+tools/linux/builds-notes.json and applied by tools/linux/builds-index.py on every publish (Task 17), never by hand in the
+gh-pages checkout. A pre-release for a device test gets its own tag and page (`-rcN`).
 
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
@@ -1484,7 +1485,7 @@ sequencer does not see the clock messages while a song is armed or following.
   hold, relock, LOST, pulses alone, Continue, Stop, SPP stopped and running, Start from the middle, song end arms
   again, PLAY leaves follow); tools/linux/hw/run-follow.py drives the device (BUILD.md 33).
 
-### 19.4 tabby-v04.3.1 (2026-11-12): replies over USB with CLOCK = MIDI; tabby-v04.3 is faulty
+### 19.4 tabby-v04.3.1 (2026-11-12): replies over USB with CLOCK = MIDI (withdrawn: 19.5)
 
 **Withdrawn 2026-11-14 (19.5, BUILD 36.5):** the finding below was a fault of the measuring tool on the NUC, not of the
 device. The pusher rule is removed in tabby-v04.4; the text stays as the record of what tabby-v04.3.1 contains.

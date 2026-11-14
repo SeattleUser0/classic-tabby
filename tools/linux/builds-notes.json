@@ -1,0 +1,9 @@
+{
+  "comment": "The note line of a published build: shown in builds/index.json, builds/index.html and (when the page already has a note banner) at the top of builds/<tag>/. tools/linux/builds-index.py applies it on every index rewrite. Changing a note line is the only change allowed to a published builds/ page (SPEC 17.11).",
+  "notes": {
+    "tabby-v04.3": {
+      "text": "Never released; superseded by tabby-v04.4. (An earlier note called it faulty; that was a measuring error.)",
+      "link": "tabby-v04.4"
+    }
+  }
+}

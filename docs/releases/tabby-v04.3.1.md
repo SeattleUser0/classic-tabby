@@ -6,8 +6,8 @@ Song mode follows an external MIDI clock, and the workbench works with CLOCK on 
   firmware details). App image 452036 bytes (measured), margin 67421 bytes below the 519457-byte limit
   (docs/FLASH-BUDGET.md 22). From tabby-v04.2 (`b926f5556483ee65`): +2336 bytes.
 - Installing over tabby-v04.2 keeps storage as it is (USER 471040, no move). Take a Full backup first anyway.
-- **tabby-v04.3 was never released and is faulty: do not install it.** Its tag and its page builds/tabby-v04.3/ stay only
-  as the recovery path for a device that has it.
+- tabby-v04.3 was never released (it was wrongly called faulty; see the correction below). Its tag and its page
+  builds/tabby-v04.3/ stay.
 
 **Correction, 2026-11-14 (docs/BUILD.md 36.5):** the fault described here did not exist in the device. The NUC's measuring tool (tools/linux/hw/tabby_link.py before v0.11) read one 16-byte piece of a reply per wake-up and left the rest in the ALSA library until more MIDI arrived; with CLOCK on MIDI no clock bytes arrived, so the tool saw no reply. A browser always got every reply. The 0xF9 bytes this release adds after a USB write are removed again in tabby-v04.4. tabby-v04.3 was therefore not faulty either.
 
