@@ -1,0 +1,55 @@
+{
+  "build": "2c81da0e1d33ee5b4048265ed8e88edab8b8e5a9223b08e03d6d355d1d4e44ae",
+  "release": "V01",
+  "version": "tabby-v04.4-rc3",
+  "entryBytes": 347215,
+  "initialBytes": 1285653,
+  "standaloneBytes": 2980592,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/aacbca6cc8e41e0b9497614e1c49a0a4033d122dd830423aed7d2eab18803557.bin",
+      "bytes": 492084,
+      "sha256": "aacbca6cc8e41e0b9497614e1c49a0a4033d122dd830423aed7d2eab18803557"
+    },
+    {
+      "name": "assets/smk37/8db4f21c68ea62a261c4fd3468ea4bc09078bb77afa489f6fe392b3fc3f2e684.wasm",
+      "bytes": 298647,
+      "sha256": "8db4f21c68ea62a261c4fd3468ea4bc09078bb77afa489f6fe392b3fc3f2e684"
+    },
+    {
+      "name": "assets/smk37/a6b035efb66de9cc40dca8937f0811a3dcc58c8adea5a1431ce1144fc226bd99.js",
+      "bytes": 567150,
+      "sha256": "a6b035efb66de9cc40dca8937f0811a3dcc58c8adea5a1431ce1144fc226bd99"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 347215,
+      "sha256": "2726b24850b1dec0ca52cb44ce72ca93e8078c853f34370fdd5f4440fa37c844"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 347215,
+      "sha256": "2726b24850b1dec0ca52cb44ce72ca93e8078c853f34370fdd5f4440fa37c844"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 2980592,
+      "sha256": "78e2288cfb86570b921e5ea2e78282f5c28625a3bd2f32a2db031908aaa3c23d"
+    }
+  ]
+}
