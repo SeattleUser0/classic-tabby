@@ -27,8 +27,7 @@ Usage (browser closed)
 Version: 0.2
 
 Revision log
-    v0.2  2026-11-14  The DIN tolerance allows for the cable's serial time of notes due together; row-event controllers
-                      are expected too (expected-events.mjs v0.2).
+    v0.2  2026-11-14  The DIN tolerance allows for the cable's serial time of notes due together.
     v0.1  2026-11-14  Task 17: first version.
 """
 import argparse

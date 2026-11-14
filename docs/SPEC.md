@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.40
+Version: 0.41
 Revision log:
+- v0.41, 2026-11-14 (Task 17 Goal 3): 19.7 tabby-v04.6 (song record version 3, scenes, the master cycle).
 - v0.40, 2026-11-14 (Task 17 Goal 2): 19.6 tabby-v04.5 (v3 clips, rows to 128 steps, transfer kind 9); 17.11 note lines
   are tracked in tools/linux/builds-notes.json.
 - v0.39, 2026-11-14 (Task 17): 19.5 tabby-v04.4 (F + G; 19.4 withdrawn).
@@ -1532,4 +1533,15 @@ device. The pusher rule is removed in tabby-v04.4; the text stays as the record 
   clips (the block's `format: 2`).
 - RAM: a decode buffer is the larger of the grid and the event list (3088 bytes): the runtime heap is 166220 bytes against
   194956 in tabby-v04.4 (measured on the device build; the build's minimum is 49152).
+
+### 19.7 tabby-v04.6 (2026-11-14): song record version 3, scenes
+
+- docs/SCENES.md is the format and the behaviour. In short: a clip table of 8 x 64 block ids and up to 128 scenes of
+  {a place per track, repeat, loop here, steps}, a master cycle of 2 to 128 steps in header byte 43, the version-2 event table.
+- The firmware reads versions 1, 2 and 3, rewrites none, and expands every loaded record into rows (the scheduler) and a clip
+  table (the clip launcher). A version-3 song plays byte-identical MIDI to the same song as rows.
+- Launch quantize is the master cycle (16 steps for versions 1 and 2).
+- Capability flag bit 4; remote ops 9, 10, 11 (track launch, stop, back to song).
+- The workbench writes scenes when the song says so and the device has flag bit 4; the importer's scenes form makes clips of
+  up to 8 bars and sets the cycle to the file's bar.
 
