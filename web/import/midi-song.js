@@ -511,7 +511,8 @@
     song.outChannels = Array.from({ length: 8 }, (_, t) => { const c = (options.outChannels || [])[t]; return c === null ? null : Number.isInteger(c) && c >= 0 && c <= 15 ? c : rig ? partChannel[t] : null; });
     song.rows = rows; song.blocks = blocks; song.events = events;
     if (recordForm === 'scenes') {
-      song.recordVersion = 3; song.cycleSteps = barSteps >= 2 && barSteps <= 128 ? barSteps : 16;
+      song.recordVersion = 3; song.cycleSteps = Number.isInteger(options.cycleSteps) ? options.cycleSteps : barSteps >= 2 && barSteps <= 128 ? barSteps : 16;   /* the bar, unless options.cycleSteps (2..128) says otherwise */
+      if (song.cycleSteps < 2 || song.cycleSteps > 128) fail('the master cycle must be 2..128 steps', 'options');
       let table; try { table = F.clipTable(song); } catch (e) { fail(e.message + '. Narrow the bar range, choose longer rows or turn on loose block matching.', 'clips'); }
       song.clips = table;
       w.add('scenes', 'info', 'Written as scenes: ' + rows.length + ' scene(s), up to ' + Math.max(...table.map(l => l.length)) + ' clip(s) on a track, master cycle ' + song.cycleSteps + ' steps (the device needs tabby-v04.6 or later)');
