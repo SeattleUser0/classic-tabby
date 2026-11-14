@@ -43,6 +43,10 @@ On one SMK-37 Pro, from the NUC, nobody at the panel (docs/BUILD.md 36.6), 125 s
 trips it about once a second, as before). Clock follow: every state passes with A2 off and on. Remote checks 27 of 27.
 Updates through the published pages with CLOCK on INT and on MIDI: 10 to 12 s each.
 
+The released build itself, installed from the main page with CLOCK on MIDI (10.0 s, one attempt, Full backup before and
+after equal but for the CLOCK setting): one line 1.63 to 1.82 ms, eight lines 2.20 to 2.83 ms per line on the three pages, DIN
+and USB; 0 underruns, 0 DMA overruns; clock follow passes every state with A2 off and on; remote checks 27 of 27.
+
 
 ## Known limits
 

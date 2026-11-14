@@ -4761,7 +4761,7 @@ tabby-v04.3.1 files plus the Help text). Measured, through the published pages, 
 | rc1 to rc2 | INT | 11.7 s |
 | rc2 (no pusher) to rc3 | MIDI | 10.0 s, CLOCK still MIDI after; before it, a Full backup through the page with CLOCK on MIDI |
 | rc3 to rc4 | INT | 9.9 s |
-| rc4 to tabby-v04.4 | MIDI | see 36.8 |
+| rc4 to tabby-v04.4 (the main page) | MIDI | 10.0 s, CLOCK still MIDI after; Full backup before and after through the page, equal but for the CLOCK setting |
 
 In the page itself (tools/linux/hw/workbench.mjs v0.5, command `replies`): with CLOCK on MIDI on rc2, eight single update-protocol
 queries (identity and version, no retry) each got their own reply in 2 to 7 ms.
@@ -4871,3 +4871,8 @@ published to builds/tabby-v04.4-rc4/ and installed all the same, because the bat
 and the tabby-v04.4 suite passed before anything of tabby-v04.4 was published. The firmware sources of rc4 and tabby-v04.4 are
 the same (`git diff tabby-v04.4-rc4 7f4221b -- app web`: empty; only the Help text, the display version and the test differ).
 
+Published: the main page, builds/tabby-v04.4/, the GitHub release. Installed from the main page with CLOCK on MIDI (one
+attempt, 10.0 s). On the installed release, 125 s per run: one line 1.82 / 1.80 (OVERVIEW), 1.74 / 1.78 (STEPS), 1.69 / 1.63
+(ACTIONS) ms on DIN / USB; eight lines 2.83 / 2.25, 2.33 / 2.24, 2.40 / 2.20 (worst line); 0 underruns, 0 DMA overruns;
+`run-follow.py --only lock,gap,stop,spp` with A2 off and on: every state as expected; follow band 2.7 ms (A2 on, clean notes);
+`run-remote.py` 27 of 27. The device was left on CLOCK = INT, A2 on, OVERVIEW. Raw files: overnight/g5/final/.
