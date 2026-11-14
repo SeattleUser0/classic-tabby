@@ -107,6 +107,7 @@
       projectSlot: h('select', {}, ...Array.from({ length: 16 }, (_, i) => option(i, 'project ' + (i + 1)))),
       loop: h('input', { type: 'checkbox' }),
       loose: h('input', { type: 'checkbox' }),
+      scenes: h('input', { type: 'checkbox', checked: true }),   /* Task 17 Goal 3: write the song as scenes with clips (song record version 3, tabby-v04.6) */
       controllers: h('input', { type: 'checkbox', checked: true }),   /* Task 17: controller, bend and aftertouch events into the clips (v3) */
       tolerance: h('input', { type: 'number', min: 0, max: 126, step: 1, value: 8 }),
       status: h('p', { class: 'ti-status', role: 'status' }),
@@ -150,6 +151,7 @@
           h('label', {}, 'Song name ', ui.name), h('label', {}, 'Project slot ', ui.projectSlot),
           h('label', {}, ui.loop, ' loop the whole song'),
           h('label', {}, ui.loose, ' loose block matching, velocity tolerance ±', ui.tolerance),
+          h('label', {}, ui.scenes, ' write the song as scenes and clips (up to 8 bars per clip, 64 clips per track; tabby-v04.6 or later). Unticked: rows, as before'),
           h('label', {}, ui.controllers, ' keep controller, pitch bend and aftertouch events in the clips (v3 clips, tabby-v04.5 or later)')),
         h('p', { class: 'ti-muted' }, 'Timing is kept exactly (1/480 of a 16th step; 96, 120, 192, 240, 384, 480, 960 and 1920 PPQ are exact, others round and are reported): each note belongs to the nearest step and keeps its offset and length. Quantize is off unless chosen. The first tempo of the file becomes the song tempo. Loose matching shares a block when the notes are the same and only velocities differ, within the tolerance; the first block\'s velocities are kept and every merge is listed below.')),
       h('section', { class: 'ti-step' }, h('h3', {}, '4. Resulting song'), ui.status, ui.stats,
@@ -197,7 +199,7 @@
           h('td', {}, part.programs.length ? part.programs.map(x => x + 1).join(', ') : '—'), h('td', {}, sel));
       }));
       ui.barFrom.max = ui.barTo.max = a.totalBars; ui.barFrom.value = 1; ui.barTo.value = a.totalBars;
-      ui.rowSteps.replaceChildren(...a.rowSteps.candidates.map(c => option(c.steps, c.bars + (c.bars === 1 ? ' bar' : ' bars') + ' (' + c.steps + ' steps)' + (a.rowSteps.aligned ? '' : ', not on bar lines'), c.steps === a.rowSteps.default)));
+      ui.rowSteps.replaceChildren(...a.rowSteps.candidates.map(c => option(c.steps, c.bars + (c.bars === 1 ? ' bar' : ' bars') + ' (' + c.steps + ' steps)' + (a.rowSteps.aligned ? '' : ', not on bar lines'), c.steps === (ui.scenes.checked ? a.rowSteps.scenesDefault : a.rowSteps.default))));
     }
 
     const D_isEffect = pd => pd.kind === 'effect';
@@ -225,7 +227,7 @@
         const options = { fileName: state.fileName, assignments: state.assignments, outChannels: state.outChannels.map(c => c === undefined ? undefined : c), rig: activeRig(), library,
           barFrom: Number(ui.barFrom.value) || 1, barTo: Number(ui.barTo.value) || state.analysis.totalBars, rowSteps: Number(ui.rowSteps.value) || undefined,
           quantize: ui.quantize.value, lengthRule: ui.lengthRule.value, overflowRule: ui.overflowRule.value, name: ui.name.value, projectSlot: Number(ui.projectSlot.value), loop: ui.loop.checked, preRoll: ui.preRoll.value,
-          controllers: ui.controllers.checked, looseDedup: ui.loose.checked, velocityTolerance: Math.max(0, Math.min(126, Math.round(Number(ui.tolerance.value) || 0))) };
+          record: ui.scenes.checked ? 'scenes' : 'rows', controllers: ui.controllers.checked, looseDedup: ui.loose.checked, velocityTolerance: Math.max(0, Math.min(126, Math.round(Number(ui.tolerance.value) || 0))) };
         state.result = Song.convert(state.analysis, options); state.song = state.result.song;
         showSong(state.result, state.song);
         say('Converted. Nothing is written until step 6.');
@@ -235,7 +237,7 @@
       }
       enable();
     }
-    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.quantize, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop, ui.loose, ui.controllers, ui.tolerance, ui.preRoll]) el.addEventListener('change', reconvert);
+    for (const el of [ui.barFrom, ui.barTo, ui.rowSteps, ui.quantize, ui.lengthRule, ui.overflowRule, ui.projectSlot, ui.loop, ui.loose, ui.scenes, ui.controllers, ui.tolerance, ui.preRoll]) el.addEventListener('change', reconvert);
     ui.name.addEventListener('input', () => { if (state.song) { state.song.name = Format.padName(ui.name.value); showSong(state.result, state.song); } });
 
     ui.file.addEventListener('change', async () => {

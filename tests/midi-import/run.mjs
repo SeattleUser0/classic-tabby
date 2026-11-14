@@ -199,6 +199,28 @@ const produced = [];
   void SMF;
 }
 
+// ---- 5c. Task 17 Goal 3 (tabby-v04.6): the song as scenes with a clip table per track --------------------------------
+{
+  const rows = importFile('multitrack-64bar.mid'), sc = importFile('multitrack-64bar.mid', { record: 'scenes' });
+  check(rows.song.recordVersion === undefined && rows.song.rows[0].steps === 64, 'scenes: the default is still rows of 4 bars (the import page asks for scenes)');
+  check(sc.song.recordVersion === 3 && sc.song.cycleSteps === 16 && sc.song.rows.every(r => r.steps === 128) && warning(sc, 'scenes'), 'scenes: written as scenes of 8 bars, master cycle one bar (16 steps)', sc.song.rows.map(r => r.steps).join(','));
+  check(sc.song.clips.length === 8 && sc.song.clips.every(l => l.length <= 64) && sc.song.rows.every(r => r.blocks.every((id, t) => !id || sc.song.clips[t].includes(id))), 'scenes: every clip a scene uses has a place in its track\'s table (at most 64 per track)', sc.song.clips.map(l => l.length).join(','));
+  const playing = x => x.song.rows.reduce((sum, row) => sum + row.repeat * row.blocks.reduce((k, id) => k + (id ? x.song.blocks.find(b => b.id === id).notes.filter(n => n.step < row.steps).length : 0), 0), 0);
+  check(playing(sc) === playing(rows) && playing(sc) === sc.stats.notesOut, 'scenes: the same notes play as in the rows form (' + playing(sc) + ')', playing(rows));
+  const rec = Format.encodeRecord(sc.song), back = Format.decodeRecord(rec);
+  check(rec[20] === 3 && back.recordVersion === 3 && back.cycleSteps === 16 && same(back.rows.map(r => r.blocks.join('.') + '/' + r.steps + '/' + r.repeat), sc.song.rows.map(r => r.blocks.join('.') + '/' + r.steps + '/' + r.repeat)) && same(back.clips.map(l => l.join('.')), sc.song.clips.map(l => l.join('.'))),
+    'scenes: the version-3 record reads back with the same scenes and clip table');
+  const file = Format.decodeFile(Format.encodeFile(sc.song));
+  check(file.recordVersion === 3 && file.blocks.length === sc.song.blocks.length, 'scenes: the .tabby file carries the version-3 record and its blocks');
+  const waltz = importFile('waltz-3-4.mid', { record: 'scenes' });
+  check(waltz.song.cycleSteps === 12 && waltz.song.rows[0].steps === 96, 'scenes: a 3/4 file gets a master cycle of 12 steps and scenes of 8 bars (96 steps)', waltz.song.cycleSteps + ' / ' + waltz.song.rows[0].steps);
+  const many = Format.emptySong('MANY'); many.recordVersion = 3;
+  many.blocks = Array.from({ length: 65 }, (_, i) => ({ id: i + 1, notes: [{ step: 0, pitch: 40 + (i % 60), velocity: 1 + i, offset: 0, length: 240, retrigger: false }] }));
+  many.rows = many.blocks.map(b => ({ blocks: [b.id, 0, 0, 0, 0, 0, 0, 0], repeat: 1, loopHere: false, steps: 16 }));
+  check(!Format.validate(many).ok && /64 clips/.test(Format.validate(many).errors[0]), 'scenes: 65 different clips on one track are refused with the reason', Format.validate(many).errors[0]);
+  many.rows.pop(); check(Format.validate(many).warnings.length >= 1 && Format.validate(many).ok, 'scenes: 64 clips on one track are accepted');
+}
+
 // ---- 6. off-grid: exact by default (Task 05), quantize as an option -----------------------
 {
   const e = fx['offgrid.mid'].expect, parsed = Midi.parse(fx['offgrid.mid'].bytes), src = parsed.tracks[0].notes;   /* 480 PPQ: 4 units a tick */

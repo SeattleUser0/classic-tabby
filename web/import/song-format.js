@@ -88,6 +88,7 @@
     recordArea: 4076, blockSectors: 80, poolBytes: 80 * 4076,   /* 326080: Task 12 A1, the 471040 layout (96 = 391296 in the old one) */
     recordBytes: 4096, rowBytes: 20, rowsOffset: 64, bodyEnd: 2624, channelsOffset: 48, headerBytes: 64, blockHeaderBytes: 6,
     eventsOffset: 2624, eventsStart: 2632, eventBytes: 5, eventsMax: 292, rowEventsMax: 32, recordV2End: 4092,   /* 9.11 v0.6 */
+    clipsPerTrack: 64, clipsOffset: 64, scenesOffset: 1088, sceneBytes: 12,   /* Task 17 Goal 3: song record version 3 */
     rowStepsAllowed: [16, 32, 48, 64, 80, 96, 112, 128],   // Task 17 (tabby-v04.5): rows of up to 128 steps
     magicRecord: 0x47314d46, /* FM1G */ magicBlocks: 0x42314d46, /* FM1B */
     version: 1,
@@ -264,7 +265,8 @@
     v.setUint32(8, target >>> 0, true);
     v.setUint32(16, 0, true);                           /* commit = complete */
     const events = (song.events || []).slice().sort((a, b) => a.row - b.row);
-    v.setUint32(20, events.length ? 2 : LIMITS.version, true);   /* 9.11: version 2 carries events */
+    const scenes = song.recordVersion === 3;            /* Task 17 Goal 3 (tabby-v04.6): rows as scenes with a clip table */
+    v.setUint32(20, scenes ? 3 : events.length ? 2 : LIMITS.version, true);   /* 9.11: version 2 carries events */
     const name = padName(song.name);
     for (let i = 0; i < LIMITS.nameLength; i++) r[24 + i] = name.charCodeAt(i);
     r[36] = song.projectSlot;
@@ -275,27 +277,50 @@
     r[42] = song.loopRow;
     /* v0.3: per-track output channel bytes, 0 = device setting, 1..16 = MIDI channel. */
     for (let t = 0; t < 8; t++) r[LIMITS.channelsOffset + t] = song.outChannels[t] === null ? 0 : song.outChannels[t] + 1;
-    song.rows.forEach((row, i) => {
+    if (scenes) {
+      /* Version 3: the clip table at 64 (8 tracks x 64 places, a block id each), the scenes at 1088 (12 bytes: a clip
+       * place + 1 per track, repeat, flags, steps, 0), the master cycle in byte 43 (0 = 16 steps). */
+      r[43] = (song.cycleSteps || 16) === 16 ? 0 : song.cycleSteps;
+      const clips = clipTable(song);
+      song.rows.forEach((row, i) => {
+        const at = LIMITS.scenesOffset + i * LIMITS.sceneBytes;
+        for (let t = 0; t < 8; t++) r[at + t] = row.blocks[t] ? clips[t].indexOf(row.blocks[t]) + 1 : 0;
+        r[at + 8] = row.repeat; r[at + 9] = row.loopHere ? 1 : 0; r[at + 10] = row.steps; r[at + 11] = 0;
+      });
+      clips.forEach((list, t) => list.forEach((id, c) => v.setUint16(LIMITS.clipsOffset + t * 128 + c * 2, id, true)));
+    } else song.rows.forEach((row, i) => {
       const at = LIMITS.rowsOffset + i * LIMITS.rowBytes;
       for (let t = 0; t < 8; t++) v.setUint16(at + 2 * t, row.blocks[t], true);   /* v0.4: 16-bit ids */
       r[at + 16] = row.repeat; r[at + 17] = row.loopHere ? 1 : 0;
       r[at + 18] = row.steps;                           /* step length, written explicitly */
       r[at + 19] = 0;
     });
-    if (events.length) {
+    if (events.length || scenes) {
       v.setUint16(LIMITS.eventsOffset, events.length, true); r[LIMITS.eventsOffset + 2] = 1; r[LIMITS.eventsOffset + 3] = 0; v.setUint32(LIMITS.eventsOffset + 4, 0, true);
       events.forEach((e, i) => { const at = LIMITS.eventsStart + i * LIMITS.eventBytes; r[at] = e.row; r[at + 1] = (e.channel & 15) | (e.type << 4); r[at + 2] = e.d0 | 0; r[at + 3] = e.d1 | 0; r[at + 4] = e.d2 | 0; });
     }
-    v.setUint32(12, crc32(r.subarray(20, events.length ? LIMITS.recordV2End : LIMITS.bodyEnd)), true);
+    v.setUint32(12, crc32(r.subarray(20, events.length || scenes ? LIMITS.recordV2End : LIMITS.bodyEnd)), true);
     return r;
+  }
+  /* The clip table of a song with scenes: per track, the places the song already names (song.clips, 0 = empty), then
+   * every block a scene uses that has no place yet, in scene order. At most 64 per track. */
+  function clipTable(song) {
+    const clips = Array.from({ length: 8 }, (_, t) => ((song.clips || [])[t] || []).slice(0, LIMITS.clipsPerTrack));
+    for (const row of song.rows) row.blocks.forEach((id, t) => {
+      if (!id || clips[t].includes(id)) return;
+      let free = clips[t].indexOf(0); if (free < 0) free = clips[t].length;
+      if (free >= LIMITS.clipsPerTrack) fail('track ' + (t + 1) + ' needs more than 64 clips; a song with scenes holds 64 per track');
+      clips[t][free] = id;
+    });
+    return clips;
   }
   function decodeRecord(r) {
     if (!(r instanceof Uint8Array) || r.length !== LIMITS.recordBytes) fail('song record must be 4096 bytes');
     const v = new DataView(r.buffer, r.byteOffset, r.byteLength);
     if (v.getUint32(0, true) !== LIMITS.magicRecord) fail('song record magic is not FM1G');
     const version = v.getUint32(20, true);
-    if (version !== 1 && version !== 2) fail('song record version ' + version + ' unsupported');
-    if (v.getUint32(12, true) !== crc32(r.subarray(20, version === 2 ? LIMITS.recordV2End : LIMITS.bodyEnd))) fail('song record CRC mismatch');
+    if (version < 1 || version > 3) fail('song record version ' + version + ' unsupported');
+    if (v.getUint32(12, true) !== crc32(r.subarray(20, version >= 2 ? LIMITS.recordV2End : LIMITS.bodyEnd))) fail('song record CRC mismatch');
     const song = emptySong('');
     song.name = String.fromCharCode(...r.subarray(24, 36));
     if (r[37] & ~7) fail('song record flags byte ' + r[37] + ' invalid');
@@ -307,6 +332,19 @@
       return c ? c - 1 : null;
     });
     const rowCount = r[40];
+    if (version === 3) {
+      song.recordVersion = 3; song.cycleSteps = r[43] || 16;
+      if (song.cycleSteps < 2 || song.cycleSteps > 128) fail('song record master cycle ' + r[43] + ' invalid');
+      song.clips = Array.from({ length: 8 }, (_, t) => Array.from({ length: LIMITS.clipsPerTrack }, (_, c) => v.getUint16(LIMITS.clipsOffset + t * 128 + c * 2, true)));
+      for (let i = 0; i < rowCount; i++) {
+        const at = LIMITS.scenesOffset + i * LIMITS.sceneBytes, steps = r[at + 10];
+        if (!LIMITS.rowStepsAllowed.includes(steps) || r[at + 8] < 1 || r[at + 8] > 64 || (r[at + 9] & ~1) || r[at + 11]) fail('song record scene ' + (i + 1) + ' invalid');
+        const blocks = Array.from({ length: 8 }, (_, t) => { const place = r[at + t]; if (place > LIMITS.clipsPerTrack || (place && !song.clips[t][place - 1])) fail('song record scene ' + (i + 1) + ' names a clip that does not exist'); return place ? song.clips[t][place - 1] : 0; });
+        song.rows.push({ blocks, repeat: r[at + 8], loopHere: !!(r[at + 9] & 1), steps });
+      }
+      for (let i = LIMITS.scenesOffset + rowCount * LIMITS.sceneBytes; i < LIMITS.bodyEnd; i++) if (r[i]) fail('song record bytes after the last scene are not 0');
+      for (const list of song.clips) while (list.length && !list[list.length - 1]) list.pop();
+    } else
     for (let i = 0; i < rowCount; i++) {
       const at = LIMITS.rowsOffset + i * LIMITS.rowBytes;
       const steps = r[at + 18] || 64;                     /* 0 reads as 64 (section 9.5) */
@@ -314,7 +352,7 @@
       song.rows.push({ blocks: Array.from({ length: 8 }, (_, t) => v.getUint16(at + 2 * t, true)), repeat: r[at + 16], loopHere: !!(r[at + 17] & 1), steps });
     }
     song.events = [];
-    if (version === 2) {                                /* 9.11: the event table, validated as the device does */
+    if (version >= 2) {                                 /* 9.11: the event table, validated as the device does (version 3 carries the same table) */
       const n = v.getUint16(LIMITS.eventsOffset, true);
       if (n > LIMITS.eventsMax || r[LIMITS.eventsOffset + 2] !== 1 || r[LIMITS.eventsOffset + 3] !== 0 || v.getUint32(LIMITS.eventsOffset + 4, true) !== 0) fail('song record event table header invalid');
       for (let i = 0; i < n; i++) { const at = LIMITS.eventsStart + i * LIMITS.eventBytes; song.events.push({ row: r[at], channel: r[at + 1] & 15, type: r[at + 1] >> 4, d0: r[at + 2], d1: r[at + 3], d2: r[at + 4] }); }
@@ -419,6 +457,9 @@
     });
     for (const id of ids.keys()) if (!used.has(id)) warn('block ' + id + ' is stored but no row uses it');
     validateEvents(song.events || [], (song.rows || []).length).forEach(err);   /* 9.11 */
+    if (song.recordVersion !== undefined && song.recordVersion !== 3) err('record version must be 3 (scenes) or left out');
+    if (song.cycleSteps !== undefined && !(Number.isInteger(song.cycleSteps) && song.cycleSteps >= 2 && song.cycleSteps <= 128)) err('the master cycle must be 2..128 steps');
+    if (song.recordVersion === 3 && !errors.length) { try { clipTable(song); } catch (e) { err(e.message); } }
     const u = errors.length ? null : usage(song);
     if (u && u.recordBytes > LIMITS.poolBytes) err('blocks need ' + u.recordBytes + ' bytes, the pool holds ' + LIMITS.poolBytes);
     if (!Array.isArray(song.outChannels) || song.outChannels.length !== 8 || song.outChannels.some(c => c !== null && !(Number.isInteger(c) && c >= 0 && c <= 15))) err('outChannels must be 8 entries of null or 0..15');
@@ -498,7 +539,7 @@
   function quantize(song, mode, rule) { return song.blocks.reduce((n, b) => n + quantizeNotes(b.notes, mode, rule), 0); }
 
   const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, blockKeyOf, needsV3, payloadOf, structuralKey, encodeBlockRecord, validateEvents,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, version: '0.6' };
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.7' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();

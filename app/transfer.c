@@ -4,6 +4,7 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.10 2026-11-14  Task 17 Goal 3: capability flag bit 4 (song record version 3).
  *   v0.9  2026-11-14  Task 17: transfer kind 9 (one block as stored, with its format byte; download only); capability
  *                     flag bit 3 (v3 clips).
  *   v0.8  2026-11-13  Task 17: the remote status carries CLOCK (byte 13); command 25 takes request 10 (the F + G page).
@@ -42,7 +43,7 @@
 #include "diag.h"   /* Classic Tabby Task 11: kind 8 and command 25 (every build since Task 12 A4) */
 /* Task 12: command 27 feature flags (bit 0: flash writes refused while the transport runs, A3;
  * bit 1: command 28 ERASE OLD DATA, A1). */
-#define CT_CAPABILITY_FLAGS 15U  /* v0.6: bit 2 = command 29, remote control (Task 16); v0.9: bit 3 = v3 clips (block format 2 plays whole, kind 9 raw block download, rows of up to 128 steps; Task 17) */
+#define CT_CAPABILITY_FLAGS 31U  /* v0.6: bit 2 = command 29, remote control (Task 16); v0.9: bit 3 = v3 clips (block format 2 plays whole, kind 9 raw block download, rows of up to 128 steps; Task 17); v0.10: bit 4 = song record version 3 (scenes, Task 17 Goal 3) */
 /* Task 12 A3: the transfer kinds whose upload writes flash: 5 song record (and delete), 6 block,
  * 7 block batch, 8 device settings. Kinds 0-3 (workspace, FM patch, timbre, tuned workspace) only
  * change RAM; the project reaches flash through command 7, which project.c refuses while playing. */

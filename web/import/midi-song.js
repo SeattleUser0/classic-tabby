@@ -110,12 +110,15 @@
   function rowStepsFor(barSteps) {
     const allowed = format().LIMITS.rowStepsAllowed;
     const candidates = allowed.filter(n => barSteps > 0 && n % barSteps === 0).map(n => ({ steps: n, bars: n / barSteps }));
-    if (!candidates.length) return { candidates: [{ steps: 64, bars: 64 / barSteps }], default: 64, aligned: false };
+    if (!candidates.length) return { candidates: [{ steps: 64, bars: 64 / barSteps }], default: 64, scenesDefault: 64, aligned: false };
     /* Task 17: rows of 80 to 128 steps exist (v3 clips, tabby-v04.5); the default stays within 64 steps when a whole-bar
      * length of at most 64 steps exists, so a plain import still writes v2 blocks. */
     const short = candidates.filter(c => c.steps <= 64), pool = short.length ? short : candidates;
     const best = pool.slice().sort((a, b) => Math.abs(a.bars - 4) - Math.abs(b.bars - 4) || b.bars - a.bars)[0];
-    return { candidates, default: best.steps, aligned: true };
+    /* Task 17 Goal 3: a song written as scenes groups its parts into clips of up to 8 bars: the longest whole-bar length
+     * of at most 8 bars (128 steps at most). */
+    const long = candidates.filter(c => c.bars <= 8).sort((a, b) => b.steps - a.steps)[0] || best;
+    return { candidates, default: best.steps, scenesDefault: long.steps, aligned: true };
   }
 
   /* ---- stage 1: analyze --------------------------------------------------------------- */
@@ -239,7 +242,7 @@
     const barSteps = analysis.barSteps, w = new Warnings();
     const barFrom = Math.max(1, Math.floor(options.barFrom || 1));
     const barTo = Math.min(Math.max(barFrom, Math.floor(options.barTo || analysis.totalBars)), 100000);
-    const rowSteps = options.rowSteps || analysis.rowSteps.default;
+    const rowSteps = options.rowSteps || (options.record === 'scenes' ? analysis.rowSteps.scenesDefault : analysis.rowSteps.default);
     if (!L.rowStepsAllowed.includes(rowSteps)) fail('row length must be a multiple of 16 steps from 16 to 128', 'options');
     /* Task 17 (tabby-v04.5): 'auto' writes a block as a v3 clip when the v2 grid cannot hold it (more than four notes
      * on a step, a row of more than 64 steps, controller events with options.controllers), and v2 otherwise; 'v2'
@@ -248,6 +251,10 @@
     if (!['auto', 'v2'].includes(clipFormat)) fail('unknown clip format ' + clipFormat, 'options');
     if (clipFormat === 'v2' && rowSteps > L.steps) fail('rows of more than 64 steps need v3 clips', 'options');
     const keepControllers = clipFormat === 'auto' && !!options.controllers;
+    /* Task 17 Goal 3 (tabby-v04.6): record 'scenes' writes the song as scenes with a clip table per track (song record
+     * version 3) and the bar as the master cycle; 'rows' (the default here; the import page asks for scenes) writes rows. */
+    const recordForm = options.record || 'rows';
+    if (!['rows', 'scenes'].includes(recordForm)) fail('unknown record form ' + recordForm, 'options');
     const lengthRule = options.lengthRule || 'nearest', overflowRule = options.overflowRule || 'loudest';
     const quantize = options.quantize || 'off';                   /* Task 05: 'off' (exact), 'starts', 'startsEnds' */
     if (!['off', 'starts', 'startsEnds'].includes(quantize)) fail('unknown quantize mode ' + quantize, 'options');
@@ -500,9 +507,15 @@
     for (const u of usedParts) if (partChannel[u.track] === null) partChannel[u.track] = u.part.channel;
     song.outChannels = Array.from({ length: 8 }, (_, t) => { const c = (options.outChannels || [])[t]; return c === null ? null : Number.isInteger(c) && c >= 0 && c <= 15 ? c : rig ? partChannel[t] : null; });
     song.rows = rows; song.blocks = blocks; song.events = events;
+    if (recordForm === 'scenes') {
+      song.recordVersion = 3; song.cycleSteps = barSteps >= 2 && barSteps <= 128 ? barSteps : 16;
+      let table; try { table = F.clipTable(song); } catch (e) { fail(e.message + '. Narrow the bar range, choose longer rows or turn on loose block matching.', 'clips'); }
+      song.clips = table;
+      w.add('scenes', 'info', 'Written as scenes: ' + rows.length + ' scene(s), up to ' + Math.max(...table.map(l => l.length)) + ' clip(s) on a track, master cycle ' + song.cycleSteps + ' steps (the device needs tabby-v04.6 or later)');
+    }
     song.source = { fileName: options.fileName || '', format: analysis.format, division: analysis.division, tempoExact: analysis.tempo.exact,
       meter: analysis.meter.numerator + '/' + analysis.meter.denominator, barSteps, barFrom, barTo, rowSteps, quantize, lengthRule, overflowRule, exactPpq: analysis.exactPpq,
-      looseDedup: loose, velocityTolerance: loose ? tolerance : null, preRoll: options.preRoll || 'beat', clipFormat, controllers: keepControllers,
+      looseDedup: loose, velocityTolerance: loose ? tolerance : null, preRoll: options.preRoll || 'beat', clipFormat, controllers: keepControllers, record: recordForm,
       parts: usedParts.map(u => ({ key: u.part.key, name: u.part.name, track: u.track + 1, channel: u.part.channel + 1, rigDevice: (partDevice(u.part, rig, library).device || {}).name || null })),
       rig: rig ? rig.name : null };
     const usage = F.usage(song);
@@ -517,7 +530,7 @@
     return result;
   }
 
-  const TabbyMidiSong = { analyze, convert, defaultAssignments, partDevice, rowStepsFor, position, where, nearest, version: '0.7' };
+  const TabbyMidiSong = { analyze, convert, defaultAssignments, partDevice, rowStepsFor, position, where, nearest, version: '0.8' };
   globalThis.TabbyMidiSong = TabbyMidiSong;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyMidiSong;
 })();

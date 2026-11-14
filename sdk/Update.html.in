@@ -304,7 +304,10 @@ main{max-width:1440px}
 <div id="song-old-data" class="library-message" role="alert" hidden><p>Song storage holds OLD DATA: flash that is not in the song format (left by V01, V16, the storage move or an interrupted write). Songs cannot be written or played until it is erased. Projects, tunings and device settings are not touched. If you have not made a Full backup yet, make one first.</p><button id="song-erase-old">Erase old data…</button></div>
 <div id="song-editor" hidden>
 <div class="field-row"><label>Name <input id="song-name" type="text" maxlength="12"></label><label>Project slot <select id="song-project"></select></label>
-<label>BPM (0 = project tempo) <input id="song-tempo" type="number" min="0" max="300" step="1"></label></div>
+<label>BPM (0 = project tempo) <input id="song-tempo" type="number" min="0" max="300" step="1"></label>
+<label>Stored as <select id="song-form"><option value="3">scenes and clips (tabby-v04.6 or later)</option><option value="2">rows (any firmware)</option></select></label>
+<label>Master cycle, steps <input id="song-cycle" type="number" min="2" max="128" step="1" value="16"></label></div>
+<p class="sim-help">Scenes and clips: each row is a scene; every block a track uses is a clip of that track (64 per track). Launches, stops and scene recalls on the device land on the next multiple of the master cycle (16 steps = one bar of 4/4). A song stored as rows always uses a cycle of 16 steps.</p>
 <div class="field-row"><label><input id="song-loop" type="checkbox"> Loop the song</label><label><input id="song-swing" type="checkbox"> Swing follows the project setting</label><label>Loop start row <input id="song-loop-row" type="number" min="1" max="128" step="1"></label>
 <label>Jumps land at <select id="song-jump"><option value="0">Next bar</option><option value="1">End of row</option></select></label></div>
 <label>Output channels (per track, 0 = device setting)</label><div id="song-channels" class="sim-file-row"></div>
@@ -1351,6 +1354,7 @@ main{max-width:1440px}
     const s=songEd.song;$('song-editor').hidden=!s;if(!s)return;
     $('song-name').value=s.name;$('song-project').value=String(s.project);$('song-tempo').value=String(s.tempo);$('song-loop').checked=s.loop;
     $('song-loop-row').value=String(s.loopRow+1);$('song-jump').value=s.jumpRow?'1':'0';$('song-swing').checked=!!s.swing;
+    $('song-form').value=s.version===3?'3':'2';$('song-cycle').value=String(s.cycle||16);
     for(const i of $('song-channels').querySelectorAll('input'))i.value=String(s.channel[Number(i.dataset.songChannel)]);
     songRowsRender();songBlockList();
     if(rigUI)rigUI.setSong(s);
@@ -1359,6 +1363,7 @@ main{max-width:1440px}
     const s=songEd.song;if(!s)throw Error('Read or create a song first');
     s.name=$('song-name').value;s.project=Number($('song-project').value);s.tempo=Number($('song-tempo').value)||0;s.loop=$('song-loop').checked;
     s.loopRow=Number($('song-loop-row').value)-1;s.jumpRow=$('song-jump').value==='1';s.swing=$('song-swing').checked;
+    if($('song-form').value==='3'){s.version=3;s.cycle=Number($('song-cycle').value)||16;}else{delete s.version;delete s.cycle;delete s.clips;}   /* Task 17 Goal 3: scenes (record version 3) or rows */
     for(const i of $('song-channels').querySelectorAll('input'))s.channel[Number(i.dataset.songChannel)]=Number(i.value)||0;
     for(const i of $('song-rows').querySelectorAll('input')){const row=s.rows[Number(i.dataset.songRow)],f=i.dataset.songField;
       if(f==='loop')row.loopHere=i.checked;else if(f==='repeat')row.repeat=Number(i.value);else if(f==='steps')row.steps=Number(i.value);else row.block[Number(f.slice(1))]=Number(i.value)||0;}
@@ -1369,7 +1374,8 @@ main{max-width:1440px}
   }
   const songAct=fn=>async()=>{try{await fn();}catch(error){songMessage(error.message);}};
   $('song-target').addEventListener('change',()=>{songEd.song=null;songEd.blocks=new Map();songRender();songMessage('');});
-  $('song-new').addEventListener('click',songAct(async()=>{songEd.song=FM1Web.songEmpty();songEd.blocks=new Map();songRender();songMessage('New empty song: fill in rows and blocks, then click Write song.');}));
+  $('song-new').addEventListener('click',songAct(async()=>{songEd.song=FM1Web.songEmpty();if(!library||(library.tabbyFlags&16)){songEd.song.version=3;songEd.song.cycle=16;}   /* Task 17 Goal 3: a new song is scenes when the device can take them */
+    songEd.blocks=new Map();songRender();songMessage('New empty song: fill in rows and blocks, then click Write song.');}));
   $('song-read').addEventListener('click',songAct(async()=>{
     const slot=Number($('song-slot').value),got=await songBackend().read(slot);
     if(!got){songEd.song=null;songEd.blocks=new Map();songRender();songMessage('This song slot is empty.');return;}

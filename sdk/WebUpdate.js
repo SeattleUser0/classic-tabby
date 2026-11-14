@@ -993,7 +993,8 @@
       check(this.songStorage,'Update the firmware to use song mode');check(this.timedNotes,'The device firmware does not accept timed-note blocks; update the firmware first');
       // Task 17: v3 clips (more than four notes on a step, controller events, clips past step 64) and rows of more than
       // 64 steps need firmware that plays them (capability flag bit 3, tabby-v04.5).
-      const parsedRows=songRecordParse(record).rows;
+      const parsedSong=songRecordParse(record),parsedRows=parsedSong.rows;
+      check(parsedSong.version!==3||(this.tabbyFlags&16),'This song is stored as scenes (song record version 3). The device firmware must be tabby-v04.6 or later; nothing was written.');   // Task 17 Goal 3
       if(!(this.tabbyFlags&8)){
         check(![...blocks.values()].some(b=>b.format===2),'This song has v3 clips (more than four notes on a step, controller events or clips longer than 64 steps). The device firmware must be tabby-v04.5 or later; nothing was written.');
         check(!parsedRows.some(r=>r.steps>64),'This song has rows longer than 64 steps. The device firmware must be tabby-v04.5 or later; nothing was written.');
@@ -1114,17 +1115,30 @@
   // Parse a 4096-byte record image into an editable object (CRC checked, ranges checked).
   function songRecordParse(bytes){
     check(bytes instanceof Uint8Array&&bytes.length===SONG_RECORD&&u32(bytes,0)===SONG_MAGIC,'Not a song record');
-    const version=u32(bytes,20);check(version===1||version===2,'Unsupported song record version');
-    check(u32(bytes,12)===crc32(bytes.subarray(20,version===2?SONG_V2_END:SONG_BODY)),'Song record checksum failed');   // (Task 04) CRC range by version
+    const version=u32(bytes,20);check(version>=1&&version<=3,'Unsupported song record version');   // Task 17 Goal 3: version 3 = scenes and a clip table
+    check(u32(bytes,12)===crc32(bytes.subarray(20,version>=2?SONG_V2_END:SONG_BODY)),'Song record checksum failed');   // (Task 04) CRC range by version
     const rows=bytes[40];check(rows>=1&&rows<=128&&bytes[42]<rows&&bytes[36]<16&&!(bytes[37]&~7),'Invalid song record field');   // Task 05: flags bit 2 = swing
     check(u16(bytes,38)===0||(u16(bytes,38)>=30&&u16(bytes,38)<=300),'Song tempo must be 0 or 30–300');   // (f): as the device checks
     const song={name:String.fromCharCode(...bytes.subarray(24,36)).replace(/\s+$/,''),project:bytes[36],loop:!!(bytes[37]&1),jumpRow:!!(bytes[37]&2),swing:!!(bytes[37]&4),
       tempo:u16(bytes,38),loopRow:bytes[42],channel:Array.from(bytes.subarray(48,56)),rows:[]};
+    if(version===3){
+      // Task 17 Goal 3 (tabby-v04.6): the clip table (8 tracks x 64 places, a block id each, at 64) and the scenes (12 bytes
+      // each at 1088: a clip place + 1 per track, repeat, flags, steps). The editor sees scenes as rows with block ids;
+      // song.clips keeps every track's places (also clips no scene uses) and song.cycle the master cycle in steps.
+      song.version=3;song.cycle=bytes[43]||16;check(song.cycle>=2&&song.cycle<=128,'Invalid master cycle');
+      song.clips=Array.from({length:8},(_,t)=>Array.from({length:64},(_,c)=>u16(bytes,64+t*128+c*2)));
+      for(let r=0;r<rows;r++){const at=1088+r*12,block=[];
+        for(let t=0;t<8;t++){const place=bytes[at+t];check(place<=64&&(!place||song.clips[t][place-1]),'Scene '+(r+1)+' names a clip that does not exist');block.push(place?song.clips[t][place-1]:0);}
+        const steps=bytes[at+10];check(bytes[at+8]>=1&&bytes[at+8]<=64&&!(bytes[at+9]&~1)&&steps%16===0&&steps>=16&&steps<=128&&!bytes[at+11],'Scene '+(r+1)+' is invalid');
+        song.rows.push({block,repeat:bytes[at+8],loopHere:!!(bytes[at+9]&1),steps});}
+      for(let i=1088+rows*12;i<SONG_BODY;i++)check(!bytes[i],'Invalid song record: bytes after the last scene');
+      for(const list of song.clips)while(list.length&&!list[list.length-1])list.pop();
+    }else
     for(let r=0;r<rows;r++){const at=SONG_ROW0+r*SONG_ROW;const block=[];for(let t=0;t<8;t++)block.push(u16(bytes,at+t*2));
       const steps=bytes[at+18]||64;check(bytes[at+16]>=1&&bytes[at+16]<=64&&steps%16===0&&steps<=128,'Row '+(r+1)+' is invalid');
       song.rows.push({block,repeat:bytes[at+16],loopHere:!!(bytes[at+17]&1),steps});}
-    song.events=version===2?songEventsParse(bytes):[];   // Task 04: row events (9.11)
-    if(version===2)songEventsValidate(song.events,rows);
+    song.events=version>=2?songEventsParse(bytes):[];   // Task 04: row events (9.11)
+    if(version>=2)songEventsValidate(song.events,rows);
     return song;
   }
   // Build the record image (generation 0, target 0, commit 0, CRC valid) from the object.
@@ -1132,7 +1146,8 @@
     const bytes=new Uint8Array(SONG_RECORD).fill(255);bytes.fill(0,0,SONG_BODY);
     // Task 04: a song with events is a version-2 record (CRC over 20..4091); without, version 1.
     const events=(song.events||[]).slice().sort((a,b)=>a.row-b.row);
-    put32(bytes,0,SONG_MAGIC);put32(bytes,20,events.length?2:1);
+    const scenes=song.version===3;   // Task 17 Goal 3: written as scenes (version 3) when the song says so
+    put32(bytes,0,SONG_MAGIC);put32(bytes,20,scenes?3:events.length?2:1);
     const name=String(song.name||'').toUpperCase().slice(0,12);check(/^[\x20-\x7e]{0,12}$/.test(name),'The song name must use ASCII characters');
     for(let i=0;i<12;i++)bytes[24+i]=name.charCodeAt(i)||32;
     check(Number.isInteger(song.project)&&song.project>=0&&song.project<16,'Invalid project slot');bytes[36]=song.project;
@@ -1141,12 +1156,24 @@
     check(Array.isArray(song.rows)&&song.rows.length>=1&&song.rows.length<=128,'A song needs 1-128 rows');bytes[40]=song.rows.length;
     check(Number.isInteger(song.loopRow)&&song.loopRow>=0&&song.loopRow<song.rows.length,'Invalid loop start row');bytes[42]=song.loopRow;
     for(let t=0;t<8;t++){const c=song.channel[t]|0;check(c>=0&&c<=16,'Output channels must be 0-16');bytes[48+t]=c;}
+    if(scenes){
+      // The clip table: the places the song already has (song.clips), then every block a scene uses that has none yet.
+      const cycle=song.cycle||16;check(Number.isInteger(cycle)&&cycle>=2&&cycle<=128,'The master cycle must be 2-128 steps');bytes[43]=cycle===16?0:cycle;
+      const clips=Array.from({length:8},(_,t)=>((song.clips||[])[t]||[]).slice(0,64));
+      song.rows.forEach((row,r)=>{const at=1088+r*12;
+        for(let t=0;t<8;t++){const id=row.block[t]|0;check(id>=0&&id<=65535,'Scene '+(r+1)+' has an invalid block id');let place=0;
+          if(id){place=clips[t].indexOf(id)+1;if(!place){let free=clips[t].indexOf(0);if(free<0)free=clips[t].length;check(free<64,'Track '+(t+1)+' has more than 64 clips; a song with scenes holds 64 per track');clips[t][free]=id;place=free+1;}}
+          bytes[at+t]=place;}
+        check(row.repeat>=1&&row.repeat<=64,'Scene '+(r+1)+': the repeat count must be 1-64');bytes[at+8]=row.repeat;bytes[at+9]=row.loopHere?1:0;
+        check(row.steps%16===0&&row.steps>=16&&row.steps<=128,'Scene '+(r+1)+': the step count must be a multiple of 16 from 16 to 128');bytes[at+10]=row.steps;});
+      clips.forEach((list,t)=>list.forEach((id,c)=>put16(bytes,64+t*128+c*2,id|0)));
+    }else
     song.rows.forEach((row,r)=>{const at=SONG_ROW0+r*SONG_ROW;
       for(let t=0;t<8;t++){const id=row.block[t]|0;check(id>=0&&id<=65535,'Row '+(r+1)+' has an invalid block id');put16(bytes,at+t*2,id);}
       check(row.repeat>=1&&row.repeat<=64,'Row '+(r+1)+': the repeat count must be 1-64');bytes[at+16]=row.repeat;
       bytes[at+17]=row.loopHere?1:0;check(row.steps%16===0&&row.steps>=16&&row.steps<=128,'Row '+(r+1)+': the step count must be a multiple of 16 from 16 to 128');bytes[at+18]=row.steps;});
-    if(events.length){songEventsValidate(events,song.rows.length);songEventsBuild(bytes,events);}
-    put32(bytes,12,crc32(bytes.subarray(20,events.length?SONG_V2_END:SONG_BODY)));
+    if(events.length||scenes){songEventsValidate(events,song.rows.length);songEventsBuild(bytes,events);}   // version 3 always carries the table (it may be empty)
+    put32(bytes,12,crc32(bytes.subarray(20,events.length||scenes?SONG_V2_END:SONG_BODY)));
     return bytes;
   }
   // Block payload <-> 64 steps of {probability, alt, notes:[{pitch,velocity,offset,length,retrigger}]}.
@@ -1242,7 +1269,7 @@
     if(parts.length)flush(parts,total);
     return batches;
   }
-  function songBlockIds(song){const ids=new Set();for(const row of song.rows)for(const id of row.block)if(id)ids.add(id);return ids;}
+  function songBlockIds(song){const ids=new Set();for(const row of song.rows)for(const id of row.block)if(id)ids.add(id);for(const list of song.clips||[])for(const id of list)if(id)ids.add(id);return ids;}   // Task 17: also the clips no scene uses
   // ---- Classic Tabby Task 11 (Step 2): full backup, restore and verify -------------------------
   // docs/BACKUP-FORMAT.md is the file format (version 1). Everything goes through the project
   // library's transfer commands (project slots: load 8 / save 7 + kind 0/3; songs: kinds 5/6/7;
