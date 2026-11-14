@@ -1,14 +1,14 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 1.3, 2026-11-12. For tabby-v04.3.1 on the M-VAVE SMK-37 Pro.
+Version 1.4, 2026-11-14. For tabby-v04.4 on the M-VAVE SMK-37 Pro.
 Written for the person who plays and tests the device. No programming needed.
 
-tabby-v04.3.1 is new firmware. MIDI notes of a song leave the device much
-sooner after they are due (the fast MIDI switch, on at power-up, since v04.2),
+tabby-v04.4 is new firmware. MIDI notes of a song leave the device much
+at the time they are due, within about 2 ms (timed MIDI, on at power-up),
 and a song can now follow an external MIDI clock. It also has a remote control
 command for the workbench tools, so tests can run without anyone at the panel.
-If an older firmware is on your SMK-37, install tabby-v04.3.1 to get these. The page also has English-only Help and this guide.
+If an older firmware is on your SMK-37, install tabby-v04.4 to get these. The page also has English-only Help and this guide.
 
 How to read this guide
 ----------------------
@@ -78,7 +78,8 @@ Removed:
 - tabby-v04.0: Storage moved (back up first). Step editing and recording removed. The SYNC / MIDI page. STOP TO SAVE. ERASE OLD DATA. A permanent recovery page for every build.
 - tabby-v04.1: Timing fixes: the screen and workbench work wait their turn so MIDI goes out first. Knob and button names fixed. The update page is safer: no force flash button.
 - tabby-v04.1.1: Same firmware as v04.1. English-only workbench, corrected Help, this guide.
-- tabby-v04.3.1: External clock follow in song mode (Start, Stop, Continue, Song Position Pointer, clock loss). The workbench now works while CLOCK is on MIDI: before, the device sent no replies over USB in that setting and looked dead to the workbench. (tabby-v04.3 was never released; do not install it.)
+- tabby-v04.3.1: External clock follow in song mode (Start, Stop, Continue, Song Position Pointer, clock loss). (tabby-v04.3 was never released.)
+- tabby-v04.4: Timed MIDI. A song's notes, row events and clock bytes are sent at their due times by a 0.5 ms timer: one line stays within about 1.9 ms and eight lines within about 3 ms on DIN and USB, on every screen page (before: about 5 to 7.5 ms, depending on the page). Earlier notes said the device sent no replies over USB with CLOCK on MIDI: that was a fault of the developer's measuring tool, not of the device; the workbench and Firmware Update work with CLOCK on INT or MIDI on every version.
 - tabby-v04.2: Fast MIDI on by default: one line leaves about 3.7 ms after it is due instead of about 12 ms. Remote control over USB for tests. Stale screen texts fixed. The ACTIONS list has a new last entry, A2 FAST MIDI.
 
 
@@ -103,7 +104,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. tabby-v04.3.1 has new firmware: install it to get fast MIDI and the external clock follow. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. tabby-v04.4 has new firmware: install it to get timed MIDI and the external clock follow. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -745,7 +746,6 @@ Do not spend time testing these. They are known.
 
 - MIDI timing: with fast MIDI on, one line leaves about 3.7 ms after it is due (measured, DIN out). Eight lines at the same step leave within about 6.5 ms; most of that is the DIN cable's own byte time, and wiring each line to its own DIN output (the H4MIDI fan-out) removes it. With fast MIDI off the old spread of about 10 to 14 ms comes back.
 - No step editing and no recording on the device. Songs come from the workbench. The metronome and count-in are planned for a later version.
-- On tabby-v04.2 and older, with CLOCK on MIDI the workbench and Firmware Update get no answer from the device over USB (it looks disconnected). Turn K1 on the SYNC / MIDI page (SEQ) back to INT, or install tabby-v04.3.1.
 - External clock in song mode (tabby-v04.3.1): the clock must come over USB or Bluetooth; the TRS jack cannot receive it. Song Position Pointer moves the song through its rows and repeats; a position past the end of a song that does not loop goes to its last step. The song sends no clock of its own while it follows.
 - The TRS jack is output only. A DIN clock cannot come in through it. Use USB or Bluetooth for clock in.
 - The MC-707 workflow is still to come. It is the next big part of the plan.
@@ -757,7 +757,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.3.1.
+- The page badge and the boot screen show tabby-v04.4.
 
 
 8. HOW TO REPORT A PROBLEM

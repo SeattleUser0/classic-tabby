@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.38
+Version: 0.39
 Revision log:
+- v0.39, 2026-11-14 (Task 17): 19.5 tabby-v04.4 (F + G; 19.4 withdrawn).
 - v0.38, 2026-11-12 (Task 16, day 2): 17.11 pushed tags and builds/ pages are never moved or deleted; 19.4 tabby-v04.3.1
   (the USB pusher, the flash guard; tabby-v04.3 marked faulty).
 - v0.37, 2026-11-12 (Task 16 Goal 3): 19.3 external clock follow in song mode (decision 10).
@@ -1497,3 +1498,18 @@ device. The pusher rule is removed in tabby-v04.4; the text stays as the record 
   BUILD 34). Not seen to trigger on the device; kept as a guard.
 - tabby-v04.3 (tag and builds/tabby-v04.3/) stays as it is, marked "do not install" (17.11).
 
+### 19.5 tabby-v04.4 (2026-11-14): MIDI out at due times (F + G); the USB pusher withdrawn
+
+- Every event the audio thread queues for MIDI out (song notes, row events, the MIDI clock, pattern and arpeggio notes) carries
+  a due time on the 24 MHz counter: the start of its audio block + one block + its place in the block. TIMER5 interrupts every
+  0.5 ms and asks for a control pass when the next event is due within 0.25 ms; a pass sends what is due and nothing else.
+  MIDI out is therefore one audio block (2.9 ms) later than the engine's block, the same for every event (BUILD 36.1).
+- What a pass sends to one port goes to the SDK in one call (one burst).
+- The screen does not start a band while an event is due within that band's time; at least one band goes every 60 ms.
+- A follow song (19.3) runs one block ahead of the master's pulses while this is live; the block that begins a run sends at once.
+- "A2 FAST MIDI" (ACTIONS, remote op 5) switches all of it. If the timer does not tick, a block falls back to A2 as in 19.2.
+- Command 25 request 10: the F + G page (56 bytes). The remote status is 14 bytes ([13] CLOCK).
+- 19.4 is withdrawn: the device never held its replies (BUILD 36.5). `ct_midi_send_port` stays the one way to a port; nothing is
+  added to the stream. The `ct_flash_busy` test stays (one load); the SDK masks every interrupt during flash operations anyway
+  (BUILD 36.2).
+- Target and result (BUILD 36.6): one line under 2 ms, eight lines under 3 ms per line, DIN and USB, on OVERVIEW, STEPS and ACTIONS.

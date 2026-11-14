@@ -21,6 +21,7 @@
 // Version: 0.3
 //
 // Revision log
+//   v0.5  2026-11-14  Chapter 00 names tabby-v04.4.
 //   v0.4  2026-11-12  Chapter 00 names tabby-v04.3.1.
 //   v0.3  2026-11-12  Chapter 00 names tabby-v04.3.
 //   v0.2  2026-11-11  Chapter 00 names tabby-v04.2 (was tabby-v04.1.1).
