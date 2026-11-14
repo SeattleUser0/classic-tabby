@@ -11,9 +11,10 @@
 //
 //   node tools/linux/hw/expected-events.mjs FILE.mid [--options JSON] > expected.json
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-14  The row controller events (the song event table) are in `controls` too, with their channel.
 //   v0.1  2026-11-14  First version (Task 17).
 
 import { readFileSync } from 'node:fs';
@@ -33,8 +34,10 @@ const byId = new Map(song.blocks.map(b => [b.id, b]));
 const notes = [], controls = [], programs = [];
 let start = 0;
 const last = new Array(8).fill(0);
-for (const row of song.rows) {
+for (const [rowIndex, row] of song.rows.entries()) {
   for (let pass = 0; pass < row.repeat; pass++) {
+    /* v0.2: the row's controller events (the song's event table) go out once, when the row is entered, before its clips' own. */
+    if (!pass) for (const e of song.events) if (e.row === rowIndex && e.type === 2) controls.push({ ms: start * msPerUnit - 0.001, channel: e.channel, kind: 1, a: e.d0, b: e.d1, rowEvent: true });
     row.blocks.forEach((id, track) => {
       const b = id ? byId.get(id) : null;
       if (!b) { last[track] = 0; return; }

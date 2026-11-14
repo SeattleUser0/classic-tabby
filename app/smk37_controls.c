@@ -321,7 +321,7 @@ uint32_t smk37_pad_color(unsigned pad,unsigned lit)
     if(smk37_screen_launch_color(pad,&launch))return launch;
     if(smk37_shift()) {
         if(pad<8)return pad==smk37_screen_track()?0x183030:0x041010;
-        if(groove_track_role(pad-8)==GROOVE_TRACK_OFF)return 0x040404;
+        if(groove_track_role(pad-8)==GROOVE_TRACK_OFF)return ct_screen_track_muted(pad-8)?0x301008:0x040404;
         struct groove_view view;groove_get_view(pad-8,0,&view);
         return view.muted?0x301008:0x081808;
     }

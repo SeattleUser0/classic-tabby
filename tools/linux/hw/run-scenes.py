@@ -16,9 +16,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-scenes.py --song N --track T --row R --cycle STEPS --bpm BPM --pitch P --out DIR
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-14  The cycle is scaled by the device clock the right way round (x 0.9996).
     v0.1  2026-11-14  Task 17 Goal 3: first version.
 """
 import argparse
@@ -83,8 +84,10 @@ def main():
             if not notes:
                 out.append({"launch": i + 1, "pass": False, "error": "no note of the launched pattern"}); continue
             ms = (notes[0] - t0) / 1e6 * 1.0
-            # the device runs 0.04 % slow against nominal (its audio clock): compare against cycles scaled by the measured tempo ratio 0.9996
-            scaled = cycle_ms / 0.9996
+            # v0.2: the device's audio clock runs 0.04 % fast against nominal (run-clips.py measures note times x 0.9996 of
+            # the expected ones on every song), so a cycle is that much shorter. v0.1 divided instead and failed every
+            # launch after the first by 1.2 ms a cycle: the tool's error, not the device's.
+            scaled = cycle_ms * 0.9996
             k = round(ms / scaled)
             err = ms - k * scaled
             cmd_ms = (tc - t0) / 1e6

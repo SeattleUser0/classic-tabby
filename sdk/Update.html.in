@@ -294,7 +294,7 @@ main{max-width:1440px}
 </details>
 <details class="library-group"><summary>Song mode (Classic Tabby)</summary>
 <p class="sim-help">A song is a sequence of rows; each row assigns one block (64 steps, up to 4 notes per step) to each of the 8 tracks. Songs live in the device's song storage and play from the panel's ACTIONS &gt; SONG MODE. File format: docs/tasks/TASK-03-step1-assessment.md section 9.</p>
-<p class="sim-help">Independent track launching (Task 06): on the device's SONG page, SCL opens the TRACK LAUNCH page. A track's pattern N is its block in row N, looping over that row's step count; pads 1-16 are rows 1-16 of the current page (OCT pages); a pad launches its pattern at the next bar, pressing the playing pattern's pad stops it at the next bar; SHIFT + pads 1-8 select the track; ENV sends the selected track back to the song, SHIFT + ENV every track; a scene jump (SONG page) overrides every track queue. A device's "Lead ms" makes its program change leave before the bar.</p>
+<p class="sim-help">Clip launching: on the device BT opens the CLIPS page (SCL from the SONG page too). Pads 1-16 are the selected track's clips of the current bank (OCT banks); a pad launches its clip at the next master cycle, pressing the playing clip's pad stops it at the next cycle; SHIFT + pads 1-8 select the track; ENV sends the selected track back to the song, SHIFT + ENV every track; a scene jump (SONG page) overrides every track queue. A device's "Lead ms" makes its program change leave before the bar.</p>
 <div class="field-row"><label>Target <select id="song-target"><option value="device">Device (project library)</option><option value="sim">Browser simulator</option></select></label>
 <label>Song slot <select id="song-slot"></select></label></div>
 <button id="song-read">Read song</button><button id="song-new">New song</button><button id="song-write">Write song</button><button id="song-delete">Delete song</button>
@@ -407,7 +407,7 @@ main{max-width:1440px}
 
 <h4>Connect the workbench</h4>
 <p>Open Projects &amp; sounds and click Connect project library. The page reads the device's capabilities. The Song mode group becomes usable with the device as the target, and the Bluetooth settings group appears. Everything in this tab talks to the device over USB MIDI. Close other MIDI software first if the connection fails.</p>
-<p>The Play &amp; edit tab has shortcuts into the simulator's pages. Song mode opens the SONG page and Track launch opens the TRACK LAUNCH page in the browser simulator, which runs the same firmware code.</p>
+<p>The Play &amp; edit tab has shortcuts into the simulator's pages. Song mode opens the SONG page and Track launch opens the CLIPS page in the browser simulator, which runs the same firmware code.</p>
 </article>
 <article id="manual-tabby-songs" class="manual-chapter" tabindex="-1"><h3>03 · Songs</h3>
 <h4>Rows, blocks, repeats, step lengths</h4>
@@ -430,22 +430,22 @@ main{max-width:1440px}
 <div class="manual-table"><table><thead><tr><th scope="col">Line</th><th scope="col">Meaning</th></tr></thead><tbody>
 <tr><td>SONG n name</td><td>The selected song slot and its name. (EMPTY) means the slot holds no song.</td></tr>
 <tr><td>OLD SAMPLE/DX7 DATA IN FLASH</td><td>Song storage is blocked by V01 data. Erase it from ACTIONS. Also possible: SONG STORAGE ERROR, COMPACTING STORAGE..., SCANNING STORAGE...</td></tr>
-<tr><td>ROW r / total</td><td>The row playing and the number of rows in the song.</td></tr>
+<tr><td>SCENE r / total</td><td>The scene (row) playing and the number of scenes in the song.</td></tr>
 <tr><td>X pass / repeat</td><td>Which pass of the row is playing and how many the row has.</td></tr>
 <tr><td>BAR b / bars</td><td>The bar inside the row and how many bars the row has (its step length divided by 16).</td></tr>
 <tr><td>PLAYING, STOPPING, STOPPED - PLAY STARTS</td><td>The transport state. STOPPING lasts while held notes are released.</td></tr>
-<tr><td>JUMP TO ROW n</td><td>In amber: a jump is queued and lands at the next bar or the end of the row.</td></tr>
-<tr><td>NEXT ROW n, LOOPING ROW, LAST ROW</td><td>What follows the current row when nothing is queued: the next row, the same row (Loop here), or nothing because the song ends. With Loop the song on, the last row is followed by the loop start row.</td></tr>
+<tr><td>TO SCENE n</td><td>In amber: a scene recall is queued and lands at the next master cycle or the end of the scene.</td></tr>
+<tr><td>NEXT n, LOOPING SCENE, LAST SCENE</td><td>What follows the current row when nothing is queued: the next row, the same row (Loop here), or nothing because the song ends. With Loop the song on, the last row is followed by the loop start row.</td></tr>
 <tr><td>T1 to T8 with a number or -</td><td>The block id each track plays in the shown row. - is silence.</td></tr>
-<tr><td>PADS ROW a - b</td><td>The rows the 16 pads reach on the current pad page. <kbd>OCT−</kbd> and <kbd>OCT+</kbd> turn the page in steps of 16 rows.</td></tr>
-<tr><td>JUMP: NEXT BAR or JUMP: ROW END</td><td>Where a queued jump lands. <kbd>K4</kbd> switches it, and the choice is saved in the song.</td></tr>
+<tr><td>PADS a - b</td><td>The scenes (rows) the 16 pads reach on the current pad page. <kbd>OCT−</kbd> and <kbd>OCT+</kbd> turn the page in steps of 16 rows.</td></tr>
+<tr><td>JUMP: NEXT CYCLE or JUMP: SCENE END</td><td>Where a queued scene recall lands: the next master cycle (one bar unless the song says otherwise) or the end of the scene that plays. <kbd>K4</kbd> switches it, and the choice is saved in the song.</td></tr>
 <tr><td>TOO MANY BLOCKS, BLOCK READ ERROR, ROW DECODE LATE</td><td>In amber: the song has more than 2048 blocks and will not play; a block could not be read, so that track is silent in that row; a row was not decoded in time and the previous one played again.</td></tr>
 <tr><td>BPM n</td><td>Shown when the song overrides the project tempo.</td></tr>
 <tr><td>EVENTS n</td><td>Row events in the song. Shown only when the song has events.</td></tr>
 <tr><td>LATE m</td><td>In amber, next to EVENTS: row entries whose events or notes came after the bar line since PLAY. Chapter 05 and chapter 08 say when that happens.</td></tr>
 <tr><td>NO SONG HERE - UPLOAD FROM THE WEB WORKBENCH</td><td>The slot is empty. Write a song from the workbench.</td></tr>
 </tbody></table></div>
-<p>The bottom lines are the key help: K5/K7 SONG, PADS JUMP, OCT PAD PAGE, PLAY START/STOP, K4 JUMP MODE, SCL TRACK LAUNCH, HOME BACK. Notices such as NO SUCH ROW / NOT PLAYING appear in the same place for a moment.</p>
+<p>The bottom lines are the key help: PADS RECALL SCENE, OCT BANK, K5 SONG, PLAY START/STOP, K4 JUMP MODE, SCL CLIPS, ENV TRACK TO SCENES. Notices such as NO SUCH SCENE / NOT PLAYING appear in the same place for a moment.</p>
 <h4>How the song ends</h4>
 <p>With Loop the song off, the song stops after the last row, releases every note and sends MIDI Stop. With Loop the song on it continues from the Loop start row. When tracks are detached by a launch (chapter 05) the song does not stop at its end. The following tracks go silent, the page shows SONG OVER, the launched tracks keep looping and the clock keeps running until you press <kbd>PLAY</kbd>.</p>
 <h4>The song editor in the workbench</h4>
@@ -455,60 +455,68 @@ main{max-width:1440px}
 <article id="manual-tabby-scenes" class="manual-chapter" tabindex="-1"><h3>04 · Scene changes</h3>
 <p>A scene change is a jump to another row while the song plays. You queue it from the pads of the SONG page.</p>
 <ol>
-<li>On the SONG page, read PADS ROW a - b. Pad 1 is row a, pad 16 is row b. <kbd>OCT−</kbd> and <kbd>OCT+</kbd> move the window by 16 rows, up to row 128.</li>
-<li>Press the pad of the row you want. The page shows JUMP TO ROW n in amber at once.</li>
-<li>The jump lands on the next bar when JUMP: NEXT BAR is shown, or when the current row has played all its repeats when JUMP: ROW END is shown. <kbd>K4</kbd> switches between the two. The setting is saved in the song as Jumps land at.</li>
-<li>At the landing the page shows ROW n and X 1, every track starts the new row's blocks together, and the new row's events have been sent before its first notes.</li>
+<li>On the SONG page, read PADS a - b. Pad 1 is scene (row) a, pad 16 is scene b. <kbd>OCT−</kbd> and <kbd>OCT+</kbd> move the window by 16 rows, up to row 128.</li>
+<li>Press the pad of the row you want. The page shows TO SCENE n in amber at once, and the pad blinks green.</li>
+<li>The jump lands on the next master cycle when JUMP: NEXT CYCLE is shown, or when the current scene has played all its repeats when JUMP: SCENE END is shown. <kbd>K4</kbd> switches between the two. The setting is saved in the song as Jumps land at.</li>
+<li>At the landing the page shows SCENE n and X 1, every track starts the new row's blocks together, and the new row's events have been sent before its first notes.</li>
 </ol>
 <h4>What to expect</h4>
 <ul>
 <li>Press several pads inside one bar and only the last one lands. Press the same pad ten times and one jump lands.</li>
-<li>A pad with no row behind it, or a press while the song is stopped, shows NO SUCH ROW / NOT PLAYING and queues nothing.</li>
+<li>A pad with no row behind it, or a press while the song is stopped, shows NO SUCH SCENE / NOT PLAYING and queues nothing.</li>
 <li>A jump cancels every pending track launch, stop and return (chapter 05) and brings every launched or stopped track back to the song at the landing. Notes of launched tracks are released at the landing.</li>
 <li>A jump queued inside the last half step before the bar can land with its notes and events a little late. LATE counts up by one on the page.</li>
-<li>The pads do not light differently on the SONG page. The screen is the feedback.</li>
+<li>From tabby-v04.7 the pads light on the SONG page: off for no scene, dim white for a scene, green for the scene that plays, blinking green for the scene that is queued.</li>
 <li>A row with Loop here never moves on by itself. Use a jump to leave it.</li>
 </ul>
 </article>
-<article id="manual-tabby-launch" class="manual-chapter" tabindex="-1"><h3>05 · Track launching</h3>
-<p>Track launching lets one track leave the song and loop one of its patterns while the others keep following the rows. A track's pattern N is simply the block that track has in row N, played for row N's step length. Nothing extra is stored.</p>
-<h4>The TRACK LAUNCH page</h4>
-<p>Start the song on the SONG page, then press <kbd>SCL</kbd>. The TRACK LAUNCH page opens and the SCL lamp lights. <kbd>SCL</kbd> again returns to the SONG page. <kbd>HOME</kbd> leaves to the overview. The page shows:</p>
+<article id="manual-tabby-launch" class="manual-chapter" tabindex="-1"><h3>05 · Clip launching</h3>
+<p>Clip launching lets one track leave the scenes and loop one of its clips while the other tracks keep following the song. A clip is one pattern of one track. Each track has its own list of clips, up to 64, in numbered places; a scene (a row of the song) names one clip per track. The complete list of controls is in docs/CONTROL-MAP.md of the source.</p>
+<h4>The CLIPS page</h4>
+<p>Press <kbd>BT</kbd> on any page. The CLIPS page opens; <kbd>BT</kbd> again returns to the page you came from. From the SONG page <kbd>SCL</kbd> also opens it, and <kbd>SCL</kbd> on the CLIPS page goes to the SONG page. <kbd>HOME</kbd> leaves to the overview. The page shows:</p>
 <ul>
-<li>LAUNCH, the selected track in its colour, and BAR n, the bar counter since PLAY. This counter never resets while the song runs.</li>
-<li>One column per track: the pattern row it plays or -, then a word. FOLLOW means it follows the song. PLAY in green means it loops a launched pattern. STOP means it is stopped. Q n in amber means pattern n is queued. &gt;STOP means a stop is queued. &gt;SONG means it returns to the song at the next bar.</li>
-<li>PATTERNS a - b with OCT PAGE, and 16 cells for the pads. A numbered cell is a pattern the selected track has on that row. A green cell is the one playing, an amber cell the one queued, an empty cell no pattern.</li>
-<li>ROW n, the song's current row, then SONG OVER when the song has ended with detached tracks, and LATE n.</li>
+<li>CLIPS, the selected track in its colour, and BAR n, the bar counter since PLAY. MUTED in amber when the selected track is muted.</li>
+<li>One column per track: the place of the clip it plays or -, then a word. SCENE means it follows the scenes. CLIP in green means it loops a launched clip. STOP means it is stopped. &gt; n in amber means the clip in place n is queued. &gt;STP means a stop is queued. &gt;SCN means it returns to the scenes at the next master cycle.</li>
+<li>PADS a - b with OCT BANK, and 16 cells for the pads. A numbered cell is a clip of the selected track. A green cell is the one playing, an amber cell the one queued, an empty cell no clip, a framed cell the selected clip.</li>
+<li>SELECTED n with the clip's length in steps and its block id.</li>
+<li>SCENE n, the song's current scene, then SONG OVER when the song has ended with detached tracks, and LATE n.</li>
 <li>STOPPED - PLAY STARTS THE SONG when the song is not running. <kbd>PLAY</kbd> starts and stops the song here as on the SONG page.</li>
 </ul>
 <h4>Selecting a track</h4>
-<p>Hold <kbd>SHIFT</kbd> and press pad 1 to 8. The pads show the track colours while <kbd>SHIFT</kbd> is held: dim for a track at rest, bright for a track with a pattern playing, flashing for a track with something queued, and one level brighter for the selected track. Pads 9 to 16 keep their usual mute function under <kbd>SHIFT</kbd>.</p>
-<h4>Queuing a pattern</h4>
-<p>Press the pad of a pattern. The pad flashes green, the column shows Q n and the notice says LAUNCH AT NEXT BAR. On beat 1 of the next bar the pattern starts, the pad turns steady green and the column shows PLAY. If the track was playing another pattern, that pattern's notes are released at the bar. A second press inside the same bar replaces the queued pattern. The launched pattern loops with its own length, so a 48-step pattern against 16-step rows lines up again every three bars.</p>
+<p>Hold <kbd>SHIFT</kbd> and press pad 1 to 8, or turn <kbd>K5</kbd>. The pads show the track colours while <kbd>SHIFT</kbd> is held: dim for a track at rest, bright for a track with a clip playing, flashing for a track with something queued, and one level brighter for the selected track. Pads 9 to 16 mute and unmute tracks 1 to 8 under <kbd>SHIFT</kbd>.</p>
+<h4>Launching a clip</h4>
+<p>Press the pad of a clip. The pad blinks green, the column shows &gt; n and the notice says LAUNCH AT NEXT CYCLE. At the next master cycle the clip starts, the pad turns steady green and the column shows CLIP. If the track was playing another clip, that clip's notes are released at the cycle. A second pad inside the same cycle replaces the queued clip. The launched clip loops with its own length, so a 48-step clip against 16-step scenes lines up again every three bars. The pad you pressed is also the selected clip.</p>
+<p>The master cycle is one bar (16 steps) unless the song says otherwise; a song imported from a 3/4 file has a cycle of 12 steps. Launches, stops, returns and scene recalls all land on its multiples, counted from PLAY.</p>
 <h4>Stopping a track</h4>
-<p>Press the green pad, the pattern that plays. It flashes red, the column shows &gt;STOP and the notice says STOP AT NEXT BAR. At the bar every note of the track gets its note-off on the channel it was sent on, the pad goes dim and the column shows STOP. A stopped track stays silent until you launch a pattern or send it back to the song. Stopping every track never stops the transport, the clock or the Song Position Pointer.</p>
-<h4>Back to song</h4>
-<p><kbd>ENV</kbd> queues the selected track back to the song: the column shows &gt;SONG and the notice TRACK BACK TO SONG AT BAR. At the next bar the track joins the row the song is in at that moment and shows FOLLOW. <kbd>SHIFT</kbd>+<kbd>ENV</kbd> does it for every track at once (ALL TRACKS BACK TO SONG AT BAR). With the song stopped the notice says NOT PLAYING.</p>
-<h4>Paging and messages</h4>
-<p><kbd>OCT−</kbd> and <kbd>OCT+</kbd> turn the pad page in steps of 16 rows. The messages are: PLAY STARTS THE SONG FIRST when the song is stopped, NO PATTERN ON THIS PAD when the row has no block for the selected track, LAUNCH AT NEXT BAR and STOP AT NEXT BAR when a queue was taken.</p>
+<p>Press the green pad, the clip that plays. It blinks red, the column shows &gt;STP and the notice says STOP AT NEXT CYCLE. At the cycle every note of the track gets its note-off on the channel it was sent on, the pad goes white and the column shows STOP. A stopped track stays silent until you launch a clip or send it back to the scenes. Stopping every track never stops the transport, the clock or the Song Position Pointer.</p>
+<h4>Taking a press back, and selecting without launching</h4>
+<p>Press a blinking pad again and its launch or stop is taken back (TAKEN BACK). Hold a pad for half a second and its clip is selected only: what the press queued is taken back (SELECTED ONLY - TAKEN BACK). While the song is stopped a pad only selects its clip.</p>
+<h4>Back to the scenes</h4>
+<p><kbd>ENV</kbd> queues the selected track back to the scenes: the column shows &gt;SCN and the notice TRACK TO SCENES AT CYCLE. At the next cycle the track joins the scene the song is in at that moment and shows SCENE. <kbd>SHIFT</kbd>+<kbd>ENV</kbd> does it for every track at once (ALL TRACKS TO SCENES AT CYCLE). With the song stopped the notice says NOT PLAYING.</p>
+<h4>Mute</h4>
+<p><kbd>SHIFT</kbd> + pad 9 to 16 mutes track 1 to 8: the internal sound is silenced and, from tabby-v04.7, the track's song notes are held back on MIDI out too. The clip runs on, so unmuting brings it back in time. The pads of a muted track are orange. A mute set on the MIX page, and the mute that tracks 6 and 7 of a new project start with, silence the internal sound only, as before: the song still plays those tracks on MIDI out.</p>
+<h4>Banks and messages</h4>
+<p><kbd>OCT−</kbd> and <kbd>OCT+</kbd> (or <kbd>K6</kbd>) turn the pad bank in steps of 16 clips, four banks. The messages are: PLAY STARTS THE SONG FIRST when the song is stopped, NO CLIP ON THIS PAD when the place is empty, LAUNCH AT NEXT CYCLE and STOP AT NEXT CYCLE when a queue was taken, TAKEN BACK when one was withdrawn.</p>
 <h4>Pad colours and flashing</h4>
 <div class="manual-table"><table><thead><tr><th scope="col">Pad</th><th scope="col">Meaning</th></tr></thead><tbody>
-<tr><td>Off</td><td>No pattern for the selected track on that row.</td></tr>
-<tr><td>Dim white</td><td>A pattern that is not playing.</td></tr>
-<tr><td>Steady green</td><td>The pattern that plays.</td></tr>
-<tr><td>Flashing green</td><td>The pattern queued to start at the next bar.</td></tr>
-<tr><td>Flashing red</td><td>The playing pattern, with a stop queued.</td></tr>
-<tr><td>Track colours (with <kbd>SHIFT</kbd>)</td><td>Pads 1 to 8 are the tracks. Dim at rest, bright while a pattern plays, flashing while something is queued, brighter for the selected track.</td></tr>
+<tr><td>Off</td><td>Empty: no clip of the selected track in that place.</td></tr>
+<tr><td>Dim white</td><td>Stopped: a clip that is not playing.</td></tr>
+<tr><td>Steady green</td><td>The clip that plays.</td></tr>
+<tr><td>Blinking green</td><td>The clip queued to start at the next master cycle.</td></tr>
+<tr><td>Blinking red</td><td>The playing clip, with a stop queued.</td></tr>
+<tr><td>Bright white / bright green</td><td>The selected clip, not playing / playing.</td></tr>
+<tr><td>Orange</td><td>The track is muted: dim for a clip that is not playing, bright for the one that plays.</td></tr>
+<tr><td>Track colours (with <kbd>SHIFT</kbd>)</td><td>Pads 1 to 8 are the tracks. Dim at rest, bright while a clip plays, flashing while something is queued, brighter for the selected track.</td></tr>
 </tbody></table></div>
-<p>While the song runs the flashing follows the master clock, one change per eighth note. With the song stopped the pads flash every quarter second.</p>
+<p>While the song runs the blinking follows the master clock, one change per eighth note. With the song stopped the pads blink every quarter second.</p>
 <h4>Scenes and launched tracks</h4>
 <ul>
-<li>A scene change on the SONG page overrides everything queued on the TRACK LAUNCH page and brings every track back to the song at the landing.</li>
+<li>A scene recall on the SONG page overrides everything queued on the CLIPS page and brings every track back to the scenes at the landing.</li>
 <li>A launched or stopped track ignores row changes until it returns.</li>
 <li>When the song's last row ends and no track is detached, the usual song end applies. When a track is detached, the following tracks go silent, SONG OVER appears, the detached tracks keep looping and the clock keeps running. <kbd>PLAY</kbd> stops everything and sends MIDI Stop.</li>
-<li>Every launch, stop and return lands on beat 1 of the next bar of the master clock, 16 steps long, whatever the row lengths.</li>
+<li>Every launch, stop and return lands on the next master cycle (a bar of 16 steps unless the song says otherwise), whatever the scene lengths.</li>
 <li>A press inside the last control cycle before the bar cannot be served on that bar. The pattern enters at the next cycle in phase, its downbeat skipped, and LATE counts up by one.</li>
-<li>A launch sends the program change of the pattern's row for the track's channel, Lead ms before the bar (chapter 08).</li>
+<li>A launch sends the program change of the clip's scene for the track's channel, Lead ms before the cycle (chapter 08). A clip that no scene uses has no scene events; a v3 clip's own program and bank are sent with its first note.</li>
 </ul>
 </article>
 <article id="manual-tabby-import" class="manual-chapter" tabindex="-1"><h3>06 · Importing MIDI files</h3>
@@ -617,7 +625,7 @@ main{max-width:1440px}
 <p>Timing: MIDI out leaves in the audio block that holds the note's time. The built-in engine is one block looser, about 3 ms. The MIDI TRACK page's OUT CH readout shows the device setting even while a song overrides it. The project saves these settings; the song saves only its channel overrides.</p>
 </article>
 <article id="manual-tabby-bluetooth" class="manual-chapter" tabindex="-1"><h3>10 · Bluetooth settings</h3>
-<p>The device no longer has a Bluetooth page. Pressing <kbd>BT</kbd> shows BLUETOOTH: SET IN WORKBENCH. The settings live in Projects &amp; sounds, in the Bluetooth settings group. The group is shown only when a device on tabby-v03.0 or later is connected with Connect project library.</p>
+<p>The device no longer has a Bluetooth page. From tabby-v04.7 <kbd>BT</kbd> opens the CLIPS page (chapter 05). The Bluetooth settings live in Projects &amp; sounds, in the Bluetooth settings group. The group is shown only when a device on tabby-v03.0 or later is connected with Connect project library.</p>
 <ul>
 <li><strong>Bluetooth on</strong> switches the radio. Off before a gig means no pairing attempts from phones in the room.</li>
 <li><strong>Bluetooth audio</strong> switches the audio profile.</li>
@@ -645,25 +653,27 @@ main{max-width:1440px}
 <tr><td>Any page</td><td><kbd>HOME</kbd>+<kbd>SEQ</kbd></td><td>Tap the tempo.</td></tr>
 <tr><td>HOME</td><td><kbd>K4</kbd></td><td>BPM (the only tempo control; read only with MIDI clock).</td></tr>
 <tr><td>Any page, while playing</td><td>the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>), ERASE OLD DATA, COMPACT</td><td>Nothing is written to flash while a song or the pattern plays: the screen says STOP TO SAVE (or STOP TO ERASE / COMPACT), the workbench says the device is playing and sends nothing. Setting changes made while playing are kept and saved after the stop.</td></tr>
-<tr><td>Any page</td><td><kbd>BT</kbd></td><td>Shows BLUETOOTH: SET IN WORKBENCH. Settings are in the workbench.</td></tr>
-<tr><td>Any page</td><td><kbd>SHIFT</kbd>+pad 1 to 8 / 9 to 16</td><td>Select track / toggle mute.</td></tr>
+<tr><td>Any page</td><td><kbd>BT</kbd></td><td>Open the CLIPS page; again: back. Bluetooth settings are in the workbench.</td></tr>
+<tr><td>Any page</td><td><kbd>SHIFT</kbd>+pad 1 to 8 / 9 to 16</td><td>Select track / toggle mute (the track's song notes are held back too).</td></tr>
 <tr><td>Any page</td><td><kbd>SHIFT</kbd>+<kbd>SEQ</kbd></td><td>MIDI TRACK: K1 IN CH, K2 OUT CH, K3 SEQ (LOCAL, BOTH, MIDI), K4 OUT PORT.</td></tr>
 <tr><td>Any page</td><td><kbd>SHIFT</kbd>+<kbd>HOME / SRC</kbd></td><td>SOUND SOURCE: K1 or pads choose, K2 TRACK mode, the 4th button in the left group (after SHIFT, FADER BANK, HOME) applies.</td></tr>
 <tr><td>Any page</td><td><kbd>HOME</kbd>+<kbd>PLAY</kbd></td><td>Stop all sound and rewind.</td></tr>
 <tr><td>ACTIONS</td><td><kbd>K5</kbd> or <kbd>K1</kbd>, the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>), <kbd>HOME</kbd></td><td>Choose the entry, run it, cancel. SONG MODE opens the SONG page.</td></tr>
 <tr><td>SONG</td><td><kbd>K5</kbd> or <kbd>K7</kbd></td><td>Choose song 1 to 16 (stopped only).</td></tr>
-<tr><td>SONG</td><td><kbd>PLAY</kbd></td><td>Start at row 1 / stop and send MIDI Stop.</td></tr>
-<tr><td>SONG</td><td>Pad 1 to 16</td><td>Queue a jump to that row of the pad page.</td></tr>
-<tr><td>SONG</td><td><kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Pad page down / up by 16 rows.</td></tr>
-<tr><td>SONG</td><td><kbd>K4</kbd></td><td>JUMP: NEXT BAR / JUMP: ROW END.</td></tr>
-<tr><td>SONG</td><td><kbd>SCL</kbd></td><td>Open TRACK LAUNCH.</td></tr>
+<tr><td>SONG</td><td><kbd>PLAY</kbd></td><td>Start at scene 1 / stop and send MIDI Stop.</td></tr>
+<tr><td>SONG</td><td>Pad 1 to 16</td><td>Recall that scene of the pad bank.</td></tr>
+<tr><td>SONG</td><td><kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Pad bank down / up by 16 scenes.</td></tr>
+<tr><td>SONG</td><td><kbd>K4</kbd></td><td>JUMP: NEXT CYCLE / JUMP: SCENE END.</td></tr>
+<tr><td>SONG</td><td><kbd>SCL</kbd></td><td>Open CLIPS.</td></tr>
 <tr><td>SONG</td><td><kbd>HOME</kbd></td><td>Back to the overview; the song keeps playing.</td></tr>
-<tr><td>TRACK LAUNCH</td><td><kbd>SHIFT</kbd>+pad 1 to 8</td><td>Select the track.</td></tr>
-<tr><td>TRACK LAUNCH</td><td>Pad (dim white)</td><td>Queue that pattern for the selected track, next bar.</td></tr>
-<tr><td>TRACK LAUNCH</td><td>Pad (green)</td><td>Queue a stop of the playing pattern, next bar.</td></tr>
-<tr><td>TRACK LAUNCH</td><td><kbd>ENV</kbd> / <kbd>SHIFT</kbd>+<kbd>ENV</kbd></td><td>Selected track / every track back to the song, next bar.</td></tr>
-<tr><td>TRACK LAUNCH</td><td><kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Pattern page down / up by 16 rows.</td></tr>
-<tr><td>TRACK LAUNCH</td><td><kbd>SCL</kbd> / <kbd>PLAY</kbd> / <kbd>HOME</kbd></td><td>Back to SONG / start or stop the song / overview.</td></tr>
+<tr><td>CLIPS</td><td><kbd>SHIFT</kbd>+pad 1 to 8, or <kbd>K5</kbd></td><td>Select the track.</td></tr>
+<tr><td>CLIPS</td><td>Pad (white)</td><td>Queue that clip for the selected track, next master cycle; it becomes the selected clip.</td></tr>
+<tr><td>CLIPS</td><td>Pad (green)</td><td>Queue a stop of the playing clip, next master cycle.</td></tr>
+<tr><td>CLIPS</td><td>Pad (blinking)</td><td>Take the queued launch or stop back.</td></tr>
+<tr><td>CLIPS</td><td>Pad held half a second</td><td>Select the clip only.</td></tr>
+<tr><td>CLIPS</td><td><kbd>ENV</kbd> / <kbd>SHIFT</kbd>+<kbd>ENV</kbd></td><td>Selected track / every track back to the scenes, next master cycle.</td></tr>
+<tr><td>CLIPS</td><td><kbd>OCT−</kbd> / <kbd>OCT+</kbd> or <kbd>K6</kbd></td><td>Clip bank down / up by 16.</td></tr>
+<tr><td>CLIPS</td><td><kbd>SCL</kbd> / <kbd>PLAY</kbd> / <kbd>BT</kbd> / <kbd>HOME</kbd></td><td>To SONG / start or stop the song / back where you came from / overview.</td></tr>
 <tr><td>DX7 track</td><td><kbd>EDIT</kbd></td><td>DX7 QUICK EDIT: K7 voice, K6 bank A to D, K1 to K4 ALGORITHM, FEEDBACK, TRANSPOSE, LEVEL.</td></tr>
 <tr><td>Workbench, Play &amp; edit</td><td>Song mode / Track launch</td><td>Open page 19 / page 20 in the browser simulator.</td></tr>
 <tr><td>Workbench, Projects &amp; sounds</td><td>Connect project library</td><td>Then Song mode, Import MIDI file, Rig setup, Bluetooth settings.</td></tr>
@@ -687,8 +697,8 @@ main{max-width:1440px}
 <tr><td>MIX</td><td>Tap to enter or leave the mixer. Pads 1–8 mute and 9–16 solo. You do not need to keep MIX held.</td></tr>
 <tr><td>PLAY / REC</td><td>Play, pause, continue. REC does not record in this version (the screen says NO REC IN THIS VERSION). On the preset page PLAY loads and plays; changing presets asks nothing.</td></tr>
 <tr><td>The 4th button in the left group (after SHIFT, FADER BANK, HOME)</td><td>Open the save page, then press again to save. Execute / confirm in menus. HOME cancels.</td></tr>
-<tr><td>OCT− / OCT+</td><td>Transpose the playing octave down or up; on SONG and TRACK LAUNCH, page the pads.</td></tr>
-<tr><td>ENV / SHIFT + ENV / FX / SCL</td><td>FX edits track reverb and delay. SCL switches between the SONG and TRACK LAUNCH pages; ENV sends the selected track back to the song, SHIFT + ENV every track. On other pages SCL, ENV and SHIFT + ENV only say that voice editing moved to the workbench.</td></tr>
+<tr><td>OCT− / OCT+</td><td>Transpose the playing octave down or up; on SONG and CLIPS, turn the pad bank.</td></tr>
+<tr><td>ENV / SHIFT + ENV / FX / SCL</td><td>FX edits track reverb and delay. SCL switches between the SONG and CLIPS pages; ENV sends the selected track back to the scenes, SHIFT + ENV every track. On other pages SCL, ENV and SHIFT + ENV only say that voice editing moved to the workbench.</td></tr>
 <tr><td>ARP</td><td>Tap to toggle the current track arpeggiator / drum repeats; hold for about 0.6 seconds for settings. K5 chooses a track; K6 switches between rate / direction / range / gate and Swing / Hold.</td></tr>
 </tbody></table></div>
 <p>The 37 velocity keys always play notes. Tap PAD / STEP to switch KEY/PAD editing focus (there is no pad-step mode in this version). Pads select items in menus. Encoders are K1–K8 from the left (the firmware calls K5 SELECT, K6 PAGE, K7 PRESETS and K8 MASTER). Four faders control track levels; FADER BANK selects tracks 1–4 or 5–8. A fader takes over after crossing the stored value. BT reminds you that Bluetooth settings moved to the web workbench; SHIFT + HOME / SRC opens sources. Pitch, modulation and sustain follow KEY; Pad aftertouch follows PAD.</p>

@@ -251,6 +251,12 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
     else if (op == 11 && n == 2 && (data[1] < SONG_TRACKS || data[1] == 255)) {
         if (data[1] == 255) song_track_attach_all(); else { r = song_track_attach(data[1]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
     }
+    /* Task 17 Goal 4: {12} reads the CLIPS / SCENES page (ct_screen_clips_read: page, track, banks, selected clip, per
+     * pad its state and LED colour); {13, track, place} launches the track's clip in a place (as its pad does);
+     * {14, track} takes the track's queue back. */
+    else if (op == 12 && n == 1) { out[0] = 2; *count = 1 + ct_screen_clips_read(out + 1); return 0; }
+    else if (op == 13 && n == 3 && data[1] < SONG_TRACKS) { r = song_clip_launch(data[1], data[2]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
+    else if (op == 14 && n == 2 && data[1] < SONG_TRACKS) { r = song_track_unqueue(data[1]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
     else return GROOVE_PROJECT_INVALID;
     remote_status(out, count);
     return 0;

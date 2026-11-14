@@ -24,9 +24,10 @@ Usage (browser closed)
     node tools/linux/hw/expected-events.mjs FILE.mid [--options JSON] > expected.json
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-clips.py --song N --expected expected.json --out DIR --tag NAME
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-14  A row controller event in the expected list names its channel (expected-events v0.2).
     v0.2  2026-11-14  The DIN tolerance allows for the cable's serial time of notes due together.
     v0.1  2026-11-14  Task 17: first version.
 """
@@ -85,7 +86,7 @@ def compare(expected, events, t_start):
     status = {1: 0xB0, 3: 0xE0, 4: 0xD0}
     cwant = {}
     for c in expected["controls"]:
-        k = (chan(c["track"]), status[c["kind"]], c["a"] if c["kind"] == 1 else -1)
+        k = (c["channel"] if "channel" in c else chan(c["track"]), status[c["kind"]], c["a"] if c["kind"] == 1 else -1)   # v0.3: a row event names its channel
         cwant.setdefault(k, []).append((c["a"], c["b"]) if c["kind"] != 4 else (c["a"], 0))
     cgot = {}
     for ms, ch, kind, d1, d2 in ctl:

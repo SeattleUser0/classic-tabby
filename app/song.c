@@ -159,6 +159,10 @@ static uint8_t payload[SONG_PAYLOAD_MAX];
 /* control -> audio */
 static volatile unsigned start_request, stop_request, jump_row = SONG_NONE, jump_mode, song_end, swing_project, swing_song, tempo_override;
 static volatile uint8_t queue_kind[SONG_TRACKS], queue_row[SONG_TRACKS];
+/* Task 17 Goal 4: a clip no scene uses is launched as row SONG_ROWS + place (a "place row": no row record, no row
+ * events); place_steps is its length, read from the clip when it is queued. mute_mask: tracks whose notes stay in. */
+static volatile uint8_t place_steps[SONG_TRACKS];
+static volatile unsigned mute_mask;
 /* audio -> control */
 static volatile unsigned playing, cur, repeat, underruns, song_over;
 static volatile uint32_t master, song_start;
@@ -313,6 +317,7 @@ static FM1_AUDIO_CODE void note_on(unsigned buf, unsigned t, unsigned step, unsi
         timed_note_unpack(b->cell[step] + 1 + NOTE * index, &n);
         start = (int32_t)step * UNITS + n.offset;
     }
+    if (mute_mask & (1U << t)) return;   /* Task 17 Goal 4: a muted track's notes stay in; the clip runs on */
     uint32_t dur = (uint32_t)(warp(start + (int32_t)n.length, b->swing) - warp(start, b->swing));
     if (!dur) dur = 1;
     unsigned found = SONG_SOUNDING_MAX;
@@ -617,7 +622,8 @@ static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
     if (kind == Q_LAUNCH) {
         k->state = 1; k->row = queue_row[t];
         k->start = plan[t].tb;
-        k->len = (record.row[k->row].steps ? record.row[k->row].steps : SONG_BLOCK_STEPS) * UNITS;
+        k->len = (k->row >= SONG_ROWS ? (place_steps[t] ? place_steps[t] : SONG_BLOCK_STEPS)
+                  : record.row[k->row].steps ? record.row[k->row].steps : SONG_BLOCK_STEPS) * UNITS;
         adopt(t, plan[t].nb, at, 1);
     } else {   /* Q_ATTACH: back to song, into the current row where it stands (no look-ahead) */
         k->state = 0; k->row = 0;
@@ -943,16 +949,19 @@ static unsigned slice_events(unsigned row, unsigned channel, uint8_t out[][4], u
  * block plays silent (has_block = 0). */
 static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned purpose)
 {
-    const struct song_row *r = &record.row[row];
-    b->row = (uint8_t)row; b->steps = r->steps ? r->steps : SONG_BLOCK_STEPS; b->purpose = (uint8_t)purpose;
+    /* Task 17 Goal 4: a place row (SONG_ROWS + place) is the track's clip in that place, with its own length. */
+    unsigned place_row = row >= SONG_ROWS;
+    const struct song_row *r = &record.row[place_row ? 0 : row];
+    b->row = (uint8_t)row; b->steps = place_row ? SONG_BLOCK_STEPS : r->steps ? r->steps : SONG_BLOCK_STEPS; b->purpose = (uint8_t)purpose;
     b->swing = (uint8_t)swing_song; b->has_block = 0; b->v3 = 0;
     memset(b->cell, 0, sizeof b->cell);
-    unsigned id = r->block[t], bytes, format = SONG_FORMAT_V2;
+    unsigned id = place_row ? model.clip[t][(row - SONG_ROWS) % SONG_CLIPS] : r->block[t], bytes, format = SONG_FORMAT_V2;
     if (id) {
         int e = song_block_read(loaded, id, payload, &bytes, &format);
         if (!e) e = song_payload_valid(format, payload, bytes);
         if (e) last_error = (unsigned)e;
         else {
+            if (format == SONG_FORMAT_V3 && place_row) b->steps = (uint8_t)clip_v3_steps(payload);
             if (format == SONG_FORMAT_V3) {
                 /* Task 16 Goal 5: a v3 clip that the step grid can hold plays through the grid (identical MIDI to the same notes
                  * as v2); one it cannot hold (docs/CLIP-V3.md) is an error until the cursor replaces the grid scan. */
@@ -978,7 +987,8 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
             }
         }
     }
-    b->event_count = (uint8_t)slice_events(row, groove_midi_song_track_channel(t), b->event, &b->lead);
+    b->lead = 0;
+    b->event_count = place_row ? 0 : (uint8_t)slice_events(row, groove_midi_song_track_channel(t), b->event, &b->lead);
     barrier();
     b->ready = 1;
 }
@@ -1196,6 +1206,41 @@ int song_track_launch(unsigned track, unsigned row)
     barrier();
     queue_kind[track] = Q_LAUNCH;
     return 0;
+}
+/* Task 17 Goal 4: launch the track's clip in `place` (0-based, the song's clip table). A clip some scene uses is
+ * launched as that scene's pattern (its length and its row events come with it); a clip no scene uses plays as a
+ * place row with the clip's own length (a v3 clip's header; 64 steps otherwise). */
+int song_clip_launch(unsigned track, unsigned place)
+{
+    if (state != 1 || track >= SONG_TRACKS || place >= SONG_CLIPS) return SONG_INVALID;
+    unsigned id = model.clip[track][place];
+    if (!id) return SONG_EMPTY;
+    for (unsigned r = 0; r < record.rows; ++r)
+        if (model.scene_clip[r][track] == place + 1U && record.row[r].block[track] == id) return song_track_launch(track, r);
+    unsigned bytes, format = SONG_FORMAT_V2, steps = SONG_BLOCK_STEPS;
+    if (!song_block_read(loaded, id, payload, &bytes, &format) && format == SONG_FORMAT_V3 && !song_payload_valid(format, payload, bytes))
+        steps = clip_v3_steps(payload);
+    place_steps[track] = (uint8_t)steps;
+    queue_row[track] = (uint8_t)(SONG_ROWS + place);
+    barrier();
+    queue_kind[track] = Q_LAUNCH;
+    return 0;
+}
+/* Take a queued launch, stop or return back before it lands. 0: taken back; SONG_EMPTY: nothing was queued. */
+int song_track_unqueue(unsigned track)
+{
+    if (state != 1 || track >= SONG_TRACKS) return SONG_INVALID;
+    if (queue_kind[track] == Q_NONE) return SONG_EMPTY;
+    queue_kind[track] = Q_NONE;
+    return 0;
+}
+void song_mute_set(unsigned mask) { mute_mask = mask & 255U; }
+/* The clip place (0-based) behind a status row of a track, SONG_NONE when there is none. */
+unsigned song_row_place(unsigned track, unsigned row)
+{
+    if (track >= SONG_TRACKS || row == SONG_NONE) return SONG_NONE;
+    if (row >= SONG_ROWS) return row - SONG_ROWS < SONG_CLIPS ? row - SONG_ROWS : SONG_NONE;
+    return model.scene_clip[row][track] ? model.scene_clip[row][track] - 1U : SONG_NONE;
 }
 int song_track_stop(unsigned track)
 {

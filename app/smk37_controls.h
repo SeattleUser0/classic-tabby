@@ -36,6 +36,8 @@ void smk37_screen_page(unsigned page);
 void smk37_screen_shortcut(unsigned pad);
 /* Task 16 (remote control, app/transfer.c command 29): the screen state the status reply reports. */
 unsigned ct_screen_page(void);
+unsigned ct_screen_track_muted(unsigned track);   /* Task 17 Goal 4: the song's mute of a track (mixer mute, or the MIDI-only mute of an OFF track) */
+unsigned ct_screen_clips_read(uint8_t *out);      /* command 29 op 12: the CLIPS / SCENES page state, 54 bytes */
 unsigned ct_screen_action(void);
 void ct_screen_song_select(unsigned song);
 #endif

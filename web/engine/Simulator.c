@@ -368,11 +368,15 @@ EXPORT("sim_song_track") int sim_song_track(unsigned kind, unsigned track, unsig
     if (kind == 1) return song_track_stop(track);
     if (kind == 2) return song_track_attach(track);
     if (kind == 3) { song_track_attach_all(); return 0; }
+    if (kind == 4) return song_clip_launch(track, row);   /* Task 17 Goal 4: by clip place */
+    if (kind == 5) return song_track_unqueue(track);
     return -1;
 }
 /* Task 06 (c): the colour a pad shows now (smk37_pad_color: the TRACK LAUNCH page's view
  * when that page is open, otherwise the stock view with `lit` = 0). */
 EXPORT("sim_pad_color") uint32_t sim_pad_color(unsigned pad) { return pad < 16 ? smk37_pad_color(pad, 0) : 0; }
+/* Task 17 Goal 4: the CLIPS / SCENES page state (ct_screen_clips_read) into the file buffer; returns its length. */
+EXPORT("sim_clips_state") unsigned sim_clips_state(void) { return ct_screen_clips_read(file_buffer); }
 EXPORT("sim_song_track_status") uint32_t sim_song_track_status(unsigned track)
 {
     struct song_status st; song_status_read(&st);

@@ -25,9 +25,10 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.12
+Version: 0.13
 
 Revision log
+    v0.13 2026-11-14  Task 17 Goal 4: clips_state(), clip_launch(), unqueue(), pad(), shift_pad() (remote ops 12 to 14, tabby-v04.7).
     v0.12 2026-11-14  Task 17 Goal 3: launch(), stop_track(), attach() (remote ops 9 to 11, tabby-v04.6).
     v0.11 2026-11-14  messages(): every kernel timestamp frame is read, not one per wake-up (the rest of a reply used to
                       wait in alsa-lib until more MIDI arrived: the cause of the "no replies with CLOCK = MIDI" of
@@ -277,7 +278,7 @@ class Link:
     # ---- remote control, command 29 (v0.8) -----------------------------------------------------
     PAGES = {0: "OVERVIEW", 1: "STEPS", 2: "FM_EDIT", 3: "FM_ENV", 4: "FM_LFO", 5: "TONE_EDIT", 6: "MIX", 7: "BLE",
              8: "PROJECT", 9: "NAME", 10: "EFFECTS", 11: "SOURCE", 12: "ACTIONS", 13: "STEP_EDIT", 14: "RHYTHM",
-             15: "FM_QUICK", 16: "PRESET_BROWSER", 17: "ARP_EDIT", 18: "STARTUP", 19: "SONG", 20: "TRACK_LAUNCH"}
+             15: "FM_QUICK", 16: "PRESET_BROWSER", 17: "ARP_EDIT", 18: "STARTUP", 19: "SONG", 20: "CLIPS"}
     # Physical button ids (app/smk37_controls.c button_map) by the firmware's names. SAVE (physical 3) is
     # refused by the device on purpose. HOME has two physical ids (2 and 12); 12 is HOME / SRC.
     PANEL = {"SHIFT": 0, "FADER_BANK": 1, "HOME": 2, "OCT_DOWN": 4, "OCT_UP": 5, "ARP": 6, "PAD_STEP": 7, "SCL": 8,
@@ -301,6 +302,39 @@ class Link:
 
     def attach(self, track=255):
         return self.remote(11, track)
+
+    def clips_state(self):
+        """v0.13: remote op 12 (tabby-v04.7): the CLIPS / SCENES page: page, selected track, clip bank, scene bank, the
+        track's selected clip place (255 none), and per pad its state code (0 empty, 1 stopped, 2 playing, 3 queued,
+        4 stop queued; + 8 selected, + 16 track muted) and its LED colour (0xRRGGBB, 5 bits a channel)."""
+        d = self.query(29, bytes([12]), attempts=1)
+        if len(d) < 55 or d[0] != 2:
+            raise DeviceError(-1)
+        d = d[1:]
+        pads = []
+        for i in range(16):
+            v = d[7 + 3 * i] | d[8 + 3 * i] << 7
+            pads.append({"code": d[6 + 3 * i], "rgb": ((v >> 10) & 31) << 17 | ((v >> 5) & 31) << 9 | (v & 31) << 1})
+        return {"page": d[0], "page_name": self.PAGES.get(d[0], str(d[0])), "track": d[1], "bank": d[2], "scene_bank": d[3],
+                "selected": d[4], "notice": d[5], "pads": pads}
+
+    def clip_launch(self, track, place):
+        """v0.13: remote op 13: launch the track's clip in `place` (both 0-based), as its pad does."""
+        return self.remote(13, track, place)
+
+    def unqueue(self, track):
+        return self.remote(14, track)
+
+    def pad(self, pad, hold=0.05, velocity=100):
+        """v0.13: press pad `pad` (0-based) for `hold` seconds through the remote panel keys."""
+        self.key(3, pad, velocity)
+        time.sleep(hold)
+        return self.key(3, pad, 0)
+
+    def shift_pad(self, pad):
+        self.key(0, self.PANEL["SHIFT"], 1); time.sleep(0.05)
+        self.pad(pad); time.sleep(0.05)
+        return self.key(0, self.PANEL["SHIFT"], 0)
 
     def show_page(self, name):
         """v0.10: bring the device to a page by remote panel keys: "overview", "steps" (SYNC / MIDI, SEQ) or

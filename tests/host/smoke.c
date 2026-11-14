@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.20
+ * Version: 0.21
  *
  * Revision log
+ *   v0.21 2026-11-14  Task 17 Goal 4: section 22, clip launching by place (place rows, taking a queue back).
  *   v0.20 2026-11-14  Task 17 Goal 3: section 21, song record version 3 (scenes, the clip table, the master cycle).
  *   v0.19 2026-11-14  Branch clipv3-cursor: section 20, the scheduler cursor (a v3 clip from its event list is
  *                     byte-identical to the grid; a clip the grid cannot hold plays: chord of five, a controller event).
@@ -1457,7 +1458,8 @@ int main(void)
         n = RCMD(29, 6, 0, 18, 1); CHECK(n >= 0 && reply[0] == 71, "remote: physical button 18 refused");
         n = RCMD(29, 6, 1, 37, 1); CHECK(n >= 0 && reply[0] == 71, "remote: key 37 refused");
         n = RCMD(29, 6, 9, 0, 1); CHECK(n >= 0 && reply[0] == 71, "remote: kind 9 refused");
-        n = RCMD(29, 12); CHECK(n >= 0 && reply[0] == 71, "remote: unknown operation refused");
+        n = RCMD(29, 99); CHECK(n >= 0 && reply[0] == 71, "remote: unknown operation refused");
+        n = RCMD(29, 12); CHECK(n >= 56 && reply[0] == 0 && reply[1] == 2, "remote: operation 12 reads the CLIPS / SCENES page state (%d bytes)", n);
         n = RCMD(29, 9, 0, 0); CHECK(n >= 0 && reply[0] != 0, "remote: a track launch is refused while no song plays (code %u)", reply[0]);
         /* Panel flows, checked against the page the firmware reports. */
         n = RCMD(29, 6, 0, 0, 1); n = RCMD(29, 6, 0, 12, 1);       /* SHIFT + HOME / SRC */
@@ -2137,6 +2139,71 @@ int main(void)
         #undef CLIP
         #undef SCENE
         #undef REFUSED
+        sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
+    }
+
+    /* ---- 22. Task 17 Goal 4: launching a clip by its place (song_clip_launch), place rows, taking a queue back ---- */
+    {
+        sim_boot(1); sim_midi_capture(1); sim_midi_drain(1); sim_test_request_passes(1);
+        uint8_t *f = sim_file(); const unsigned SONG = 5;
+        uint8_t b[64 + 6]; static uint8_t v3[256]; struct timed_note tn; tn.velocity = 100; tn.retrigger = 1; tn.offset = 0; tn.length = 240;
+        /* block 1: 60 on step 0; 2: 62 on step 4; 3: 64 on step 0; 4: a v3 clip of 32 steps with 67 on step 8 */
+        for (unsigned id = 1; id <= 4; ++id) {
+            unsigned step = id == 2 ? 4 : id == 4 ? 8 : 0, at = 0; memset(b, 0, sizeof b);
+            for (unsigned k = 0; k < 64; ++k) { if (k == step) { b[at++] = 1; tn.pitch = (uint8_t)(id == 4 ? 67 : 58 + 2 * id); (void)timed_note_encode(&tn, b + at); at += 6; } else b[at++] = 0; }
+            if (id == 4) {
+                int n3 = clip_v3_from_v2(b, sizeof b, v3, sizeof v3, NULL);
+                if (n3 > 0) v3[0] = 32;
+                CHECK(n3 > 0 && clip_v3_validate(v3, (unsigned)n3) == 0 && clip_v3_steps(v3) == 32, "clips: a v3 clip of 32 steps is built (%d bytes)", n3);
+                memcpy(f, v3, (unsigned)(n3 > 0 ? n3 : 0)); CHECK(sim_block_write2(SONG, id, 2, (unsigned)(n3 > 0 ? n3 : 0)) == 0, "clips: block 4 (v3) stored");
+            } else { memcpy(f, b, sizeof b); CHECK(sim_block_write2(SONG, id, 1, sizeof b) == 0, "clips: block %u stored", id); }
+        }
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 3; memcpy(f + 24, "CLIP PLACES ", 12); f[40] = 2; f[48] = 5; f[49] = 6;
+        memset(f + 2624, 0xff, 4096 - 2624); memset(f + 2624, 0, 8); f[2626] = 1;
+        #define CLIP(t_, c_, id_) do { f[64 + (t_) * 128 + (c_) * 2] = (uint8_t)(id_); } while (0)
+        CLIP(0, 0, 1); CLIP(0, 1, 2); CLIP(0, 5, 2); CLIP(0, 6, 4); CLIP(1, 0, 3);     /* T1: places 1, 2 in scenes; 6 (block 2 again) and 7 (the v3 clip) in none */
+        f[1088] = 1; f[1088 + 8] = 1; f[1088 + 9] = 1; f[1088 + 10] = 16;               /* scene 1: T1 place 1, loops here */
+        f[1100] = 2; f[1101] = 1; f[1100 + 8] = 1; f[1100 + 10] = 16;                   /* scene 2: T1 place 2, T2 place 1 */
+        #undef CLIP
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0, "clips: the song stored and loaded");
+        CHECK(song_clip_launch(0, 1) == SONG_INVALID, "clips: a launch is refused while the song is stopped");
+        CHECK(song_row_place(0, 0) == 0 && song_row_place(0, 1) == 1 && song_row_place(1, 0) == SONG_NONE && song_row_place(0, SONG_ROWS + 6) == 6 && song_row_place(0, SONG_NONE) == SONG_NONE,
+              "clips: the place behind a row: scene 1 T1 place 1, scene 2 T1 place 2, T2 silent in scene 1, a place row its place");
+        { struct message m[64]; (void)drain(m, 64); }
+        static struct log_entry lc[512]; unsigned nc = 0, blocks = 0; int r1 = -9, r2 = -9, r3 = -9, r4 = -9, u1 = -9, u2 = -9, e1 = -9, e2 = -9, e3 = -9;
+        unsigned row800 = 0, row2000 = 0, row5600 = 0, row7500 = 0, queue6700 = 0;
+        (void)sim_song_play();
+        for (; blocks < 7600; ++blocks) {
+            if (blocks == 100) r1 = song_clip_launch(0, 1);                         /* a clip scene 2 uses: launched as that scene's pattern */
+            if (blocks == 800) { row800 = (sim_song_track_status(0) >> 8) & 255U; r2 = song_clip_launch(0, 5); }   /* a clip no scene uses: a place row */
+            if (blocks == 2000) row2000 = (sim_song_track_status(0) >> 8) & 255U;
+            if (blocks == 4400) r3 = song_clip_launch(0, 6);                         /* the v3 clip of 32 steps */
+            if (blocks == 5600) { row5600 = (sim_song_track_status(0) >> 8) & 255U; e1 = song_clip_launch(0, 9); e2 = song_clip_launch(0, 64); e3 = song_clip_launch(8, 0); }
+            if (blocks == 6600) r4 = song_clip_launch(0, 0);
+            if (blocks == 6700) { queue6700 = (sim_song_track_status(0) >> 2) & 3U; u1 = song_track_unqueue(0); u2 = song_track_unqueue(0); }
+            if (blocks == 7500) row7500 = (sim_song_track_status(0) >> 8) & 255U;
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && m[k].data[0] != 0xf8 && nc < 512) { lc[nc].s = m[k].data[0]; lc[nc].d1 = m[k].data[1]; lc[nc].d2 = m[k].data[2]; lc[nc].block = blocks; ++nc; }
+        }
+        sim_song_stop(); settle();
+        { int first = find_log(lc, nc, 0x94, 60, 100, 0); unsigned o = first >= 0 ? lc[first].block : 0;
+          /* 16 steps = 689.06 blocks at 120 BPM; a step = 43.07 blocks */
+          int a = find_log(lc, nc, 0x94, 62, 100, 0);
+          unsigned da = a >= 0 ? lc[a].block - o : 0;
+          CHECK(r1 == 0 && row800 == 1 && da >= 859 && da <= 863, "clips: the clip of place 2 is launched as scene 2's pattern (row %u) on the next cycle (its note %u blocks after the song's first; 861)", row800, da);
+          /* the place row: queued at 800, lands at cycle 2 (1378): 62 on step 4 at 1550, then every 64 steps (2756 blocks) */
+          int p = -1, q = -1; for (unsigned i = 0; i < nc; ++i) if (lc[i].s == 0x94 && lc[i].d1 == 62 && lc[i].d2 && lc[i].block - o > 1400) { if (p < 0) p = (int)i; else if (q < 0) q = (int)i; }
+          unsigned dp = p >= 0 ? lc[p].block - o : 0, dq = q >= 0 ? lc[q].block - o : 0;
+          CHECK(r2 == 0 && row2000 == SONG_ROWS + 5 && dp >= 1548 && dp <= 1552 && dq >= 4304 && dq <= 4308, "clips: a clip no scene uses plays as a place row (row %u) of 64 steps from the next cycle (%u and %u; 1550 and 4306)", row2000, dp, dq);
+          /* the v3 place row: queued at 4400, lands at cycle 7 (4823): 67 on step 8 at 5168, then every 32 steps (1378 blocks) */
+          int g = find_log(lc, nc, 0x94, 67, 100, 0), h = g >= 0 ? find_log(lc, nc, 0x94, 67, 100, g + 1) : -1;
+          unsigned dg = g >= 0 ? lc[g].block - o : 0, dh = h >= 0 ? lc[h].block - o : 0;
+          CHECK(r3 == 0 && row5600 == SONG_ROWS + 6 && dg >= 5166 && dg <= 5170 && dh >= 6544 && dh <= 6548, "clips: a v3 clip in no scene plays with its own length of 32 steps (row %u; %u and %u; 5168 and 6546)", row5600, dg, dh);
+          CHECK(e1 == SONG_EMPTY && e2 == SONG_INVALID && e3 == SONG_INVALID, "clips: an empty place, a place above 64 and a track above 8 are refused (%d %d %d)", e1, e2, e3);
+          CHECK(r4 == 0 && queue6700 == 1 && u1 == 0 && u2 == SONG_EMPTY && row7500 == SONG_ROWS + 6, "clips: a queued launch is taken back before it lands (%d %u %d %d, row %u)", r4, queue6700, u1, u2, row7500);
+          unsigned late60 = 0; for (unsigned i = 0; i < nc; ++i) if (lc[i].s == 0x94 && lc[i].d1 == 60 && lc[i].d2 && lc[i].block - o > 700) ++late60;
+          CHECK(late60 == 0 && stuck(lc, nc) == 0, "clips: the clip taken back never played; nothing stuck (%u, %d)", late60, stuck(lc, nc)); }
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

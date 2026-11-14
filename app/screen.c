@@ -219,6 +219,20 @@ static unsigned launch_phase(void);         /* Task 06 (c): the TRACK LAUNCH pag
 /* Task 16 Goal 1 (remote control, transfer command 29, app/transfer.c): what the screen state is, and
  * the SONG page's selected song, so a remote select leaves the page and the song loaded together
  * (the page then shows what the song state says). The page numbers are this file's enum. */
+/* Task 17 Goal 4 (docs/CONTROL-MAP.md): the CLIPS page (TRACK_LAUNCH): the pad bank of 16 clip places, the selected
+ * clip per track (SONG_NONE: none), the pad being held (long press = select only) and the page BT returns to. */
+static unsigned clip_bank, clips_return;
+static uint8_t clip_select[8] = {SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE};
+static uint8_t clip_hold_pad = 255, clip_hold_queued, clip_hold_track;
+static uint32_t clip_hold_ms;
+/* Mute for the song (docs/CONTROL-MAP.md 7): SHIFT + pad 9-16 toggles the mixer's mute as before and sets the
+ * track's bit here to match; the bit holds the track's song notes back. A mute made on the MIX page, or one a
+ * project comes with (tracks 6 and 7 of a new project), silences the internal sound only, as it always did: a song
+ * still plays those tracks on MIDI out. A track that is OFF has no mixer mute; its bit alone is toggled. */
+static uint8_t song_mute_bits;
+static struct groove_view frame_views[GROOVE_TRACKS];
+static unsigned track_muted(unsigned t) { return (song_mute_bits >> t) & 1U; }
+unsigned ct_screen_track_muted(unsigned t) { return t < 8 ? track_muted(t) : 0; }
 unsigned ct_screen_page(void) { return page; }
 unsigned ct_screen_action(void) { return action; }
 void ct_screen_song_select(unsigned song) { if (song < SONG_SONGS) song_select = song; }
@@ -313,7 +327,6 @@ struct draw_cache {
 static struct draw_cache saved_cache, band_cache, *cache = &saved_cache;
 static uint32_t led_cache;
 static uint16_t button_led_cache;
-static struct groove_view frame_views[GROOVE_TRACKS];
 static uint8_t frame_effects[4];
 static uint8_t frame_patch[156];
 static char frame_fm_names[GROOVE_TRACKS][8];
@@ -854,7 +867,9 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         if (visible == SONG || visible == TRACK_LAUNCH) {
             struct song_status st; song_status_read(&st);
             sig = signature(sig, &st, sizeof st);
-            sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24) + (song_follow_state() << 27);   /* Task 16: the follow state */
+            sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24) + (song_follow_state() << 27);
+            sig = sig * 33U + clip_bank + ((unsigned)clip_select[track] << 3) + (track_muted(track) << 12);
+            for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + track_muted(t);   /* Task 16: the follow state */
         }
         if (visible == ARP_EDIT) {
             sig = sig * 33U + track + (groove_arp_enabled(track) << 8) + (arp_page << 9);
@@ -930,21 +945,21 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         } else if (rec && st.song == song_select) {
             unsigned row = st.playing ? st.row : 0;
             const struct song_row *r = &rec->row[row];
-            dim_text(8, 70, "ROW"); small_number(32, 70, row + 1, 3, ACCENT);
-            dim_text(58, 70, "/"); small_number(64, 70, rec->rows, 3, TEXT);
-            dim_text(96, 70, "X"); small_number(104, 70, st.playing ? st.repeat + 1U : 1, 2, TEXT);
-            dim_text(118, 70, "/"); small_number(124, 70, r->repeat, 2, TEXT);
-            dim_text(150, 70, "BAR"); small_number(174, 70, st.step / 16U + 1U, 1, TEXT);
-            dim_text(186, 70, "/"); small_number(192, 70, (r->steps ? r->steps : 64U) / 16U, 1, TEXT);
+            dim_text(8, 70, "SCENE"); small_number(44, 70, row + 1, 3, ACCENT);
+            dim_text(70, 70, "/"); small_number(76, 70, rec->rows, 3, TEXT);
+            dim_text(108, 70, "X"); small_number(116, 70, st.playing ? st.repeat + 1U : 1, 2, TEXT);
+            dim_text(130, 70, "/"); small_number(136, 70, r->repeat, 2, TEXT);
+            dim_text(162, 70, "BAR"); small_number(186, 70, st.step / 16U + 1U, 1, TEXT);
+            dim_text(198, 70, "/"); small_number(204, 70, (r->steps ? r->steps : 64U) / 16U, 1, TEXT);
             if (st.playing == 1 && st.follow) {
                 /* Task 16 Goal 3: CLOCK = MIDI: the song follows the master (SPEC 19.3). */
                 static const char *const fol[] = {"", "ARMED: START?", "PREPARING", "WAIT PULSE", "FOLLOWING", "HOLD: NO CLOCK", "LOST - CONTINUE", "STOP BY MASTER"};
                 color_text(8, 88, fol[st.follow < 8 ? st.follow : 0], st.follow == 4 ? GREEN : st.follow == 5 || st.follow == 6 ? AMBER : DIM);
             } else
             color_text(8, 88, st.playing == 2 ? "STOPPING" : st.playing ? "PLAYING" : "STOPPED - PLAY STARTS", st.playing ? GREEN : DIM);
-            if (st.queued != SONG_NONE) { dim_text(104, 88, "JUMP TO ROW"); small_number(176, 88, st.queued + 1U, 3, AMBER); }
-            else if (st.playing && st.next_row != SONG_NONE) { dim_text(104, 88, "NEXT ROW"); small_number(158, 88, st.next_row + 1U, 3, TEXT); }
-            else if (st.playing) dim_text(104, 88, r->flags & SONG_ROW_FLAG_LOOP_HERE ? "LOOPING ROW" : "LAST ROW");
+            if (st.queued != SONG_NONE) { dim_text(104, 88, "TO SCENE"); small_number(158, 88, st.queued + 1U, 3, AMBER); }
+            else if (st.playing && st.next_row != SONG_NONE) { dim_text(104, 88, "NEXT"); small_number(134, 88, st.next_row + 1U, 3, TEXT); }
+            else if (st.playing) dim_text(104, 88, r->flags & SONG_ROW_FLAG_LOOP_HERE ? "LOOPING SCENE" : "LAST SCENE");
             /* Block id per track of the shown row, one column per track. */
             for (unsigned t = 0; t < SONG_TRACKS; ++t) {
                 unsigned x = 8 + t * 29;
@@ -952,9 +967,9 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
                 if (r->block[t]) small_number(x, 120, r->block[t], 5, TEXT); else dim_text(x, 120, "-");
             }
             /* Row pads: pads 1-16 = rows 1-16 of the pad page. */
-            dim_text(8, 140, "PADS ROW"); small_number(64, 140, song_row_page * 16U + 1U, 3, TEXT);
-            dim_text(86, 140, "-"); small_number(94, 140, song_row_page * 16U + 16U, 3, TEXT);
-            dim_text(130, 140, st.jump_mode ? "JUMP: ROW END" : "JUMP: NEXT BAR");
+            dim_text(8, 140, "PADS"); small_number(38, 140, song_row_page * 16U + 1U, 3, TEXT);
+            dim_text(60, 140, "-"); small_number(68, 140, song_row_page * 16U + 16U, 3, TEXT);
+            dim_text(118, 140, st.jump_mode ? "JUMP: SCENE END" : "JUMP: NEXT CYCLE");
             if (st.error) { color_text(8, 158, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS" : "BLOCK READ ERROR", AMBER); }
             else if (st.underruns) color_text(8, 158, "ROW DECODE LATE", AMBER);
             if (rec->tempo) { dim_text(130, 158, "BPM"); small_number(154, 158, rec->tempo, 3, TEXT); }
@@ -967,48 +982,64 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             dim_text(8, 70, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS IN SONG" : "NO SONG HERE - UPLOAD FROM");
             dim_text(8, 88, "THE WEB WORKBENCH");
         }
-        plain_text(8, 198, notice ? notice : "K5/K7 SONG  PADS JUMP  OCT PAD PAGE");
+        plain_text(8, 198, notice ? notice : "PADS RECALL SCENE  OCT BANK  K5 SONG");
         dim_text(8, 213, "PLAY START/STOP  K4 JUMP MODE");
-        dim_text(8, 231, "SCL TRACK LAUNCH   HOME BACK");
+        dim_text(8, 231, "SCL CLIPS  ENV TRACK TO SCENES");
     } else if (visible == TRACK_LAUNCH) {
-        /* Task 06 (c): every track's state and pattern, the selected track's patterns of the
-         * pad page (pads launch / stop), the master clock (9.13). */
+        /* Task 17 Goal 4 (docs/CONTROL-MAP.md 4): every track's state and clip, the selected track's clips of the pad
+         * bank (pads launch / stop), the selected clip, the master clock. */
         struct song_status st; song_status_read(&st);
         const struct song_record *rec = song_current();
-        text(8, 40, "LAUNCH", 2, ACCENT, BACK);
+        const struct song_model *mdl = song_model_current();
+        unsigned have = rec && st.song == song_select;
+        text(8, 40, "CLIPS", 2, ACCENT, BACK);
         text(104, 40, "T", 2, colors[track], BACK); number(118, 40, track + 1, 1, 2, colors[track], BACK);
         dim_text(150, 40, "BAR"); small_number(174, 40, st.playing ? st.bar + 1U : 0, 4, TEXT);
-        static const char *const words[] = {"FOLLOW", "PLAY", "STOP"};
+        if (track_muted(track)) color_text(150, 52, "MUTED", AMBER);
+        static const char *const words[] = {"SCENE", "CLIP", "STOP"};
         for (unsigned t = 0; t < SONG_TRACKS; ++t) {
             unsigned x = 8 + t * 29, state = st.track_state[t] & 3U, queue = (st.track_state[t] >> 2) & 3U;
+            unsigned now_place = song_row_place(t, st.track_row[t]);
             color_text(x, 66, "T", colors[t]); small_number(x + 6, 66, t + 1, 1, colors[t]);
-            if (st.track_row[t] != SONG_NONE) small_number(x, 78, st.track_row[t] + 1U, 3, t == track ? ACCENT : TEXT); else dim_text(x, 78, "-");
-            if (queue == SONG_QUEUE_LAUNCH) { color_text(x, 90, "Q", AMBER); small_number(x + 6, 90, st.track_queued[t] + 1U, 3, AMBER); }
-            else if (queue == SONG_QUEUE_STOP) color_text(x, 90, ">STOP", AMBER);
-            else if (queue == SONG_QUEUE_ATTACH) color_text(x, 90, ">SONG", AMBER);
+            if (now_place != SONG_NONE) small_number(x, 78, now_place + 1U, 2, track_muted(t) ? AMBER : t == track ? ACCENT : TEXT); else dim_text(x, 78, "-");
+            if (queue == SONG_QUEUE_LAUNCH) { color_text(x, 90, ">", AMBER); small_number(x + 6, 90, song_row_place(t, st.track_queued[t]) + 1U, 2, AMBER); }
+            else if (queue == SONG_QUEUE_STOP) color_text(x, 90, ">STP", AMBER);
+            else if (queue == SONG_QUEUE_ATTACH) color_text(x, 90, ">SCN", AMBER);
             else color_text(x, 90, words[state], state == 1 ? GREEN : state == 2 ? DIM : TEXT);
         }
-        /* The selected track's patterns on this pad page: a cell per pad, filled when the row
-         * has a block for the track, bright when it plays, amber when queued. */
-        dim_text(8, 112, "PATTERNS"); small_number(64, 112, song_row_page * 16U + 1U, 3, TEXT);
-        dim_text(86, 112, "-"); small_number(94, 112, song_row_page * 16U + 16U, 3, TEXT);
-        dim_text(130, 112, "OCT PAGE");
+        /* The selected track's clips of this bank: a cell per pad: filled when the place holds a clip, green when it
+         * plays, amber when queued, framed when selected. */
+        dim_text(8, 112, "PADS"); small_number(38, 112, clip_bank * 16U + 1U, 2, TEXT);
+        dim_text(54, 112, "-"); small_number(62, 112, clip_bank * 16U + 16U, 2, TEXT);
+        dim_text(130, 112, "OCT BANK");
+        unsigned playing_place = song_row_place(track, st.track_row[track]), queue = (st.track_state[track] >> 2) & 3U;
+        unsigned queued_place = queue == SONG_QUEUE_LAUNCH ? song_row_place(track, st.track_queued[track]) : SONG_NONE;
         for (unsigned i = 0; i < 16; ++i) {
-            unsigned r = song_row_page * 16U + i, x = 8 + i * 14;
-            unsigned has = rec && r < rec->rows && rec->row[r].block[track] != 0;
-            uint16_t c = !has ? PANEL : st.track_queued[track] == r && ((st.track_state[track] >> 2) & 3U) == SONG_QUEUE_LAUNCH ? AMBER
-                       : st.track_row[track] == r ? GREEN : DIM;
+            unsigned place = clip_bank * 16U + i, x = 8 + i * 14;
+            unsigned has = have && mdl && mdl->clip[track][place] != 0;
+            uint16_t c = !has ? PANEL : queued_place == place || (queue == SONG_QUEUE_STOP && playing_place == place) ? AMBER
+                       : playing_place == place ? GREEN : DIM;
+            if (has && clip_select[track] == place) frame(x - 1, 125, 14, 14, TEXT);
             paint_fill(x, 126, 12, 12, c);
             if (has) small_number(x + 1, 129, i + 1, 2, BACK);
         }
+        if (have && mdl && clip_select[track] < SONG_CLIPS && mdl->clip[track][clip_select[track]]) {
+            unsigned place = clip_select[track], steps = 0;
+            for (unsigned r = 0; r < rec->rows && !steps; ++r)
+                if (mdl->scene_clip[r][track] == place + 1U) steps = rec->row[r].steps ? rec->row[r].steps : 64U;
+            dim_text(8, 150, "SELECTED"); small_number(62, 150, place + 1U, 2, TEXT);
+            if (steps) { dim_text(86, 150, "STEPS"); small_number(122, 150, steps, 3, TEXT); }
+            else dim_text(86, 150, "IN NO SCENE");
+            dim_text(160, 150, "BLK"); small_number(184, 150, mdl->clip[track][place], 5, TEXT);
+        } else if (!have) dim_text(8, 150, "NO SONG HERE");
         if (st.playing) {
-            dim_text(8, 150, "ROW"); small_number(32, 150, st.row + 1U, 3, ACCENT);
-            dim_text(58, 150, st.song_over ? "SONG OVER" : "");
-            if (st.late) { color_text(130, 150, "LATE", AMBER); small_number(166, 150, st.late, 3, AMBER); }
-        } else dim_text(8, 150, "STOPPED - PLAY STARTS THE SONG");
-        plain_text(8, 198, notice ? notice : "PADS LAUNCH/STOP  SHIFT+PAD TRACK");
-        dim_text(8, 213, "ENV BACK TO SONG  SHIFT+ENV ALL");
-        dim_text(8, 231, "SCL SONG PAGE  HOME BACK");
+            dim_text(8, 168, "SCENE"); small_number(44, 168, st.row + 1U, 3, ACCENT);
+            dim_text(70, 168, st.song_over ? "SONG OVER" : "");
+            if (st.late) { color_text(142, 168, "LATE", AMBER); small_number(172, 168, st.late, 3, AMBER); }
+        } else dim_text(8, 168, "STOPPED - PLAY STARTS THE SONG");
+        plain_text(8, 198, notice ? notice : "PADS LAUNCH/STOP  HOLD: SELECT ONLY");
+        dim_text(8, 213, "ENV TRACK TO SCENES  SHIFT+ENV ALL");
+        dim_text(8, 231, "SCL SCENES  BT BACK  K5 TRACK");
     } else if (visible == ARP_EDIT) {
         text(8, 40, "ARPEGGIATOR", 2, ACCENT, BACK);
         text(184, 40, "T", 2, colors[track], BACK);
@@ -1278,11 +1309,14 @@ static void draw(const struct fm1_ble_status *ble)
     (void)ble; /* Task 06 (a): no page shows the BLE status any more */
     /* Bands consume stable names; rasterizing a split row never stops audio.
      * The eighth byte stays NUL in this static buffer. Failed sources show ERROR. */
+    unsigned song_mutes = 0;   /* Task 17 Goal 4: a muted track's song notes stay in (song_mute_set) */
     for (unsigned t = 0; t < GROOVE_TRACKS; ++t) {
         groove_get_view(t, cursor, &frame_views[t]);
+        if (track_muted(t)) song_mutes |= 1U << t;
         if (visible == OVERVIEW && frame_views[t].type == GROOVE_DX7 && !groove_fm_copy(t, frame_patch, NULL))
             memcpy(frame_fm_names[t], frame_patch + 145, 7);
     }
+    song_mute_set(song_mutes);
     if (visible == EFFECTS) {
         groove_effects_get(frame_effects);
         if (!effects_page) {
@@ -1606,8 +1640,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
      * selected track back to the song at the next bar, SHIFT+ENV (LFO) every track. */
     if ((page == SONG || page == TRACK_LAUNCH) && (pressed & (BUTTON(SCL) | BUTTON(ENV) | BUTTON(LFO)))) {
         if (pressed & BUTTON(SCL)) { page = page == SONG ? TRACK_LAUNCH : SONG; cache->shown_page = ~0U; }
-        else if (pressed & BUTTON(LFO)) { song_track_attach_all(); announce("ALL TRACKS BACK TO SONG AT BAR", now + 1500U); }
-        else { announce(song_track_attach(track) ? "NOT PLAYING" : "TRACK BACK TO SONG AT BAR", now + 1500U); }
+        else if (pressed & BUTTON(LFO)) { song_track_attach_all(); announce("ALL TRACKS TO SCENES AT CYCLE", now + 1500U); }
+        else { announce(song_track_attach(track) ? "NOT PLAYING" : "TRACK TO SCENES AT CYCLE", now + 1500U); }
         goto controls_done;
     }
     if (pressed & (BUTTON(HOME) | BUTTON(SEQ) | BUTTON(FX) | BUTTON(SCL) |
@@ -1725,7 +1759,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (controls->encoders[5]) song_jump_mode_set(controls->encoders[5] > 0);
         for (unsigned i = 0; i < 16; ++i)
             if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
-                if (song_queue_jump(song_row_page * 16U + i)) announce("NO SUCH ROW / NOT PLAYING", now + 1500U);
+                if (song_queue_jump(song_row_page * 16U + i)) announce("NO SUCH SCENE / NOT PLAYING", now + 1500U);
             }
         if (pressed & BUTTON(PLAY)) {
             if (st.playing) song_stop();
@@ -1742,22 +1776,38 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         goto controls_done;
     }
     if (page == TRACK_LAUNCH) {
-        /* Task 06 (c): pads queue the selected track's patterns (the playing one queues a
-         * stop), OCT pages the pads, PLAY starts and stops the song as on the SONG page. */
+        /* Task 17 Goal 4 (docs/CONTROL-MAP.md 4): a pad queues its clip for the selected track (the playing clip queues a
+         * stop, a queued pad takes its queue back) and selects it; held half a second it stays selected and what the
+         * press queued is taken back. K5 selects the track, OCT / K6 the pad bank; PLAY as on the SCENES page. */
         play_handled = 1;
         struct song_status st; song_status_read(&st);
-        const struct song_record *rec = song_current();
-        int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN));
-        if (paging) song_row_page = (unsigned)clamp((int)song_row_page + paging, 0, SONG_ROWS / 16 - 1);
+        const struct song_model *mdl = song_model_current();
+        if (controls->encoders[0]) select_track(controls->encoders[0]);
+        int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN)) + controls->encoders[1];
+        if (paging) clip_bank = (unsigned)clamp((int)clip_bank + paging, 0, SONG_CLIPS / 16 - 1);
+        unsigned queue = (st.track_state[track] >> 2) & 3U, playing_place = song_row_place(track, st.track_row[track]);
+        unsigned queued_place = queue == SONG_QUEUE_LAUNCH ? song_row_place(track, st.track_queued[track]) : SONG_NONE;
         for (unsigned i = 0; i < 16; ++i)
             if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
-                unsigned r = song_row_page * 16U + i;
+                unsigned place = clip_bank * 16U + i;
+                if (st.song != song_select || !mdl || !mdl->clip[track][place]) { announce("NO CLIP ON THIS PAD", now + 1500U); continue; }
+                clip_select[track] = (uint8_t)place; cache->middle_cache = ~0U;
+                clip_hold_pad = (uint8_t)i; clip_hold_ms = now; clip_hold_queued = 0; clip_hold_track = (uint8_t)track;
                 if (!st.playing) announce("PLAY STARTS THE SONG FIRST", now + 1500U);
-                else if (!rec || r >= rec->rows || !rec->row[r].block[track]) announce("NO PATTERN ON THIS PAD", now + 1500U);
-                else if (st.track_row[track] == r && ((st.track_state[track] >> 2) & 3U) != SONG_QUEUE_LAUNCH) {
-                    if (!song_track_stop(track)) announce("STOP AT NEXT BAR", now + 1500U);
-                } else if (!song_track_launch(track, r)) announce("LAUNCH AT NEXT BAR", now + 1500U);
+                else if ((queue == SONG_QUEUE_LAUNCH && (queued_place == place || playing_place == place)) || (queue == SONG_QUEUE_STOP && playing_place == place)) {
+                    if (!song_track_unqueue(track)) announce("TAKEN BACK", now + 1500U);
+                } else if (playing_place == place) {
+                    if (!song_track_stop(track)) { clip_hold_queued = 1; announce("STOP AT NEXT CYCLE", now + 1500U); }
+                } else if (!song_clip_launch(track, place)) { clip_hold_queued = 1; announce("LAUNCH AT NEXT CYCLE", now + 1500U); }
+                else announce("BLOCK READ ERROR", now + 1500U);
             }
+        if (clip_hold_pad != 255) {
+            if (!(controls->keys & (1U << white_keys[clip_hold_pad]))) clip_hold_pad = 255;
+            else if (now - clip_hold_ms >= 500U) {
+                if (clip_hold_queued && !song_track_unqueue(clip_hold_track)) announce("SELECTED ONLY - TAKEN BACK", now + 1500U);
+                clip_hold_pad = 255;
+            }
+        }
         if (pressed & BUTTON(PLAY)) {
             if (st.playing) song_stop();
             else {
@@ -2208,35 +2258,80 @@ static unsigned launch_phase(void)
     struct song_status st; song_status_read(&st);
     return st.playing ? (st.bar_step >> 1) & 1U : (fm1_millis() / 250U) & 1U;
 }
-/* The pad colours of the TRACK LAUNCH page (assessment 5.3), or 0 = not this page. Pads
- * 1-16 are the selected track's patterns of the pad page: green playing, flashing green
- * queued, flashing red a pending stop, dim white a pattern, off empty; under SHIFT pads 1-8
- * show the eight tracks in their colours: bright playing or following with a block, dim
- * stopped or silent, flashing queued; the selected track brighter still. Pads 9-16 under
- * SHIFT keep their mute view. One status snapshot per control read (pad 0 refreshes it). */
+/* Task 17 Goal 4: the state of pad `pad` on the CLIPS page for the selected track (docs/CONTROL-MAP.md 4.2):
+ * 0 empty, 1 stopped, 2 playing, 3 queued (launch), 4 the playing clip with a stop queued; + 8 selected, + 16 the
+ * track is muted. On the SCENES page: 0 no such scene, 1 a scene, 2 the scene that plays, 3 the queued scene. */
+static unsigned clips_pad_state(const struct song_status *st, unsigned pad)
+{
+    const struct song_record *rec = song_current();
+    if (page == SONG) {
+        unsigned r = song_row_page * 16U + pad;
+        if (!rec || st->song != song_select || r >= rec->rows) return 0;
+        return st->queued == r ? 3U : st->playing && !st->song_over && st->row == r ? 2U : 1U;
+    }
+    const struct song_model *mdl = song_model_current();
+    unsigned place = clip_bank * 16U + pad, queue = (st->track_state[track] >> 2) & 3U;
+    if (!rec || !mdl || st->song != song_select || !mdl->clip[track][place]) return 0;
+    unsigned playing_place = song_row_place(track, st->track_row[track]);
+    unsigned code = queue == SONG_QUEUE_LAUNCH && song_row_place(track, st->track_queued[track]) == place ? 3U
+                  : playing_place == place ? (queue == SONG_QUEUE_STOP ? 4U : 2U) : 1U;
+    return code | (clip_select[track] == place ? 8U : 0U) | (track_muted(track) ? 16U : 0U);
+}
+/* The pad colours of the CLIPS and SCENES pages (docs/CONTROL-MAP.md 4.2, 5), or 0 = not these pages. CLIPS: off
+ * empty, dim white stopped, green playing, blinking green queued, blinking red a pending stop, bright white selected
+ * (bright green selected and playing), orange when the track is muted (dim stopped, bright playing). Under SHIFT pads
+ * 1-8 show the eight tracks in their colours: bright playing or following with a block, dim stopped or silent,
+ * blinking queued; the selected track brighter still; pads 9-16 keep their mute view. One status snapshot per
+ * control read (pad 0 refreshes it). */
 int smk37_screen_launch_color(unsigned pad, uint32_t *rgb)
 {
     static struct song_status st; static unsigned phase;
-    if (page != TRACK_LAUNCH || pad >= 16) return 0;
+    if ((page != TRACK_LAUNCH && page != SONG) || pad >= 16) return 0;
     if (pad == 0) { song_status_read(&st); phase = st.playing ? (st.bar_step >> 1) & 1U : (fm1_millis() / 250U) & 1U; }
     if (smk37_shift()) {
         if (pad >= 8) return 0;
         unsigned c = colors[pad], state = st.track_state[pad] & 3U, queue = (st.track_state[pad] >> 2) & 3U;
         const struct song_record *r = song_current();
-        unsigned on = st.track_row[pad] != SONG_NONE && state != SONG_TRACK_STOPPED && r && r->row[st.track_row[pad]].block[pad] != 0;
+        unsigned on = st.track_row[pad] != SONG_NONE && state != SONG_TRACK_STOPPED && r && (st.track_row[pad] >= SONG_ROWS || r->row[st.track_row[pad]].block[pad] != 0);
         unsigned level = queue ? (phase ? 2U : 0U) : on ? 2U : 1U;
         if (pad == track && level) ++level;
         *rgb = level ? ((c >> 11) & 31U) << (15 + level) | ((c >> 5) & 63U) << (6 + level) | (c & 31U) << level : 0;
         return 1;
     }
-    const struct song_record *rec = song_current();
-    unsigned r = song_row_page * 16U + pad, queue = (st.track_state[track] >> 2) & 3U;
-    if (!rec || r >= rec->rows || !rec->row[r].block[track]) { *rgb = 0; return 1; }
-    if (queue == SONG_QUEUE_LAUNCH && st.track_queued[track] == r) *rgb = phase ? 0x083008 : 0;
-    else if (queue == SONG_QUEUE_STOP && st.track_row[track] == r) *rgb = phase ? 0x300808 : 0;
-    else if (st.track_row[track] == r) *rgb = 0x083008;
-    else *rgb = 0x080808;
+    unsigned code = clips_pad_state(&st, pad), kind = code & 7U, selected = code & 8U, muted = code & 16U;
+    if (kind == 0) *rgb = 0;
+    else if (kind == 3) *rgb = phase ? 0x083008 : 0;
+    else if (kind == 4) *rgb = phase ? 0x300808 : 0;
+    else if (muted) *rgb = kind == 2 ? 0x301808 : 0x0c0600;
+    else if (kind == 2) *rgb = selected ? 0x103c10 : 0x083008;
+    else *rgb = selected ? 0x303030 : 0x080808;
     return 1;
+}
+/* The remote read of these pages (command 29 op 12; tests): out[0] page, [1] selected track, [2] clip bank, [3] scene
+ * bank, [4] the selected track's selected clip place (255 none), [5] 1 while a notice shows, then per pad 3 bytes:
+ * the state code (clips_pad_state) and the LED colour as 15 bits (5 per channel, each channel >> 1), low 7 bits first. */
+unsigned ct_screen_clips_read(uint8_t *out)
+{
+    struct song_status st; song_status_read(&st);
+    out[0] = (uint8_t)page; out[1] = (uint8_t)track; out[2] = (uint8_t)clip_bank; out[3] = (uint8_t)song_row_page;
+    out[4] = clip_select[track]; out[5] = notice != NULL;
+    for (unsigned i = 0; i < 16; ++i) {
+        uint32_t c = smk37_pad_color(i, 0);
+        unsigned packed = ((c >> 17) & 31U) << 10 | ((c >> 9) & 31U) << 5 | ((c >> 1) & 31U);
+        out[6 + 3 * i] = (uint8_t)((page == TRACK_LAUNCH || page == SONG) ? clips_pad_state(&st, i) : 0);
+        out[7 + 3 * i] = (uint8_t)(packed & 127U); out[8 + 3 * i] = (uint8_t)(packed >> 7);
+    }
+    return 54;
+}
+/* BT (docs/CONTROL-MAP.md 2): opens the CLIPS page from anywhere; from CLIPS back to the page it was opened from. */
+static void clips_toggle(void)
+{
+    if (page == TRACK_LAUNCH) page = clips_return == TRACK_LAUNCH ? OVERVIEW : clips_return;
+    else {
+        clips_return = page == SONG || page <= STEPS || page == MIX ? page : OVERVIEW;
+        page = TRACK_LAUNCH;
+        if (song_loaded() == SONG_NONE) (void)song_load(song_select);
+    }
 }
 int smk37_screen_octave(void) { return octave; }
 unsigned smk37_performance_track(unsigned pad)
@@ -2301,7 +2396,7 @@ void smk37_screen_page(unsigned target)
     blocked_keys|=previous_keys;
     glo_down=glo_used=seq_down=arp_down=arp_long=0;
     /* Task 06 (a): the BT button has no page any more; Bluetooth is set from the workbench. */
-    if(target==SMK37_PAGE_BLUETOOTH) {announce("BLUETOOTH: SET IN WORKBENCH",fm1_millis()+2000U);boot_active=0;return;}
+    if(target==SMK37_PAGE_BLUETOOTH) {clips_toggle();boot_active=0;cache->shown_page=~0U;return;}   /* Task 17 Goal 4: BT is the CLIPS button */
     page=target==SMK37_PAGE_MIDI?STEPS:SOURCE;
     if(page==STEPS) {music_page=STEPS;seq_page=SEQ_MIDI_TRACK;}   /* Task 12 A2: SHIFT+SEQ = MIDI TRACK */
     else {source_preview=groove_source_type(track);source_result=0;}
@@ -2317,10 +2412,15 @@ void smk37_screen_shortcut(unsigned pad)
         select_track((int)pad-(int)track);
         notice="TRACK SELECTED";
     } else if(groove_track_role(pad-8)==GROOVE_TRACK_OFF) {
-        notice="TRACK OFF - SHIFT+HOME K2";
+        /* Task 17 Goal 4: a track without a source can still play a song on MIDI out; its mute holds those notes back. */
+        song_mute_bits^=(uint8_t)(1U<<(pad-8));
+        notice=track_muted(pad-8)?"MIDI TRACK MUTED":"MIDI TRACK UNMUTED";
     } else {
+        struct groove_view view;
         groove_mix_toggle(pad-8,0);
-        notice="TRACK MUTE CHANGED";
+        groove_get_view(pad-8,0,&view);
+        song_mute_bits=(uint8_t)((song_mute_bits&~(1U<<(pad-8)))|((unsigned)(view.muted!=0)<<(pad-8)));
+        notice=view.muted?"TRACK MUTED":"TRACK UNMUTED";
     }
     notice_until=fm1_millis()+1200U;boot_active=0;cache->shown_page=~0U;
 }

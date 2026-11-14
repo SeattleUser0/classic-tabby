@@ -27,9 +27,10 @@
 //   Run:  /usr/bin/node tests/workbench/launch-sim.mjs build/web/simulator.wasm
 //         (or: make midi-import-sim, after make web)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-14  Task 17 Goal 4: page 20 is the CLIPS page; its pads are clip places (the pad check follows).
 //   v0.1  2026-11-04  Initial version (Task 06, checkpoint d).
 
 import { readFileSync } from 'node:fs';
@@ -171,7 +172,7 @@ check(extra.length === 0, 'nothing beyond the model was sent (' + extra.length +
   for (const v of held.values()) if (v) bad++;
   check(bad === 0, 'every note-on has its note-off, nothing stuck after the stop (' + log.length + ' messages)'); }
 check(log.filter(m => m[0] === 0xfa).length === 1 && log.filter(m => m[0] === 0xfc).length === 1, 'Start once at PLAY, Stop once at the end: launches and stops never touched the transport');
-check(padsSeen && padsSeen[0] === 0x083008 && padsSeen[1] === 0x080808 && padsSeen[3] === 0, 'TRACK LAUNCH pads for T1 while following row 1: pad 1 green, pad 2 a pattern, pad 4 empty (' + (padsSeen || []).slice(0, 4).map(v => v.toString(16)).join(' ') + ')');
+check(padsSeen && padsSeen[0] === 0x083008 && padsSeen[1] === 0 && padsSeen[3] === 0, 'CLIPS page pads for T1 while following row 1 (Task 17: pads are clip places; T1 has one clip): pad 1 green, pads 2 and 4 empty (' + (padsSeen || []).slice(0, 4).map(v => v.toString(16)).join(' ') + ')');
 
 console.log(`${passed} ok, ${failed} failed`);
 if (failed) { console.log('FAILED'); process.exit(1); }

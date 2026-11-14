@@ -78,6 +78,10 @@ unsigned ct_transport_running(void);
 int song_send_setup(void);            /* stopped only: send row 0's events now (9.11) */
 /* Task 06 (9.13): per-track queues, each landing on the next bar of the master clock. */
 int song_track_launch(unsigned track, unsigned row);  /* SONG_INVALID: not playing / no such row; SONG_EMPTY: no block */
+int song_clip_launch(unsigned track, unsigned place); /* Task 17 Goal 4: by clip place (0..63) of the song's clip table */
+int song_track_unqueue(unsigned track);               /* take a queue back before it lands; SONG_EMPTY: none */
+void song_mute_set(unsigned mask);                    /* bit t: track t's song notes are held back (the clip runs on) */
+unsigned song_row_place(unsigned track, unsigned row);/* the clip place behind a status row, SONG_NONE if none */
 int song_track_stop(unsigned track);
 int song_track_attach(unsigned track);                /* back to song */
 void song_track_attach_all(void);
