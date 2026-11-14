@@ -1,6 +1,6 @@
 # Development checks (Task 07)
 
-Version 0.4, 2026-11-12. The opt-in checks between builds, what each catches, how long it takes, and
+Version 0.5, 2026-11-12. The opt-in checks between builds, what each catches, how long it takes, and
 the standing rules for every Classic Tabby session on this machine. The default build is unchanged:
 `make firmware`, `make package` and `make hosted` produce the same bytes as before Task 07 (the gate at
 the end). The measurement series that led here is docs/tasks/TASK-07-step1-assessment.md. The shape of
@@ -27,6 +27,15 @@ Revision log
    build for a device test gets its own `-rcN` tag and page. The one exception is a warning line the user asks for on a faulty
    build's page and index entry.
 
+0b. **Nothing is published or installed unless `make suite` passed on the exact commit** (Task 17, 2026-11-14, after
+   tabby-v04.4-rc4 went out with a failed suite). `make suite DISPLAY_VERSION=<tag>` writes build/suite-gate.json (the commit, the
+   display version) only when every part passed, HEAD did not move and the tree was clean from start to end. `make publish`,
+   `make release-assets` and tools/linux/publish-pages.py itself (`--commit`, `--push`) refuse when HEAD, the display version or
+   a clean tree do not match (tools/linux/suite-gate.py; tests/linux/suite-gate-test.py). So: commit everything, release notes
+   included, run the suite, tag, publish; results measured after the install go into a later commit. Batch scripts check the
+   exit status of every step (`set -e` does not act inside an `&&` list).
+0c. **Before a device fault is reported, it is confirmed with a second, independent tool** (Task 17: amidi, the browser
+   workbench, or another reader). The "no replies with CLOCK = MIDI" of Task 16 was a bug in tools/linux/hw/tabby_link.py.
 1. **Before any firmware build**: `make check` and `make lint`. A unit that would fail the build fails
    here in about two seconds, through the same compiler with the same options; the lint shows what the
    build's own warning flags keep quiet. Read the counts; they are a report, not a gate.

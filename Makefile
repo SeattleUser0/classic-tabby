@@ -78,10 +78,13 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.27
+# Version: 0.28
 #
 # Revision log
-#   v0.27 2026-11-12  Task 16 Goal 5 (branch mc707-phase2): clip-v3-test (the v3 clip module, C and JS, and the importer's v3 output) in test and test-fast.
+#   v0.27 2026-11-14  Task 17: the suite gate (tools/linux/suite-gate.py): make suite writes build/suite-gate.json for the
+#                     commit it passed on; publish and release-assets refuse any other commit, display version or a
+#                     tree that is not clean; tests/linux/suite-gate-test.py in workbench-test.
+#   v0.26b 2026-11-12  Task 16 Goal 5 (branch mc707-phase2): clip-v3-test (the v3 clip module, C and JS, and the importer's v3 output) in test and test-fast.
 #   v0.26 2026-11-11  Task 16: option A2 is on in the normal build (A2 defaults to 1; A2=0 builds without it).
 #   v0.25 2026-11-11  tabby-v04.2: merge of the timing branch (A2=1 build switch, host tests always build the A2
 #                     code) with the guide test; v0.22 of the timing branch is listed below as v0.22t.
@@ -214,7 +217,7 @@ A2OPT      := $(if $(filter 0,$(A2)),--no-a2,--a2)
 NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV) $(OPTS) $(A2OPT)
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV) $(OPTS) $(A2OPT)
 
-.PHONY: help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
+.PHONY: suite-begin suite-gate help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
         package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test clip-v3-test \
         check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide \
         web-normal web-diag web-old536 backup-test
@@ -373,6 +376,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/recover-page.mjs
 	$(T) $(NODE) tests/workbench/update-safety.mjs
 	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
+	$(T) $(PYTHON) -I tests/linux/suite-gate-test.py
 	$(T) $(PYTHON) -I tests/linux/builds-index-test.py
 
 test: timed-note-test clip-v3-test host-smoke web-smoke workbench-test backup-test
@@ -386,7 +390,12 @@ test-fast: timed-note-test clip-v3-test host-smoke web-smoke workbench-test midi
 suite:
 	$(LOCKED) suite-run
 
-suite-run: crosscheck-run test midi-import-sim host-sanitize-run
+# Task 17 (hard limit 5): suite-gate.py records the commit a passing run was made on (build/suite-gate.json); publish
+# and release-assets refuse any other commit, another display version or a tree that is not clean.
+suite-begin:
+	@$(PYTHON) -I tools/linux/suite-gate.py begin --display "$(DISPLAY_VERSION)"
+suite-run: suite-begin crosscheck-run test midi-import-sim host-sanitize-run
+	@$(PYTHON) -I tools/linux/suite-gate.py mark --display "$(DISPLAY_VERSION)"
 	@{ echo "suite passed $$(date -u +%FT%TZ) at $$(git rev-parse --short HEAD) (crosscheck, test, midi-import-sim, host-sanitize)"; \
 	   sha256sum build/$(MODEL)/sdk.elf "$(FWSC)" build/$(MODEL)/generated/app-image.bin; } | tee build/suite-passed.txt
 
@@ -444,7 +453,7 @@ package:
 hosted:
 	$(T) env NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --source-url "$(FM1_SOURCE_URL)"
 
-release-assets:
+release-assets: suite-gate
 	@test -f "$(FWSC)" -a -f "$(PACKAGE_HTML)" || { echo "run 'make package' first"; exit 1; }
 	rm -rf "build/release/$(TAG)"; mkdir -p "build/release/$(TAG)"
 	cp "$(FWSC)" "$(PACKAGE_HTML)" "build/release/$(TAG)/"
@@ -453,9 +462,11 @@ release-assets:
 # Task 11: SITE_DIR=probe64 publishes into that subdirectory of gh-pages (the probe's page); a root
 # publish keeps probe64/ (publish-pages.py v0.3).
 SITE_DIR ?= .
-publish: package hosted
+suite-gate:
+	@$(PYTHON) -I tools/linux/suite-gate.py check --display "$(DISPLAY_VERSION)"
+publish: suite-gate package hosted
 	NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --tag "$(TAG)" \
-	    --source-url "$(FM1_SOURCE_URL)" --site-dir "$(SITE_DIR)" --push
+	    --source-url "$(FM1_SOURCE_URL)" --site-dir "$(SITE_DIR)" --display-version "$(DISPLAY_VERSION)" --push
 	@echo "Pages: $(PAGES_URL)  (GitHub deploys the gh-pages branch within a minute or two)"
 
 # Task 11: PRERELEASE=1 marks the release a pre-release (the probe); RELEASE_TITLE overrides the title.

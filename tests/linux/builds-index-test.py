@@ -136,6 +136,35 @@ with tempfile.TemporaryDirectory() as tmp:
     check(all(t in page for t in tags) and "ota-SMK378b7dff801f1b0876" in page and "<script" not in page, "4: builds/index.html lists every tag and loader tag, no scripts")
     check("updated" in index and index["updated"].endswith("Z"), "4: the index carries its update time")
 
+    # 4b. Task 17: a note line tracked in the repository (tools/linux/builds-notes.json) replaces the index note and the
+    #     text of a page's existing note banner; assets.json follows; a page without a banner is not touched.
+    import hashlib
+    BAN = '<p style="margin:0;padding:10px 14px;background:#b00020;color:#fff;font:600 15px/1.4 system-ui,sans-serif">%s</p>'
+    pg = wt / "builds/tabby-v03.3-diag/index.html"
+    pg.write_text(pg.read_text().replace("<!doctype html>", "<!doctype html>" + BAN % 'Faulty, do not install. <a style="color:#fff" href="../x/">builds/x/</a>', 1))
+    raw = pg.read_bytes()
+    (pg.parent / "assets.json").write_text(json.dumps({"build": B3, "assets": [{"name": "index.html", "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}]}, indent=2))
+    other = (wt / "builds/tabby-v03.2/index.html").read_bytes()
+    notes = {"tabby-v03.3-diag": {"text": "Never released; a measuring error.", "link": "tabby-v03.2"}, "tabby-v03.2": {"text": "A note for a page without a banner."}}
+    bi.write_index(wt, log=quiet, notes=notes)
+    index = json.loads((wt / "builds/index.json").read_text())
+    check(next(x for x in index["builds"] if x["tag"] == "tabby-v03.3-diag")["note"] == "Never released; a measuring error.", "4b: the tracked note is in the index")
+    text = pg.read_text()
+    check("Never released; a measuring error. <a style=\"color:#fff\" href=\"../tabby-v03.2/\">builds/tabby-v03.2/</a></p>" in text and "Faulty" not in text, "4b: the page's banner carries the tracked text and link")
+    a = json.loads((pg.parent / "assets.json").read_text())["assets"][0]
+    check(a["bytes"] == len(pg.read_bytes()) and a["sha256"] == hashlib.sha256(pg.read_bytes()).hexdigest(), "4b: assets.json follows the page")
+    check((wt / "builds/tabby-v03.2/index.html").read_bytes() == other and "A note for a page without a banner." in (wt / "builds/index.html").read_text(), "4b: a page without a banner is not touched; its note is in the list")
+    before = pg.read_bytes(); bi.write_index(wt, log=quiet, notes=notes)
+    check(pg.read_bytes() == before, "4b: a second rewrite changes nothing")
+    try:
+        bi.tracked_notes(tmp / "none.json"); ok = True
+        (tmp / "bad.json").write_text(json.dumps({"notes": {"t": {"text": "<b>x</b>"}}})); bi.tracked_notes(tmp / "bad.json"); ok = False
+    except bi.BuildsError:
+        pass
+    check(ok, "4b: markup in a tracked note is refused; a missing notes file is no notes")
+    real = bi.tracked_notes()
+    check(real.get("tabby-v04.3", {}).get("text") == "Never released; superseded by tabby-v04.4. (An earlier note called it faulty; that was a measuring error.)", "4b: the repository's notes file carries the tabby-v04.3 correction")
+
     # 5. redirect
     (wt / "recover").mkdir()
     (wt / "recover" / "index.html").write_text("old page", encoding="utf-8")

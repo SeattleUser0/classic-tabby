@@ -43,14 +43,17 @@ builds/index.json (schema 1)
     "page" is relative to the site root (the gh-pages root); the workbench resolves it against
     the URL it loaded the index from. Entries are ordered by published date, then tag.
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-14  Task 17: note lines tracked in tools/linux/builds-notes.json are applied to the index and to a page's
+                      existing note banner on every rewrite (the correction of the tabby-v04.3 note).
     v0.1  2026-11-08  Initial version (Task 12 A5).
 """
 
 import argparse
 import datetime
+import hashlib
 import html
 import json
 import re
@@ -132,15 +135,59 @@ def scan_builds(worktree):
     return entries
 
 
-def write_index(worktree, log=print):
+NOTES_FILE = ROOT / "tools/linux/builds-notes.json"
+BANNER = re.compile(r'(<p style="margin:0;padding:10px 14px;background:#b00020;color:#fff;font:600 15px/1\.4 system-ui,sans-serif">)(.*?)(</p>)', re.S)
+
+
+def tracked_notes(path=None):
+    """v0.2: {tag: {"text", "link"}} from tools/linux/builds-notes.json (the note lines kept in the repository)."""
+    path = Path(path or NOTES_FILE)
+    if not path.is_file():
+        return {}
+    notes = json.loads(path.read_text(encoding="utf-8")).get("notes") or {}
+    for tag, note in notes.items():
+        if not isinstance(note, dict) or not isinstance(note.get("text"), str) or "<" in note["text"] or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", note.get("link") or "x"):
+            raise BuildsError("builds-notes.json: the note of %s must be {\"text\": plain text, \"link\": a tag or nothing}" % tag)
+    return notes
+
+
+def apply_note_banner(worktree, tag, note, log=print):
+    """v0.2: a builds/<tag>/ page that already carries a note banner gets the tracked text (and link); assets.json
+    follows. A page without a banner is left alone: this never adds or removes anything else."""
+    page = Path(worktree) / BUILDS_DIR / tag / "index.html"
+    if not page.is_file():
+        return False
+    text = page.read_text(encoding="utf-8")
+    inner = html.escape(note["text"]) + ((' <a style="color:#fff" href="../%s/">builds/%s/</a>' % (note["link"], note["link"])) if note.get("link") else "")
+    found = BANNER.search(text)
+    if not found or found.group(2) == inner:
+        return False
+    old = page.read_bytes()
+    page.write_text(text[:found.start(2)] + inner + text[found.end(2):], encoding="utf-8")
+    new = page.read_bytes()
+    assets = page.parent / "assets.json"
+    if assets.is_file():
+        raw = assets.read_text(encoding="utf-8")
+        before = '"bytes": %d,\n      "sha256": "%s"' % (len(old), hashlib.sha256(old).hexdigest())
+        if before in raw:
+            assets.write_text(raw.replace(before, '"bytes": %d,\n      "sha256": "%s"' % (len(new), hashlib.sha256(new).hexdigest())), encoding="utf-8")
+    log("builds/%s/: note line set to: %s" % (tag, note["text"]))
+    return True
+
+
+def write_index(worktree, log=print, notes=None):
     """Rewrite builds/index.json (keeping dates, notes and source overrides already there) and builds/index.html."""
     worktree = Path(worktree)
+    notes = tracked_notes() if notes is None else notes
     previous = {entry.get("tag"): entry for entry in read_index(worktree)["builds"]}
     entries = scan_builds(worktree)
     for entry in entries:
         old = previous.get(entry["tag"]) or {}
         entry["published"] = old.get("published") or today()
         entry["note"] = old.get("note") or ""
+        if entry["tag"] in notes:             # v0.2: a note line tracked in the repository wins, and the page's banner follows
+            entry["note"] = notes[entry["tag"]]["text"]
+            apply_note_banner(worktree, entry["tag"], notes[entry["tag"]], log)
         if old.get("source"):                 # an explicit source (commit archive) beats the page's link
             entry["source"] = old["source"]
         if old.get("version") and not entry["version"]:
