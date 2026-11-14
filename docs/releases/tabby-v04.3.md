@@ -1,5 +1,7 @@
 **Faulty, never released: do not install. Use tabby-v04.3.1.** With CLOCK = MIDI this build sends no replies over USB (it looks hung to the workbench).
 
+**Correction, 2026-11-14 (docs/BUILD.md 36.5):** the fault described here did not exist in the device. The NUC's measuring tool (tools/linux/hw/tabby_link.py before v0.11) read one 16-byte piece of a reply per wake-up and left the rest in the ALSA library until more MIDI arrived; with CLOCK on MIDI no clock bytes arrived, so the tool saw no reply. A browser always got every reply. This build is not faulty; it was only never released, and tabby-v04.4 replaces it.
+
 Song mode follows an external MIDI clock; reinstall to get it (Full backup first; storage does not move).
 
 # Classic Tabby tabby-v04.3: external clock follow in song mode

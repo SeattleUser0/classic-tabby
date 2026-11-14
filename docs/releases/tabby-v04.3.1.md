@@ -9,6 +9,8 @@ Song mode follows an external MIDI clock, and the workbench works with CLOCK on 
 - **tabby-v04.3 was never released and is faulty: do not install it.** Its tag and its page builds/tabby-v04.3/ stay only
   as the recovery path for a device that has it.
 
+**Correction, 2026-11-14 (docs/BUILD.md 36.5):** the fault described here did not exist in the device. The NUC's measuring tool (tools/linux/hw/tabby_link.py before v0.11) read one 16-byte piece of a reply per wake-up and left the rest in the ALSA library until more MIDI arrived; with CLOCK on MIDI no clock bytes arrived, so the tool saw no reply. A browser always got every reply. The 0xF9 bytes this release adds after a USB write are removed again in tabby-v04.4. tabby-v04.3 was therefore not faulty either.
+
 ## What is fixed
 
 - **With CLOCK = MIDI the device sent no replies over USB.** The workbench, Firmware Update and every tool saw a device

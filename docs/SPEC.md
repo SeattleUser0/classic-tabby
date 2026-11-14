@@ -1485,6 +1485,9 @@ sequencer does not see the clock messages while a song is armed or following.
 
 ### 19.4 tabby-v04.3.1 (2026-11-12): replies over USB with CLOCK = MIDI; tabby-v04.3 is faulty
 
+**Withdrawn 2026-11-14 (19.5, BUILD 36.5):** the finding below was a fault of the measuring tool on the NUC, not of the
+device. The pusher rule is removed in tabby-v04.4; the text stays as the record of what tabby-v04.3.1 contains.
+
 - Found on the device (BUILD 35): the SDK transmits the last message written to the USB port only when a later write to
   that port follows. With CLOCK = MIDI (or clock out off) no clock follows, so SysEx replies never left: the workbench,
   the tools and Firmware Update saw a dead device, in every release up to tabby-v04.3.

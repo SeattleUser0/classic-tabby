@@ -667,7 +667,7 @@ static void midi_poll_body(void)
     /* Round robin: a dense chord on one owner cannot starve the other's gates
      * or source-routed Thru. Maximum work per control iteration is fixed. */
 #ifdef CT_A2
-    if (fg_reset_request) { fg_reset_request = 0; fg.sent = fg.late_max = 0; memset(fg.late, 0, sizeof fg.late); }
+    if (fg_reset_request) { fg_reset_request = 0; fg.sent = fg.late_max = 0; fg.ticks = 0; memset(fg.late, 0, sizeof fg.late); }
 #endif
     for (unsigned work = 0; work < QUEUE; ++work) {
         unsigned found = 0;
