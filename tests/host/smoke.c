@@ -1767,6 +1767,14 @@ int main(void)
         unsigned b_early = HAS(72);
         SET_NOW(due_b - LEAD); sim_test_pass(); n = drain(m, 64);
         CHECK(!early && a_only && !b_early && HAS(72), "F+G: two notes at 1/4 and 3/4 of the block leave at their own due times, in order (%u %u %u %u)", early, a_only, b_early, HAS(72));
+        /* The batch: eight notes due together are handed to each port in one call (one burst), in their order. */
+        { for (unsigned k = 0; k < 8; ++k) groove_midi_song_note(0, 80 + k, 100);
+          SET_NOW(due_b + PERIOD); sim_test_log_reset(); sim_test_pass(); n = drain(m, 64);
+          unsigned calls = 0, in_order = 1, seen = 0; for (const char *c = sim_test_log(); *c; ++c) if (*c == 'M') ++calls;
+          for (unsigned i = 0; i < n && i < 64; ++i) if (m[i].port == 0 && (m[i].data[0] & 0xf0U) == 0x90) { if (m[i].data[1] != 80 + seen) in_order = 0; ++seen; }
+          CHECK(calls == 3 && seen == 8 && in_order && n == 24, "batch: eight notes due together: one send call per port (%u calls for %u messages), in order", calls, n);
+          for (unsigned k = 0; k < 8; ++k) groove_midi_song_note(0, 80 + k, 0);
+          sim_test_pass(); (void)drain(m, 64); }
         /* Lateness is counted: a note sent 1.25 ms after its due time is in the < 2 ms bin. */
         (void)ct_diag_read(1, a2); sim_test_pass(); (void)drain(m, 64);
         groove_midi_song_note(0, 73, 100);                                     /* due at the base again */

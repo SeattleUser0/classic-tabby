@@ -529,7 +529,34 @@ static int held_elsewhere(const struct output *o, unsigned owner, unsigned ch, u
  * that "never arrived with CLOCK = MIDI". Task 17 found the fault in the measuring tool on the NUC, not in the
  * device (tools/linux/hw/tabby_link.py v0.11, BUILD 36.5): the pusher is removed in tabby-v04.4. Every app
  * write still goes through this one function. */
-int ct_midi_send_port(unsigned port, const uint8_t *m, size_t n) { return fm1_midi_send_port(port, m, n); }
+/* Task 17: the batch. fm1_midi_send_port copies its bytes into the port's byte ring and signals the SDK's MIDI
+ * task (read from the SDK's code: any number of complete messages, at most 128 bytes a call), and every call
+ * lets that task run. Eight notes due together used to be eight calls per port; when the audio interrupt
+ * came between two of them, the rest left 1.5 ms later (measured: BUILD 36.6). While the router drains its
+ * lanes (midi_poll_body) the short messages for a port are collected and handed over in one call, so
+ * they leave as one burst. A SysEx reply, or a write outside the drain, goes straight through (after the
+ * port's batch, to keep the order). A batch the SDK refuses is handled as a refused message was: the port
+ * recovers. */
+enum { BATCH = 60 };
+static uint8_t batch[3][BATCH], batch_n[3], batching;
+static int batch_flush(unsigned port)
+{
+    unsigned n = batch_n[port];
+    if (!n) return 0;
+    batch_n[port] = 0;
+    return fm1_midi_send_port(port, batch[port], n);
+}
+int ct_midi_send_port(unsigned port, const uint8_t *m, size_t n)
+{
+    if (port >= 3) return -1;
+    if (batching && n && n <= 3 && m[0] != 0xf0) {
+        if (batch_n[port] + n > BATCH) { int r = batch_flush(port); if (r) return r; }
+        memcpy(batch[port] + batch_n[port], m, n); batch_n[port] = (uint8_t)(batch_n[port] + n);
+        return 0;
+    }
+    int r = batch_flush(port);
+    return r ? r : fm1_midi_send_port(port, m, n);
+}
 static void deliver(unsigned port, unsigned owner, const uint8_t *m)
 {
     struct output *o = &output[port];
@@ -669,6 +696,7 @@ static void midi_poll_body(void)
 #ifdef CT_A2
     if (fg_reset_request) { fg_reset_request = 0; fg.sent = fg.late_max = 0; fg.ticks = 0; memset(fg.late, 0, sizeof fg.late); }
 #endif
+    batching = 1;   /* Task 17: what this drain sends to a port leaves in one call (see ct_midi_send_port) */
     for (unsigned work = 0; work < QUEUE; ++work) {
         unsigned found = 0;
         for (unsigned i = 0; i < 3; ++i) {
@@ -710,6 +738,8 @@ static void midi_poll_body(void)
         }
         if (!found) break;
     }
+    batching = 0;
+    for (unsigned p = 0; p < 3; ++p) if (batch_flush(p)) { recover(p); ++dropped; }
 }
 int groove_midi_local(const uint8_t *m, size_t n)
 {

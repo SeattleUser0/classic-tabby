@@ -2,6 +2,7 @@
 /* Browser platform adapter: in-memory display, storage and MIDI input.
  *
  * Classic Tabby revision log (the upstream file had no header)
+ *   v0.4  2026-11-13  Task 17: fm1_midi_send_port takes several short messages in one call (the router's batch).
  *   v0.3  2026-11-12  Task 16: sim_test_flash_hook / _ops / _unguarded (flash guard test).
  *   v0.2  2026-11-10  Task 15 Step 4: fm1_control_request counts its calls
  *                     (sim_test_control_requests), for the A2 host tests; sim_test_request_passes(1)
@@ -195,7 +196,8 @@ const uint8_t *fm1_flash_map(uint32_t at, size_t bytes)
 int fm1_flash_invalidate(uint32_t at, size_t bytes)
 { return at <= sizeof flash && bytes <= sizeof flash - at ? 0 : FM1_FLASH_INVALID; }
 /* Optional test capture; the ordinary offline workbench has no live outputs. */
-static struct { uint8_t port, bytes, data[128]; } midi_capture[64];
+enum { CAPTURE = 128 };   /* v0.4: was 64; one drain now hands a port its messages in one call, all or nothing */
+static struct { uint8_t port, bytes, data[128]; } midi_capture[CAPTURE];
 static unsigned capture_read, capture_write, capture_on, midi_ready = 7, midi_busy;
 static unsigned midi_source = FM1_MIDI_USB;
 unsigned fm1_midi_output_ports(void) { return 7; }
@@ -205,10 +207,25 @@ unsigned fm1_midi_input_source(void) { return midi_source; }
 int fm1_midi_send_port(unsigned port, const uint8_t *data, size_t bytes)
 {
     if (port >= 3 || !(midi_ready & (1U << port)) || !data || !bytes || bytes > 128) return -1;
-    if ((midi_busy & (1U << port)) || (capture_on && capture_write - capture_read == 64)) return -2;
+    if ((midi_busy & (1U << port)) || (capture_on && capture_write - capture_read == CAPTURE)) return -2;
+    /* v0.4 (Task 17): the device's port is a byte stream, and the router hands over several short messages in one
+     * call. The capture keeps one entry per message, so a call that is not one SysEx is split at its status bytes. */
+    if (data[0] != 0xf0 && data[0] >= 0x80 && bytes > (data[0] >= 0xf8 ? 1U : (data[0] & 0xe0U) == 0xc0U ? 2U : 3U)) {
+        unsigned count = 0;
+        for (size_t at = 0; at < bytes;) { unsigned s = data[at], len = s >= 0xf8 ? 1U : (s & 0xe0U) == 0xc0U ? 2U : 3U; if (s < 0x80 || at + len > bytes) return -1; at += len; ++count; }
+        (void)count;
+        test_event('M');
+        for (size_t at = 0; at < bytes;) {
+            unsigned s = data[at], len = s >= 0xf8 ? 1U : (s & 0xe0U) == 0xc0U ? 2U : 3U;
+            if (capture_on && capture_write - capture_read == CAPTURE) return -2;   /* the capture is full: as for one message (the tests' capture is 128 messages; the device's ring is 256 bytes) */
+            if (capture_on) { unsigned w = capture_write++ & (CAPTURE - 1U); midi_capture[w].port = (uint8_t)port; midi_capture[w].bytes = (uint8_t)len; memcpy(midi_capture[w].data, data + at, len); }
+            at += len;
+        }
+        return 0;
+    }
     test_event('M');   /* Task 13 */
     if (capture_on) {
-        unsigned at = capture_write++ & 63U;
+        unsigned at = capture_write++ & (CAPTURE - 1U);
         midi_capture[at].port = (uint8_t)port; midi_capture[at].bytes = (uint8_t)bytes;
         memcpy(midi_capture[at].data, data, bytes);
     }
@@ -229,7 +246,7 @@ EXPORT("sim_midi_ports") void sim_midi_ports(unsigned ready, unsigned busy)
 EXPORT("sim_midi_output") unsigned sim_midi_output(void)
 {
     if (capture_read == capture_write) return 0;
-    unsigned at = capture_read++ & 63U, n = midi_capture[at].bytes;
+    unsigned at = capture_read++ & (CAPTURE - 1U), n = midi_capture[at].bytes;
     memcpy(file_buffer, midi_capture[at].data, n);
     return n | (unsigned)midi_capture[at].port << 8;
 }
