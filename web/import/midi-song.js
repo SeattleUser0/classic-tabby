@@ -286,7 +286,7 @@
     const pending = new Map();                                       /* channel → { msb, lsb } seen before a PC */
     /* v0.6: `src` keeps the analysis object, so the programIgnored check below recognises a PC that
      * became an event (before, the spread copy never matched and every PC was listed as dropped). */
-    const everything = [...analysis.ignored.programChange.map(p => ({ ...p, kind: 'pc', src: p })), ...(analysis.controls || []).map(c => ({ ...c, kind: 'cc' }))].sort((a, b) => a.tick - b.tick || a.seq - b.seq);   /* file order inside a tick */
+    const everything = [...analysis.ignored.programChange.map(p => ({ ...p, kind: 'pc', src: p })), ...(analysis.controls || []).map(c => ({ ...c, kind: 'cc', src: c }))].sort((a, b) => a.tick - b.tick || a.seq - b.seq);   /* file order inside a tick */
     for (const ev of everything) {
       const R = rowOf(toStep(ev.tick));
       if (R < 0) continue;
@@ -415,7 +415,10 @@
     const ctl = Array.from({ length: rowCount }, () => Array.from({ length: 8 }, () => []));
     if (keepControllers) {
       const V3K = { cc: 1, bend: 3, pressure: 4 }, trackOf = new Map(usedParts.map(u => [u.part.key, u.track]));
-      const all = [...(analysis.controls || []).filter(c => !eventTaken.has(c)).map(c => ({ ...c, k: 'cc', a: c.controller, b: c.value })),
+      /* a control change that became a row event is not repeated in the clip (eventTaken holds copies; their src is the
+       * analysis' own object; tabby-v04.5.1 sent such a controller twice) */
+      const takenSrc = new Set([...eventTaken].map(e => e.src).filter(Boolean));
+      const all = [...(analysis.controls || []).filter(c => !takenSrc.has(c)).map(c => ({ ...c, k: 'cc', a: c.controller, b: c.value })),
         ...(analysis.bends || []).map(b => ({ ...b, k: 'bend', a: (b.value + 8192) & 127, b: (b.value + 8192) >> 7 })),
         ...(analysis.pressures || []).map(p => ({ ...p, k: 'pressure', a: p.value, b: 0 }))].sort((x, y) => x.tick - y.tick || x.seq - y.seq);
       let kept = 0, thinned = 0, outside = 0, unassigned = 0;

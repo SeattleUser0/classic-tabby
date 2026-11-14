@@ -195,6 +195,9 @@ const produced = [];
     const back2 = Format.decodeFile(Format.encodeFile(on.song));
     check(back2.blocks.reduce((k, x) => k + (x.controls || []).length, 0) === kept, 'v3: the controller events survive the .tabby file');
     check(on.song.blocks.every(x => x.notes.length + (x.controls || []).length <= 512), 'v3: no clip holds more than 512 events');
+    const rowCc = on.song.events.filter(e => e.type === 2).length, total = on.a.controls.length;
+    const keptCc = on.song.blocks.reduce((k, x) => k + (x.controls || []).filter(c => c.kind === 1).length, 0);
+    check(rowCc > 0 && keptCc + rowCc <= total, 'v3: a control change that became a row event is not also in a clip (' + rowCc + ' row events + ' + keptCc + ' in clips of ' + total + ' control changes in the file)');
   } else check(false, 'v3: a fixture with controller events exists');
   void SMF;
 }
