@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-14T19:23:28Z",
+  "updated": "2026-11-14T19:49:52Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -200,6 +200,16 @@
       "page": "builds/tabby-v04.5.1/",
       "published": "2026-11-14",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.5.1.zip",
+      "note": ""
+    },
+    {
+      "tag": "tabby-v04.6",
+      "build": "e9bc4788e8399d263bcdae0ca6f137ededf935d9fe39e2837977c01f278240a6",
+      "loader": "ota-SMK37e9bc4788e8399d26",
+      "version": "tabby-v04.6",
+      "page": "builds/tabby-v04.6/",
+      "published": "2026-11-14",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.6.zip",
       "note": ""
     }
   ]
