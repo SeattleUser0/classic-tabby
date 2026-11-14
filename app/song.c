@@ -123,7 +123,19 @@ struct trackbuf {
     int16_t look_from;
     uint8_t look_row;
     volatile uint8_t ready;
+    /* The scheduler cursor (branch clipv3-cursor): a v3 clip the step grid cannot hold is kept as its event
+     * list and played from it (scan_v3). v3: this buffer plays from `clip`; prob: per anchor step, the step
+     * modifier's probability | tuning << 3 (0: none). */
+    uint8_t v3;
+    uint8_t prob[CLIP_V3_STEPS_MAX];
+    uint8_t clip[SONG_PAYLOAD_V3_MAX];
 };
+#if defined(FM1_HOST_TEST) || defined(FM1_OPEN_WEB)
+static unsigned force_cursor;   /* tests: every v3 clip plays from its event list, also one the grid could hold */
+void song_test_cursor(unsigned on) { force_cursor = on != 0; }
+#else
+enum { force_cursor = 0 };
+#endif
 /* The song playhead's row: step length, repeat, loop flag and the whole event list. */
 struct rowinfo {
     uint8_t event[SONG_ROW_EVENTS_MAX][4];
@@ -160,7 +172,7 @@ static uint8_t roll_step[SONG_TRACKS], roll_pass[SONG_TRACKS], roll_skip[SONG_TR
 /* One tick's actions: `at` is units after the window start; kind 0 = note-off (pitch),
  * 1 = switch (step = what, index = queue kind), 2 = note-on of note `index` on `step` of
  * buffer `buf` of `track`. */
-struct action { uint16_t at; uint8_t kind, buf, track, step, index, pitch; };
+struct action { uint16_t at, index; uint8_t kind, buf, track, step, pitch; };   /* index: the note in its cell, or the event in a v3 clip (up to 511) */
 static struct action actions[ACTIONS];
 static unsigned action_count;
 /* The tick's plan per track: its next boundary (master units, or 0 = none), what happens
@@ -262,8 +274,23 @@ static FM1_AUDIO_CODE void note_on(unsigned buf, unsigned t, unsigned step, unsi
 {
     const struct trackbuf *b = &tbuf[t][buf];
     struct timed_note n;
-    timed_note_unpack(b->cell[step] + 1 + NOTE * index, &n);
-    int32_t start = (int32_t)step * UNITS + n.offset;
+    int32_t start;
+    if (b->v3) {
+        /* The cursor: `index` is the event in the clip's list. A note plays as a grid note does; a controller,
+         * program, bend or pressure event goes out on the track's channel (no copy to the internal engine). */
+        struct clip_v3_event e;
+        clip_v3_event(b->clip, index, &e);
+        if (e.kind != CLIP_V3_NOTE) {
+            static const uint8_t status[5] = {0, 0xb0, 0xc0, 0xe0, 0xd0};
+            if (e.kind <= CLIP_V3_PRESSURE) groove_midi_song_track_event(t, status[e.kind], e.a, e.kind == CLIP_V3_CC || e.kind == CLIP_V3_BEND ? e.b : 0);
+            return;
+        }
+        n.pitch = e.a; n.velocity = e.b; n.retrigger = e.retrigger; n.offset = 0; n.length = e.length;
+        start = e.time;
+    } else {
+        timed_note_unpack(b->cell[step] + 1 + NOTE * index, &n);
+        start = (int32_t)step * UNITS + n.offset;
+    }
     uint32_t dur = (uint32_t)(warp(start + (int32_t)n.length, b->swing) - warp(start, b->swing));
     if (!dur) dur = 1;
     unsigned found = SONG_SOUNDING_MAX;
@@ -280,7 +307,7 @@ static FM1_AUDIO_CODE void note_on(unsigned buf, unsigned t, unsigned step, unsi
 static FM1_AUDIO_CODE void add_action(unsigned at, unsigned kind, unsigned buf, unsigned t, unsigned step, unsigned index, unsigned pitch)
 {
     if (action_count == ACTIONS) return;   /* cannot happen within the window bound; a note would then wait one block */
-    struct action a = { (uint16_t)at, (uint8_t)kind, (uint8_t)buf, (uint8_t)t, (uint8_t)step, (uint8_t)index, (uint8_t)pitch };
+    struct action a = { (uint16_t)at, (uint16_t)index, (uint8_t)kind, (uint8_t)buf, (uint8_t)t, (uint8_t)step, (uint8_t)pitch };
     /* Insertion sort: by time, note-offs before switches before note-ons, then arrival order. */
     unsigned i = action_count++;
     while (i > 0 && (actions[i - 1].at > a.at || (actions[i - 1].at == a.at && actions[i - 1].kind > a.kind))) { actions[i] = actions[i - 1]; --i; }
@@ -290,12 +317,43 @@ static FM1_AUDIO_CODE void add_action(unsigned at, unsigned kind, unsigned buf, 
  * [from, to), as actions at `base` + (due - from); `which` the pass the probability rolls
  * belong to. mode 0: every step that can reach the range, except step-0 notes with a
  * negative offset; mode 1: only those (the look-ahead), whose due times are negative. */
+/* The same for a buffer that plays from a v3 event list (the scheduler cursor). The list is sorted by time and
+ * a swung time lies within [time, time + 240], so the first event that can be due at or after `from` is found by
+ * a binary search and the walk ends at the first event at or after `to`: no empty step is visited. Events of the
+ * same time keep their list order (a controller before its note). An event at or past the row's end is not
+ * played (a clip longer than its row); one whose swing carries it past the end is due at the last unit. */
+static FM1_AUDIO_CODE unsigned scan_v3(unsigned t, unsigned buf, int32_t from, int32_t to, int32_t base, unsigned mode, unsigned which)
+{
+    const struct trackbuf *b = &tbuf[t][buf];
+    unsigned count = clip_v3_count(b->clip), lo = 0, hi = count, added = 0;
+    int32_t end = (int32_t)b->steps * UNITS, first = mode ? -HALF : from - HALF;
+    while (lo < hi) {
+        unsigned mid = (lo + hi) / 2U;
+        struct clip_v3_event e; clip_v3_event(b->clip, mid, &e);
+        if (e.time < first) lo = mid + 1U; else hi = mid;
+    }
+    for (unsigned i = lo; i < count; ++i) {
+        struct clip_v3_event e; clip_v3_event(b->clip, i, &e);
+        if (e.time >= to || e.time >= end) break;
+        if (e.kind == CLIP_V3_STEPMOD) continue;
+        if ((e.time < 0) != (mode != 0)) continue;
+        int32_t due = warp(e.time, b->swing);
+        if (!mode && due >= end) due = end - 1;
+        if (due < from || due >= to) continue;
+        unsigned anchor = clip_v3_anchor(e.time);
+        if (e.kind == CLIP_V3_NOTE && step_skipped(t, anchor, b->prob[anchor] & 7U, which)) continue;
+        add_action((unsigned)(base + due - from), 2, buf, t, anchor, i, e.kind == CLIP_V3_NOTE ? e.a : 0);
+        ++added;
+    }
+    return added;
+}
 static FM1_AUDIO_CODE unsigned scan(unsigned t, unsigned buf, int32_t from, int32_t to, int32_t base, unsigned mode, unsigned which)
 {
     const struct trackbuf *b = &tbuf[t][buf];
     unsigned lo = 0, hi = 0, added = 0;
     int32_t end = (int32_t)b->steps * UNITS;
     if (from >= to || !b->has_block) return 0;
+    if (b->v3) return scan_v3(t, buf, from, to, base, mode, which);
     if (!mode) {   /* warp(t) lies within [t, t + 240] */
         lo = from >= UNITS ? (unsigned)(from - UNITS) / UNITS : 0; hi = (unsigned)(to + HALF) / UNITS;
         if (hi >= b->steps) hi = b->steps - 1U;
@@ -341,7 +399,17 @@ static FM1_AUDIO_CODE void enter_frame(unsigned t, unsigned buf, unsigned at, un
     struct track *k = &tr[t];
     int covered = b->look_from != LOOK_NONE && b->look_row == b->row, late = 0;
     ++k->pass;
-    if (check_late && b->has_block) {
+    if (check_late && b->has_block && b->v3) {
+        /* The cursor: the events before the frame's start (time < 0) lead the list. */
+        unsigned count = clip_v3_count(b->clip);
+        for (unsigned i = 0; i < count; ++i) {
+            struct clip_v3_event e; clip_v3_event(b->clip, i, &e);
+            if (e.time >= 0) break;
+            if (e.kind == CLIP_V3_STEPMOD || (covered && warp(e.time, b->swing) >= b->look_from)) continue;   /* fired ahead */
+            late = 1;
+            if (e.kind != CLIP_V3_NOTE || !step_skipped(t, 0, b->prob[0] & 7U, k->pass)) note_on(buf, t, 0, i, at);
+        }
+    } else if (check_late && b->has_block) {
         const uint8_t *c = b->cell[0];
         unsigned count = c[0] & 7U, probability = (c[0] >> 3) & 7U;
         for (unsigned i = 0; i < count; ++i) {
@@ -844,7 +912,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
 {
     const struct song_row *r = &record.row[row];
     b->row = (uint8_t)row; b->steps = r->steps ? r->steps : SONG_BLOCK_STEPS; b->purpose = (uint8_t)purpose;
-    b->swing = (uint8_t)swing_song; b->has_block = 0;
+    b->swing = (uint8_t)swing_song; b->has_block = 0; b->v3 = 0;
     memset(b->cell, 0, sizeof b->cell);
     unsigned id = r->block[t], bytes, format = SONG_FORMAT_V2;
     if (id) {
@@ -855,8 +923,17 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
             if (format == SONG_FORMAT_V3) {
                 /* Task 16 Goal 5: a v3 clip that the step grid can hold plays through the grid (identical MIDI to the same notes
                  * as v2); one it cannot hold (docs/CLIP-V3.md) is an error until the cursor replaces the grid scan. */
-                if (clip_v3_to_cells(payload, bytes, b->cell)) { last_error = (unsigned)SONG_INVALID; memset(b->cell, 0, sizeof b->cell); }
-                else b->has_block = 1;
+                /* The cursor (branch clipv3-cursor): a clip the grid cannot hold plays from its event list. */
+                if (force_cursor || clip_v3_to_cells(payload, bytes, b->cell)) {
+                    memset(b->cell, 0, sizeof b->cell); memset(b->prob, 0, sizeof b->prob);
+                    memcpy(b->clip, payload, bytes);
+                    for (unsigned i = 0, n = clip_v3_count(payload); i < n; ++i) {
+                        struct clip_v3_event e; clip_v3_event(payload, i, &e);
+                        if (e.kind == CLIP_V3_STEPMOD && e.b < CLIP_V3_STEPS_MAX) b->prob[e.b] = e.a;
+                    }
+                    b->v3 = 1;
+                }
+                b->has_block = 1;
             } else {
             if (format == SONG_FORMAT_V1) { bytes = song_payload_upgrade(payload, bytes); b->swing = (uint8_t)swing_project; }
             for (unsigned step = 0, at = 0; step < SONG_BLOCK_STEPS; ++step) {

@@ -44,9 +44,11 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.18
+ * Version: 0.19
  *
  * Revision log
+ *   v0.19 2026-11-14  Branch clipv3-cursor: section 20, the scheduler cursor (a v3 clip from its event list is
+ *                     byte-identical to the grid; a clip the grid cannot hold plays: chord of five, a controller event).
  *   v0.18 2026-11-14  Merge of tabby-v04.4 into the clip v3 branch: F + G is section 19, the v3 clip section is 20.
  *   v0.17 2026-11-13  Task 17: section 19, options F + G (due times, the timer tick, the fallback to A2, lateness
  *                     counters, a song with F + G off and on, clock follow); the USB pusher checks of v0.16 now expect
@@ -1925,21 +1927,56 @@ int main(void)
             f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;
             CHECK(sim_song_record_write(song) == 0, "v%u: song record stored", version);
         }
-        static struct log_entry log[2][4096]; unsigned logged[2] = {0, 0};
+        static struct log_entry log[2][4096]; unsigned logged[2] = {0, 0}, late_grid = 0;
         for (unsigned version = 2; version <= 3; ++version) {
             CHECK(sim_song_load(version) == 0, "v%u: song loaded", version);
             { struct message m[64]; (void)drain(m, 64); }
             CHECK(sim_song_play() == 0, "v%u: song started", version);
             (void)play_log(log[version - 2], 4096, &logged[version - 2], 4000, -1, 0);
+            late_grid = sim_song_status(2);
         }
         CHECK(logged[0] > 20 && logged[0] == logged[1], "v3 plays as many messages as v2 (%u, %u)", logged[0], logged[1]);
         unsigned differ = 0;
         for (unsigned i = 0; i < logged[0] && i < logged[1]; ++i) if (memcmp(&log[0][i], &log[1][i], sizeof log[0][i])) ++differ;
         CHECK(differ == 0, "v3 plays byte-identical MIDI to v2, each message in the same block (%u of %u differ)", differ, logged[0]);
-        /* A v3 clip the grid cannot hold is refused as an error at playback; storage still takes it (it is valid v3). */
-        uint8_t big[16 + 6 * 5]; memset(big, 0, sizeof big); big[0] = 64; big[6] = 5;
+        /* The scheduler cursor (branch clipv3-cursor): the same v3 song played from its event lists (the test switch
+         * sends every v3 clip that way) is byte-identical to the grid, message for message and block for block. */
+        { void song_test_cursor(unsigned on);
+          static struct log_entry clog[4096]; unsigned clogged = 0;
+          song_test_cursor(1);
+          CHECK(sim_song_load(3) == 0, "cursor: the v3 song loaded again");
+          { struct message m[64]; (void)drain(m, 64); }
+          CHECK(sim_song_play() == 0, "cursor: song started");
+          (void)play_log(clog, 4096, &clogged, 4000, -1, 0);
+          unsigned cd = 0; for (unsigned i = 0; i < logged[0] && i < clogged; ++i) if (memcmp(&log[0][i], &clog[i], sizeof clog[i])) ++cd;
+          CHECK(clogged == logged[0] && cd == 0, "cursor: the event-list scheduler plays byte-identical MIDI to the step grid (%u messages, %u differ)", clogged, cd);
+          CHECK(sim_song_status(2) == late_grid, "cursor: the same late and underrun counts as the grid (the step-0 note before the song's start counts as late in both: %u, %u)", sim_song_status(2), late_grid);
+          song_test_cursor(0); }
+        /* A v3 clip the grid cannot hold (five notes in a step, a controller event) is stored (it is valid v3) and now
+         * plays from its event list: the chord in list order, the controller before the note listed after it at the
+         * same time, a note late in the clip in its block. */
+        uint8_t big[16 + 6 * 8]; memset(big, 0, sizeof big); big[0] = 64; big[6] = 8;
         for (unsigned i = 0; i < 5; ++i) { uint8_t *q = big + 16 + 6 * i; q[0] = 240; q[2] = (uint8_t)(60 + i); q[3] = 100; q[4] = 100; }
+        { uint8_t *q = big + 16 + 6 * 5; unsigned tm = 4 * 480 + 240; q[0] = (uint8_t)tm; q[1] = (uint8_t)(tm >> 8); q[2] = 1; q[3] = 0x80; q[4] = 74; q[5] = 99;   /* CC 74 = 99 at step 4 */
+          q += 6; q[0] = (uint8_t)tm; q[1] = (uint8_t)(tm >> 8); q[2] = 72; q[3] = 90; q[4] = 100;                                                          /* a note at the same time, listed after it */
+          q += 6; tm = 12 * 480 + 240; q[0] = (uint8_t)tm; q[1] = (uint8_t)(tm >> 8); q[2] = 76; q[3] = 80; q[4] = 100; }                                  /* a note at step 12 */
         memcpy(f, big, sizeof big); CHECK(sim_block_write2(2, 9, 2, sizeof big) == 0, "v3: a five-note step is a valid block");
+        { memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "CURSOR      ", 12); f[40] = 1; f[48] = 5;
+          f[64] = 9; f[64 + 16] = 1; f[64 + 18] = 16;
+          CHECK(sim_song_record_write(2) == 0, "cursor: a song with the five-note clip stored");
+          static struct log_entry blog[512]; unsigned bl = 0;
+          CHECK(sim_song_load(2) == 0, "cursor: it loads");
+          { struct message m[64]; (void)drain(m, 64); }
+          CHECK(sim_song_play() == 0, "cursor: it plays (the grid could not hold it: BLOCK READ ERROR before)");
+          (void)play_log(blog, 512, &bl, 4000, -1, 0);
+          unsigned ch5 = 4, chord = 0, order = 1, at = 0;
+          for (unsigned i = 0; i < bl; ++i) if (blog[i].s == (0x90 | ch5) && blog[i].d1 >= 60 && blog[i].d1 <= 64 && blog[i].d2) { if (blog[i].d1 != 60 + chord) order = 0; ++chord; at = blog[i].block; }
+          int cc = find_log(blog, bl, 0xb0 | ch5, 74, 99, 0), n72 = find_log(blog, bl, 0x90 | ch5, 72, 90, 0), n76 = find_log(blog, bl, 0x90 | ch5, 76, 80, 0);
+          CHECK(chord == 5 && order, "cursor: the five-note chord plays, in list order (%u notes)", chord);
+          CHECK(cc >= 0 && n72 == cc + 1 && blog[cc].block == blog[n72].block, "cursor: the controller event leaves on the track's channel just before the note listed after it (%d, %d)", cc, n72);
+          /* step 12 is 8 steps after step 4: 8 x 480 units at 120 BPM = 1 s = 344.5 blocks */
+          CHECK(n76 > n72 && blog[n76].block - blog[n72].block >= 343 && blog[n76].block - blog[n72].block <= 346, "cursor: the note at step 12 is 8 steps after the one at step 4 (%u blocks)", n76 > 0 ? blog[n76].block - blog[n72].block : 0);
+          CHECK(stuck(blog, bl) == 0 && at < 8, "cursor: every note gets its note-off; the chord starts with the song"); }
         big[0] = 129; memcpy(f, big, sizeof big); CHECK(sim_block_write2(2, 10, 2, sizeof big) != 0, "v3: 129 steps is refused by the storage");
         sim_midi_drain(0); (void)sim_open(0);
     }

@@ -193,6 +193,14 @@ FM1_AUDIO_CODE void groove_midi_song_note(unsigned track, unsigned note, unsigne
     unsigned ports = ((config.flags & SEQ_OFF) || !groove_midi_mode(track)) ? 0 : config.flags & 7U;
     enqueue(0, SONG_OWNER + track, ports, (velocity ? 0x90U : 0x80U) | channel(track), note, velocity);
 }
+/* The scheduler cursor (branch clipv3-cursor): a v3 clip's controller, program, bend or pressure event, on the
+ * track's output channel with the track's song owner, by the same SEQ mode rules as its notes. The drain gives no
+ * copy to the internal engine (song_local is for notes). */
+FM1_AUDIO_CODE void groove_midi_song_track_event(unsigned track, unsigned status, unsigned a, unsigned b)
+{
+    unsigned ports = ((config.flags & SEQ_OFF) || !groove_midi_mode(track)) ? 0 : config.flags & 7U;
+    if (ports) enqueue(0, SONG_OWNER + track, ports, status | channel(track), a, b);
+}
 /* Row events (Task 04, 9.11): a channel message for a MIDI channel, not a track. The
  * channel's thru owner (24..39) gives the channel back at delivery (owner_channel), every
  * port is a destination, and lane 0 drains before the note lanes, so an event enqueued in
@@ -731,7 +739,7 @@ static void midi_poll_body(void)
                 if (groove_midi_panel_track_reset) groove_midi_panel_track_reset(owner);
             }
             else {
-                if (owner >= SONG_OWNER) song_local(owner & 7U, m);
+                if (owner >= SONG_OWNER && (m[0] & 0xe0U) == 0x80U) song_local(owner & 7U, m);   /* notes only (the cursor's controller events stay on MIDI out) */
                 if (ports) send_event(owner, ports, m);
             }
             found = 1;

@@ -386,6 +386,7 @@ FM1_DSP_CODE void groove_midi_transport(unsigned owner, uint8_t status);
  * per-track output-channel override (NULL or all zero = device settings). */
 FM1_DSP_CODE void groove_midi_song_note(unsigned track, unsigned note, unsigned velocity);
 FM1_DSP_CODE void groove_midi_song_event(unsigned channel, unsigned status, unsigned a, unsigned b); /* Task 04: row events */
+FM1_DSP_CODE void groove_midi_song_track_event(unsigned track, unsigned status, unsigned a, unsigned b); /* clipv3-cursor: a v3 clip's controller events */
 /* Task 17 (G): the events queued after this call are due num / den of a block after the block's start
  * (app/midi_router.c, F + G). A build without option A2 has no due times. (The host tests and the web
  * simulator always build the A2 code: app/diag.h defines CT_A2 for them; the same rule here, because

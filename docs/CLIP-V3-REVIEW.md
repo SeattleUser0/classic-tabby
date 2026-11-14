@@ -76,3 +76,27 @@ The 150 KB of heap above the SDK minimum (TASK-10, measured) takes the estimated
 fixture blocks, the cursor, the rejection cases), tests/clip-v3/run.mjs (the JavaScript twin identical to C on every block, 1133
 checks), tests/clip-v3/importer.mjs (1143 checks). tests/host/smoke.c section 19 (the simulator plays v3 as v2). `make
 test-fast` and `make suite DISPLAY_VERSION=tabby-v04.3` (crosscheck, the whole test run, the simulator import test and the ASan / UBSan run) passed at adaa7e6.
+
+## 7. The cursor: state (2026-11-14, branch classic-tabby/clipv3-cursor, on top of tabby-v04.4; host and simulator only)
+
+Your decisions of 2026-11-13 are kept: the 240 bias, the length clamp, option B for downloads.
+
+Built and tested on the host (`make test-fast` green, sanitizers green; tests/host/smoke.c section 20):
+- `scan_v3` in app/song.c: a v3 clip the grid cannot hold plays from its event list (binary search to the window, no walk
+  over empty steps), notes through the existing `note_on`, controller / program / bend / pressure events on the track's
+  channel, probability from the step-modifier events, the next-frame look-ahead and the late check.
+- The same song through the grid and through the cursor: byte-identical MIDI, 47 of 47 messages in the same block.
+- A clip with a five-note chord, a controller event and notes on later steps plays (it was BLOCK READ ERROR before): chord in
+  list order, the controller just before the note listed after it, note-offs complete.
+
+Open, in the order I would do them:
+1. Device RAM and speed: each of the 16 decode buffers grows by 3216 bytes (51 KB in all, measured from the struct; the
+   earlier estimate was +24 KB with a shared pool). Either accept it (the heap has room on paper: 195 KB) or give the
+   buffers a shared event pool. `clip_v3_event` / `clip_v3_anchor` must move to RAM code for the audio interrupt. No device
+   build was made.
+2. The clip header's program and bank at a frame's entry; the stored tuning bit on the cursor path.
+3. Rows longer than 64 steps need the song record v3 (review item 2): until then a clip's events past its row's end are
+   not played.
+4. A fuzz test of the cursor against a reference player over the 550 fixture blocks (the unit test of `clip_v3_window`
+   exists; the scheduler path has the one comparison song).
+

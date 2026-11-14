@@ -1,6 +1,6 @@
 # The v3 clip: an event list
 
-Version 0.1 (2026-11-12, Task 16 Goal 5, MC-707 workflow Phase 2). The block payload that replaces the
+Version 0.2 (2026-11-14; first version 2026-11-12, Task 16 Goal 5, MC-707 workflow Phase 2). The block payload that replaces the
 v2 step grid (docs/TIMED-NOTE.md, TASK-03 9.12) when a clip needs more than 64 steps, more than four
 notes in a step, or controller events. It is built and tested on the host and in the simulator on the
 branch classic-tabby/mc707-phase2; it is **not released and not installed** until the user has read
@@ -14,6 +14,7 @@ docs/CLIP-V3-REVIEW.md (Task 16 hard limit 5). Source: docs/tasks/TASK-10-step1-
 | Where it is used | block record byte 1 (format) = 2; `song_payload_valid`, `decode_track` (app/song.c) |
 
 Revision log
+- v0.2 2026-11-14: section 4, the scheduler cursor's first step (branch clipv3-cursor).
 - v0.1 2026-11-12: first version (Task 16 Goal 5).
 
 ## 1. The model
@@ -82,10 +83,23 @@ legal (it plays its length: legato over the loop, as in v2).
 
 ## 4. Playing it
 
-`clip_v3_window` is the scheduler cursor: for a clip, a window `[from, to)` in clip units, and the swing of the
-clip's block, it hands every event whose swung time falls in the window to a callback, in list order, starting from
-a per-track cursor that moves forward (no scan of empty steps). `song.c` v0.7 (this branch) decodes a v3 clip that
-is v2-representable into the existing step grid (`clip_v3_to_grid`), so the existing scheduler plays it with
-byte-identical MIDI; a clip that is not (more than 64 steps, more than four notes in a step, CC events) is read
-as an error until the cursor replaces the grid scan (docs/CLIP-V3-REVIEW.md, "what the device UI and the
-scheduler need next").
+Two paths in `app/song.c` (branch classic-tabby/clipv3-cursor, 2026-11-14; host and simulator only, not released):
+
+- A v3 clip that is v2-representable is decoded into the step grid (`clip_v3_to_cells`) and the grid scheduler plays it,
+  byte-identical to the same notes stored as v2.
+- A clip the grid cannot hold (more than four notes in a step, controller events, more than 64 steps) is kept as its event
+  list in the track's decode buffer and played from it: **the scheduler cursor**, `scan_v3`. For each window `[from, to)` of
+  the block it finds the first event that can be due (a binary search: the list is sorted and a swung time lies within
+  `[time, time + 240]`), walks to the first event at or after `to`, and makes one action per due event; no empty step is
+  visited. Events of one time keep their list order (a controller before the note listed after it). Notes go through the
+  same `note_on` as grid notes (legato, retrigger, the sounding table, the note-off). CC, program, bend and pressure events
+  go out on the track's output channel with the track's song owner, by the track's SEQ mode, with no copy to the internal
+  engine. Probability is rolled per anchor step and pass from the step-modifier events (a table per buffer, built at decode).
+  The look-ahead into the next frame (events before the frame start) and the late check at a frame's entry have a v3 form.
+- Test switch (host and simulator): `song_test_cursor(1)` sends every v3 clip through the cursor. tests/host/smoke.c section
+  20: the comparison song is byte-identical through the grid and through the cursor (47 messages, each in the same block).
+
+Not done yet (see docs/CLIP-V3-REVIEW.md, "the cursor: state"): rows are still at most 64 steps (song record v3), so the part
+of a clip past its row's end is not played; the clip header's program and bank are not sent; the stored tuning bit is not
+applied on the cursor path; RAM on the device (+3.2 KB per decode buffer, 16 buffers) is not measured and the device build
+is not made; `clip_v3_event` and `clip_v3_anchor` are flash code called from the audio interrupt on this path.
