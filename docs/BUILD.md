@@ -4932,3 +4932,18 @@ What was built is in docs/CLIP-V3.md sections 4 to 6 and SPEC 19.6. Measured:
 - First use, on tabby-v04.4 with a v2 song (offgrid.mid through the main page): 6 of 6 note-ons, worst 0.20 ms,
   tempo ratio 0.99972 on DIN (the device's audio clock against the nominal 44100).
 
+### 37.4 The releases: tabby-v04.5, and tabby-v04.5.1 for a fault of its page
+
+**tabby-v04.5** (build e5a6c8b4789170be): suite green at b2dee55 (the gate's marker), published to the main page and
+builds/tabby-v04.5/ through the gated targets, GitHub release; Full backup, identity check, one install attempt, 12.3 s.
+On the device, through the published page and `run-clips.py`: offgrid.mid (v2) 6 of 6 note-ons, worst 0.27 ms;
+bassline-4bar.mid (v2) 16 of 16, worst 0.71 ms on DIN. Then the three imports that need a v3 clip failed **in the page**:
+"clip-v3.js not loaded". tools/linux/build-web.py did not inline web/clip-v3/clip-v3.js with the importer; every test loaded
+the modules through Node's require, where the module is found. The firmware was not at fault (the device never got those
+songs).
+
+**tabby-v04.5.1** (build 3df5848e878827d6, the same firmware with its version text): the module is in the bundle;
+tests/workbench/page-bundle.mjs reads the script list out of build-web.py, runs it in a bare context without require and
+imports the chord, controller and long-row fixtures there, and checks a built page for the modules. Device results follow
+in 37.5.
+

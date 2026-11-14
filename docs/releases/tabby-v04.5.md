@@ -1,5 +1,7 @@
 Larger clips: any number of notes on a step, controller events, rows of up to 8 bars; reinstall to get it (Full backup first; storage does not move).
 
+**Known fault, fixed in tabby-v04.5.1:** this release's page cannot import a MIDI part that needs a v3 clip (a chord of more than four notes, controller events, rows of more than 64 steps): it stops with "clip-v3.js not loaded". Plain imports work. The firmware is not affected. Use the tabby-v04.5.1 page.
+
 # Classic Tabby tabby-v04.5: v3 clips play from their event lists; rows of up to 128 steps
 
 - Firmware package build ID: `e5a6c8b4789170be` (first 16 hex digits; the full ID is in the Device update tab's
