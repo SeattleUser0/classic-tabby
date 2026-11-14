@@ -1,0 +1,55 @@
+{
+  "build": "3df5848e878827d6c9eb42bc3be2c294ed6f5b595ea7a77adaa8869684cb3f49",
+  "release": "V01",
+  "version": "tabby-v04.5.1",
+  "entryBytes": 348805,
+  "initialBytes": 1320764,
+  "standaloneBytes": 3023378,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/561da72c324b431a32ae08bff221a572ad2c08eb4d32da2fcaadcb5084da8605.bin",
+      "bytes": 496180,
+      "sha256": "561da72c324b431a32ae08bff221a572ad2c08eb4d32da2fcaadcb5084da8605"
+    },
+    {
+      "name": "assets/smk37/b556adf6e25fc9ad29a3e238ee64c38d93cd053e5ff003b6e3909c60236860b6.wasm",
+      "bytes": 305272,
+      "sha256": "b556adf6e25fc9ad29a3e238ee64c38d93cd053e5ff003b6e3909c60236860b6"
+    },
+    {
+      "name": "assets/smk37/1b26b94b3b2ab2df7722182e96be73189ca8ebdf13bb29ebde4508b85da08b36.js",
+      "bytes": 594046,
+      "sha256": "1b26b94b3b2ab2df7722182e96be73189ca8ebdf13bb29ebde4508b85da08b36"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 348805,
+      "sha256": "3a6c8bff2a9196c3e8c15f2b1373348512e8914dba98d423321f84cb1cc10eb7"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 348805,
+      "sha256": "3a6c8bff2a9196c3e8c15f2b1373348512e8914dba98d423321f84cb1cc10eb7"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3023378,
+      "sha256": "a956d3fa9ff4349948287fa45e9031f0d55e87965d2bcba5ffa64349ffacc8b7"
+    }
+  ]
+}
