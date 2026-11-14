@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-14T10:02:07Z",
+  "updated": "2026-11-14T18:59:38Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -110,7 +110,7 @@
       "page": "builds/tabby-v04.3/",
       "published": "2026-11-12",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.3.zip",
-      "note": "Faulty, do not install. With CLOCK on MIDI it sends no replies over USB and looks hung to the workbench. Use tabby-v04.3.1."
+      "note": "Never released; superseded by tabby-v04.4. (An earlier note called it faulty; that was a measuring error.)"
     },
     {
       "tag": "tabby-v04.3-rc2",
@@ -180,6 +180,16 @@
       "page": "builds/tabby-v04.4-rc4/",
       "published": "2026-11-14",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.4-rc4.zip",
+      "note": ""
+    },
+    {
+      "tag": "tabby-v04.5",
+      "build": "e5a6c8b4789170be752e64505e0e36f8756b2a0772cf175de1fc182d19145d3c",
+      "loader": "ota-SMK37e5a6c8b4789170be",
+      "version": "tabby-v04.5",
+      "page": "builds/tabby-v04.5/",
+      "published": "2026-11-14",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.5.zip",
       "note": ""
     }
   ]
