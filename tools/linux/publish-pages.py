@@ -39,9 +39,11 @@ Usage (from the repository root)
         --source-url https://github.com/<owner>/<repo>/archive/refs/tags/tabby-v01.0.zip \
         --commit --push                                                   # + gh-pages
 
-Version: 0.5
+Version: 0.6
 
 Revision log
+    v0.6  2026-11-14  Task 17: --commit / --push are refused unless make suite passed on HEAD (the suite gate,
+                      tools/linux/suite-gate.py); --display-version.
     v0.5  2026-11-10  tabby-v04.1.1: every staged site also gets guide/index.html, the testing guide
                       (docs/TESTING-GUIDE.md through tools/linux/guide-html.py), so the main page and
                       every builds/<tag>/ page carry it.
@@ -267,6 +269,7 @@ def main(argv=None):
     parser.add_argument("--site-dir", default=".", help="directory inside the branch that receives the site (default root)")
     parser.add_argument("--keep", action="append", default=None,
                         help="v0.3: a top-level directory a root publish leaves alone (repeatable; default probe64, builds, recover)")
+    parser.add_argument("--display-version", default="", help="Task 17: the display version the suite passed for (the suite gate)")
     parser.add_argument("--no-builds", action="store_true", help="v0.4: do not add the build to builds/<tag>/ and builds/index.json")
     parser.add_argument("--note", help="v0.4: a short note for the build's index entry")
     args = parser.parse_args(argv)
@@ -281,6 +284,15 @@ def main(argv=None):
         print(message, flush=True)
 
     try:
+        if args.commit:
+            # Task 17 (hard limit 5): nothing goes to gh-pages unless make suite passed on exactly this commit, with this
+            # display version, and the tree is clean (tools/linux/suite-gate.py; the marker is build/suite-gate.json).
+            spec = importlib.util.spec_from_file_location("suite_gate", str(ROOT / "tools/linux/suite-gate.py"))
+            gate = importlib.util.module_from_spec(spec); spec.loader.exec_module(gate)
+            why = gate.check(args.display_version or "")
+            if why:
+                raise SystemExit("publish refused (suite gate): " + why)
+            log("Suite gate: make suite passed on this commit (%s)." % (args.display_version or "no display version"))
         if args.tag:
             check_tag(args.tag, args.push, args.remote, log)
         elif args.commit:
