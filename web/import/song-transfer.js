@@ -82,8 +82,11 @@
     if (!v.ok) throw new Error('song is invalid: ' + v.errors[0]);
     const record = F.encodeRecord(song);
     const blocks = song.blocks.slice().sort((a, b) => a.id - b.id).map(b => {
-      const payload = F.encodeBlock(b, 'block ' + b.id);
-      return { kind: 6, target: (slot << 16) | b.id, id: b.id, bytes: payload.length, payload };
+      /* Task 17: a block the v2 grid cannot hold travels as a v3 clip; the payload carries its format (payload.format = 2)
+       * for the workbench's batch records. */
+      const p = F.payloadOf(b, 'block ' + b.id), payload = p.bytes;
+      if (p.format === L.formatV3) payload.format = 2;
+      return { kind: 6, target: (slot << 16) | b.id, id: b.id, bytes: payload.length, payload, format: p.format };
     });
     const batches = batched ? batchesOf(blocks) : [];
     const items = [{ bytes: record.length }, ...(batched ? batches : blocks)];
@@ -172,7 +175,7 @@
         /* Rebuild the .tabby byte stream (record + block records) and decode it. */
         const records = [...got.blocks].sort((a, b) => a[0] - b[0]).map(([id, payload]) => {
           const out = new Uint8Array((6 + payload.length + 3) & ~3).fill(0xff);
-          out[0] = 0; out[1] = 1; out[2] = id & 255; out[3] = id >> 8; out[4] = payload.length & 255; out[5] = payload.length >> 8; out.set(payload, 6); return out;   /* Task 05: a backend returns format-1 payloads */
+          out[0] = 0; out[1] = payload.format === 2 ? 2 : 1; out[2] = id & 255; out[3] = id >> 8; out[4] = payload.length & 255; out[5] = payload.length >> 8; out.set(payload, 6); return out;   /* Task 05: a backend returns format-1 payloads; Task 17: a v3 clip is marked payload.format = 2 */
         });
         const file = new Uint8Array(4096 + records.reduce((n, r) => n + r.length, 0));
         file.set(got.record, 0); let at = 4096; for (const r of records) { file.set(r, at); at += r.length; }
@@ -187,7 +190,7 @@
     return backend ? createBackend(backend, { name }) : createStub();
   }
 
-  const TabbySongTransfer = { createStub, createBackend, select, batchesOf, CHUNK, SECONDS_PER_QUERY, version: '0.3' };
+  const TabbySongTransfer = { createStub, createBackend, select, batchesOf, CHUNK, SECONDS_PER_QUERY, version: '0.4' };
   globalThis.TabbySongTransfer = TabbySongTransfer;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongTransfer;
 })();

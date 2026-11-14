@@ -29,6 +29,10 @@
  * and force stay for a non-Open identity (factory V16), and force is a manual choice on the page.
  * The identity re-check in install() is retried too (queryRetry). Test: tests/workbench/loader-tag.mjs
  * scenarios X-Z.
+ * Classic Tabby Task 17 (2026-11-14, tabby-v04.5): v3 clips. A block payload marked .format = 2 is a v3 clip
+ * (docs/CLIP-V3.md): downloadBlock reads it through transfer kind 9 on firmware with capability flag bit 3, songBatches
+ * writes it as a format-2 record, the full backup, restore, verify and the .tabby file carry the mark, and songWrite
+ * refuses v3 clips and rows of more than 64 steps for older firmware. Rows may be 16 to 128 steps.
  * Classic Tabby Task 12 A5 (2026-11-08): safe resume for a stale loader. The Jieli loader's USB name
  * carries the build it waits for (ota-SMK37 + the first 16 hex digits of the build id, taggedLoader).
  * When connect() or waitFor() meets a loader whose tag is not this page's build, the page never
@@ -937,7 +941,22 @@
     async songStatus(){const s=await this.query(23);check(s.length===13||s.length===15||s.length===31,'Invalid song storage status reply');
       const tracks=s.length>=31?Array.from({length:8},(_,t)=>({state:s[15+t]&3,queue:(s[15+t]>>2)&3,waiting:!!(s[15+t]&16),row:s[23+t]})):null;
       return {free:le(s,0,4),reclaimable:le(s,4,4),state:s[8],loaded:s[9],playing:s[10],row:s[11],error:s[12],late:s.length>13?s[13]:0,events:s.length>14?s[14]:0,tracks};}
+    // Task 17 (tabby-v04.5): firmware with capability flag bit 3 hands a block over as it is stored, with its format
+    // (transfer kind 9: byte 0 = 0 v1, 1 v2, 2 the v3 clip). A v3 clip comes back as its payload with .format = 2; the
+    // batch upload, the full backup and the .tabby export keep that mark, so a clip the v2 grid cannot hold is never
+    // lost. A v1 block goes through kind 6 as before (the device upgrades it).
     async downloadBlock(song,id){
+      if(this.tabbyFlags&8){
+        let raw;
+        try {
+          const head=await this.query(1,[9,song,id&255,id>>8]),size=le(head,0,2);check(head.length===2&&size>=17&&size<=3089,'Invalid block length');
+          raw=new Uint8Array(size);
+          for(let at=0;at<size;at+=64){const n=Math.min(64,size-at),part=await this.query(2,[at&255,at>>8,n]);check(part.length===n,'Incomplete file chunk');raw.set(part,at);}
+        } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
+        if(raw[0]===1)return raw.slice(1);
+        if(raw[0]===2){const clip=raw.slice(1);clipCheck(clip);clip.format=2;return clip;}
+        check(raw[0]===0,'Unknown block format '+raw[0]);
+      }
       try {
         const head=await this.query(1,[6,song,id&255,id>>8]),size=le(head,0,2);check(head.length===2&&size>=64&&size<=1600,'Invalid block length');   // Task 05: format-1 payloads up to 1600
         const bytes=new Uint8Array(size);
@@ -945,6 +964,7 @@
       } finally {if(this.link&&!this.link.lost)await this.query(6).catch(()=>{});}
     }
     async uploadBlock(song,id,bytes){
+      check(bytes.format!==2,'This block is a v3 clip; the device firmware must be tabby-v04.5 or later');
       songPayloadParse(bytes);await this.writeGuard();   // Task 12 A3
       try {
         await this.query(3,[6,song,id&255,id>>8,bytes.length&255,bytes.length>>8]);
@@ -970,7 +990,15 @@
       return {record,blocks};
     }
     async songWrite(song,record,blocks,progress=()=>{}){
-      check(this.songStorage,'Update the firmware to use song mode');check(this.timedNotes,'The device firmware does not accept timed-note blocks; update the firmware first');songRecordParse(record);
+      check(this.songStorage,'Update the firmware to use song mode');check(this.timedNotes,'The device firmware does not accept timed-note blocks; update the firmware first');
+      // Task 17: v3 clips (more than four notes on a step, controller events, clips past step 64) and rows of more than
+      // 64 steps need firmware that plays them (capability flag bit 3, tabby-v04.5).
+      const parsedRows=songRecordParse(record).rows;
+      if(!(this.tabbyFlags&8)){
+        check(![...blocks.values()].some(b=>b.format===2),'This song has v3 clips (more than four notes on a step, controller events or clips longer than 64 steps). The device firmware must be tabby-v04.5 or later; nothing was written.');
+        check(!parsedRows.some(r=>r.steps>64),'This song has rows longer than 64 steps. The device firmware must be tabby-v04.5 or later; nothing was written.');
+      }
+      for(const b of blocks.values())if(b.format===2)clipCheck(b);
       // Task 03 (f): an occupied slot is deleted first (the shared rule for the song editor and the
       // MIDI importer): the old song's blocks become garbage for the next compaction whatever ids
       // the new song uses. The check is a kind-5 download begin + cancel (two exchanges).
@@ -1093,7 +1121,7 @@
     const song={name:String.fromCharCode(...bytes.subarray(24,36)).replace(/\s+$/,''),project:bytes[36],loop:!!(bytes[37]&1),jumpRow:!!(bytes[37]&2),swing:!!(bytes[37]&4),
       tempo:u16(bytes,38),loopRow:bytes[42],channel:Array.from(bytes.subarray(48,56)),rows:[]};
     for(let r=0;r<rows;r++){const at=SONG_ROW0+r*SONG_ROW;const block=[];for(let t=0;t<8;t++)block.push(u16(bytes,at+t*2));
-      const steps=bytes[at+18]||64;check(bytes[at+16]>=1&&bytes[at+16]<=64&&steps%16===0&&steps<=64,'Row '+(r+1)+' is invalid');
+      const steps=bytes[at+18]||64;check(bytes[at+16]>=1&&bytes[at+16]<=64&&steps%16===0&&steps<=128,'Row '+(r+1)+' is invalid');
       song.rows.push({block,repeat:bytes[at+16],loopHere:!!(bytes[at+17]&1),steps});}
     song.events=version===2?songEventsParse(bytes):[];   // Task 04: row events (9.11)
     if(version===2)songEventsValidate(song.events,rows);
@@ -1116,7 +1144,7 @@
     song.rows.forEach((row,r)=>{const at=SONG_ROW0+r*SONG_ROW;
       for(let t=0;t<8;t++){const id=row.block[t]|0;check(id>=0&&id<=65535,'Row '+(r+1)+' has an invalid block id');put16(bytes,at+t*2,id);}
       check(row.repeat>=1&&row.repeat<=64,'Row '+(r+1)+': the repeat count must be 1-64');bytes[at+16]=row.repeat;
-      bytes[at+17]=row.loopHere?1:0;check([16,32,48,64].includes(row.steps),'Row '+(r+1)+': the step count must be 16, 32, 48 or 64');bytes[at+18]=row.steps;});
+      bytes[at+17]=row.loopHere?1:0;check(row.steps%16===0&&row.steps>=16&&row.steps<=128,'Row '+(r+1)+': the step count must be a multiple of 16 from 16 to 128');bytes[at+18]=row.steps;});
     if(events.length){songEventsValidate(events,song.rows.length);songEventsBuild(bytes,events);}
     put32(bytes,12,crc32(bytes.subarray(20,events.length?SONG_V2_END:SONG_BODY)));
     return bytes;
@@ -1177,7 +1205,7 @@
   // Task 04 (9.11 v0.6): an optional trailer after the records, 0xFF then "TRIG", a u32 length and
   // UTF-8 JSON (workbench-only data: the song's rig override); the device never receives it.
   function tabbyFile(record,blocks,trailer){
-    const parts=[record];for(const [id,payload] of blocks){const head=new Uint8Array(6);head[1]=1;put16(head,2,id);put16(head,4,payload.length);   // byte 1: payload format 1 (Task 05)
+    const parts=[record];for(const [id,payload] of blocks){const head=new Uint8Array(6);head[1]=payload.format===2?2:1;put16(head,2,id);put16(head,4,payload.length);   // byte 1: payload format 1 (Task 05), 2 = a v3 clip (Task 17)
       const pad=new Uint8Array((4-(6+payload.length)%4)%4).fill(255);parts.push(head,payload,pad);}
     if(trailer){const json=new TextEncoder().encode(JSON.stringify(trailer)),head=new Uint8Array(9);head[0]=255;head.set([84,82,73,71],1);put32(head,5,json.length);parts.push(head,json);}
     const total=parts.reduce((n,p)=>n+p.length,0),out=new Uint8Array(total);let at=0;for(const p of parts){out.set(p,at);at+=p.length;}return out;
@@ -1186,8 +1214,9 @@
     check(bytes.length>=SONG_RECORD,'Not a .tabby song file');const record=bytes.slice(0,SONG_RECORD);songRecordParse(record);
     const blocks=new Map();let at=SONG_RECORD;
     while(at+6<=bytes.length&&bytes[at]!==255){check(bytes[at]===0,'Blocks in a file must belong to song 0');const format=bytes[at+1],id=u16(bytes,at+2),len=u16(bytes,at+4);
-      check((format===0||format===1)&&id>=1&&len>=64&&len<=(format?1600:832)&&at+6+len<=bytes.length,'Invalid block record');let payload=bytes.slice(at+6,at+6+len);
-      if(format===0)payload=songPayloadBuild(songPayloadParseV1(payload));else songPayloadParse(payload);   // Task 05: a format-0 block is upgraded on read
+      check(format<=2&&id>=1&&len>=(format===2?16:64)&&len<=(format===2?3088:format?1600:832)&&at+6+len<=bytes.length,'Invalid block record');let payload=bytes.slice(at+6,at+6+len);
+      if(format===2){clipCheck(payload);payload.format=2;}   // Task 17: a v3 clip is kept as it is
+      else if(format===0)payload=songPayloadBuild(songPayloadParseV1(payload));else songPayloadParse(payload);   // Task 05: a format-0 block is upgraded on read
       blocks.set(id,payload);at+=6+len;at+=(4-at%4)%4;}
     let trailer=null;
     if(at+9<=bytes.length&&bytes[at]===255&&String.fromCharCode(...bytes.subarray(at+1,at+5))==='TRIG'){const len=u32(bytes,at+5);check(at+9+len<=bytes.length,'Invalid .tabby trailer data');
@@ -1198,13 +1227,16 @@
   // (greedy first fit into 4076-byte record areas, a record never splits), at most 8 sectors =
   // 32608 bytes per batch, so the upload packs exactly as one giant batch would.
   const BATCH_AREA=4076,BATCH_SECTORS=8;
+  // Task 17: the frame of a v3 clip payload (16-byte header, 6-byte events; the device validates the rest).
+  function clipCheck(p){check(p.length>=16&&p.length<=3088&&p[0]>=1&&p[0]<=128&&p.length===16+6*(p[6]|p[7]<<8),'Invalid v3 clip payload');return p;}
   function songBatches(blocks){
     const batches=[],flush=(parts,total)=>{const out=new Uint8Array(total);let at=0;for(const p of parts){out.set(p,at);at+=p.length;}batches.push(out);};
     let parts=[],total=0,fill=0,sectors=1;
     for(const [id,payload] of blocks){
       const size=6+payload.length+(4-(6+payload.length)%4)%4;
       if(fill+size>BATCH_AREA){if(sectors===BATCH_SECTORS){flush(parts,total);parts=[];total=0;sectors=0;}sectors++;fill=0;}
-      const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=1;put16(rec,2,id);put16(rec,4,payload.length);rec.set(payload,6);   // byte 1: payload format 1 (Task 05)
+      const rec=new Uint8Array(size).fill(255);rec[0]=0;rec[1]=payload.format===2?2:1;put16(rec,2,id);   // Task 17: 2 = a v3 clip
+     put16(rec,4,payload.length);rec.set(payload,6);   // byte 1: payload format 1 (Task 05)
       parts.push(rec);total+=size;fill+=size;
     }
     if(parts.length)flush(parts,total);
@@ -1289,7 +1321,7 @@
       projects:data.projects.map(p=>p.empty?{slot:p.slot,empty:true}:p.error?{slot:p.slot,name:p.name,error:p.error}:{slot:p.slot,name:p.name,...enc(p.bytes)}),
       settings:{clock:data.settings.clock,kind8:data.settings.kind8?enc(data.settings.kind8):null,radio:data.settings.radio},
       songs:data.songs.map(s=>{if(s.empty)return {slot:s.slot,empty:true};const list=[...s.blocks].sort((a,b)=>a[0]-b[0]);blocks+=list.length;
-        return {slot:s.slot,record:enc(s.record),blocks:list.map(([id,bytes])=>({id,...enc(bytes)}))};}),
+        return {slot:s.slot,record:enc(s.record),blocks:list.map(([id,bytes])=>({id,...(bytes.format===2?{format:2}:{}),...enc(bytes)}))};}),   // Task 17: format 2 = a v3 clip
       rig:extra.rig===undefined?null:extra.rig,
       not_included:BACKUP_NOT_INCLUDED.concat(this.settingsTransfer?[]:['Device MIDI settings, track roles, input channels and panel preferences: this firmware has no settings transfer (kind 8). Note them by hand; the diagnostic build and later carry them.']),
       counts:{projects:data.projects.filter(p=>p.bytes).length,songs:data.songs.filter(s=>!s.empty).length,blocks},
@@ -1321,7 +1353,7 @@
       const record=dec(s.record,'song '+(s.slot+1)+' record',[SONG_RECORD]);const parsed=songRecordParse(record);
       check(Array.isArray(s.blocks),'song '+(s.slot+1)+': block list missing');const blocks=new Map();
       for(const b of s.blocks){check(Number.isInteger(b.id)&&b.id>0&&b.id<65536&&!blocks.has(b.id),'song '+(s.slot+1)+': block id invalid');
-        const bytes=dec(b,'song '+(s.slot+1)+' block '+b.id);songPayloadParse(bytes);blocks.set(b.id,bytes);}
+        const bytes=dec(b,'song '+(s.slot+1)+' block '+b.id);check(b.format===undefined||b.format===2,'song '+(s.slot+1)+' block '+b.id+': unknown format');if(b.format===2){clipCheck(bytes);bytes.format=2;}else songPayloadParse(bytes);blocks.set(b.id,bytes);}
       for(const id of songBlockIds(parsed))check(blocks.has(id),'song '+(s.slot+1)+': block '+id+' is referenced but missing');
       blockCount+=blocks.size;return {slot:s.slot,record,blocks};});
     check(f.counts&&f.counts.projects===projects.filter(p=>p.bytes).length&&f.counts.songs===songs.filter(s=>!s.empty).length&&f.counts.blocks===blockCount,'Backup file: counts do not match its contents');
@@ -1387,7 +1419,7 @@
       // Bytes 0..19 are storage bookkeeping (magic, generation, target, CRC, commit word); 20.. is the song.
       {const x=cmp('Song '+(i+1)+' record',f.record.subarray(20),g.record.subarray(20));if(x)return report(x);}
       if(f.blocks.size!==g.blocks.size)return report('Song '+(i+1)+': '+f.blocks.size+' blocks in the file, '+g.blocks.size+' on the device');
-      for(const [id,bytes] of f.blocks){if(!g.blocks.has(id))return report('Song '+(i+1)+': block '+id+' missing on the device');const x=cmp('Song '+(i+1)+' block '+id,bytes,g.blocks.get(id));if(x)return report(x);}
+      for(const [id,bytes] of f.blocks){if(!g.blocks.has(id))return report('Song '+(i+1)+': block '+id+' missing on the device');if((bytes.format===2)!==(g.blocks.get(id).format===2))return report('Song '+(i+1)+' block '+id+': the file holds a '+(bytes.format===2?'v3 clip':'v2 block')+', the device the other format');const x=cmp('Song '+(i+1)+' block '+id,bytes,g.blocks.get(id));if(x)return report(x);}
     }
     if(b.device.user_bytes!==this.userBytes)notes.push('Layout: the file came from USER '+b.device.user_bytes+', this device runs USER '+this.userBytes+'.');
     return {pass:true,difference:null,notes,checked};

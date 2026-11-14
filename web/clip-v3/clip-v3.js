@@ -138,9 +138,52 @@
     return Uint8Array.from(out);
   }
 
+  /* Task 17: a clip from a model: { steps 1..128, program?, bankMsb?, bankLsb?, notes: [{ time, pitch, velocity, length,
+   * retrigger }], controls: [{ time, kind: CC | PC | BEND | PRESSURE, a, b }], stepMods: [{ step, probability, alt }] }.
+   * Times are units from the clip start. Sorted by time; at one time step modifiers, then controls, then notes, each in
+   * the order given (a controller lands before the note of its time). Lengths above 65535 units are clamped. Throws
+   * with a clip v3 code when the result is not a valid clip (more than 512 events, the same pitch twice in a step...). */
+  function build(model) {
+    const list = [];
+    for (const m of model.stepMods || []) list.push({ time: m.step * UNITS - BIAS, rank: 0, kind: STEPMOD, a: (m.probability || 0) | (m.alt ? 8 : 0), b: m.step });
+    for (const c of model.controls || []) list.push({ time: c.time, rank: 1, kind: c.kind, a: c.a, b: c.b || 0 });
+    for (const n of model.notes || []) list.push({ time: n.time, rank: 2, kind: NOTE, a: n.pitch, b: n.velocity, retrigger: n.retrigger ? 1 : 0, length: Math.min(LENGTH_MAX, n.length) });
+    if (list.length > EVENTS_MAX) fail(NO_ROOM, 'more than 512 events in a clip');
+    list.forEach((x, i) => { x.order = i; });
+    list.sort((x, y) => x.time - y.time || x.rank - y.rank || x.order - y.order);
+    const out = new Uint8Array(HEADER + EVENT * list.length);
+    out[0] = model.steps || 64; put16(out, 6, list.length);
+    if (Number.isInteger(model.program)) { out[1] |= 1; out[2] = model.program; }
+    if (Number.isInteger(model.bankMsb) || Number.isInteger(model.bankLsb)) { out[1] |= 2; out[3] = model.bankMsb | 0; out[4] = model.bankLsb | 0; }
+    list.forEach((x, i) => {
+      const o = HEADER + EVENT * i;
+      if (!Number.isInteger(x.time) || x.time < -BIAS || x.time + BIAS > 65535) fail(BAD_EVENT, 'event time ' + x.time + ' outside the clip');
+      put16(out, o, x.time + BIAS);
+      if (x.kind === NOTE) { out[o + 2] = x.a | x.retrigger << 7; out[o + 3] = x.b; put16(out, o + 4, x.length); }
+      else { out[o + 2] = x.kind; out[o + 3] = 0x80; out[o + 4] = x.a; out[o + 5] = x.b; }
+    });
+    const r = validate(out);
+    if (r) fail(r, 'the clip is not valid');
+    return out;
+  }
+  /* The model of a clip (the inverse of build). */
+  function model(p) {
+    const r = validate(p);
+    if (r) fail(r, 'invalid v3 clip');
+    const m = { steps: p[0], notes: [], controls: [], stepMods: [] };
+    if (p[1] & 1) m.program = p[2];
+    if (p[1] & 2) { m.bankMsb = p[3]; m.bankLsb = p[4]; }
+    for (const e of events(p)) {
+      if (e.kind === NOTE) m.notes.push({ time: e.time, pitch: e.a, velocity: e.b, length: e.length, retrigger: !!e.retrigger });
+      else if (e.kind === STEPMOD) m.stepMods.push({ step: e.b, probability: e.a & 7, alt: !!(e.a & 8) });
+      else m.controls.push({ time: e.time, kind: e.kind, a: e.a, b: e.b });
+    }
+    return m;
+  }
+
   const TabbyClipV3 = { HEADER, EVENT, EVENTS_MAX, STEPS_MAX, BIAS, NOTE, CC, PC, BEND, PRESSURE, STEPMOD,
     codes: { OK, BAD_SIZE, NOT_V2_SHAPED, BAD_HEADER, BAD_EVENT, BAD_ORDER, DUPLICATE, NO_ROOM, BAD_SOURCE },
-    validate, fromV2, toV2, events, anchor, warp, version: '0.1' };
+    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.2' };
   globalThis.TabbyClipV3 = TabbyClipV3;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyClipV3;
 })();

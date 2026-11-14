@@ -12,7 +12,7 @@
 
 Instructions for an AI model (Claude, ChatGPT or another) that writes Standard MIDI files to be imported into Classic Tabby, the custom firmware on an M-VAVE SMK-37 Pro. Read all of it before writing a file. Rules marked MUST are hard limits of the importer or the device. Breaking them loses notes or gets the file refused.
 
-Written for Classic Tabby tabby-v04.4-rc4-dirty and the rig profile "Wrong Room" (generated from the committed profile and definitions by web/rig/guide.js from 16 rig channels and the device library). The rules come from the importer source (web/import/midi-song.js) and the spec (docs/SPEC.md sections 7 to 13) at https://github.com/SeattleUser0/classic-tabby. Sections 8, 9 and 11 and the rig tables in Appendix B are generated from the rig profile (web/rig/profiles/) and the device definitions (web/devices/); do not edit them by hand.
+Written for Classic Tabby tabby-v04.4-10-g9fbc887-dirty and the rig profile "Wrong Room" (generated from the committed profile and definitions by web/rig/guide.js from 16 rig channels and the device library). The rules come from the importer source (web/import/midi-song.js) and the spec (docs/SPEC.md sections 7 to 13) at https://github.com/SeattleUser0/classic-tabby. Sections 8, 9 and 11 and the rig tables in Appendix B are generated from the rig profile (web/rig/profiles/) and the device definitions (web/devices/); do not edit them by hand.
 
 ## 1. What Classic Tabby does with the file
 
@@ -533,7 +533,7 @@ Generated from the device definitions: how each device is connected and set, how
 | Rows per song | 128 |
 | Steps per block | 64 |
 | Notes per step per track | 4 |
-| Row lengths | 16, 32, 48, 64 steps |
+| Row lengths | 16, 32, 48, 64, 80, 96, 112, 128 steps |
 | Repeat count per row | 1..64 |
 | Timing unit | 1/480 of a 16th step; offset −239..+240 |
 | Row events per row / per song | 32 / 292 |

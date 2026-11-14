@@ -1340,7 +1340,7 @@ main{max-width:1440px}
     songEd.song.rows.forEach((row,r)=>{const tr=document.createElement('tr');const th=document.createElement('th');th.textContent=String(r+1);tr.append(th);
       const cell=(value,attrs,cls)=>{const td=document.createElement('td'),i=document.createElement('input');Object.assign(i,attrs);i.value=value;i.dataset.songRow=r;i.dataset.songField=cls;td.append(i);tr.append(td);};
       for(let t=0;t<8;t++)cell(row.block[t],{type:'number',min:'0',max:'65535',step:'1'},'b'+t);
-      cell(row.repeat,{type:'number',min:'1',max:'64',step:'1'},'repeat');cell(row.steps,{type:'number',min:'16',max:'64',step:'16'},'steps');
+      cell(row.repeat,{type:'number',min:'1',max:'64',step:'1'},'repeat');cell(row.steps,{type:'number',min:'16',max:'128',step:'16'},'steps');
       const td=document.createElement('td'),c=document.createElement('input');c.type='checkbox';c.checked=row.loopHere;c.dataset.songRow=r;c.dataset.songField='loop';td.append(c);tr.append(td);
       body.append(tr);});
     // Task 06: per track, the pattern numbers (rows with a block) the TRACK LAUNCH page offers.
@@ -1422,6 +1422,7 @@ main{max-width:1440px}
   $('song-row-remove').addEventListener('click',songAct(async()=>{if(!songEd.song||songEd.song.rows.length<=1)throw Error('Keep at least 1 row');songEd.song.rows.pop();songRowsRender();}));
   $('song-block-load').addEventListener('click',songAct(async()=>{
     const id=Number($('song-block-id').value),payload=songEd.blocks.get(id);
+    if(payload&&payload.format===2){songMessage('Block '+id+' is a v3 clip (more than four notes on a step, controller events or more than 64 steps). The step editor cannot show it; it is kept as it is when you write or export the song.');return;}
     const steps=payload?FM1Web.songPayloadParse(payload):Array.from({length:64},()=>({probability:0,alt:false,notes:[]}));
     for(const i of $('song-steps').querySelectorAll('input')){i.value=FM1Web.songStepText(steps[Number(i.dataset.songStep)]);songMark(i);}
     $('song-inspector').hidden=true;songEd.inspecting=undefined;

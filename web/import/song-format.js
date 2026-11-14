@@ -45,6 +45,9 @@
  * Version: 0.7
  *
  * Revision log
+ *   v0.8  2026-11-14  Task 17 (tabby-v04.5): a block is written as a v3 clip when the v2 grid cannot hold it (needsV3,
+ *                     payloadOf, encodeClip): notes past step 63, more than four notes on a step, controller events, a clip
+ *                     program or bank; decodeBlock reads any v3 clip; rows of up to 128 steps.
  *   v0.7  2026-11-12  Task 16 Goal 5 (branch mc707-phase2): block payload format 2, the v3 clip (docs/CLIP-V3.md):
  *                     encodeBlockRecord(block, song, 2) and encodeFile(song, { format: 2 }) write it, decodeBlock and
  *                     decodeFile read it (as the v2 notes when a v2 grid holds the clip). Default output is still v2.
@@ -85,7 +88,7 @@
     recordArea: 4076, blockSectors: 80, poolBytes: 80 * 4076,   /* 326080: Task 12 A1, the 471040 layout (96 = 391296 in the old one) */
     recordBytes: 4096, rowBytes: 20, rowsOffset: 64, bodyEnd: 2624, channelsOffset: 48, headerBytes: 64, blockHeaderBytes: 6,
     eventsOffset: 2624, eventsStart: 2632, eventBytes: 5, eventsMax: 292, rowEventsMax: 32, recordV2End: 4092,   /* 9.11 v0.6 */
-    rowStepsAllowed: [16, 32, 48, 64],
+    rowStepsAllowed: [16, 32, 48, 64, 80, 96, 112, 128],   // Task 17 (tabby-v04.5): rows of up to 128 steps
     magicRecord: 0x47314d46, /* FM1G */ magicBlocks: 0x42314d46, /* FM1B */
     version: 1,
   });
@@ -151,8 +154,11 @@
   function decodeBlock(bytes, id = 0, format = LIMITS.formatV2) {
     const notes = [], stepFlags = {}, TN = T(), size = format === LIMITS.formatV1 ? LIMITS.noteBytesV1 : LIMITS.noteBytes;
     if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2 && format !== LIMITS.formatV3) fail('block payload format ' + format + ' unknown');
-    if (format === LIMITS.formatV3) {                  /* Task 16 Goal 5: a v3 clip that a v2 grid can hold (the workbench reads the rest as an error until its editor knows them) */
-      try { return decodeBlock(V3().toV2(bytes), id, LIMITS.formatV2); } catch (e) { fail('block ' + id + ' (v3 clip): ' + e.message); }
+    if (format === LIMITS.formatV3) {                  /* a v3 clip: as the v2 block when a grid holds it, else the clip itself (Task 17) */
+      let v2 = null;
+      try { v2 = V3().toV2(bytes); } catch (e) { if (e.code !== V3().codes.NOT_V2_SHAPED) fail('block ' + id + ' (v3 clip): ' + e.message); }
+      if (v2) return decodeBlock(v2, id, LIMITS.formatV2);
+      return decodeClip(bytes, id);
     }
     let at = 0;
     for (let s = 0; s < LIMITS.steps; s++) {
@@ -178,18 +184,68 @@
     stepsOf(block, 'block ' + id);                     /* re-check ranges and duplicates */
     return block;
   }
+  /* ---- Task 17 (tabby-v04.5): a block that needs the v3 clip ------------------------------
+   * A block is written as a v3 clip (payload format 2, docs/CLIP-V3.md) only when the v2 grid cannot hold it: a
+   * note on step 64 or later (a row of more than 64 steps), more than four notes on a step, controller events
+   * (block.controls: [{ time (units from the clip start), kind (1 CC, 2 program, 3 bend, 4 pressure), a, b }]), a clip
+   * program or bank (block.program, block.bankMsb, block.bankLsb), or block.steps above 64. Otherwise v2, as before. */
+  function needsV3(block) {
+    if ((block.controls || []).length || Number.isInteger(block.program) || Number.isInteger(block.bankMsb) || Number.isInteger(block.bankLsb) || (block.steps || 0) > LIMITS.steps) return true;
+    const count = new Map();
+    for (const n of block.notes || []) { if (n.step >= LIMITS.steps) return true; count.set(n.step, (count.get(n.step) || 0) + 1); if (count.get(n.step) > LIMITS.notesPerStep) return true; }
+    return false;
+  }
+  function encodeClip(block, where = 'block') {
+    const U = LIMITS.unitsPerStep, last = (block.notes || []).reduce((m, n) => Math.max(m, n.step), 0);
+    const steps = Math.max(block.steps || 0, Math.min(128, Math.ceil((last + 1) / 16) * 16), 16);
+    for (const n of block.notes || []) {
+      if (!Number.isInteger(n.step) || n.step < 0 || n.step >= steps) fail(where + ': note step ' + n.step + ' outside 0..' + (steps - 1));
+      if (!Number.isInteger(n.pitch) || n.pitch < 0 || n.pitch > 127) fail(where + ': pitch ' + n.pitch + ' outside 0..127');
+      if (!Number.isInteger(n.velocity) || n.velocity < 1 || n.velocity > 127) fail(where + ': velocity ' + n.velocity + ' outside 1..127');
+      if (!Number.isInteger(n.offset | 0) || (n.offset | 0) < -LIMITS.offsetMax || (n.offset | 0) > LIMITS.offsetMax) fail(where + ': offset ' + n.offset + ' outside -240..240 units');
+      if (!Number.isInteger(n.length) || n.length < LIMITS.lengthMin) fail(where + ': length ' + n.length + ' invalid');
+    }
+    try {
+      return V3().build({ steps, program: block.program, bankMsb: block.bankMsb, bankLsb: block.bankLsb,
+        notes: sortNotes(block.notes || []).map(n => ({ time: n.step * U + (n.offset | 0), pitch: n.pitch, velocity: n.velocity, length: n.length, retrigger: n.retrigger })),
+        controls: (block.controls || []).slice().sort((a, b) => a.time - b.time),
+        stepMods: Object.entries(block.stepFlags || {}).map(([s, f]) => ({ step: Number(s), probability: f.probability || 0, alt: !!f.alt })) });
+    } catch (e) { fail(where + ': ' + e.message); }
+  }
+  /* The payload a block is stored as, and its format: v2 when the grid holds it, else the v3 clip. */
+  function payloadOf(block, where) {
+    return needsV3(block) ? { format: LIMITS.formatV3, bytes: encodeClip(block, where) } : { format: LIMITS.formatV2, bytes: encodeBlock(block, where) };
+  }
+  function decodeClip(bytes, id) {
+    const U = LIMITS.unitsPerStep, m = V3().model(bytes), A = V3().anchor;
+    const block = { id, notes: sortNotes(m.notes.map(n => { const step = A(n.time); return { step, pitch: n.pitch, velocity: n.velocity, offset: n.time - step * U, length: n.length, retrigger: !!n.retrigger }; })) };
+    if (m.controls.length) block.controls = m.controls;
+    if (m.stepMods.length) { block.stepFlags = {}; for (const s of m.stepMods) block.stepFlags[s.step] = { probability: s.probability, alt: s.alt }; }
+    if (m.steps > LIMITS.steps) block.steps = m.steps;
+    if ('program' in m) block.program = m.program;
+    if ('bankMsb' in m) { block.bankMsb = m.bankMsb; block.bankLsb = m.bankLsb; }
+    return block;
+  }
   /* Deduplication key: the exact payload bytes as a string (identical bytes = same block). */
   function blockKey(notes) { return String.fromCharCode(...encodeBlock({ notes })); }
+  function blockKeyOf(block) { const p = payloadOf(block); return p.format + ':' + String.fromCharCode(...p.bytes); }
   /* Loose deduplication (importer option): the same notes ignoring velocity. Two blocks with
    * equal structural keys differ only in velocities, position for position. */
   function structuralKey(notes) { return sortNotes(notes).map(n => n.step + ':' + n.pitch + ':' + (n.offset | 0) + ':' + n.length + (n.retrigger ? 'r' : '')).join(','); }
 
   /* ---- block record (9.4) and .tabby file (9.9) --------------------------------------- */
   const align4 = n => (n + 3) & ~3;
-  function encodeBlockRecord(block, song = 0, format = LIMITS.formatV2) {
-    let payload = encodeBlock(block, 'block ' + block.id);
-    if (format === LIMITS.formatV3) payload = V3().fromV2(payload).bytes;   /* Task 16 Goal 5: the importer's v3 output */
-    else if (format !== LIMITS.formatV2) fail('block record format ' + format + ' cannot be written');
+  function encodeBlockRecord(block, song = 0, format) {
+    /* Task 17: without a format the block decides (v2 when the grid holds it, else v3). format 2 asked for a block
+     * the grid holds writes the same notes as a v3 clip (Task 16 Goal 5). */
+    let payload;
+    if (needsV3(block)) { if (format === LIMITS.formatV2) fail('block ' + block.id + ' needs the v3 clip format'); payload = encodeClip(block, 'block ' + block.id); format = LIMITS.formatV3; }
+    else {
+      payload = encodeBlock(block, 'block ' + block.id);
+      if (format === LIMITS.formatV3) payload = V3().fromV2(payload).bytes;
+      else if (format !== undefined && format !== LIMITS.formatV2) fail('block record format ' + format + ' cannot be written');
+      else format = LIMITS.formatV2;
+    }
     const out = new Uint8Array(align4(LIMITS.blockHeaderBytes + payload.length)).fill(0xff);
     out[0] = song; out[1] = format;                             /* 9.4 v0.7: byte 1 = payload format */
     out[2] = block.id & 255; out[3] = block.id >> 8;                     /* 16-bit id */
@@ -288,7 +344,7 @@
     });
     return errors;
   }
-  function encodeFile(song, { format = LIMITS.formatV2 } = {}) {
+  function encodeFile(song, { format } = {}) {
     const record = encodeRecord(song);
     const parts = [record, ...song.blocks.slice().sort((a, b) => a.id - b.id).map(b => encodeBlockRecord(b, 0, format))];
     if (song.rig) {                                     /* 9.11 trailer: workbench-only data */
@@ -346,7 +402,7 @@
       if (!Number.isInteger(b.id) || b.id < 1 || b.id > LIMITS.idMax) err('block id ' + b.id + ' outside 1..65535');
       if (ids.has(b.id)) err('block id ' + b.id + ' used twice');
       ids.set(b.id, b);
-      try { const bytes = encodeBlock(b, 'block ' + b.id); if (bytes.length < LIMITS.blockMin || bytes.length > LIMITS.blockMax) err('block ' + b.id + ' payload ' + bytes.length + ' bytes'); }
+      try { const p = payloadOf(b, 'block ' + b.id), v3 = p.format === LIMITS.formatV3; if (p.bytes.length < (v3 ? LIMITS.blockMinV3 : LIMITS.blockMin) || p.bytes.length > (v3 ? LIMITS.blockMaxV3 : LIMITS.blockMax)) err('block ' + b.id + ' payload ' + p.bytes.length + ' bytes'); }
       catch (e) { err(e.message); }
     }
     if ((song.blocks || []).length > LIMITS.blocksPerSong) err('song has ' + song.blocks.length + ' blocks (max 2048 per song)');
@@ -358,8 +414,8 @@
         else if (id) { used.add(id); if (!ids.has(id)) err('row ' + (i + 1) + ' track ' + (t + 1) + ' references missing block ' + id); }
       });
       if (!Number.isInteger(row.repeat) || row.repeat < LIMITS.repeatMin || row.repeat > LIMITS.repeatMax) err('row ' + (i + 1) + ' repeat outside 1..64');
-      if (!LIMITS.rowStepsAllowed.includes(row.steps)) err('row ' + (i + 1) + ' step length must be 16, 32, 48 or 64');
-      else if (row.steps < 64) row.blocks.forEach((id, t) => { const b = ids.get(id); if (b && b.notes.some(n => n.step >= row.steps)) warn('row ' + (i + 1) + ' track ' + (t + 1) + ': block ' + id + ' has notes beyond step ' + row.steps + ' that this row never plays'); });
+      if (!LIMITS.rowStepsAllowed.includes(row.steps)) err('row ' + (i + 1) + ' step length must be a multiple of 16 from 16 to 128');
+      else row.blocks.forEach((id, t) => { const b = ids.get(id); if (b && b.notes.some(n => n.step >= row.steps)) warn('row ' + (i + 1) + ' track ' + (t + 1) + ': block ' + id + ' has notes beyond step ' + row.steps + ' that this row never plays'); });
     });
     for (const id of ids.keys()) if (!used.has(id)) warn('block ' + id + ' is stored but no row uses it');
     validateEvents(song.events || [], (song.rows || []).length).forEach(err);   /* 9.11 */
@@ -374,8 +430,9 @@
   /* Bytes as stored on the device (record header + payload, 4-byte aligned), and the number
    * of 4076-byte sector areas a first-fit-decreasing packing needs. */
   function usage(song) {
-    const sizes = song.blocks.map(b => align4(LIMITS.blockHeaderBytes + encodeBlock(b).length));
-    const payloadBytes = song.blocks.reduce((n, b) => n + encodeBlock(b).length, 0);
+    const lengths = song.blocks.map(b => payloadOf(b).bytes.length);
+    const sizes = lengths.map(n => align4(LIMITS.blockHeaderBytes + n));
+    const payloadBytes = lengths.reduce((n, b) => n + b, 0);
     const recordBytes = sizes.reduce((n, s) => n + s, 0);
     const bins = [];
     for (const s of sizes.slice().sort((a, b) => b - a)) {
@@ -384,7 +441,7 @@
     }
     const cells = song.rows.reduce((n, r) => n + r.blocks.filter(Boolean).length, 0);
     return { blocks: song.blocks.length, idPercent: song.blocks.length / LIMITS.blocksPerSong * 100, payloadBytes, recordBytes,
-      sectors: bins.length, poolPercent: recordBytes / LIMITS.poolBytes * 100, rows: song.rows.length,
+      v3Blocks: song.blocks.filter(needsV3).length, sectors: bins.length, poolPercent: recordBytes / LIMITS.poolBytes * 100, rows: song.rows.length,
       repeats: song.rows.reduce((n, r) => n + r.repeat, 0), cells, fileBytes: LIMITS.recordBytes + recordBytes };
   }
 
@@ -392,7 +449,7 @@
   function toJSON(song, extra = {}) {
     checkSong(song);
     /* tabby-song/2: a note is [step, pitch, velocity, length (units), offset, retrigger]. */
-    const data = { ...song, ...extra, blocks: song.blocks.map(b => ({ id: b.id, ...(b.stepFlags ? { stepFlags: b.stepFlags } : {}),
+    const data = { ...song, ...extra, blocks: song.blocks.map(b => ({ id: b.id, ...(b.controls && b.controls.length ? { controls: b.controls } : {}), ...(b.steps > 64 ? { steps: b.steps } : {}), ...(Number.isInteger(b.program) ? { program: b.program } : {}), ...(Number.isInteger(b.bankMsb) ? { bankMsb: b.bankMsb, bankLsb: b.bankLsb | 0 } : {}), ...(b.stepFlags ? { stepFlags: b.stepFlags } : {}),
       notes: sortNotes(b.notes).map(n => n.retrigger ? [n.step, n.pitch, n.velocity, n.length, n.offset | 0, 1] : [n.step, n.pitch, n.velocity, n.length, n.offset | 0]) })) };
     return JSON.stringify(data, null, 1);
   }
@@ -401,7 +458,7 @@
     if (!data || (data.schema !== 'tabby-song/1' && data.schema !== 'tabby-song/2')) fail('not a tabby-song/1 or tabby-song/2 JSON file');
     const v1 = data.schema === 'tabby-song/1';           /* lengths in steps, no offsets: upgraded here */
     const song = { ...emptySong(''), ...data, schema: 'tabby-song/2', swing: !v1 && !!data.swing };
-    song.blocks = (data.blocks || []).map(b => ({ id: b.id, ...(b.stepFlags ? { stepFlags: b.stepFlags } : {}),
+    song.blocks = (data.blocks || []).map(b => ({ id: b.id, ...(b.controls && b.controls.length ? { controls: b.controls } : {}), ...(b.steps > 64 ? { steps: b.steps } : {}), ...(Number.isInteger(b.program) ? { program: b.program } : {}), ...(Number.isInteger(b.bankMsb) ? { bankMsb: b.bankMsb, bankLsb: b.bankLsb | 0 } : {}), ...(b.stepFlags ? { stepFlags: b.stepFlags } : {}),
       notes: (b.notes || []).map(n => Array.isArray(n)
         ? (v1 ? { step: n[0], pitch: n[1], velocity: n[2], offset: 0, length: n[3] * LIMITS.unitsPerStep, retrigger: !!n[4] }
               : { step: n[0], pitch: n[1], velocity: n[2], length: n[3], offset: n[4] | 0, retrigger: !!n[5] })
@@ -440,8 +497,8 @@
   }
   function quantize(song, mode, rule) { return song.blocks.reduce((n, b) => n + quantizeNotes(b.notes, mode, rule), 0); }
 
-  const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, structuralKey, encodeBlockRecord, validateEvents,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, version: '0.5' };
+  const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, blockKeyOf, needsV3, payloadOf, structuralKey, encodeBlockRecord, validateEvents,
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, version: '0.6' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();

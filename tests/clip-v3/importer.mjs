@@ -36,7 +36,7 @@ for (const dir of ['tests/midi-import/fixtures', 'tests/fixtures']) {
 let songs = 0, bytes2 = 0, bytes3 = 0, clamped = 0, records3 = 0;
 for (const s of sources) {
   let song;
-  try { song = Song.convert(Song.analyze(Midi.parse(s.bytes)), { fileName: s.name }).song; } catch { continue; }
+  try { song = Song.convert(Song.analyze(Midi.parse(s.bytes)), { fileName: s.name, clipFormat: 'v2' }).song; } catch { continue; }
   songs++;
   const f2 = Format.encodeFile(song), f3 = Format.encodeFile(song, { format: Format.LIMITS.formatV3 });
   bytes2 += f2.length; bytes3 += f3.length;

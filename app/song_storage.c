@@ -340,7 +340,7 @@ int song_record_valid(const struct song_record *r)
     for (unsigned i = 0; i < r->rows; ++i) {
         const struct song_row *row = &r->row[i];
         if (row->repeat < 1 || row->repeat > 64 || (row->flags & ~1U) ||
-            (row->steps && (row->steps > 64 || row->steps % 16))) return SONG_INVALID;
+            (row->steps && (row->steps > SONG_ROW_STEPS_MAX || row->steps % 16))) return SONG_INVALID;   /* Task 17: rows of up to 128 steps */
     }
     return r->version == 2 ? events_valid(r) : 0;   /* 9.11 (Task 04) */
 }

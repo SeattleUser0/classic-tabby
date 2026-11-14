@@ -111,7 +111,10 @@
     const allowed = format().LIMITS.rowStepsAllowed;
     const candidates = allowed.filter(n => barSteps > 0 && n % barSteps === 0).map(n => ({ steps: n, bars: n / barSteps }));
     if (!candidates.length) return { candidates: [{ steps: 64, bars: 64 / barSteps }], default: 64, aligned: false };
-    const best = candidates.slice().sort((a, b) => Math.abs(a.bars - 4) - Math.abs(b.bars - 4) || b.bars - a.bars)[0];
+    /* Task 17: rows of 80 to 128 steps exist (v3 clips, tabby-v04.5); the default stays within 64 steps when a whole-bar
+     * length of at most 64 steps exists, so a plain import still writes v2 blocks. */
+    const short = candidates.filter(c => c.steps <= 64), pool = short.length ? short : candidates;
+    const best = pool.slice().sort((a, b) => Math.abs(a.bars - 4) - Math.abs(b.bars - 4) || b.bars - a.bars)[0];
     return { candidates, default: best.steps, aligned: true };
   }
 
@@ -127,6 +130,7 @@
     const tempos = [], meters = [], ignored = { controlChange: 0, sustain: 0, pitchBend: 0, polyPressure: 0, channelPressure: 0, programChange: [], sysex: 0, meta: 0, markers: [] };
     const programs = new Map();                                  /* "track:channel" → [programs] */
     const controls = [];                                         /* every CC, for row events (Task 04) */
+    const bends = [], pressures = [];                            /* Task 17: pitch bend and channel pressure, for v3 clips */
     let seq = 0;                                                 /* file order across the two lists */
     parsed.tracks.forEach((track, ti) => {
       for (const e of track.events) {
@@ -135,9 +139,9 @@
           case 'timeSignature': meters.push({ tick: e.tick, track: ti, numerator: e.numerator, denominator: e.denominator }); break;
           case 'controlChange': ignored.controlChange++; if (e.controller === 64) ignored.sustain++;
             controls.push({ track: ti, channel: e.channel, controller: e.controller, value: e.value, tick: e.tick, seq: seq++ }); break;   /* Task 04 */
-          case 'pitchBend': ignored.pitchBend++; break;
+          case 'pitchBend': ignored.pitchBend++; bends.push({ track: ti, channel: e.channel, value: e.value, tick: e.tick, seq: seq++ }); break;
           case 'polyPressure': ignored.polyPressure++; break;
-          case 'channelPressure': ignored.channelPressure++; break;
+          case 'channelPressure': ignored.channelPressure++; pressures.push({ track: ti, channel: e.channel, value: e.value, tick: e.tick, seq: seq++ }); break;
           case 'programChange': { ignored.programChange.push({ track: ti, channel: e.channel, program: e.program, tick: e.tick, seq: seq++ });
             const k = ti + ':' + e.channel; if (!programs.has(k)) programs.set(k, []); programs.get(k).push(e.program); break; }
           case 'sysex': ignored.sysex++; break;
@@ -187,7 +191,7 @@
     return { format: parsed.format, division, trackCount: parsed.tracks.length, fileWarnings: parsed.warnings,
       tempo: { exact: bpmExact, rounded: bpmRounded, bpm, present: !!firstTempo, changes: tempoChanges.map(t => ({ ...t, ...steps(t.tick) })) },
       meter: { ...meter, barSteps, changes: meterChanges.map(m => ({ ...m, ...steps(m.tick) })) },
-      barSteps, totalBars, totalSteps: Math.ceil(totalStepsExact - EPS), parts, ignored, controls,
+      barSteps, totalBars, totalSteps: Math.ceil(totalStepsExact - EPS), parts, ignored, controls, bends, pressures,
       rowSteps: rowStepsFor(bs), errors, toStep, toUnits, exactPpq, unitError };
   }
 
@@ -236,7 +240,14 @@
     const barFrom = Math.max(1, Math.floor(options.barFrom || 1));
     const barTo = Math.min(Math.max(barFrom, Math.floor(options.barTo || analysis.totalBars)), 100000);
     const rowSteps = options.rowSteps || analysis.rowSteps.default;
-    if (!L.rowStepsAllowed.includes(rowSteps)) fail('row length must be 16, 32, 48 or 64 steps', 'options');
+    if (!L.rowStepsAllowed.includes(rowSteps)) fail('row length must be a multiple of 16 steps from 16 to 128', 'options');
+    /* Task 17 (tabby-v04.5): 'auto' writes a block as a v3 clip when the v2 grid cannot hold it (more than four notes
+     * on a step, a row of more than 64 steps, controller events with options.controllers), and v2 otherwise; 'v2'
+     * keeps every block v2 (the four loudest / highest / lowest notes of a step, no controllers, rows up to 64 steps). */
+    const clipFormat = options.clipFormat || 'auto';
+    if (!['auto', 'v2'].includes(clipFormat)) fail('unknown clip format ' + clipFormat, 'options');
+    if (clipFormat === 'v2' && rowSteps > L.steps) fail('rows of more than 64 steps need v3 clips', 'options');
+    const keepControllers = clipFormat === 'auto' && !!options.controllers;
     const lengthRule = options.lengthRule || 'nearest', overflowRule = options.overflowRule || 'loudest';
     const quantize = options.quantize || 'off';                   /* Task 05: 'off' (exact), 'starts', 'startsEnds' */
     if (!['off', 'starts', 'startsEnds'].includes(quantize)) fail('unknown quantize mode ' + quantize, 'options');
@@ -296,9 +307,10 @@
     for (const m of analysis.meter.changes) w.add('meterChangesIgnored', 'warn', 'Time signature changes ignored (rows follow the first signature)', { text: m.numerator + '/' + m.denominator + ' at ' + where(m.step, barSteps) });
     if (!analysis.rowSteps.aligned) w.add('meterUnaligned', 'warn', 'No row length of 16/32/48/64 steps holds whole bars of ' + barSteps + ' steps; rows do not start on bar lines');
     const ig = analysis.ignored;
-    if (ig.controlChange - eventTakenCC) w.add('ccIgnored', 'info', (ig.controlChange - eventTakenCC) + ' control change event(s) away from a row start dropped' + (ig.sustain ? ' (' + ig.sustain + ' sustain pedal)' : ''));
-    if (ig.pitchBend) w.add('pitchBendIgnored', 'info', ig.pitchBend + ' pitch bend event(s) ignored');
-    if (ig.polyPressure + ig.channelPressure) w.add('pressureIgnored', 'info', (ig.polyPressure + ig.channelPressure) + ' aftertouch event(s) ignored');
+    if (keepControllers) { /* counted below, where the events are placed */ }
+    else if (ig.controlChange - eventTakenCC) w.add('ccIgnored', 'info', (ig.controlChange - eventTakenCC) + ' control change event(s) away from a row start dropped' + (ig.sustain ? ' (' + ig.sustain + ' sustain pedal)' : ''));
+    if (ig.pitchBend && !keepControllers) w.add('pitchBendIgnored', 'info', ig.pitchBend + ' pitch bend event(s) ignored');
+    if (ig.polyPressure + (keepControllers ? 0 : ig.channelPressure)) w.add('pressureIgnored', 'info', (ig.polyPressure + (keepControllers ? 0 : ig.channelPressure)) + ' aftertouch event(s) ignored');
     for (const p of ig.programChange) if (!eventTaken.has(p)) w.add('programIgnored', 'info', 'Program changes away from a row start dropped (only events at or just before a row start become row events)', { text: 'track ' + (p.track + 1) + ' ch' + (p.channel + 1) + ' program ' + (p.program + 1) + ' at ' + where(nearest(toStep(p.tick)), barSteps) });
     if (ig.sysex) w.add('sysexIgnored', 'info', ig.sysex + ' SysEx event(s) ignored');
     if (ig.meta) w.add('metaIgnored', 'info', ig.meta + ' other meta event(s) ignored');
@@ -373,6 +385,7 @@
       for (const n of kept) { if (!byStep.has(n.start)) byStep.set(n.start, []); byStep.get(n.start).push(n); }
       for (const [step, list] of byStep) {
         if (list.length <= L.notesPerStep) continue;
+        if (clipFormat === 'auto') { w.add('v3Chord', 'info', 'More than 4 notes on one step: the block is stored as a v3 clip (the device needs tabby-v04.5 or later)', { track: t + 1, text: list.length + ' notes at ' + where(step, barSteps) }); continue; }
         list.sort(overflowOrder[overflowRule]);
         for (const n of list.slice(L.notesPerStep)) { drop.add(n); w.add('overflowDropped', 'warn', 'More than 4 notes on one step on one track; kept the 4 ' + overflowRule + ' notes', { track: t + 1, text: n.part + ' pitch ' + n.pitch + ' velocity ' + n.velocity + ' at ' + where(step, barSteps) }); }
       }
@@ -388,15 +401,48 @@
       const rel = n.start - rangeStart, row = Math.floor(rel / rowSteps);
       grid[row][t].push({ step: rel % rowSteps, pitch: n.pitch, velocity: n.velocity, offset: n.offset, length: n.length, retrigger: false });
     }
+    /* Task 17: controller, pitch bend and channel pressure events of the assigned parts go into the clips (v3) when
+     * options.controllers is set: each on the track its part is assigned to, at its time in the row (units), thinned to
+     * one value per controller per 1/8 step (the last one wins). Events that became row events are not repeated. A clip
+     * that would pass 512 events loses its controllers (a warning says so). */
+    const ctl = Array.from({ length: rowCount }, () => Array.from({ length: 8 }, () => []));
+    if (keepControllers) {
+      const V3K = { cc: 1, bend: 3, pressure: 4 }, trackOf = new Map(usedParts.map(u => [u.part.key, u.track]));
+      const all = [...(analysis.controls || []).filter(c => !eventTaken.has(c)).map(c => ({ ...c, k: 'cc', a: c.controller, b: c.value })),
+        ...(analysis.bends || []).map(b => ({ ...b, k: 'bend', a: (b.value + 8192) & 127, b: (b.value + 8192) >> 7 })),
+        ...(analysis.pressures || []).map(p => ({ ...p, k: 'pressure', a: p.value, b: 0 }))].sort((x, y) => x.tick - y.tick || x.seq - y.seq);
+      let kept = 0, thinned = 0, outside = 0, unassigned = 0;
+      const last = new Map();
+      for (const e of all) {
+        const t = trackOf.get(e.track + ':' + e.channel);
+        if (t === undefined) { unassigned++; continue; }
+        const u = toUnits(e.tick) - rangeStart * U;
+        if (u < 0 || u >= (rangeEnd - rangeStart) * U) { outside++; continue; }
+        const row = Math.floor(u / (rowSteps * U)), time = u - row * rowSteps * U;
+        const slot = t + ':' + row + ':' + e.k + ':' + (e.k === 'cc' ? e.a : '') + ':' + Math.floor(time / 60);
+        const ev = { time: Math.min(time, rowSteps * U - 240), kind: V3K[e.k], a: e.a, b: e.b };
+        if (last.has(slot)) { Object.assign(last.get(slot), { a: ev.a, b: ev.b }); thinned++; continue; }
+        last.set(slot, ev); ctl[row][t].push(ev); kept++;
+      }
+      if (kept) w.add('controllersKept', 'info', kept + ' controller, pitch bend or aftertouch event(s) kept in the clips (v3 clips; the device needs tabby-v04.5 or later)' + (thinned ? '; ' + thinned + ' more thinned to one value per 1/8 step' : ''));
+      if (outside) w.add('controllersOutside', 'info', outside + ' controller event(s) outside bars ' + barFrom + '..' + barTo + ' dropped');
+      if (unassigned) w.add('controllersUnassigned', 'info', unassigned + ' controller event(s) on channels with no assigned part dropped');
+      for (let r = 0; r < rowCount; r++) for (let t = 0; t < 8; t++) if (ctl[r][t].length + grid[r][t].length > 512) {
+        w.add('controllersDropped', 'warn', 'A clip would hold more than 512 events; its controller events were dropped', { track: t + 1, text: 'row ' + (r + 1) + ': ' + ctl[r][t].length + ' controller events, ' + grid[r][t].length + ' notes' });
+        ctl[r][t] = [];
+      }
+    }
     /* Deduplicate blocks and build rows. Exact first (identical bytes); then, in loose mode,
      * a block with the same notes whose velocities are all within the tolerance. */
     const pool = new Map(), byShape = new Map(), blocks = [];
     let looseMerges = 0;
     const rowsExpanded = grid.map((cells, rowIndex) => cells.map((notes, t) => {
-      if (!notes.length) return 0;
-      const sorted = F.sortNotes(notes), key = F.blockKey(sorted);
+      const controls = ctl[rowIndex][t];
+      if (!notes.length && !controls.length) return 0;
+      const sorted = F.sortNotes(notes), extra = { ...(controls.length ? { controls } : {}), ...(rowSteps > L.steps && sorted.some(n => n.step >= L.steps) ? { steps: rowSteps } : {}) };
+      const key = F.blockKeyOf({ notes: sorted, ...extra });
       let id = pool.get(key);
-      if (!id && loose) {
+      if (!id && loose && !controls.length) {
         const shape = F.structuralKey(sorted);
         for (const candidate of byShape.get(shape) || []) {
           let worst = 0;
@@ -411,8 +457,8 @@
       }
       if (!id) {
         id = blocks.length + 1; pool.set(key, id);
-        const block = { id, notes: sorted }; blocks.push(block);
-        if (loose) { const shape = F.structuralKey(sorted); if (!byShape.has(shape)) byShape.set(shape, []); byShape.get(shape).push(block); }
+        const block = { id, notes: sorted, ...extra }; blocks.push(block);
+        if (loose && !controls.length) { const shape = F.structuralKey(sorted); if (!byShape.has(shape)) byShape.set(shape, []); byShape.get(shape).push(block); }
       }
       return id;
     }));
@@ -456,7 +502,7 @@
     song.rows = rows; song.blocks = blocks; song.events = events;
     song.source = { fileName: options.fileName || '', format: analysis.format, division: analysis.division, tempoExact: analysis.tempo.exact,
       meter: analysis.meter.numerator + '/' + analysis.meter.denominator, barSteps, barFrom, barTo, rowSteps, quantize, lengthRule, overflowRule, exactPpq: analysis.exactPpq,
-      looseDedup: loose, velocityTolerance: loose ? tolerance : null, preRoll: options.preRoll || 'beat',
+      looseDedup: loose, velocityTolerance: loose ? tolerance : null, preRoll: options.preRoll || 'beat', clipFormat, controllers: keepControllers,
       parts: usedParts.map(u => ({ key: u.part.key, name: u.part.name, track: u.track + 1, channel: u.part.channel + 1, rigDevice: (partDevice(u.part, rig, library).device || {}).name || null })),
       rig: rig ? rig.name : null };
     const usage = F.usage(song);
@@ -471,7 +517,7 @@
     return result;
   }
 
-  const TabbyMidiSong = { analyze, convert, defaultAssignments, partDevice, rowStepsFor, position, where, nearest, version: '0.6' };
+  const TabbyMidiSong = { analyze, convert, defaultAssignments, partDevice, rowStepsFor, position, where, nearest, version: '0.7' };
   globalThis.TabbyMidiSong = TabbyMidiSong;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyMidiSong;
 })();

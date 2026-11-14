@@ -6,9 +6,10 @@
  *   Everything the device and the tests do with a v3 payload. Pure C on <stdint.h> and timed_note.h. The device
  *   links what it calls (validate, to_v2, window; LTO drops from_v2, which only the host tools use).
  *
- * Version: 0.1
+ * Version: 0.2
  *
  * Revision log
+ *   v0.2  2026-11-14  Task 17: an event's time is 32 bits (the 16-bit field was wrong for a clip longer than 68 steps).
  *   v0.1  2026-11-12  Initial version (Task 16 Goal 5, branch classic-tabby/mc707-phase2; not released).
  */
 #include "clip_v3.h"
@@ -31,7 +32,7 @@ unsigned clip_v3_anchor(int time)
 void clip_v3_event(const uint8_t *p, unsigned index, struct clip_v3_event *out)
 {
     const uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * index;
-    out->time = (int16_t)((int)get16(e) - CLIP_V3_BIAS);
+    out->time = (int32_t)get16(e) - CLIP_V3_BIAS;   /* v0.2: was cast to int16_t, wrong past step 68 */
     if (!(e[3] & 0x80U)) {
         out->kind = CLIP_V3_NOTE; out->a = e[2] & 127U; out->retrigger = e[2] >> 7; out->b = e[3] & 127U; out->length = (uint16_t)get16(e + 4);
     } else {

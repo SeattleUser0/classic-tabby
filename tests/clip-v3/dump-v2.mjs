@@ -36,7 +36,7 @@ const out = [];
 let songs = 0, blocks = 0, skipped = 0;
 for (const s of sources) {
   let result;
-  try { result = Song.convert(Song.analyze(Midi.parse(s.bytes)), { fileName: s.name }); } catch (e) { skipped++; continue; }
+  try { result = Song.convert(Song.analyze(Midi.parse(s.bytes)), { fileName: s.name, clipFormat: 'v2' }); } catch (e) { skipped++; continue; }
   songs++;
   for (const b of result.song.blocks) {
     const p = Format.encodeBlock(b, 'block ' + b.id);

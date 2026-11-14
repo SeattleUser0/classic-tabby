@@ -35,7 +35,7 @@ enum { CLIP_V3_OK = 0, CLIP_V3_BAD_SIZE = -1, CLIP_V3_NOT_V2_SHAPED = -2, CLIP_V
        CLIP_V3_BAD_ORDER = -5, CLIP_V3_DUPLICATE = -6, CLIP_V3_NO_ROOM = -7, CLIP_V3_BAD_SOURCE = -8 };
 
 struct clip_v3_event {
-    int16_t time;          /* units from the clip start, -240 .. steps * 480 - 240 */
+    int32_t time;          /* units from the clip start, -240 .. steps * 480 - 240 (61200 for 128 steps: more than 16 bits signed; v0.2) */
     uint8_t kind;          /* CLIP_V3_NOTE or the type */
     uint8_t a, b;          /* note: pitch, velocity; CC: controller, value; PC: program; bend: lsb, msb; pressure: value; step mod: probability | tuning << 3, step */
     uint8_t retrigger;     /* note only */

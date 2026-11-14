@@ -66,6 +66,7 @@ enum {
 /* Format limits (section 9). */
 enum {
     SONG_ROWS = 128, SONG_TRACKS = 8, SONG_BLOCK_STEPS = 64, SONG_NOTES_PER_STEP = 4,
+    SONG_ROW_STEPS_MAX = 128,                                    /* Task 17: a row of 16..128 steps (a v3 clip is up to 128 steps; the v2 grid holds 64) */
     SONG_PAYLOAD_MIN = 64, SONG_PAYLOAD_V1_MAX = 64 + 64 * 12,    /* 832: format 0, 3-byte notes */
     SONG_PAYLOAD_V2_MAX = 64 + 64 * 24,                          /* 1600: format 1, 6-byte timed notes (9.12) */
     SONG_PAYLOAD_V3_MIN = 16, SONG_PAYLOAD_V3_MAX = 16 + 512 * 6, /* 16 .. 3088: format 2, the v3 clip (docs/CLIP-V3.md) */

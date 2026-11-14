@@ -111,7 +111,12 @@ enum { NEXT_NONE = 0, NEXT_SAME = 1, NEXT_ROW = 2 };
 /* One decoded block for one track: the cells, this track's slice of the row's events (its
  * launch stream, 9.13), the row it came from and why it was decoded. */
 struct trackbuf {
+    /* The step grid, or (v3 set) the clip's event list: one storage, the larger of the two (measured on the device
+     * build: the 16 buffers with both cost 54 KB of the runtime heap, with the union 28 KB; BUILD 37.1). */
+    union {
     uint8_t cell[SONG_BLOCK_STEPS][CELL];
+    uint8_t clip[SONG_PAYLOAD_V3_MAX];
+    };
     uint8_t event[SONG_ROW_EVENTS_MAX][4]; /* {channel | type << 4, d0, d1, d2}; a gap's d0 in blocks */
     uint8_t event_count;
     uint16_t lead;                     /* the slice's gaps in blocks */
@@ -128,7 +133,7 @@ struct trackbuf {
      * modifier's probability | tuning << 3 (0: none). */
     uint8_t v3;
     uint8_t prob[CLIP_V3_STEPS_MAX];
-    uint8_t clip[SONG_PAYLOAD_V3_MAX];
+    uint16_t block;                    /* the block id (the clip header's program and bank are sent once per clip) */
 };
 #if defined(FM1_HOST_TEST) || defined(FM1_OPEN_WEB)
 static unsigned force_cursor;   /* tests: every v3 clip plays from its event list, also one the grid could hold */
@@ -158,6 +163,7 @@ static volatile uint32_t master, song_start;
 /* audio only */
 static uint32_t acc, song_len, rnd = 0x2545f491U;
 struct track {
+    uint16_t head;                            /* the block whose header program and bank were sent last (0: none) */
     uint8_t cur, state, pass, waiting, row;   /* waiting: the frame began without its buffer; row: the launched pattern */
     uint32_t start, len;                      /* the current frame, master units */
 };
@@ -245,6 +251,20 @@ static FM1_AUDIO_CODE int32_t warp(int32_t t, unsigned s)
                           : UNITS * (int32_t)(100 + s) / 100 + (x - UNITS) * (int32_t)(100 - s) / 100;
     return pair * PAIR + w;
 }
+/* The v3 event reader for the audio thread: the same as clip_v3_event / clip_v3_count / clip_v3_anchor
+ * (app/clip_v3.c), here as RAM code like everything else the audio interrupt runs. */
+static FM1_AUDIO_CODE unsigned v3_count(const uint8_t *p) { return p[6] | (unsigned)p[7] << 8; }
+static FM1_AUDIO_CODE void v3_event(const uint8_t *p, unsigned index, struct clip_v3_event *out)
+{
+    const uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * index;
+    out->time = (int32_t)(e[0] | (unsigned)e[1] << 8) - CLIP_V3_BIAS;
+    if (!(e[3] & 0x80U)) {
+        out->kind = CLIP_V3_NOTE; out->a = e[2] & 127U; out->retrigger = e[2] >> 7; out->b = e[3] & 127U; out->length = (uint16_t)(e[4] | (unsigned)e[5] << 8);
+    } else {
+        out->kind = e[2]; out->a = e[4]; out->b = e[5]; out->retrigger = 0; out->length = 0;
+    }
+}
+static FM1_AUDIO_CODE unsigned v3_anchor(int time) { return time + 239 < 0 ? 0U : (unsigned)(time + 239) / CLIP_V3_UNITS_PER_STEP; }
 /* ---- audio thread: notes ------------------------------------------------------------- */
 static FM1_AUDIO_CODE void note_off(unsigned t, unsigned i)
 {
@@ -279,7 +299,7 @@ static FM1_AUDIO_CODE void note_on(unsigned buf, unsigned t, unsigned step, unsi
         /* The cursor: `index` is the event in the clip's list. A note plays as a grid note does; a controller,
          * program, bend or pressure event goes out on the track's channel (no copy to the internal engine). */
         struct clip_v3_event e;
-        clip_v3_event(b->clip, index, &e);
+        v3_event(b->clip, index, &e);
         if (e.kind != CLIP_V3_NOTE) {
             static const uint8_t status[5] = {0, 0xb0, 0xc0, 0xe0, 0xd0};
             if (e.kind <= CLIP_V3_PRESSURE) groove_midi_song_track_event(t, status[e.kind], e.a, e.kind == CLIP_V3_CC || e.kind == CLIP_V3_BEND ? e.b : 0);
@@ -325,22 +345,22 @@ static FM1_AUDIO_CODE void add_action(unsigned at, unsigned kind, unsigned buf, 
 static FM1_AUDIO_CODE unsigned scan_v3(unsigned t, unsigned buf, int32_t from, int32_t to, int32_t base, unsigned mode, unsigned which)
 {
     const struct trackbuf *b = &tbuf[t][buf];
-    unsigned count = clip_v3_count(b->clip), lo = 0, hi = count, added = 0;
+    unsigned count = v3_count(b->clip), lo = 0, hi = count, added = 0;
     int32_t end = (int32_t)b->steps * UNITS, first = mode ? -HALF : from - HALF;
     while (lo < hi) {
         unsigned mid = (lo + hi) / 2U;
-        struct clip_v3_event e; clip_v3_event(b->clip, mid, &e);
+        struct clip_v3_event e; v3_event(b->clip, mid, &e);
         if (e.time < first) lo = mid + 1U; else hi = mid;
     }
     for (unsigned i = lo; i < count; ++i) {
-        struct clip_v3_event e; clip_v3_event(b->clip, i, &e);
+        struct clip_v3_event e; v3_event(b->clip, i, &e);
         if (e.time >= to || e.time >= end) break;
         if (e.kind == CLIP_V3_STEPMOD) continue;
         if ((e.time < 0) != (mode != 0)) continue;
         int32_t due = warp(e.time, b->swing);
         if (!mode && due >= end) due = end - 1;
         if (due < from || due >= to) continue;
-        unsigned anchor = clip_v3_anchor(e.time);
+        unsigned anchor = v3_anchor(e.time);
         if (e.kind == CLIP_V3_NOTE && step_skipped(t, anchor, b->prob[anchor] & 7U, which)) continue;
         add_action((unsigned)(base + due - from), 2, buf, t, anchor, i, e.kind == CLIP_V3_NOTE ? e.a : 0);
         ++added;
@@ -357,6 +377,8 @@ static FM1_AUDIO_CODE unsigned scan(unsigned t, unsigned buf, int32_t from, int3
     if (!mode) {   /* warp(t) lies within [t, t + 240] */
         lo = from >= UNITS ? (unsigned)(from - UNITS) / UNITS : 0; hi = (unsigned)(to + HALF) / UNITS;
         if (hi >= b->steps) hi = b->steps - 1U;
+        if (hi >= SONG_BLOCK_STEPS) hi = SONG_BLOCK_STEPS - 1U;   /* Task 17: a row may be longer than the 64-step grid (a v2 block is silent past step 64) */
+        if (lo >= SONG_BLOCK_STEPS) return 0;
     }
     for (unsigned step = lo; step <= hi; ++step) {
         const uint8_t *c = b->cell[step];
@@ -399,11 +421,20 @@ static FM1_AUDIO_CODE void enter_frame(unsigned t, unsigned buf, unsigned at, un
     struct track *k = &tr[t];
     int covered = b->look_from != LOOK_NONE && b->look_row == b->row, late = 0;
     ++k->pass;
+    /* A v3 clip's header program and bank (docs/CLIP-V3.md 2) go out when the track enters the clip, once, before
+     * the clip's first events: bank select MSB and LSB, then the program, on the track's channel. A repeat of the
+     * same clip sends nothing. */
+    if (b->has_block && b->v3 && b->block != k->head) {
+        const uint8_t *h = b->clip;
+        if (h[1] & CLIP_V3_FLAG_BANK) { groove_midi_song_track_event(t, 0xb0, 0, h[3]); groove_midi_song_track_event(t, 0xb0, 32, h[4]); }
+        if (h[1] & CLIP_V3_FLAG_PROGRAM) groove_midi_song_track_event(t, 0xc0, h[2], 0);
+    }
+    if (b->has_block) k->head = b->v3 ? b->block : 0;
     if (check_late && b->has_block && b->v3) {
         /* The cursor: the events before the frame's start (time < 0) lead the list. */
-        unsigned count = clip_v3_count(b->clip);
+        unsigned count = v3_count(b->clip);
         for (unsigned i = 0; i < count; ++i) {
-            struct clip_v3_event e; clip_v3_event(b->clip, i, &e);
+            struct clip_v3_event e; v3_event(b->clip, i, &e);
             if (e.time >= 0) break;
             if (e.kind == CLIP_V3_STEPMOD || (covered && warp(e.time, b->swing) >= b->look_from)) continue;   /* fired ahead */
             late = 1;
@@ -836,7 +867,7 @@ FM1_AUDIO_CODE void song_tick(unsigned tempo)
         memset(roll_step, 255, sizeof roll_step);
         for (unsigned t = 0; t < SONG_TRACKS; ++t) {
             struct track *k = &tr[t];
-            k->cur = 0; k->state = 0; k->pass = 0; k->waiting = 0; k->row = 0; k->start = song_start; k->len = song_len;
+            k->cur = 0; k->state = 0; k->pass = 0; k->waiting = 0; k->row = 0; k->head = 0; k->start = song_start; k->len = song_len;
             tbuf[t][0].look_from = tbuf[t][1].look_from = LOOK_NONE;
             tstreamed[t] = 0; seen_kind[t] = Q_NONE; seen_row[t] = 0;
             enter_frame(t, 0, 0, fresh);
@@ -925,8 +956,8 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
                  * as v2); one it cannot hold (docs/CLIP-V3.md) is an error until the cursor replaces the grid scan. */
                 /* The cursor (branch clipv3-cursor): a clip the grid cannot hold plays from its event list. */
                 if (force_cursor || clip_v3_to_cells(payload, bytes, b->cell)) {
-                    memset(b->cell, 0, sizeof b->cell); memset(b->prob, 0, sizeof b->prob);
-                    memcpy(b->clip, payload, bytes);
+                    memset(b->prob, 0, sizeof b->prob);
+                    memcpy(b->clip, payload, bytes); b->block = (uint16_t)id;   /* the grid and the list share their storage */
                     for (unsigned i = 0, n = clip_v3_count(payload); i < n; ++i) {
                         struct clip_v3_event e; clip_v3_event(payload, i, &e);
                         if (e.kind == CLIP_V3_STEPMOD && e.b < CLIP_V3_STEPS_MAX) b->prob[e.b] = e.a;

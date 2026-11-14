@@ -4,6 +4,8 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.9  2026-11-14  Task 17: transfer kind 9 (one block as stored, with its format byte; download only); capability
+ *                     flag bit 3 (v3 clips).
  *   v0.8  2026-11-13  Task 17: the remote status carries CLOCK (byte 13); command 25 takes request 10 (the F + G page).
  *   v0.7b 2026-11-12  Task 16 Goal 5 (branch mc707-phase2): a kind-6 download of a v3 block is handed over as v2 (or refused),
  *                     kind 7 accepts block records of format 2.
@@ -40,7 +42,7 @@
 #include "diag.h"   /* Classic Tabby Task 11: kind 8 and command 25 (every build since Task 12 A4) */
 /* Task 12: command 27 feature flags (bit 0: flash writes refused while the transport runs, A3;
  * bit 1: command 28 ERASE OLD DATA, A1). */
-#define CT_CAPABILITY_FLAGS 7U   /* v0.6: bit 2 = command 29, remote control (Task 16) */
+#define CT_CAPABILITY_FLAGS 15U  /* v0.6: bit 2 = command 29, remote control (Task 16); v0.9: bit 3 = v3 clips (block format 2 plays whole, kind 9 raw block download, rows of up to 128 steps; Task 17) */
 /* Task 12 A3: the transfer kinds whose upload writes flash: 5 song record (and delete), 6 block,
  * 7 block batch, 8 device settings. Kinds 0-3 (workspace, FM patch, timbre, tuned workspace) only
  * change RAM; the project reaches flash through command 7, which project.c refuses while playing. */
@@ -399,12 +401,27 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
         *count = 14;
         return 0;
     }
-    if (cmd == 1 && (n == 2 || (n == 4 && data[0] == 6))) {
+    if (cmd == 1 && (n == 2 || (n == 4 && (data[0] == 6 || data[0] == 9)))) {
         unsigned size = data[0] == 2 ? sizeof(struct groove_preset) : data[0] == 1 ? 156
                         : data[0] == 8 ? CT_SETTINGS_BYTES   /* Task 11 */
                         : data[0] == 3 ? GROOVE_PROJECT_TUNED_BYTES : data[0] == 5 ? SONG_RECORD_BYTES
                         : GROOVE_PROJECT_BYTES;
         unsigned target = data[1], block_id = n == 4 ? get16(data + 2) : 0;
+        if (data[0] == 9) {
+            /* Task 17: kind 9, download only: one block as it is stored, with its format in front (byte 0: 0 v1, 1 v2,
+             * 2 v3; then the payload). Kind 6 stays as it was (a v2 payload, or refused for a clip the grid cannot hold):
+             * the full backup, the .tabby export and the song editor's read use kind 9, so a v3 clip is never lost. */
+            uint8_t *next = calloc(1, SONG_PAYLOAD_MAX + 1U);
+            unsigned format = SONG_FORMAT_V2;
+            if (!next) return GROOVE_PROJECT_MEMORY;
+            r = song_block_read(data[1], block_id, next + 1, &size, &format);
+            if (r) { free(next); return r > 0 ? GROOVE_PROJECT_EMPTY : r; }
+            next[0] = (uint8_t)format; ++size;
+            transfer_cancel(); transfer = next; transfer_size = size; transferred = 0;
+            transfer_kind = 9; transfer_target = data[1] << 16 | block_id; transfer_writing = 0;
+            out[0] = (uint8_t)size; out[1] = (uint8_t)(size >> 8); *count = 2;
+            return 0;
+        }
         if (data[0] == 6) {
             /* The live payload length is only known after reading the block. */
             uint8_t *next = calloc(1, SONG_PAYLOAD_MAX);

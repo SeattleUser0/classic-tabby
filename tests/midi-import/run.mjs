@@ -150,12 +150,53 @@ const produced = [];
 {
   const e = fx['five-notes.mid'].expect;
   for (const [rule, kept] of [['loudest', e.keptLoudest], ['highest', e.keptHighest], ['lowest', e.keptLowest]]) {
-    const r = importFile('five-notes.mid', { overflowRule: rule });
+    const r = importFile('five-notes.mid', { overflowRule: rule, clipFormat: 'v2' });   /* Task 17: the v2 rule (the default now keeps all six notes in a v3 clip, below) */
     if (rule === 'loudest') produced.push(r.song);
     const pitches = r.song.blocks[0].notes.filter(n => n.step === 0).map(n => n.pitch).sort((a, b) => a - b);
     check(same(pitches, kept), `five-notes: rule ${rule} keeps ${kept.join(' ')}`, pitches.join(' '));
     check(warning(r, 'overflowDropped')?.count === e.dropped, `five-notes: ${e.dropped} drops reported (${rule})`);
   }
+}
+
+// ---- 5b. Task 17 (tabby-v04.5): the importer writes a v3 clip when a block needs one, v2 otherwise ----------------
+{
+  /* six notes on one step: all kept, the block is a v3 clip, nothing dropped */
+  const r = importFile('five-notes.mid');
+  const b = r.song.blocks[0], six = b.notes.filter(n => n.step === 0).map(n => n.pitch).sort((x, y) => x - y);
+  check(six.length === 6 && !warning(r, 'overflowDropped') && warning(r, 'v3Chord'), 'v3: six notes on one step are all kept, with a note that the block is a v3 clip', six.join(' '));
+  const p = Format.payloadOf(b);
+  check(Format.needsV3(b) && p.format === 2 && p.bytes.length === 16 + 6 * b.notes.length, 'v3: that block is written as a v3 clip (format 2, 16 + 6 bytes per note)', p.format + ' ' + p.bytes.length);
+  const file = Format.encodeFile(r.song), back = Format.decodeFile(file);
+  check(file[4096 + 1] === 2 && same(Format.sortNotes(back.blocks[0].notes).map(n => n.pitch + ':' + n.step + ':' + n.length), Format.sortNotes(b.notes).map(n => n.pitch + ':' + n.step + ':' + n.length)),
+    'v3: the .tabby file carries the block as format 2 and reads back with the same notes');
+  check(r.stats.v3Blocks === 1, 'v3: the usage counts one v3 block', r.stats.v3Blocks);
+  /* every other fixture still comes out as v2 blocks only (nothing needs v3) */
+  let v3 = 0, files = 0;
+  for (const name of Object.keys(fx)) { if (name === 'five-notes.mid') continue; try { const x = importFile(name); v3 += x.stats.v3Blocks; files++; } catch (_) {} }
+  check(files > 5 && v3 === 0, 'v3: no other fixture gets a v3 block by default (' + files + ' files)', v3);
+  /* rows of 128 steps: a block with notes past step 63 is a v3 clip of 128 steps; one without stays v2 */
+  const long = importFile('timing-1x16.mid', { rowSteps: 128 });
+  const far = long.song.blocks.filter(x => x.notes.some(n => n.step >= 64));
+  check(long.song.rows.every(x => x.steps === 128) && far.length > 0 && far.every(x => Format.payloadOf(x).format === 2 && Format.payloadOf(x).bytes[0] === 128) && Format.validate(long.song).ok,
+    'v3: rows of 128 steps: blocks with notes past step 63 are v3 clips of 128 steps (' + far.length + ' of ' + long.song.blocks.length + ' blocks)');
+  let refused = false; try { importFile('bassline-4bar.mid', { rowSteps: 128, clipFormat: 'v2' }); } catch (e2) { refused = /64 steps/.test(e2.message); }
+  check(refused, 'v3: rows of 128 steps are refused with clipFormat v2');
+  const total = n => n.song.rows.reduce((sum, row) => sum + row.repeat * row.blocks.reduce((k, id) => k + (id ? n.song.blocks.find(x => x.id === id).notes.length : 0), 0), 0);
+  check(total(long) === total(importFile('timing-1x16.mid')), 'v3: the same number of notes play with rows of 128 steps as with the default rows', total(long));
+  /* controller, bend and pressure events: off by default, kept in the clips on request */
+  const SMF = await import('./smf-write.mjs').catch(() => null);
+  const withCc = Object.keys(fx).find(name => { try { const a = Song.analyze(Midi.parse(fx[name].bytes)); return a.controls.length + a.bends.length > 3 && a.parts.length; } catch (_) { return false; } });
+  if (withCc) {
+    const off = importFile(withCc), on = importFile(withCc, { controllers: true });
+    const kept = on.song.blocks.reduce((k, x) => k + (x.controls || []).length, 0);
+    check(off.song.blocks.every(x => !x.controls) && off.stats.v3Blocks === 0, 'v3: controller events are not imported by default (' + withCc + ')');
+    check(kept > 0 && warning(on, 'controllersKept') && on.song.blocks.filter(x => x.controls).every(x => Format.payloadOf(x).format === 2) && Format.validate(on.song).ok,
+      'v3: with the option, ' + kept + ' controller events are in the clips, and those blocks are v3', kept);
+    const back2 = Format.decodeFile(Format.encodeFile(on.song));
+    check(back2.blocks.reduce((k, x) => k + (x.controls || []).length, 0) === kept, 'v3: the controller events survive the .tabby file');
+    check(on.song.blocks.every(x => x.notes.length + (x.controls || []).length <= 512), 'v3: no clip holds more than 512 events');
+  } else check(false, 'v3: a fixture with controller events exists');
+  void SMF;
 }
 
 // ---- 6. off-grid: exact by default (Task 05), quantize as an option -----------------------
@@ -186,7 +227,7 @@ const produced = [];
   const r = importFile('waltz-3-4.mid'), e = fx['waltz-3-4.mid'].expect;
   produced.push(r.song);
   check(r.a.barSteps === e.barSteps && r.a.rowSteps.default === e.rowSteps && r.a.rowSteps.aligned, 'waltz: 12-step bars, default row 48 steps', `${r.a.barSteps}, ${r.a.rowSteps.default}`);
-  check(same(r.a.rowSteps.candidates.map(c => c.steps), [48]), 'waltz: 48 is the only aligned row length');
+  check(same(r.a.rowSteps.candidates.map(c => c.steps), [48, 96]) && r.a.rowSteps.default === 48, 'waltz: 48 and 96 are the aligned row lengths (rows of up to 128 steps since Task 17); the default stays 48');
   check(r.song.rows.every(x => x.steps === 48) && r.stats.rowsBeforeMerge === e.rowsBeforeMerge && r.song.rows.length === 1 && r.song.rows[0].repeat === 2, 'waltz: 8 bars → 2 rows of 4 bars (48 steps each) → one row ×2');
   check(r.song.blocks[0].notes.every(n => n.step < 48) && r.song.blocks[0].notes.filter(n => n.step % 12 === 0).length === 4, 'waltz: notes inside 48 steps, one bass note per bar');
   check(r.song.tempo === e.tempo, 'waltz: tempo 140');
@@ -276,7 +317,7 @@ const produced = [];
   const odd = Format.fromJSON(json); odd.rows[0].steps = 16;
   check(!Format.validate(odd).ok === false && Format.validate(odd).warnings.some(w => /never plays/.test(w)), 'validate: a 16-step row over a block with later notes warns');
   odd.rows[0].steps = 20;
-  check(!Format.validate(odd).ok && /16, 32, 48 or 64/.test(Format.validate(odd).errors[0]), 'validate: step length 20 rejected');
+  check(!Format.validate(odd).ok && /multiple of 16/.test(Format.validate(odd).errors[0]), 'validate: step length 20 rejected');
   const corrupt = file.slice(); corrupt[100] ^= 1;
   check(throws(() => Format.decodeFile(corrupt), /CRC/), 'round trip: corrupted record rejected');
 }
