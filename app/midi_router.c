@@ -26,6 +26,11 @@ struct output {
     uint8_t reset, stop;
 };
 static struct output output[3];
+#ifdef CT_A2
+/* Task 17 (F + G): the due time (TIMER4 ticks, 24 MHz) of every event in lanes 0 and 1, beside the lanes. */
+static uint32_t fg_due[2][QUEUE];
+static uint32_t fg_stamp;             /* the due time given to the events queued now (audio interrupt) */
+#endif
 static unsigned ready_seen, auto_source = 3;
 /* Song output-channel override per track: 0 = device OUT CH, 1..16 (Task 03 d). */
 static uint8_t song_channel[8];
@@ -34,6 +39,9 @@ static uint32_t resume_phase;
 static unsigned clock_first, resume_first, master_running;
 static uint32_t dropped;
 static void release_owner(unsigned owner, unsigned ports);
+#ifdef CT_A2
+static void fg_start(void);
+#endif
 /* Boards with independent held-key state discard its old MIDI ownership when
  * routing changes. FM1's common panel already retries released keys itself. */
 extern void groove_midi_panel_reset(void) __attribute__((weak));
@@ -134,6 +142,9 @@ void groove_midi_init(void)
     memset(events, 0, sizeof events); memset(output, 0, sizeof output); memset(song_channel, 0, sizeof song_channel);
     groove_midi_defaults(&config);
     ready_seen = dropped = clock_seen = 0; groove_midi_clock_reset();
+#ifdef CT_A2
+    fg_start();
+#endif
 }
 unsigned groove_midi_setting(unsigned track, unsigned parameter)
 {
@@ -162,6 +173,9 @@ static FM1_AUDIO_CODE void enqueue(unsigned lane, unsigned owner, unsigned ports
      * keeping the fixed-size queue and three destination bits unchanged. */
     q->data[w & (QUEUE - 1)] = status | (a << 8) | (b << 16) |
         ((owner & 31U) << 24) | ((owner & 32U) << 18) | (ports << 29);
+#ifdef CT_A2
+    if (lane < 2) fg_due[lane][w & (QUEUE - 1)] = fg_stamp;
+#endif
     barrier(); q->write = w + 1U;
 }
 FM1_AUDIO_CODE void groove_midi_note(unsigned track, unsigned note, unsigned velocity)
@@ -215,6 +229,7 @@ FM1_AUDIO_CODE void groove_midi_transport(unsigned owner, uint8_t status)
 #ifdef CT_A2
 /* ---- Classic Tabby Task 15 Step 4: option A2, the control pass on demand (diag builds only) ----
  * Revision notes
+ *   v0.4  2026-11-13  Task 17: options F + G (the timer and the look-ahead, below); ct_usb_push_hold (remote op 8).
  *   v0.3  2026-11-12  Task 16: the USB pusher (ct_midi_send_port, usb_pusher; BUILD 35).
  *   v0.2  2026-11-12  Task 16: ct_flash_busy: no request while an app flash erase or write runs (BUILD 34); the A2
  *                     page is 52 bytes (blocks skipped).
@@ -255,6 +270,65 @@ static struct {
     uint8_t waiting;      /* the previous block asked */
     unsigned drained;     /* the lanes' read positions when it asked */
 } a2;
+/* ---- Classic Tabby Task 17: options F + G, the timer and the look-ahead ----------------------------
+ * A2 alone sends a note when the audio block that found it ends: one block (2.9 ms) of quantization, and
+ * a request that arrives while a pass paints the screen is dropped and repeated a block later (BUILD 35.4:
+ * the band depended on the page shown). F + G:
+ *   G  every event queued by the audio interrupt carries a due time on the 24 MHz counter (TIMER4):
+ *      the time the block's interrupt began + one block (the look-ahead) + the event's place inside the
+ *      block's window (the song tick's `at` of `adv` units, groove_midi_at; the MIDI clock's phase). So
+ *      MIDI out is one block later than with A2, the same for every event, and no longer block-quantized.
+ *   F  TIMER5 (free until now, IRQ 63) fires every FG_PERIOD ticks (0.5 ms). Its handler, RAM code, asks
+ *      for a control pass (fm1_control_request) when the head of lane 0 or 1 is due within FG_LEAD; the
+ *      pass sends the events that are due and leaves the others. A request the SDK drops (a pass runs)
+ *      is repeated by the next timer tick, 0.5 ms later, not a block later.
+ * The timer interrupt has priority 3, below the audio interrupt (4): a task cannot run while the audio
+ * interrupt renders, so a higher priority would gain nothing and would interrupt the render.
+ * Flash: the SDK's flash driver masks every interrupt for the whole of each SPI operation
+ * (enter_spi_code -> cpu_enter_sfc_critical -> __local_irq_disable; BUILD 36.2), so this handler never
+ * runs while flash is unreadable; the ct_flash_busy test is kept (it costs one load).
+ * If the timer does not tick (fg.ticks stands still for a block) the block falls back to A2: it asks
+ * itself and stamps no look-ahead. The host tests have no timer: they start F + G with ct_fg_test()
+ * and call ct_fg_tick() themselves; the web simulator is built without CT_A2. */
+enum { FG_PERIOD = 12000, FG_LEAD = FG_PERIOD / 2, FG_BLOCK = 69632, FG_FAR = 4 * FG_BLOCK };
+volatile uint32_t ct_fg_irq_ticks;    /* TIMER4 at the entry of the audio interrupt (app/board/audio.c) */
+static volatile uint8_t fg_run;       /* the timer was started */
+static uint8_t fg_live;               /* this block: the timer ticks, events get the look-ahead */
+static uint32_t fg_base, fg_len = FG_BLOCK, fg_block_at, fg_ticks_seen;
+static struct {
+    uint32_t ticks;       /* timer interrupts */
+    uint32_t sent;        /* events sent with a due time */
+    uint32_t late_max;    /* the latest send after its due time, ticks */
+    uint32_t late[6];     /* sent < 0.25, < 0.5, < 1, < 2, < 4, >= 4 ms after the due time (early counts as < 0.25) */
+} fg;
+static FM1_AUDIO_CODE uint32_t a2_ticks(void);
+/* Audio interrupt, at the start of the block's clock hook: the block's time and length, the base stamp. */
+static FM1_AUDIO_CODE void fg_block(void)
+{
+#ifdef FM1_HOST_TEST
+    uint32_t t = a2_ticks();
+#else
+    uint32_t t = ct_fg_irq_ticks;
+#endif
+    uint32_t interval = t - fg_block_at;
+    if (interval > FG_BLOCK - FG_BLOCK / 8 && interval < FG_BLOCK + FG_BLOCK / 8)
+        fg_len = (uint32_t)((int32_t)fg_len + ((int32_t)interval - (int32_t)fg_len) / 8);
+    fg_block_at = t;
+    fg_live = fg_run && a2_on && fg.ticks != fg_ticks_seen;
+    fg_ticks_seen = fg.ticks;
+    fg_base = fg_live ? t + fg_len : t;
+    fg_stamp = fg_base;
+}
+/* Audio interrupt: the events queued from now on are due `num` / `den` of a block after the block's
+ * start (plus the look-ahead). den = 0 or F + G off: the block's start. */
+FM1_AUDIO_CODE void groove_midi_at(unsigned num, unsigned den)
+{
+    fg_stamp = fg_live && den ? fg_base + (uint32_t)((uint64_t)fg_len * num / den) : fg_base;
+}
+/* Audio interrupt: no look-ahead for the events queued from now on (the first block of a follow song:
+ * the master's first pulse cannot be anticipated). */
+FM1_AUDIO_CODE void groove_midi_immediate(void) { fg_stamp = fg_block_at; }
+FM1_AUDIO_CODE unsigned groove_midi_live(void) { return fg_live; }
 static FM1_AUDIO_CODE uint32_t a2_ticks(void)
 {
 #ifdef FM1_HOST_TEST
@@ -279,6 +353,7 @@ static FM1_AUDIO_CODE void a2_block(void)
      * flash erase or write. A call made then fetches code from flash that the SPI controller is busy
      * with: the chip freezes (BUILD 33.3, 34). Every app flash operation sets ct_flash_busy first. */
     if (ct_flash_busy) { ++a2.skipped; return; }
+    if (fg_live) return;                     /* Task 17: the timer asks, at the due time */
     if (!a2_on || (events[0].write == events[0].read && events[1].write == events[1].read)) { a2.waiting = 0; return; }
     unsigned drained = events[0].read + events[1].read;
     if (a2.waiting && drained == a2.drained) ++a2.retries;   /* the last request got no pass yet */
@@ -290,10 +365,70 @@ static FM1_AUDIO_CODE void a2_block(void)
     if (dt > a2.max) a2.max = dt;
     ++a2.bins[dt < 120U ? 0 : dt < 240U ? 1 : dt < 480U ? 2 : dt < 1200U ? 3 : dt < 2400U ? 4 : 5];
 }
+/* Task 17 (F): one timer tick. TIMER5 interrupt on the device (RAM code); the host tests call it. */
+FM1_AUDIO_CODE void ct_fg_tick(void)
+{
+    ++fg.ticks;
+    if (ct_flash_busy) { ++a2.skipped; return; }
+    if (!a2_on) return;
+    uint32_t now = a2_ticks();
+    unsigned ask = 0;
+    for (unsigned i = 0; i < 2; ++i) {
+        unsigned r = events[i].read;
+        if (r == events[i].write) continue;
+        int32_t wait = (int32_t)(fg_due[i][r & (QUEUE - 1)] - now);
+        if (wait <= FG_LEAD || wait > FG_FAR) ask = 1;
+    }
+    if (!ask) { a2.waiting = 0; return; }
+    unsigned drained = events[0].read + events[1].read;
+    if (a2.waiting && drained == a2.drained) ++a2.retries;   /* the last request got no pass yet */
+    a2.waiting = 1; a2.drained = drained;
+    fm1_control_request();
+    uint32_t dt = a2_ticks() - now;
+    ++a2.calls; a2.sum += dt;
+    if (dt > a2.max) a2.max = dt;
+    ++a2.bins[dt < 120U ? 0 : dt < 240U ? 1 : dt < 480U ? 2 : dt < 1200U ? 3 : dt < 2400U ? 4 : 5];
+}
+#ifndef FM1_HOST_TEST
+#define FG_T5_CON (*(volatile uint32_t *)0x10900U)   /* TIMER5: CON, CNT, PRD as TIMER4 at 0x10800 (app/board/scan.c) */
+#define FG_T5_CNT (*(volatile uint32_t *)0x10904U)
+#define FG_T5_PRD (*(volatile uint32_t *)0x10908U)
+static FM1_AUDIO_CODE __attribute__((interrupt(""))) void fg_timer_isr(void)
+{
+    FG_T5_CON |= 1U << 14;                   /* clear the pending bit */
+    ct_fg_tick();
+}
+extern void fm1_device_irq_attach(unsigned index, void (*handler)(void), unsigned priority);
+#endif
+/* Control task, once at boot (groove_midi_init): TIMER5 counts the 24 MHz clock as TIMER4 does (CON
+ * 0x4009: count mode, the same source, pending cleared) and interrupts every FG_PERIOD ticks. */
+static void fg_start(void)
+{
+#ifndef FM1_HOST_TEST
+    FG_T5_CON = 1U << 14; FG_T5_CNT = 0; FG_T5_PRD = FG_PERIOD;
+    fm1_device_irq_attach(63, fg_timer_isr, 3);
+    FG_T5_CON = 0x4009U;
+    fg_run = 1;
+#endif
+}
+#ifdef FM1_HOST_TEST
+void ct_fg_test(unsigned on) { fg_run = on ? 1 : 0; }
+#endif
+/* Command 25 request 10 (56 bytes, u32 LE): F + G running (0/1), timer interrupts, events sent with a
+ * due time, the latest send after its due time (ticks), six bins of that lateness (< 0.25, < 0.5, < 1,
+ * < 2, < 4, >= 4 ms), the block length (ticks), the timer period (ticks), the look-ahead in use (0/1). */
+int ct_fg_read(uint8_t *out)
+{
+    uint32_t v[14] = { fg_run, fg.ticks, fg.sent, fg.late_max, 0, 0, 0, 0, 0, 0, fg_len, FG_PERIOD, fg_live, 0 };
+    for (unsigned i = 0; i < 6; ++i) v[4 + i] = fg.late[i];
+    for (unsigned i = 0; i < 14; ++i) for (unsigned b = 0; b < 4; ++b) out[i * 4 + b] = (uint8_t)(v[i] >> (8U * b));
+    return 56;
+}
+static volatile uint8_t fg_reset_request;
 /* Control task. */
 void ct_a2_set(unsigned on) { a2_on = on ? 1 : 0; barrier(); }
 unsigned ct_a2_get(void) { return a2_on; }
-void ct_a2_reset(void) { a2_reset_request = 1; barrier(); }
+void ct_a2_reset(void) { a2_reset_request = 1; fg_reset_request = 1; barrier(); }
 /* Command 25 request 7 (48 bytes, little-endian u32): on (0/1), audio blocks, calls, mean call
  * ticks, longest call ticks, retries, then the six histogram bins. Calls per second =
  * calls * 44118 / (blocks * 128). The snapshot is repeated until no block ended inside it. */
@@ -320,18 +455,36 @@ FM1_AUDIO_CODE void groove_midi_clock(unsigned owner, unsigned tempo)
 #endif
 {
     if (!owner) {
+#ifdef CT_A2
+        fg_block();    /* Task 17: this block's time; the events of the block get their due times from it */
+#endif
         /* Task 03 d: the song sequencer ticks here, once per block, with the song's
          * tempo override (if any) so the MIDI clock below follows the same tempo. */
         unsigned song = song_tempo();
         if (song) tempo = song;
         song_tick(tempo);
+#ifdef CT_A2
+        fg_stamp = fg_base;
+#endif
     }
     if (owner || !(config.flags & CLOCK_OUT) || groove_clock_mode()) return;
     enum { PERIOD = FM1_SAMPLE_RATE * 60U };
     if (clock_first || clock_phase >= PERIOD) {
+#ifdef CT_A2
+        /* Task 17: the pulse was due before this block began, by (phase - PERIOD) of the phase one block
+         * adds; with the look-ahead of one block its due time is that much before base. A song note
+         * at the same musical time gets the same due time (BUILD 36.1). */
+        if (fg_live && !clock_first) {
+            uint32_t step = tempo * 24U * FM1_BLOCK_FRAMES, over = clock_phase - PERIOD;
+            if (over < step) fg_stamp = fg_base - (uint32_t)((uint64_t)fg_len * over / step);
+        }
+#endif
         if (!clock_first) clock_phase -= PERIOD;
         clock_first = 0;
         enqueue(0, 0, config.flags & 7U, 0xf8, 0, 0);
+#ifdef CT_A2
+        fg_stamp = fg_base;
+#endif
     }
     clock_phase += tempo * 24U * FM1_BLOCK_FRAMES;
 }
@@ -373,14 +526,24 @@ int ct_midi_send_port(unsigned port, const uint8_t *m, size_t n)
     if (!r && port == FM1_MIDI_USB) { usb_push = USB_PUSHES; usb_write_pass = pass_number; }
     return r;
 }
+/* Task 17: the push hold (remote op 8, app/transfer.c). The update protocol's replies (identity, version,
+ * the block requests) are written by the SDK, not through ct_midi_send_port, so with no clock on USB they
+ * stay in the SDK like any last write (measured: BUILD 36.3). The update page switches the hold on before
+ * it arms an update: every control pass then sends one push byte, as the MIDI clock would. It ends at
+ * the restart into the loader, when switched off, or 120 s after it was switched on. */
+static uint8_t usb_hold;
+static uint32_t usb_hold_at;
+void ct_usb_push_hold(unsigned on) { usb_hold = on ? 1 : 0; usb_hold_at = fm1_millis(); }
+unsigned ct_usb_push_held(void) { return usb_hold; }
 static void usb_pusher(void)
 {
-    if (!usb_push) return;
+    if (usb_hold && fm1_millis() - usb_hold_at > 120000U) usb_hold = 0;
+    if (!usb_push && !usb_hold) return;
     if (!groove_clock_mode() && (config.flags & CLOCK_OUT) && (config.flags & (1U << FM1_MIDI_USB))) { usb_push = 0; return; }   /* the clock pushes */
-    if (usb_write_pass == pass_number) return;            /* written in this pass: push in the next one */
+    if (usb_push && usb_write_pass == pass_number) return;   /* written in this pass: push in the next one */
     if (!(fm1_midi_ready_ports() & (1U << FM1_MIDI_USB))) { usb_push = 0; return; }
     const uint8_t push = 0xf9;
-    if (!fm1_midi_send_port(FM1_MIDI_USB, &push, 1)) --usb_push;
+    if (!fm1_midi_send_port(FM1_MIDI_USB, &push, 1) && usb_push) --usb_push;
 }
 static void deliver(unsigned port, unsigned owner, const uint8_t *m)
 {
@@ -520,11 +683,28 @@ static void midi_poll_body(void)
     }
     /* Round robin: a dense chord on one owner cannot starve the other's gates
      * or source-routed Thru. Maximum work per control iteration is fixed. */
+#ifdef CT_A2
+    if (fg_reset_request) { fg_reset_request = 0; fg.sent = fg.late_max = 0; memset(fg.late, 0, sizeof fg.late); }
+#endif
     for (unsigned work = 0; work < QUEUE; ++work) {
         unsigned found = 0;
         for (unsigned i = 0; i < 3; ++i) {
             struct events *q = &events[i]; unsigned r = q->read;
             if (r == q->write) continue;
+#ifdef CT_A2
+            if (i < 2) {
+                /* Task 17 (G): an event leaves when it is due (within FG_LEAD); the lane keeps its order,
+                 * so an event behind one that is not due waits with it. A due time further away than
+                 * FG_FAR is not believed and the event leaves at once. */
+                int32_t wait = (int32_t)(fg_due[i][r & (QUEUE - 1)] - a2_ticks());
+                if (wait > FG_LEAD && wait <= FG_FAR) continue;
+                if (fg_live) {
+                    uint32_t late = wait < 0 ? (uint32_t)-wait : 0;
+                    ++fg.sent; if (late > fg.late_max) fg.late_max = late;
+                    ++fg.late[late < 6000U ? 0 : late < 12000U ? 1 : late < 24000U ? 2 : late < 48000U ? 3 : late < 96000U ? 4 : 5];
+                }
+            }
+#endif
             barrier(); uint32_t event = q->data[r & (QUEUE - 1)]; barrier(); q->read = r + 1;
             unsigned owner = ((event >> 24) & 31U) | ((event >> 18) & 32U), ports = event >> 29;
             uint8_t m[3] = {(uint8_t)event, (uint8_t)(event >> 8), (uint8_t)((event >> 16) & 127U)};

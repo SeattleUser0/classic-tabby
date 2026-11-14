@@ -53,6 +53,7 @@
  * Version: 0.6
  *
  * Revision log
+ *   v0.7  2026-11-13  Task 17: F + G (ct_fg_read, ct_fg_tick), ct_usb_push_hold.
  *   v0.6  2026-11-12  Task 16: ct_flash_busy; the A2 page is 52 bytes.
  *   v0.5  2026-11-10  Task 15 Step 4: option A2 (ct_a2_*: the pass request from the audio
  *                     interrupt, CT_A2 builds only) and command 25 requests 7, 8 and 9.
@@ -154,6 +155,17 @@ int ct_a2_read(uint8_t *out);            /* the A2 page, 52 bytes (the last u32:
 /* Task 16: every app write to a MIDI port (app/midi_router.c: arms the USB pusher). Control task. */
 int ct_midi_send_port(unsigned port, const uint8_t *m, size_t n);
 extern volatile uint8_t ct_flash_busy;   /* nonzero while an app flash erase or write runs: no A2 request then */
+/* Task 17 (F + G, app/midi_router.c): command 25 request 10 reads the page (56 bytes); ct_fg_tick is the
+ * TIMER5 interrupt's body (the host tests call it; ct_fg_test starts F + G there). */
+int ct_fg_read(uint8_t *out);
+void ct_fg_tick(void);
+/* Task 17: remote op 8. While held, every control pass sends the USB push byte (0xF9), so that replies
+ * the SDK writes itself (the update protocol) leave too; it ends by itself after 120 s. */
+void ct_usb_push_hold(unsigned on);
+unsigned ct_usb_push_held(void);
+#ifdef FM1_HOST_TEST
+void ct_fg_test(unsigned on);
+#endif
 #endif
 #ifdef FM1_HOST_TEST
 /* Host tests only: extra ticks added to the diag clock, so a test can make a band paint or a

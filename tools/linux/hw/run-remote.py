@@ -16,9 +16,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-remote.py --out DIR
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-13  Task 17: the USB push hold (remote op 8), on firmware that reports it (tabby-v04.4).
     v0.2  2026-11-12  HOME on the overview opens the project list (the first run expected OVERVIEW).
     v0.1  2026-11-12  Task 16 Goal 2: first version.
 """
@@ -132,6 +133,12 @@ def main():
         ev = [x for x in din.messages if x[0] >= t0]
         check("pad 1 press and release: a note-on on DIN", len(notes_on(ev)) >= 1, "%d" % len(notes_on(ev)))
         s = l.release_all(); check("release all", s["shift"] == 0)
+        # v0.3 (tabby-v04.4): the USB push hold (remote op 8); no flash write
+        if s.get("push_hold") is not None:
+            s = l.push_hold(True); settle(l, 0.3); f9 = sum(1 for t, m in l.other if list(m) == [0xF9]); l.other = []
+            check("push hold on: reported, CLOCK reported INT", s["push_hold"] == 1 and s["clock"] == 0, s)
+            check("push hold with the MIDI clock going out on USB: no 0xF9 (the clock pushes)", f9 == 0, "%d" % f9)
+            s = l.push_hold(False); check("push hold off", s["push_hold"] == 0, s)
         h = l.health()
         check("audio counters read (underruns %d, DMA overruns %d: cumulative since power-up)" % (h["underruns"], h["dma_overruns"]), True, "")
     finally:

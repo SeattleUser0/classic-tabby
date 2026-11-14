@@ -29,6 +29,11 @@
  * and force stay for a non-Open identity (factory V16), and force is a manual choice on the page.
  * The identity re-check in install() is retried too (queryRetry). Test: tests/workbench/loader-tag.mjs
  * scenarios X-Z.
+ * Classic Tabby Task 17 (2026-11-13): an update is armed only when the device's update replies arrive
+ * (Updater.prepareReplies, repliesHeld): with CLOCK on MIDI or SEQ OUT off the SDK holds them. The
+ * push hold (remote op 8) on firmware that has it; CLOCK to INT and back (remote panel keys, remote op
+ * 9) on tabby-v04.3.1; otherwise the update is refused with the reason (code REPLIES_HELD). The checks
+ * before arming and after the restart are retried. Test: tests/workbench/update-clock.mjs.
  * Classic Tabby Task 12 A5 (2026-11-08): safe resume for a stale loader. The Jieli loader's USB name
  * carries the build it waits for (ota-SMK37 + the first 16 hex digits of the build id, taggedLoader).
  * When connect() or waitFor() meets a loader whose tag is not this page's build, the page never
@@ -375,7 +380,7 @@
   class Updater {
     constructor(access,pkg,status=()=>{},timing={},options={}) {
       this.access=access; this.pkg=pkg; this.status=status; this.link=null; this.identity=null; this.busy=false;
-      this.timing={idle:10000,writeIdle:180000,reconnect:40000,settle:600,pace:0,...timing};
+      this.timing={idle:10000,writeIdle:180000,reconnect:40000,settle:600,pace:0,flush:150,save:2500,...timing};   // Task 17: flush, save
       // Task 12 A5: builds(tag16) -> {state, entry, indexUrl}; null means no index (the message still names the tag).
       this.builds=options.builds||null;
     }
@@ -610,9 +615,107 @@
       }
       check(ascii(await this.link.query(17))===this.pkg.product,'Restoring resources requires factory V16 for the matching model');
     }
+    // ---- Task 17 (2026-11-13): updating while the device holds its update replies ----------------
+    // Measured (BUILD 36.3): the SDK sends the last message written to the USB port only when another
+    // write follows. With CLOCK on INT and SEQ OUT on, the MIDI clock is that write. With CLOCK on MIDI,
+    // or SEQ OUT off, the SDK's own update replies (17, 49, 50 and the block requests 48) stay in the
+    // device: an update armed then would stall. So before arming, install() checks that one identity
+    // reply arrives by itself (repliesHeld). If not:
+    //   - firmware with the push hold (command 27 flag bit 3, tabby-v04.4 and later): remote op 8 on;
+    //     every control pass then sends a push byte; no setting changes. After the restart the hold is
+    //     switched on again for the check and off at the end.
+    //   - tabby-v04.3.1 (remote control, no push hold) with CLOCK on MIDI: CLOCK is set to INT through
+    //     the remote panel keys (SEQ, K1 one detent down), saved by the device, and set back to MIDI on
+    //     the new firmware (remote op 9) after the restart.
+    //   - anything else (SEQ OUT off on tabby-v04.3.1, older firmware): the update is refused with the
+    //     reason and what to change on the device (code REPLIES_HELD). Nothing is written.
+    // The app's own protocol (demoFrame / demoParse) shares the port with the update protocol.
+    async appQuery(command,payload=[],{attempts=3,timeout=800}={}) {
+      const link=this.link; check(link&&!link.lost,'USB disconnected');
+      this.appToken=((this.appToken??crypto.getRandomValues(new Uint16Array(1))[0])+1)&16383;
+      const token=this.appToken,packet=demoFrame(command,token,payload);
+      let found=null;
+      const listen=ev=>{const r=demoParse(ev.data);if(r&&r.command===(command|64)&&r.token===token)found=r;};
+      link.input.addEventListener('midimessage',listen);
+      try {
+        for(let attempt=0;attempt<attempts&&!found;attempt++){
+          link.send(packet);const until=Date.now()+timeout;
+          while(!found&&Date.now()<until){await sleep(5);check(!link.lost,'USB disconnected');}
+        }
+      } finally {link.input.removeEventListener('midimessage',listen);}
+      if(!found)throw Object.assign(Error('The device did not answer'),{code:'TIMEOUT'});
+      check(found.data.length>0,'Incomplete device response');
+      return found.data;   // [reply code, ...payload]
+    }
+    // One identity query, no retry: does the SDK's reply arrive by itself?
+    async replyArrives(ms=400) {
+      try {return (await this.link.query(17,[],ms)).length===27;}
+      catch(error){if(error.code!=='TIMEOUT'||this.link.lost)throw error;return false;}
+    }
+    // Held = twice in a row a single identity query got no reply. Before each one an app query flushes
+    // the device: a reply still held from an earlier query would otherwise be pushed out by this query's
+    // own reply and look like its answer (and the app's reply leaves by itself on firmware with the USB
+    // pusher; on older firmware it is held too and nothing arrives).
+    async repliesHeld() {
+      for(let round=0;round<2;round++){
+        try {await this.appQuery(27,[],{attempts:2,timeout:500});} catch(error){if(error.code!=='TIMEOUT')throw error;}
+        await sleep(this.timing.flush);
+        if(await this.replyArrives())return false;
+      }
+      return true;
+    }
+    async remoteKey(kind,id,value) {
+      const r=await this.appQuery(29,[6,kind,id,value&255]);
+      check(r[0]===0,'The device refused a remote panel key (code '+r[0]+')');return r;
+    }
+    async clockMode() {const r=await this.appQuery(0);check(r[0]===0&&r.length===15,'Invalid device status reply');return r[6];}
+    async prepareReplies() {
+      this.replyFix=null;this.clockNote='';
+      if(!(await this.repliesHeld()))return;
+      const refuse=why=>{throw Object.assign(Error(why),{code:'REPLIES_HELD'});};
+      const HOW=' On the device press SEQ, set K1 CLOCK to INT and K4 SEQ OUT to ON, then click Connect device and update again. Nothing was written.';
+      let cap=null;
+      try {cap=await this.appQuery(27);} catch(error){if(error.code!=='TIMEOUT')throw error;}
+      const flags=cap&&cap[0]===0&&cap.length>=4?cap[2]|cap[3]<<8:0;
+      if(flags&8){
+        this.status('Asking the device to send its update replies',null);
+        const r=await this.appQuery(29,[8,1]);
+        if(r[0]===0&&!(await this.repliesHeld())){this.replyFix='hold';return;}
+        refuse('The device does not send its update replies over USB, and switching its push mode on did not change that. The update was not started.'+HOW);
+      }
+      if(!(flags&4))refuse('The device does not send its update replies over USB (CLOCK is on MIDI, or SEQ OUT is OFF), and this firmware is too old for the page to change that. The update was not started.'+HOW);
+      if((await this.clockMode())!==1)refuse('The device sends no MIDI clock over USB (SEQ OUT is OFF), so its update replies do not arrive, and this firmware cannot be told to send them. The update was not started. On the device press SEQ and set K4 SEQ OUT to ON, then click Connect device and update again. Nothing was written.');
+      // tabby-v04.3.1 with CLOCK on MIDI: SEQ opens SYNC / MIDI (screen page 1), K1 one detent down = INT.
+      this.status('Setting CLOCK to INT for the update',null);
+      const page=async()=>{const r=await this.appQuery(29,[0]);check(r[0]===0&&r.length>=13,'Invalid device status reply');return r[2];};
+      const press=async id=>{await this.remoteKey(0,id,1);await sleep(60);await this.remoteKey(0,id,0);await sleep(250);};
+      await press(15);
+      if((await page())!==1){await press(2);await press(15);}
+      if((await page())!==1)refuse('The page could not open the SYNC / MIDI page on the device to set CLOCK to INT. The update was not started.'+HOW);
+      await this.remoteKey(4,0,255);await sleep(300);
+      if((await this.clockMode())!==0){await press(2);refuse('The page could not set CLOCK to INT on the device. The update was not started.'+HOW);}
+      await sleep(this.timing.save);                     // the device saves the setting 1.5 s after the change
+      if(await this.repliesHeld()){
+        await this.remoteKey(4,0,1);await sleep(300);await press(2);
+        refuse('CLOCK was set to INT and back to MIDI: the device still does not send its update replies over USB (SEQ OUT is OFF). The update was not started. On the device press SEQ, set K4 SEQ OUT to ON, then click Connect device and update again.');
+      }
+      await press(2);                                    // HOME: leave SYNC / MIDI
+      this.replyFix='clock';
+    }
+    // After the restart into the new firmware (never for a factory restore). Returns a note for the
+    // final status line. The update itself is complete before anything here can fail.
+    async finishReplies(hold) {
+      if(hold){try {await this.appQuery(29,[8,0]);} catch(_){} }
+      if(this.replyFix!=='clock')return '';
+      try {
+        const r=await this.appQuery(29,[9,1]);
+        if(r[0]===0&&(await this.clockMode())===1){this.replyFix=null;return ' CLOCK is back on MIDI.';}
+      } catch(_){}
+      return ' CLOCK was set to INT for the update and could not be set back: on the device press SEQ and turn K1 to MIDI.';
+    }
     async install({force=false,confirmedModel}={}) {
       check(this.link && !this.busy,'Connect the device first'); this.busy=true;
-      let failure;
+      let failure,armed=false;
       try {
         check(!this.force || force,'Force flashing has not been confirmed');
         check(this.mode,'Reconnect the device');
@@ -626,13 +729,15 @@
         if(this.mode!=='loader') {
           // Recheck immediately before arming; a stale Connect result is insufficient.
           if(this.mode==='tagged') {
-          const cap=capability(await this.link.query(49));
+          const cap=capability(await queryRetry(this.link,49));   // Task 17: retried (a held reply arrives with the next query)
           check(cap.family===this.family && cap.state===0,'Device state changed. Please reconnect');
           check(cap.build!==this.pkg.build_id,'The device already has this version');
+          await this.prepareReplies();                             // Task 17: before anything is armed
           const n=this.pkg.image.length, tag=this.pkg.build_id.match(/../g).map(s=>parseInt(s,16));
           const ack=await this.link.query(50,[1,cap.family,n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255,...tag]);
           check(ack.length===1 && ack[0]===0,'The device rejected this firmware package');
           }
+          armed=true;
           this.status('Preparing the updater',0); this.link.send([240,34,36,53,127,247]);
           await this.serve(0xe0000000,this.timing.idle,'Preparing the updater');
           await this.disconnect(); this.status('Waiting for the update device to reconnect',null);
@@ -649,12 +754,27 @@
           // V16 has no Open hash capability. Check its exact model/version,
           // then restore and read back the original resource partition.
           await this.restoreFactory();
+          this.status('Update complete',100);
         } else {
-          const after=capability(await this.link.query(49));
+          // Task 17: the new firmware may hold its replies too (CLOCK still on MIDI, or SEQ OUT off):
+          // the push hold for the check, then off; the check itself is retried.
+          let hold=false;
+          if(await this.repliesHeld()){try {hold=(await this.appQuery(29,[8,1]))[0]===0;} catch(_){} }
+          const after=capability(await queryRetry(this.link,49));
           check(after.family===this.pkg.family && after.build===this.pkg.build_id && after.state===0,'Firmware verification failed after restart');
+          const note=await this.finishReplies(hold);
+          this.clockNote=note;                                   // the page adds it to its own last line
+          this.status('Update complete.'+note,100);
         }
-        this.status('Update complete',100);
-      } catch(error) {failure=error;throw error;}
+      } catch(error) {
+        // Task 17: CLOCK changed for the update and the update did not finish.
+        if(this.replyFix==='clock'){
+          let back=false;
+          if(!armed&&this.link&&!this.link.lost){try {await this.remoteKey(0,15,1);await this.remoteKey(0,15,0);await sleep(250);await this.remoteKey(4,0,1);await sleep(300);back=(await this.clockMode())===1;await this.remoteKey(0,2,1);await this.remoteKey(0,2,0);} catch(_){} }
+          if(!back)error.message+=' CLOCK was set to INT for this update and is still on INT: after the update, press SEQ and turn K1 to MIDI.';
+          this.replyFix=null;
+        }
+        failure=error;throw error;}
       finally {
         this.busy=false;
         try {await this.disconnect();}

@@ -29,6 +29,7 @@
  * Version: 0.6
  *
  * Revision log
+ *   v0.7  2026-11-13  Task 17: request 10, the F + G page (ct_fg_read).
  *   v0.6  2026-11-12  Task 16: the flash wrappers raise ct_flash_busy (no A2 request during a flash erase or write).
  *   v0.5  2026-11-10  Task 15 Step 4: CT_A2 builds: command 25 request 7 (the A2 page), 8 and 9
  *                     (A2 off / on, then the page); request 1 also clears the A2 counters.
@@ -137,6 +138,7 @@ int ct_diag_read(unsigned request, uint8_t out[CT_DIAG_REPLY_BYTES])
         if (request != 7) ct_a2_set(request == 9);
         return ct_a2_read(out);
     }
+    if (request == 10) return ct_fg_read(out);   /* Task 17: the F + G page */
 #endif
     if (request == 1) {
 #ifdef CT_A2

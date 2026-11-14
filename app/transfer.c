@@ -4,6 +4,8 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.8  2026-11-13  Task 17: remote op 8 (the USB push hold for the update page), status bytes 13 (CLOCK) and 14
+ *                     (the hold); capability flag bit 3.
  *   v0.7  2026-11-12  Task 16 Goal 3: the remote status carries the follow state (byte 12 of the payload).
  *   v0.6  2026-11-11  Task 16 Goal 1: command 29, remote control in every build (status, song select, play,
  *                     stop, jump to a row, A2 on / off, panel-key injection with a 5 s watchdog); capability
@@ -36,7 +38,7 @@
 #include "diag.h"   /* Classic Tabby Task 11: kind 8 and command 25 (every build since Task 12 A4) */
 /* Task 12: command 27 feature flags (bit 0: flash writes refused while the transport runs, A3;
  * bit 1: command 28 ERASE OLD DATA, A1). */
-#define CT_CAPABILITY_FLAGS 7U   /* v0.6: bit 2 = command 29, remote control (Task 16) */
+#define CT_CAPABILITY_FLAGS 15U  /* v0.6: bit 2 = command 29, remote control (Task 16); v0.8: bit 3 = remote op 8, the push hold (Task 17) */
 /* Task 12 A3: the transfer kinds whose upload writes flash: 5 song record (and delete), 6 block,
  * 7 block batch, 8 device settings. Kinds 0-3 (workspace, FM patch, timbre, tuned workspace) only
  * change RAM; the project reaches flash through command 7, which project.c refuses while playing. */
@@ -147,7 +149,7 @@ static void put32(uint8_t *p, uint32_t value)
 /* ---- Task 16 Goal 1: command 29, remote control (every build) ---------------------------------
  * The unattended tests (SPEC 17.10) drive the device from the NUC through this command instead of
  * through a person at the panel. Data byte 0 is the operation; every reply is the status below
- * unless the operation reads nothing. No operation writes flash:
+ * unless the operation reads nothing. No operation writes flash, except {9} (the CLOCK setting, saved as after the knob):
  *   {}  or {0}         status, 12 bytes: [0] reply version 1, [1] screen page (app/screen.c enum:
  *                      11 SOURCE, 12 ACTIONS, 19 SONG, 20 TRACK_LAUNCH, 0 OVERVIEW ...), [2] song
  *                      state (0 stopped, 1 playing, 2 stopping), [3] loaded song (255 none), [4] the
@@ -166,7 +168,14 @@ static void put32(uint8_t *p, uint32_t value)
  *                      remote call (the watchdog in groove_remote_poll). Physical button 3 is the
  *                      firmware's SAVE (4th button in the left group): refused (code -7), because the
  *                      button writes flash and it also confirms the ACTIONS erase
- *   {7}                release everything this command holds */
+ *   {7}                release everything this command holds
+ *   {8, 0|1}           Task 17: the USB push hold off / on (app/midi_router.c ct_usb_push_hold): while on,
+ *                      every control pass sends one 0xF9 on USB so the SDK's own replies (the update
+ *                      protocol) leave when no MIDI clock goes out on USB; ends by itself after 120 s.
+ *                      The status is 15 bytes from v0.8: [13] CLOCK (0 INT, 1 MIDI), [14] the push hold
+ *   {9, 0|1}           Task 17: CLOCK = INT / MIDI, exactly what K1 on the SYNC / MIDI page does (the device
+ *                      saves the setting 1.5 s later, as after the knob: the one remote operation that
+ *                      leads to a flash write). The update page uses it to set CLOCK back after an update. */
 static uint32_t remote_buttons, remote_pads, remote_at;
 static uint64_t remote_keys;   /* 37 keys: more than 32 bits (cppcheck found the shift by 36 in the first draft) */
 static void remote_release_all(void)
@@ -189,7 +198,9 @@ static void remote_status(uint8_t *out, unsigned *count)
     out[7] = (uint8_t)smk37_shift(); out[8] = (uint8_t)ct_transport_running();
     out[9] = (uint8_t)st.bar; out[10] = (uint8_t)(st.bar >> 8); out[11] = (uint8_t)ct_screen_action();
     out[12] = st.follow;   /* v0.7: external clock follow state (song.h: 0 off, 1 armed, 4 running, 5 held, 6 lost, 7 stopped) */
-    *count = 13;
+    out[13] = (uint8_t)groove_clock_mode();   /* v0.8: CLOCK (0 INT, 1 MIDI) */
+    out[14] = (uint8_t)ct_usb_push_held();    /* v0.8: the push hold */
+    *count = 15;
 }
 static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count)
 {
@@ -231,6 +242,8 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
         } else if (kind == SMK37_ENCODER && id < 8) smk37_control_event(SMK37_ENCODER, id, v);
         else return GROOVE_PROJECT_INVALID;
     } else if (op == 7 && n == 1) remote_release_all();
+    else if (op == 8 && n == 2 && data[1] <= 1) ct_usb_push_hold(data[1]);   /* Task 17: the update page's push hold */
+    else if (op == 9 && n == 2 && data[1] <= 1) groove_settings_clock(data[1]);   /* Task 17: CLOCK, as K1 on SYNC / MIDI sets it */
     else return GROOVE_PROJECT_INVALID;
     remote_status(out, count);
     return 0;

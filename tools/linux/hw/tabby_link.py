@@ -25,9 +25,11 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.9
+Version: 0.10
 
 Revision log
+    v0.10 2026-11-13  Task 17: fg() reads the F + G page (command 25 request 10); the remote status carries CLOCK and
+                      the push hold; push_hold(), set_clock() (remote ops 8 and 9, tabby-v04.4); show_page().
     v0.9  2026-11-12  a2(): the 52-byte A2 page of tabby-v04.3 (flash_skipped).
     v0.8  2026-11-11  Task 16: remote control (command 29, every build from tabby-v04.2): remote_status(),
                       select_song(), play_song(), stop_song(), jump(), set_a2(), key(), press() / hold() /
@@ -269,7 +271,34 @@ class Link:
             raise DeviceError(-1)
         return {"page": d[1], "page_name": self.PAGES.get(d[1], str(d[1])), "song_state": d[2], "loaded": d[3],
                 "row": d[4], "queued": d[5], "a2": d[6], "shift": d[7], "transport": d[8], "bar": d[9] | d[10] << 8,
-                "action": d[11], "follow": d[12] if len(d) > 12 else 0}
+                "action": d[11], "follow": d[12] if len(d) > 12 else 0,
+                "clock": d[13] if len(d) > 13 else None, "push_hold": d[14] if len(d) > 14 else None}
+
+    def push_hold(self, on):
+        """v0.10: remote op 8 (tabby-v04.4): the USB push hold."""
+        return self.remote(8, 1 if on else 0)
+
+    def set_clock(self, midi):
+        """v0.10: remote op 9 (tabby-v04.4): CLOCK = INT (False) or MIDI (True), as K1 on SYNC / MIDI."""
+        return self.remote(9, 1 if midi else 0)
+
+    def show_page(self, name):
+        """v0.10: bring the device to a page by remote panel keys: "overview", "steps" (SYNC / MIDI, SEQ) or
+        "actions" (SEQ + EDIT). Returns the status; raises if the page did not come."""
+        want = {"overview": "OVERVIEW", "steps": "STEPS", "actions": "ACTIONS"}[name]
+        for _ in range(4):                                  # HOME from the overview opens the project list: press until it is the overview
+            s = self.remote_status()
+            if s["page_name"] == "OVERVIEW":
+                break
+            self.press("HOME"); time.sleep(0.3)
+        if name == "steps":
+            self.press("SEQ"); time.sleep(0.4)
+        elif name == "actions":
+            self.hold(["SEQ", "EDIT"], 0.15); time.sleep(0.4)
+        s = self.remote_status()
+        if s["page_name"] != want:
+            raise RuntimeError("page %s wanted, the device shows %s" % (want, s["page_name"]))
+        return s
 
     def remote_status(self):
         return self.remote(0)
@@ -350,6 +379,18 @@ class Link:
         return {"on": v[0], "blocks": v[1], "calls": v[2], "mean_us": us(v[3]), "max_us": us(v[4]), "retries": v[5],
                 "bins": list(v[6:12]), "calls_per_second": v[2] * 44118.0 / (v[1] * 128.0) if v[1] else 0.0,
                 "flash_skipped": struct.unpack_from("<I", p, 48)[0] if len(p) == 52 else None}
+
+    def fg(self):
+        """v0.10: command 25 request 10 (tabby-v04.4): the F + G page, or None when the firmware has none."""
+        try:
+            p = self.query(25, bytes([10]), attempts=1)
+        except (DeviceError, TimeoutError):
+            return None
+        if len(p) != 56:
+            return None
+        v = struct.unpack("<14I", p)
+        return {"running": v[0], "timer_ticks": v[1], "sent": v[2], "late_max_ms": v[3] / 24000.0,
+                "late_bins": list(v[4:10]), "block_ticks": v[10], "period_ticks": v[11], "live": v[12]}
 
     def health(self):
         """v0.6: commands 17, 18, 19 (read only): the audio counters that show a dropout or CPU GUARD."""

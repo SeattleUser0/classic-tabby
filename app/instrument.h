@@ -386,6 +386,22 @@ FM1_DSP_CODE void groove_midi_transport(unsigned owner, uint8_t status);
  * per-track output-channel override (NULL or all zero = device settings). */
 FM1_DSP_CODE void groove_midi_song_note(unsigned track, unsigned note, unsigned velocity);
 FM1_DSP_CODE void groove_midi_song_event(unsigned channel, unsigned status, unsigned a, unsigned b); /* Task 04: row events */
+/* Task 17 (G): the events queued after this call are due num / den of a block after the block's start
+ * (app/midi_router.c, F + G). A build without option A2 has no due times. (The host tests and the web
+ * simulator always build the A2 code: app/diag.h defines CT_A2 for them; the same rule here, because
+ * this header is read first.) */
+#if defined(FM1_HOST_TEST) && !defined(CT_A2)
+#define CT_A2 1
+#endif
+#ifdef CT_A2
+FM1_DSP_CODE void groove_midi_at(unsigned num, unsigned den);
+FM1_DSP_CODE void groove_midi_immediate(void);   /* the events queued after this call leave with the next pass (no look-ahead) */
+FM1_DSP_CODE unsigned groove_midi_live(void);    /* 1 while this block's events get the look-ahead of one block */
+#else
+#define groove_midi_at(num, den) ((void)0)
+#define groove_midi_immediate() ((void)0)
+#define groove_midi_live() 0U
+#endif
 void groove_midi_song_channels(const uint8_t *channels);
 unsigned groove_midi_song_track_channel(unsigned track); /* Task 06: the resolved output channel 0..15 */
 FM1_DSP_CODE void groove_midi_clock(unsigned owner, unsigned tempo);

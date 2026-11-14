@@ -1100,7 +1100,7 @@ main{max-width:1440px}
   async function checkDeviceSamples(afterUpdate=false){
     if(busy||finishingUpdate&&!afterUpdate)return;
     updateResult=afterUpdate?'ready':'checked';
-    status(afterUpdate?'Firmware ready.':'Device ready.',100);enable();
+    status(afterUpdate?'Firmware ready.'+(updater?.clockNote||''):'Device ready.',100);enable();   /* Task 17: the CLOCK note */
   }
   async function refreshLibrary(initial=false) {
     libraryReady=false;

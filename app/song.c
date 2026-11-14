@@ -209,6 +209,7 @@ static volatile uint32_t ext_resume_at;
 static int32_t ext_frac;
 static uint32_t ext_block_no, ext_seen, ext_last_block, ext_ref_pulses, ext_ref_master, ext_period_q8 = 7U * 256U, ext_adv;
 static unsigned ext_stay_state, ext_use_adv;
+static unsigned ext_first;   /* Task 17: the block that begins to run after a Start / Continue / relock: its events get no look-ahead */
 
 static FM1_AUDIO_CODE void barrier(void)
 {
@@ -612,6 +613,9 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
     }
     for (unsigned k = 0; k < action_count; ++k) {
         const struct action *a = &actions[k];
+        /* Task 17 (G): the action's place in the block's window is its due time; the first block of a
+         * follow song after the master's first pulse is sent at once. */
+        if (ext_first) groove_midi_immediate(); else groove_midi_at(a->at, adv);
         if (a->kind == 2) note_on(a->buf, a->track, a->step, a->index, a->at);
         else if (a->kind == 1) {
             if (a->track == SONG_NONE) { if (!song_switch(snext, sbd, a->at)) return; }
@@ -624,9 +628,10 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
     /* Notes started in this window that also end in it, then the window moves on. */
     for (unsigned t = 0; t < SONG_TRACKS; ++t)
         for (unsigned i = 0; i < sounding_count[t];) {
-            if (sounding[t][i].remaining < adv) note_off(t, i);
+            if (sounding[t][i].remaining < adv) { if (!ext_first) groove_midi_at(sounding[t][i].remaining, adv); note_off(t, i); }
             else { sounding[t][i].remaining -= adv; ++i; }
         }
+    groove_midi_at(0, 0); ext_first = 0;
     master = m1;
 }
 
@@ -691,11 +696,11 @@ static FM1_AUDIO_CODE int ext_block(unsigned *tempo)
     if (ext_state == EXT_LOST) { ext_seen = pulses; ext_last_block = ext_block_no; return 0; }
     if (ext_state == EXT_WAIT) {
         if (pulses < ext_ref_pulses) return 0;           /* the first pulse after the message has not come */
-        ext_state = EXT_RUN; ext_last_block = ext_block_no; ext_seen = pulses; ext_frac = 0; newp = 0;
+        ext_state = EXT_RUN; ext_last_block = ext_block_no; ext_seen = pulses; ext_frac = 0; newp = 0; ext_first = 1;
     } else if (newp) {
         uint32_t gap = ext_block_no - ext_last_block;
         if (ext_state == EXT_HELD) {                    /* pulses are back inside the 2 s: relock, go on from the hold */
-            ext_state = EXT_RUN; ext_ref_pulses = pulses; ext_ref_master = master; ext_frac = 0;
+            ext_state = EXT_RUN; ext_ref_pulses = pulses; ext_ref_master = master; ext_frac = 0; ext_first = 1;
         } else {
             uint32_t per = (gap << 8) / newp;
             if (per >= 2U * 256U && per <= 60U * 256U) ext_period_q8 = (uint32_t)((int32_t)ext_period_q8 + ((int32_t)per - (int32_t)ext_period_q8) / 8);
@@ -707,12 +712,17 @@ static FM1_AUDIO_CODE int ext_block(unsigned *tempo)
         if (ext_state == EXT_HELD && gap >= EXT_RELOCK_BLOCKS) ext_state = EXT_LOST;
         if (ext_state != EXT_RUN) return 0;
     }
-    /* RUN: the predicted position and the advance toward it. */
+    /* RUN: the predicted position and the advance toward it. Task 17 (G): while the MIDI out has the
+     * look-ahead of one block (app/midi_router.c), the song runs one block ahead of the pulses, so a
+     * note leaves at its pulse and not a block after it; the block that begins the run starts ahead
+     * and sends its events at once (ext_first). */
+    uint32_t ahead = groove_midi_live() ? (256U * EXT_PULSE_UNITS) / ext_period_q8 : 0U;   /* units in one block */
     uint32_t frac = ((ext_block_no - ext_last_block) * 256U * EXT_PULSE_UNITS) / ext_period_q8;
     if (frac > EXT_PULSE_UNITS - 1U) frac = EXT_PULSE_UNITS - 1U;
-    int32_t pred = (int32_t)(ext_ref_master + (pulses - ext_ref_pulses) * EXT_PULSE_UNITS + frac);
+    int32_t pred = (int32_t)(ext_ref_master + (pulses - ext_ref_pulses) * EXT_PULSE_UNITS + frac + ahead);
     int32_t err = pred - (int32_t)master;
     int32_t q8 = (int32_t)((EXT_PULSE_UNITS << 16) / ext_period_q8) + err * 64;   /* nominal + a quarter of the error, units x 256 */
+    if (ext_first) q8 = (int32_t)((EXT_PULSE_UNITS << 16) / ext_period_q8) + (int32_t)ahead * 256;   /* start ahead in one step */
     ext_frac += q8;
     int32_t adv = ext_frac >> 8;
     ext_frac -= adv * 256;

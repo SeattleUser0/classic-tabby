@@ -13,6 +13,9 @@ static struct fm1_audio_stats statistics;
 static uint32_t block_ticks, previous_tick;
 static uint8_t initialized, previous_valid;
 static volatile unsigned mute_depth;
+#ifdef CT_A2
+extern volatile uint32_t ct_fg_irq_ticks;   /* app/midi_router.c */
+#endif
 
 static inline __attribute__((always_inline)) uint32_t elapsed(uint32_t start, uint32_t end)
 {
@@ -30,6 +33,9 @@ FM1_AUDIO_CODE __attribute__((interrupt(""))) void fm1_audio_irq(void)
     unsigned rx = pending & 1U;
     uint32_t start = FM1_AUDIO_TIMER_COUNT, interval, used;
     unsigned half, committed = 0;
+#ifdef CT_A2
+    ct_fg_irq_ticks = *(volatile uint32_t *)0x10804U;   /* Task 17: TIMER4 (24 MHz) at the block's interrupt, for the MIDI due times */
+#endif
     fm1_audio_ack(pending);
     if (!rx || mute_depth) return;
     if (!previous_valid) { previous_tick = start; previous_valid = 1; return; }

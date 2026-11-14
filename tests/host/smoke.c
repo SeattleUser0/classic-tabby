@@ -44,9 +44,12 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.16
+ * Version: 0.17
  *
  * Revision log
+ *   v0.17 2026-11-13  Task 17: section 19, options F + G (due times, the timer tick, the fallback to A2, lateness
+ *                     counters, a song with F + G off and on) and the USB push hold (remote op 8); the remote status
+ *                     is 15 bytes.
  *   v0.16 2026-11-12  Task 16: USB pusher checks in section 17.
  *   v0.15 2026-11-12  Task 16: flash guard checks in section 17 (an audio block inside every flash operation).
  *   v0.14 2026-11-12  Task 16 Goal 3: section 18, external clock follow: arm, Start, the first pulse, the step-4 note
@@ -120,6 +123,8 @@ void sim_test_inject(int band);
 void sim_test_request_passes(unsigned on);
 extern uint32_t sim_test_control_requests;
 int ct_diag_read(unsigned request, uint8_t out[64]);
+void ct_fg_tick(void); void ct_fg_test(unsigned on); uint32_t ct_diag_ticks(void);   /* Task 17 */
+void sim_test_pass(void);
 unsigned ct_a2_get(void);
 void sim_control(unsigned kind, unsigned index, int value);
 void sim_release(void);
@@ -1418,18 +1423,18 @@ int main(void)
         { uint8_t a[64]; (void)ct_diag_read(9, a); }   /* section 16 left A2 off; the device boots with it on */
         { struct message m[64]; (void)drain(m, 64); }
         int n = RCMD(29, 0);
-        CHECK(n == 14 && reply[0] == 0 && reply[1] == 1 && reply[2] == 0 && reply[3] == 0 && reply[4] == 255 && reply[5] == 255 && reply[7] == 1,
+        CHECK(n == 16 && reply[0] == 0 && reply[1] == 1 && reply[2] == 0 && reply[3] == 0 && reply[4] == 255 && reply[5] == 255 && reply[7] == 1,
               "remote: status at boot: version 1, page OVERVIEW, stopped, nothing loaded (%d bytes: %u %u %u %u %u %u %u)", n, reply[0], reply[1], reply[2], reply[3], reply[4], reply[5], reply[7]);
         { uint8_t caps[96]; int k = rcmd(27, (const uint8_t[]){0}, 0, caps); (void)k;
           CHECK(k >= 8 && (caps[2] & 4U), "remote: capability flag bit 2 (command 29) is set"); }
         /* A2 */
-        n = RCMD(29, 5, 0); CHECK(n == 14 && reply[0] == 0 && reply[7] == 0 && !ct_a2_get(), "remote: A2 off");
-        n = RCMD(29, 5, 1); CHECK(n == 14 && reply[7] == 1 && ct_a2_get(), "remote: A2 on");
+        n = RCMD(29, 5, 0); CHECK(n == 16 && reply[0] == 0 && reply[7] == 0 && !ct_a2_get(), "remote: A2 off");
+        n = RCMD(29, 5, 1); CHECK(n == 16 && reply[7] == 1 && ct_a2_get(), "remote: A2 on");
         CHECK(RCMD(29, 5, 2) >= 0 && reply[0] != 0, "remote: A2 value 2 refused (code %u)", reply[0]);
         /* A key press and release: the note leaves on the MIDI out, the release ends it. */
         { struct message m[64]; unsigned np;
           rc_n = 0; n = RCMD(29, 6, 1, 0, 100); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
-          CHECK(n == 14 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
+          CHECK(n == 16 && reply[0] == 0 && any_on(m, np, 100), "remote: key 1 press sends a note-on with velocity 100 on the keyboard track (reply %u, %u messages)", reply[0], np);
           rc_n = 0; n = RCMD(29, 6, 1, 0, 0); settle(); np = drain(m, 64); for (unsigned i = 0; i < np && i < 64 && rc_n < 128; ++i) rc_log[rc_n++] = m[i]; np = rc_n > 64 ? 64 : rc_n; memcpy(m, rc_log, np * sizeof m[0]);
           CHECK(reply[0] == 0 && (any_off(m, np)), "remote: key 1 release ends it"); }
         { struct message m[64]; unsigned np;   /* the last key (36): 37 keys do not fit a 32-bit mask */
@@ -1484,7 +1489,7 @@ int main(void)
             extern volatile uint8_t ct_flash_busy;
             CHECK(ct_flash_busy == 0, "flash guard: the flag is clear after the save"); }
           CHECK(groove_clock_mode() == 1 && ct_a2_get(), "remote: SEQ then K1 up sets CLOCK = MIDI (mode %u), A2 still on", groove_clock_mode());
-          n = RCMD(29, 0); CHECK(n == 14 && reply[0] == 0, "remote: the status still answers with CLOCK = MIDI");
+          n = RCMD(29, 0); CHECK(n == 16 && reply[0] == 0, "remote: the status still answers with CLOCK = MIDI");
           /* The USB pusher (BUILD 35): with no clock going out on USB, the four passes after a USB write each send one 0xF9
            * on USB, so the SDK transmits the reply; nothing on DIN or Bluetooth, and no more than four. */
           { unsigned f9[3] = {0, 0, 0}, nm; struct message m[64];
@@ -1513,20 +1518,20 @@ int main(void)
           memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "REMOTE      ", 12); f[40] = 2; f[48] = 5;
           f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;
           CHECK(sim_song_record_write(0) == 0, "remote: test song stored"); }
-        n = RCMD(29, 1, 0); CHECK(n == 14 && reply[0] == 0 && reply[4] == 0 && reply[3] == 0, "remote: select song 1 loads it (loaded %u)", reply[4]);
+        n = RCMD(29, 1, 0); CHECK(n == 16 && reply[0] == 0 && reply[4] == 0 && reply[3] == 0, "remote: select song 1 loads it (loaded %u)", reply[4]);
         n = RCMD(29, 1, 7); CHECK(n >= 0 && reply[0] != 0, "remote: select an empty song is refused (code %u)", reply[0]);
         n = RCMD(29, 4, 1); CHECK(n >= 0 && reply[0] == 71, "remote: a jump while stopped is refused");
         n = RCMD(29, 1, 0);   /* a refused select of an empty song leaves nothing loaded; load song 1 again */
-        n = RCMD(29, 2); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); n = RCMD(29, 0); CHECK(n == 14 && reply[0] == 0 && reply[3] == 1 && reply[9] == 1, "remote: PLAY starts the loaded song (state %u, transport %u, code %u, loaded %u)", reply[3], reply[9], reply[0], reply[4]);
+        n = RCMD(29, 2); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); n = RCMD(29, 0); CHECK(n == 16 && reply[0] == 0 && reply[3] == 1 && reply[9] == 1, "remote: PLAY starts the loaded song (state %u, transport %u, code %u, loaded %u)", reply[3], reply[9], reply[0], reply[4]);
         for (unsigned i = 0; i < 20; ++i) (void)sim_render();
         n = RCMD(29, 2); CHECK(n >= 0 && reply[0] != 0, "remote: PLAY while playing is refused");
-        n = RCMD(29, 4, 1); CHECK(n == 14 && reply[0] == 0 && reply[6] == 1, "remote: jump to row 2 is queued (queued %u)", reply[6]);
+        n = RCMD(29, 4, 1); CHECK(n == 16 && reply[0] == 0 && reply[6] == 1, "remote: jump to row 2 is queued (queued %u)", reply[6]);
         { uint8_t save[96]; int k = rcmd(7, (const uint8_t[]){0}, 0, save); (void)k;
           CHECK(save[0] != 0, "remote: project save refuses while playing (code %u)", save[0]); }
-        n = RCMD(29, 3); CHECK(n == 14 && reply[0] == 0, "remote: STOP");
+        n = RCMD(29, 3); CHECK(n == 16 && reply[0] == 0, "remote: STOP");
         for (unsigned i = 0; i < 200; ++i) (void)sim_render();
         n = RCMD(29, 0); CHECK(reply[3] == 0 && reply[9] == 0, "remote: stopped and no transport after STOP (%u, %u)", reply[3], reply[9]);
-        n = RCMD(29, 2, 0); CHECK(n == 14 && reply[0] == 0 && reply[3] == 1, "remote: PLAY with a song number loads and plays it");
+        n = RCMD(29, 2, 0); CHECK(n == 16 && reply[0] == 0 && reply[3] == 1, "remote: PLAY with a song number loads and plays it");
         n = RCMD(29, 3); for (unsigned i = 0; i < 200; ++i) (void)sim_render();
         #undef RCMD
         #undef STATUS_PAGE
@@ -1703,6 +1708,185 @@ int main(void)
         #undef BLOCK_RUN
         #undef BLOCK_SILENT
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
+    }
+
+    /* ---- 19. Task 17: options F + G (the timer and the look-ahead), and the USB push hold ------------ */
+    {
+        extern uint32_t ct_test_ticks_extra;
+        void groove_clock_set(unsigned mode);
+        void groove_midi_at(unsigned num, unsigned den);
+        enum { PERIOD = 12000, LEAD = 6000 };
+        /* The diag clock is fm1_millis() * 24000 + ct_test_ticks_extra: the test sets the time it wants. */
+        #define SET_NOW(x) (ct_test_ticks_extra += (uint32_t)(x) - ct_diag_ticks())
+        #define HAS(note) (count(m, n, 0x90, (note), 100, &ports) >= 1)
+        uint8_t pg[64], a2[64], reply[96]; struct message m[64]; unsigned n, ports;
+        sim_boot(1); sim_midi_capture(1); sim_test_request_passes(0); sim_test_costs(0, 0); sim_midi_drain(0);
+        (void)ct_diag_read(9, a2); settle(); (void)drain(m, 64);
+        CHECK(ct_diag_read(10, pg) == 56 && PG32(pg, 0) == 0 && PG32(pg, 12) == 0 && PG32(pg, 11) == PERIOD,
+              "F+G: the page is 56 bytes; not running in the host build until the test starts it");
+        ct_fg_test(1);
+        /* A block after a timer tick is live: its events are due one block after its start. */
+        ct_fg_tick();
+        uint32_t tb = ct_diag_ticks();
+        (void)sim_render(); (void)ct_diag_read(10, pg);
+        uint32_t len = PG32(pg, 10), due = tb + len;
+        CHECK(PG32(pg, 0) == 1 && PG32(pg, 12) == 1 && len > 60000 && len < 80000, "F+G: running and live after a timer tick (block %u ticks)", len);
+        SET_NOW(due + PERIOD); sim_test_pass(); (void)drain(m, 64);          /* empty the lanes (the clock's F8) */
+        groove_midi_song_note(0, 70, 100);                                     /* stamped with the block's base: due */
+        SET_NOW(due - LEAD - 1);
+        uint32_t asked = sim_test_control_requests;
+        ct_fg_tick(); sim_test_pass(); n = drain(m, 64);
+        CHECK(sim_test_control_requests == asked && !HAS(70), "F+G: before its due time (less the lead) the timer asks for no pass and a pass leaves the note (%u requests)", sim_test_control_requests - asked);
+        SET_NOW(due - LEAD);
+        (void)ct_diag_read(7, a2); uint32_t retries0 = PG32(a2, 5);
+        ct_fg_tick(); ct_fg_tick(); (void)ct_diag_read(7, a2);
+        CHECK(sim_test_control_requests == asked + 2 && PG32(a2, 5) == retries0 + 1, "F+G: at the due time the timer asks; a request that got no pass is repeated by the next tick (%u requests, %u retry)", sim_test_control_requests - asked, PG32(a2, 5) - retries0);
+        sim_test_pass(); n = drain(m, 64); (void)ct_diag_read(10, pg);
+        CHECK(HAS(70) && PG32(pg, 2) >= 1 && PG32(pg, 4) >= 1, "F+G: the pass sends the due note (%u sent with a due time)", PG32(pg, 2));
+        asked = sim_test_control_requests; ct_fg_tick();
+        CHECK(sim_test_control_requests == asked, "F+G: nothing waiting, the timer asks for nothing");
+        groove_midi_song_note(0, 70, 0); SET_NOW(due + PERIOD); sim_test_pass(); (void)drain(m, 64);
+        /* Places inside the block: a quarter and three quarters of a block after the base; the order is kept. */
+        ct_fg_tick(); tb = ct_diag_ticks(); (void)sim_render(); (void)ct_diag_read(10, pg); len = PG32(pg, 10); due = tb + len;
+        SET_NOW(due + PERIOD); sim_test_pass(); (void)drain(m, 64);
+        groove_midi_at(1, 4); groove_midi_song_note(0, 71, 100);
+        groove_midi_at(3, 4); groove_midi_song_note(0, 72, 100);
+        groove_midi_at(0, 0);
+        uint32_t due_a = due + (uint32_t)((uint64_t)len * 1 / 4), due_b = due + (uint32_t)((uint64_t)len * 3 / 4);
+        SET_NOW(due_a - LEAD - 1); sim_test_pass(); n = drain(m, 64);
+        unsigned early = HAS(71) || HAS(72);
+        SET_NOW(due_a - LEAD); sim_test_pass(); n = drain(m, 64);
+        unsigned a_only = HAS(71) && !HAS(72);
+        SET_NOW(due_b - LEAD - 1); sim_test_pass(); n = drain(m, 64);
+        unsigned b_early = HAS(72);
+        SET_NOW(due_b - LEAD); sim_test_pass(); n = drain(m, 64);
+        CHECK(!early && a_only && !b_early && HAS(72), "F+G: two notes at 1/4 and 3/4 of the block leave at their own due times, in order (%u %u %u %u)", early, a_only, b_early, HAS(72));
+        /* Lateness is counted: a note sent 1.25 ms after its due time is in the < 2 ms bin. */
+        (void)ct_diag_read(1, a2); sim_test_pass(); (void)drain(m, 64);
+        groove_midi_song_note(0, 73, 100);                                     /* due at the base again */
+        SET_NOW(due + 30000); sim_test_pass(); n = drain(m, 64); (void)ct_diag_read(10, pg);
+        CHECK(HAS(73) && PG32(pg, 7) == 1 && PG32(pg, 3) == 30000, "F+G: a note sent 1.25 ms late is counted (bin < 2 ms: %u, latest %u ticks)", PG32(pg, 7), PG32(pg, 3));
+        for (unsigned k = 70; k < 74; ++k) groove_midi_song_note(0, k, 0);
+        SET_NOW(due + 4 * PERIOD); sim_test_pass(); (void)drain(m, 64);
+        /* The timer stands still: the block is not live, no look-ahead, and the block asks itself (A2). */
+        sim_test_request_passes(1);
+        (void)sim_render(); (void)sim_render(); (void)drain(m, 64); (void)ct_diag_read(10, pg);
+        CHECK(PG32(pg, 12) == 0, "F+G: no timer tick since the last block: not live");
+        groove_midi_song_note(0, 74, 100); (void)sim_render(); n = drain(m, 64);
+        CHECK(HAS(74), "F+G: without the timer the block asks for the pass itself and the note leaves in that block (A2)");
+        groove_midi_song_note(0, 74, 0); settle(); (void)drain(m, 64);
+        /* A2 off: no look-ahead and no request, whatever the timer does. */
+        sim_test_request_passes(0); (void)ct_diag_read(8, a2);
+        ct_fg_tick(); (void)sim_render(); (void)ct_diag_read(10, pg); sim_test_pass(); (void)drain(m, 64);
+        groove_midi_song_note(0, 75, 100);
+        asked = sim_test_control_requests; ct_fg_tick(); sim_test_pass(); n = drain(m, 64);
+        CHECK(PG32(pg, 12) == 0 && sim_test_control_requests == asked && HAS(75), "F+G: with A2 off the note leaves with the next pass and the timer asks for nothing");
+        groove_midi_song_note(0, 75, 0); settle(); (void)drain(m, 64);
+        (void)ct_diag_read(9, a2);
+        /* The same song with F + G off and on: the same notes in the same order, none lost. */
+        { static uint8_t seq[2][600][3]; unsigned len2[2] = {0, 0};
+          for (unsigned run = 0; run < 2; ++run) {
+            sim_boot(1); sim_midi_capture(1); sim_test_costs(0, 0); sim_midi_drain(0); sim_test_request_passes(1);
+            ct_fg_test(run); (void)ct_diag_read(9, a2); ct_test_ticks_extra = 0;
+            uint8_t *f = sim_file(); uint8_t b1[76], b2[67]; memset(b1, 0, sizeof b1); memset(b2, 0, sizeof b2);
+            unsigned at = 0; b1[at++] = 1; b1[at++] = 60; b1[at++] = 100; b1[at++] = 2; at += 3; b1[at++] = 1; b1[at++] = 62; b1[at++] = 90; b1[at++] = 1;
+            b1[at++] = 2; b1[at++] = 65; b1[at++] = 80; b1[at++] = 1; b1[at++] = 67; b1[at++] = 70; b1[at++] = 3;
+            b2[0] = 1; b2[1] = 64; b2[2] = 80; b2[3] = 1;
+            memcpy(f, b1, sizeof b1); (void)sim_block_write(0, 1, sizeof b1);
+            memcpy(f, b2, sizeof b2); (void)sim_block_write(0, 2, sizeof b2);
+            memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "FG          ", 12); f[40] = 2; f[48] = 5;
+            f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 16; f[84] = 2; f[84 + 16] = 1; f[84 + 18] = 16;
+            (void)sim_song_record_write(0); (void)sim_song_load(0); settle(); (void)drain(m, 64);
+            (void)sim_song_play();
+            /* Run 1 keeps the device's time: a block every 69632 ticks, a timer tick every 12000, each at its own
+             * time (the simulator's millisecond clock is corrected before every block and tick). */
+            uint32_t t0 = ct_diag_ticks() + 100000U, next_tick = t0 + 3000U;
+            if (run) { SET_NOW(t0 - 1000U); ct_fg_tick(); }
+            for (unsigned b = 0; b < 1500; ++b) {
+                uint32_t tb2 = t0 + b * 69632U;
+                if (run) SET_NOW(tb2);
+                (void)sim_render();
+                while (run && (int32_t)(next_tick - (tb2 + 69632U)) < 0) {
+                    SET_NOW(next_tick); next_tick += PERIOD;
+                    uint32_t before = sim_test_control_requests; ct_fg_tick();
+                    if (sim_test_control_requests != before) sim_test_pass();
+                }
+                n = drain(m, 64);
+                for (unsigned i = 0; i < n; ++i) if (m[i].port == 0 && m[i].data[0] < 0xf0 && len2[run] < 600) { memcpy(seq[run][len2[run]], m[i].data, 3); ++len2[run]; }
+            }
+            if (run) { (void)ct_diag_read(10, pg);
+              /* (the simulator's own 10 ms pass runs with its millisecond clock up to 3 ms ahead, so "late" up to 3.3 ms here) */
+              CHECK(PG32(pg, 2) > 40 && PG32(pg, 9) == 0, "F+G: a song played with the timer: %u events sent at their due times, none 4 ms late (latest %u ticks)", PG32(pg, 2), PG32(pg, 3)); }
+            sim_song_stop(); settle(); (void)drain(m, 64);
+          }
+          CHECK(len2[0] >= 10 && len2[0] == len2[1] && !memcmp(seq[0], seq[1], (size_t)len2[0] * 3), "F+G: the song's notes are the same with F + G off and on (%u and %u messages on DIN)", len2[0], len2[1]);
+          if (memcmp(seq[0], seq[1], (size_t)len2[0] * 3)) for (unsigned i = 0; i < len2[0]; ++i) printf("     %02x %u %u | %02x %u %u\n", seq[0][i][0], seq[0][i][1], seq[0][i][2], seq[1][i][0], seq[1][i][1], seq[1][i][2]);
+          ct_fg_test(0); }
+        /* Clock follow with the look-ahead: the song runs one block ahead of the pulses (so its notes leave at their
+         * pulses, not a block later), and the first note after Start leaves in the block that saw the first pulse. */
+        { unsigned sim_song_units(void); int lead[2] = {0, 0}; unsigned first_block[2] = {999, 999};
+          for (unsigned run = 0; run < 2; ++run) {
+            sim_boot(1); sim_midi_capture(1); sim_test_costs(0, 0); sim_midi_drain(0); sim_test_request_passes(1);
+            ct_fg_test(run); (void)ct_diag_read(9, a2); ct_test_ticks_extra = 0;
+            uint8_t *f = sim_file(); uint8_t b1[67]; memset(b1, 0, sizeof b1); b1[0] = 1; b1[1] = 60; b1[2] = 100; b1[3] = 2;
+            memcpy(f, b1, sizeof b1); (void)sim_block_write(0, 1, sizeof b1);
+            memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "FGFOLLOW    ", 12); f[40] = 1; f[48] = 5;
+            f[64] = 1; f[64 + 16] = 1; f[64 + 18] = 64;
+            (void)sim_song_record_write(0); groove_clock_set(1); (void)sim_song_load(0); (void)sim_song_play(); settle(); (void)drain(m, 64);
+            uint32_t t0 = ct_diag_ticks() + 100000U, next_tick = t0 + 3000U;
+            double phase = 0, period = 861.328125 / 120.0; unsigned pulses = 0;
+            if (run) { SET_NOW(t0 - 1000U); ct_fg_tick(); }
+            sim_file()[0] = 0xfa; (void)sim_midi_from(0, 1);
+            for (unsigned b = 0; b < 300; ++b) {
+                uint32_t tb2 = t0 + b * 69632U;
+                if (run) SET_NOW(tb2);
+                phase += 1.0; if (phase >= period) { phase -= period; sim_file()[0] = 0xf8; (void)sim_midi_from(0, 1); ++pulses; }
+                (void)sim_render();
+                while (run && (int32_t)(next_tick - (tb2 + 69632U)) < 0) {
+                    SET_NOW(next_tick); next_tick += PERIOD;
+                    uint32_t before = sim_test_control_requests; ct_fg_tick();
+                    if (sim_test_control_requests != before) sim_test_pass();
+                }
+                n = drain(m, 64);
+                if (first_block[run] == 999 && pulses && count(m, n, 0x94, 60, 100, &ports)) first_block[run] = b;   /* the song's channel 5 */
+            }
+            /* where the pulses say the song is: 80 units a pulse from the first one, plus the part of a pulse since the last */
+            lead[run] = (int)sim_song_units() - (int)((pulses - 1U) * 80U + (unsigned)(phase / period * 80.0));
+            sim_song_stop(); groove_clock_set(0); settle(); (void)drain(m, 64);
+          }
+          ct_fg_test(0);
+          CHECK(first_block[0] != 999 && first_block[1] <= first_block[0] + 1, "F+G follow: the first note after Start leaves in the block of the first pulse, as without F + G (block %u and %u)", first_block[0], first_block[1]);
+          CHECK(lead[0] >= -12 && lead[0] <= 12 && lead[1] - lead[0] >= 6 && lead[1] - lead[0] <= 16, "F+G follow: the song runs one block (11 units at 120 BPM) ahead of the pulses (%d units without, %d with)", lead[0], lead[1]); }
+        /* The USB push hold (remote op 8): with CLOCK = MIDI every pass sends one 0xF9 on USB while it is held. */
+        { sim_boot(1); sim_midi_capture(1); sim_test_request_passes(1); sim_midi_drain(0); ct_test_ticks_extra = 0; settle();
+          groove_clock_set(1); settle(); (void)drain(m, 64);
+          rc_source = 1; rc_n = 0;
+          int k = rcmd(29, (const uint8_t[]){8, 1}, 2, reply);
+          CHECK(k == 16 && reply[0] == 0 && reply[14] == 1 && reply[15] == 1, "push hold: remote op 8 switches it on; the status reports CLOCK = MIDI and the hold (%d bytes, %u, %u)", k, reply[14], reply[15]);
+          for (unsigned i = 0; i < 60; ++i) (void)sim_render();
+          (void)drain(m, 64);
+          unsigned f9 = 0, other = 0;
+          for (unsigned r = 0; r < 4; ++r) { for (unsigned i = 0; i < 25; ++i) (void)sim_render(); n = drain(m, 64);
+            for (unsigned i = 0; i < n; ++i) { if (m[i].bytes == 1 && m[i].data[0] == 0xf9 && m[i].port == 1) ++f9; else ++other; } }
+          CHECK(f9 >= 20 && f9 <= 32 && other == 0, "push hold: one 0xF9 per control pass on USB only, nothing else (%u in 100 blocks, %u other)", f9, other);
+          k = rcmd(29, (const uint8_t[]){8, 0}, 2, reply);
+          for (unsigned i = 0; i < 60; ++i) (void)sim_render();
+          (void)drain(m, 64); f9 = 0;
+          for (unsigned i = 0; i < 100; ++i) (void)sim_render();
+          n = drain(m, 64); for (unsigned i = 0; i < n; ++i) if (m[i].data[0] == 0xf9) ++f9;
+          CHECK(k == 16 && reply[15] == 0 && f9 == 0, "push hold: switched off, no more 0xF9 (%u)", f9);
+          k = rcmd(29, (const uint8_t[]){8, 1}, 2, reply);
+          for (unsigned i = 0; i < 42000; ++i) { (void)sim_render(); if (i % 50 == 49) (void)drain(m, 64); }   /* 122 s */
+          f9 = 0; for (unsigned i = 0; i < 100; ++i) (void)sim_render();
+          n = drain(m, 64); for (unsigned i = 0; i < n; ++i) if (m[i].data[0] == 0xf9) ++f9;
+          rc_n = 0; k = rcmd(29, (const uint8_t[]){0}, 1, reply);
+          CHECK(f9 == 0 && k == 16 && reply[15] == 0, "push hold: it ends by itself after 120 s (%u bytes after, held %u)", f9, reply[15]);
+          k = rcmd(29, (const uint8_t[]){8, 2}, 2, reply);
+          CHECK(k >= 1 && reply[0] == 71, "push hold: value 2 refused (code %u)", reply[0]);
+          rc_source = 0; groove_clock_set(0); settle(); (void)drain(m, 64); }
+        #undef SET_NOW
+        #undef HAS
+        sim_test_request_passes(0); (void)sim_open(0);
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);
