@@ -430,6 +430,7 @@ midi-import-sim: web
 	$(T) $(NODE) tests/workbench/launch-sim.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/clips-sim.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/steps-sim.mjs build/web/simulator.wasm
+	$(T) $(NODE) tests/workbench/record-sim.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/wrong-room-sim.mjs build/web/simulator.wasm
 
 flash-budget:

@@ -233,6 +233,11 @@ static uint32_t clip_hold_ms;
  * 1 toggles that note on it), the length a new note gets. */
 static uint8_t step_bar, step_sel = 255, step_cursor, step_pitch = 60, step_velocity = 100, step_pads_toggle;
 static uint16_t step_length = 480;
+static uint8_t rec_lamp;   /* the recorder's state as the control pass last read it */
+static uint8_t rec_full_seen;
+static unsigned song_record_full_seen(void) { unsigned f = rec_full_seen; rec_full_seen = 0; return f; }
+enum { REC_ARMED_NOW = 1, REC_ON_NOW = 2 };   /* song_record_start */
+static uint32_t rec_full_until;   /* the clip's pad shows red until then: the event cap stopped a take (SPEC 14.2) */
 /* Mute for the song (docs/CONTROL-MAP.md 7): SHIFT + pad 9-16 toggles the mixer's mute as before and sets the
  * track's bit here to match; the bit holds the track's song notes back. A mute made on the MIX page, or one a
  * project comes with (tracks 6 and 7 of a new project), silences the internal sound only, as it always did: a song
@@ -848,7 +853,8 @@ static void leds(const struct groove_view *v, unsigned visible)
         | ((visible == STEPS || visible == ACTIONS) << SEQ)
         | ((v->playing != 0 || song_playing()) << PLAY) | ((visible == MIX) << GLO)
         | ((visible == FM_QUICK) << EDIT) | ((visible == TRACK_LAUNCH) << SCL)
-        | ((visible == PROJECT || visible == SOURCE || (visible == ACTIONS && action_confirm)) << SAVE);
+        | ((visible == PROJECT || visible == SOURCE || (visible == ACTIONS && action_confirm)) << SAVE)
+        | ((unsigned)(rec_lamp != 0) << REC);   /* Goal 6: lit while a take is armed or running */
     changed = bits ^ button_led_cache;
     for (unsigned key = 0; key < 14; ++key)
         if (changed & (1U << key)) fm1_led_set(key, (bits >> key) & 1U);
@@ -882,7 +888,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             struct song_status st; song_status_read(&st);
             sig = signature(sig, &st, sizeof st);
             sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24) + (song_follow_state() << 27);
-            sig = sig * 33U + clip_bank + ((unsigned)clip_select[track] << 3) + (track_muted(track) << 12);
+            sig = sig * 33U + clip_bank + ((unsigned)clip_select[track] << 3) + (track_muted(track) << 12) + ((unsigned)rec_lamp << 13);
             for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + mute_kind(t);   /* Task 16: the follow state */
         }
         if (visible == CLIP_STEPS) {
@@ -1016,6 +1022,8 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         text(104, 40, "T", 2, colors[track], BACK); number(118, 40, track + 1, 1, 2, colors[track], BACK);
         dim_text(150, 40, "BAR"); small_number(174, 40, st.playing ? st.bar + 1U : 0, 4, TEXT);
         if (mute_kind(track)) color_text(150, 52, mute_kind(track) == 2 ? "MUTED ALL" : "MUTED INT", mute_kind(track) == 2 ? AMBER : BLUE);
+        { struct song_edit_info ei; song_edit_info(&ei);
+          if (ei.recording && ei.track == track) color_text(8, 56, ei.recording == 2 ? "REC" : "REC ARMED", AMBER); }
         static const char *const words[] = {"SCENE", "CLIP", "STOP"};
         for (unsigned t = 0; t < SONG_TRACKS; ++t) {
             unsigned x = 8 + t * 29, state = st.track_state[t] & 3U, queue = (st.track_state[t] >> 2) & 3U;
@@ -1068,6 +1076,8 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         text(68, 40, "T", 2, colors[ei.track & 7U], BACK); number(82, 40, ei.track + 1, 1, 2, colors[ei.track & 7U], BACK);
         dim_text(106, 40, "CLIP"); small_number(134, 40, ei.place + 1U, 2, TEXT);
         color_text(160, 40, ei.dirty ? "UNSAVED" : "SAVED", ei.dirty ? AMBER : DIM);
+        if (ei.recording) color_text(8, 56, ei.recording == 2 ? "REC" : "REC ARMED", AMBER);
+        else dim_text(8, 56, ei.quantize ? "Q ON" : "Q OFF");
         dim_text(106, 52, "EVENTS"); small_number(146, 52, ei.events, 3, ei.events >= CLIP_V3_EVENTS_MAX ? AMBER : TEXT); dim_text(164, 52, "/512");
         unsigned bars = (ei.steps + 15U) / 16U;
         dim_text(8, 68, "BAR"); small_number(32, 68, step_bar + 1U, 1, ACCENT); dim_text(40, 68, "/"); small_number(46, 68, bars, 1, TEXT);
@@ -1722,6 +1732,12 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN)) + controls->encoders[1];
         if (paging) { unsigned was = step_bar; step_bar = (uint8_t)clamp((int)step_bar + paging, 0, (int)bars - 1); if (was != step_bar) step_sel = 255; }
         if (pressed & BUTTON(EDIT)) { page = TRACK_LAUNCH; goto controls_done; }
+        if (pressed & BUTTON(REC)) {   /* docs/CONTROL-MAP.md 13: a take into this clip; SHIFT + REC: input quantize */
+            if (smk37_shift()) { song_record_quantize(!ei.quantize); announce(ei.quantize ? "INPUT QUANTIZE OFF" : "INPUT QUANTIZE ON", now + 1500U); }
+            else if (ei.recording) { song_record_stop(); announce("REC STOPPED", now + 1500U); }
+            else { int r = song_record_start(); announce(r == REC_ON_NOW || r == REC_ARMED_NOW ? (song_playing() ? "REC WHEN THE CLIP LOOPS" : "REC ARMED - PLAY STARTS IT") : "CANNOT RECORD HERE", now + 2000U); }
+            cache->middle_cache = ~0U;
+        }
         if (pressed & BUTTON(SCL)) { step_pads_toggle = !step_pads_toggle; announce(step_pads_toggle ? "PADS TOGGLE THE NOTE" : "PADS SELECT A STEP", now + 1500U); }
         if (pressed & BUTTON(FX)) {
             unsigned re = smk37_shift(); int r = re ? song_edit_redo() : song_edit_undo();
@@ -1810,9 +1826,26 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         announce(groove_arp_enabled(track) ? "ARP ON / HOLD ARP FOR SETTINGS" : "ARP OFF / LIVE KEYS", now + 2000U);
     }
     if (pressed & BUTTON(REC)) {
-        /* Task 12 A2: no recording on the device in this version (Phase 5 brings it back). */
+        /* Goal 6 (docs/CONTROL-MAP.md 13): REC on the CLIPS and STEP pages records into the track's clip: the one open on
+         * the STEP page, else the selected one, else the one the track plays. SHIFT + REC switches input quantize.
+         * Elsewhere REC says where it works. */
         glo_down = 0;
-        announce("NO REC IN THIS VERSION", now + 1500U);
+        struct song_edit_info ei; song_edit_info(&ei);
+        if (page != TRACK_LAUNCH && page != CLIP_STEPS) announce("REC: ON THE CLIPS OR STEP PAGE", now + 2000U);
+        else if (smk37_shift()) { song_record_quantize(!ei.quantize); announce(ei.quantize ? "INPUT QUANTIZE OFF" : "INPUT QUANTIZE ON", now + 1500U); }
+        else if (ei.recording) { song_record_stop(); announce("REC STOPPED", now + 1500U); }
+        else {
+            int r = 0;
+            if (page == TRACK_LAUNCH) {
+                struct song_status st; song_status_read(&st);
+                unsigned place = clip_select[track] < SONG_CLIPS ? clip_select[track] : song_row_place(track, st.track_row[track]);
+                r = place < SONG_CLIPS ? song_edit_open(track, place) : SONG_EMPTY;
+            }
+            if (!r) r = song_record_start();
+            announce(r == REC_ON_NOW ? "RECORDING" : r == REC_ARMED_NOW ? (song_playing() ? "REC WHEN THE CLIP LOOPS" : "REC ARMED - PLAY STARTS IT")
+                     : r == SONG_BUSY ? "ANOTHER CLIP IS UNSAVED" : r == SONG_EDIT_SHARED ? "CLIP SHARED BY ANOTHER TRACK" : r == SONG_EMPTY ? "HOLD A PAD TO SELECT A CLIP FIRST" : "CANNOT RECORD HERE", now + 2000U);
+        }
+        cache->middle_cache = ~0U;
         goto controls_done;
     }
     if (page != ACTIONS)
@@ -2257,6 +2290,12 @@ static void groove_screen_control_body(void)
     }
     uint32_t now = fm1_millis(), key_down = controls.keys & ~previous_keys;
     if (song_edit_poll()) announce("CLIP SAVED", now + 2000U);   /* Goal 6: an unsaved clip, ten seconds after the song stopped */
+    { struct song_edit_info ei; song_edit_info(&ei);
+      if (rec_lamp == 1 && ei.recording == 2) announce("RECORDING", now + 1500U);
+      else if (rec_lamp == 2 && !ei.recording && !song_record_full_seen()) announce("REC STOPPED", now + 1500U);
+      rec_lamp = ei.recording;
+      /* SPEC 14.2: the cap stops the take: the message for 2 s, the REC lamp out, the clip's pad red once */
+      if (song_record_full()) { announce("CLIP FULL - 512 EVENTS - REC STOPPED", now + 2000U); rec_full_until = now + 400U; rec_full_seen = 1; } }
     if (notice && (int32_t)(now - notice_until) >= 0) notice = NULL;
     /* Task 03 a: first boot on the song-storage layout with V01 data still in the region. */
     static unsigned migration_seen;
@@ -2436,7 +2475,7 @@ unsigned ct_screen_steps_read(uint8_t *out)
 {
     struct song_edit_info ei; song_edit_info(&ei);
     const uint8_t *clip = song_edit_clip();
-    memset(out, 0, 55);
+    memset(out, 0, 57);
     out[0] = (uint8_t)page; out[1] = ei.track; out[2] = ei.place; out[3] = step_bar; out[4] = step_sel; out[5] = ei.dirty; out[6] = ei.undo; out[7] = ei.redo;
     out[8] = (uint8_t)ei.events; out[9] = (uint8_t)(ei.events >> 8); out[10] = step_pitch; out[11] = ei.steps; out[12] = ei.play_step; out[13] = step_pads_toggle;
     for (unsigned i = 0; i < 16; ++i) out[14 + i] = (uint8_t)(ei.active ? steps_pad_state(&ei, i) : 16U);
@@ -2449,7 +2488,8 @@ unsigned ct_screen_steps_read(uint8_t *out)
             q[0] = e.a; q[1] = e.b; q[2] = (uint8_t)start; q[3] = (uint8_t)(start >> 8); q[4] = (uint8_t)e.length; q[5] = (uint8_t)(e.length >> 8);
         }
     }
-    return 55;
+    out[55] = ei.recording; out[56] = ei.quantize;   /* tabby-v04.9: the recorder (0 off, 1 armed, 2 recording), input quantize */
+    return 57;
 }
 /* Goal 6: open the STEP page on a clip by remote command (as EDIT on the CLIPS page does). */
 int ct_screen_steps_open(unsigned t, unsigned place)
@@ -2504,6 +2544,10 @@ int smk37_screen_launch_color(unsigned pad, uint32_t *rgb)
         return 1;
     }
     unsigned code = clips_pad_state(&st, pad), kind = code & 7U, selected = code & 8U, muted = code & 16U, internal = code & 32U;
+    if (page == TRACK_LAUNCH && kind && (int32_t)(rec_full_until - fm1_millis()) > 0) {
+        struct song_edit_info ei; song_edit_info(&ei);
+        if (ei.active && ei.track == track && ei.place == clip_bank * 16U + pad) { *rgb = 0x300808; return 1; }   /* CLIP FULL: red once */
+    }
     if (kind == 0) *rgb = 0;
     else if (kind == 3) *rgb = phase ? 0x083008 : 0;
     else if (kind == 4) *rgb = phase ? 0x300808 : 0;

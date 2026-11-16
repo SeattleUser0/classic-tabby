@@ -5,6 +5,7 @@
  *   v0.2  2026-11-08  Task 12 A4: the router flushes here are ct_midi_flush() (no profile pass).
  *   v0.1  2026-11-08  Task 12 A2: SHIFT + the pad button no longer enters pad-step mode (the step
  *                     editor is gone); step_pads stays 0. */
+#include "song.h"
 #include "smk37_controls.h"
 #include "instrument.h"
 #include "diag.h"   /* Task 12 A4: ct_midi_flush */
@@ -36,6 +37,7 @@ static int send(unsigned status, unsigned a, unsigned b)
 {
     uint8_t bytes[3]={(uint8_t)status,(uint8_t)a,(uint8_t)b};
     size_t size=(status&0xf0)==0xd0?2:3;
+    song_record_in(0,status,a,b);   /* Goal 6: what the panel plays can be recorded */
     if(!groove_midi_local(bytes,size))return 0;
     smk37_controls_panic();
     return -1;

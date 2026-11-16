@@ -816,6 +816,7 @@ static void midi_received_body(unsigned source, const uint8_t *m, size_t n)
         if (!groove_midi_clock_accept(source, m[0])) return;
         taken = song_clock_in(m[0], n > 1 ? m[1] : 0, n > 2 ? m[2] : 0);   /* Task 16: a follow song takes the clock */
     }
+    if (m[0] >= 0x80 && m[0] < 0xf0) song_record_in(1, m[0], n > 1 ? m[1] : 0, n > 2 ? m[2] : 0);   /* Goal 6: incoming notes and controllers can be recorded */
     if (!taken) (void)fm1_midi_post(m, n);
     if (m[0] == 0xff) enqueue(2, 0, (config.flags | config.thru) & 7U, 0xff, 0, 0);
     if (((config.thru >> 3) & 3U) == source && m[0] != 0xff && (m[0] < 0xf0 || clock)) {

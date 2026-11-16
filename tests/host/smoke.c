@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.22
+ * Version: 0.23
  *
  * Revision log
+ *   v0.23 2026-11-16  Goal 6: section 24, recording at the event cap (SPEC 14.2).
  *   v0.22 2026-11-16  Goal 6: section 23, the clip editor (song_edit_*).
  *   v0.21 2026-11-14  Task 17 Goal 4: section 22, clip launching by place (place rows, taking a queue back).
  *   v0.20 2026-11-14  Task 17 Goal 3: section 21, song record version 3 (scenes, the clip table, the master cycle).
@@ -173,6 +174,7 @@ void sim_song_stop(void);
 int sim_song_jump(unsigned row);
 uint32_t sim_song_status(unsigned word);
 int sim_song_track(unsigned kind, unsigned track, unsigned row);   /* Task 06 */
+unsigned groove_midi_input_channel(unsigned track);   /* app/midi_router.c: the channel a track listens on (section 24) */
 unsigned sim_song_units(void);
 uint32_t sim_song_track_status(unsigned track);
 int sim_song_send_setup(void);
@@ -2274,6 +2276,52 @@ int main(void)
         song_edit_discard(); song_edit_info(&ei);
         CHECK(!ei.active && song_edit_open(0, 0) == 0 && clip_v3_note_find(song_edit_clip(), 0, 61) < 0 && clip_v3_note_find(song_edit_clip(), 8, 65) >= 0, "editor: a discard gives the stored clip back");
         song_edit_discard();
+        sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
+    }
+
+    /* ---- 24. Goal 6: recording at the event cap (SPEC 14.2): events plus held notes below the cap; at the cap the
+     *          take stops, held notes are written into their reserved places, nothing in the clip is lost ---- */
+    {
+        sim_boot(1); sim_midi_capture(1); sim_midi_drain(1); sim_test_request_passes(1);
+        uint8_t *f = sim_file(); const unsigned SONG = 7;
+        uint8_t b[64]; memset(b, 0, sizeof b);
+        memcpy(f, b, sizeof b); CHECK(sim_block_write2(SONG, 1, 1, sizeof b) == 0, "record: an empty block stored");
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 3; memcpy(f + 24, "RECORD CAP  ", 12); f[40] = 1; f[48] = 1;
+        memset(f + 2624, 0xff, 4096 - 2624); memset(f + 2624, 0, 8); f[2626] = 1;
+        f[64] = 1; f[1088] = 1; f[1088 + 8] = 1; f[1088 + 9] = 1; f[1088 + 10] = 64;   /* T1 place 1, one scene of 64 steps, loops */
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0 && song_edit_open(0, 0) == 0, "record: the song loaded, the clip open");
+        unsigned made = 0;
+        for (unsigned s2 = 0; s2 < 64 && made < 509; ++s2) for (unsigned k = 0; k < 8 && made < 509; ++k) if (song_edit_note_toggle(s2, 30 + k, 100, 240) == 1) ++made;
+        struct song_edit_info ei; song_edit_info(&ei);
+        CHECK(made == 509 && ei.events == 509, "record: the clip holds 509 events");
+        CHECK(song_record_start() == 1, "record: armed while stopped (the clip is reserved)");
+        (void)sim_song_play();
+        for (unsigned i = 0; i < 40; ++i) (void)sim_render();
+        song_edit_info(&ei);
+        CHECK(ei.recording == 2, "record: PLAY starts the take (%u)", ei.recording);
+        unsigned ch = groove_midi_input_channel(0);
+        /* three keys go down and stay down: 509 + 3 held = 512, the cap; a fourth note-on must stop the take */
+        for (unsigned k = 0; k < 3; ++k) { song_record_in(1, 0x90 | ch, 90 + k, 100); for (unsigned i = 0; i < 8; ++i) (void)sim_render(); }
+        song_edit_info(&ei);
+        CHECK(ei.recording == 2 && ei.events == 509 && song_record_full() == 0, "record: three held notes are accepted: their places are reserved, the take runs");
+        song_record_in(1, 0xb0 | ch, 74, 50); for (unsigned i = 0; i < 8; ++i) (void)sim_render();
+        song_edit_info(&ei);
+        unsigned full = song_record_full();
+        (void)full;   /* the screen's control pass has read the flag by now and shows CLIP FULL - 512 EVENTS - REC STOPPED */
+        CHECK(ei.recording == 0 && ei.events == 512 && clip_v3_validate(song_edit_clip(), clip_v3_bytes(song_edit_clip())) == 0,
+              "record: the next event meets the cap: the take stops, the three held notes are written, the clip holds 512 valid events (%u, full %u, %u events)", ei.recording, full, ei.events);
+        CHECK(clip_v3_note_find(song_edit_clip(), 0, 90) >= 0 || clip_v3_note_find(song_edit_clip(), 1, 90) >= 0 || clip_v3_note_find(song_edit_clip(), 2, 90) >= 0, "record: a held note is in the clip");
+        { unsigned cc = 0; for (unsigned i = 0; i < clip_v3_count(song_edit_clip()); ++i) { struct clip_v3_event e; clip_v3_event(song_edit_clip(), i, &e); if (e.kind == CLIP_V3_CC) ++cc; }
+          CHECK(cc == 0 && clip_v3_note_find(song_edit_clip(), 0, 30) >= 0, "record: the event that met the cap is not in the clip; what was there is still there"); }
+        song_record_in(1, 0x90 | ch, 99, 100); for (unsigned i = 0; i < 8; ++i) (void)sim_render();
+        song_edit_info(&ei);
+        CHECK(ei.events == 512 && ei.undo >= 1, "record: after the stop nothing more is taken; undo holds the clip before the take (%u levels)", ei.undo);
+        CHECK(song_edit_undo() == 0, "record: undo");
+        song_edit_info(&ei);
+        CHECK(ei.events == 509, "record: the clip before the take (%u events)", ei.events);
+        CHECK(song_edit_note_toggle(63, 127, 100, 240) == 1 && song_edit_note_toggle(63, 126, 100, 240) == 1 && song_edit_note_toggle(63, 125, 100, 240) == 1 && song_edit_note_toggle(63, 124, 100, 240) == SONG_FULL,
+              "record: step entry into a full clip is refused (CLIP FULL) and changes nothing");
+        sim_song_stop(); settle(); song_edit_discard();
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

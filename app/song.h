@@ -94,6 +94,8 @@ struct song_edit_info {
     uint8_t play_step;                   /* the step the track plays in this clip now, SONG_NONE when it does not */
     uint16_t events, block;
     uint16_t revision;                   /* changes since power-up */
+    uint8_t recording;                   /* 0 off, 1 armed (waiting for the clip to loop on its track), 2 recording */
+    uint8_t quantize;                    /* input quantize: notes are recorded on the nearest step */
 };
 int song_edit_open(unsigned track, unsigned place);   /* 0, SONG_EMPTY (no clip), SONG_BUSY (another clip is unsaved), SONG_EDIT_SHARED */
 void song_edit_info(struct song_edit_info *out);
@@ -106,6 +108,13 @@ int song_edit_redo(void);
 int song_edit_save(void);                             /* SONG_BUSY while a transport runs */
 void song_edit_discard(void);
 int song_edit_poll(void);
+/* Goal 6, second step (tabby-v04.9): real-time recording into the open clip (SPEC 19.11). */
+int song_record_start(void);                          /* 2 recording, 1 armed, negative: no clip open / cannot launch */
+void song_record_stop(void);
+void song_record_quantize(unsigned on);
+unsigned song_record_full(void);                      /* 1 once after the event cap stopped a take */
+void song_record_poll(void);
+void song_record_in(unsigned source, unsigned status, unsigned a, unsigned b);   /* 0 panel, 1 MIDI in */
 int song_track_attach(unsigned track);                /* back to song */
 void song_track_attach_all(void);
 /* Audio thread, once per 128-frame block, from groove_midi_clock(0, tempo). song_tempo

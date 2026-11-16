@@ -184,6 +184,22 @@ static struct {
     uint16_t revision;                 /* counts the changes: the screen redraws on it */
 } edit;
 static uint8_t edit_refresh;           /* 1 + the track whose looping buffer should be decoded again */
+/* ---- Goal 6, second step (tabby-v04.9): real-time recording into the open clip (SPEC 14.2, 19.11) -------------
+ * Notes, controllers, pitch bend and channel pressure from the panel (queue 0, control task) and from MIDI in (queue
+ * 1, the SDK's MIDI task) are stamped with TIMER4 where they arrive and turned into clip positions when the control
+ * task drains them, from the block the audio thread published last (rec_block_*). */
+enum { REC_OFF = 0, REC_ARMED = 1, REC_ON = 2, REC_HELD = 16, REC_CONTROLLERS = 8, REC_QUEUE = 32, REC_TICKS_PER_BLOCK = 69660 };
+struct rec_event { uint8_t status, a, b; uint32_t ticks; };
+static struct rec_event rec_queue[2][REC_QUEUE];
+static volatile uint8_t rec_wr[2], rec_rd[2];
+static volatile uint32_t rec_block_master, rec_block_ticks, rec_block_adv, rec_block_seq;   /* audio -> control */
+static struct {
+    uint8_t state, quantize, full;     /* full: the cap stopped the take (the screen reads and clears it) */
+    uint8_t taken;                     /* something was written in this take */
+    struct { uint8_t used, pitch, velocity; int32_t time; uint32_t at; } held[REC_HELD];
+    /* Controller thinning (SPEC 14.2): per controller the last written value and time, one pending value. */
+    struct { uint8_t used, kind, number, has_pending, has_last; uint16_t last, pending; int32_t pending_time; uint32_t last_at, seen_at; } ctl[REC_CONTROLLERS];   /* a bend's value is lsb | msb << 7 */
+} rec = { .quantize = 1 };
 static volatile unsigned mute_mask;
 /* audio -> control */
 static volatile unsigned playing, cur, repeat, underruns, song_over;
@@ -674,6 +690,8 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
     if (ext_use_adv) adv = ext_adv;           /* Task 16: a follow song advances as the clock pulses say (ext_block) */
     else { acc += tempo * ADV_MUL; adv = acc / ADV_DIV; acc %= ADV_DIV; }
     uint32_t m0 = master, m1 = master + adv, bar = next_bar(m0), sbd;
+    /* Goal 6: where this block starts in time and in the song, for the recorder's stamps */
+    ++rec_block_seq; rec_block_master = m0; rec_block_ticks = ct_diag_ticks(); rec_block_adv = adv; ++rec_block_seq;
     unsigned snext = song_next(m0, &sbd);
     prefire(tempo, m0, sbd, snext);
     action_count = 0;
@@ -1365,7 +1383,8 @@ void song_edit_info(struct song_edit_info *out)
     out->play_step = SONG_NONE;
     if (!edit.active) return;
     out->active = 1; out->track = edit.track; out->place = edit.place; out->dirty = edit.dirty; out->steps = edit.steps;
-    out->undo = edit.undo; out->redo = edit.redo; out->block = edit.block; out->revision = edit.revision; out->events = (uint16_t)clip_v3_count(edit.clip);
+    out->undo = edit.undo; out->redo = edit.redo; out->block = edit.block; out->revision = edit.revision;
+    out->recording = rec.state; out->quantize = rec.quantize; out->events = (uint16_t)clip_v3_count(edit.clip);
     const struct track *k = &tr[edit.track];
     if (state == 1 && playing && !k->waiting && k->state != 2) {
         const struct trackbuf *b = &tbuf[edit.track][k->cur];
@@ -1435,6 +1454,7 @@ int song_edit_note_adjust(unsigned step, unsigned n, unsigned field, int delta)
 }
 int song_edit_undo(void)
 {
+    if (rec.state == REC_ON) return SONG_BUSY;                       /* not during a take (as on the MC-707) */
     if (!edit.active || !edit.undo) return SONG_EMPTY;
     edit_swap(edit.clip, edit.slot[--edit.undo]); ++edit.redo;
     edit.gesture = 0; edit_changed();
@@ -1442,6 +1462,7 @@ int song_edit_undo(void)
 }
 int song_edit_redo(void)
 {
+    if (rec.state == REC_ON) return SONG_BUSY;
     if (!edit.active || !edit.redo) return SONG_EMPTY;
     edit_swap(edit.clip, edit.slot[edit.undo++]); --edit.redo;
     edit.gesture = 0; edit_changed();
@@ -1462,15 +1483,196 @@ int song_edit_save(void)
 /* Give the edit up: the stored clip plays again. */
 void song_edit_discard(void)
 {
+    rec.state = REC_OFF;
     if (!edit.active) return;
     unsigned was = edit.dirty;
     edit.active = 0; edit.dirty = 0; edit.undo = edit.redo = 0;
     if (was) edit_refresh = (uint8_t)(1U + edit.track);
 }
+/* ---- the recorder (control task, except song_record_in) ---------------------------------------------------- */
+/* A channel voice message arrived: source 0 the panel (keys, pads, wheels, pedal; control task), 1 MIDI in (the
+ * SDK's MIDI task). Stamped here; one writer per queue. */
+void song_record_in(unsigned source, unsigned status, unsigned a, unsigned b)
+{
+    if (rec.state != REC_ON || source > 1 || status < 0x80 || status >= 0xf0) return;
+    unsigned w = rec_wr[source], next = (w + 1U) % REC_QUEUE;
+    if (next == rec_rd[source]) return;                              /* full: the event is not recorded */
+    struct rec_event *e = &rec_queue[source][w];
+    e->status = (uint8_t)status; e->a = (uint8_t)a; e->b = (uint8_t)b; e->ticks = ct_diag_ticks();
+    barrier();
+    rec_wr[source] = (uint8_t)next;
+}
+/* The master position (units) at TIMER4 time `ticks`, from the block the audio thread published last. */
+static uint32_t rec_units_at(uint32_t ticks)
+{
+    uint32_t m, t, adv, seq;
+    do { seq = rec_block_seq; m = rec_block_master; t = rec_block_ticks; adv = rec_block_adv; } while (seq != rec_block_seq || (seq & 1U));
+    int32_t d = (int32_t)(ticks - t);
+    if (d > 3 * REC_TICKS_PER_BLOCK) d = 3 * REC_TICKS_PER_BLOCK;      /* the host has no TIMER4: block resolution */
+    if (d < -16 * REC_TICKS_PER_BLOCK) d = -16 * REC_TICKS_PER_BLOCK;
+    int32_t u = (int32_t)(((int64_t)d * (int64_t)adv) / REC_TICKS_PER_BLOCK);
+    return (uint32_t)((int32_t)m + u);
+}
+/* Does the recording track play the open clip as a launched loop now? */
+static unsigned rec_track_plays(void)
+{
+    const struct track *k = &tr[edit.track];
+    const struct trackbuf *b = &tbuf[edit.track][k->cur];
+    return state == 1 && playing && edit.active && k->state == 1 && !k->waiting && b->ready && b->has_block && b->block == edit.block;
+}
+/* A master time as a time in the clip (units from its start; the last 240 units count as "just before the start"
+ * when the editor shows the whole clip, so that every time is one the format can hold). */
+static int32_t rec_clip_time(uint32_t units, unsigned quantize)
+{
+    const struct track *k = &tr[edit.track];
+    int32_t len = (int32_t)edit.steps * UNITS, p = (int32_t)(units - k->start) % len;
+    if (p < 0) p += len;
+    if (quantize) { p = (p + UNITS / 2) / UNITS * UNITS; if (p >= len) p = 0; }
+    if (p > len - HALF && edit.steps == clip_v3_steps(edit.clip)) p -= len;
+    return p;
+}
+static unsigned rec_held_count(void)
+{ unsigned n = 0; for (unsigned i = 0; i < REC_HELD; ++i) n += rec.held[i].used; return n; }
+static void rec_full(void) { rec.full = 1; rec.state = REC_OFF; }
+/* Write one event of the take. */
+static int rec_write(const struct clip_v3_event *v)
+{
+    int r = clip_v3_insert(edit.clip, v);
+    if (r == CLIP_V3_DUPLICATE && v->kind == CLIP_V3_NOTE) {         /* the same pitch on the same step: the new one replaces it */
+        int old = clip_v3_note_find(edit.clip, clip_v3_anchor(v->time), v->a);
+        if (old >= 0) { clip_v3_remove(edit.clip, (unsigned)old); r = clip_v3_insert(edit.clip, v); }
+    }
+    if (r >= 0) { rec.taken = 1; edit_changed(); }
+    return r;
+}
+static void rec_note_off(unsigned i, uint32_t units)
+{
+    uint32_t length = units - rec.held[i].at;
+    if ((int32_t)length < 1) length = 1;
+    if (length > 65535U) length = 65535U;
+    struct clip_v3_event v = { rec.held[i].time, CLIP_V3_NOTE, rec.held[i].pitch, rec.held[i].velocity, 1, (uint16_t)length };
+    rec.held[i].used = 0;
+    (void)rec_write(&v);                 /* its place was reserved at the note-on */
+}
+static void rec_controller_write(unsigned c, int32_t time, unsigned value, uint32_t units)
+{
+    rec.ctl[c].has_pending = 0;
+    if (rec.ctl[c].has_last && rec.ctl[c].last == value) return;       /* equal to the last written value: not written */
+    if (clip_v3_count(edit.clip) + rec_held_count() >= CLIP_V3_EVENTS_MAX) { rec_full(); return; }
+    unsigned kind = rec.ctl[c].kind;
+    struct clip_v3_event v = { time, (uint8_t)kind, (uint8_t)(kind == CLIP_V3_CC ? rec.ctl[c].number : kind == CLIP_V3_BEND ? (value & 127U) : value),
+                               (uint8_t)(kind == CLIP_V3_CC ? value : kind == CLIP_V3_BEND ? value >> 7 : 0), 0, 0 };
+    (void)rec_write(&v);
+    rec.ctl[c].last = (uint16_t)value; rec.ctl[c].has_last = 1; rec.ctl[c].last_at = units;
+}
+/* One drained event at master time `units`. */
+static void rec_event(const struct rec_event *e, uint32_t units)
+{
+    unsigned type = e->status & 0xf0U;
+    if ((e->status & 15U) != groove_midi_input_channel(edit.track)) return;
+    if (type == 0x90 && e->b) {
+        for (unsigned i = 0; i < REC_HELD; ++i) if (rec.held[i].used && rec.held[i].pitch == e->a) rec_note_off(i, units);   /* the same key again */
+        /* SPEC 14.2: a new event is accepted only while the clip's events plus the held notes are below the cap */
+        if (clip_v3_count(edit.clip) + rec_held_count() >= CLIP_V3_EVENTS_MAX) { rec_full(); return; }
+        for (unsigned i = 0; i < REC_HELD; ++i) if (!rec.held[i].used) {
+            rec.held[i].used = 1; rec.held[i].pitch = e->a; rec.held[i].velocity = e->b; rec.held[i].at = units;
+            rec.held[i].time = rec_clip_time(units, rec.quantize);
+            return;
+        }
+        return;                                                      /* more than 16 keys down: not recorded */
+    }
+    if (type == 0x80 || type == 0x90) {
+        for (unsigned i = 0; i < REC_HELD; ++i) if (rec.held[i].used && rec.held[i].pitch == e->a) { rec_note_off(i, units); return; }
+        return;
+    }
+    unsigned kind = type == 0xb0 ? CLIP_V3_CC : type == 0xe0 ? CLIP_V3_BEND : type == 0xd0 ? CLIP_V3_PRESSURE : 0;
+    if (!kind || (kind == CLIP_V3_CC && e->a >= 120)) return;        /* poly aftertouch and channel mode messages are not recorded */
+    unsigned number = kind == CLIP_V3_CC ? e->a : 0, c = REC_CONTROLLERS, idle = REC_CONTROLLERS;
+    unsigned value = kind == CLIP_V3_CC ? e->b : kind == CLIP_V3_BEND ? (unsigned)e->a | (unsigned)e->b << 7 : e->a;
+    for (unsigned i = 0; i < REC_CONTROLLERS; ++i) {
+        if (rec.ctl[i].used && rec.ctl[i].kind == kind && rec.ctl[i].number == number) { c = i; break; }
+        if (!rec.ctl[i].used) { if (idle == REC_CONTROLLERS || rec.ctl[idle].used) idle = i; }
+        else if (!rec.ctl[i].has_pending && idle == REC_CONTROLLERS) idle = i;
+    }
+    if (c == REC_CONTROLLERS) {
+        if (idle == REC_CONTROLLERS) return;                         /* nine controllers moving at once: the ninth is not recorded */
+        c = idle; memset(&rec.ctl[c], 0, sizeof rec.ctl[c]); rec.ctl[c].used = 1; rec.ctl[c].kind = (uint8_t)kind; rec.ctl[c].number = (uint8_t)number;
+    }
+    rec.ctl[c].seen_at = units;
+    /* SPEC 14.2: written only when 240 units have passed since the last written value of this controller; inside that
+     * window one pending value, replaced by each newer one */
+    if (!rec.ctl[c].has_last || units - rec.ctl[c].last_at >= (uint32_t)HALF) rec_controller_write(c, rec_clip_time(units, 0), value, units);
+    else { rec.ctl[c].pending = (uint16_t)value; rec.ctl[c].has_pending = 1; rec.ctl[c].pending_time = rec_clip_time(units, 0); }
+}
+/* The end of a gesture, or of the take: a pending value is written at the time it arrived. */
+static void rec_flush(unsigned c, uint32_t units)
+{
+    if (!rec.ctl[c].used || !rec.ctl[c].has_pending) return;
+    rec_controller_write(c, rec.ctl[c].pending_time, rec.ctl[c].pending, units);
+}
+static void rec_end(uint32_t units)
+{
+    for (unsigned i = 0; i < REC_HELD; ++i) if (rec.held[i].used) rec_note_off(i, units);
+    for (unsigned c = 0; c < REC_CONTROLLERS; ++c) rec_flush(c, units);
+    if (!rec.taken && edit.undo) --edit.undo;                        /* an empty take leaves no undo level */
+    rec.state = REC_OFF;
+}
+/* REC: start a take into the open clip. The clip must loop on its track: it is launched if it does not (reserved when
+ * the song is stopped, and PLAY then starts both). Returns REC_ON, REC_ARMED, or a negative code. */
+int song_record_start(void)
+{
+    if (!edit.active) return SONG_INVALID;
+    if (rec.state) return rec.state;
+    memset(rec.held, 0, sizeof rec.held); memset(rec.ctl, 0, sizeof rec.ctl);
+    rec.full = 0; rec.taken = 0; rec_rd[0] = rec_wr[0]; rec_rd[1] = rec_wr[1];
+    if (!rec_track_plays()) {
+        int r = song_clip_launch(edit.track, edit.place);
+        if (r) return r < 0 ? r : SONG_INVALID;
+    }
+    rec.state = REC_ARMED;
+    return rec.state;
+}
+void song_record_stop(void)
+{
+    if (rec.state == REC_ON) rec_end(rec_units_at(ct_diag_ticks()));
+    rec.state = REC_OFF;
+}
+void song_record_quantize(unsigned on) { rec.quantize = on != 0; }
+unsigned song_record_full(void) { unsigned f = rec.full; rec.full = 0; return f; }
+/* Control task, every pass. */
+void song_record_poll(void)
+{
+    if (rec.state == REC_OFF) return;
+    if (!edit.active) { rec.state = REC_OFF; return; }
+    if (rec.state == REC_ARMED) {
+        if (!rec_track_plays()) return;
+        edit_push(); edit.gesture = 0;                               /* the take is one undo level: undo gives the clip before it */
+        rec_rd[0] = rec_wr[0]; rec_rd[1] = rec_wr[1];
+        rec.taken = 0; rec.state = REC_ON;
+        return;
+    }
+    uint32_t now = rec_units_at(ct_diag_ticks());
+    if (!rec_track_plays()) { rec_end(now); return; }                /* the song stopped, or the track left the clip */
+    for (unsigned q = 0; q < 2 && rec.state == REC_ON; ++q)
+        while (rec_rd[q] != rec_wr[q] && rec.state == REC_ON) {
+            struct rec_event e = rec_queue[q][rec_rd[q]];
+            rec_rd[q] = (uint8_t)((rec_rd[q] + 1U) % REC_QUEUE);
+            rec_event(&e, rec_units_at(e.ticks));
+        }
+    if (rec.state != REC_ON) {                                       /* the cap: held notes keep their places and are written at once */
+        for (unsigned i = 0; i < REC_HELD; ++i) if (rec.held[i].used) rec_note_off(i, now);
+        return;
+    }
+    /* a gesture ends when its controller has been still for one step (480 units) */
+    for (unsigned c = 0; c < REC_CONTROLLERS; ++c)
+        if (rec.ctl[c].used && rec.ctl[c].has_pending && now - rec.ctl[c].seen_at >= (uint32_t)UNITS) rec_flush(c, now);
+}
+
 /* Control task, every pass: an unsaved clip is written once the transport has been stopped and the clip untouched for
  * ten seconds (the assessment's F: never while playing). Returns 1 when it saved now. */
 int song_edit_poll(void)
 {
+    song_record_poll();
     if (!edit.active || !edit.dirty || state || fm1_millis() - edit.changed_ms < 10000U) return 0;
     if (ct_transport_running() || song_storage_state() != SONG_STORAGE_READY) return 0;
     return song_edit_save() == 0;
