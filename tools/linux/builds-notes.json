@@ -4,6 +4,10 @@
     "tabby-v04.3": {
       "text": "Never released; superseded by tabby-v04.4. (An earlier note called it faulty; that was a measuring error.)",
       "link": "tabby-v04.4"
+    },
+    "tabby-v04.5": {
+      "text": "Use tabby-v04.5.1 or later; this page cannot write v3 clips.",
+      "link": "tabby-v04.5.1"
     }
   }
 }

@@ -1,14 +1,14 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 1.8, 2026-11-14. For tabby-v04.7 on the M-VAVE SMK-37 Pro.
+Version 1.9, 2026-11-16. For tabby-v04.7.1 on the M-VAVE SMK-37 Pro.
 Written for the person who plays and tests the device. No programming needed.
 
-tabby-v04.7 is new firmware. It adds the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
+tabby-v04.7.1 is new firmware. tabby-v04.7 added the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
 at the time they are due, within about 2 ms (timed MIDI, on at power-up),
 and a song can now follow an external MIDI clock. It also has a remote control
 command for the workbench tools, so tests can run without anyone at the panel.
-If an older firmware is on your SMK-37, install tabby-v04.7 to get these. The page also has English-only Help and this guide.
+If an older firmware is on your SMK-37, install tabby-v04.7.1 to get these. The page also has English-only Help and this guide.
 
 How to read this guide
 ----------------------
@@ -82,6 +82,7 @@ Removed:
 - tabby-v04.4: Timed MIDI. A song's notes, row events and clock bytes are sent at their due times by a 0.5 ms timer: one line stays within about 1.9 ms and eight lines within about 3 ms on DIN and USB, on every screen page (before: about 5 to 7.5 ms, depending on the page). Earlier notes said the device sent no replies over USB with CLOCK on MIDI: that was a fault of the developer's measuring tool, not of the device; the workbench and Firmware Update work with CLOCK on INT or MIDI on every version.
 - tabby-v04.6: Scenes and clips. A song can be stored as scenes: each track has up to 64 clips, a scene names one clip per track, and the song has a master cycle that launches and stops land on (one bar of the file's metre; 12 steps for a waltz). The importer writes scenes with clips of up to 8 bars. Old songs play as before and are not changed. A controller at a row start is no longer sent twice.
 - tabby-v04.7: Clip launching. BT opens the CLIPS page: the pads show the selected track's clips (off empty, white stopped, green playing, blinking queued, orange muted), a pad launches or stops its clip on the next bar line, a held pad selects it. The pads of the SONG page light up and recall scenes. SHIFT and pad 9 to 16 now also holds the track's song notes back on MIDI out. See 4.8.
+- tabby-v04.7.1: A clip pad pressed while the song is stopped reserves its clip; PLAY starts it (as on the MC-707). The two mutes look different: orange pads and MUTED ALL for SHIFT and pad (sound and MIDI), blue pads and MUTED INT for a mixer mute (the SMK-37's own sound only).
 - tabby-v04.5.1: The page of tabby-v04.5 could not import a part that needs the new clip form (it said "clip-v3.js not loaded"); fixed. The firmware is the same.
 - tabby-v04.5: Larger clips. A track's part in a row can now hold any number of notes on a step (it was four), controller, pitch bend and aftertouch events from the MIDI file, a program and bank of its own, and rows can be up to 128 steps (8 bars of 4/4; it was 64). The importer uses the new clip form only where a part needs it. Old songs play as before.
 - tabby-v04.2: Fast MIDI on by default: one line leaves about 3.7 ms after it is due instead of about 12 ms. Remote control over USB for tests. Stale screen texts fixed. The ACTIONS list has a new last entry, A2 FAST MIDI.
@@ -108,7 +109,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. tabby-v04.7 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips, scenes and clip launching. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. tabby-v04.7.1 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips, scenes and clip launching. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -246,12 +247,12 @@ Clip launching lets one track loop one of its clips while the others follow the 
 1. Press BT. The CLIPS page opens, from any page. BT again goes back where you were. (On the SONG page SCL opens it too.)
 2. Hold SHIFT and press a pad from 1 to 8 to choose a track, or turn K5. The screen says TRACK SELECTED.
 3. Look at the pads. Off: no clip. Dim white: a clip. Green: the clip that plays.
-4. Press PLAY if the song is not running. Then press a white pad. It blinks green and the screen says LAUNCH AT NEXT CYCLE. On the next bar line the clip starts and the pad is green. The column for the track shows CLIP.
+4. Press PLAY if the song is not running. (Or press a pad first: it blinks, the screen says RESERVED - PLAY STARTS IT, and PLAY starts the song with that clip on the track.) Then press a white pad. It blinks green and the screen says LAUNCH AT NEXT CYCLE. On the next bar line the clip starts and the pad is green. The column for the track shows CLIP.
 5. To stop the track: press the green pad. It blinks red and the screen says STOP AT NEXT CYCLE. On the next bar line the track is silent. The column shows STOP.
 6. Changed your mind? Press the blinking pad again before the bar line. The screen says TAKEN BACK.
 7. To look at a clip without launching it: hold its pad for half a second. The screen says SELECTED ONLY - TAKEN BACK. The pad is bright white, and the SELECTED line shows its length.
 8. To bring the track back to the song: press ENV. The screen says TRACK TO SCENES AT CYCLE. The column shows >SCN, then SCENE. SHIFT and ENV together bring every track back.
-9. To mute a track: hold SHIFT and press pad 9 to 16 for track 1 to 8. The track's pads turn orange. Its notes stop on MIDI out too, and the clip keeps running, so unmuting brings it back in time.
+9. To mute a track: hold SHIFT and press pad 9 to 16 for track 1 to 8. The track's pads turn orange and the screen says MUTED ALL. Its notes stop on MIDI out too, and the clip keeps running, so unmuting brings it back in time. Blue pads and MUTED INT mean the other mute: the one from the MIX page, which silences only the SMK-37's own sound of the track and lets its MIDI notes go out.
 10. OCT+ and OCT- (or K6) show the next 16 clips. The page then shows PADS 17 - 32.
 11. Press SCL for the SONG page, where the pads recall scenes. Press PLAY to stop the song.
 
@@ -455,7 +456,7 @@ T8. Mute with SHIFT and a pad
 Set up: HOME overview.
 1. Hold SHIFT. Press pad 9. Release SHIFT.
 2. Hold SHIFT. Press pad 9 again.
-You should see: track 1 shows MUTE, then the mute goes away. The screen says TRACK MUTED, then TRACK UNMUTED.
+You should see: track 1 shows M-ALL, then the mute goes away. The screen says TRACK MUTED: SOUND AND MIDI, then TRACK UNMUTED. The overview shows M-ALL for this mute and M-INT for a mute set on the MIX page.
 Result: PASS / FAIL   Notes: ________________________________
 
 T9. Mixer
@@ -790,7 +791,7 @@ T54. Mute from the pads (tabby-v04.7)
 Set up: a song playing with a part on track 2 that goes to outside gear (or a MIDI monitor). The CLIPS page open.
 1. Hold SHIFT and press pad 10. Release SHIFT. Wait two bars.
 2. Hold SHIFT and press pad 10 again.
-You should hear: after step 1 track 2 falls silent, on the SMK-37 and on the outside gear. After step 2 it is back, in time with the rest. With track 2 selected its pads are orange while it is muted.
+You should hear: after step 1 track 2 falls silent, on the SMK-37 and on the outside gear. After step 2 it is back, in time with the rest. With track 2 selected its pads are orange while it is muted, and the page says MUTED ALL.
 Result: PASS / FAIL   Notes: ________________________________
 
 T55. Scene recall with pad lights (tabby-v04.7)
@@ -803,6 +804,20 @@ T56. BT from anywhere (tabby-v04.7)
 Set up: any page, for example the mixer (MIX).
 1. Press BT. Press BT again.
 You should see: the CLIPS page, then the page you were on.
+Result: PASS / FAIL   Notes: ________________________________
+
+T57. Reserve a clip, then PLAY (tabby-v04.7.1)
+Set up: the song stopped, the CLIPS page open, track 1 selected, a track with at least two clips.
+1. Press the pad of the clip that the song does not start with. It blinks. The screen says RESERVED - PLAY STARTS IT.
+2. Press PLAY.
+You should hear: track 1 plays the reserved clip from the first beat and keeps looping it. The other tracks play the song as usual. ENV brings track 1 back to the song.
+Result: PASS / FAIL   Notes: ________________________________
+
+T58. The two mutes look different (tabby-v04.7.1)
+Set up: a song playing with a part on track 2 that goes to outside gear. The CLIPS page open, track 2 selected.
+1. Press MIX. On the mixer page mute track 2. Press MIX again to return.
+2. Unmute it on the mixer page the same way. Then hold SHIFT and press pad 10.
+You should see and hear: after step 1 the pads of track 2 are blue and the page says MUTED INT; the SMK-37's own sound of track 2 is silent but the outside gear still plays. After step 2 the pads are orange, the page says MUTED ALL, and the outside gear is silent too. [not checked in simulator]
 Result: PASS / FAIL   Notes: ________________________________
 
 
@@ -826,7 +841,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.7.
+- The page badge and the boot screen show tabby-v04.7.1.
 
 
 8. HOW TO REPORT A PROBLEM

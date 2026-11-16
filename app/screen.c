@@ -61,7 +61,8 @@ enum {
     ACCENT = 0x07ff,
     DIM = 0x738e,
     GREEN = 0x07e0,
-    AMBER = 0xfd20
+    AMBER = 0xfd20,
+    BLUE = 0x3c9f   /* Task 17: a track whose internal sound alone is muted (docs/CONTROL-MAP.md 7) */
 };
 /* Five columns per glyph, bit 0 at the top. Digits followed by uppercase. */
 static const uint8_t font[36][5] = {
@@ -232,6 +233,11 @@ static uint32_t clip_hold_ms;
 static uint8_t song_mute_bits;
 static struct groove_view frame_views[GROOVE_TRACKS];
 static unsigned track_muted(unsigned t) { return (song_mute_bits >> t) & 1U; }
+/* The two mutes (docs/CONTROL-MAP.md 7): 0 none, 1 internal sound only (the mixer's mute; the song still plays the
+ * track on MIDI out), 2 all (SHIFT + pad: internal sound and song notes). */
+static unsigned mute_kind(unsigned t)
+{ return track_muted(t) ? 2U : groove_track_role(t) != GROOVE_TRACK_OFF && frame_views[t].muted ? 1U : 0U; }
+unsigned ct_screen_mute_kind(unsigned t) { return t < 8 ? mute_kind(t) : 0; }
 unsigned ct_screen_track_muted(unsigned t) { return t < 8 ? track_muted(t) : 0; }
 unsigned ct_screen_page(void) { return page; }
 unsigned ct_screen_action(void) { return action; }
@@ -577,7 +583,7 @@ static __attribute__((noinline)) void overview(const struct groove_view v[8])
                         ((uint32_t)v[t].modified << 15) | ((uint32_t)v[t].muted << 16) |
                         ((uint32_t)v[t].solo << 17) | ((uint32_t)v[t].ready << 18) |
                         ((uint32_t)v[t].type << 19) | ((uint32_t)midi_active[t] << 22) |
-                        ((uint32_t)groove_track_role(t) << 23);
+                        ((uint32_t)groove_track_role(t) << 23) | ((uint32_t)track_muted(t) << 27);
         if (v[t].type == GROOVE_DX7)
             meta = signature(meta, frame_fm_names[t], 7);
         if (meta != cache->row_cache[t]) {
@@ -595,8 +601,9 @@ static __attribute__((noinline)) void overview(const struct groove_view v[8])
                  : v[t].type == GROOVE_SAMPLE ? "SAMPLER"
                                               : "808 KIT", colors[t]);
             color_text(29, y + 9, groove_track_role(t) == GROOVE_TRACK_OFF ? "OFF"
-                 : groove_track_role(t) == GROOVE_TRACK_PLAY ? (v[t].muted ? "L MUT" : v[t].solo ? "L SOLO" : "LIVE")
-                 : v[t].muted      ? "MUTE"
+                 : groove_track_role(t) == GROOVE_TRACK_PLAY ? (track_muted(t) ? "L M-AL" : v[t].muted ? "L M-IN" : v[t].solo ? "L SOLO" : "LIVE")
+                 : track_muted(t)  ? "M-ALL"
+                 : v[t].muted      ? "M-INT"
                  : v[t].solo     ? "SOLO"
                  : v[t].modified ? "EDITED"
                                  : "", DIM);
@@ -869,7 +876,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             sig = signature(sig, &st, sizeof st);
             sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24) + (song_follow_state() << 27);
             sig = sig * 33U + clip_bank + ((unsigned)clip_select[track] << 3) + (track_muted(track) << 12);
-            for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + track_muted(t);   /* Task 16: the follow state */
+            for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + mute_kind(t);   /* Task 16: the follow state */
         }
         if (visible == ARP_EDIT) {
             sig = sig * 33U + track + (groove_arp_enabled(track) << 8) + (arp_page << 9);
@@ -995,13 +1002,13 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         text(8, 40, "CLIPS", 2, ACCENT, BACK);
         text(104, 40, "T", 2, colors[track], BACK); number(118, 40, track + 1, 1, 2, colors[track], BACK);
         dim_text(150, 40, "BAR"); small_number(174, 40, st.playing ? st.bar + 1U : 0, 4, TEXT);
-        if (track_muted(track)) color_text(150, 52, "MUTED", AMBER);
+        if (mute_kind(track)) color_text(150, 52, mute_kind(track) == 2 ? "MUTED ALL" : "MUTED INT", mute_kind(track) == 2 ? AMBER : BLUE);
         static const char *const words[] = {"SCENE", "CLIP", "STOP"};
         for (unsigned t = 0; t < SONG_TRACKS; ++t) {
             unsigned x = 8 + t * 29, state = st.track_state[t] & 3U, queue = (st.track_state[t] >> 2) & 3U;
             unsigned now_place = song_row_place(t, st.track_row[t]);
             color_text(x, 66, "T", colors[t]); small_number(x + 6, 66, t + 1, 1, colors[t]);
-            if (now_place != SONG_NONE) small_number(x, 78, now_place + 1U, 2, track_muted(t) ? AMBER : t == track ? ACCENT : TEXT); else dim_text(x, 78, "-");
+            if (now_place != SONG_NONE) small_number(x, 78, now_place + 1U, 2, mute_kind(t) == 2 ? AMBER : mute_kind(t) ? BLUE : t == track ? ACCENT : TEXT); else dim_text(x, 78, "-");
             if (queue == SONG_QUEUE_LAUNCH) { color_text(x, 90, ">", AMBER); small_number(x + 6, 90, song_row_place(t, st.track_queued[t]) + 1U, 2, AMBER); }
             else if (queue == SONG_QUEUE_STOP) color_text(x, 90, ">STP", AMBER);
             else if (queue == SONG_QUEUE_ATTACH) color_text(x, 90, ">SCN", AMBER);
@@ -1312,6 +1319,8 @@ static void draw(const struct fm1_ble_status *ble)
     unsigned song_mutes = 0;   /* Task 17 Goal 4: a muted track's song notes stay in (song_mute_set) */
     for (unsigned t = 0; t < GROOVE_TRACKS; ++t) {
         groove_get_view(t, cursor, &frame_views[t]);
+        /* a track unmuted on the MIX page is unmuted altogether: the two mutes never part the other way round */
+        if (track_muted(t) && groove_track_role(t) != GROOVE_TRACK_OFF && !frame_views[t].muted) song_mute_bits &= (uint8_t)~(1U << t);
         if (track_muted(t)) song_mutes |= 1U << t;
         if (visible == OVERVIEW && frame_views[t].type == GROOVE_DX7 && !groove_fm_copy(t, frame_patch, NULL))
             memcpy(frame_fm_names[t], frame_patch + 145, 7);
@@ -1794,12 +1803,11 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 if (st.song != song_select || !mdl || !mdl->clip[track][place]) { announce("NO CLIP ON THIS PAD", now + 1500U); continue; }
                 clip_select[track] = (uint8_t)place; cache->middle_cache = ~0U;
                 clip_hold_pad = (uint8_t)i; clip_hold_ms = now; clip_hold_queued = 0; clip_hold_track = (uint8_t)track;
-                if (!st.playing) announce("PLAY STARTS THE SONG FIRST", now + 1500U);
-                else if ((queue == SONG_QUEUE_LAUNCH && (queued_place == place || playing_place == place)) || (queue == SONG_QUEUE_STOP && playing_place == place)) {
+                if ((queue == SONG_QUEUE_LAUNCH && (queued_place == place || playing_place == place)) || (queue == SONG_QUEUE_STOP && playing_place == place)) {
                     if (!song_track_unqueue(track)) announce("TAKEN BACK", now + 1500U);
                 } else if (playing_place == place) {
                     if (!song_track_stop(track)) { clip_hold_queued = 1; announce("STOP AT NEXT CYCLE", now + 1500U); }
-                } else if (!song_clip_launch(track, place)) { clip_hold_queued = 1; announce("LAUNCH AT NEXT CYCLE", now + 1500U); }
+                } else if (!song_clip_launch(track, place)) { clip_hold_queued = 1; announce(st.playing ? "LAUNCH AT NEXT CYCLE" : "RESERVED - PLAY STARTS IT", now + 1500U); }
                 else announce("BLOCK READ ERROR", now + 1500U);
             }
         if (clip_hold_pad != 255) {
@@ -2261,7 +2269,7 @@ static unsigned launch_phase(void)
 }
 /* Task 17 Goal 4: the state of pad `pad` on the CLIPS page for the selected track (docs/CONTROL-MAP.md 4.2):
  * 0 empty, 1 stopped, 2 playing, 3 queued (launch), 4 the playing clip with a stop queued; + 8 selected, + 16 the
- * track is muted. On the SCENES page: 0 no such scene, 1 a scene, 2 the scene that plays, 3 the queued scene. */
+ * track is muted (sound and song notes), + 32 its internal sound alone is muted. On the SCENES page: 0 no such scene, 1 a scene, 2 the scene that plays, 3 the queued scene. */
 static unsigned clips_pad_state(const struct song_status *st, unsigned pad)
 {
     const struct song_record *rec = song_current();
@@ -2276,7 +2284,7 @@ static unsigned clips_pad_state(const struct song_status *st, unsigned pad)
     unsigned playing_place = song_row_place(track, st->track_row[track]);
     unsigned code = queue == SONG_QUEUE_LAUNCH && song_row_place(track, st->track_queued[track]) == place ? 3U
                   : playing_place == place ? (queue == SONG_QUEUE_STOP ? 4U : 2U) : 1U;
-    return code | (clip_select[track] == place ? 8U : 0U) | (track_muted(track) ? 16U : 0U);
+    return code | (clip_select[track] == place ? 8U : 0U) | (mute_kind(track) == 2 ? 16U : mute_kind(track) ? 32U : 0U);
 }
 /* The pad colours of the CLIPS and SCENES pages (docs/CONTROL-MAP.md 4.2, 5), or 0 = not these pages. CLIPS: off
  * empty, dim white stopped, green playing, blinking green queued, blinking red a pending stop, bright white selected
@@ -2299,11 +2307,12 @@ int smk37_screen_launch_color(unsigned pad, uint32_t *rgb)
         *rgb = level ? ((c >> 11) & 31U) << (15 + level) | ((c >> 5) & 63U) << (6 + level) | (c & 31U) << level : 0;
         return 1;
     }
-    unsigned code = clips_pad_state(&st, pad), kind = code & 7U, selected = code & 8U, muted = code & 16U;
+    unsigned code = clips_pad_state(&st, pad), kind = code & 7U, selected = code & 8U, muted = code & 16U, internal = code & 32U;
     if (kind == 0) *rgb = 0;
     else if (kind == 3) *rgb = phase ? 0x083008 : 0;
     else if (kind == 4) *rgb = phase ? 0x300808 : 0;
     else if (muted) *rgb = kind == 2 ? 0x301808 : 0x0c0600;
+    else if (internal) *rgb = kind == 2 ? 0x081830 : 0x02060c;   /* blue: the song still plays the track on MIDI out */
     else if (kind == 2) *rgb = selected ? 0x103c10 : 0x083008;
     else *rgb = selected ? 0x303030 : 0x080808;
     return 1;
@@ -2421,7 +2430,7 @@ void smk37_screen_shortcut(unsigned pad)
         groove_mix_toggle(pad-8,0);
         groove_get_view(pad-8,0,&view);
         song_mute_bits=(uint8_t)((song_mute_bits&~(1U<<(pad-8)))|((unsigned)(view.muted!=0)<<(pad-8)));
-        notice=view.muted?"TRACK MUTED":"TRACK UNMUTED";
+        notice=view.muted?"TRACK MUTED: SOUND AND MIDI":"TRACK UNMUTED";
     }
     notice_until=fm1_millis()+1200U;boot_active=0;cache->shown_page=~0U;
 }

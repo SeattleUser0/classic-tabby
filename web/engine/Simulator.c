@@ -376,6 +376,7 @@ EXPORT("sim_song_track") int sim_song_track(unsigned kind, unsigned track, unsig
  * when that page is open, otherwise the stock view with `lit` = 0). */
 EXPORT("sim_pad_color") uint32_t sim_pad_color(unsigned pad) { return pad < 16 ? smk37_pad_color(pad, 0) : 0; }
 /* Task 17 Goal 4: the CLIPS / SCENES page state (ct_screen_clips_read) into the file buffer; returns its length. */
+EXPORT("sim_mix_toggle") void sim_mix_toggle(unsigned track, unsigned solo) { groove_mix_toggle(track, solo); }   /* tests: the mixer's mute, as the MIX page sets it */
 EXPORT("sim_clips_state") unsigned sim_clips_state(void) { return ct_screen_clips_read(file_buffer); }
 EXPORT("sim_song_track_status") uint32_t sim_song_track_status(unsigned track)
 {

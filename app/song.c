@@ -162,6 +162,11 @@ static volatile uint8_t queue_kind[SONG_TRACKS], queue_row[SONG_TRACKS];
 /* Task 17 Goal 4: a clip no scene uses is launched as row SONG_ROWS + place (a "place row": no row record, no row
  * events); place_steps is its length, read from the clip when it is queued. mute_mask: tracks whose notes stay in. */
 static volatile uint8_t place_steps[SONG_TRACKS];
+/* Clips reserved while the song is stopped (the MC-707's "reserve playback", Reference Manual p. 12): reserve_row is
+ * the control task's (the row to start launched, SONG_NONE: the track follows the scenes); song_play hands it to the
+ * audio thread as start_row and clears it. Internal clock only: a song that follows a MIDI clock starts on its scenes. */
+static uint8_t reserve_row[SONG_TRACKS] = {SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE};
+static volatile uint8_t start_row[SONG_TRACKS], start_steps[SONG_TRACKS];
 static volatile unsigned mute_mask;
 /* audio -> control */
 static volatile unsigned playing, cur, repeat, underruns, song_over;
@@ -876,6 +881,10 @@ FM1_AUDIO_CODE void song_tick(unsigned tempo)
         for (unsigned t = 0; t < SONG_TRACKS; ++t) {
             struct track *k = &tr[t];
             k->cur = 0; k->state = 0; k->pass = 0; k->waiting = 0; k->row = 0; k->head = 0; k->start = song_start; k->len = song_len;
+            if (!fol && start_row[t] != SONG_NONE) {   /* a clip reserved while stopped: the track starts launched on it */
+                k->state = 1; k->row = start_row[t];
+                k->len = (uint32_t)(start_steps[t] ? start_steps[t] : SONG_BLOCK_STEPS) * UNITS;
+            }
             tbuf[t][0].look_from = tbuf[t][1].look_from = LOOK_NONE;
             tstreamed[t] = 0; seen_kind[t] = Q_NONE; seen_row[t] = 0;
             enter_frame(t, 0, 0, fresh);
@@ -1113,7 +1122,7 @@ void song_poll(void)
 int song_load(unsigned song)
 {
     if (state) return SONG_BUSY;
-    loaded = SONG_NONE;
+    loaded = SONG_NONE; memset(reserve_row, SONG_NONE, sizeof reserve_row);
     int r = song_record_read(song, &record);
     if (!r) r = song_directory_build(song);
     last_error = r ? (unsigned)r : 0;
@@ -1144,12 +1153,18 @@ int song_play(void)
     memset((void *)queue_kind, 0, sizeof queue_kind);
     ct_midi_flush();   /* Task 12 A4 */
     groove_midi_song_channels(record.channel);   /* before the decodes: the event slices use the channels */
-    for (unsigned t = 0; t < SONG_TRACKS; ++t) decode_track(t, &tbuf[t][0], 0, P_SONG);
+    for (unsigned t = 0; t < SONG_TRACKS; ++t) {
+        unsigned r = follow ? SONG_NONE : reserve_row[t];
+        start_row[t] = (uint8_t)r; reserve_row[t] = SONG_NONE;
+        if (r == SONG_NONE) { decode_track(t, &tbuf[t][0], 0, P_SONG); continue; }
+        decode_track(t, &tbuf[t][0], r, P_LAUNCH);
+        start_steps[t] = tbuf[t][0].steps;
+    }
     decode_rowinfo(&rowset[0], 0);
     unsigned next = natural_next(0);
     song_end = next == SONG_NONE && !rowset[0].loop_here;
     if (next != SONG_NONE) {
-        for (unsigned t = 0; t < SONG_TRACKS; ++t) decode_track(t, &tbuf[t][1], next, P_SONG);
+        for (unsigned t = 0; t < SONG_TRACKS; ++t) if (start_row[t] == SONG_NONE) decode_track(t, &tbuf[t][1], next, P_SONG);
         decode_rowinfo(&rowset[1], next);
     }
     state = 1;
@@ -1212,11 +1227,15 @@ int song_track_launch(unsigned track, unsigned row)
  * place row with the clip's own length (a v3 clip's header; 64 steps otherwise). */
 int song_clip_launch(unsigned track, unsigned place)
 {
-    if (state != 1 || track >= SONG_TRACKS || place >= SONG_CLIPS) return SONG_INVALID;
+    if (state > 1 || loaded == SONG_NONE || track >= SONG_TRACKS || place >= SONG_CLIPS) return SONG_INVALID;
     unsigned id = model.clip[track][place];
     if (!id) return SONG_EMPTY;
     for (unsigned r = 0; r < record.rows; ++r)
-        if (model.scene_clip[r][track] == place + 1U && record.row[r].block[track] == id) return song_track_launch(track, r);
+        if (model.scene_clip[r][track] == place + 1U && record.row[r].block[track] == id) {
+            if (!state) { reserve_row[track] = (uint8_t)r; return 0; }   /* stopped: reserved, PLAY starts it */
+            return song_track_launch(track, r);
+        }
+    if (!state) { reserve_row[track] = (uint8_t)(SONG_ROWS + place); return 0; }
     unsigned bytes, format = SONG_FORMAT_V2, steps = SONG_BLOCK_STEPS;
     if (!song_block_read(loaded, id, payload, &bytes, &format) && format == SONG_FORMAT_V3 && !song_payload_valid(format, payload, bytes))
         steps = clip_v3_steps(payload);
@@ -1229,7 +1248,8 @@ int song_clip_launch(unsigned track, unsigned place)
 /* Take a queued launch, stop or return back before it lands. 0: taken back; SONG_EMPTY: nothing was queued. */
 int song_track_unqueue(unsigned track)
 {
-    if (state != 1 || track >= SONG_TRACKS) return SONG_INVALID;
+    if (state > 1 || track >= SONG_TRACKS) return SONG_INVALID;
+    if (!state) { if (reserve_row[track] == SONG_NONE) return SONG_EMPTY; reserve_row[track] = SONG_NONE; return 0; }
     if (queue_kind[track] == Q_NONE) return SONG_EMPTY;
     queue_kind[track] = Q_NONE;
     return 0;
@@ -1296,6 +1316,9 @@ void song_status_read(struct song_status *out)
         out->track_state[t] = (uint8_t)(k->state | qk << 2 | (k->waiting ? 16U : 0U));
         out->track_row[t] = (uint8_t)(k->state == 1 ? k->row : k->state == 0 && !song_over && state ? rowset[cur].row : SONG_NONE);
         out->track_queued[t] = (uint8_t)(qk == Q_LAUNCH ? queue_row[t] : qk == Q_ATTACH ? out->row : SONG_NONE);
+        if (!state && reserve_row[t] != SONG_NONE) {   /* stopped with a clip reserved: shown as a queued launch */
+            out->track_state[t] = (uint8_t)(Q_LAUNCH << 2); out->track_queued[t] = reserve_row[t];
+        }
     }
 }
 

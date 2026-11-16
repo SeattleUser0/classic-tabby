@@ -1168,3 +1168,13 @@ RAM (runtime heap): 166220 -> 161548 bytes (-4672: the song model, 2125 bytes, a
 
 RAM (runtime heap): 161548 -> 161484 bytes (-64: the page's selection and hold state, the mute bits, the place lengths). The
 package's flash image is 479232 bytes (one 4096-byte block more than tabby-v04.6), the VM area 90112.
+
+## 27. tabby-v04.7.1 (measured, 2026-11-16)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.7 | 459044 | | 60413 |
+| tabby-v04.7.1: clips reserved while stopped, the two mutes told apart (pads, CLIPS page, overview), the Help text | 459620 | +576 | **59837** |
+
+RAM (runtime heap): 161484 -> 161420 bytes (-64).
+

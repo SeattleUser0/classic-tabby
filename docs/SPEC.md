@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.42
+Version: 0.43
 Revision log:
+- v0.43, 2026-11-16: 19.9 tabby-v04.7.1 (clips reserved while stopped, the two mutes; the user's answers of 2026-11-16).
 - v0.42, 2026-11-14 (Task 17 Goal 4): 19.8 tabby-v04.7 (the CLIPS page, clip launching by place, song mute; the control
   map is docs/CONTROL-MAP.md).
 - v0.41, 2026-11-14 (Task 17 Goal 3): 19.7 tabby-v04.6 (song record version 3, scenes, the master cycle).
@@ -1579,3 +1580,21 @@ behaviour the firmware and its tests hold to.
   is `song_track_unqueue`. Panel keys go through op 6 as before; BT is physical button 11.
 - **Tests.** Host: tests/host/smoke.c section 22. Simulator, through panel events only: tests/workbench/clips-sim.mjs
   (in `make midi-import-sim`). Device: tools/linux/hw/run-launch.py with the song of tools/linux/hw/clips-song.mjs.
+
+### 19.9 tabby-v04.7.1 (2026-11-16): the MC-707's stopped pad, the two mutes
+
+The user's answers to the questions of the tabby-v04.7 report: BT stays the CLIPS button; clip pads follow the MC-707
+(Roland's Reference Manual eng02 and Update manual eng09 were read; docs/CONTROL-MAP.md section 11 lists every deliberate
+difference and is kept current); MIX-page mutes stay internal only but must look different; the tabby-v04.5 page gets its
+note line.
+
+- **A clip pad pressed while the song is stopped reserves the clip** (`song_clip_launch` with the transport stopped; the
+  status shows it as a queued launch, so the pad blinks and a second press takes it back). `song_play` starts a track with
+  a reservation launched on that clip at master time 0; the other tracks follow scene 1. Reservations are cleared by PLAY
+  and by loading a song. With CLOCK = MIDI they are not used.
+- **Pressing the playing clip stops the track**, unchanged: the reading of "play/stop clips" (Reference Manual p. 21).
+- **Two mutes, two looks** (19.8 Mute still holds). Pad state bit 16 = muted altogether (the song-mute bit: orange
+  0x301808 / 0x0c0600), bit 32 = the mixer's mute alone (blue 0x081830 / 0x02060c). With SHIFT held pads 9 to 16 are
+  orange, blue (0x081030) or dim green. CLIPS page: MUTED ALL (amber) or MUTED INT (blue), and the track's clip number in
+  that colour; overview: M-ALL or M-INT. A track unmuted in the mixer loses its song-mute bit too, so the song-mute bit
+  never stands without the mixer's mute on a track that has a source.

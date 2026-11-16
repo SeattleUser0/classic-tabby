@@ -2166,7 +2166,7 @@ int main(void)
         f[1100] = 2; f[1101] = 1; f[1100 + 8] = 1; f[1100 + 10] = 16;                   /* scene 2: T1 place 2, T2 place 1 */
         #undef CLIP
         CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0, "clips: the song stored and loaded");
-        CHECK(song_clip_launch(0, 1) == SONG_INVALID, "clips: a launch is refused while the song is stopped");
+        CHECK(song_clip_launch(0, 1) == 0 && ((sim_song_track_status(0) >> 2) & 3U) == 1 && song_track_unqueue(0) == 0 && song_track_unqueue(0) == SONG_EMPTY && ((sim_song_track_status(0) >> 2) & 3U) == 0, "clips: while the song is stopped a launch reserves the clip, and it can be taken back");
         CHECK(song_row_place(0, 0) == 0 && song_row_place(0, 1) == 1 && song_row_place(1, 0) == SONG_NONE && song_row_place(0, SONG_ROWS + 6) == 6 && song_row_place(0, SONG_NONE) == SONG_NONE,
               "clips: the place behind a row: scene 1 T1 place 1, scene 2 T1 place 2, T2 silent in scene 1, a place row its place");
         { struct message m[64]; (void)drain(m, 64); }

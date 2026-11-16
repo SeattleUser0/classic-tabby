@@ -321,9 +321,10 @@ uint32_t smk37_pad_color(unsigned pad,unsigned lit)
     if(smk37_screen_launch_color(pad,&launch))return launch;
     if(smk37_shift()) {
         if(pad<8)return pad==smk37_screen_track()?0x183030:0x041010;
-        if(groove_track_role(pad-8)==GROOVE_TRACK_OFF)return ct_screen_track_muted(pad-8)?0x301008:0x040404;
-        struct groove_view view;groove_get_view(pad-8,0,&view);
-        return view.muted?0x301008:0x081808;
+        /* Task 17: orange = muted altogether (sound and song notes), blue = the internal sound alone (docs/CONTROL-MAP.md 7) */
+        unsigned kind=ct_screen_mute_kind(pad-8);
+        if(groove_track_role(pad-8)==GROOVE_TRACK_OFF)return kind?0x301008:0x040404;
+        return kind==2?0x301008:kind?0x081030:0x081808;
     }
     return lit?0x183010:step_pads?0x100818:0x040804;
 }

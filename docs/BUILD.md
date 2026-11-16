@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.75
+Version: 0.76
 Revision log:
+- v0.76, 2026-11-16: section 40 (tabby-v04.7.1: the user's answers; reservation, the two mutes, the MC-707 differences).
 - v0.75, 2026-11-14 (Task 17 Goals 3 and 4): 38.3 (tabby-v04.6 on the device), section 39 (tabby-v04.7, the CLIPS page).
 - v0.74, 2026-11-14 (Task 17 Goal 3): 37.4 and 37.5 (tabby-v04.5 and its page fault, tabby-v04.5.1 on the device), section 38
   (tabby-v04.6: scenes).
@@ -5104,4 +5105,28 @@ the second reader each time, and it showed the device doing the right thing):
    scene's cycle had ended.
 2. v0.2, 35 of 37: one press fell 22 ms before the cycle; the clip started on that cycle (error -0.09 ms), and the script
    then looked for a queued, blinking pad. v0.3 makes the presses whose queued state it checks at least 700 ms before a cycle.
+
+## 40. tabby-v04.7.1: the answers to the tabby-v04.7 report (2026-11-16)
+
+### 40.1 What was built (SPEC 19.9, docs/CONTROL-MAP.md v0.2)
+
+- The MC-707 manuals were read from Roland's site (MC-707_Reference_eng02_W.pdf, MC-707_update_eng09_W.pdf): a clip selected
+  while stopped is reserved and START plays it (p. 12); Clip mode plays and stops clips (p. 21); neither manual says that a
+  press on the playing clip restarts it. The tabby-v04.7 report's "the MC-707 restarts it" was my error.
+- app/song.c: `reserve_row` / `start_row`; `song_clip_launch` and `song_track_unqueue` work with the transport stopped.
+- app/screen.c: the stopped press reserves (RESERVED - PLAY STARTS IT); `mute_kind`; blue for the mixer's mute alone;
+  M-ALL / M-INT on the overview.
+- tools/linux/builds-notes.json: the tabby-v04.5 note line (applied by the publish).
+- docs/CONTROL-MAP.md section 11, "Differences from the MC-707".
+- Tests: host section 22 (reserve and take back while stopped); clips-sim.mjs v0.2, 54 checks (reserve, take back, PLAY
+  starts the reserved clip on the song's first note, the mixer's mute shows blue and lets the notes out).
+
+### 40.2 Measured
+
+| | tabby-v04.7 | tabby-v04.7.1 |
+| --- | ---: | ---: |
+| app image, bytes (margin) | 459044 (60413) | 459620 (59837) |
+| runtime heap, bytes | 161484 | 161420 |
+
+Build id `35cc4d303068d66f`.
 

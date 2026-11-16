@@ -20,9 +20,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-launch.py --song N --out DIR
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-16  tabby-v04.7.1: a pad pressed while stopped reserves; a reserved clip starts with PLAY.
     v0.3  2026-11-14  Presses whose queued state is checked are not made in the last 700 ms before a cycle.
     v0.2  2026-11-14  The launch loop starts from a stopped track (v0.1 pressed the playing clip half the time); the scene
                       recall is read after its whole cycle; the scene pad is no longer read after the next scene began.
@@ -99,8 +100,10 @@ def main():
         check(c[0] == 1 and c[1] == 1 and c[2] == 0, "track 1 has clips on pads 1 and 2, pad 3 is empty", c[:4])
         check(s["pads"][2]["rgb"] == 0 and s["pads"][1]["rgb"] in (0x080808, 0x303030), "colours: empty off, stopped white", "%06x %06x" % (s["pads"][2]["rgb"], s["pads"][1]["rgb"]))
         l.pad(0); idle(0.3); s = l.clips_state()
-        check(s["selected"] == 0 and s["pads"][0]["code"] == 9 and s["pads"][0]["rgb"] == 0x303030 and s["pads"][1]["rgb"] == 0x080808,
-              "a pad pressed while stopped selects only: bright white; the other clip dim white", "%d %06x %06x" % (s["pads"][0]["code"], s["pads"][0]["rgb"], s["pads"][1]["rgb"]))
+        check(s["selected"] == 0 and s["pads"][0]["code"] == 11, "a pad pressed while stopped reserves its clip (blinking, selected)", s["pads"][0]["code"])
+        l.pad(0); idle(0.3); s = l.clips_state()
+        check(s["pads"][0]["code"] == 9 and s["pads"][0]["rgb"] == 0x303030 and s["pads"][1]["rgb"] == 0x080808,
+              "pressed again: the reservation is taken back; selected bright white, the other clip dim white", "%d %06x %06x" % (s["pads"][0]["code"], s["pads"][0]["rgb"], s["pads"][1]["rgb"]))
         # ---- play ----
         armed = time.monotonic_ns()
         l.press("PLAY"); idle(1.0)
@@ -220,6 +223,19 @@ def main():
         l.press("PLAY"); idle(0.8)
         st = l.remote_status()
         check(st["song_state"] == 0, "PLAY stops the song", st["song_state"])
+        # v0.4 (tabby-v04.7.1): a clip reserved while stopped starts with PLAY (MC-707 Reference Manual p. 12)
+        l.press("BLUETOOTH"); idle(0.3); l.shift_pad(0); idle(0.2)
+        l.pad(1); idle(0.2); r1 = l.clips_state()["pads"][1]["code"]
+        armed = time.monotonic_ns()
+        l.press("PLAY"); idle(2 * CYCLE_MS / 1000.0 + 0.3)
+        starts = [t for t, m in list(din.messages) if t >= armed and list(m) == [0xFA]]
+        t1 = starts[0] if starts else armed
+        got = [(round((t - t1) / 1e6), pitch) for t, pitch in ons(0, t1 - 5_000_000)]
+        check(r1 == 11 and got[:4] and all(pitch == 72 for _, pitch in got) and abs(got[0][0]) <= 6, "a reserved clip starts with PLAY and loops: track 1 plays clip 2 from the first beat", "%d, %s" % (r1, got[:4]))
+        s2 = l.clips_state()
+        check(s2["pads"][1]["code"] == (2 | 8), "its pad is green", s2["pads"][1]["code"])
+        l.press("PLAY"); idle(0.8)
+        l.shift_pad(0); idle(0.1)
         rows = din.messages[:]
         held = {}
         for t, m in rows:

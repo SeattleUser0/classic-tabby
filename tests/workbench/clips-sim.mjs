@@ -20,9 +20,10 @@
 //
 //   Run:  /usr/bin/node tests/workbench/clips-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-16  A pad pressed while stopped reserves its clip and PLAY starts it; the mixer's mute shows blue.
 //   v0.1  2026-11-14  Initial version.
 
 import { readFileSync } from 'node:fs';
@@ -103,7 +104,9 @@ check(s.track === 0, 'SHIFT + pad 1 selects track 1');
 check(s.pads[0].code === 1 && s.pads[1].code === 1 && s.pads[2].code === 0, 'T1 stopped: pads 1 and 2 hold clips (stopped), pad 3 is empty (' + s.pads.slice(0, 3).map(p => p.code) + ')');
 check(s.pads[0].rgb === 0x080808 && s.pads[2].rgb === 0, 'colours: stopped dim white, empty off (' + hex(s.pads[0].rgb) + ', ' + hex(s.pads[2].rgb) + ')');
 pad(0); s = state();
-check(s.selected === 0 && s.pads[0].code === 9 && s.pads[0].rgb === 0x303030 && (trackStatus(0) >> 2 & 3) === 0, 'a pad pressed while stopped only selects its clip: bright white, nothing queued (' + hex(s.pads[0].rgb) + ')');
+check(s.selected === 0 && s.pads[0].code === (3 | 8) && (trackStatus(0) >> 2 & 3) === 1, 'a pad pressed while stopped reserves its clip (MC-707: "reserves playback"): queued, selected (code ' + s.pads[0].code + ')');
+pad(0); s = state();
+check(s.pads[0].code === 9 && s.pads[0].rgb === 0x303030 && (trackStatus(0) >> 2 & 3) === 0, 'pressed again: the reservation is taken back; the clip stays selected, bright white (' + hex(s.pads[0].rgb) + ')');
 pad(2); s = state();
 check(s.selected === 0, 'an empty pad selects nothing');
 
@@ -172,6 +175,12 @@ toBar(15, 100);
 shiftPad(9);
 toBar(17, 0);
 check(pitches(16, 1) === '50' && Math.abs(firstOn(16, 1)) <= 1, 'unmuted: the clip is back in time (bar 17: ' + pitches(16, 1) + ')');
+/* the mixer's own mute (as the MIX page sets it): the internal sound only; the song still plays the track; blue pads */
+toBar(17, 20);
+c.sim_mix_toggle(1, 0); step(80); s = state();
+check(s.pads[2].code === (2 | 8 | 32) && s.pads[2].rgb === 0x081830 && s.pads[0].rgb === 0x02060c, 'a mute set in the mixer: pads blue, not orange (' + s.pads[2].code + ' ' + hex(s.pads[2].rgb) + ', ' + hex(s.pads[0].rgb) + ')');
+c.sim_mix_toggle(1, 0); step(80); s = state();
+check(s.pads[2].code === (2 | 8), 'mixer mute off: the pads are green and white again');
 toBar(17, 100);
 press(ENV);
 check((trackStatus(1) >> 2 & 3) === 3, 'ENV queues track 2 back to the scenes');
@@ -197,12 +206,22 @@ press(BT); check(state().page === 19, 'BT again returns to the page it came from
 /* ---- stop ---------------------------------------------------------------------------------- */
 press(PLAY); step(40);
 check(((c.sim_song_status(0) >>> 8) & 255) === 0, 'PLAY stops the song');
+/* ---- a clip reserved while stopped starts with PLAY (MC-707 Reference Manual p. 12) ---------------------------- */
+{ press(BT); shiftPad(0); pad(1); s = state();
+  check(s.page === 20 && s.pads[1].code === (3 | 8), 'stopped: pad 2 of track 1 reserved (code ' + s.pads[1].code + ')');
+  const before = log.length; origin = -1;
+  press(PLAY); while (origin < 0 && block < 400000) step();
+  toBar(2, 0);
+  check((trackStatus(0) & 3) === 1 && (trackStatus(1) & 3) === 0 && pitches(0, 9) === '44 44' && pitches(1, 9) === '44 44' && pitches(0, 1) === '36 38',
+    'PLAY: track 1 starts on the reserved clip and loops it, track 2 follows the scenes (bar 1 T1: ' + pitches(0, 9) + '; T2: ' + pitches(0, 1) + ')');
+  check(Math.abs(firstOn(0, 9)) <= 1 && state().pads[1].code === (2 | 8), 'its first note is the song\'s first note; its pad is green');
+  press(PLAY); step(40); void before; }
 c.sim_midi_capture(0); c.sim_midi_drain(0);
 { const held = new Map(); let bad = 0;
   for (const m of log) { const st = m[0] & 0xf0, k = (m[0] & 15) + ':' + m[1]; if (st === 0x90 && m[2]) held.set(k, (held.get(k) || 0) + 1); else if (st === 0x80 || (st === 0x90 && !m[2])) { if (!held.get(k)) bad++; else held.set(k, held.get(k) - 1); } }
   for (const v of held.values()) if (v) bad++;
   check(bad === 0, 'every note-on has its note-off, nothing stuck (' + log.length + ' messages)'); }
-check(log.filter(m => m[0] === 0xfa).length === 1 && log.filter(m => m[0] === 0xfc).length === 1, 'Start once, Stop once: nothing on the page touched the transport');
+check(log.filter(m => m[0] === 0xfa).length === 2 && log.filter(m => m[0] === 0xfc).length === 2, 'Start and Stop twice, for the two PLAY presses each: nothing else on the page touched the transport');
 
 console.log(`\nclips-sim: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
