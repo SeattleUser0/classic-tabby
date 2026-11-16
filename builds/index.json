@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-14T20:19:35Z",
+  "updated": "2026-11-16T17:40:18Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -190,7 +190,7 @@
       "page": "builds/tabby-v04.5/",
       "published": "2026-11-14",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.5.zip",
-      "note": ""
+      "note": "Use tabby-v04.5.1 or later; this page cannot write v3 clips."
     },
     {
       "tag": "tabby-v04.5.1",
@@ -220,6 +220,16 @@
       "page": "builds/tabby-v04.7/",
       "published": "2026-11-14",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.7.zip",
+      "note": ""
+    },
+    {
+      "tag": "tabby-v04.7.1",
+      "build": "35cc4d303068d66f8ddd67ee5a6451226fb18c1ef37b3efede70f61286b399c6",
+      "loader": "ota-SMK3735cc4d303068d66f",
+      "version": "tabby-v04.7.1",
+      "page": "builds/tabby-v04.7.1/",
+      "published": "2026-11-16",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.7.1.zip",
       "note": ""
     }
   ]
