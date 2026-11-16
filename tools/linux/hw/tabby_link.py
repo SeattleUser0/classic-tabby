@@ -25,9 +25,10 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.14
+Version: 0.15
 
 Revision log
+    v0.15 2026-11-16  Goal 6: steps_state() reports the recorder (tabby-v04.9).
     v0.14 2026-11-16  Goal 6: steps_state(), edit_save(), edit_discard(), edit_open(), play_key(), knob() (remote ops 15 and 16, tabby-v04.8).
     v0.13 2026-11-14  Task 17 Goal 4: clips_state(), clip_launch(), unqueue(), pad(), shift_pad() (remote ops 12 to 14, tabby-v04.7).
     v0.12 2026-11-14  Task 17 Goal 3: launch(), stop_track(), attach() (remote ops 9 to 11, tabby-v04.6).
@@ -350,7 +351,8 @@ class Link:
                   "length": d[35 + 6 * k] | d[36 + 6 * k] << 8} for k in range(min(d[30], 4))]
         return {"page": d[0], "page_name": self.PAGES.get(d[0], str(d[0])), "track": d[1], "place": d[2], "bar": d[3], "selected": d[4],
                 "dirty": d[5], "undo": d[6], "redo": d[7], "events": d[8] | d[9] << 8, "note": d[10], "steps": d[11], "play_step": d[12],
-                "toggle": d[13], "pads": list(d[14:30]), "count": d[30], "notes": notes}
+                "toggle": d[13], "pads": list(d[14:30]), "count": d[30], "notes": notes,
+                "recording": d[55] if len(d) > 55 else 0, "quantize": d[56] if len(d) > 56 else 1}   # v0.15 (tabby-v04.9)
 
     def edit_save(self):
         """v0.14: remote op 16 {16, 1}: save the edited clip (refused with code 76 while a transport runs)."""

@@ -1188,3 +1188,12 @@ RAM (runtime heap): 161484 -> 161420 bytes (-64).
 RAM (runtime heap): 161420 -> 145804 bytes (-15616: the edit copy and four undo levels, 5 x 3088 bytes, and the editor's
 state). The build's minimum is 49152. The package's flash image is 487424 bytes, the VM area 81920.
 
+## 29. tabby-v04.9 (measured, 2026-11-16)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.8 | 467588 | | 51869 |
+| tabby-v04.9: the recorder (stamps, the two queues, notes with reserved places, controller thinning, the cap), REC on the CLIPS and STEP pages, the Help text | 471044 | +3456 | **48413** |
+
+RAM (runtime heap): 145804 -> 144844 bytes (-960: the two event queues, the held notes and the controller table).
+

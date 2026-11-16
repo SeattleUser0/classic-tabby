@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.77
+Version: 0.78
 Revision log:
+- v0.78, 2026-11-16: 41.3 (tabby-v04.8 on the device), section 42 (tabby-v04.9: real-time recording).
 - v0.77, 2026-11-16: 40.3 (tabby-v04.7.1 on the device), section 41 (tabby-v04.8: the clip editor and the STEP page).
 - v0.76, 2026-11-16: section 40 (tabby-v04.7.1: the user's answers; reservation, the two mutes, the MC-707 differences).
 - v0.75, 2026-11-14 (Task 17 Goals 3 and 4): 38.3 (tabby-v04.6 on the device), section 39 (tabby-v04.7, the CLIPS page).
@@ -5178,4 +5179,58 @@ Decisions:
 | runtime heap, bytes | 161420 | 145804 |
 
 Build id `6238066d230eee73`. make check, lint, test-fast and midi-import-sim green on the branch (overnight/g6/tf-v048.log).
+
+### 41.3 The suite, the release and the device (2026-11-16)
+
+Suite green on commit 068e2a5 (the gate's marker), tagged, published, released. Full backup through the tabby-v04.7.1 page,
+one install attempt: "Firmware ready." after 11.1 s, version tabby-v04.8. By remote keys (overnight/g6/v048.log):
+
+- The STEP page (run-steps.py v0.1, first run): 18 of 18. The editor opens on the clip; a pad selects a step; a remote
+  key enters its note; K2, K3 and K4 change velocity, start and length; undo and redo; PLAY starts the song and the
+  unsaved note plays on its step, 30 units late as set (2506.4 ms after Start; 2506.8 expected); a note entered while
+  the clip loops plays on its step in the following loops (-1.0 and -1.2 ms); the playing step is reported; a save while
+  playing is refused (code 76); stopped it is saved, and is there after a discard and a reopen; ENV clears a step; the
+  clip is saved by itself ten seconds after the change; the song started again plays the stored clip; no stuck note,
+  no underrun.
+- The CLIPS page again (run-launch.py): 40 of 40. timing-1x16: 960 of 960 (DIN worst 1.32 ms, USB 1.07).
+- Timing, one line of 960 notes: band 1.86 ms on DIN, 1.73 ms on USB; F + G latest 1.54 ms.
+- Full backup and verify after: PASS (41 items).
+
+## 42. Goal 6, second step — tabby-v04.9: real-time recording (2026-11-16)
+
+### 42.1 What was built (SPEC 19.11 and 14.2 as amended, docs/CONTROL-MAP.md section 13)
+
+- app/song.c: the recorder (`song_record_start`, `_stop`, `_poll`, `_in`, `_quantize`, `_full`): TIMER4 stamps turned into
+  clip times from the block the audio thread publishes; 16 held notes with reserved places; controller thinning; the cap;
+  the take as one undo level.
+- app/smk37_controls.c `send()` and app/midi_router.c `midi_received_body` feed it (panel and MIDI in).
+- app/screen.c: REC on the CLIPS and STEP pages (start, stop, SHIFT + REC input quantize), the REC lamp, the messages,
+  the red pad at the cap; op 15's reply carries the recorder's state.
+- Tests: smoke.c section 24 (the cap: three held notes keep their places, the next event stops the take, 512 valid events,
+  undo gives the clip before the take, step entry into a full clip is refused); tests/workbench/record-sim.mjs (28
+  checks); the Help audit list (the Help text avoids two words the list bans for the removed features).
+
+Decisions:
+
+1. **The cap is 512, not SPEC 14.2's 768.** A 768-event clip is 4624 bytes and a block must fit one 4096-byte sector
+   (4070 bytes of payload). SPEC 14.2 is amended with the reason; the rule itself is built as written.
+2. A take needs the clip looping on its track, and REC launches it. A track that follows the scenes changes clips under
+   the player; one fixed loop makes "where in the clip am I" a single subtraction.
+3. A note is written at its note-off (its length is known then) and heard from the next loop. Writing at the note-on
+   and patching the length would let the player read a clip that is being changed.
+4. Input quantize is on at power-up, to the step. The MC-707 has it on a button; here SHIFT + REC. Unquantized takes
+   are stamped where the message arrives (TIMER4), not when the control task gets to them.
+5. A second note of a pitch on a step replaces the first (the format allows one). Overdubbing the same hit twice
+   should not fail.
+6. No count-in and no metronome in this release (SPEC 14.1 decision 7 stands); recording into an empty place waits for
+   clip creation. Both are in the report's next steps.
+
+### 42.2 Measured
+
+| | tabby-v04.8 | tabby-v04.9 |
+| --- | ---: | ---: |
+| app image, bytes (margin) | 467588 (51869) | 471044 (48413) |
+| runtime heap, bytes | 145804 | 144844 |
+
+Build id `d1191dd33942c3c3`. make check, lint, test-fast and midi-import-sim green on the branch (overnight/g6/tf-v049.log).
 

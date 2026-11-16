@@ -32,4 +32,11 @@ The STEP page: edit a clip's notes on the pads and keys of the SMK-37; reinstall
 
 ## Hardware validation
 
-See the release page's "Hardware validation" text (added after the install) and docs/BUILD.md 41.3.
+Installed on the SMK-37 Pro on 2026-11-16 through the published page (Full backup first; identity checked; one attempt;
+"Firmware ready." after 11.1 s). By remote pads, keys, knobs and buttons, nobody at the panel (docs/BUILD.md 41.3):
+
+- The STEP page: 18 of 18 checks. A note entered by key plays on its step, unsaved, within 0.5 ms of its time; a note
+  entered while the clip loops plays from the next loop (within 1.3 ms); undo and redo; a save while playing is refused,
+  stopped it works, and the clip saves by itself after ten seconds; the song started again plays the stored clip.
+- The CLIPS page again: 40 of 40. One line of 960 notes: band 1.86 ms on DIN, 1.73 ms on USB. No audio underrun.
+- Full backup and verify after: PASS.

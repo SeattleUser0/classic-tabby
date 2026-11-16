@@ -1,7 +1,9 @@
 # Classic Tabby — Specification
 
-Version: 0.44
+Version: 0.45
 Revision log:
+- v0.45, 2026-11-16 (Goal 6, second step): 19.11 tabby-v04.9 (real-time recording); 14.2 amended: the cap is 512 events,
+  because a block must fit one 4096-byte storage sector.
 - v0.44, 2026-11-16 (Goal 6, first step): 19.10 tabby-v04.8 (the clip editor and the STEP page); 14.2 note on the cap as built.
 - v0.43, 2026-11-16: 19.9 tabby-v04.7.1 (clips reserved while stopped, the two mutes; the user's answers of 2026-11-16).
 - v0.42, 2026-11-14 (Task 17 Goal 4): 19.8 tabby-v04.7 (the CLIPS page, clip launching by place, song mute; the control
@@ -934,6 +936,14 @@ assessment.
 
 ### 14.2 Design rule: the event cap
 
+> **Amended 2026-11-16 (tabby-v04.9): the cap is 512 events, not 768.** A clip is one block record in song storage, and
+> a block record must fit one 4096-byte sector (20 bytes of sector header, 6 of record header: 4070 bytes of payload at
+> most, 678 events). 768 events are 4624 bytes and cannot be stored without blocks that span sectors, a change to the
+> storage format that is not planned. The clip format was released in tabby-v04.5 with 512 (3088 bytes). Everything
+> below applies with 512 in place of 768; the screen says `CLIP FULL - 512 EVENTS - REC STOPPED`. The 768 reasoning is
+> kept as written for the record. In practice: eight bars of four-note chords on every 16th fill a clip with no room
+> for a controller; real material is far below that (the densest fixture track has about 52 notes per 8 bars).
+
 A clip holds at most **768 events** (notes, CC, PC, bank, pitch bend, aftertouch together;
 raised from the assessment's 512).
 
@@ -1611,9 +1621,8 @@ The controls are docs/CONTROL-MAP.md section 12. This section fixes what the fir
   step and pitch (docs/CLIP-V3.md: no two notes of a pitch on a step), so entering a pitch that is there removes it. A
   start is moved inside its step only (-239 .. +240 units; step 1 from -240). Every edit leaves a valid v3 payload
   (tests/host/clip_v3_test.c: 40000 random edits).
-- **The event cap is the format's: 512 events** (docs/CLIP-V3.md, as released in tabby-v04.5). Section 14.2 above says 768;
-  the format was built with the assessment's 512. An insert into a full clip is refused with CLIP FULL and changes
-  nothing (14.2's rule for step entry). Raising the cap to 768 is a format change and is open with the user.
+- **The event cap is 512 events** (14.2 as amended; docs/CLIP-V3.md). An insert into a full clip is refused with CLIP FULL
+  and changes nothing (14.2's rule for step entry).
 - **Undo: four levels** (14.1 decision 8), a copy of the clip each; redo until the next change; one level per knob
   gesture (the same step, note and field); cleared when another clip is opened.
 - **Hearing an edit without a flash write.** While the open clip is unsaved, the decoder takes it instead of the stored
@@ -1633,3 +1642,39 @@ The controls are docs/CONTROL-MAP.md section 12. This section fixes what the fir
   saves (code 76 while a transport runs), `{16, 2}` discards, `{16, 3, track, place}` opens the page on a clip. Page 21.
 - **Tests.** tests/host/clip_v3_test.c (edit primitives), tests/host/smoke.c section 23 (the editor), tests/workbench/
   steps-sim.mjs (the page through panel events, 48 checks), tools/linux/hw/run-steps.py (the device).
+
+### 19.11 tabby-v04.9 (2026-11-16): real-time recording (Goal 6, second step)
+
+The controls are docs/CONTROL-MAP.md section 13. The rules are 14.2 (the cap, controller thinning) and 14.1 decision 8
+(undo); this section says how they are built.
+
+- **A take goes into the open clip** (19.10) while that clip loops on its track as a launched clip. `song_record_start`
+  launches it when it does not (a reservation when the song is stopped) and arms; the take begins when the track plays
+  the clip, and ends on REC, when the song stops or when the track leaves the clip.
+- **Sources.** Queue 0: everything the panel sends as MIDI (`send()` in app/smk37_controls.c: keys, pads, wheels, pedal,
+  pad pressure). Queue 1: channel voice messages at MIDI in (`midi_received_body`). Only messages on the recording
+  track's input channel are taken. One writer per queue; the control task drains both.
+- **Time.** Each message is stamped with TIMER4 (24 MHz) where it arrives. The audio thread publishes, per block, the
+  master position at the block's start, its TIMER4 time and its advance; the control task turns a stamp into master
+  units from that. The clip time is the master time less the loop's start, modulo the loop.
+- **Notes.** A note-on takes a place among 16 held notes with its clip time (rounded to the nearest step when input
+  quantize is on) and velocity; the note is written at its note-off with the length played (1 to 65535 units). A note of
+  a pitch that is already anchored at that step replaces it. The same key struck again before its note-off ends the
+  first note there.
+- **The cap (14.2).** A note-on or controller value is accepted only while the clip's events plus the held notes are
+  below 512. Otherwise the take stops: the held notes are written at once into their reserved places, nothing else is
+  taken, the screen shows `CLIP FULL - 512 EVENTS - REC STOPPED` for 2 s, the REC lamp goes out and the clip's pad on
+  the CLIPS page shows red for 0.4 s. Playback continues. Step entry into a full clip is refused with CLIP FULL.
+- **Controller thinning (14.2).** Per controller (a CC number below 120, pitch bend, channel pressure; eight at a time):
+  a value is written if 240 units have passed since the last written one, else it becomes the one pending value; a
+  pending value is written, at the time it arrived, when the controller has been still for 480 units or the take ends;
+  a value equal to the last written one is not written. Polyphonic aftertouch has no event kind in the v3 clip and is
+  not recorded.
+- **Undo.** The take is one level, pushed when the take begins; `song_edit_undo` and `_redo` return SONG_BUSY during a
+  take; a take that wrote nothing gives its level back.
+- **Hearing the take.** As any edit (19.10): the looping clip plays what was recorded from its next pass.
+- **Not built:** a count-in, a metronome (14.1 decision 7), recording into an empty place, poly aftertouch.
+- **Remote.** REC is physical button 17 (op 6). Op 15's reply is 57 bytes: [55] the recorder (0 off, 1 armed,
+  2 recording), [56] input quantize.
+- **Tests.** tests/host/smoke.c section 24 (the cap), tests/workbench/record-sim.mjs (28 checks: keys, MIDI in, quantize
+  on and off, thinning, undo), tools/linux/hw/run-record.py (the device; it measures playback against the live note).

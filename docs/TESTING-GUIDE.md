@@ -1,14 +1,14 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 2.0, 2026-11-16. For tabby-v04.8 on the M-VAVE SMK-37 Pro.
+Version 2.1, 2026-11-16. For tabby-v04.9 on the M-VAVE SMK-37 Pro.
 Written for the person who plays and tests the device. No programming needed.
 
-tabby-v04.8 is new firmware. It adds the STEP page: edit a clip's notes on the pads and keys (section 4.9). tabby-v04.7 added the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
+tabby-v04.9 is new firmware. It adds recording: REC records what you play into a clip (section 4.10). tabby-v04.8 added the STEP page: edit a clip's notes on the pads and keys (section 4.9). tabby-v04.7 added the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
 at the time they are due, within about 2 ms (timed MIDI, on at power-up),
 and a song can now follow an external MIDI clock. It also has a remote control
 command for the workbench tools, so tests can run without anyone at the panel.
-If an older firmware is on your SMK-37, install tabby-v04.8 to get these. The page also has English-only Help and this guide.
+If an older firmware is on your SMK-37, install tabby-v04.9 to get these. The page also has English-only Help and this guide.
 
 How to read this guide
 ----------------------
@@ -34,7 +34,7 @@ The SMK-37 is the clock master. It sends MIDI Clock, Start, Stop and Song Positi
 
 The SMK-37 still has its own sounds: DX7 FM (called FM6 here), BASS 303, DRUM 808, PSG and PLUCK. In a song they let you hear a part before you give it to outside gear.
 
-The SMK-37 keys and pads play live. Songs come from the workbench; from tabby-v04.8 you can edit their clips on the device (section 4.9). There is no recording on the device yet.
+The SMK-37 keys and pads play live. Songs come from the workbench; from tabby-v04.8 you can edit their clips on the device (section 4.9), and from tabby-v04.9 record into them (section 4.10).
 
 
 2. WHAT CHANGED
@@ -84,6 +84,7 @@ Removed:
 - tabby-v04.7: Clip launching. BT opens the CLIPS page: the pads show the selected track's clips (off empty, white stopped, green playing, blinking queued, orange muted), a pad launches or stops its clip on the next bar line, a held pad selects it. The pads of the SONG page light up and recall scenes. SHIFT and pad 9 to 16 now also holds the track's song notes back on MIDI out. See 4.8.
 - tabby-v04.7.1: A clip pad pressed while the song is stopped reserves its clip; PLAY starts it (as on the MC-707). The two mutes look different: orange pads and MUTED ALL for SHIFT and pad (sound and MIDI), blue pads and MUTED INT for a mixer mute (the SMK-37's own sound only).
 - tabby-v04.8: The STEP page. EDIT on the CLIPS page opens the selected clip: the pads are the 16 steps of a bar, a pad selects a step, keys enter and remove notes on it, K1 to K4 set a note's velocity, start and length, FX undoes. You hear the change without saving; the clip is saved when the song is stopped. See 4.9.
+- tabby-v04.9: Recording. REC on the CLIPS or STEP page records what you play, on the keys or from outside gear at MIDI in, into the selected clip while it loops. Notes land on the nearest step unless you switch input quantize off (SHIFT and REC). FX undoes a whole take. See 4.10.
 - tabby-v04.5.1: The page of tabby-v04.5 could not import a part that needs the new clip form (it said "clip-v3.js not loaded"); fixed. The firmware is the same.
 - tabby-v04.5: Larger clips. A track's part in a row can now hold any number of notes on a step (it was four), controller, pitch bend and aftertouch events from the MIDI file, a program and bank of its own, and rows can be up to 128 steps (8 bars of 4/4; it was 64). The importer uses the new clip form only where a part needs it. Old songs play as before.
 - tabby-v04.2: Fast MIDI on by default: one line leaves about 3.7 ms after it is due instead of about 12 ms. Remote control over USB for tests. Stale screen texts fixed. The ACTIONS list has a new last entry, A2 FAST MIDI.
@@ -110,7 +111,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. tabby-v04.8 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips, scenes, clip launching and clip editing. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. tabby-v04.9 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips, scenes, clip launching, clip editing and recording. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -318,10 +319,25 @@ Here you change the notes of a clip on the SMK-37 itself. The pads say where, th
 
 Only one clip can be unsaved at a time. Unsaved changes are lost when you switch the SMK-37 off. Take a Full backup of a song before you edit it on the device if you want the old version back later.
 
+4.10 Recording into a clip (tabby-v04.9)
+---------------------------------------
+
+REC records what you play into a clip while the clip loops. What is already in the clip stays; you add to it.
+
+1. On the CLIPS page choose the track (SHIFT and pad 1 to 8) and select the clip: hold its pad for half a second.
+2. Press REC. If the song is stopped the screen says REC ARMED - PLAY STARTS IT: press PLAY. If the song is playing, the clip starts looping at the next bar line and the screen says RECORDING. The REC lamp is lit.
+3. Play. Each note appears in the clip when you let the key go, and you hear it from the clip's next time round.
+4. Notes land on the nearest step (input quantize). To keep your own timing, hold SHIFT and press REC: INPUT QUANTIZE OFF. Do it again to switch it back on.
+5. Outside gear can record too: send notes to the SMK-37 over USB on the track's channel. Mod wheel, pitch bend and other controllers are recorded as well; a long sweep is thinned so it does not fill the clip.
+6. Press REC again: REC STOPPED. The clip is UNSAVED. It is saved like a step edit: stop the song, and press the 4th button in the left group or wait ten seconds.
+7. Not happy with the take? Press EDIT for the STEP page and press FX: the whole take is gone. SHIFT and FX bring it back.
+
+A clip holds 512 events. If it fills up, recording stops by itself and the screen says CLIP FULL - 512 EVENTS - REC STOPPED. Nothing you recorded is lost.
+
 - ARP: tap to switch the arpeggiator on or off for the track. Hold about 0.6 seconds for its settings.
 - FX: reverb and delay sends for the selected track.
 - BT: opens the CLIPS page (4.8). BT again goes back.
-- REC: only says NO REC IN THIS VERSION.
+- REC: records into a clip on the CLIPS and STEP pages (4.10). Elsewhere it says REC: ON THE CLIPS OR STEP PAGE.
 - HOME and PLAY together: stop all sound and rewind. [not checked in simulator]
 
 
@@ -882,6 +898,34 @@ Set up: the STEP page on a drum clip. Nothing selected.
 You should see and hear: the pads turn amber as the hits go on; pad 5 goes off again. Playing, the hits are on beats 1, 3 and 4.
 Result: PASS / FAIL   Notes: ________________________________
 
+T65. Record from the keys (tabby-v04.9)
+Set up: a song on the device, stopped. CLIPS page, a clip selected (bright pad).
+1. Press REC. Press PLAY.
+2. Play four notes in time with the music. Listen to the next time round.
+3. Press REC.
+You should see and hear: REC ARMED - PLAY STARTS IT, then RECORDING and the REC lamp. Your notes come back in the loop, on the beat. REC STOPPED, and the lamp goes out. The STEP page shows the clip UNSAVED.
+Result: PASS / FAIL   Notes: ________________________________
+
+T66. Your own timing (tabby-v04.9)
+Set up: T65 done, the song playing, the clip looping.
+1. Hold SHIFT and press REC (INPUT QUANTIZE OFF). Press REC.
+2. Play a few notes deliberately late, between the beats. Press REC.
+You should hear: the notes come back exactly as late as you played them.
+Result: PASS / FAIL   Notes: ________________________________
+
+T67. Undo a take (tabby-v04.9)
+Set up: T66 done.
+1. Press EDIT. Press FX. Hold SHIFT and press FX.
+You should see and hear: UNDO, and the last take is gone from the loop at its next time round. REDO, and it is back.
+Result: PASS / FAIL   Notes: ________________________________
+
+T68. Record from outside gear, with a controller (tabby-v04.9)
+Set up: a keyboard or a DAW sends to the SMK-37 over USB on the channel of the selected track (SYNC / MIDI page, K1 IN CH). A clip looping, REC on.
+1. Play notes on the outside keyboard. Move its mod wheel slowly up and down once.
+2. Press REC. Listen.
+You should hear: the notes and the wheel movement come back in the loop. On the STEP page EVENTS has grown by a few dozen for the wheel, not by hundreds. [not checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
 
 7. KNOWN LIMITS AND WHAT IS NOT BUILT YET
 =========================================
@@ -889,7 +933,7 @@ Result: PASS / FAIL   Notes: ________________________________
 Do not spend time testing these. They are known.
 
 - MIDI timing (tabby-v04.4 and later): one line stays within about 2 ms and eight lines within about 3 ms of their times, on DIN and USB. On DIN eight notes at the same step still take 9 ms to pass the cable one after the other.
-- No recording on the device yet. New songs come from the workbench; their clips can be edited on the STEP page (4.9). The clip's length cannot be changed on the device. The metronome and count-in are planned for a later version.
+- New songs come from the workbench; their clips can be edited on the STEP page (4.9) and recorded into (4.10). You cannot record into an empty pad or change a clip's length on the device. There is no metronome and no count-in yet.
 - One clip can be unsaved at a time, and a clip two tracks share cannot be edited on the device.
 - External clock in song mode (tabby-v04.3.1): the clock must come over USB or Bluetooth; the TRS jack cannot receive it. Song Position Pointer moves the song through its rows and repeats; a position past the end of a song that does not loop goes to its last step. The song sends no clock of its own while it follows.
 - The TRS jack is output only. A DIN clock cannot come in through it. Use USB or Bluetooth for clock in.
@@ -904,7 +948,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.8.
+- The page badge and the boot screen show tabby-v04.9.
 
 
 8. HOW TO REPORT A PROBLEM

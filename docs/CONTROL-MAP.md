@@ -1,9 +1,9 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.3 (2026-11-16). Applies from tabby-v04.8 (section 12, the STEP page). v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.4 (2026-11-16). Applies from tabby-v04.9 (section 13, recording). v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
-two pages you play a song from, CLIPS and SCENES, and on the STEP page, where you edit a clip. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
+two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
 from the left, buttons by their printed label, and "4th left button" for the one whose label is not confirmed.
 
 The model is the Roland MC-707's: a song has eight tracks, each track has clips, a scene is one clip per track,
@@ -99,7 +99,7 @@ blue: internal sound only, dim green: not muted).
 | HOME | To the overview. | SRC: the source page. |
 | FADER BANK | Faders work tracks 1 to 4 / 5 to 8. | same |
 | MIX | The mixer page (levels, mute, solo); MIX again returns. | same |
-| REC | Not used yet. Screen: NO REC IN THIS VERSION. | same |
+| REC | Starts a take into the track's selected clip, or stops it (section 13). | Input quantize on / off. |
 | EDIT | Opens the STEP page on the selected clip of the track (section 12). | same |
 | 4th left button, ARP, FX, SEQ, PAD / STEP | As on every page (SPEC.md); they leave CLIPS. | |
 
@@ -191,9 +191,9 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-Recording from the keys and from MIDI in (the next release), changing a clip's length, copying clips between
-places, and storing a scene from what plays now. New songs still come from the web workbench (the MIDI importer
-or the song editor); the STEP page changes the clips of a song that is on the device.
+A count-in and a metronome, changing a clip's length, recording into an empty place (a new clip), copying clips
+between places, and storing a scene from what plays now. New songs still come from the web workbench (the MIDI
+importer or the song editor); the STEP page and REC change the clips of a song that is on the device.
 
 ## 11. Differences from the MC-707
 
@@ -242,7 +242,16 @@ Deliberate differences:
 | Undo | 10 levels; cleared when the clip or track changes (UM, Ver. 1.80). | 4 levels; cleared when another clip is opened (SPEC 14.1, decision 8). | Memory: each level is a copy of the clip. |
 | Saving | The project lives in memory until you save it. | A clip saves by itself ten seconds after the song stops, or with the 4th left button; never while playing. | Flash writes stop the MIDI out for a moment, so they wait for the stop; saving by itself protects against a forgotten save. |
 | Hearing an edit | At once. | A launched clip from its next loop; a track following the scenes from its next scene. | The player reads a prepared copy of the clip; it is swapped only where a loop begins. |
-| Clip length (STEP LEN), SCALE, sub steps, motion | On the device. | Not on the device yet. | Later releases. |
+| Clip length (STEP LEN), SCALE, sub steps | On the device. | Not on the device yet. | Later releases. |
+| REC while stopped | Recording is reserved; START begins it (RM p. 31: "If playback is stopped, press the [START/STOP] button"). | The same: REC arms, PLAY starts the song and the take. | Same. |
+| What REC records into | A new clip in an empty place, or the selected clip (overdub). | The selected clip only (overdub). | Making a clip changes the song's clip table; that comes with clip length and copy. |
+| The clip must be playing | Yes: recording runs with the sequencer. | REC launches the clip on its track if it is not looping already, and the take starts when it does. | A take needs one fixed loop to place notes in; a track that follows the scenes changes clips under it. |
+| Input quantize | [QUANTIZE] on / off; SHIFT + [QUANTIZE] for the settings (RM p. 32). | SHIFT + REC on / off, to the nearest step. | No QUANTIZE button; grid sizes other than a step come with SCALE. |
+| Knob movements (motion) | Up to four parameters per clip, as steps. | Controllers, pitch bend and channel pressure are recorded as events, thinned (one value per 1/32 note and the last value of a move). | Our clips hold timed events, not per-step motion lanes; thinning keeps a sweep from filling the clip. |
+| Outside controllers | CC 1, 2 and 4 can be recorded as motion (UM, Ver. 1.80). | Every controller below 120, pitch bend and channel pressure on the track's channel. | Outside gear is the main use here. |
+| Undo of a take | UNDO takes the recording back; no undo while recording (UM, Ver. 1.80). | The same: a take is one undo level; FX does nothing during a take. | Same. |
+| When the clip is full | Not described. | The take stops: CLIP FULL - 512 EVENTS - REC STOPPED, the REC lamp goes out, the clip's pad shows red once; nothing is lost and undo still holds the clip before the take. | SPEC 14.2. |
+| Count-in, metronome | PRE COUNT and click. | Not yet. | Next release. |
 | Unsaved clips | Any number. | One at a time. | Memory. |
 
 ## 12. STEP page: editing a clip
@@ -334,3 +343,47 @@ pads in Note mode, here the 16 pads and the 37 keys.
 | STOP TO SAVE / CLIP SAVED / NOTHING TO SAVE / SONG STORAGE FULL | The 4th left button. |
 | EDITS DISCARDED | SHIFT + ENV. |
 | PAST THE CLIP'S END | A pad beyond the clip's last step. |
+
+## 13. Recording
+
+REC records what you play into a clip while it loops: notes from the keys and pads, and notes, controllers, pitch
+bend and channel pressure arriving at MIDI in on the track's channel. What was in the clip stays (overdub).
+
+### 13.1 Making a take
+
+| Step | Press | Result |
+| --- | --- | --- |
+| 1 | On CLIPS select the clip (hold its pad, or launch it). Or open it on the STEP page. | |
+| 2 | REC | The song playing and the clip looping on its track: RECORDING at once, the REC lamp lights. The song playing but the clip not looping: the clip is launched, REC WHEN THE CLIP LOOPS, and the take starts on the next master cycle. The song stopped: REC ARMED - PLAY STARTS IT. |
+| 3 | PLAY (only if the song was stopped) | The song starts with the clip looping on its track, and the take runs. |
+| 4 | Play. | Each note is written when you let its key go, and the clip plays it from its next loop. |
+| 5 | REC | REC STOPPED. The clip is UNSAVED; it is saved as on the STEP page (12.5). |
+
+The take also stops when the song stops, when another clip is launched on the track, when a scene is recalled, or
+when ENV sends the track back to the scenes.
+
+### 13.2 Rules
+
+| | |
+| --- | --- |
+| Input quantize | On at power-up: a note is recorded on the nearest step. Its length is what you played. SHIFT + REC switches it off (the note keeps the time you played it, to 1/480 of a step) and on. The STEP page shows Q ON or Q OFF. |
+| The same note twice on a step | The later one replaces the earlier one. |
+| Channel | Only messages on the track's input channel (SYNC / MIDI page, K1 IN CH) are recorded from MIDI in. |
+| Controllers | A moving controller is recorded once per 1/32 note (240 units); when it stops moving for a 16th, its last value is recorded too. A value it already has is not recorded again. Up to eight controllers can move at once. |
+| Not recorded | Polyphonic aftertouch, channel mode messages (controllers 120 to 127), program changes, more than 16 keys held at once. |
+| Undo | A whole take is one undo level (FX on the STEP page). FX does nothing during a take. A take in which nothing was played leaves no undo level. |
+| Full | A clip holds 512 events. Held keys have their places reserved. When the clip is full the take stops by itself: CLIP FULL - 512 EVENTS - REC STOPPED for two seconds, the REC lamp goes out, the clip's pad on CLIPS shows red once. Nothing already recorded is lost. |
+| One clip | The take goes into the one open clip. With another clip unsaved, REC says ANOTHER CLIP IS UNSAVED. |
+
+### 13.3 Messages
+
+| Message | Reason |
+| --- | --- |
+| RECORDING / REC STOPPED | A take started / ended. |
+| REC WHEN THE CLIP LOOPS | REC was pressed while the clip was not looping on its track; it has been launched. |
+| REC ARMED - PLAY STARTS IT | REC was pressed while the song is stopped. |
+| INPUT QUANTIZE ON / OFF | SHIFT + REC. |
+| CLIP FULL - 512 EVENTS - REC STOPPED | The event cap. |
+| REC: ON THE CLIPS OR STEP PAGE | REC on another page. |
+| ANOTHER CLIP IS UNSAVED / CLIP SHARED BY ANOTHER TRACK / HOLD A PAD TO SELECT A CLIP FIRST | As for EDIT (12.6). |
+
