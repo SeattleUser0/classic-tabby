@@ -1206,3 +1206,12 @@ RAM (runtime heap): 145804 -> 144844 bytes (-960: the two event queues, the held
 
 RAM (runtime heap): 144844 bytes, unchanged.
 
+## 31. tabby-v04.9.2 (measured, 2026-11-16)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.9.1 | 471076 | | 48381 |
+| tabby-v04.9.2: a stopped song reports no launched track and no playing clip | 471108 | +32 | **48349** |
+
+RAM (runtime heap): 144844 bytes, unchanged.
+

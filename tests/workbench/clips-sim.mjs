@@ -20,9 +20,10 @@
 //
 //   Run:  /usr/bin/node tests/workbench/clips-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.2
+// Version: 0.3
 //
 // Revision log
+//   v0.3  2026-11-16  After a stop nothing plays and nothing is launched (tabby-v04.9.2).
 //   v0.2  2026-11-16  A pad pressed while stopped reserves its clip and PLAY starts it; the mixer's mute shows blue.
 //   v0.1  2026-11-14  Initial version.
 
@@ -206,6 +207,14 @@ press(BT); check(state().page === 19, 'BT again returns to the page it came from
 /* ---- stop ---------------------------------------------------------------------------------- */
 press(PLAY); step(40);
 check(((c.sim_song_status(0) >>> 8) & 255) === 0, 'PLAY stops the song');
+/* ---- stopped after a performance: nothing plays, nothing is launched (tabby-v04.9.2) ---------------------------- */
+{ press(BT); shiftPad(0); press(PLAY); step(100); pad(1); step(800);          /* play; in the first bar (scene 1) launch clip 2 on track 1; let it land */
+  check((trackStatus(0) & 3) === 1 && state().pads[1].code === (2 | 8), 'a clip is launched and plays');
+  press(PLAY); step(60); s = state();
+  check((trackStatus(0) & 3) === 0 && s.pads[1].code === (1 | 8) && s.pads[1].rgb === 0x303030 && s.pads[0].code === 1, 'the song stopped: no pad is green, no track is launched (' + s.pads.slice(0, 2).map(p => p.code) + ')');
+  pad(1); s = state();
+  check(s.pads[1].code === (3 | 8), 'the clip that was launched before the stop can be reserved like any other');
+  pad(1); press(BT); }
 /* ---- a clip reserved while stopped starts with PLAY (MC-707 Reference Manual p. 12) ---------------------------- */
 { press(BT); shiftPad(0); pad(1); s = state();
   check(s.page === 20 && s.pads[1].code === (3 | 8), 'stopped: pad 2 of track 1 reserved (code ' + s.pads[1].code + ')');
@@ -221,7 +230,7 @@ c.sim_midi_capture(0); c.sim_midi_drain(0);
   for (const m of log) { const st = m[0] & 0xf0, k = (m[0] & 15) + ':' + m[1]; if (st === 0x90 && m[2]) held.set(k, (held.get(k) || 0) + 1); else if (st === 0x80 || (st === 0x90 && !m[2])) { if (!held.get(k)) bad++; else held.set(k, held.get(k) - 1); } }
   for (const v of held.values()) if (v) bad++;
   check(bad === 0, 'every note-on has its note-off, nothing stuck (' + log.length + ' messages)'); }
-check(log.filter(m => m[0] === 0xfa).length === 2 && log.filter(m => m[0] === 0xfc).length === 2, 'Start and Stop twice, for the two PLAY presses each: nothing else on the page touched the transport');
+check(log.filter(m => m[0] === 0xfa).length === 3 && log.filter(m => m[0] === 0xfc).length === 3, 'Start and Stop three times, for the three PLAY presses each: nothing else on the page touched the transport');
 
 console.log(`\nclips-sim: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

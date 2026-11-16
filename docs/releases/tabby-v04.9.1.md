@@ -15,4 +15,10 @@ Everything else is tabby-v04.9: recording with REC, step editing, clip launching
 
 ## Hardware validation
 
-See the release page's "Hardware validation" text (added after the install) and docs/BUILD.md 43.
+Installed on the SMK-37 Pro on 2026-11-16 through the published page (Full backup first; identity checked; one attempt;
+"Firmware ready." after 10.7 s). By remote keys (docs/BUILD.md 43.1):
+
+- HOME on the STEP page with an unsaved clip open goes to the overview and the clip stays open.
+- Recording 15 of 15, the STEP page 18 of 18, 960 timed notes all present; one line: band 1.77 ms on DIN, 1.80 ms on USB.
+- **Known fault, fixed in tabby-v04.9.2:** after the song is stopped, the pad of a clip that had been launched stays green
+  on the CLIPS page and cannot be reserved for the next PLAY.

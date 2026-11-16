@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.79
+Version: 0.80
 Revision log:
+- v0.80, 2026-11-16: 43.1 (tabby-v04.9.1 on the device; the publish gate and the untracked file), section 44 (tabby-v04.9.2).
 - v0.79, 2026-11-16: 42.3 (tabby-v04.9 on the device; the HOME fault, the killed test, the one odd timing run), section 43 (tabby-v04.9.1).
 - v0.78, 2026-11-16: 41.3 (tabby-v04.8 on the device), section 42 (tabby-v04.9: real-time recording).
 - v0.77, 2026-11-16: 40.3 (tabby-v04.7.1 on the device), section 41 (tabby-v04.8: the clip editor and the STEP page).
@@ -5284,4 +5285,34 @@ read back, a repeat) before it was called anything (hard limit 6):
 app/screen.c: HOME on the STEP page goes to the overview and the clip stays open (docs/CONTROL-MAP.md 12.4 said so all
 along). tests/workbench/steps-sim.mjs v0.2 presses HOME with an unsaved clip open, then BT and EDIT, and finds the clip
 as it was. App image 471076 bytes (+32), margin 48381; build id `fdcb1d2e916fb8a6`.
+
+### 43.1 The suite, the gate, the release and the device (2026-11-16)
+
+- The first suite run, in the release worktree (`firmware`), passed every test, and the gate wrote no marker: "the suite
+  passed, but the tree was not clean". An untracked file, docs/FLASH-CHIP.md, had appeared there during the run (a
+  read-only investigation of the flash chip identity, dated the same day, not written by this session). It was left as it
+  was. The suite was run again on the same commit (c53f6fc) in the second worktree (`firmware-clipv3`), which was clean;
+  the gate wrote its marker there and the publish and the release were made from that worktree. Nothing about the gate
+  was changed. The publish checkout (`build/gh-pages`) moved to that worktree with it.
+- Full backup through the tabby-v04.9 page, one install attempt: "Firmware ready." after 10.7 s, version tabby-v04.9.1.
+- HOME on the STEP page with an unsaved clip open: the overview, the clip still open and unsaved. PASS.
+- Recording 15 of 15 (quantize off: playback +3.12, +2.84, +3.65 ms after the live note; a sweep of 61 values in 253 ms
+  recorded as 5). The STEP page 18 of 18. timing-1x16 960 of 960 (DIN worst 1.18 ms). One line of 960 notes: band
+  1.77 ms on DIN, 1.80 ms on USB. Backup and verify PASS (41 items).
+- The CLIPS page: 38 of 40 in the batch, 40 of 40 on the rerun, then 37 of 40. Two different things:
+  1. My script (v0.4) compared late notes against cycles of a fixed length, 2000 ms x 0.9996. The ratio between the two
+     clocks was 0.99965 in that run; after a minute that is 3 to 5 ms, and two checks failed by under a millisecond.
+     v0.5 takes the cycle from the device's own MIDI clock on the DIN input.
+  2. **A device fault**, seen when the script ran twice without the song being written again in between: after the song
+     is stopped, a track that was launched stays "launched" in the status. The CLIPS page kept that clip's pad green
+     while nothing played, and a press on it, meant to reserve it for the next PLAY, was taken as "stop the playing
+     clip" and did nothing. Read back twice from the page state. In every build since the reservation came
+     (tabby-v04.7.1); the green pad since tabby-v04.7. Fixed in tabby-v04.9.2 (section 44).
+
+## 44. tabby-v04.9.2: a stopped song has no launched tracks (2026-11-16)
+
+app/song.c `song_status_read`: while the song is stopped every track reports "follows", no row and no clip (a reservation
+still shows as a queued launch). tests/workbench/clips-sim.mjs v0.3: play, launch a clip, stop: no pad green, no track
+launched, and the clip that had been launched can be reserved. App image 471108 bytes (+32), margin 48349; build id
+`25b19e683786f068`.
 

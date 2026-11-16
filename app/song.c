@@ -1735,8 +1735,12 @@ void song_status_read(struct song_status *out)
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
         const struct track *k = &tr[t];
         unsigned qk = queue_kind[t];
-        out->track_state[t] = (uint8_t)(k->state | qk << 2 | (k->waiting ? 16U : 0U));
-        out->track_row[t] = (uint8_t)(k->state == 1 ? k->row : k->state == 0 && !song_over && state ? rowset[cur].row : SONG_NONE);
+        /* tabby-v04.9.2: a stopped song has no launched or stopped tracks and plays no clip. Until then the last
+         * performance's track states stayed in the status after the stop: the CLIPS page kept a launched clip's pad
+         * green, and a press on it (meant to reserve it) did nothing. Found by the device tests. */
+        unsigned ks = state ? k->state : 0U;
+        out->track_state[t] = (uint8_t)(ks | qk << 2 | (state && k->waiting ? 16U : 0U));
+        out->track_row[t] = (uint8_t)(!state ? SONG_NONE : ks == 1 ? k->row : ks == 0 && !song_over ? rowset[cur].row : SONG_NONE);
         out->track_queued[t] = (uint8_t)(qk == Q_LAUNCH ? queue_row[t] : qk == Q_ATTACH ? out->row : SONG_NONE);
         if (!state && reserve_row[t] != SONG_NONE) {   /* stopped with a clip reserved: shown as a queued launch */
             out->track_state[t] = (uint8_t)(Q_LAUNCH << 2); out->track_queued[t] = reserve_row[t];

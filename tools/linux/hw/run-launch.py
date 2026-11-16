@@ -20,9 +20,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-launch.py --song N --out DIR
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-16  The cycle length comes from the device's MIDI clock on the DIN input, not from a fixed clock ratio.
     v0.4  2026-11-16  tabby-v04.7.1: a pad pressed while stopped reserves; a reserved clip starts with PLAY.
     v0.3  2026-11-14  Presses whose queued state is checked are not made in the last 700 ms before a cycle.
     v0.2  2026-11-14  The launch loop starts from a stopped track (v0.1 pressed the playing clip half the time); the scene
@@ -111,8 +112,15 @@ def main():
         if not check(bool(starts), "PLAY on the CLIPS page starts the song (MIDI Start on DIN)"):
             return 1
         t0 = starts[0]
-        on_cycle = lambda t: ((t - t0) / 1e6) - round(((t - t0) / 1e6) / CYCLE_MS) * CYCLE_MS
-        cycle_of = lambda t: round(((t - t0) / 1e6) / CYCLE_MS)
+
+        def cyc():
+            # v0.5: the master cycle as the device's own MIDI clock gives it (96 clocks at 24 per quarter), measured since
+            # Start. v0.4 used a fixed ratio between the two clocks; that ratio moves by a few 1e-5 from run to run, which is
+            # 3 to 5 ms after a minute and failed two checks by under a millisecond in one run.
+            clocks = [t for t, m in list(din.messages) if t >= t0 and list(m) == [0xF8]]
+            return (clocks[-1] - clocks[0]) / 1e6 / (len(clocks) - 1) * 96.0 if len(clocks) > 200 else CYCLE_MS
+        on_cycle = lambda t: ((t - t0) / 1e6) - round(((t - t0) / 1e6) / cyc()) * cyc()
+        cycle_of = lambda t: round(((t - t0) / 1e6) / cyc())
         idle(0.3); s = l.clips_state()
         playing = [i for i, x in enumerate(s["pads"]) if x["code"] & 7 == 2]
         check(len(playing) == 1 and s["pads"][playing[0]]["rgb"] in (0x083008, 0x103c10), "one pad of track 1 plays, green", ["%d:%06x" % (x["code"], x["rgb"]) for x in s["pads"][:3]])
@@ -195,7 +203,7 @@ def main():
         l.shift_pad(9); idle(0.2); tc = time.monotonic_ns(); s = l.clips_state()
         idle(2 * CYCLE_MS / 1000.0)
         back = ons(1, tc)
-        check(not muted and len(back) >= 3 and not (s["pads"][0]["code"] & 16) and all(abs(((t - t0) / 1e6) % (CYCLE_MS / 2) - (0 if ((t - t0) / 1e6) % (CYCLE_MS / 2) < CYCLE_MS / 4 else CYCLE_MS / 2)) <= a.tolerance for t, _ in back),
+        check(not muted and len(back) >= 3 and not (s["pads"][0]["code"] & 16) and all(abs(((t - t0) / 1e6) % (cyc() / 2) - (0 if ((t - t0) / 1e6) % (cyc() / 2) < cyc() / 4 else cyc() / 2)) <= a.tolerance for t, _ in back),
               "muted: no note of track 2 for two cycles; unmuted: its notes are back on the beat", "%d while muted, %d after" % (len(muted), len(back)))
         # ---- track 1 is still stopped: ENV brings it back ----
         l.shift_pad(0); idle(0.2)
