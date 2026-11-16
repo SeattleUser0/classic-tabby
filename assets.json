@@ -1,10 +1,10 @@
 {
-  "build": "fdcb1d2e916fb8a6eeeb1265ee95c9809a71259d373d2ad7f042f8b09de21b8e",
+  "build": "25b19e683786f068763f40d59b1ddbcd77ff521b887ccb7fd925a60ca1a5af23",
   "release": "V01",
-  "version": "tabby-v04.9.1",
-  "entryBytes": 362172,
-  "initialBytes": 1373611,
-  "standaloneBytes": 3107870,
+  "version": "tabby-v04.9.2",
+  "entryBytes": 362190,
+  "initialBytes": 1373684,
+  "standaloneBytes": 3107960,
   "assets": [
     {
       "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
@@ -12,19 +12,19 @@
       "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
     },
     {
-      "name": "assets/smk37/17a4f579b04786381e791ddb9e26e9dc85bf6eb57c5ee108224d4bb9187535e8.bin",
+      "name": "assets/smk37/3c1e2382658b8549beeefd3e6b2e0ae6831c001cafc631c144e7ebc6514ceead.bin",
       "bytes": 512564,
-      "sha256": "17a4f579b04786381e791ddb9e26e9dc85bf6eb57c5ee108224d4bb9187535e8"
+      "sha256": "3c1e2382658b8549beeefd3e6b2e0ae6831c001cafc631c144e7ebc6514ceead"
     },
     {
-      "name": "assets/smk37/3501ebffe1ad020ed224327db7e260ce068d69c6e10a3bc508a082413b4c996b.wasm",
-      "bytes": 334679,
-      "sha256": "3501ebffe1ad020ed224327db7e260ce068d69c6e10a3bc508a082413b4c996b"
+      "name": "assets/smk37/ebe168bd35bb8913a7288bb9ea9163272ccbb000aa84145736a038ae85765ad0.wasm",
+      "bytes": 334734,
+      "sha256": "ebe168bd35bb8913a7288bb9ea9163272ccbb000aa84145736a038ae85765ad0"
     },
     {
-      "name": "assets/smk37/1d0513dd4da8fbe6a6fe29795d5f084c4dc608ba624f15d5ef8c2349a0792856.js",
+      "name": "assets/smk37/99db823f4dac86e945557830d7e8d0f57567dad7f1878bd4071b0744df74f8d9.js",
       "bytes": 604119,
-      "sha256": "1d0513dd4da8fbe6a6fe29795d5f084c4dc608ba624f15d5ef8c2349a0792856"
+      "sha256": "99db823f4dac86e945557830d7e8d0f57567dad7f1878bd4071b0744df74f8d9"
     },
     {
       "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
@@ -38,18 +38,18 @@
     },
     {
       "name": "index.html",
-      "bytes": 362172,
-      "sha256": "bda7ef3db224b15bbe553a901b035721efa7c5fa10047126a8a9d138e5e42e41"
+      "bytes": 362190,
+      "sha256": "32d23224955ff28e86999788fb48a2c629a45ee9c78b1282ebce2d071e29ccc9"
     },
     {
       "name": "smk37-workbench.html",
-      "bytes": 362172,
-      "sha256": "bda7ef3db224b15bbe553a901b035721efa7c5fa10047126a8a9d138e5e42e41"
+      "bytes": 362190,
+      "sha256": "32d23224955ff28e86999788fb48a2c629a45ee9c78b1282ebce2d071e29ccc9"
     },
     {
       "name": "SMK37-Open-Source.html",
-      "bytes": 3107870,
-      "sha256": "ce160a448fd404fca9163ea55e00128273fa5346705276254d232157e094797b"
+      "bytes": 3107960,
+      "sha256": "ad737574e0a442cdbc27578eacb597a647e78465e70f0c008097cd7b1cec87b8"
     }
   ]
 }
