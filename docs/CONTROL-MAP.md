@@ -1,9 +1,9 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.2 (2026-11-16). Applies from tabby-v04.7.1. v0.1 (2026-11-14) was for tabby-v04.7.
+Version: 0.3 (2026-11-16). Applies from tabby-v04.8 (section 12, the STEP page). v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
-two pages you play a song from, CLIPS and SCENES. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
+two pages you play a song from, CLIPS and SCENES, and on the STEP page, where you edit a clip. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
 from the left, buttons by their printed label, and "4th left button" for the one whose label is not confirmed.
 
 The model is the Roland MC-707's: a song has eight tracks, each track has clips, a scene is one clip per track,
@@ -100,7 +100,8 @@ blue: internal sound only, dim green: not muted).
 | FADER BANK | Faders work tracks 1 to 4 / 5 to 8. | same |
 | MIX | The mixer page (levels, mute, solo); MIX again returns. | same |
 | REC | Not used yet. Screen: NO REC IN THIS VERSION. | same |
-| 4th left button, ARP, EDIT, FX, SEQ, PAD / STEP | As on every page (SPEC.md); they leave CLIPS. | |
+| EDIT | Opens the STEP page on the selected clip of the track (section 12). | same |
+| 4th left button, ARP, FX, SEQ, PAD / STEP | As on every page (SPEC.md); they leave CLIPS. | |
 
 No button on these two pages has a long-press action. The only long press is a pad on CLIPS (4.1).
 
@@ -190,9 +191,9 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-Editing clips (steps on the pads, recording from the keys), copying clips between places, and storing a
-scene from what plays now. Songs, clips and scenes come from the web workbench (the MIDI importer or the
-song editor).
+Recording from the keys and from MIDI in (the next release), changing a clip's length, copying clips between
+places, and storing a scene from what plays now. New songs still come from the web workbench (the MIDI importer
+or the song editor); the STEP page changes the clips of a song that is on the device.
 
 ## 11. Differences from the MC-707
 
@@ -232,4 +233,104 @@ Deliberate differences:
 | Pad colours | Chosen per project (RM, project settings). | Fixed. | No settings page for it; fixed colours can be learnt once. |
 | START with CLOCK = MIDI | START/STOP still starts locally. | PLAY arms the song and the master's Start runs it; reservations are not used. | The song must stay in step with the master's position (SPEC 19.3). |
 | [SHIFT] + START: back to the beginning | Yes (RM, shortcut list). | No. PLAY twice does it. | SHIFT + PLAY is not wired on the panel yet. |
+| Step input: where and what | 16 step buttons choose the step, the pads in Note mode enter the notes (RM p. 27). | The 16 pads choose the step, the 37 keys enter the notes. | The SMK-37 has no step buttons, and it has a keyboard. |
+| Ending step selection | The selected step button again, or [EXIT]. | The selected pad again. | No EXIT button. |
+| Drum tracks (TR-REC) | Choose a pad, then the step buttons toggle it (RM p. 29). | PADS TOGGLE: play a key (or turn K5) for the note, then the pads toggle it. SCL switches the two ways on any track. | Outside drum machines are driven from tracks that are not drum tracks inside the SMK-37, so the choice cannot follow the track type alone. |
+| Step edit screen | [SHIFT] + step button; C1 note, C2 velocity, C3 start, C4 length (RM p. 28). | Selecting a step shows its notes at once; K1 chooses the note, K2 velocity, K3 start, K4 length. | One press less; K1 chooses among the notes instead of changing the pitch (replace a pitch with two keys). |
+| Deleting a step's notes | [CLEAR] + the step button. | ENV with the step selected. | No CLEAR button. |
+| Tie / long note | Hold a pad and press [REST/TIE]. | K4 sets the length. | No TIE button. |
+| Undo | 10 levels; cleared when the clip or track changes (UM, Ver. 1.80). | 4 levels; cleared when another clip is opened (SPEC 14.1, decision 8). | Memory: each level is a copy of the clip. |
+| Saving | The project lives in memory until you save it. | A clip saves by itself ten seconds after the song stops, or with the 4th left button; never while playing. | Flash writes stop the MIDI out for a moment, so they wait for the stop; saving by itself protects against a forgotten save. |
+| Hearing an edit | At once. | A launched clip from its next loop; a track following the scenes from its next scene. | The player reads a prepared copy of the clip; it is swapped only where a loop begins. |
+| Clip length (STEP LEN), SCALE, sub steps, motion | On the device. | Not on the device yet. | Later releases. |
+| Unsaved clips | Any number. | One at a time. | Memory. |
 
+## 12. STEP page: editing a clip
+
+EDIT on the CLIPS page opens it on the track's selected clip (bright pad; hold a pad half a second to select
+without launching), or on the clip the track plays when none is selected. The screen shows the track and clip,
+SAVED or UNSAVED, the number of events (512 at most), the bar of 16 steps that is on the pads, and the notes of the
+selected step with their velocity, start and length.
+
+As on the MC-707, the step buttons choose where and the keyboard chooses what: there the 16 step buttons and the
+pads in Note mode, here the 16 pads and the 37 keys.
+
+### 12.1 Pads and keys
+
+| Action | Result |
+| --- | --- |
+| Pad (PADS SELECT A STEP) | Selects the step; its notes are listed. The same pad again deselects it. |
+| A key, with a step selected | Enters that note on the step, with the velocity you played, one step long. The same key again removes it. Several keys make a chord. The key sounds as always. |
+| A key, with no step selected | Sounds, and becomes the current note (NOTE on the screen). |
+| SCL | Switches what a pad does: PADS SELECT A STEP, or PADS TOGGLE (the note). The page opens in TOGGLE on a drum track. |
+| Pad (PADS TOGGLE) | Puts the current note on that step, or takes it off, and selects the step. One press per drum hit. |
+| A pad past the clip's end | Nothing. Screen: PAST THE CLIP'S END. |
+| SHIFT + pad 1 to 8 / 9 to 16 | Select track / mute, as everywhere. Selecting another track does not change the clip being edited. |
+
+### 12.2 Pad colours
+
+| Colour | Meaning |
+| --- | --- |
+| Off | An empty step, or past the clip's end. |
+| Dim white | An empty step on a beat (steps 1, 5, 9, 13 of the bar). |
+| Green | The step holds notes. |
+| Amber | The step holds the current note. |
+| Cyan (bright when the step holds notes) | The selected step. |
+| White | The step that plays now. |
+
+### 12.3 Knobs
+
+| Knob | Turn |
+| --- | --- |
+| K1 | Chooses the note of the selected step that K2 to K4 change (the > on the screen). |
+| K2 | Velocity, 1 to 127. |
+| K3 | Start: earlier or later than the grid line, in steps of 10 units (480 units = one step), up to half a step each way. |
+| K4 | Length, in steps of 60 units (an eighth of a step). |
+| K5 | The current note, a semitone per click (for PADS TOGGLE without touching the keys). |
+| K6 | The bar on the pads (same as OCT - / OCT +). |
+| K7 | The selected step's probability: ALWAYS, or 1 to 7 (as stored in the song). |
+| K8 | Master volume. |
+
+### 12.4 Buttons
+
+| Button | Press | With SHIFT |
+| --- | --- | --- |
+| OCT - / OCT + | Previous / next bar of 16 steps. | same |
+| ENV | Clears the selected step. | Discards every unsaved change of the clip and returns to CLIPS. |
+| FX | Undo, four levels. | Redo. |
+| 4th left button | Saves the clip into the song (only while the song is stopped; otherwise STOP TO SAVE). | same |
+| PLAY | Starts and stops the song. | same |
+| EDIT | Back to CLIPS. The clip stays open and unsaved changes are kept. | same |
+| BT | To CLIPS. | same |
+| HOME | To the overview. Unsaved changes are kept. | SRC: the source page. |
+
+### 12.5 Hearing and saving
+
+- Nothing is written to flash while a song plays (the rule of every page). An edit lives in memory, marked
+  UNSAVED, until it is saved: with the 4th left button while stopped, or by itself ten seconds after the last
+  change once the song is stopped (the screen says CLIP SAVED), or when you choose another song.
+- An unsaved edit is what the song plays. A clip that is launched on its track (CLIPS: press its pad) plays each
+  change from its next loop. A track that follows the scenes plays the changed clip the next time a scene brings it.
+- One clip can be unsaved at a time. EDIT on another clip while one is unsaved opens the unsaved one and says so:
+  save it (stop, 4th left button) or discard it (SHIFT + ENV).
+- Unsaved changes are lost when the power goes off.
+- A clip holds 512 events. The 513th is refused: CLIP FULL, and nothing changes.
+- A clip that two tracks share (two tracks with the very same notes in an imported song) cannot be edited on the
+  device: CLIP SHARED BY ANOTHER TRACK.
+- A saved clip is stored in the new clip format (v3). It plays the same.
+
+### 12.6 Messages
+
+| Message | Reason |
+| --- | --- |
+| HOLD A PAD TO SELECT A CLIP FIRST | EDIT on CLIPS with no clip selected and none playing on the track. |
+| ANOTHER CLIP IS UNSAVED: THIS ONE | EDIT while another clip has unsaved changes; the page shows that clip. |
+| CLIP SHARED BY ANOTHER TRACK | The clip's block is used by another track too. |
+| NOTE ENTERED / NOTE REMOVED | A key changed the selected step. |
+| NOTE ON THE STEP / NOTE OFF THE STEP | A pad changed its step (PADS TOGGLE). |
+| CLIP FULL | The clip holds 512 events. |
+| SELECT A STEP FIRST / STEP IS EMPTY / STEP CLEARED | ENV. |
+| UNDO / REDO / NOTHING TO UNDO / NOTHING TO REDO | FX, SHIFT + FX. |
+| STOP TO SAVE / CLIP SAVED / NOTHING TO SAVE / SONG STORAGE FULL | The 4th left button. |
+| EDITS DISCARDED | SHIFT + ENV. |
+| PAST THE CLIP'S END | A pad beyond the clip's last step. |

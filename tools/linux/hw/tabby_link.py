@@ -25,9 +25,10 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.13
+Version: 0.14
 
 Revision log
+    v0.14 2026-11-16  Goal 6: steps_state(), edit_save(), edit_discard(), edit_open(), play_key(), knob() (remote ops 15 and 16, tabby-v04.8).
     v0.13 2026-11-14  Task 17 Goal 4: clips_state(), clip_launch(), unqueue(), pad(), shift_pad() (remote ops 12 to 14, tabby-v04.7).
     v0.12 2026-11-14  Task 17 Goal 3: launch(), stop_track(), attach() (remote ops 9 to 11, tabby-v04.6).
     v0.11 2026-11-14  messages(): every kernel timestamp frame is read, not one per wake-up (the rest of a reply used to
@@ -278,7 +279,7 @@ class Link:
     # ---- remote control, command 29 (v0.8) -----------------------------------------------------
     PAGES = {0: "OVERVIEW", 1: "STEPS", 2: "FM_EDIT", 3: "FM_ENV", 4: "FM_LFO", 5: "TONE_EDIT", 6: "MIX", 7: "BLE",
              8: "PROJECT", 9: "NAME", 10: "EFFECTS", 11: "SOURCE", 12: "ACTIONS", 13: "STEP_EDIT", 14: "RHYTHM",
-             15: "FM_QUICK", 16: "PRESET_BROWSER", 17: "ARP_EDIT", 18: "STARTUP", 19: "SONG", 20: "CLIPS"}
+             15: "FM_QUICK", 16: "PRESET_BROWSER", 17: "ARP_EDIT", 18: "STARTUP", 19: "SONG", 20: "CLIPS", 21: "STEP"}
     # Physical button ids (app/smk37_controls.c button_map) by the firmware's names. SAVE (physical 3) is
     # refused by the device on purpose. HOME has two physical ids (2 and 12); 12 is HOME / SRC.
     PANEL = {"SHIFT": 0, "FADER_BANK": 1, "HOME": 2, "OCT_DOWN": 4, "OCT_UP": 5, "ARP": 6, "PAD_STEP": 7, "SCL": 8,
@@ -335,6 +336,42 @@ class Link:
         self.key(0, self.PANEL["SHIFT"], 1); time.sleep(0.05)
         self.pad(pad); time.sleep(0.05)
         return self.key(0, self.PANEL["SHIFT"], 0)
+
+    def steps_state(self):
+        """v0.14: remote op 15 (tabby-v04.8): the STEP page: page, track, clip place, bar, selected step (255 none),
+        unsaved, undo / redo levels, events, the current note, steps, the step that plays (255 none), pad mode, the 16
+        pad states (bit 0 notes, 1 the current note, 2 selected, 3 playing, 4 past the end) and up to four notes of
+        the selected step."""
+        d = self.query(29, bytes([15]), attempts=1)
+        if len(d) < 56 or d[0] != 3:
+            raise DeviceError(-1)
+        d = d[1:]
+        notes = [{"pitch": d[31 + 6 * k], "velocity": d[32 + 6 * k], "start": (d[33 + 6 * k] | d[34 + 6 * k] << 8) - 240,
+                  "length": d[35 + 6 * k] | d[36 + 6 * k] << 8} for k in range(min(d[30], 4))]
+        return {"page": d[0], "page_name": self.PAGES.get(d[0], str(d[0])), "track": d[1], "place": d[2], "bar": d[3], "selected": d[4],
+                "dirty": d[5], "undo": d[6], "redo": d[7], "events": d[8] | d[9] << 8, "note": d[10], "steps": d[11], "play_step": d[12],
+                "toggle": d[13], "pads": list(d[14:30]), "count": d[30], "notes": notes}
+
+    def edit_save(self):
+        """v0.14: remote op 16 {16, 1}: save the edited clip (refused with code 76 while a transport runs)."""
+        return self.remote(16, 1)
+
+    def edit_discard(self):
+        return self.remote(16, 2)
+
+    def edit_open(self, track, place):
+        """v0.14: remote op 16 {16, 3, track, place}: open the STEP page on a clip (both 0-based)."""
+        return self.remote(16, 3, track, place)
+
+    def play_key(self, key, hold=0.05, velocity=100):
+        """v0.14: press keyboard key `key` (0 to 36; key 12 is note 60 at octave 0) through the remote panel keys."""
+        self.key(1, key, velocity)
+        time.sleep(hold)
+        return self.key(1, key, 0)
+
+    def knob(self, index, detents):
+        """v0.14: turn a knob by remote: index 0 to 3 = K1 to K4, 4 = K5, 5 = K6, 6 = K7."""
+        return self.key(4, index, detents)
 
     def show_page(self, name):
         """v0.10: bring the device to a page by remote panel keys: "overview", "steps" (SYNC / MIDI, SEQ) or

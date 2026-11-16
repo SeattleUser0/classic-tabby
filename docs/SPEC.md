@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.43
+Version: 0.44
 Revision log:
+- v0.44, 2026-11-16 (Goal 6, first step): 19.10 tabby-v04.8 (the clip editor and the STEP page); 14.2 note on the cap as built.
 - v0.43, 2026-11-16: 19.9 tabby-v04.7.1 (clips reserved while stopped, the two mutes; the user's answers of 2026-11-16).
 - v0.42, 2026-11-14 (Task 17 Goal 4): 19.8 tabby-v04.7 (the CLIPS page, clip launching by place, song mute; the control
   map is docs/CONTROL-MAP.md).
@@ -1598,3 +1599,37 @@ note line.
   orange, blue (0x081030) or dim green. CLIPS page: MUTED ALL (amber) or MUTED INT (blue), and the track's clip number in
   that colour; overview: M-ALL or M-INT. A track unmuted in the mixer loses its song-mute bit too, so the song-mute bit
   never stands without the mixer's mute on a track that has a source.
+
+### 19.10 tabby-v04.8 (2026-11-16): step editing (Goal 6, first step)
+
+The controls are docs/CONTROL-MAP.md section 12. This section fixes what the firmware and its tests hold to.
+
+- **One clip is open for editing at a time** (`song_edit_open(track, place)`), as a v3 event list in RAM (3088 bytes). A
+  grid block (v1, v2) is converted when it is opened: each step's modifier, then its notes with their offsets. The steps
+  the editor offers are the clip's playing length: its scene's steps, else its own.
+- **Edits** (`song_edit_note_toggle`, `_step_clear`, `_note_adjust`, `_undo`, `_redo`): a note is identified by its anchor
+  step and pitch (docs/CLIP-V3.md: no two notes of a pitch on a step), so entering a pitch that is there removes it. A
+  start is moved inside its step only (-239 .. +240 units; step 1 from -240). Every edit leaves a valid v3 payload
+  (tests/host/clip_v3_test.c: 40000 random edits).
+- **The event cap is the format's: 512 events** (docs/CLIP-V3.md, as released in tabby-v04.5). Section 14.2 above says 768;
+  the format was built with the assessment's 512. An insert into a full clip is refused with CLIP FULL and changes
+  nothing (14.2's rule for step entry). Raising the cap to 768 is a format change and is open with the user.
+- **Undo: four levels** (14.1 decision 8), a copy of the clip each; redo until the next change; one level per knob
+  gesture (the same step, note and field); cleared when another clip is opened.
+- **Hearing an edit without a flash write.** While the open clip is unsaved, the decoder takes it instead of the stored
+  block (`decode_track`). A clip launched on its track is decoded again into the track's free buffer after each change
+  and the audio thread takes that buffer at the loop's next pass (`fresh`). A track that follows the scenes gets the
+  change at its next decode.
+- **Saving** (`song_edit_save`): `song_block_append` under the clip's block id, format 2 (v3), then the directory is
+  rebuilt. Only while no transport runs (15.4); otherwise SONG_BUSY and the page says STOP TO SAVE. `song_edit_poll` saves
+  an unsaved clip ten seconds after its last change once the song is stopped; `song_load` saves it before another song
+  is loaded. The song record is not rewritten: the block id stays.
+- **Limits.** One unsaved clip at a time (`SONG_BUSY` from `song_edit_open`); a block that another track's clip table
+  also names is refused (`SONG_EDIT_SHARED`: saving it would change both tracks); the clip's length is not changed.
+- **Keys.** `smk37_screen_key(note, velocity)` is called for every keyboard key after it has been played; only the STEP
+  page uses it.
+- **Remote** (command 29): op 15 reads the STEP page (55 bytes: page, track, place, bar, selected step, unsaved, undo,
+  redo, events, current note, steps, playing step, pad mode, 16 pad states, the selected step's notes); op 16 `{16, 1}`
+  saves (code 76 while a transport runs), `{16, 2}` discards, `{16, 3, track, place}` opens the page on a clip. Page 21.
+- **Tests.** tests/host/clip_v3_test.c (edit primitives), tests/host/smoke.c section 23 (the editor), tests/workbench/
+  steps-sim.mjs (the page through panel events, 48 checks), tools/linux/hw/run-steps.py (the device).

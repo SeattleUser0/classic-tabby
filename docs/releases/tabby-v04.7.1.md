@@ -20,4 +20,10 @@ A clip pad pressed while stopped reserves its clip for PLAY, and the two mutes l
 
 ## Hardware validation
 
-See the release page's "Hardware validation" text (added after the install) and docs/BUILD.md 40.3.
+Installed on the SMK-37 Pro on 2026-11-16 through the published page (Full backup first; identity checked; one attempt;
+"Firmware ready." after 11.6 s). By remote panel keys, nobody at the panel (docs/BUILD.md 40.3):
+
+- The CLIPS and SCENES pages: 40 of 40 checks, with the new ones: a pad pressed while stopped reserves its clip, a second
+  press takes it back, PLAY starts the reserved clip on the first beat.
+- One line of 960 notes: band 1.66 ms on DIN, 1.67 ms on USB. Master cycle of 12 steps: 6 of 6. No audio underrun.
+- Full backup and verify after: PASS.

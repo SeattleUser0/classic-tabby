@@ -118,7 +118,7 @@ check(!!m0, 'the chapter "What changed in tabby-v04" exists');
 if (m0) {
   const en = textsOf(m0[1]).join(' ');
   check(html.indexOf('id="manual-tabby-changes"') < html.indexOf('id="manual-tabby-about"'), 'it is the first chapter of the Help');
-  for (const [topic, re] of [['storage move', /storage move/i], ['step editing removed', /no step editing or recording/],
+  for (const [topic, re] of [['storage move', /storage move/i], ['the old pattern editing removed', /old pattern editing and recording are gone/]   /* tabby-v04.8: clips are edited on the STEP page; the sentence was "no step editing or recording" */,
     ['SYNC / MIDI', /SYNC \/ MIDI/], ['STOP TO SAVE', /STOP TO SAVE/], ['timing counters', /timing counters/i], ['recovery pages', /builds\//]])
     check(re.test(en), `chapter 00: ${topic}`);
 }

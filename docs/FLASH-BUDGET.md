@@ -1178,3 +1178,13 @@ package's flash image is 479232 bytes (one 4096-byte block more than tabby-v04.6
 
 RAM (runtime heap): 161484 -> 161420 bytes (-64).
 
+## 28. tabby-v04.8 (measured, 2026-11-16)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.7.1 | 459620 | | 59837 |
+| tabby-v04.8: the clip editor (edit primitives, the editor with four undo levels, the save), the STEP page with its drawing, pad colours and remote read, the Help text | 467588 | +7968 | **51869** |
+
+RAM (runtime heap): 161420 -> 145804 bytes (-15616: the edit copy and four undo levels, 5 x 3088 bytes, and the editor's
+state). The build's minimum is 49152. The package's flash image is 487424 bytes, the VM area 81920.
+

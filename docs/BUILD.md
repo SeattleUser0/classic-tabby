@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.76
+Version: 0.77
 Revision log:
+- v0.77, 2026-11-16: 40.3 (tabby-v04.7.1 on the device), section 41 (tabby-v04.8: the clip editor and the STEP page).
 - v0.76, 2026-11-16: section 40 (tabby-v04.7.1: the user's answers; reservation, the two mutes, the MC-707 differences).
 - v0.75, 2026-11-14 (Task 17 Goals 3 and 4): 38.3 (tabby-v04.6 on the device), section 39 (tabby-v04.7, the CLIPS page).
 - v0.74, 2026-11-14 (Task 17 Goal 3): 37.4 and 37.5 (tabby-v04.5 and its page fault, tabby-v04.5.1 on the device), section 38
@@ -5129,4 +5130,52 @@ the second reader each time, and it showed the device doing the right thing):
 | runtime heap, bytes | 161484 | 161420 |
 
 Build id `35cc4d303068d66f`.
+
+### 40.3 The suite, the release and the device (2026-11-16)
+
+Suite green on commit 482326e (the gate's marker), tagged, published, released; the builds list shows the tabby-v04.5 note
+line. Full backup through the tabby-v04.7 page, one install attempt: "Firmware ready." after 11.6 s, version tabby-v04.7.1.
+By remote keys (overnight/g6/v0471.log): the clip page test, run-launch.py v0.4, 40 of 40 (a pad pressed while stopped
+reserves and blinks; pressed again it is taken back; PLAY starts the reserved clip on the first beat and it loops; five
+launches on the cycle within 2.1 ms; five stops; mute; ENV; scene recall); timing-1x16 960 of 960 (DIN worst 1.20 ms, USB
+1.10); master cycle of 12 steps 6 of 6; one line of 960 notes: band 1.66 ms on DIN, 1.67 ms on USB; no underrun; backup and
+verify PASS (41 items).
+
+## 41. Goal 6, first step — tabby-v04.8: step editing on the pads (2026-11-16)
+
+### 41.1 What was built (SPEC 19.10, docs/CONTROL-MAP.md section 12)
+
+- app/clip_v3.c v0.3: editing in place (`clip_v3_insert`, `_remove`, `_step_notes`, `_note_find`, `_step_mod`,
+  `_step_mod_set`, `_empty`, `_bytes`).
+- app/song.c: the editor (`song_edit_*`), the decoder taking the unsaved clip, the refresh of a looping clip (`fresh`,
+  taken at SW_LOOP), four undo levels, the save and the save by itself.
+- app/screen.c: page 21, the STEP page (pads = steps, keys enter notes through the new `smk37_screen_key`, K1 to K7,
+  ENV, FX, SCL, the 4th left button), its pad colours, remote ops 15 and 16.
+- Tests: clip_v3_test.c (9 edit cases and 40000 random edits under the sanitizers), smoke.c section 23 (19 checks),
+  tests/workbench/steps-sim.mjs (48 checks), the Help audit's chapter 00 check follows the new sentence.
+
+Decisions:
+
+1. The edit lives in RAM and the decoder reads it. Nothing else lets an edit be heard while the song plays, because
+   flash is not written then (SPEC 15.4).
+2. A looping clip takes the edit at its next pass, not mid-bar: the audio thread reads a prepared buffer, and a swap at
+   the loop point needs no lock and cannot drop or double a note.
+3. One open clip, one unsaved clip. Each further unsaved clip would cost 3 KB plus its undo levels; the refusal says
+   what to do.
+4. The event cap stays the format's 512 for this release (SPEC 14.2 says 768). Raising it changes the clip format, the
+   workbench codecs and the backups; asked in the report.
+5. A grid block is saved as a v3 clip after an edit. It plays identically, and one writer is less code than two.
+6. Pads select and keys enter, the MC-707's split between step buttons and pads; SCL switches to one-press toggling for
+   drums on any track, because an outside drum machine sits on a track that is not a drum track inside the SMK-37.
+7. Saving by itself after ten seconds stopped, on top of the explicit save: unsaved work is lost at power-off, and a
+   stage device gets switched off.
+
+### 41.2 Measured
+
+| | tabby-v04.7.1 | tabby-v04.8 |
+| --- | ---: | ---: |
+| app image, bytes (margin) | 459620 (59837) | 467588 (51869) |
+| runtime heap, bytes | 161420 | 145804 |
+
+Build id `6238066d230eee73`. make check, lint, test-fast and midi-import-sim green on the branch (overnight/g6/tf-v048.log).
 
