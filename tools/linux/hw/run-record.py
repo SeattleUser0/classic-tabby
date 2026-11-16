@@ -20,9 +20,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-record.py --song N --out DIR
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-16  wait_phase cannot miss its moment; input quantize is set, not assumed, and left on.
     v0.1  2026-11-16  First version.
 """
 import argparse
@@ -70,12 +71,15 @@ def main():
         return ((t - t0) / 1e6) % CYCLE_MS
 
     def wait_phase(t0, step):
+        # v0.2: v0.1 looked for a 15 ms window with a 20 ms poll and could miss it for minutes (the first device run was
+        # killed by its timeout in the middle of a take). Idle until 80 ms before, then sleep the rest.
         target = step * STEP_MS
         while True:
             d = (target - phase(time.monotonic_ns(), t0)) % CYCLE_MS
-            if d < 15.0:
-                break
-            idle(min(0.2, max(0.002, (d - 10.0) / 1000.0)))
+            if d <= 80.0:
+                time.sleep(max(0.0, d - 2.0) / 1000.0)
+                return
+            idle(min(0.2, (d - 60.0) / 1000.0))
 
     def near(x, target, tol):
         d = (x - target + CYCLE_MS / 2) % CYCLE_MS - CYCLE_MS / 2
@@ -93,6 +97,8 @@ def main():
         h0 = l.health()
         l.edit_discard()
         l.edit_open(0, 1); idle(0.3)
+        if l.steps_state()["quantize"] != 1:        # v0.2: input quantize stays as it was left; start from "on"
+            l.hold(["SHIFT", "REC"], 0.1); idle(0.3)
         s = l.steps_state()
         check(s["page_name"] == "STEP" and s["events"] == 2 and s["quantize"] == 1, "the editor is open on track 1 clip 2; input quantize is on", (s["events"], s["quantize"]))
         l.press("REC"); idle(0.3); s = l.steps_state()
@@ -161,6 +167,8 @@ def main():
         l.press("FX"); idle(0.3); s = l.steps_state()
         check(s["events"] == 2 and s["redo"] == 1, "FX undoes the whole take", s["events"])
         l.press("PLAY"); idle(0.8)
+        l.hold(["SHIFT", "REC"], 0.1); idle(0.3)       # input quantize on again, as at power-up
+        check(l.steps_state()["quantize"] == 1, "input quantize is on again")
         l.edit_discard()
         l.show_page("overview")
         h = l.health()

@@ -1732,6 +1732,9 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN)) + controls->encoders[1];
         if (paging) { unsigned was = step_bar; step_bar = (uint8_t)clamp((int)step_bar + paging, 0, (int)bars - 1); if (was != step_bar) step_sel = 255; }
         if (pressed & BUTTON(EDIT)) { page = TRACK_LAUNCH; goto controls_done; }
+        /* tabby-v04.9.1: HOME leaves to the overview, as the control map says; the clip stays open (v04.8 and v04.9 took no
+         * notice of HOME here while a clip was open: found by the device tests) */
+        if (pressed & BUTTON(HOME)) { page = music_page = OVERVIEW; goto controls_done; }
         if (pressed & BUTTON(REC)) {   /* docs/CONTROL-MAP.md 13: a take into this clip; SHIFT + REC: input quantize */
             if (smk37_shift()) { song_record_quantize(!ei.quantize); announce(ei.quantize ? "INPUT QUANTIZE OFF" : "INPUT QUANTIZE ON", now + 1500U); }
             else if (ei.recording) { song_record_stop(); announce("REC STOPPED", now + 1500U); }

@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.78
+Version: 0.79
 Revision log:
+- v0.79, 2026-11-16: 42.3 (tabby-v04.9 on the device; the HOME fault, the killed test, the one odd timing run), section 43 (tabby-v04.9.1).
 - v0.78, 2026-11-16: 41.3 (tabby-v04.8 on the device), section 42 (tabby-v04.9: real-time recording).
 - v0.77, 2026-11-16: 40.3 (tabby-v04.7.1 on the device), section 41 (tabby-v04.8: the clip editor and the STEP page).
 - v0.76, 2026-11-16: section 40 (tabby-v04.7.1: the user's answers; reservation, the two mutes, the MC-707 differences).
@@ -5233,4 +5234,54 @@ Decisions:
 | runtime heap, bytes | 145804 | 144844 |
 
 Build id `d1191dd33942c3c3`. make check, lint, test-fast and midi-import-sim green on the branch (overnight/g6/tf-v049.log).
+
+### 42.3 The suite, the release and the device (2026-11-16)
+
+Suite green on commit 8711092 (the gate's marker), tagged, published, released. Full backup through the tabby-v04.8 page,
+one install attempt: "Firmware ready." after 11.6 s, version tabby-v04.9.
+
+Recording on the device (run-record.py v0.2, overnight/g6/v049-record.log): 15 of 15.
+
+| Check | Result |
+| --- | --- |
+| REC while stopped arms; PLAY starts the take; the clip before it is one undo level | yes |
+| A remote key played at step 5.6, input quantize on | recorded on step 6, length 1231 units (0.3 s held); played back -0.45 and -0.52 ms from the step |
+| A note sent to USB MIDI in at step 11.4 | recorded on step 11; played back +1.71 and +1.48 ms from the step |
+| Input quantize off, three keys between steps | played back +3.29, +2.82 and +2.84 ms after where the live note sounded |
+| 61 controller values in 272 ms (1045 units) | recorded as 6: one per 240 units and the last; played back 0, 13, 27, 43, 59, 60 |
+| REC stops; FX undoes the whole take | yes |
+| Audio underruns, DMA overruns | 0, 0 |
+
+An unquantized note comes back about 3 ms (one audio block) after the place it was played. The stamp is exact; the note
+is sent in the block after its due time is reached where the live note went out at once. Not corrected in this release.
+
+Then run-steps.py 18 of 18 and run-launch.py 40 of 40 on tabby-v04.9; timing-1x16 960 of 960 (DIN worst 1.23 ms); backup
+and verify PASS (41 items).
+
+Three things went wrong in the first batch run. Each was looked at with a second reader (the DIN capture, the page state
+read back, a repeat) before it was called anything (hard limit 6):
+
+1. **The recording test stopped after eight passing checks.** My script: `wait_phase` looked for a 15 ms window with a
+   20 ms poll, missed it again and again and was killed by its 500 s timeout, in the middle of a take. v0.2 idles until
+   80 ms before the moment and sleeps the rest; it also sets input quantize instead of assuming it (the killed run had
+   left it off, which made the next run's checks read backwards).
+2. **A device fault, found because of 1: HOME did nothing on the STEP page while a clip was open.** The page's handler
+   took every button it did not know and returned. The killed test left the device there, and the two tests after it
+   could not reach the overview ("page OVERVIEW wanted, the device shows STEP"). Confirmed by hand with the page read back
+   after a remote HOME. In tabby-v04.8 and tabby-v04.9; EDIT and BT were the ways out. Fixed in tabby-v04.9.1 (section 43);
+   the simulator test now presses HOME there.
+3. **One timing run showed a band of 5.04 ms on DIN and 4.89 ms on USB** where every other run shows 1.7 to 2.0 ms. It
+   was not jitter: averaged over 96 notes the error runs smoothly from -1.5 ms up to +1.3 ms in the first 45 s and back
+   down to -0.9 ms, a rate change of about 70 parts per million, the same on both ports, with the usual 0.36 ms scatter
+   around it. Three repeats, one of them after recreating the state the killed test left behind and the same sequence
+   of tests, gave 1.98, 1.87 and 1.87 ms. F + G's own counter in the odd run was normal (latest event 1.41 ms after its
+   due time). The cause is not established: the two clocks compared (this computer's and the SMK-37's) drifted against
+   each other during that run, and nothing in the logs says which one moved. Not counted as a device fault; the report
+   lists it.
+
+## 43. tabby-v04.9.1: HOME on the STEP page (2026-11-16)
+
+app/screen.c: HOME on the STEP page goes to the overview and the clip stays open (docs/CONTROL-MAP.md 12.4 said so all
+along). tests/workbench/steps-sim.mjs v0.2 presses HOME with an unsaved clip open, then BT and EDIT, and finds the clip
+as it was. App image 471076 bytes (+32), margin 48381; build id `fdcb1d2e916fb8a6`.
 

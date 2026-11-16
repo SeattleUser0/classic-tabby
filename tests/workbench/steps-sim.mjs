@@ -16,9 +16,10 @@
 //
 //   Run:  /usr/bin/node tests/workbench/steps-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-16  HOME on the STEP page (tabby-v04.9.1).
 //   v0.1  2026-11-16  Initial version.
 
 import { readFileSync } from 'node:fs';
@@ -140,6 +141,12 @@ knob(2, 40); e = sstate();
 check(e.notes[0].start === 240 && e.selected === 4, 'the start stops half a step late: the note stays on its step');
 knob(2, -21); e = sstate();
 check(e.notes[0].start === 30, 'and comes back');
+
+/* ---- HOME leaves, the clip stays open (tabby-v04.9.1) ---------------------------------------------- */
+press(2); check(sstate().page === 0 && sstate().dirty === 1, 'HOME goes to the overview; the unsaved clip stays open');
+press(BT); press(EDIT); e = sstate();
+check(e.page === 21 && e.events === 3 && e.dirty === 1 && e.selected === 255, 'BT and EDIT: back on the STEP page, the clip as it was left, no step selected');
+pad(4);                                        /* select step 5 again for what follows */
 
 /* ---- toggle mode --------------------------------------------------------------------------------- */
 pad(4); key(14); e = sstate();

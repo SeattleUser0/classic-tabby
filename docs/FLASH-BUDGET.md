@@ -1197,3 +1197,12 @@ state). The build's minimum is 49152. The package's flash image is 487424 bytes,
 
 RAM (runtime heap): 145804 -> 144844 bytes (-960: the two event queues, the held notes and the controller table).
 
+## 30. tabby-v04.9.1 (measured, 2026-11-16)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.9 | 471044 | | 48413 |
+| tabby-v04.9.1: HOME on the STEP page | 471076 | +32 | **48381** |
+
+RAM (runtime heap): 144844 bytes, unchanged.
+

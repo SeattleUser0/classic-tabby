@@ -35,4 +35,11 @@ REC records what you play into a clip, from the keys or from MIDI in; reinstall 
 
 ## Hardware validation
 
-See the release page's "Hardware validation" text (added after the install) and docs/BUILD.md 42.3.
+Installed on the SMK-37 Pro on 2026-11-16 through the published page (Full backup first; identity checked; one attempt;
+"Firmware ready." after 11.6 s). By remote keys and by MIDI sent to the SMK-37's USB MIDI in (docs/BUILD.md 42.3):
+
+- Recording: 15 of 15 checks. A key played between two steps is recorded on the nearer one and plays there within 0.6 ms;
+  a note from MIDI in within 1.8 ms; with input quantize off a note plays back about 3 ms after where it was played; 61
+  controller values in a quarter of a second are recorded as 6; undo takes the whole take back. No audio underrun.
+- The STEP page 18 of 18, the CLIPS page 40 of 40, 960 timed notes all present (worst 1.23 ms on DIN).
+- **Known fault, fixed in tabby-v04.9.1:** HOME does nothing on the STEP page while a clip is open. Use EDIT or BT.
