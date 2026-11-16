@@ -265,6 +265,50 @@ int main(int argc, char **argv)
         CHECK(accepted > 8000 && refused > 20000 && walked == accepted, "fuzz: 60000 payloads: %u accepted and walked through the window, %u refused", accepted, refused);
         #undef RND
     }
+    /* ---- Goal 6: editing in place. Known cases, then 40000 random edits: the clip is valid after every one. ---- */
+    {
+        static uint8_t c[CLIP_V3_BYTES_MAX]; uint16_t idx[8];
+        clip_v3_empty(c, 32);
+        CHECK(clip_v3_validate(c, clip_v3_bytes(c)) == 0 && clip_v3_steps(c) == 32 && clip_v3_count(c) == 0, "edit: an empty clip of 32 steps is valid");
+        struct clip_v3_event n = { 4 * 480, CLIP_V3_NOTE, 60, 100, 1, 480 };
+        int i0 = clip_v3_insert(c, &n); n.a = 64; int i1 = clip_v3_insert(c, &n); n.a = 60; int dup = clip_v3_insert(c, &n);
+        CHECK(i0 == 0 && i1 == 1 && dup == CLIP_V3_DUPLICATE && clip_v3_count(c) == 2, "edit: two notes on step 5; the same pitch again is refused (%d %d %d)", i0, i1, dup);
+        n.a = 62; n.time = 2 * 480 + 100; int i2 = clip_v3_insert(c, &n);
+        CHECK(i2 == 0 && clip_v3_step_notes(c, 2, idx, 8) == 1 && idx[0] == 0 && clip_v3_step_notes(c, 4, idx, 8) == 2 && idx[0] == 1 && idx[1] == 2, "edit: an earlier note goes in front; the notes of a step are found");
+        n.time = 2 * 480 + 240; n.a = 70; (void)clip_v3_insert(c, &n); n.time = 2 * 480 + 241; n.a = 71; (void)clip_v3_insert(c, &n);
+        CHECK(clip_v3_step_notes(c, 2, idx, 8) == 2 && clip_v3_step_notes(c, 3, idx, 8) == 1 && clip_v3_note_find(c, 2, 70) >= 0 && clip_v3_note_find(c, 3, 71) >= 0 && clip_v3_note_find(c, 3, 70) < 0,
+              "edit: a start half a step late belongs to the earlier step, one unit later to the next (the anchor rule)");
+        CHECK(clip_v3_step_mod(c, 4) == 0 && clip_v3_step_mod_set(c, 4, 5) >= 0 && clip_v3_step_mod(c, 4) == 5 && clip_v3_validate(c, clip_v3_bytes(c)) == 0, "edit: a step's probability is set and read, the clip stays valid");
+        CHECK(clip_v3_step_mod_set(c, 4, 0) == 0 && clip_v3_step_mod(c, 4) == 0, "edit: probability 0 removes the modifier");
+        n.time = 32 * 480; n.a = 60; int out = clip_v3_insert(c, &n); n.time = 0; n.b = 0; int vel = clip_v3_insert(c, &n); n.b = 100; n.length = 0; int len = clip_v3_insert(c, &n);
+        CHECK(out == CLIP_V3_BAD_EVENT && vel == CLIP_V3_BAD_EVENT && len == CLIP_V3_BAD_EVENT, "edit: a note past the clip, velocity 0 and length 0 are refused");
+        unsigned before = clip_v3_count(c); clip_v3_remove(c, (unsigned)clip_v3_note_find(c, 4, 64));
+        CHECK(clip_v3_count(c) == before - 1 && clip_v3_note_find(c, 4, 64) < 0 && clip_v3_note_find(c, 4, 60) >= 0 && clip_v3_validate(c, clip_v3_bytes(c)) == 0, "edit: a note is removed, its neighbour stays");
+        /* full: the 512th event fits, the 513th does not, nothing changes */
+        clip_v3_empty(c, 128); n.length = 240; n.b = 100; unsigned made = 0;
+        for (unsigned s = 0; s < 128; ++s) for (unsigned k = 0; k < 4; ++k) { n.time = (int32_t)s * 480; n.a = (uint8_t)(40 + k); if (clip_v3_insert(c, &n) >= 0) ++made; }
+        n.time = 0; n.a = 90; int full = clip_v3_insert(c, &n);
+        CHECK(made == 512 && full == CLIP_V3_NO_ROOM && clip_v3_count(c) == 512 && clip_v3_validate(c, clip_v3_bytes(c)) == 0, "edit: a full clip (512 events) refuses one more and is unchanged");
+        uint32_t seed = 0x9e3779b9U;
+        #define RND() (seed = seed * 1664525U + 1013904223U, seed >> 8)
+        unsigned bad = 0, inserted = 0, refused = 0, removed = 0;
+        clip_v3_empty(c, 1 + RND() % 128);
+        for (unsigned round = 0; round < 40000; ++round) {
+            unsigned op = RND() % 10, steps = clip_v3_steps(c), count = clip_v3_count(c);
+            if (op < 6) {
+                struct clip_v3_event v; v.kind = (uint8_t)(RND() % 12 == 0 ? 1 + RND() % 4 : CLIP_V3_NOTE);
+                v.time = (int32_t)(RND() % (steps * 480U + 400U)) - 300; v.a = (uint8_t)(RND() % 140); v.b = (uint8_t)(RND() % 140); v.retrigger = RND() & 1; v.length = (uint16_t)(RND() % 3000);
+                if (v.kind == CLIP_V3_PC || v.kind == CLIP_V3_PRESSURE) v.b = 0;
+                int r = clip_v3_insert(c, &v);
+                if (r >= 0) { ++inserted; if (clip_v3_count(c) != count + 1) ++bad; } else { ++refused; if (clip_v3_count(c) != count) ++bad; }
+            } else if (op < 9 && count) { clip_v3_remove(c, RND() % count); ++removed; if (clip_v3_count(c) != count - 1) ++bad; }
+            else { unsigned ms = RND() % 130; unsigned mv = RND() % 18; (void)clip_v3_step_mod_set(c, ms, mv); }
+            if (clip_v3_validate(c, clip_v3_bytes(c)) != 0) { ++bad; clip_v3_empty(c, 1 + RND() % 128); }
+            if (round % 5000 == 4999) clip_v3_empty(c, 1 + RND() % 128);
+        }
+        CHECK(bad == 0 && inserted > 5000 && refused > 1000 && removed > 5000, "edit: 40000 random edits, the clip valid after each (%u inserted, %u refused, %u removed, %u bad)", inserted, refused, removed, bad);
+        #undef RND
+    }
     printf(failures ? "%d of %d checks FAILED\n" : "all %d checks passed\n", failures ? failures : checks, checks);
     return failures != 0;
 }

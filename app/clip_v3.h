@@ -72,4 +72,21 @@ int clip_v3_to_cells(const uint8_t *v3, unsigned bytes, uint8_t cells[][25]);
 typedef void (*clip_v3_fn)(void *context, const struct clip_v3_event *event, int swung_time);
 unsigned clip_v3_window(const uint8_t *p, unsigned *cursor, int from, int to, unsigned swing, clip_v3_fn fn, void *context);
 int clip_v3_warp(int time, unsigned swing);
+
+/* ---- editing (Goal 6, tabby-v04.8): the step editor and the recorder change a clip in place --------------------
+ * `p` is a valid v3 payload in a buffer of CLIP_V3_BYTES_MAX bytes. Every call leaves it valid. */
+unsigned clip_v3_bytes(const uint8_t *p);                       /* the payload's length now */
+void clip_v3_empty(uint8_t *p, unsigned steps);                 /* an empty clip of `steps` steps */
+/* The notes anchored at `step`: their event indexes into out[0..max), in list order; returns how many there are. */
+unsigned clip_v3_step_notes(const uint8_t *p, unsigned step, uint16_t *out, unsigned max);
+/* The note of `pitch` anchored at `step`: its event index, or -1. */
+int clip_v3_note_find(const uint8_t *p, unsigned step, unsigned pitch);
+/* Insert an event in time order (after the events already at its time). Returns its index, or CLIP_V3_NO_ROOM (the
+ * clip holds CLIP_V3_EVENTS_MAX events), CLIP_V3_DUPLICATE (a note of that pitch is anchored at that step already) or
+ * CLIP_V3_BAD_EVENT (out of the clip, velocity or length 0, a value above 127). Nothing changes on an error. */
+int clip_v3_insert(uint8_t *p, const struct clip_v3_event *event);
+void clip_v3_remove(uint8_t *p, unsigned index);
+/* A step's probability (0..7) and tuning bit (bit 3): read (0 when the step has no modifier), and set (0 removes it). */
+unsigned clip_v3_step_mod(const uint8_t *p, unsigned step);
+int clip_v3_step_mod_set(uint8_t *p, unsigned step, unsigned value);
 #endif

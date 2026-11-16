@@ -257,6 +257,13 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
     else if (op == 12 && n == 1) { out[0] = 2; *count = 1 + ct_screen_clips_read(out + 1); return 0; }
     else if (op == 13 && n == 3 && data[1] < SONG_TRACKS) { r = song_clip_launch(data[1], data[2]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
     else if (op == 14 && n == 2 && data[1] < SONG_TRACKS) { r = song_track_unqueue(data[1]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
+    /* Goal 6: {15} reads the STEP page (ct_screen_steps_read); {16, 1} saves the edited clip (as the 4th left button on
+     * that page; refused while a transport runs), {16, 2} discards the edit, {16, 3, track, place} opens the STEP page
+     * on a clip. */
+    else if (op == 15 && n == 1) { out[0] = 3; *count = 1 + ct_screen_steps_read(out + 1); return 0; }
+    else if (op == 16 && n == 2 && data[1] == 1) { r = song_edit_save(); if (r) return r == SONG_BUSY ? GROOVE_PROJECT_PLAYING : r < 0 ? r : GROOVE_PROJECT_EMPTY; }
+    else if (op == 16 && n == 2 && data[1] == 2) song_edit_discard();
+    else if (op == 16 && n == 4 && data[1] == 3) { r = ct_screen_steps_open(data[2], data[3]); if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY; }
     else return GROOVE_PROJECT_INVALID;
     remote_status(out, count);
     return 0;

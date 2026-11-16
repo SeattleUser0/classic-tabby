@@ -38,7 +38,10 @@ void smk37_screen_shortcut(unsigned pad);
 unsigned ct_screen_page(void);
 unsigned ct_screen_track_muted(unsigned track);   /* Task 17 Goal 4: the song's mute of a track (mixer mute, or the MIDI-only mute of an OFF track) */
 unsigned ct_screen_mute_kind(unsigned track);     /* 0 none, 1 internal sound only (mixer), 2 sound and song notes (SHIFT + pad) */
-unsigned ct_screen_clips_read(uint8_t *out);      /* command 29 op 12: the CLIPS / SCENES page state, 54 bytes */
+unsigned ct_screen_clips_read(uint8_t *out);
+unsigned ct_screen_steps_read(uint8_t *out);      /* command 29 op 15: the STEP page state, 55 bytes */
+int ct_screen_steps_open(unsigned track, unsigned place);   /* command 29 op 16 {16, 3, track, place} */
+void smk37_screen_key(unsigned note, unsigned velocity);   /* Goal 6: a keyboard key went down (after it was played) */      /* command 29 op 12: the CLIPS / SCENES page state, 54 bytes */
 unsigned ct_screen_action(void);
 void ct_screen_song_select(unsigned song);
 #endif

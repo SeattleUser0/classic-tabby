@@ -6,9 +6,10 @@
  *   Everything the device and the tests do with a v3 payload. Pure C on <stdint.h> and timed_note.h. The device
  *   links what it calls (validate, to_v2, window; LTO drops from_v2, which only the host tools use).
  *
- * Version: 0.2
+ * Version: 0.3
  *
  * Revision log
+ *   v0.3  2026-11-16  Goal 6: editing in place (insert, remove, the notes of a step, step modifiers) for the step editor.
  *   v0.2  2026-11-14  Task 17: an event's time is 32 bits (the 16-bit field was wrong for a clip longer than 68 steps).
  *   v0.1  2026-11-12  Initial version (Task 16 Goal 5, branch classic-tabby/mc707-phase2; not released).
  */
@@ -213,3 +214,104 @@ unsigned clip_v3_window(const uint8_t *p, unsigned *cursor, int from, int to, un
     *cursor = i;
     return delivered;
 }
+
+/* ---- editing in place (v0.3) ------------------------------------------------------------------------------- */
+unsigned clip_v3_bytes(const uint8_t *p) { return CLIP_V3_HEADER + CLIP_V3_EVENT * clip_v3_count(p); }
+void clip_v3_empty(uint8_t *p, unsigned steps)
+{
+    memset(p, 0, CLIP_V3_HEADER);
+    p[0] = (uint8_t)(steps < 1 ? 1 : steps > CLIP_V3_STEPS_MAX ? CLIP_V3_STEPS_MAX : steps);
+}
+unsigned clip_v3_step_notes(const uint8_t *p, unsigned step, uint16_t *out, unsigned max)
+{
+    unsigned count = clip_v3_count(p), n = 0;
+    int from = (int)step * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS;      /* the earliest time anchored at `step` is from + 1 (from itself at step 0) */
+    for (unsigned i = 0; i < count; ++i) {
+        const uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * i;
+        int time = (int)get16(e) - CLIP_V3_BIAS;
+        if (time < from) continue;
+        if (time > from + CLIP_V3_UNITS_PER_STEP) break;
+        if ((e[3] & 0x80U) || clip_v3_anchor(time) != step) continue;
+        if (n < max && out) out[n] = (uint16_t)i;
+        ++n;
+    }
+    return n;
+}
+int clip_v3_note_find(const uint8_t *p, unsigned step, unsigned pitch)
+{
+    unsigned count = clip_v3_count(p);
+    int from = (int)step * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS;
+    for (unsigned i = 0; i < count; ++i) {
+        const uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * i;
+        int time = (int)get16(e) - CLIP_V3_BIAS;
+        if (time < from) continue;
+        if (time > from + CLIP_V3_UNITS_PER_STEP) break;
+        if (!(e[3] & 0x80U) && (e[2] & 127U) == pitch && clip_v3_anchor(time) == step) return (int)i;
+    }
+    return -1;
+}
+int clip_v3_insert(uint8_t *p, const struct clip_v3_event *v)
+{
+    unsigned count = clip_v3_count(p), steps = p[0];
+    int max_time = (int)steps * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS;
+    if (v->time < -CLIP_V3_BIAS || v->time > max_time) return CLIP_V3_BAD_EVENT;
+    if (v->kind == CLIP_V3_NOTE) {
+        if (v->a > 127 || !v->b || v->b > 127 || !v->length) return CLIP_V3_BAD_EVENT;
+        if (clip_v3_note_find(p, clip_v3_anchor(v->time), v->a) >= 0) return CLIP_V3_DUPLICATE;
+    } else if (v->kind == CLIP_V3_CC || v->kind == CLIP_V3_BEND) { if (v->a > 127 || v->b > 127) return CLIP_V3_BAD_EVENT; }
+    else if (v->kind == CLIP_V3_PC || v->kind == CLIP_V3_PRESSURE) { if (v->a > 127 || v->b) return CLIP_V3_BAD_EVENT; }
+    else if (v->kind == CLIP_V3_STEPMOD) {
+        if (v->a > 15 || v->b >= steps || v->time != (int)v->b * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS) return CLIP_V3_BAD_EVENT;
+    } else return CLIP_V3_BAD_EVENT;
+    if (count >= CLIP_V3_EVENTS_MAX) return CLIP_V3_NO_ROOM;
+    unsigned at = count;
+    /* A step modifier leads the events at its time (it must precede every note anchored at its step); anything else
+     * follows the events already at its time. */
+    while (at > 0) {
+        int t = (int)get16(p + CLIP_V3_HEADER + CLIP_V3_EVENT * (at - 1U)) - CLIP_V3_BIAS;
+        if (t < v->time || (t == v->time && v->kind != CLIP_V3_STEPMOD)) break;
+        --at;
+    }
+    uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * at;
+    memmove(e + CLIP_V3_EVENT, e, (size_t)CLIP_V3_EVENT * (count - at));
+    put16(e, (unsigned)(v->time + CLIP_V3_BIAS));
+    if (v->kind == CLIP_V3_NOTE) { e[2] = (uint8_t)(v->a | (v->retrigger ? 0x80U : 0U)); e[3] = v->b; put16(e + 4, v->length); }
+    else { e[2] = v->kind; e[3] = 0x80; e[4] = v->a; e[5] = v->b; }
+    put16(p + 6, count + 1U);
+    return (int)at;
+}
+void clip_v3_remove(uint8_t *p, unsigned index)
+{
+    unsigned count = clip_v3_count(p);
+    if (index >= count) return;
+    uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * index;
+    memmove(e, e + CLIP_V3_EVENT, (size_t)CLIP_V3_EVENT * (count - index - 1U));
+    put16(p + 6, count - 1U);
+}
+static int step_mod_index(const uint8_t *p, unsigned step)
+{
+    unsigned count = clip_v3_count(p);
+    int time = (int)step * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS;
+    for (unsigned i = 0; i < count; ++i) {
+        const uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * i;
+        int t = (int)get16(e) - CLIP_V3_BIAS;
+        if (t > time) break;
+        if (t == time && (e[3] & 0x80U) && e[2] == CLIP_V3_STEPMOD && e[5] == step) return (int)i;
+    }
+    return -1;
+}
+unsigned clip_v3_step_mod(const uint8_t *p, unsigned step)
+{
+    int i = step_mod_index(p, step);
+    return i < 0 ? 0U : p[CLIP_V3_HEADER + CLIP_V3_EVENT * (unsigned)i + 4];
+}
+int clip_v3_step_mod_set(uint8_t *p, unsigned step, unsigned value)
+{
+    int i = step_mod_index(p, step);
+    if (value > 15 || step >= p[0]) return CLIP_V3_BAD_EVENT;
+    if (i >= 0) { if (value) { p[CLIP_V3_HEADER + CLIP_V3_EVENT * (unsigned)i + 4] = (uint8_t)value; return i; } clip_v3_remove(p, (unsigned)i); return 0; }
+    if (!value) return 0;
+    struct clip_v3_event v = { (int32_t)step * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS, CLIP_V3_STEPMOD, (uint8_t)value, (uint8_t)step, 0, 0 };
+    return clip_v3_insert(p, &v);
+}
+

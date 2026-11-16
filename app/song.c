@@ -134,6 +134,7 @@ struct trackbuf {
     uint8_t v3;
     uint8_t prob[CLIP_V3_STEPS_MAX];
     uint16_t block;                    /* the block id (the clip header's program and bank are sent once per clip) */
+    volatile uint8_t fresh;            /* Goal 6: decoded again after an edit of the clip this track loops: the loop takes it at its next pass */
 };
 #if defined(FM1_HOST_TEST) || defined(FM1_OPEN_WEB)
 static unsigned force_cursor;   /* tests: every v3 clip plays from its event list, also one the grid could hold */
@@ -167,6 +168,22 @@ static volatile uint8_t place_steps[SONG_TRACKS];
  * audio thread as start_row and clears it. Internal clock only: a song that follows a MIDI clock starts on its scenes. */
 static uint8_t reserve_row[SONG_TRACKS] = {SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE};
 static volatile uint8_t start_row[SONG_TRACKS], start_steps[SONG_TRACKS];
+/* ---- Goal 6 (tabby-v04.8): the clip being edited. One clip at a time lives here as a v3 payload; the decoder takes it
+ * instead of the stored block while it is unsaved, so edits are heard without a flash write (flash is written only
+ * while the transport is stopped, SPEC 15.4). Four undo levels (SPEC 14.1 decision 8): `slot` holds the undo states
+ * (slot[0..undo), oldest first) and above them the redo states (slot[undo..undo + redo), the next redo first).
+ * Control task only, except edit_refresh (control -> control across polls). */
+enum { EDIT_LEVELS = 4 };
+static struct {
+    uint8_t clip[SONG_PAYLOAD_V3_MAX];
+    uint8_t slot[EDIT_LEVELS][SONG_PAYLOAD_V3_MAX];
+    uint16_t block;
+    uint8_t track, place, active, dirty, steps, undo, redo;
+    uint32_t gesture;                  /* the last knob gesture (step, note, field): one undo level per gesture */
+    uint32_t changed_ms;
+    uint16_t revision;                 /* counts the changes: the screen redraws on it */
+} edit;
+static uint8_t edit_refresh;           /* 1 + the track whose looping buffer should be decoded again */
 static volatile unsigned mute_mask;
 /* audio -> control */
 static volatile unsigned playing, cur, repeat, underruns, song_over;
@@ -619,7 +636,15 @@ static FM1_AUDIO_CODE int song_switch(unsigned next, uint32_t bd, unsigned at)
 static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
 {
     struct track *k = &tr[t];
-    if (what == SW_LOOP) { k->start += k->len; enter_frame(t, k->cur, at, 1); return; }
+    if (what == SW_LOOP) {
+        k->start += k->len;
+        unsigned nb = plan[t].nb;
+        if (nb != SONG_NONE && nb != k->cur && tbuf[t][nb].fresh) {   /* Goal 6: the loop's next pass plays the edited clip */
+            tbuf[t][k->cur].ready = 0; barrier(); k->cur = (uint8_t)nb; tbuf[t][nb].fresh = 0;
+            k->len = (uint32_t)tbuf[t][nb].steps * UNITS;
+        }
+        enter_frame(t, k->cur, at, 1); return;
+    }
     unsigned kind = queue_kind[t];
     release_track(t);
     queue_kind[t] = Q_NONE; seen_kind[t] = Q_NONE;
@@ -692,7 +717,7 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         else if (qk != Q_NONE && (!plan[t].tb || bar <= plan[t].tb)) { plan[t].tb = bar; plan[t].what = SW_QUEUE; }
         /* The buffer of the frame that follows the boundary. */
         if (scene) { unsigned nr = rowset[cur ^ 1U].row; plan[t].nb = holds(&tbuf[t][k->cur], nr, P_SONG) ? k->cur : holds(&tbuf[t][o], nr, P_SONG) ? o : SONG_NONE; }
-        else if (plan[t].what == SW_LOOP) plan[t].nb = k->cur;
+        else if (plan[t].what == SW_LOOP) plan[t].nb = tbuf[t][o].fresh && holds(&tbuf[t][o], k->row, P_LAUNCH) ? o : k->cur;   /* Goal 6: the edited clip, decoded again */
         else if (plan[t].what == SW_QUEUE) {
             if (qk == Q_LAUNCH) plan[t].nb = holds(&tbuf[t][k->cur], qr, P_LAUNCH) ? k->cur : holds(&tbuf[t][o], qr, P_LAUNCH) ? o : SONG_NONE;
             else if (qk == Q_ATTACH && !song_over) {
@@ -962,12 +987,18 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
     unsigned place_row = row >= SONG_ROWS;
     const struct song_row *r = &record.row[place_row ? 0 : row];
     b->row = (uint8_t)row; b->steps = place_row ? SONG_BLOCK_STEPS : r->steps ? r->steps : SONG_BLOCK_STEPS; b->purpose = (uint8_t)purpose;
-    b->swing = (uint8_t)swing_song; b->has_block = 0; b->v3 = 0;
+    b->swing = (uint8_t)swing_song; b->has_block = 0; b->v3 = 0; b->block = 0;
     memset(b->cell, 0, sizeof b->cell);
     unsigned id = place_row ? model.clip[t][(row - SONG_ROWS) % SONG_CLIPS] : r->block[t], bytes, format = SONG_FORMAT_V2;
     if (id) {
-        int e = song_block_read(loaded, id, payload, &bytes, &format);
-        if (!e) e = song_payload_valid(format, payload, bytes);
+        int e = 0;
+        b->block = (uint16_t)id;
+        if (edit.active && edit.dirty && id == edit.block) {   /* Goal 6: the unsaved edit is what plays */
+            bytes = clip_v3_bytes(edit.clip); memcpy(payload, edit.clip, bytes); format = SONG_FORMAT_V3;
+        } else {
+            e = song_block_read(loaded, id, payload, &bytes, &format);
+            if (!e) e = song_payload_valid(format, payload, bytes);
+        }
         if (e) last_error = (unsigned)e;
         else {
             if (format == SONG_FORMAT_V3 && place_row) b->steps = (uint8_t)clip_v3_steps(payload);
@@ -977,7 +1008,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
                 /* The cursor (branch clipv3-cursor): a clip the grid cannot hold plays from its event list. */
                 if (force_cursor || clip_v3_to_cells(payload, bytes, b->cell)) {
                     memset(b->prob, 0, sizeof b->prob);
-                    memcpy(b->clip, payload, bytes); b->block = (uint16_t)id;   /* the grid and the list share their storage */
+                    memcpy(b->clip, payload, bytes);   /* the grid and the list share their storage */
                     for (unsigned i = 0, n = clip_v3_count(payload); i < n; ++i) {
                         struct clip_v3_event e; clip_v3_event(payload, i, &e);
                         if (e.kind == CLIP_V3_STEPMOD && e.b < CLIP_V3_STEPS_MAX) b->prob[e.b] = e.a;
@@ -1099,6 +1130,18 @@ void song_poll(void)
         leave_song(); return;                                                                /* stopped or ended */
     }
     if (state == 2) return;
+    if (edit_refresh) {
+        /* Goal 6: the edited clip loops on its track: decode it again into the track's free buffer; the audio thread
+         * takes it at the loop's next pass. A track that follows the scenes hears the edit at its next decode. */
+        unsigned t = edit_refresh - 1U; struct track *k = &tr[t];
+        struct trackbuf *p = &tbuf[t][k->cur], *o = &tbuf[t][k->cur ^ 1U];
+        edit_refresh = 0;
+        if (k->state == 1 && !k->waiting && queue_kind[t] == Q_NONE && p->ready && p->purpose == P_LAUNCH && p->row == k->row && p->block == edit.block) {
+            o->ready = 0; barrier();
+            o->fresh = 1;
+            decode_track(t, o, k->row, P_LAUNCH);
+        }
+    }
     /* Each track's free buffer: what it will need next (one block read per decode). */
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
         unsigned row, purpose;
@@ -1122,6 +1165,8 @@ void song_poll(void)
 int song_load(unsigned song)
 {
     if (state) return SONG_BUSY;
+    if (edit.active && edit.dirty && loaded != SONG_NONE) (void)song_edit_save();   /* Goal 6: the unsaved clip belongs to the song being left */
+    edit.active = 0; edit.dirty = 0;
     loaded = SONG_NONE; memset(reserve_row, SONG_NONE, sizeof reserve_row);
     int r = song_record_read(song, &record);
     if (!r) r = song_directory_build(song);
@@ -1255,6 +1300,181 @@ int song_track_unqueue(unsigned track)
     return 0;
 }
 void song_mute_set(unsigned mask) { mute_mask = mask & 255U; }
+
+/* ---- Goal 6: the clip editor (control task) ------------------------------------------------------------------ */
+static void edit_swap(uint8_t *a, uint8_t *b)
+{ for (unsigned i = 0; i < SONG_PAYLOAD_V3_MAX; ++i) { uint8_t x = a[i]; a[i] = b[i]; b[i] = x; } }
+/* Before a change: the state now becomes an undo level (the oldest of four is dropped), redo is gone. */
+static void edit_push(void)
+{
+    if (edit.undo == EDIT_LEVELS) { memmove(edit.slot[0], edit.slot[1], (size_t)(EDIT_LEVELS - 1) * SONG_PAYLOAD_V3_MAX); --edit.undo; }
+    memcpy(edit.slot[edit.undo++], edit.clip, SONG_PAYLOAD_V3_MAX);
+    edit.redo = 0;
+}
+static void edit_changed(void)
+{
+    edit.dirty = 1; edit.changed_ms = fm1_millis(); ++edit.revision;
+    edit_refresh = (uint8_t)(1U + edit.track);
+}
+/* The length the clip plays with: its scene's steps when a scene uses it, else its own. */
+static unsigned clip_play_steps(unsigned track, unsigned place, unsigned own)
+{
+    for (unsigned r = 0; r < record.rows; ++r)
+        if (model.scene_clip[r][track] == place + 1U) return record.row[r].steps ? record.row[r].steps : SONG_BLOCK_STEPS;
+    return own;
+}
+int song_edit_open(unsigned track, unsigned place)
+{
+    if (loaded == SONG_NONE || track >= SONG_TRACKS || place >= SONG_CLIPS) return SONG_INVALID;
+    unsigned id = model.clip[track][place], bytes, format = SONG_FORMAT_V2;
+    if (!id) return SONG_EMPTY;
+    if (edit.active && edit.track == track && edit.block == id) { edit.place = (uint8_t)place; return 0; }   /* the same block in another place of the track is the same clip */
+    if (edit.active && edit.dirty) return SONG_BUSY;                 /* one unsaved clip at a time */
+    for (unsigned t = 0; t < SONG_TRACKS; ++t)
+        for (unsigned c = 0; t != track && c < model.clips[t]; ++c) if (model.clip[t][c] == id) return SONG_EDIT_SHARED;
+    int e = song_block_read(loaded, id, payload, &bytes, &format);
+    if (!e) e = song_payload_valid(format, payload, bytes);
+    if (e) return e < 0 ? e : SONG_INVALID;
+    edit.active = 0;
+    if (format == SONG_FORMAT_V3) memcpy(edit.clip, payload, bytes);
+    else {
+        /* a grid block becomes an event list: each step's modifier, then its notes */
+        if (format == SONG_FORMAT_V1) bytes = song_payload_upgrade(payload, bytes);
+        clip_v3_empty(edit.clip, SONG_BLOCK_STEPS);
+        for (unsigned step = 0, at = 0; step < SONG_BLOCK_STEPS; ++step) {
+            unsigned head = payload[at++], count = head & 7U;
+            if (head & 0x78U) (void)clip_v3_step_mod_set(edit.clip, step, ((head >> 3) & 7U) | ((head >> 6) & 1U) << 3);
+            for (unsigned i = 0; i < count; ++i, at += NOTE) {
+                struct timed_note n; timed_note_unpack(payload + at, &n);
+                int32_t time = (int32_t)step * UNITS + n.offset;
+                if (time < -HALF) time = -HALF;
+                struct clip_v3_event v = { time, CLIP_V3_NOTE, n.pitch, n.velocity, n.retrigger, (uint16_t)(n.length > 65535U ? 65535U : n.length) };
+                (void)clip_v3_insert(edit.clip, &v);
+            }
+        }
+    }
+    edit.block = (uint16_t)id; edit.track = (uint8_t)track; edit.place = (uint8_t)place;
+    edit.steps = (uint8_t)clip_play_steps(track, place, clip_v3_steps(edit.clip));
+    if (edit.steps > clip_v3_steps(edit.clip)) edit.steps = (uint8_t)clip_v3_steps(edit.clip);
+    edit.undo = edit.redo = 0; edit.dirty = 0; edit.gesture = 0; edit.active = 1;
+    return 0;
+}
+void song_edit_info(struct song_edit_info *out)
+{
+    memset(out, 0, sizeof *out);
+    out->play_step = SONG_NONE;
+    if (!edit.active) return;
+    out->active = 1; out->track = edit.track; out->place = edit.place; out->dirty = edit.dirty; out->steps = edit.steps;
+    out->undo = edit.undo; out->redo = edit.redo; out->block = edit.block; out->revision = edit.revision; out->events = (uint16_t)clip_v3_count(edit.clip);
+    const struct track *k = &tr[edit.track];
+    if (state == 1 && playing && !k->waiting && k->state != 2) {
+        const struct trackbuf *b = &tbuf[edit.track][k->cur];
+        uint32_t m = master, s0 = k->start;
+        if (b->ready && b->has_block && b->block == edit.block && m >= s0 && !(k->state == 0 && song_over))
+            out->play_step = (uint8_t)(((m - s0) / UNITS) % (b->steps ? b->steps : 1U));
+    }
+}
+const uint8_t *song_edit_clip(void) { return edit.active ? edit.clip : NULL; }
+int song_edit_note_toggle(unsigned step, unsigned pitch, unsigned velocity, unsigned length)
+{
+    if (!edit.active || step >= edit.steps || pitch > 127) return SONG_INVALID;
+    int at = clip_v3_note_find(edit.clip, step, pitch);
+    if (at >= 0) { edit_push(); clip_v3_remove(edit.clip, (unsigned)at); edit.gesture = 0; edit_changed(); return 0; }
+    if (clip_v3_count(edit.clip) >= CLIP_V3_EVENTS_MAX) return SONG_FULL;      /* SPEC 14.2: CLIP FULL, nothing changes */
+    struct clip_v3_event v = { (int32_t)step * UNITS, CLIP_V3_NOTE, (uint8_t)pitch, (uint8_t)(velocity < 1 ? 1 : velocity > 127 ? 127 : velocity), 1,
+                               (uint16_t)(length < 1 ? 1 : length > 65535U ? 65535U : length) };
+    edit_push();
+    if (clip_v3_insert(edit.clip, &v) < 0) { --edit.undo; return SONG_INVALID; }
+    edit.gesture = 0; edit_changed();
+    return 1;
+}
+int song_edit_step_clear(unsigned step)
+{
+    uint16_t idx[8];
+    if (!edit.active || step >= edit.steps) return SONG_INVALID;
+    unsigned n = clip_v3_step_notes(edit.clip, step, idx, 8);
+    if (!n && !clip_v3_step_mod(edit.clip, step)) return SONG_EMPTY;
+    edit_push();
+    while ((n = clip_v3_step_notes(edit.clip, step, idx, 8)) != 0) clip_v3_remove(edit.clip, idx[0]);
+    (void)clip_v3_step_mod_set(edit.clip, step, 0);
+    edit.gesture = 0; edit_changed();
+    return 0;
+}
+/* Change note `n` of a step: field 0 velocity, 1 start (units from the step's grid line, -239 .. 240; step 0 from
+ * -240), 2 length (units), 3 the step's probability (0 = always .. 7; `n` unused). Clamped to what the step can hold. */
+int song_edit_note_adjust(unsigned step, unsigned n, unsigned field, int delta)
+{
+    uint16_t idx[16];
+    if (!edit.active || step >= edit.steps || field > 3 || !delta) return SONG_INVALID;
+    uint32_t gesture = 0x80000000U | step << 16 | n << 8 | field;
+    if (field == 3) {
+        int now = (int)(clip_v3_step_mod(edit.clip, step) & 7U), want = now + delta;
+        want = want < 0 ? 0 : want > 7 ? 7 : want;
+        if (want == now) return 0;
+        if (!want || clip_v3_count(edit.clip) < CLIP_V3_EVENTS_MAX || now) {
+            if (edit.gesture != gesture) edit_push();
+            (void)clip_v3_step_mod_set(edit.clip, step, (clip_v3_step_mod(edit.clip, step) & 8U) | (unsigned)want);
+            edit.gesture = gesture; edit_changed(); return 0;
+        }
+        return SONG_FULL;
+    }
+    unsigned count = clip_v3_step_notes(edit.clip, step, idx, 16);
+    if (n >= count || n >= 16) return SONG_EMPTY;
+    struct clip_v3_event v, old; clip_v3_event(edit.clip, idx[n], &v); old = v;
+    if (field == 0) { int x = (int)v.b + delta; v.b = (uint8_t)(x < 1 ? 1 : x > 127 ? 127 : x); }
+    else if (field == 1) {
+        int base = (int)step * UNITS, low = step ? -(HALF - 1) : -HALF, x = v.time - base + delta;
+        v.time = base + (x < low ? low : x > HALF ? HALF : x);
+    } else { int x = (int)v.length + delta; v.length = (uint16_t)(x < 1 ? 1 : x > 65535 ? 65535 : x); }
+    if (v.time == old.time && v.b == old.b && v.length == old.length) return 0;
+    if (edit.gesture != gesture) edit_push();
+    clip_v3_remove(edit.clip, idx[n]);
+    if (clip_v3_insert(edit.clip, &v) < 0) (void)clip_v3_insert(edit.clip, &old);
+    edit.gesture = gesture; edit_changed();
+    return 0;
+}
+int song_edit_undo(void)
+{
+    if (!edit.active || !edit.undo) return SONG_EMPTY;
+    edit_swap(edit.clip, edit.slot[--edit.undo]); ++edit.redo;
+    edit.gesture = 0; edit_changed();
+    return 0;
+}
+int song_edit_redo(void)
+{
+    if (!edit.active || !edit.redo) return SONG_EMPTY;
+    edit_swap(edit.clip, edit.slot[edit.undo++]); --edit.redo;
+    edit.gesture = 0; edit_changed();
+    return 0;
+}
+/* Write the edited clip to song storage under its block id (a v3 block; the newest record of an id is the block).
+ * Only while every transport is stopped (SPEC 15.4): SONG_BUSY otherwise. */
+int song_edit_save(void)
+{
+    if (!edit.active || !edit.dirty) return 0;
+    if (ct_transport_running() || state) return SONG_BUSY;
+    int r = song_block_append(loaded, edit.block, SONG_FORMAT_V3, edit.clip, clip_v3_bytes(edit.clip));
+    if (!r) r = song_directory_build(loaded);
+    if (r) return r;
+    edit.dirty = 0;
+    return 0;
+}
+/* Give the edit up: the stored clip plays again. */
+void song_edit_discard(void)
+{
+    if (!edit.active) return;
+    unsigned was = edit.dirty;
+    edit.active = 0; edit.dirty = 0; edit.undo = edit.redo = 0;
+    if (was) edit_refresh = (uint8_t)(1U + edit.track);
+}
+/* Control task, every pass: an unsaved clip is written once the transport has been stopped and the clip untouched for
+ * ten seconds (the assessment's F: never while playing). Returns 1 when it saved now. */
+int song_edit_poll(void)
+{
+    if (!edit.active || !edit.dirty || state || fm1_millis() - edit.changed_ms < 10000U) return 0;
+    if (ct_transport_running() || song_storage_state() != SONG_STORAGE_READY) return 0;
+    return song_edit_save() == 0;
+}
 /* The clip place (0-based) behind a status row of a track, SONG_NONE when there is none. */
 unsigned song_row_place(unsigned track, unsigned row)
 {

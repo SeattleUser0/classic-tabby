@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.21
+ * Version: 0.22
  *
  * Revision log
+ *   v0.22 2026-11-16  Goal 6: section 23, the clip editor (song_edit_*).
  *   v0.21 2026-11-14  Task 17 Goal 4: section 22, clip launching by place (place rows, taking a queue back).
  *   v0.20 2026-11-14  Task 17 Goal 3: section 21, song record version 3 (scenes, the clip table, the master cycle).
  *   v0.19 2026-11-14  Branch clipv3-cursor: section 20, the scheduler cursor (a v3 clip from its event list is
@@ -2204,6 +2205,75 @@ int main(void)
           CHECK(r4 == 0 && queue6700 == 1 && u1 == 0 && u2 == SONG_EMPTY && row7500 == SONG_ROWS + 6, "clips: a queued launch is taken back before it lands (%d %u %d %d, row %u)", r4, queue6700, u1, u2, row7500);
           unsigned late60 = 0; for (unsigned i = 0; i < nc; ++i) if (lc[i].s == 0x94 && lc[i].d1 == 60 && lc[i].d2 && lc[i].block - o > 700) ++late60;
           CHECK(late60 == 0 && stuck(lc, nc) == 0, "clips: the clip taken back never played; nothing stuck (%u, %d)", late60, stuck(lc, nc)); }
+        sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
+    }
+
+    /* ---- 23. Goal 6: the clip editor (song_edit_*): a grid block opened as an event list, edits, four undo levels,
+     *          the save, one unsaved clip at a time, a block two tracks share ---- */
+    {
+        sim_boot(1); sim_midi_capture(1); sim_midi_drain(1); sim_test_request_passes(1);
+        uint8_t *f = sim_file(); const unsigned SONG = 6;
+        uint8_t b[64 + 12]; struct timed_note tn; tn.velocity = 90; tn.retrigger = 1; tn.offset = 0; tn.length = 240;
+        { unsigned at = 0; memset(b, 0, sizeof b);                     /* block 1: 60 on step 0 (probability 3), 62 on step 4 with offset +100 */
+          for (unsigned k = 0; k < 64; ++k) {
+              if (k == 0) { b[at++] = 1 | 3 << 3; tn.pitch = 60; tn.offset = 0; (void)timed_note_encode(&tn, b + at); at += 6; }
+              else if (k == 4) { b[at++] = 1; tn.pitch = 62; tn.offset = 100; (void)timed_note_encode(&tn, b + at); at += 6; }
+              else b[at++] = 0; }
+          memcpy(f, b, at); CHECK(sim_block_write2(SONG, 1, 1, at) == 0, "editor: block 1 (a grid block) stored"); }
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 3; memcpy(f + 24, "EDITOR      ", 12); f[40] = 1; f[48] = 5; f[49] = 6;
+        memset(f + 2624, 0xff, 4096 - 2624); memset(f + 2624, 0, 8); f[2626] = 1;
+        f[64] = 1; f[64 + 2] = 1;                                       /* T1 places 1 and 2: block 1 (one track, two places) */
+        f[64 + 128 + 2] = 1;                                            /* T2 place 2: block 1 too: shared between tracks */
+        f[1088] = 1; f[1088 + 8] = 1; f[1088 + 10] = 32;                /* scene 1: T1 place 1, 32 steps */
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0, "editor: the song stored and loaded");
+        CHECK(song_edit_open(0, 0) == SONG_EDIT_SHARED && song_edit_open(0, 9) == SONG_EMPTY && song_edit_clip() == NULL, "editor: a block another track uses is refused; an empty place is refused");
+        f[64 + 128 + 2] = 0;
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0 && song_edit_open(0, 0) == 0, "editor: without the other track it opens");
+        struct song_edit_info ei; song_edit_info(&ei); const uint8_t *c = song_edit_clip();
+        struct clip_v3_event e0, e1, e2;
+        clip_v3_event(c, 0, &e0); clip_v3_event(c, 1, &e1); clip_v3_event(c, 2, &e2);
+        CHECK(ei.active && ei.steps == 32 && ei.events == 3 && !ei.dirty && clip_v3_validate(c, clip_v3_bytes(c)) == 0 &&
+              e0.kind == CLIP_V3_STEPMOD && e0.a == 3 && e1.kind == CLIP_V3_NOTE && e1.a == 60 && e1.time == 0 && e2.a == 62 && e2.time == 4 * 480 + 100 && e2.length == 240 && e2.b == 90,
+              "editor: the grid block as an event list: the step's probability, then its notes with their offsets; the scene's 32 steps (%u steps, %u events)", ei.steps, ei.events);
+        CHECK(song_edit_note_toggle(32, 60, 100, 480) == SONG_INVALID && song_edit_note_toggle(8, 64, 100, 480) == 1 && song_edit_note_toggle(8, 64, 100, 480) == 0 && song_edit_note_toggle(8, 65, 0, 0) == 1,
+              "editor: a step past the playing length is refused; a note goes on, comes off, another goes on (velocity and length at least 1)");
+        for (unsigned k = 0; k < 6; ++k) (void)song_edit_note_toggle(10 + k, 70, 100, 480);
+        song_edit_info(&ei);
+        CHECK(ei.undo == 4 && ei.redo == 0 && ei.events == 10 && ei.dirty, "editor: nine changes leave four undo levels (%u) and %u events", ei.undo, ei.events);
+        unsigned undone = 0; while (song_edit_undo() == 0) ++undone;
+        song_edit_info(&ei);
+        CHECK(undone == 4 && ei.events == 6 && ei.redo == 4 && song_edit_redo() == 0 && song_edit_redo() == 0, "editor: four undos and no fifth; redo works (%u undone, %u events)", undone, ei.events);
+        (void)song_edit_note_toggle(20, 72, 100, 480);
+        song_edit_info(&ei);
+        CHECK(ei.redo == 0 && ei.events == 9, "editor: a new change drops the redo levels (%u events)", ei.events);
+        CHECK(song_edit_note_adjust(4, 0, 0, 200) == 0 && song_edit_note_adjust(4, 0, 1, -1000) == 0 && song_edit_note_adjust(4, 0, 2, -5000) == 0 && song_edit_note_adjust(4, 3, 0, 1) == SONG_EMPTY, "editor: velocity, start and length are adjusted and clamped; a note that is not there is refused");
+        { int at = clip_v3_note_find(song_edit_clip(), 4, 62); struct clip_v3_event v; clip_v3_event(song_edit_clip(), at < 0 ? 0 : (unsigned)at, &v);
+          CHECK(at >= 0 && v.b == 127 && v.time == 4 * 480 - 239 && v.length == 1 && clip_v3_validate(song_edit_clip(), clip_v3_bytes(song_edit_clip())) == 0, "editor: clamped to velocity 127, half a step early (still step 5), length 1; the clip is valid (%d %u %d %u)", at, v.b, (int)v.time, v.length); }
+        CHECK(song_edit_note_adjust(0, 0, 3, 9) == 0 && (clip_v3_step_mod(song_edit_clip(), 0) & 7U) == 7 && song_edit_note_adjust(0, 0, 3, -9) == 0 && clip_v3_step_mod(song_edit_clip(), 0) == 0, "editor: a step's probability is raised to 7 and taken off");
+        CHECK(song_edit_step_clear(4) == 0 && song_edit_step_clear(4) == SONG_EMPTY, "editor: a step is cleared; an empty step says so");
+        CHECK(song_edit_open(0, 1) == 0, "editor: the same block in another place of the track is the same clip");
+        /* the unsaved edit is what the song plays; a save is refused while it plays */
+        { struct message m[64]; (void)drain(m, 64); }
+        static struct log_entry le[128]; unsigned ne = 0;
+        (void)sim_song_play();
+        for (unsigned blocks = 0; blocks < 1200; ++blocks) {
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && (m[k].data[0] & 0xf0) == 0x90 && m[k].data[2] && ne < 128) { le[ne].s = m[k].data[0]; le[ne].d1 = m[k].data[1]; le[ne].d2 = m[k].data[2]; le[ne].block = blocks; ++ne; }
+        }
+        int busy = song_edit_save();
+        sim_song_stop(); settle(); settle();
+        CHECK(find_log(le, ne, 0x94, 60, 90, 0) >= 0 && find_log(le, ne, 0x94, 65, 1, 0) >= 0 && find_log(le, ne, 0x94, 72, 100, 0) >= 0 && find_log(le, ne, 0x94, 62, 90, 0) < 0 && find_log(le, ne, 0x94, 62, 127, 0) < 0,
+              "editor: the song plays the unsaved clip: the old note, the entered ones, not the cleared one (%u note-ons)", ne);
+        CHECK(busy == SONG_BUSY, "editor: a save while the song plays is refused (%d)", busy);
+        int saved = song_edit_save(); song_edit_info(&ei);
+        CHECK(saved == 0 && !ei.dirty, "editor: stopped, the clip is saved (%d)", saved);
+        { int n = sim_block_read(SONG, 1);
+          CHECK(n == 16 + 6 * (int)ei.events && f[0] == 64 && clip_v3_validate(f, (unsigned)n) == 0, "editor: storage holds it as a v3 clip of %u events (%d bytes)", ei.events, n); }
+        CHECK(song_edit_open(0, 0) == 0 && song_edit_note_toggle(0, 61, 100, 480) == 1, "editor: open and changed again");
+        song_edit_discard(); song_edit_info(&ei);
+        CHECK(!ei.active && song_edit_open(0, 0) == 0 && clip_v3_note_find(song_edit_clip(), 0, 61) < 0 && clip_v3_note_find(song_edit_clip(), 8, 65) >= 0, "editor: a discard gives the stored clip back");
+        song_edit_discard();
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

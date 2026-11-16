@@ -83,6 +83,29 @@ int song_track_unqueue(unsigned track);               /* take a queue back befor
 void song_mute_set(unsigned mask);                    /* bit t: track t's song notes are held back (the clip runs on) */
 unsigned song_row_place(unsigned track, unsigned row);/* the clip place behind a status row, SONG_NONE if none */
 int song_track_stop(unsigned track);
+/* Goal 6 (tabby-v04.8): the clip editor. One clip at a time is open as an event list in RAM; edits are heard at the
+ * loop's next pass when the clip is launched on its track, and are written to song storage by song_edit_save (only
+ * while stopped) or by song_edit_poll ten seconds after the last change while stopped. Four undo levels. */
+enum { SONG_EDIT_SHARED = 2 };          /* song_edit_open: another track uses the same block */
+struct song_edit_info {
+    uint8_t active, track, place, dirty;
+    uint8_t steps;                       /* the steps the editor shows: the clip's playing length */
+    uint8_t undo, redo;                  /* levels available */
+    uint8_t play_step;                   /* the step the track plays in this clip now, SONG_NONE when it does not */
+    uint16_t events, block;
+    uint16_t revision;                   /* changes since power-up */
+};
+int song_edit_open(unsigned track, unsigned place);   /* 0, SONG_EMPTY (no clip), SONG_BUSY (another clip is unsaved), SONG_EDIT_SHARED */
+void song_edit_info(struct song_edit_info *out);
+const uint8_t *song_edit_clip(void);                  /* the v3 payload being edited, NULL when none */
+int song_edit_note_toggle(unsigned step, unsigned pitch, unsigned velocity, unsigned length);   /* 1 added, 0 removed, SONG_FULL */
+int song_edit_step_clear(unsigned step);
+int song_edit_note_adjust(unsigned step, unsigned n, unsigned field, int delta);
+int song_edit_undo(void);
+int song_edit_redo(void);
+int song_edit_save(void);                             /* SONG_BUSY while a transport runs */
+void song_edit_discard(void);
+int song_edit_poll(void);
 int song_track_attach(unsigned track);                /* back to song */
 void song_track_attach_all(void);
 /* Audio thread, once per 128-frame block, from groove_midi_clock(0, tempo). song_tempo

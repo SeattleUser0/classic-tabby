@@ -53,6 +53,7 @@
 #include "fm1_engine_control.h"
 #include "smk37_controls.h"
 #include "diag.h"   /* Classic Tabby Task 11: the ACTIONS storage lines, diagnostic build only */
+#include "clip_v3.h"   /* Goal 6: the STEP page reads the clip being edited */
 #include <string.h>
 enum {
     BACK = 0x0000,
@@ -179,7 +180,8 @@ static void text(unsigned x, unsigned y, const char *s, unsigned scale, uint16_t
 /* Task 06 (a): BLE (7) and NAME (9) are gone too; their numbers stay for the same reason. */
 enum { OVERVIEW, STEPS, FM_EDIT, FM_ENV, FM_LFO, TONE_EDIT, MIX, BLE, PROJECT, NAME, EFFECTS, SOURCE, ACTIONS, STEP_EDIT, RHYTHM, FM_QUICK, PRESET_BROWSER, ARP_EDIT, STARTUP,
        SONG, /* Task 03 d: song mode, page 19 (ACTIONS "SONG MODE", web shortcut 19) */
-       TRACK_LAUNCH /* Task 06 c: per-track launching, page 20 (SCL from the SONG page, web shortcut 20) */ };
+       TRACK_LAUNCH /* Task 06 c: per-track launching, page 20 (SCL from the SONG page, web shortcut 20) */,
+       CLIP_STEPS /* Goal 6: the STEP page, page 21: the steps of the clip being edited (EDIT from the CLIPS page) */ };
 enum { OCT_DOWN, OCT_UP, FX, SCL, ENV, LFO, EDIT, GLO, HOME, SAVE, ARP, SEQ, PLAY, REC };
 #define BUTTON(b) (1U << (b))
 static const uint16_t colors[8] = {0x3c9f, 0x07bf, 0x4eae, 0x06d4, 0xac9f, 0xed18, 0xff06, 0xfba5};
@@ -226,6 +228,11 @@ static unsigned clip_bank, clips_return;
 static uint8_t clip_select[8] = {SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE};
 static uint8_t clip_hold_pad = 255, clip_hold_queued, clip_hold_track;
 static uint32_t clip_hold_ms;
+/* Goal 6 (docs/CONTROL-MAP.md 12): the STEP page: the bar of 16 steps on the pads, the selected step (255: none), the
+ * note the knobs work on, the note the pads toggle (the last key played), what a pad press does (0 selects the step,
+ * 1 toggles that note on it), the length a new note gets. */
+static uint8_t step_bar, step_sel = 255, step_cursor, step_pitch = 60, step_velocity = 100, step_pads_toggle;
+static uint16_t step_length = 480;
 /* Mute for the song (docs/CONTROL-MAP.md 7): SHIFT + pad 9-16 toggles the mixer's mute as before and sets the
  * track's bit here to match; the bit holds the track's song notes back. A mute made on the MIX page, or one a
  * project comes with (tracks 6 and 7 of a new project), silences the internal sound only, as it always did: a song
@@ -348,7 +355,7 @@ static __attribute__((noinline)) int clamp(int value, int low, int high)
 static unsigned navigation_mode(void)
 {
     return page == PROJECT || page == PRESET_BROWSER || page == MIX ||
-        (page >= SOURCE && page <= RHYTHM) || page == SONG || page == TRACK_LAUNCH || page == STEPS || glo_down;
+        (page >= SOURCE && page <= RHYTHM) || page == SONG || page == TRACK_LAUNCH || page == CLIP_STEPS || page == STEPS || glo_down;
 }
 static unsigned encoder_active(const int16_t values[7])
 {
@@ -878,6 +885,12 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             sig = sig * 33U + clip_bank + ((unsigned)clip_select[track] << 3) + (track_muted(track) << 12);
             for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + mute_kind(t);   /* Task 16: the follow state */
         }
+        if (visible == CLIP_STEPS) {
+            struct song_edit_info ei; song_edit_info(&ei);
+            struct song_status st; song_status_read(&st);
+            sig = signature(sig, &ei, sizeof ei);
+            sig = sig * 33U + step_bar + ((unsigned)step_sel << 4) + ((unsigned)step_cursor << 12) + ((unsigned)step_pitch << 16) + ((unsigned)step_pads_toggle << 23) + ((unsigned)st.playing << 24);
+        }
         if (visible == ARP_EDIT) {
             sig = sig * 33U + track + (groove_arp_enabled(track) << 8) + (arp_page << 9);
             for (unsigned i = 0; i < 6; ++i) sig = sig * 33U + groove_arp_setting(track, i);
@@ -1047,6 +1060,50 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         plain_text(8, 198, notice ? notice : "PADS LAUNCH/STOP  HOLD: SELECT ONLY");
         dim_text(8, 213, "ENV TRACK TO SCENES  SHIFT+ENV ALL");
         dim_text(8, 231, "SCL SCENES  BT BACK  K5 TRACK");
+    } else if (visible == CLIP_STEPS) {
+        /* Goal 6 (docs/CONTROL-MAP.md 12): the clip being edited: its bar of 16 steps, the selected step's notes. */
+        struct song_edit_info ei; song_edit_info(&ei);
+        const uint8_t *clip = song_edit_clip();
+        text(8, 40, "STEP", 2, ACCENT, BACK);
+        text(68, 40, "T", 2, colors[ei.track & 7U], BACK); number(82, 40, ei.track + 1, 1, 2, colors[ei.track & 7U], BACK);
+        dim_text(106, 40, "CLIP"); small_number(134, 40, ei.place + 1U, 2, TEXT);
+        color_text(160, 40, ei.dirty ? "UNSAVED" : "SAVED", ei.dirty ? AMBER : DIM);
+        dim_text(106, 52, "EVENTS"); small_number(146, 52, ei.events, 3, ei.events >= CLIP_V3_EVENTS_MAX ? AMBER : TEXT); dim_text(164, 52, "/512");
+        unsigned bars = (ei.steps + 15U) / 16U;
+        dim_text(8, 68, "BAR"); small_number(32, 68, step_bar + 1U, 1, ACCENT); dim_text(40, 68, "/"); small_number(46, 68, bars, 1, TEXT);
+        dim_text(64, 68, "STEPS"); small_number(98, 68, ei.steps, 3, TEXT);
+        dim_text(130, 68, "UNDO"); small_number(158, 68, ei.undo, 1, TEXT); dim_text(172, 68, "REDO"); small_number(200, 68, ei.redo, 1, TEXT);
+        for (unsigned i = 0; clip && i < 16; ++i) {
+            unsigned step = step_bar * 16U + i, x = 8 + i * 14;
+            unsigned inside = step < ei.steps, n = inside ? clip_v3_step_notes(clip, step, NULL, 0) : 0;
+            uint16_t c = !inside ? BACK : ei.play_step == step ? GREEN : n ? (clip_v3_note_find(clip, step, step_pitch) >= 0 ? AMBER : TEXT) : i % 4U == 0 ? DIM : PANEL;
+            if (inside && step_sel == step) frame(x - 1, 83, 14, 14, ACCENT);
+            paint_fill(x, 84, 12, 12, c);
+            if (n) small_number(x + 3, 87, n > 9 ? 9 : n, 1, BACK);
+        }
+        char name[12]; note_name(step_pitch, name);
+        dim_text(8, 104, step_pads_toggle ? "PADS TOGGLE" : "PADS SELECT A STEP"); if (step_pads_toggle) color_text(80, 104, name, AMBER);
+        dim_text(150, 104, "NOTE"); color_text(178, 104, name, TEXT);
+        if (clip && step_sel != 255 && step_sel < ei.steps) {
+            uint16_t idx[6]; unsigned n = clip_v3_step_notes(clip, step_sel, idx, 6), mod = clip_v3_step_mod(clip, step_sel) & 7U;
+            dim_text(8, 120, "STEP"); small_number(38, 120, step_sel + 1U, 3, ACCENT);
+            dim_text(64, 120, "NOTES"); small_number(98, 120, n, 1, TEXT);
+            dim_text(118, 120, "PROB"); if (mod) small_number(146, 120, mod, 1, TEXT); else dim_text(146, 120, "ALWAYS");
+            for (unsigned k = 0; k < n && k < 6; ++k) {
+                struct clip_v3_event e; clip_v3_event(clip, idx[k], &e);
+                unsigned y = 134 + 10 * k; int start = e.time - (int)step_sel * 480;
+                char nn[12]; note_name(e.a, nn);
+                color_text(8, y, k == step_cursor ? ">" : " ", ACCENT);
+                color_text(18, y, nn, k == step_cursor ? TEXT : DIM);
+                dim_text(52, y, "VEL"); small_number(72, y, e.b, 3, TEXT);
+                dim_text(98, y, start < 0 ? "ST-" : "ST+"); small_number(118, y, start < 0 ? -start : start, 3, TEXT);
+                dim_text(144, y, "LEN"); small_number(164, y, e.length, 5, TEXT);
+            }
+            if (!n) dim_text(8, 134, "EMPTY - PLAY A KEY TO ENTER A NOTE");
+        } else dim_text(8, 120, step_pads_toggle ? "A PAD PUTS THE NOTE ON ITS STEP" : "PRESS A PAD, THEN PLAY KEYS");
+        plain_text(8, 198, notice ? notice : "K1 NOTE K2 VEL K3 START K4 LENGTH");
+        dim_text(8, 213, "ENV CLEAR STEP  FX UNDO  SCL PAD MODE");
+        dim_text(8, 231, "4TH LEFT BTN SAVE  EDIT BACK  OCT BAR");
     } else if (visible == ARP_EDIT) {
         text(8, 40, "ARPEGGIATOR", 2, ACCENT, BACK);
         text(184, 40, "T", 2, colors[track], BACK);
@@ -1645,6 +1702,74 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         blocked_keys |= controls->keys;
         if (tapped) page = page == MIX ? music_page : MIX;
     }
+    /* Goal 6 (docs/CONTROL-MAP.md 12): EDIT on the CLIPS page opens the STEP page on the track's selected clip (or the
+     * one it plays). One clip can be unsaved at a time: with another one unsaved the page opens on that one. */
+    if (page == TRACK_LAUNCH && (pressed & BUTTON(EDIT))) {
+        struct song_status st; song_status_read(&st);
+        unsigned place = clip_select[track] < SONG_CLIPS ? clip_select[track] : song_row_place(track, st.track_row[track]);
+        int r = place < SONG_CLIPS ? song_edit_open(track, place) : SONG_EMPTY;
+        if (r == SONG_BUSY) { announce("ANOTHER CLIP IS UNSAVED: THIS ONE", now + 2500U); r = 0; }
+        if (r == SONG_EDIT_SHARED) announce("CLIP SHARED BY ANOTHER TRACK", now + 2000U);
+        else if (r) announce(r == SONG_EMPTY ? "HOLD A PAD TO SELECT A CLIP FIRST" : "BLOCK READ ERROR", now + 2000U);
+        else { page = CLIP_STEPS; step_bar = 0; step_sel = 255; step_cursor = 0; step_pads_toggle = groove_pad_count(track) != 0; cache->shown_page = ~0U; }
+        goto controls_done;
+    }
+    if (page == CLIP_STEPS) {
+        play_handled = 1;
+        struct song_edit_info ei; song_edit_info(&ei);
+        if (!ei.active) { page = TRACK_LAUNCH; goto controls_done; }
+        unsigned bars = (ei.steps + 15U) / 16U;
+        int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN)) + controls->encoders[1];
+        if (paging) { unsigned was = step_bar; step_bar = (uint8_t)clamp((int)step_bar + paging, 0, (int)bars - 1); if (was != step_bar) step_sel = 255; }
+        if (pressed & BUTTON(EDIT)) { page = TRACK_LAUNCH; goto controls_done; }
+        if (pressed & BUTTON(SCL)) { step_pads_toggle = !step_pads_toggle; announce(step_pads_toggle ? "PADS TOGGLE THE NOTE" : "PADS SELECT A STEP", now + 1500U); }
+        if (pressed & BUTTON(FX)) {
+            unsigned re = smk37_shift(); int r = re ? song_edit_redo() : song_edit_undo();
+            announce(r ? (re ? "NOTHING TO REDO" : "NOTHING TO UNDO") : re ? "REDO" : "UNDO", now + 1500U);
+        }
+        if (pressed & BUTTON(LFO)) { song_edit_discard(); announce("EDITS DISCARDED", now + 2000U); page = TRACK_LAUNCH; goto controls_done; }
+        if (pressed & BUTTON(ENV)) {
+            if (step_sel == 255) announce("SELECT A STEP FIRST", now + 1500U);
+            else announce(song_edit_step_clear(step_sel) ? "STEP IS EMPTY" : "STEP CLEARED", now + 1500U);
+            step_cursor = 0;
+        }
+        if (pressed & BUTTON(SAVE)) {
+            int r = ei.dirty ? song_edit_save() : 0;
+            announce(r == SONG_BUSY ? "STOP TO SAVE" : r == SONG_FULL ? "SONG STORAGE FULL" : r ? "SAVE FAILED" : ei.dirty ? "CLIP SAVED" : "NOTHING TO SAVE", now + 2000U);
+        }
+        for (unsigned i = 0; i < 16; ++i)
+            if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
+                unsigned step = step_bar * 16U + i;
+                if (step >= ei.steps) { announce("PAST THE CLIP'S END", now + 1500U); continue; }
+                if (step_pads_toggle) {
+                    int r = song_edit_note_toggle(step, step_pitch, step_velocity, step_length);
+                    step_sel = (uint8_t)step; step_cursor = 0;
+                    announce(r == SONG_FULL ? "CLIP FULL" : r == 1 ? "NOTE ON THE STEP" : r == 0 ? "NOTE OFF THE STEP" : "CANNOT ENTER", now + 1200U);
+                } else { step_sel = step_sel == step ? 255 : (uint8_t)step; step_cursor = 0; cache->middle_cache = ~0U; }
+            }
+        if (controls->encoders[0]) { step_pitch = (uint8_t)clamp((int)step_pitch + controls->encoders[0], 0, 127); cache->middle_cache = ~0U; }
+        if (step_sel != 255) {
+            const uint8_t *clip = song_edit_clip();
+            unsigned n = clip ? clip_v3_step_notes(clip, step_sel, NULL, 0) : 0;
+            if (controls->encoders[2] && n) { step_cursor = (uint8_t)clamp((int)step_cursor + controls->encoders[2], 0, (int)(n > 6 ? 6 : n) - 1); cache->middle_cache = ~0U; }
+            if (step_cursor >= n) step_cursor = 0;
+            if (controls->encoders[3]) (void)song_edit_note_adjust(step_sel, step_cursor, 0, controls->encoders[3]);
+            if (controls->encoders[4]) (void)song_edit_note_adjust(step_sel, step_cursor, 1, controls->encoders[4] * 10);
+            if (controls->encoders[5]) (void)song_edit_note_adjust(step_sel, step_cursor, 2, controls->encoders[5] * 60);
+            if (controls->encoders[6] && song_edit_note_adjust(step_sel, 0, 3, controls->encoders[6]) == SONG_FULL) announce("CLIP FULL", now + 1500U);
+        }
+        if (pressed & BUTTON(PLAY)) {
+            struct song_status st; song_status_read(&st);
+            if (st.playing) song_stop();
+            else {
+                int r = song_play();
+                if (r) announce(r == SONG_EMPTY ? "NO SONG - UPLOAD FROM WORKBENCH" : "SONG CANNOT START", now + 2000U);
+                else { struct groove_view view; groove_get_view(track, cursor, &view);
+                       if (view.playing && !post(0xfc, 0, 0, 1)) return 0; }
+            }
+        }
+        goto controls_done;
+    }
     /* Task 06 (c): on the song pages SCL switches SONG and TRACK LAUNCH, ENV sends the
      * selected track back to the song at the next bar, SHIFT+ENV (LFO) every track. */
     if ((page == SONG || page == TRACK_LAUNCH) && (pressed & (BUTTON(SCL) | BUTTON(ENV) | BUTTON(LFO)))) {
@@ -2131,6 +2256,7 @@ static void groove_screen_control_body(void)
         saved_cache.shown_page = ~0U;
     }
     uint32_t now = fm1_millis(), key_down = controls.keys & ~previous_keys;
+    if (song_edit_poll()) announce("CLIP SAVED", now + 2000U);   /* Goal 6: an unsaved clip, ten seconds after the song stopped */
     if (notice && (int32_t)(now - notice_until) >= 0) notice = NULL;
     /* Task 03 a: first boot on the song-storage layout with V01 data still in the region. */
     static unsigned migration_seen;
@@ -2292,9 +2418,79 @@ static unsigned clips_pad_state(const struct song_status *st, unsigned pad)
  * 1-8 show the eight tracks in their colours: bright playing or following with a block, dim stopped or silent,
  * blinking queued; the selected track brighter still; pads 9-16 keep their mute view. One status snapshot per
  * control read (pad 0 refreshes it). */
+/* Goal 6: the state of pad `pad` on the STEP page: bit 0 the step holds notes, bit 1 it holds the current note
+ * (step_pitch), bit 2 selected, bit 3 the track plays this step now, bit 4 past the clip's end. */
+static unsigned steps_pad_state(const struct song_edit_info *ei, unsigned pad)
+{
+    const uint8_t *clip = song_edit_clip();
+    unsigned step = step_bar * 16U + pad;
+    if (!clip || step >= ei->steps) return 16U;
+    return (clip_v3_step_notes(clip, step, NULL, 0) ? 1U : 0U) | (clip_v3_note_find(clip, step, step_pitch) >= 0 ? 2U : 0U) |
+           (step_sel == step ? 4U : 0U) | (ei->play_step == step ? 8U : 0U);
+}
+/* The remote read of the STEP page (command 29 op 15; tests): [0] page, [1] track, [2] clip place, [3] bar, [4] the
+ * selected step (255 none), [5] unsaved, [6] undo levels, [7] redo levels, [8..9] events, [10] the current note,
+ * [11] steps, [12] the step that plays (255 none), [13] pad mode (1 toggle), [14..29] the pad states, [30] the notes on
+ * the selected step, then up to four of them, 6 bytes each: pitch, velocity, start + 240 (u16), length (u16). */
+unsigned ct_screen_steps_read(uint8_t *out)
+{
+    struct song_edit_info ei; song_edit_info(&ei);
+    const uint8_t *clip = song_edit_clip();
+    memset(out, 0, 55);
+    out[0] = (uint8_t)page; out[1] = ei.track; out[2] = ei.place; out[3] = step_bar; out[4] = step_sel; out[5] = ei.dirty; out[6] = ei.undo; out[7] = ei.redo;
+    out[8] = (uint8_t)ei.events; out[9] = (uint8_t)(ei.events >> 8); out[10] = step_pitch; out[11] = ei.steps; out[12] = ei.play_step; out[13] = step_pads_toggle;
+    for (unsigned i = 0; i < 16; ++i) out[14 + i] = (uint8_t)(ei.active ? steps_pad_state(&ei, i) : 16U);
+    if (clip && step_sel != 255 && step_sel < ei.steps) {
+        uint16_t idx[4]; unsigned n = clip_v3_step_notes(clip, step_sel, idx, 4);
+        out[30] = (uint8_t)n;
+        for (unsigned k = 0; k < n && k < 4; ++k) {
+            struct clip_v3_event e; clip_v3_event(clip, idx[k], &e);
+            unsigned start = (unsigned)(e.time - (int)step_sel * 480 + 240); uint8_t *q = out + 31 + 6 * k;
+            q[0] = e.a; q[1] = e.b; q[2] = (uint8_t)start; q[3] = (uint8_t)(start >> 8); q[4] = (uint8_t)e.length; q[5] = (uint8_t)(e.length >> 8);
+        }
+    }
+    return 55;
+}
+/* Goal 6: open the STEP page on a clip by remote command (as EDIT on the CLIPS page does). */
+int ct_screen_steps_open(unsigned t, unsigned place)
+{
+    if (t >= 8) return SONG_INVALID;
+    if (song_loaded() == SONG_NONE) (void)song_load(song_select);
+    int r = song_edit_open(t, place);
+    if (r) return r;
+    select_track((int)t - (int)track);
+    clip_select[t] = (uint8_t)place;
+    page = CLIP_STEPS; step_bar = 0; step_sel = 255; step_cursor = 0; step_pads_toggle = groove_pad_count(t) != 0; boot_active = 0; cache->shown_page = ~0U;
+    return 0;
+}
+/* Goal 6: a key of the keyboard was played (it sounds as always). On the STEP page it is the current note, and with a
+ * step selected it is put on that step, or taken off it. */
+void smk37_screen_key(unsigned note, unsigned velocity)
+{
+    if (page != CLIP_STEPS || note > 127) return;
+    step_pitch = (uint8_t)note; step_velocity = (uint8_t)(velocity < 1 ? 1 : velocity > 127 ? 127 : velocity);
+    cache->middle_cache = ~0U;
+    if (step_sel == 255) return;
+    int r = song_edit_note_toggle(step_sel, note, step_velocity, step_length);
+    notice = r == SONG_FULL ? "CLIP FULL" : r == 1 ? "NOTE ENTERED" : r == 0 ? "NOTE REMOVED" : "CANNOT ENTER";
+    notice_until = fm1_millis() + 1200U;
+    if (r == 1) { const uint8_t *clip = song_edit_clip(); uint16_t idx[6]; unsigned n = clip_v3_step_notes(clip, step_sel, idx, 6);
+                  for (unsigned k = 0; k < n && k < 6; ++k) { struct clip_v3_event e; clip_v3_event(clip, idx[k], &e); if (e.a == note) step_cursor = (uint8_t)k; } }
+    else step_cursor = 0;
+}
 int smk37_screen_launch_color(unsigned pad, uint32_t *rgb)
 {
     static struct song_status st; static unsigned phase;
+    if (page == CLIP_STEPS && pad < 16) {
+        /* docs/CONTROL-MAP.md 12.2: past the end off; the step that plays white; the selected step cyan; a step with the
+         * current note amber; with other notes green; empty: the beats dim, the rest off. */
+        static struct song_edit_info ei;
+        if (smk37_shift()) return 0;
+        if (pad == 0) song_edit_info(&ei);
+        unsigned code = steps_pad_state(&ei, pad);
+        *rgb = code & 16U ? 0 : code & 8U ? 0x303030 : code & 4U ? (code & 1U ? 0x103838 : 0x041818) : code & 2U ? 0x302008 : code & 1U ? 0x083008 : pad % 4U == 0 ? 0x040404 : 0;
+        return 1;
+    }
     if ((page != TRACK_LAUNCH && page != SONG) || pad >= 16) return 0;
     if (pad == 0) { song_status_read(&st); phase = st.playing ? (st.bar_step >> 1) & 1U : (fm1_millis() / 250U) & 1U; }
     if (smk37_shift()) {
@@ -2450,7 +2646,7 @@ unsigned groove_screen_preset_position(void)
 /* Web shortcuts enter the same editor and use the same parameter handlers. */
 int groove_screen_open(unsigned target)
 {
-    if ((target > ARP_EDIT && target != SONG && target != TRACK_LAUNCH) || target == PROJECT) return -1;
+    if ((target > ARP_EDIT && target != SONG && target != TRACK_LAUNCH) || target == PROJECT) return -1;   /* the STEP page opens from CLIPS only */
     boot_active = 0;
     /* Task 03 b: the operator and tone editor pages are gone; the DX7 pages need a DX7. */
     if (target == FM_EDIT || target == FM_ENV || target == FM_LFO || target == TONE_EDIT) return -1;

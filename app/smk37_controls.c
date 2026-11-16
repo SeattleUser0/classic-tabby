@@ -198,6 +198,7 @@ void smk37_control_event(unsigned kind,unsigned id,int value)
             /* Task 03 a: the sampler slot keys are gone; every track plays pitches. */
             int note=48+(int)id+12*smk37_performance_octave(0);
             play(&held_notes[id],(unsigned)note,(unsigned)value,track,1);
+            smk37_screen_key((unsigned)note,(unsigned)value);   /* Goal 6: the STEP page enters it */
         }
     } else if(kind==SMK37_PAD && id<16) {
         unsigned bit=1U<<id;
