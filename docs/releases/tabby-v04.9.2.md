@@ -17,4 +17,9 @@ Everything else is tabby-v04.9.1: recording with REC, step editing, clip launchi
 
 ## Hardware validation
 
-See the release page's "Hardware validation" text (added after the install) and docs/BUILD.md 44.1.
+Installed on the SMK-37 Pro on 2026-11-16 through the published page (Full backup first; identity checked; one attempt;
+"Firmware ready." after 11.1 s). By remote keys and MIDI in, nobody at the panel (docs/BUILD.md 44.1):
+
+- The CLIPS page 40 of 40, and 40 of 40 again straight after a stop (the case that was wrong before).
+- Recording 15 of 15, the STEP page 18 of 18, HOME on the STEP page, 960 timed notes all present.
+- One line of 960 notes: band 1.77 ms on DIN, 1.73 ms on USB. No audio underrun. Full backup and verify: PASS.

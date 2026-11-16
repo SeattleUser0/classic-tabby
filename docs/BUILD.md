@@ -5316,3 +5316,13 @@ still shows as a queued launch). tests/workbench/clips-sim.mjs v0.3: play, launc
 launched, and the clip that had been launched can be reserved. App image 471108 bytes (+32), margin 48349; build id
 `25b19e683786f068`.
 
+### 44.1 The suite, the release and the device (2026-11-16)
+
+Suite green on commit 3125c61 in the clean worktree (the gate's marker), tagged, published, released. Full backup through
+the tabby-v04.9.1 page, one install attempt: "Firmware ready." after 11.1 s, version tabby-v04.9.2. By remote keys and MIDI
+in (overnight/g6/v0492.log): HOME on the STEP page PASS; recording 15 of 15 (quantize off: playback +2.66, +2.89, +3.08 ms
+after the live note; 61 controller values in 256 ms recorded as 5); the STEP page 18 of 18; the CLIPS page 40 of 40, and
+40 of 40 again without the song being written anew in between (the state after a stop, which failed on tabby-v04.9.1);
+timing-1x16 960 of 960 (DIN worst 1.12 ms); one line of 960 notes: band 1.77 ms on DIN, 1.73 ms on USB; no underrun;
+backup and verify PASS (41 items).
+
