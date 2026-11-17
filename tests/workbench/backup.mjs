@@ -34,9 +34,10 @@
 //   Run:  /usr/bin/node tests/workbench/backup.mjs NORMAL.wasm DIAG.wasm PROBE.wasm
 //         (or: make backup-test, which builds the three)
 //
-// Version: 0.5
+// Version: 0.6
 //
 // Revision log
+//   v0.6  2026-11-16  The flash part page (command 25 request 11) on the normal build, and its text.
 //   v0.5  2026-11-08  Task 12 A4: section 5, the normal build has the counters and kind 8 (no
 //                     command 26); the loop profile adds up and counts the hooks.
 //   v0.4  2026-11-08  Task 12 A3: section 8, every flash write refused while the transport runs
@@ -402,6 +403,13 @@ check(nverify.pass, 'NORMAL: verify after restore passes', nverify.difference);
   check(p && Math.abs(sum - p.pass_mean_ms) < 0.01 + p.pass_mean_ms * 0.02, 'NORMAL: the sections add up to the pass (incl. SDK)', p && sum.toFixed(3) + ' vs ' + p.pass_mean_ms.toFixed(3));
   check(p && p.sections.screen.calls > 0 && p.sections.router.calls >= p.passes && p.sections.transfer.calls > 0, 'NORMAL: the screen, router and transfer hooks are counted', p && JSON.stringify(p.sections).slice(0, 160));
   check(/control pass/.test(W.diagText(d)) && /SDK between the hooks/.test(W.diagText(d)), 'NORMAL: the counter text names the profile sections');
+  /* The flash part page (command 25 request 11, app/diag.c v0.8): the simulator has no chip and says so. */
+  check(d.flash_part && !d.flash_part.device && d.flash_part.jedec === 0 && d.flash_part.user_bytes === 471040,
+    'NORMAL: request 11 answers the flash part page; the simulator reports no chip and USER 471040', JSON.stringify(d.flash_part));
+  check(/^flash part: none \(simulator\)$/m.test(W.diagText(d)), 'NORMAL: the counter text has the flash part line');
+  check(W.flashPartText({device: true, jedec: 0xEB6014, bytes: 1048576, user_bytes: 471040}) === 'flash part (read by the SDK at boot): JEDEC 0xEB6014, 1024 KiB; USER 471040 bytes'
+    && /JEDEC 0x000000, 0 bytes/.test(W.flashPartText({device: true, jedec: 0, bytes: 0, user_bytes: 0})),
+    'the flash part line shows any ID and size as they are, an unknown one too');
 }
 
 console.log(`${passed} ok, ${failed} failed`);

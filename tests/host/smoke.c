@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.23
+ * Version: 0.24
  *
  * Revision log
+ *   v0.24 2026-11-16  Section 25, the flash part page (command 25 request 11): any ID is reported, none is needed.
  *   v0.23 2026-11-16  Goal 6: section 24, recording at the event cap (SPEC 14.2).
  *   v0.22 2026-11-16  Goal 6: section 23, the clip editor (song_edit_*).
  *   v0.21 2026-11-14  Task 17 Goal 4: section 22, clip launching by place (place rows, taking a queue back).
@@ -135,6 +136,7 @@ void sim_test_request_passes(unsigned on);
 extern uint32_t sim_test_control_requests;
 int ct_diag_read(unsigned request, uint8_t out[64]);
 void ct_fg_tick(void); void ct_fg_test(unsigned on); uint32_t ct_diag_ticks(void);   /* Task 17 */
+extern uint32_t ct_test_flash_jedec, ct_test_flash_bytes;   /* the flash part page (app/diag.c v0.8) */
 void sim_test_pass(void);
 void song_test_cursor(unsigned on);   /* app/song.c, host and simulator: every v3 clip plays from its event list */
 unsigned ct_a2_get(void);
@@ -2323,6 +2325,33 @@ int main(void)
               "record: step entry into a full clip is refused (CLIP FULL) and changes nothing");
         sim_song_stop(); settle(); song_edit_discard();
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
+    }
+
+    /* ---- 25. The flash part page (command 25 request 11, app/diag.c v0.8, docs/FLASH-CHIP.md 4): it reports the
+     *          JEDEC ID and size it is given and nothing depends on them: with any ID, the known chips, an unknown
+     *          one, none at all, the same block is stored and read back ---- */
+    {
+        static const uint32_t ids[] = {0, 0x856014U, 0xB36014U, 0xEB6014U, 0x123456U, 0xFFFFFFU};
+        static const uint32_t sizes[] = {0, 1048576U, 1048576U, 1048576U, 65536U, 0xFFFFFFFFU};
+        uint8_t r[96];
+        for (unsigned i = 0; i < sizeof ids / sizeof ids[0]; ++i) {
+            ct_test_flash_jedec = ids[i]; ct_test_flash_bytes = sizes[i];
+            sim_boot(1); sim_midi_capture(1); sim_midi_drain(0); settle();
+            rc_source = 1; rc_n = 0;
+            int k = rcmd(25, (const uint8_t[]){11}, 1, r);
+            rc_source = 0; sim_midi_capture(0);
+            uint32_t id = r[1] | r[2] << 8 | (uint32_t)r[3] << 16 | (uint32_t)r[4] << 24;
+            uint32_t bytes = r[5] | r[6] << 8 | (uint32_t)r[7] << 16 | (uint32_t)r[8] << 24;
+            uint32_t user = r[9] | r[10] << 8 | (uint32_t)r[11] << 16 | (uint32_t)r[12] << 24;
+            uint32_t source = r[13] | r[14] << 8 | (uint32_t)r[15] << 16 | (uint32_t)r[16] << 24;
+            CHECK(k == 17 && r[0] == 0 && id == ids[i] && bytes == sizes[i] && user == CT_USER_BYTES && source == 0,
+                  "flash part: request 11 reports ID 0x%06x, %u bytes, USER %u, source %u as given (%d bytes)", (unsigned)id, (unsigned)bytes, (unsigned)user, (unsigned)source, k);
+            uint8_t *f = sim_file(); memset(f, 0, 67); f[0] = 1; f[1] = (uint8_t)(60 + i); f[2] = 100; f[3] = 1;   /* one note (section 7's form) */
+            CHECK(sim_block_write(0, 1, 67) == 0 && sim_block_read(0, 1) > 0 && f[0] == 1 && f[1] == (uint8_t)(60 + i),
+                  "flash part: with ID 0x%06x a block is stored and read back: nothing depends on the ID", (unsigned)ids[i]);
+        }
+        ct_test_flash_jedec = 0; ct_test_flash_bytes = 0;
+        sim_boot(1); settle();
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

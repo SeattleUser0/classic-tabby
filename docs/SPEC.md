@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.45
+Version: 0.46
 Revision log:
+- v0.46, 2026-11-16: 19.12 tabby-v04.9.3 (the flash part page, command 25 request 11; report only).
 - v0.45, 2026-11-16 (Goal 6, second step): 19.11 tabby-v04.9 (real-time recording); 14.2 amended: the cap is 512 events,
   because a block must fit one 4096-byte storage sector.
 - v0.44, 2026-11-16 (Goal 6, first step): 19.10 tabby-v04.8 (the clip editor and the STEP page); 14.2 note on the cap as built.
@@ -1678,3 +1679,14 @@ The controls are docs/CONTROL-MAP.md section 13. The rules are 14.2 (the cap, co
   2 recording), [56] input quantize.
 - **Tests.** tests/host/smoke.c section 24 (the cap), tests/workbench/record-sim.mjs (28 checks: keys, MIDI in, quantize
   on and off, thinning, undo), tools/linux/hw/run-record.py (the device; it measures playback against the live note).
+
+### 19.12 tabby-v04.9.3 (2026-11-16): the flash part page
+
+- Command 25 request 11, in every build (16 bytes, little-endian u32): the flash chip's JEDEC ID and the capacity the SDK
+  worked out from it, as the SDK's norflash driver read them at boot (`flash_info` +28 and +24), then `fm1_flash_size()`,
+  then the source (1 = the device, 0 = the simulator). It copies two words from RAM: no SPI command, no flash access.
+- The workbench shows it as one line of the Diagnostics panel. **It is a report only. Nothing in the firmware, the
+  workbench or the tools may depend on the ID**: no list of accepted chips, no refusal, no warning. docs/FLASH-CHIP.md
+  explains why (the community FM-1 firmwares that refused the UC25HQ80). tests/linux/flash-part-guard.py enforces it.
+- `flash_info` is local to libfm1_engine.a. tools/linux/build.py v0.12 links twice and gives its address to the app as
+  `ct_sdk_flash_info` (`--defsym`). The build stops if the address moves between the two links. The SDK is not modified.

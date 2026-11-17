@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.31
+Version: 0.32
 Revision log:
+- v0.32, 2026-11-16: section 32: tabby-v04.9.3 measured, 471172 bytes, margin 48285.
 - v0.28, 2026-11-12: section 22: tabby-v04.3.1 measured, 452036 bytes, margin 67421.
 - v0.27, 2026-11-12 (Task 16 Goal 3): section 21: tabby-v04.3 measured, 451812 bytes, margin 67645.
 - v0.26, 2026-11-11 (Task 16 Goal 1): section 20: tabby-v04.2 measured, 449700 bytes, margin 69757.
@@ -1215,3 +1216,11 @@ RAM (runtime heap): 144844 bytes, unchanged.
 
 RAM (runtime heap): 144844 bytes, unchanged.
 
+## 32. tabby-v04.9.3 (measured, 2026-11-16)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.9.2 | 471108 | | 48349 |
+| tabby-v04.9.3: command 25 request 11, the flash part page (app/diag.c v0.8) | 471172 | +64 | **48285** |
+
+RAM (runtime heap): 144844 bytes, unchanged. `flash_info` stays at 0x01c5c268 in both links (tools/linux/build.py v0.12).

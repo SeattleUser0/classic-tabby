@@ -78,9 +78,10 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.28
+# Version: 0.29
 #
 # Revision log
+#   v0.29 2026-11-16  tests/linux/flash-part-guard.py in workbench-test (nothing may depend on the flash ID).
 #   v0.27 2026-11-14  Task 17: the suite gate (tools/linux/suite-gate.py): make suite writes build/suite-gate.json for the
 #                     commit it passed on; publish and release-assets refuse any other commit, display version or a
 #                     tree that is not clean; tests/linux/suite-gate-test.py in workbench-test.
@@ -386,6 +387,7 @@ workbench-test:
 	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
 	$(T) $(PYTHON) -I tests/linux/suite-gate-test.py
 	$(T) $(PYTHON) -I tests/linux/builds-index-test.py
+	$(T) $(PYTHON) -I tests/linux/flash-part-guard.py
 
 test: timed-note-test clip-v3-test host-smoke web-smoke workbench-test backup-test
 	@echo "test: timed-note-test, host-smoke, web-smoke, workbench-test and backup-test passed"

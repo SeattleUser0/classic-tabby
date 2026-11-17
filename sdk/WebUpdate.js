@@ -1485,8 +1485,20 @@
     try{const q=await this.query(25,[7]);if(q.length===48){const bl=u(q,4),calls=u(q,8);
       out.a2={on:u(q,0)===1,blocks:bl,calls,calls_per_s:bl?calls*44118/(bl*128):0,mean_us:u(q,12)/24,max_us:u(q,16)/24,retries:u(q,20),bins:[0,1,2,3,4,5].map(i=>u(q,24+4*i))};}}
     catch(error){if(!error.deviceCode)throw error;}
+    // The flash part page, command 25 request 11 (app/diag.c v0.8, docs/FLASH-CHIP.md 4): the JEDEC ID and size
+    // the SDK read from the chip at boot. A REPORT ONLY: nothing on this page or in the firmware may depend on it
+    // (a list of accepted IDs is what broke community FM-1 firmwares). Firmware before tabby-v04.9.3 answers an error.
+    try{const fp=await this.query(25,[11]);if(fp.length===16)out.flash_part={jedec:u(fp,0),bytes:u(fp,4),user_bytes:u(fp,8),device:u(fp,12)===1};}
+    catch(error){if(!error.deviceCode)throw error;}
     return out;
   };
+  // The flash part line of the Diagnostics panel (report only: any ID is shown as it is, none is judged).
+  function flashPartText(fp){
+    if(!fp.device)return 'flash part: none (simulator)';
+    const hex=v=>'0x'+v.toString(16).toUpperCase().padStart(6,'0');
+    const size=fp.bytes&&fp.bytes%1024===0?(fp.bytes/1024)+' KiB':fp.bytes+' bytes';
+    return 'flash part (read by the SDK at boot): JEDEC '+hex(fp.jedec)+', '+size+'; USER '+fp.user_bytes+' bytes';
+  }
   // Task 12 A4: the section names as the report and docs/BUILD.md 26.4 use them.
   const PROFILE_LABELS={router:'router (MIDI out sends)',song:'song scheduling',storage:'song storage (scan / erase / compact)',screen:'screen (panel input, pages, LCD)',panel:'panel and LEDs (key queue, LEDs)',transfer:'transfer (workbench protocol)',project:'project (restores, settings saves)',sdk:'SDK between the hooks'};
   function diagText(d){
@@ -1496,6 +1508,7 @@
       'L.3 flash: '+d.flash.erases+' erases, longest '+f(d.flash.erase_max_ms)+' ms; '+d.flash.writes+' writes, longest '+f(d.flash.write_max_ms)+' ms ('+d.flash.write_max_bytes+' bytes)',
       'L.4 key/pad note-on to router: '+d.keys.count+' notes, max '+f(d.keys.max_ms)+' ms; <0.5 '+d.keys.bins[0]+', <1 '+d.keys.bins[1]+', <2 '+d.keys.bins[2]+', <4 '+d.keys.bins[3]+', <8 '+d.keys.bins[4]+', <16 '+d.keys.bins[5]+', <32 '+d.keys.bins[6]+', >=32 '+d.keys.bins[7]+' (ms)',
       'L.5 matrix scan: '+d.scan.count+' scans, '+d.scan.per_second.toFixed(1)+' per second, longest gap '+f(d.scan.gap_max_ms)+' ms; scan ISR peak '+f(d.scan.isr_peak_ms)+' ms, ADC ISR peak '+f(d.scan.adc_peak_ms)+' ms'];
+    if(d.flash_part)lines.push(flashPartText(d.flash_part));
     if(d.screen)lines.push('screen: '+d.screen.controls+' control calls, mean '+f(d.screen.control_mean_ms)+' ms, max '+f(d.screen.control_max_ms)+' ms; '+d.screen.paints+' band paints ('+d.screen.bands+' bands), mean '+f(d.screen.paint_mean_ms)+' ms, max '+f(d.screen.paint_max_ms)+' ms');
     if(d.a2)lines.push('A2 fast MIDI: '+(d.a2.on?'ON':'OFF')+'; '+d.a2.calls+' pass requests from the audio interrupt in '+d.a2.blocks+' audio blocks ('+d.a2.calls_per_s.toFixed(1)+' per second); call cost mean '+d.a2.mean_us.toFixed(1)+' us, longest '+d.a2.max_us.toFixed(1)+' us; '+d.a2.retries+' retries; calls <5, <10, <20, <50, <100, >=100 us: '+d.a2.bins.join(', '));
     if(d.profile){
@@ -1510,5 +1523,5 @@
     loaderTag,matchBuild,buildsLookup,buildsLookupFromIndex,
     songEmpty,songRecordParse,songRecordBuild,songPayloadParse,songPayloadParseV1,songPayloadBuild,songStepText,songStepParse,songLengthText,tabbyFile,readTabbyFile,songBlockIds,songBatches,songEventsValidate,
     crc32,demoFrame,demoParse,validateVoice,readVoices,voiceFile,packVoice,bankFile,voiceBank,projectVersion,upgradeProject,tunedProject,projectFile,readProjectFile,timbreFile,readTimbreFile,voiceTimbre,Library,
-    backupParse,BACKUP_FORMAT,BACKUP_VERSION,diagText};   // Task 11
+    backupParse,BACKUP_FORMAT,BACKUP_VERSION,diagText,flashPartText};   // Task 11
 })();

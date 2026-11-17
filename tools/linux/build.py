@@ -43,9 +43,14 @@ Usage (from the repository root)
         python3 tools/linux/build.py --model pro --package --toolchain-kind native --toolchain ...
     python3 tools/linux/build.py --model pro --check-only --toolchain-kind native --toolchain ...   (make check, v0.6)
 
-Version: 0.11
+Version: 0.12
 
 Revision log
+    v0.12 2026-11-16  The flash part page (app/diag.c v0.8, docs/FLASH-CHIP.md 4): the link runs twice.
+                      Pass 1 links with ct_sdk_flash_info=0, nm gives the address of the engine's local
+                      flash_info, pass 2 links with --defsym ct_sdk_flash_info=<that address>; the build
+                      stops unless flash_info is the same in both links and ct_sdk_flash_info equals it.
+                      The symbol is read only by the report of command 25 request 11.
     v0.11 2026-11-11  Task 16: option A2 is part of the normal build (--a2 is the default; --no-a2 or
                       FM1_A2=0 builds the tabby-v04.1 firmware). The identity input a2:1 and the JSON key
                       "a2" stay, so a build with and without A2 never share a build id.
@@ -403,6 +408,41 @@ def verify_inputs(toolchain, native_manifest, log):
                 raise BuildError("Unexpected SDK file: " + relative)
     log("SDK: %d manifest files verified, no unexpected files" % len(manifest["files"]))
     return manifest, synth
+
+
+# ---- v0.12: the flash part page (app/diag.c v0.8, docs/FLASH-CHIP.md 4) -------------------------
+FLASH_INFO_SYMBOL, FLASH_INFO_APP = "flash_info", "ct_sdk_flash_info"
+
+
+def nm_symbols(toolchain, build, name):
+    """Every nm line of sdk.elf whose symbol is exactly `name`: [(address, kind)]."""
+    found = []
+    for line in toolchain.run("nm", [str(build / "sdk.elf")], cwd=build, capture=True).splitlines():
+        m = NM_LINE.match(line)
+        if m and m.group(5).strip() == name:
+            found.append((int(m.group(1), 16), m.group(4)))
+    return found
+
+
+def link_flash_info(toolchain, build, link, log):
+    """Link twice. The SDK's norflash driver keeps the JEDEC ID it read at boot in flash_info, a local
+    symbol of libfm1_engine.a that the app cannot name. Pass 1 gives the app's ct_sdk_flash_info the
+    placeholder 0 and finds flash_info with nm; pass 2 gives ct_sdk_flash_info that address. An
+    absolute --defsym occupies nothing, so the layout must not move: checked, else the build stops.
+    The app only copies two words for the report (command 25 request 11). Returns the final link."""
+    toolchain.run("ld", link + ["--defsym=%s=0" % FLASH_INFO_APP], cwd=build)
+    first = nm_symbols(toolchain, build, FLASH_INFO_SYMBOL)
+    if len(first) != 1 or not (SRAM_BEGIN <= first[0][0] < SRAM_END):
+        raise BuildError("The SDK's flash_info was not found exactly once in RAM: %r" % (first,))
+    address = first[0][0]
+    final = link + ["--defsym=%s=0x%08x" % (FLASH_INFO_APP, address)]
+    toolchain.run("ld", final, cwd=build)
+    second = nm_symbols(toolchain, build, FLASH_INFO_SYMBOL)
+    app = nm_symbols(toolchain, build, FLASH_INFO_APP)
+    if second != first or [a for a, _ in app] != [address]:
+        raise BuildError("flash_info moved between the two links (%r, %r, %r)" % (first, second, app))
+    log("SDK flash_info at 0x%08x (the flash part page, report only)" % address)
+    return final
 
 
 # ---- Test-Firmware (Build.ps1 L31-L225) -----------------------------------------------------
@@ -950,9 +990,11 @@ def build_firmware(args, log):
         "--end-group", "--gc-sections", "-Tgenerated/linker", "-M=sdk.map", "--undefined=connectivity_wl82_bluetooth_start",
         "--undefined=audio_app_bluetooth_open", "--undefined=bt_get_local_name", "--undefined=bt_get_mac_addr"]
     write_compile_databases(commands, build, args, log)   # v0.6: was write_text(compile_commands.json) alone
-    write_text(build / "link-arguments.json", to_json(link))
     log("Link %s using prebuilt SMK37 SDK" % profile)
-    toolchain.run("ld", link, cwd=build)
+    # v0.12: two links, so that the app can read the SDK's boot-time flash ID (a report only; see
+    # link_flash_info). The second link line is the one recorded in link-arguments.json.
+    link = link_flash_info(toolchain, build, link, log)
+    write_text(build / "link-arguments.json", to_json(link))
     report = test_firmware(toolchain, build, variant, synth, extra, log)
     if args.firmware_only:
         package_firmware(toolchain, build, model, variant, firmware_product, args.packager, log)

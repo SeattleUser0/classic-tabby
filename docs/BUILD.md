@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.80
+Version: 0.81
 Revision log:
+- v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11).
 - v0.80, 2026-11-16: 43.1 (tabby-v04.9.1 on the device; the publish gate and the untracked file), section 44 (tabby-v04.9.2).
 - v0.79, 2026-11-16: 42.3 (tabby-v04.9 on the device; the HOME fault, the killed test, the one odd timing run), section 43 (tabby-v04.9.1).
 - v0.78, 2026-11-16: 41.3 (tabby-v04.8 on the device), section 42 (tabby-v04.9: real-time recording).
@@ -5326,3 +5327,18 @@ after the live note; 61 controller values in 256 ms recorded as 5); the STEP pag
 timing-1x16 960 of 960 (DIN worst 1.12 ms); one line of 960 notes: band 1.77 ms on DIN, 1.73 ms on USB; no underrun;
 backup and verify PASS (41 items).
 
+## 45. tabby-v04.9.3: the flash part page (2026-11-16)
+
+Command 25 request 11 (app/diag.c v0.8, SPEC 19.12) reports the flash chip's JEDEC ID and size as the SDK read them at
+boot, for docs/FLASH-CHIP.md (would a newer SMK-37 with another chip break Classic Tabby? No: nothing gates on the ID).
+The SDK keeps them in `flash_info`, a local symbol of libfm1_engine.a. tools/linux/build.py v0.12 therefore links twice:
+pass 1 with `ct_sdk_flash_info=0`, nm finds `flash_info` (0x01c5c268), pass 2 with `--defsym ct_sdk_flash_info=0x01c5c268`.
+The build stops unless both links put `flash_info` at the same address. In the image the page is eight byte loads from
+`flash_info+24..31` inside `ct_diag_read` (0x2000b72): no call, no SPI command, no flash access.
+
+Workbench: `diagRead` asks for request 11 and keeps `flash_part`. `diagText` prints one line through `flashPartText`,
+any ID as it is. Older firmware answers an error, which is skipped. Tests: smoke.c section 25 (six IDs: none, the
+Puya, the UC25HQ80, Skiff's SMK-37 part, two unknown; each reported as given and a block stored and read back with
+it), backup.mjs v0.6 (the simulator says "none"; the text of a device line), tests/linux/flash-part-guard.py in
+workbench-test (the symbol and the decoded page are named nowhere else; no JEDEC constant in app/, web/, the page).
+App image 471172 bytes (+64), margin 48285; build id `85d3dd36e7d4288e`.

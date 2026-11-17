@@ -26,9 +26,11 @@
  *   Control-loop timing is taken at groove_midi_poll() because that call sends MIDI out: its
  *   period is the MIDI-out quantum during playback (SPEC 9.6, SPEC 14.3).
  *
- * Version: 0.6
+ * Version: 0.8
  *
  * Revision log
+ *   v0.8  2026-11-16  Flash part page (docs/FLASH-CHIP.md 4): command 25 request 11 in every build,
+ *                     ct_flash_part_read(): the JEDEC ID and size the SDK read at boot. Report only.
  *   v0.7  2026-11-13  Task 17: request 10, the F + G page (ct_fg_read); the ACTIONS storage lines are cached.
  *   v0.6  2026-11-12  Task 16: the flash wrappers raise ct_flash_busy (no A2 request during a flash erase or write).
  *   v0.5  2026-11-10  Task 15 Step 4: CT_A2 builds: command 25 request 7 (the A2 page), 8 and 9
@@ -131,6 +133,7 @@ int ct_diag_read(unsigned request, uint8_t out[CT_DIAG_REPLY_BYTES])
 {
     /* request 0: page 1 (64 bytes); 1: reset everything, then page 1; 2: page 2 (20 bytes). */
     uint32_t now = ticks();
+    if (request == 11) return ct_flash_part_read(out);   /* v0.8: the flash part page, every build */
     if (request >= 4 && request <= 6) return ct_prof_read(request, out);   /* Task 12 A4; 6: Task 13 */
 #ifdef CT_A2
     /* Task 15 (A2): 7 = the A2 page; 8 / 9 = switch A2 off / on first (RAM only, off at boot). */
@@ -178,6 +181,43 @@ int ct_diag_read(unsigned request, uint8_t out[CT_DIAG_REPLY_BYTES])
     put32(out + 40, d.key_count); put32(out + 44, d.key_max);
     for (unsigned i = 0; i < CT_DIAG_KEY_BINS; ++i) { out[48 + 2 * i] = (uint8_t)d.key_bins[i]; out[49 + 2 * i] = (uint8_t)(d.key_bins[i] >> 8); }
     return CT_DIAG_REPLY_BYTES;
+}
+/* ---- v0.8: the flash part page (command 25 request 11; docs/FLASH-CHIP.md 4) --------------------
+ * The SDK's norflash driver reads the chip's JEDEC ID (0x9F) once at boot (sdfile_init ->
+ * read_flash_id) into its private struct flash_info: the 24-bit ID at +28, the capacity in bytes at
+ * +24 (2^capacity-code, worked out from the ID's last byte). flash_info is a local symbol of
+ * libfm1_engine.a, so tools/linux/build.py links twice and gives its address to the app as the
+ * absolute symbol ct_sdk_flash_info (--defsym), checking that it did not move. This page only copies
+ * those two words out of RAM: no SPI command, no flash access, no SDK call.
+ *
+ * REPORT ONLY. Nothing in Classic Tabby may ever depend on the ID (docs/FLASH-CHIP.md: a whitelist
+ * of IDs is what broke community FM-1 firmwares on the UC25HQ80). Saves, updates and every check use
+ * fm1_flash_size() and the layout, as before; tests/linux/flash-part-guard.py fails the build's
+ * tests if anything but this function reads ct_sdk_flash_info.
+ *
+ * Reply (16 bytes, little-endian u32): 0 the JEDEC ID (0 if the SDK has none), 4 the capacity the SDK
+ * derived from it, 8 fm1_flash_size() (the USER size the SDK validated), 12 the source: 1 = the SDK's
+ * boot read on the device, 0 = the simulator / host tests (ct_test_flash_jedec / _bytes). */
+#ifdef FM1_HOST_TEST
+uint32_t ct_test_flash_jedec, ct_test_flash_bytes;   /* 0 = "no chip" in the simulator */
+#else
+extern const volatile uint8_t ct_sdk_flash_info[];   /* tools/linux/build.py --defsym */
+static uint32_t sdk_word(unsigned at)
+{
+    uint32_t v = 0;
+    for (unsigned i = 0; i < 4; ++i) v |= (uint32_t)ct_sdk_flash_info[at + i] << (8U * i);
+    return v;
+}
+#endif
+int ct_flash_part_read(uint8_t *out)
+{
+#ifdef FM1_HOST_TEST
+    put32(out, ct_test_flash_jedec); put32(out + 4, ct_test_flash_bytes); put32(out + 12, 0);
+#else
+    put32(out, sdk_word(28) & 0xFFFFFFU); put32(out + 4, sdk_word(24)); put32(out + 12, 1);
+#endif
+    put32(out + 8, fm1_flash_size());
+    return 16;
 }
 /* Right-aligned decimal without printf (the link list bans the printf family). */
 static char *number(char *p, uint32_t v)

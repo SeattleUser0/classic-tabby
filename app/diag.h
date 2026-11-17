@@ -50,9 +50,10 @@
  *   radio switches, the MIDI configuration) and the session settings in the tuning sector (track
  *   roles, input channels, panel preferences). docs/BACKUP-FORMAT.md describes it.
  *
- * Version: 0.6
+ * Version: 0.8
  *
  * Revision log
+ *   v0.8  2026-11-16  ct_flash_part_read (command 25 request 11; report only, docs/FLASH-CHIP.md 4).
  *   v0.7  2026-11-13  Task 17: F + G (ct_fg_read, ct_fg_tick).
  *   v0.6  2026-11-12  Task 16: ct_flash_busy; the A2 page is 52 bytes.
  *   v0.5  2026-11-10  Task 15 Step 4: option A2 (ct_a2_*: the pass request from the audio
@@ -88,6 +89,12 @@ uint32_t ct_diag_ticks(void);
 void ct_diag_screen(uint32_t ticks);
 void ct_diag_paint(uint32_t ticks, unsigned bands);
 int ct_diag_read(unsigned reset, uint8_t out[CT_DIAG_REPLY_BYTES]);   /* command 25 */
+/* Command 25 request 11 (every build): the flash part page, 16 bytes (diag.c v0.8). Report only:
+ * nothing may depend on the ID (docs/FLASH-CHIP.md). */
+int ct_flash_part_read(uint8_t *out);
+#ifdef FM1_HOST_TEST
+extern uint32_t ct_test_flash_jedec, ct_test_flash_bytes;
+#endif
 int ct_diag_flash_erase(uint32_t offset);        /* fm1_flash_erase() with its time kept */
 int ct_diag_flash_write(uint32_t offset, const void *data, size_t bytes);
 /* The ACTIONS page's two storage lines: "USER 536576 SONG READY" / "FREE 123K  RECLAIM 4K"

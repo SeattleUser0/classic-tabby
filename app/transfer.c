@@ -4,6 +4,7 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.11 2026-11-16  Command 25 takes request 11 (the flash part page, app/diag.c v0.8) in every build.
  *   v0.10 2026-11-14  Task 17 Goal 3: capability flag bit 4 (song record version 3).
  *   v0.9  2026-11-14  Task 17: transfer kind 9 (one block as stored, with its format byte; download only); capability
  *                     flag bit 3 (v3 clips).
@@ -343,7 +344,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
 #else
     enum { DIAG_REQUEST_MAX = 6 };
 #endif
-    if (cmd == 25 && n <= 1 && (!n || data[0] <= DIAG_REQUEST_MAX)) {   /* Task 11B: 3 = the screen page; Task 13: 6 */
+    if (cmd == 25 && n <= 1 && (!n || data[0] <= DIAG_REQUEST_MAX || data[0] == 11)) {   /* Task 11B: 3 = the screen page; Task 13: 6; 11 = the flash part page (every build) */
         /* Task 11: the timing counters (every build since Task 12 A4); data byte 1 resets them
          * first, 2 asks for the scan page, 3 the screen, 4 and 5 the loop profile, 6 (Task 13) the
          * pass budget page (app/diag.c). */
