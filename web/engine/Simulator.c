@@ -382,7 +382,8 @@ EXPORT("sim_mix_toggle") void sim_mix_toggle(unsigned track, unsigned solo) { gr
  * 3 open the page on (track, place); the edited clip (its v3 payload) into the file buffer, returns its length. */
 EXPORT("sim_steps_state") unsigned sim_steps_state(void) { return ct_screen_steps_read(file_buffer); }
 EXPORT("sim_edit") int sim_edit(unsigned op, unsigned track, unsigned place)
-{ if (op == 1) return song_edit_save(); if (op == 2) { song_edit_discard(); return 0; } if (op == 3) return ct_screen_steps_open(track, place); return -1; }
+{ if (op == 1) return song_edit_save(); if (op == 2) { song_edit_discard(); return 0; } if (op == 3) return ct_screen_steps_open(track, place); if (op == 4) return ct_screen_setup_do(); return -1; }
+EXPORT("sim_setup_state") unsigned sim_setup_state(void) { return ct_screen_setup_read(file_buffer); }   /* tabby-v04.10: the CLIP SETTING page */
 EXPORT("sim_edit_clip") unsigned sim_edit_clip(void)
 { const uint8_t *c = song_edit_clip(); if (!c) return 0; unsigned n = clip_v3_bytes(c); memcpy(file_buffer, c, n); return n; }
 EXPORT("sim_clips_state") unsigned sim_clips_state(void) { return ct_screen_clips_read(file_buffer); }

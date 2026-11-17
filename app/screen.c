@@ -181,7 +181,8 @@ static void text(unsigned x, unsigned y, const char *s, unsigned scale, uint16_t
 enum { OVERVIEW, STEPS, FM_EDIT, FM_ENV, FM_LFO, TONE_EDIT, MIX, BLE, PROJECT, NAME, EFFECTS, SOURCE, ACTIONS, STEP_EDIT, RHYTHM, FM_QUICK, PRESET_BROWSER, ARP_EDIT, STARTUP,
        SONG, /* Task 03 d: song mode, page 19 (ACTIONS "SONG MODE", web shortcut 19) */
        TRACK_LAUNCH /* Task 06 c: per-track launching, page 20 (SCL from the SONG page, web shortcut 20) */,
-       CLIP_STEPS /* Goal 6: the STEP page, page 21: the steps of the clip being edited (EDIT from the CLIPS page) */ };
+       CLIP_STEPS /* Goal 6: the STEP page, page 21: the steps of the clip being edited (EDIT from the CLIPS page) */,
+       CLIP_SETUP /* tabby-v04.10: the CLIP SETTING page, page 22 (FX from the CLIPS page): the selected clip's and the song's settings */ };
 enum { OCT_DOWN, OCT_UP, FX, SCL, ENV, LFO, EDIT, GLO, HOME, SAVE, ARP, SEQ, PLAY, REC };
 #define BUTTON(b) (1U << (b))
 static const uint16_t colors[8] = {0x3c9f, 0x07bf, 0x4eae, 0x06d4, 0xac9f, 0xed18, 0xff06, 0xfba5};
@@ -234,6 +235,12 @@ static uint32_t clip_hold_ms;
 static uint8_t step_bar, step_sel = 255, step_cursor, step_pitch = 60, step_velocity = 100, step_pads_toggle;
 static uint16_t step_length = 480;
 static uint8_t rec_lamp;   /* the recorder's state as the control pass last read it */
+/* tabby-v04.10 (docs/CONTROL-MAP.md 14): the CLIP SETTING page: a list; K5 chooses the row, K1 changes its value (K2 in
+ * steps of 16), the 4th left button does a row that is an action (COPY) and saves on the others. The scene pad that is
+ * being held on the SCENES page (a long press on an empty pad stores what plays as a new scene). */
+enum { SET_LENGTH, SET_COPY, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE, SETUP_ROWS };
+static uint8_t setup_row, setup_to, scene_hold_pad = 255;
+static uint32_t scene_hold_ms;
 static uint8_t rec_full_seen;
 static unsigned song_record_full_seen(void) { unsigned f = rec_full_seen; rec_full_seen = 0; return f; }
 enum { REC_ARMED_NOW = 1, REC_ON_NOW = 2 };   /* song_record_start */
@@ -468,6 +475,63 @@ static __attribute__((noinline)) void color_text(unsigned x,unsigned y,const cha
 { text(x,y,s,1,color,BACK); }
 static __attribute__((noinline)) void erase(unsigned x,unsigned y,unsigned w,unsigned h)
 { paint_fill(x,y,w,h,BACK); }
+/* tabby-v04.10: the CLIP SETTING page's functions (docs/CONTROL-MAP.md 14) */
+static void setup_open(unsigned place)
+{
+    const struct song_model *mdl = song_model_current();
+    setup_row = 0; setup_to = 0;
+    for (unsigned c = 0; mdl && c < SONG_CLIPS; ++c) if (!mdl->clip[track][c]) { setup_to = (uint8_t)c; break; }
+    (void)place;
+    page = CLIP_SETUP; cache->shown_page = ~0U;
+}
+/* The row's action (the 4th left button; remote op 16 sub 4): COPY copies the clip, any other row saves the song.
+ * Returns the text for the notice line. */
+static const char *setup_do(void)
+{
+    struct song_edit_info ei; song_edit_info(&ei);
+    if (setup_row == SET_COPY) {
+        if (!ei.active) return "SELECT A CLIP FIRST";
+        int r = song_clip_copy(ei.track, ei.place, setup_to);
+        if (!r) clip_select[ei.track] = setup_to;
+        return r == SONG_BUSY ? "THE CLIP IS UNSAVED: SAVE IT FIRST" : r == SONG_INVALID ? "THAT PAD HOLDS A CLIP" : r == SONG_EDIT_SHARED ? "CLIP SHARED BY ANOTHER TRACK" : r ? "COPY FAILED" : "COPIED - THE COPY IS OPEN";
+    }
+    unsigned had = song_unsaved(); int r = song_edit_save();
+    return r == SONG_BUSY ? "STOP TO SAVE" : r == SONG_FULL ? "SONG STORAGE FULL" : r ? "SAVE FAILED" : had ? "SAVED" : "NOTHING TO SAVE";
+}
+static const char *setup_edit(int d)
+{
+    struct song_edit_info ei; song_edit_info(&ei);
+    if (setup_row == SET_LENGTH) {
+        if (!ei.active) return "SELECT A CLIP FIRST";
+        int r = song_edit_length(d);
+        return r == SONG_BUSY ? "NOT DURING A TAKE" : r > 0 ? "NOTES PAST THE END REMOVED" : NULL;
+    }
+    if (setup_row == SET_COPY) { setup_to = (uint8_t)clamp((int)setup_to + d, 0, SONG_CLIPS - 1); return NULL; }
+    (void)song_setting_edit(setup_row - SET_COUNT_IN, d);
+    return NULL;
+}
+unsigned ct_screen_setup_read(uint8_t *out)
+{
+    struct song_edit_info ei; song_edit_info(&ei);
+    const struct song_record *rec = song_current();
+    const uint8_t *clip = song_edit_clip();
+    out[0] = (uint8_t)page; out[1] = setup_row; out[2] = ei.active ? ei.track : 255; out[3] = ei.active ? ei.place : 255;
+    out[4] = ei.active ? ei.steps : 0; out[5] = setup_to;
+    for (unsigned i = 0; i < 5; ++i) out[6 + i] = (uint8_t)song_setting(i);
+    out[11] = (uint8_t)song_unsaved(); out[12] = SETUP_ROWS;
+    out[13] = clip ? (uint8_t)clip_v3_next(clip) : 0; out[14] = clip ? (uint8_t)clip_v3_after(clip) : 0; out[15] = clip ? (uint8_t)(clip_v3_after(clip) >> 8) : 0;
+    out[16] = clip ? (uint8_t)clip_v3_times(clip) : 1;
+    out[17] = clip && (clip[1] & CLIP_V3_FLAG_PROGRAM) ? clip[2] : 255; out[18] = clip && (clip[1] & CLIP_V3_FLAG_BANK) ? clip[3] : 255; out[19] = clip ? clip[4] : 0;
+    out[20] = rec ? rec->rows : 0; out[21] = (uint8_t)song_scene_hold();
+    { struct song_status st; song_status_read(&st); out[22] = st.count_in; }
+    return 23;
+}
+int ct_screen_setup_do(void)
+{
+    if (page != CLIP_SETUP) return SONG_INVALID;
+    notice = setup_do(); notice_until = fm1_millis() + 2000U; cache->middle_cache = ~0U;
+    return 0;
+}
 static void note_name(unsigned note, char out[12])
 {
     static const char names[] = "CCDDEFFGGAAB";
@@ -892,6 +956,12 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + mute_kind(t);   /* Task 16: the follow state */
             sig = sig * 33U + song_unsaved() + (song_scene_hold() << 1);
         }
+        if (visible == CLIP_SETUP) {
+            uint8_t v[24]; unsigned n = ct_screen_setup_read(v);
+            sig = signature(sig, v, n);
+            struct song_edit_info ei; song_edit_info(&ei); sig = sig * 33U + ei.dirty + ((unsigned)ei.undo << 1);
+            struct song_status st; song_status_read(&st); sig = sig * 33U + st.playing;
+        }
         if (visible == CLIP_STEPS) {
             struct song_edit_info ei; song_edit_info(&ei);
             struct song_status st; song_status_read(&st);
@@ -1064,7 +1134,8 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         } else if (have && clip_select[track] < SONG_CLIPS) {
             dim_text(8, 150, "SELECTED"); small_number(62, 150, clip_select[track] + 1U, 2, TEXT); dim_text(86, 150, "EMPTY: REC OR EDIT");
         } else if (!have) dim_text(8, 150, "NO SONG HERE");
-        if (st.playing) {
+        if (st.count_in) { color_text(8, 168, "COUNT-IN", AMBER); small_number(64, 168, st.count_in, 2, AMBER); }
+        else if (st.playing) {
             dim_text(8, 168, "SCENE"); small_number(44, 168, st.row + 1U, 3, ACCENT);
             dim_text(70, 168, st.song_over ? "SONG OVER" : "");
             if (st.late) { color_text(142, 168, "LATE", AMBER); small_number(172, 168, st.late, 3, AMBER); }
@@ -1072,6 +1143,34 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         plain_text(8, 198, notice ? notice : "PADS LAUNCH/STOP  HOLD: SELECT ONLY");
         dim_text(8, 213, "ENV TRACK TO SCENES  SHIFT+ENV ALL");
         dim_text(8, 231, "SCL SCENES  BT BACK  K5 TRACK");
+    } else if (visible == CLIP_SETUP) {
+        /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the settings of the open clip and of the song, one per line */
+        struct song_edit_info ei; song_edit_info(&ei);
+        static const char *const labels[SETUP_ROWS] = {"LENGTH", "COPY TO PAD", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE"};
+        static const char *const modes[] = {"OFF", "WHEN RECORDING", "ALWAYS"}, *const outs[] = {"INTERNAL", "MIDI NOTE", "BOTH"}, *const counts[] = {"OFF", "1 CYCLE", "2 CYCLES", "", "4 CYCLES"};
+        text(8, 40, "SETTING", 2, ACCENT, BACK);
+        if (ei.active) { text(104, 40, "T", 2, colors[ei.track & 7U], BACK); number(118, 40, ei.track + 1, 1, 2, colors[ei.track & 7U], BACK);
+                         dim_text(140, 40, "CLIP"); small_number(168, 40, ei.place + 1U, 2, TEXT); }
+        else dim_text(110, 44, "NO CLIP SELECTED");
+        if (song_unsaved()) color_text(190, 40, "UNSAVED", AMBER);
+        for (unsigned i = 0; i < SETUP_ROWS; ++i) {
+            unsigned y = 62 + i * 13, sel = i == setup_row, clip_row = i <= SET_COPY;
+            if (i == SET_COUNT_IN) dim_text(8, y - 1, "");
+            color_text(8, y, sel ? ">" : " ", ACCENT);
+            color_text(18, y, labels[i], sel ? TEXT : DIM);
+            if (clip_row && !ei.active) { dim_text(130, y, "-"); continue; }
+            if (i == SET_LENGTH) { small_number(130, y, ei.steps, 3, TEXT); dim_text(154, y, "STEPS"); }
+            else if (i == SET_COPY) { const struct song_model *mdl = song_model_current();
+                                      small_number(130, y, setup_to + 1U, 2, TEXT); dim_text(150, y, mdl && mdl->clip[ei.track][setup_to] ? "(HOLDS A CLIP)" : "(EMPTY)"); }
+            else if (i == SET_COUNT_IN) color_text(130, y, counts[song_setting(SONG_SET_COUNT_IN)], TEXT);
+            else if (i == SET_CLICK) color_text(130, y, modes[song_setting(SONG_SET_CLICK)], TEXT);
+            else if (i == SET_CLICK_OUT) color_text(130, y, outs[song_setting(SONG_SET_CLICK_OUT)], TEXT);
+            else if (i == SET_CLICK_CH) small_number(130, y, song_setting(SONG_SET_CLICK_CH) + 1U, 2, TEXT);
+            else { char nn[12]; note_name(song_setting(SONG_SET_CLICK_NOTE), nn); small_number(130, y, song_setting(SONG_SET_CLICK_NOTE), 3, TEXT); dim_text(156, y, nn); }
+        }
+        plain_text(8, 198, notice ? notice : "K5 ROW  K1 VALUE  K2 VALUE X16");
+        dim_text(8, 213, setup_row == SET_COPY ? "4TH LEFT BTN COPIES THE CLIP" : "4TH LEFT BTN SAVES (STOPPED)");
+        dim_text(8, 231, "FX BACK TO CLIPS  PLAY START/STOP");
     } else if (visible == CLIP_STEPS) {
         /* Goal 6 (docs/CONTROL-MAP.md 12): the clip being edited: its bar of 16 steps, the selected step's notes. */
         struct song_edit_info ei; song_edit_info(&ei);
@@ -1730,6 +1829,38 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         else { page = CLIP_STEPS; step_bar = 0; step_sel = 255; step_cursor = 0; step_pads_toggle = groove_pad_count(track) != 0; cache->shown_page = ~0U; }
         goto controls_done;
     }
+    /* tabby-v04.10 (docs/CONTROL-MAP.md 14): FX on the CLIPS page opens CLIP SETTING on the track's selected clip (or
+     * the one it plays); without a clip the page shows the song's settings alone. */
+    if (page == TRACK_LAUNCH && (pressed & BUTTON(FX))) {
+        struct song_status st; song_status_read(&st);
+        unsigned place = clip_select[track] < SONG_CLIPS ? clip_select[track] : song_row_place(track, st.track_row[track]);
+        int r = place < SONG_CLIPS && st.song == song_select ? song_edit_open(track, place) : SONG_EMPTY;
+        if (r == SONG_BUSY) announce("ANOTHER CLIP IS UNSAVED: THIS ONE", now + 2500U);
+        else if (r == SONG_EDIT_SHARED) announce("CLIP SHARED BY ANOTHER TRACK", now + 2000U);
+        setup_open(place);
+        goto controls_done;
+    }
+    if (page == CLIP_SETUP) {
+        play_handled = 1;
+        if (pressed & (BUTTON(FX) | BUTTON(EDIT))) { page = TRACK_LAUNCH; goto controls_done; }
+        if (pressed & BUTTON(HOME)) { page = music_page = OVERVIEW; goto controls_done; }
+        int move = controls->encoders[0] + !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN));
+        if (move) { setup_row = (uint8_t)clamp((int)setup_row + move, 0, SETUP_ROWS - 1); cache->middle_cache = ~0U; }
+        int d = controls->encoders[2] + 16 * controls->encoders[3];
+        if (d) { const char *m = setup_edit(d); if (m) announce(m, now + 2000U); cache->middle_cache = ~0U; }
+        if (pressed & BUTTON(SAVE)) { announce(setup_do(), now + 2000U); cache->middle_cache = ~0U; }
+        if (pressed & BUTTON(PLAY)) {
+            struct song_status st; song_status_read(&st);
+            if (st.playing) song_stop();
+            else {
+                int r = song_play();
+                if (r) announce(r == SONG_EMPTY ? "NO SONG - UPLOAD FROM WORKBENCH" : "SONG CANNOT START", now + 2000U);
+                else { struct groove_view view; groove_get_view(track, cursor, &view);
+                       if (view.playing && !post(0xfc, 0, 0, 1)) return 0; }
+            }
+        }
+        goto controls_done;
+    }
     if (page == CLIP_STEPS) {
         play_handled = 1;
         struct song_edit_info ei; song_edit_info(&ei);
@@ -1945,8 +2076,23 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (controls->encoders[5]) song_jump_mode_set(controls->encoders[5] > 0);
         for (unsigned i = 0; i < 16; ++i)
             if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
+                const struct song_record *rec = song_current();
+                /* tabby-v04.10: an empty scene pad held half a second stores what plays now as a new scene (the MC-707's
+                 * long press; an existing scene is never written over) */
+                if (rec && st.song == song_select && st.playing && song_row_page * 16U + i >= rec->rows) {
+                    scene_hold_pad = (uint8_t)i; scene_hold_ms = now; announce("HOLD TO STORE WHAT PLAYS AS A SCENE", now + 1500U); continue;
+                }
                 if (song_queue_jump(song_row_page * 16U + i)) announce("NO SUCH SCENE / NOT PLAYING", now + 1500U);
             }
+        if (scene_hold_pad != 255) {
+            if (!(controls->keys & (1U << white_keys[scene_hold_pad]))) scene_hold_pad = 255;
+            else if (now - scene_hold_ms >= 500U) {
+                int r = song_scene_store();
+                scene_hold_pad = 255;
+                announce(r >= 0 ? "STORED AS A NEW SCENE" : r == SONG_FULL ? "128 SCENES: NO ROOM" : "PLAY FIRST", now + 2000U);
+                if (r >= 0) song_row_page = (unsigned)r / 16U;
+            }
+        }
         if (pressed & BUTTON(PLAY)) {
             if (st.playing) song_stop();
             else {

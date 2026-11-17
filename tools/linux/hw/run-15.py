@@ -41,9 +41,13 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.12
+Version: 0.13
 
 Revision log
+    v0.13 2026-11-16  The clock ratio is logged in every run (the user's answer of 2026-11-16): the measured note spacing
+                      against the nominal one at --bpm (default 120), per port; 1 = the device's clock and this
+                      computer's agree, below 1 = the device runs fast. One run of v04.9 showed a slow 5 ms drift
+                      that three repeats did not; with the ratio in every log a second one can be told from jitter.
     v0.12 2026-11-13  Task 17: --page (the screen page shown while the song plays); the F + G page (command 25 request 10)
                       in the summary; the page is recorded.
     v0.11 2026-11-12  set_a2 retries four times before it says the firmware has no A2.
@@ -103,6 +107,9 @@ M = T.monitor
 def save(out, name, text):
     with open(os.path.join(out, name), "w") as f:
         f.write(text)
+
+
+BPM = 120.0   # v0.13: --bpm, the song's tempo, for the clock ratio
 
 
 def fit(times):
@@ -166,6 +173,11 @@ def analyze(events):
         bands = [v["band_ms"] for v in lines.values()]
         out["band_min_ms"], out["band_max_ms"] = min(bands), max(bands)
         out["std_max_ms"] = max(v["std_ms"] for v in lines.values())
+        # v0.13: the clock ratio: the measured spacing of the longest line against a whole number of 16ths at BPM
+        longest = max(lines.values(), key=lambda v: v["notes"])
+        sixteenth = 15000.0 / BPM
+        k = max(1, round(longest["step_ms"] / sixteenth))
+        out["step_ms"] = longest["step_ms"]; out["clock_ratio"] = longest["step_ms"] / (k * sixteenth)
         first = min(ons)
         f = fit(ons[first])
         if f and len(ons) > 1:
@@ -372,6 +384,8 @@ def port_line(name, p):
         name, p["notes"], len(p["lines"]), p["band_min_ms"], p["band_max_ms"], p["std_max_ms"])
     if "all_lines_band_ms" in p:
         s += "; all lines on one grid %.2f ms" % p["all_lines_band_ms"]
+    if "clock_ratio" in p:
+        s += "; clock ratio %.6f (note spacing %.4f ms)" % (p["clock_ratio"], p["step_ms"])
     return s + ("; STUCK: " + ", ".join(p["stuck"]) if p["stuck"] else "; no note left on")
 
 
@@ -473,12 +487,15 @@ def main():
     p.add_argument("--probe-writes", action="store_true", help="v0.10: soak: 30 s in, try a project save and a song upload while playing (both must be refused, code 76)")
     p.add_argument("--play", type=int, default=0, help="v0.9: start this song (1 to 16, as on the screen) by remote command 29, and stop it at the end")
     p.add_argument("--audio", default="", help="AUDIO4c input channels to record, e.g. 0,1")
+    p.add_argument("--bpm", type=float, default=120.0, help="v0.13: the song's tempo, for the clock ratio in the log")
     p.add_argument("--page", choices=["overview", "steps", "actions"], default="", help="v0.12: show this page (remote panel keys) before PLAY; the band depended on the page painted (BUILD 35.4)")
     p.add_argument("--din", default="H4MIDI-WC Port 1")
     p.add_argument("--tag", default="run")
     p.add_argument("--off", help="table: the A2-off run's tag"); p.add_argument("--on", help="table: the A2-on run's tag")
     p.add_argument("--out", required=True)
     a = p.parse_args()
+    global BPM
+    BPM = a.bpm
     os.makedirs(a.out, exist_ok=True)
     if a.cmd == "table":
         table(a)

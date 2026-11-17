@@ -212,7 +212,18 @@ static struct {
     struct { uint8_t used, kind, number, has_pending, has_last; uint16_t last, pending; int32_t pending_time; uint32_t last_at, seen_at; } ctl[REC_CONTROLLERS];   /* a bend's value is lsb | msb << 7 */
 } rec = { .quantize = 1 };
 static volatile unsigned mute_mask;
-static volatile unsigned scene_hold;   /* tabby-v04.10: the scene that plays repeats until this is taken off or a scene is recalled */
+static volatile unsigned scene_hold;
+/* ---- tabby-v04.10: the click and the count-in (SPEC 14.1 decision 7) ------------------------------------------
+ * Two clicks: one mixed into the audio output (song_click_mix, from app/audio_output.c) and one as a MIDI note on a
+ * chosen channel, sent with the song's events; either, both or none. A click falls on every quarter note of the
+ * master cycle, the first of a cycle louder. The count-in: PLAY with a take armed plays `count_units` of clicks before
+ * the song starts (the song's Start goes out after it, as on the MC-707 since its version 1.20); it clicks whatever
+ * the click mode says, on the outputs chosen. Settings live in the song record (header bytes 44 to 46). */
+static volatile uint8_t click_live, click_out, click_ch = 9, click_note = 37;   /* control -> audio; out: 0 internal, 1 MIDI, 2 both */
+static volatile uint32_t count_units;                                          /* control sets it with start_request; audio clears it */
+static uint32_t count_pos, count_acc, click_off_in;                            /* audio only */
+static uint8_t click_held, click_held_ch, click_held_note;
+static volatile uint16_t click_frames; static volatile uint8_t click_delay, click_accent;   /* tabby-v04.10: the scene that plays repeats until this is taken off or a scene is recalled */
 /* audio -> control */
 static volatile unsigned playing, cur, repeat, underruns, song_over;
 static volatile uint32_t master, song_start;
@@ -455,6 +466,44 @@ static FM1_AUDIO_CODE unsigned scan(unsigned t, unsigned buf, int32_t from, int3
     }
     return added;
 }
+/* ---- audio thread: the click ---------------------------------------------------------- */
+static FM1_AUDIO_CODE void click_release(void)
+{
+    if (click_held) { groove_midi_song_event(click_held_ch, 0x80, click_held_note, 0); click_held = 0; }
+}
+/* The clicks of the window [p0, p0 + adv), p0 counted from a cycle start; none at or past `limit` (the end of a
+ * count-in: that beat is the song's first; 0: no limit). */
+static FM1_AUDIO_CODE void click_window(uint32_t p0, unsigned adv, unsigned on, uint32_t limit)
+{
+    if (click_held) {
+        if (click_off_in < adv) { groove_midi_at(click_off_in, adv); click_release(); }
+        else click_off_in -= adv;
+    }
+    if (!on) return;
+    uint32_t c = cycle_units, p = p0 % c, beat = 4U * UNITS, next = (p + beat - 1U) / beat * beat;
+    if (next > c) next = c;
+    if (next - p >= adv || (limit && p0 - p + next >= limit)) return;
+    unsigned at = next - p, accent = next == c || next == 0, out = click_out;
+    if (out) {
+        groove_midi_at(at, adv);
+        click_release();
+        click_held_ch = click_ch; click_held_note = click_note; click_held = 1; click_off_in = at + (uint32_t)HALF - adv;
+        groove_midi_song_event(click_held_ch, 0x90, click_held_note, accent ? 127 : 90);
+    }
+    if (out != 1) { click_delay = (uint8_t)(at * FM1_BLOCK_FRAMES / (adv ? adv : 1U)); click_accent = (uint8_t)accent; click_frames = 300; }
+}
+/* The internal click, added to the block the output stage is about to send (app/audio_output.c): a short square
+ * burst that dies away, higher for the first beat of a cycle. */
+FM1_AUDIO_CODE void song_click_mix(int32_t *out)
+{
+    unsigned n = click_frames;
+    if (!n) return;
+    for (unsigned i = click_delay; i < FM1_BLOCK_FRAMES && n; ++i, --n) {
+        int32_t v = ((n >> (click_accent ? 2 : 3)) & 1U ? 1 : -1) * (int32_t)n * 1000;
+        out[2U * i] += v; out[2U * i + 1U] += v;
+    }
+    click_delay = 0; click_frames = (uint16_t)n;
+}
 /* ---- audio thread: frames ------------------------------------------------------------ */
 /* The next bar for a queue placed before master time m: the first bar at or after m (a
  * window that ended exactly on a bar did not cross it, so the bar belongs to the window that
@@ -621,7 +670,7 @@ static FM1_AUDIO_CODE void prefire_track(unsigned t, unsigned tempo, uint32_t m0
 }
 static FM1_AUDIO_CODE void stop_now(void)
 {
-    release_all();
+    release_all(); click_release();
     playing = 0; master = 0; song_over = 0; ext_use_adv = 0; ext_state = EXT_OFF;
     for (unsigned s = 0; s <= SONG_TRACKS; ++s) streams[s].active = 0;
     groove_midi_transport(0, 0xfc);
@@ -747,6 +796,7 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
     ++rec_block_seq; rec_block_master = m0; rec_block_ticks = ct_diag_ticks(); rec_block_adv = adv; ++rec_block_seq;
     unsigned snext = song_next(m0, &sbd);
     prefire(tempo, m0, sbd, snext);
+    if (click_live || click_held) { click_window(m0, adv, click_live, 0); groove_midi_at(0, 0); }   /* tabby-v04.10 */
     action_count = 0;
     /* Late adoption: a frame that began without its buffer, or a following track whose
      * buffer is not the song's row (a row change on the bar it rejoined the song), takes
@@ -967,6 +1017,17 @@ unsigned song_test_position(unsigned *remainder) { if (remainder) *remainder = a
 #endif
 FM1_AUDIO_CODE void song_tick(unsigned tempo)
 {
+    if (start_request && count_units) {
+        /* tabby-v04.10: the count-in: clicks at the song's tempo; the song starts with the block after its last unit */
+        if (stop_request) { stop_request = 0; start_request = 0; count_units = 0; count_pos = count_acc = 0; click_release(); return; }
+        count_acc += (tempo_override ? tempo_override : tempo) * ADV_MUL;
+        unsigned adv = count_acc / ADV_DIV; count_acc %= ADV_DIV;
+        click_window(count_pos, adv, 1, count_units);
+        groove_midi_at(0, 0);
+        count_pos += adv;
+        if (count_pos >= count_units) { count_units = 0; count_pos = count_acc = 0; }
+        return;
+    }
     if (start_request) {
         start_request = 0;
         /* The caller read song_tempo() before `playing` was set: the first block must
@@ -1284,6 +1345,51 @@ void song_poll(void)
     song_end = 0;
     decode_rowinfo(n, expected);
 }
+/* ---- tabby-v04.10: the song's settings for the click and the count-in (record header bytes 44..46) ----------
+ * byte 44: bits 0-1 the click (0 off, 1 while a take is armed or runs, 2 always), bits 2-3 its output (0 internal, 1
+ * MIDI, 2 both), bits 4-5 the count-in (0 off, 1, 2 or 4 master cycles as 1, 2, 3); byte 45: the MIDI click's
+ * channel + 1 (0: channel 10); byte 46: its note (0: note 37). All zero in a song that was never set: no click. */
+static void click_apply(void)
+{
+    click_out = (uint8_t)song_setting(SONG_SET_CLICK_OUT); click_ch = (uint8_t)song_setting(SONG_SET_CLICK_CH); click_note = (uint8_t)song_setting(SONG_SET_CLICK_NOTE);
+}
+unsigned song_setting(unsigned which);
+/* Does the click sound now: always, or while a take is armed or runs (control task; the audio thread reads click_live). */
+static void click_update(void)
+{
+    unsigned mode = song_setting(SONG_SET_CLICK);
+    click_live = state == 1 && (mode == 2 || (mode == 1 && rec.state != REC_OFF));
+}
+unsigned song_setting(unsigned which)
+{
+    const uint8_t *r = record.reserved;
+    if (loaded == SONG_NONE && which != SONG_SET_CLICK_CH && which != SONG_SET_CLICK_NOTE) return 0;
+    switch (which) {
+    case SONG_SET_COUNT_IN: { unsigned c = (r[1] >> 4) & 3U; return c == 3 ? 4U : c; }
+    case SONG_SET_CLICK: return (r[1] & 3U) > 2 ? 0U : r[1] & 3U;
+    case SONG_SET_CLICK_OUT: return ((r[1] >> 2) & 3U) > 2 ? 0U : (r[1] >> 2) & 3U;
+    case SONG_SET_CLICK_CH: return r[2] >= 1 && r[2] <= 16 && loaded != SONG_NONE ? r[2] - 1U : 9U;
+    case SONG_SET_CLICK_NOTE: return r[3] >= 1 && r[3] <= 127 && loaded != SONG_NONE ? r[3] : 37U;
+    default: return 0;
+    }
+}
+int song_setting_edit(unsigned which, int delta)
+{
+    if (loaded == SONG_NONE || which > SONG_SET_CLICK_NOTE || !delta) return SONG_INVALID;
+    static const uint8_t max[5] = {3, 2, 2, 15, 127}, min[5] = {0, 0, 0, 0, 1};
+    uint8_t *r = record.reserved;
+    int now = (int)song_setting(which);
+    if (which == SONG_SET_COUNT_IN && now == 4) now = 3;
+    int v = now + delta; v = v < min[which] ? min[which] : v > max[which] ? max[which] : v;
+    if (v == now) return 0;
+    if (which == SONG_SET_COUNT_IN) r[1] = (uint8_t)((r[1] & ~0x30U) | (unsigned)v << 4);
+    else if (which == SONG_SET_CLICK) r[1] = (uint8_t)((r[1] & ~3U) | (unsigned)v);
+    else if (which == SONG_SET_CLICK_OUT) r[1] = (uint8_t)((r[1] & ~0x0cU) | (unsigned)v << 2);
+    else if (which == SONG_SET_CLICK_CH) r[2] = (uint8_t)(v + 1);
+    else r[3] = (uint8_t)v;
+    click_apply(); song_changed();
+    return 0;
+}
 int song_load(unsigned song)
 {
     if (state) return SONG_BUSY;
@@ -1297,6 +1403,7 @@ int song_load(unsigned song)
     song_record_expand(&record, &model);   /* Task 17 Goal 3: a version-3 record (scenes) becomes rows; every version gets its clip table */
     cycle_units = (uint32_t)model.cycle * UNITS;
     loaded = song;
+    click_apply();
     jump_mode = (record.flags & SONG_FLAG_JUMP_ROW) ? 1U : 0U;
     return 0;
 }
@@ -1341,6 +1448,9 @@ int song_play(void)
         ext_period_q8 = tempo_override ? 220500U / tempo_override : 7U * 256U;
         ext_wr = ext_rd = 0; ext_pulses = 0;
     }
+    /* tabby-v04.10: a take is armed: the count-in comes first (internal clock only) */
+    click_update();
+    count_units = !follow && rec.state == REC_ARMED ? (uint32_t)song_setting(SONG_SET_COUNT_IN) * cycle_units : 0;
     barrier();
     start_request = 1;
     return 0;
@@ -1565,6 +1675,70 @@ int song_edit_note_adjust(unsigned step, unsigned n, unsigned field, int delta)
     if (clip_v3_insert(edit.clip, &v) < 0) (void)clip_v3_insert(edit.clip, &old);
     edit.gesture = gesture; edit_changed();
     return 0;
+}
+/* tabby-v04.10: the clip's settings (the CLIP SETTING page). The length: 1 to 128 steps; what lies past a shorter end is
+ * removed (undo brings it back). One undo level per run of changes of the same setting. Returns what was removed. */
+int song_edit_length(int delta)
+{
+    if (!edit.active || !delta) return SONG_INVALID;
+    if (rec.state == REC_ON) return SONG_BUSY;
+    int now = (int)clip_v3_steps(edit.clip), want = now + delta;
+    want = want < 1 ? 1 : want > CLIP_V3_STEPS_MAX ? CLIP_V3_STEPS_MAX : want;
+    if (want == now) return 0;
+    if (edit.gesture != 0x40000001U) edit_push();
+    int cut = clip_v3_steps_set(edit.clip, (unsigned)want);
+    edit.gesture = 0x40000001U; edit_changed();
+    return cut;
+}
+/* A copy of the track's clip in `from` as a new clip in the empty place `to`: it is the open clip, unsaved, and is
+ * written with the song at the next save. SONG_BUSY: a clip is unsaved; SONG_EMPTY: no clip in `from`; SONG_INVALID:
+ * `to` holds a clip. */
+int song_clip_copy(unsigned track, unsigned from, unsigned to)
+{
+    if (loaded == SONG_NONE || track >= SONG_TRACKS || from >= SONG_CLIPS || to >= SONG_CLIPS || model.clip[track][to]) return SONG_INVALID;
+    if (!model.clip[track][from]) return SONG_EMPTY;
+    if (edit.active && edit.dirty) return SONG_BUSY;
+    unsigned id = 0;
+    for (unsigned t = 0; t < SONG_TRACKS; ++t)
+        for (unsigned c = 0; c < SONG_CLIPS; ++c) if (model.clip[t][c] > id) id = model.clip[t][c];
+    if (id >= 65535U) return SONG_FULL;
+    edit.active = 0;
+    int r = song_edit_open(track, from);
+    if (r && r != SONG_EDIT_SHARED) return r;
+    if (r == SONG_EDIT_SHARED) return r;
+    edit.block = (uint16_t)(id + 1U); edit.place = (uint8_t)to; edit.created = 1;
+    model.clip[track][to] = edit.block;
+    if (to >= model.clips[track]) model.clips[track] = (uint8_t)(to + 1U);
+    edit_changed(); song_changed();
+    return 0;
+}
+/* Store what plays now as a new scene after the last one: per track the clip it plays (launched, or the scene's), none
+ * for a stopped or silent track. The scene is as long as its longest clip (in whole bars), repeats until another is
+ * recalled (loop here), and its clips keep their own lengths (SONG_ROW_FLAG_OWN). Returns the scene's index, or
+ * SONG_INVALID (not playing), SONG_FULL (128 scenes). Written with the song at the next save. */
+int song_scene_store(void)
+{
+    if (state != 1 || !playing || loaded == SONG_NONE) return SONG_INVALID;
+    if (record.rows >= SONG_ROWS) return SONG_FULL;
+    unsigned n = record.rows, longest = 0;
+    struct song_row *w = &record.row[n];
+    memset(w, 0, sizeof *w); memset(model.scene_clip[n], 0, sizeof model.scene_clip[n]);
+    for (unsigned t = 0; t < SONG_TRACKS; ++t) {
+        const struct track *k = &tr[t];
+        unsigned row = k->state == 1 ? k->row : k->state == 0 && !song_over ? rowset[cur].row : SONG_NONE;
+        unsigned place = song_row_place(t, row);
+        if (place == SONG_NONE || !model.clip[t][place]) continue;
+        w->block[t] = model.clip[t][place]; model.scene_clip[n][t] = (uint8_t)(place + 1U);
+        const struct trackbuf *b = &tbuf[t][k->cur];
+        unsigned steps = !k->waiting && b->ready && b->steps ? b->steps : 16U;
+        if (steps > longest) longest = steps;
+    }
+    longest = (longest + 15U) / 16U * 16U;
+    w->steps = (uint8_t)(longest < 16 ? 16 : longest > SONG_ROW_STEPS_MAX ? SONG_ROW_STEPS_MAX : longest);
+    w->repeat = 1; w->flags = SONG_ROW_FLAG_LOOP_HERE | SONG_ROW_FLAG_OWN;
+    record.rows = (uint8_t)(n + 1U);
+    song_changed();
+    return (int)n;
 }
 int song_edit_undo(void)
 {
@@ -1809,6 +1983,7 @@ void song_record_poll(void)
 int song_edit_poll(void)
 {
     song_record_poll();
+    click_update();   /* tabby-v04.10 */
     unsigned clip = edit.active && edit.dirty, now = fm1_millis();
     if ((!clip && !song_dirty) || state) return 0;
     if ((clip && now - edit.changed_ms < 10000U) || (song_dirty && now - song_changed_ms < 10000U)) return 0;
@@ -1869,6 +2044,7 @@ void song_status_read(struct song_status *out)
     out->underruns = (uint16_t)underruns;
     out->late = (uint16_t)late_count;
     out->follow = (uint8_t)(follow_on ? ext_state : 0U);   /* Task 16: EXT_* (song.h) */
+    { uint32_t cu = count_units, cp = count_pos; out->count_in = (uint8_t)(start_request && cu > cp ? (cu - cp + 4U * UNITS - 1U) / (4U * UNITS) : 0U); }   /* tabby-v04.10: beats of the count-in left */
     out->events = (uint16_t)(loaded == SONG_NONE ? 0 : song_event_count(&record));
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
         const struct track *k = &tr[t];

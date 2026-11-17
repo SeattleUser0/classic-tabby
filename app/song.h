@@ -54,6 +54,7 @@ struct song_status {
     uint8_t track_state[8];  /* bits 0-1 SONG_TRACK_*, bits 2-3 SONG_QUEUE_* pending, bit 4 waiting for its buffer */
     uint8_t track_row[8];    /* the pattern (row) the track plays, SONG_NONE when silent or stopped */
     uint8_t track_queued[8]; /* the queued pattern row (launch) or the row it returns to (attach), else SONG_NONE */
+    uint8_t count_in;    /* tabby-v04.10: quarter notes of the count-in still to come (0: none runs) */
     uint8_t follow;      /* Task 16: external clock follow: 0 off, 1 armed (waiting for Start), 2 preparing, 3 waiting for a pulse, 4 running, 5 held (missed pulses), 6 LOST, 7 stopped */
 };
 /* Task 16 Goal 3: the MIDI-in callback gives a follow song the clock messages; 1 = taken (SPEC 19.3). */
@@ -113,6 +114,19 @@ int song_edit_poll(void);
  * song record when the song was changed on the device (song_unsaved: a clip or the song waits for a save). */
 int song_clip_new(unsigned track, unsigned place);
 unsigned song_unsaved(void);
+/* tabby-v04.10: the clip workflow on the panel. song_edit_length changes the open clip's length by `delta` steps (1 to
+ * 128; returns the events it removed past a shorter end); song_clip_copy makes a copy of a clip in an empty place of the
+ * same track (it becomes the open, unsaved clip); song_scene_store adds what plays now as a new scene (its index). */
+int song_edit_length(int delta);
+int song_clip_copy(unsigned track, unsigned from, unsigned to);
+int song_scene_store(void);
+/* The song's click and count-in settings (stored in the song record): the count-in in master cycles (0, 1, 2 or 4),
+ * the click (0 off, 1 while a take is armed or runs, 2 always), its output (0 internal, 1 MIDI, 2 both), the MIDI
+ * click's channel (0..15) and note. song_setting_edit steps a setting by `delta`. */
+enum { SONG_SET_COUNT_IN = 0, SONG_SET_CLICK = 1, SONG_SET_CLICK_OUT = 2, SONG_SET_CLICK_CH = 3, SONG_SET_CLICK_NOTE = 4 };
+unsigned song_setting(unsigned which);
+int song_setting_edit(unsigned which, int delta);
+FM1_AUDIO_CODE void song_click_mix(int32_t *output);   /* audio thread: the internal click into one block of the output */
 /* The scene that plays repeats until the hold is taken off or a scene is recalled (RAM only). */
 void song_scene_hold_set(unsigned on);
 unsigned song_scene_hold(void);

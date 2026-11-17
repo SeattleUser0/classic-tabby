@@ -2475,6 +2475,75 @@ int main(void)
         CHECK(s1 == 0 && sim_song_record_read(SONG + 1) == 0 && f[20] == 3 && f[64] == 1 && f[64 + 128] == 2 && f[1088] == 1 && f[1088 + 8] == 2 && f[1088 + 10] == 16 && f[1100] == 1 && f[1100 + 10] == 32 && f[2626] == 1,
               "rows to scenes: saved as a version-3 record: the clip table, the two scenes with their repeats and steps, an empty event table (%d)", s1);
         CHECK(sim_song_load(SONG + 1) == 0 && song_current()->rows == 2 && song_current()->row[0].block[0] == 1 && song_current()->row[1].steps == 32, "rows to scenes: it loads again as the same rows");
+        /* ---- the clip's length, a copy, the click, the count-in, a stored scene ---- */
+        CHECK(sim_song_load(SONG) == 0 && song_edit_open(0, 0) == 0, "workflow: the song loaded again, clip 1 open");
+        int l1 = song_edit_length(16); song_edit_info(&ei);
+        CHECK(l1 == 0 && ei.steps == 32 && ei.dirty && song_edit_note_toggle(20, 61, 100, 240) == 1, "length: 16 to 32 steps removes nothing; a note goes on step 21");
+        int l2 = song_edit_length(-16); song_edit_info(&ei);
+        CHECK(l2 == 1 && ei.steps == 16 && ei.events == 1 && song_edit_length(-200) == 0 && clip_v3_steps(song_edit_clip()) == 1 && song_edit_length(500) == 0 && clip_v3_steps(song_edit_clip()) == 128,
+              "length: back to 16 steps removes the note past the end (%d); the length is held between 1 and 128", l2);
+        CHECK(song_edit_undo() == 0 && clip_v3_steps(song_edit_clip()) == 32 && clip_v3_note_find(song_edit_clip(), 20, 61) >= 0, "length: one undo brings the 32 steps and the note back");
+        CHECK(song_edit_save() == 0, "length: saved");
+        int c1 = song_clip_copy(0, 0, 1), c2 = song_clip_copy(0, 30, 20), cp3 = song_clip_copy(0, 0, 20); song_edit_info(&ei);
+        CHECK(c1 == SONG_INVALID && c2 == SONG_EMPTY && cp3 == 0 && ei.active && ei.created && ei.place == 20 && ei.steps == 32 && ei.events == 2 && ei.block == 6 && song_clip_copy(0, 1, 21) == SONG_BUSY,
+              "copy: a place that holds a clip and an empty source are refused; the copy is a new clip (block 6) in place 21, open and unsaved; no second copy before a save (%d %d %d)", c1, c2, cp3);
+        CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_model_current()->clip[0][20] == 6 && sim_block_read(SONG, 6) == 16 + 12 && f[0] == 32, "copy: saved and loaded again: place 21 holds a 32-step clip with both notes");
+        /* the song's click settings */
+        CHECK(song_setting(SONG_SET_CLICK) == 0 && song_setting(SONG_SET_COUNT_IN) == 0 && song_setting(SONG_SET_CLICK_CH) == 9 && song_setting(SONG_SET_CLICK_NOTE) == 37, "click: a song that was never set: no click, no count-in; channel 10 and note 37 when it is switched on");
+        (void)song_setting_edit(SONG_SET_CLICK, 5); (void)song_setting_edit(SONG_SET_CLICK_OUT, 1); (void)song_setting_edit(SONG_SET_CLICK_CH, -6); (void)song_setting_edit(SONG_SET_CLICK_NOTE, 3); (void)song_setting_edit(SONG_SET_COUNT_IN, 1);
+        CHECK(song_setting(SONG_SET_CLICK) == 2 && song_setting(SONG_SET_CLICK_OUT) == 1 && song_setting(SONG_SET_CLICK_CH) == 3 && song_setting(SONG_SET_CLICK_NOTE) == 40 && song_setting(SONG_SET_COUNT_IN) == 1 && song_unsaved(),
+              "click: always, as a MIDI note, channel 4, note 40; count-in one cycle; the song is unsaved");
+        CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_setting(SONG_SET_CLICK) == 2 && song_setting(SONG_SET_CLICK_CH) == 3 && song_setting(SONG_SET_CLICK_NOTE) == 40 && song_setting(SONG_SET_COUNT_IN) == 1, "click: the settings are stored with the song");
+        { struct message m[64]; (void)drain(m, 64); }
+        no = 0; (void)sim_song_play();
+        for (unsigned blocks = 0; blocks < 1500; ++blocks) {
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && (m[k].data[0] & 0xe0) == 0x80 && no < 512) { lo[no].s = m[k].data[0]; lo[no].d1 = m[k].data[1]; lo[no].d2 = m[k].data[2]; lo[no].block = blocks; ++no; }
+        }
+        sim_song_stop(); settle(); settle();
+        { unsigned clicks = 0, accents = 0, offs = 0, first = 0, spaced = 1, prev = 0; int song0 = find_log(lo, no, 0x94, 60, 100, 0);
+          for (unsigned i = 0; i < no; ++i) {
+              if (lo[i].s == 0x93 && lo[i].d1 == 40 && lo[i].d2) { if (!clicks) first = lo[i].block; else if (lo[i].block - prev < 171 || lo[i].block - prev > 174) spaced = 0; prev = lo[i].block; ++clicks; accents += lo[i].d2 == 127; }
+              if ((lo[i].s == 0x83 || (lo[i].s == 0x93 && !lo[i].d2)) && lo[i].d1 == 40) ++offs;
+          }
+          CHECK(clicks == 9 && accents == 3 && spaced && offs == clicks && song0 >= 0 && lo[song0].block == first, "click: a MIDI note on every quarter note, the first of each cycle louder, each released; in step with the song (%u clicks, %u loud, %u released)", clicks, accents, offs); }
+        /* the count-in: a take is armed, PLAY clicks one cycle before the song starts */
+        (void)song_setting_edit(SONG_SET_CLICK, -5); (void)song_setting_edit(SONG_SET_CLICK, 1);
+        CHECK(song_edit_open(0, 0) == 0 && song_record_start() == 1 && song_setting(SONG_SET_CLICK) == 1, "count-in: clip 1 open, a take armed; the click is on WHEN RECORDING");
+        { struct message m[64]; (void)drain(m, 64); }
+        no = 0; (void)sim_song_play();
+        unsigned counting = 0, rec700 = 0, rec1000 = 0;
+        for (unsigned blocks = 0; blocks < 1300; ++blocks) {
+            if (blocks == 300) { struct song_status st; song_status_read(&st); counting = st.count_in; }
+            if (blocks == 600 || blocks == 1000) { song_edit_info(&ei); if (blocks == 600) rec700 = ei.recording; else rec1000 = ei.recording; }
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && ((m[k].data[0] & 0xf0) == 0x90 || m[k].data[0] == 0xfa) && (m[k].data[0] == 0xfa || m[k].data[2]) && no < 512) { lo[no].s = m[k].data[0]; lo[no].d1 = m[k].data[1]; lo[no].d2 = m[k].data[2]; lo[no].block = blocks; ++no; }
+        }
+        { int c0 = find_log(lo, no, 0x93, 40, 127, 0), s0 = find_log(lo, no, 0x94, 60, 100, 0), fa = -1; unsigned during = 0, after = 0;
+          for (unsigned i = 0; i < no; ++i) { if (lo[i].s == 0xfa && fa < 0) fa = (int)i; if (lo[i].s == 0x93 && s0 >= 0) { if (lo[i].block < lo[s0].block) ++during; else ++after; } }
+          unsigned d = c0 >= 0 && s0 >= 0 ? lo[s0].block - lo[c0].block : 0;
+          CHECK(during == 4 && d >= 688 && d <= 691 && counting >= 2 && counting <= 3, "count-in: four clicks, then the song's first note one cycle after the first click (%u clicks, %u blocks; 689; %u beats left at block 300)", during, d, counting);
+          CHECK(fa >= 0 && s0 >= 0 && lo[fa].block + 2 >= lo[s0].block && lo[fa].block > lo[c0].block + 600, "count-in: MIDI Start goes out when the song starts, not when the count-in does");
+          CHECK(rec700 == 1 && rec1000 == 2 && after >= 1, "count-in: the take is armed during it and runs after it; with the click on WHEN RECORDING it clicks on during the take (%u %u, %u clicks)", rec700, rec1000, after); }
+        song_record_stop();
+        /* a stored scene: T1 on clip 2 (32 steps, launched by hand) */
+        int stopped_store = 0;
+        CHECK(song_clip_launch(0, 1) == 0, "scene store: clip 2 queued on T1");
+        for (unsigned i = 0; i < 800; ++i) (void)sim_render();
+        int stored = song_scene_store();
+        { const struct song_record *r = song_current();
+          CHECK(stored == 3 && r->rows == 4 && r->row[3].block[0] == 2 && r->row[3].steps == 32 && r->row[3].repeat == 1 && r->row[3].flags == (SONG_ROW_FLAG_LOOP_HERE | SONG_ROW_FLAG_OWN) && song_model_current()->scene_clip[3][0] == 2,
+                "scene store: what plays is scene 4: T1's clip 2, as long as that clip (32 steps), looping until another is recalled (%d)", stored); }
+        CHECK(song_queue_jump(3) == 0, "scene store: the new scene can be recalled at once");
+        for (unsigned i = 0; i < 800; ++i) (void)sim_render();
+        CHECK((sim_song_status(0) >> 16 & 255U) == 3, "scene store: it plays (scene %u)", (sim_song_status(0) >> 16 & 255U) + 1);
+        sim_song_stop(); settle(); settle();
+        stopped_store = song_scene_store();
+        song_edit_discard();
+        CHECK(stopped_store == SONG_INVALID && song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_current()->rows == 4 && song_current()->row[3].block[0] == 2 && (song_current()->row[3].flags & SONG_ROW_FLAG_OWN),
+              "scene store: nothing is stored while stopped; saved and loaded again, the song has four scenes");
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

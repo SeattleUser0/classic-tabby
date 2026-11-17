@@ -20,9 +20,12 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-record.py --song N --out DIR
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-16  tabby-v04.10: the unquantized error must now be inside 2 ms on average (takes are placed one audio
+                      block earlier; it was +3 ms); REC on an empty pad records a new clip of one master cycle, the clip
+                      plays, and the save (remote op 16, stopped) stores the clip and the song.
     v0.2  2026-11-16  wait_phase cannot miss its moment; input quantize is set, not assumed, and left on.
     v0.1  2026-11-16  First version.
 """
@@ -147,6 +150,9 @@ def main():
                 errors.append(near(phase(hits[1], t0), phase(hits[0], t0), 1e9)[1])
         check(len(errors) == 3 and all(abs(e) <= a.free_tolerance for e in errors), "quantize off: the clip plays each note where it was played (playback minus live note, ms)", ["%+.2f" % e for e in errors])
         measured["free_error_ms"] = [round(e, 2) for e in errors]
+        mean = sum(errors) / len(errors) if errors else 99.0
+        measured["free_error_mean_ms"] = round(mean, 2)
+        check(abs(mean) <= 2.0, "v0.3: on average the playback is within 2 ms of the live note (it was +3 ms before tabby-v04.10)", "%+.2f ms" % mean)
         # ---- a controller sweep from MIDI in ----
         before = l.steps_state()["events"]
         wait_phase(t0, 1.0)
@@ -170,6 +176,48 @@ def main():
         l.hold(["SHIFT", "REC"], 0.1); idle(0.3)       # input quantize on again, as at power-up
         check(l.steps_state()["quantize"] == 1, "input quantize is on again")
         l.edit_discard()
+        # ---- v0.3 (tabby-v04.10): REC on an empty pad records a new clip ----
+        l.show_page("overview"); l.press("BLUETOOTH"); idle(0.4)
+        c = l.clips_state()
+        if c["track"] != 0:
+            l.shift_pad(0); idle(0.3); c = l.clips_state()
+        empty = next((i for i, q in enumerate(c["pads"]) if (q["code"] & 7) == 0), None)
+        if check(c["page_name"] == "CLIPS" and empty is not None, "BT opens CLIPS; track 1 has an empty pad", (c["page_name"], empty)):
+            l.pad(empty); idle(0.3); c = l.clips_state()
+            check(c["selected"] == empty and c["pads"][empty]["code"] == 8, "the empty pad is selected and nothing is queued", c["pads"][empty])
+            l.press("REC"); idle(0.4); s = l.steps_state(); c = l.clips_state()
+            check(s["recording"] == 1 and s["events"] == 0 and s["steps"] == 16 and s["place"] == empty and (c["pads"][empty]["code"] & 7) == 3,
+                  "REC on the empty pad: a new clip of one master cycle (16 steps), reserved, armed", (s["recording"], s["events"], s["steps"], c["pads"][empty]["code"]))
+            armed = time.monotonic_ns()
+            l.press("PLAY"); idle(1.0)
+            starts = [t for t, m in list(din.messages) if t >= armed and list(m) == [0xFA]]
+            if check(bool(starts) and l.steps_state()["recording"] == 2, "PLAY starts the song and the take into the new clip"):
+                t0 = starts[0]
+                wait_phase(t0, 7.6)
+                tk = time.monotonic_ns()
+                l.key(1, 16, 100); idle(0.2); l.key(1, 16, 0); idle(0.2)
+                pitch = None
+                for t, m in list(din.messages):
+                    if t > tk - 5_000_000 and len(m) == 3 and m[0] == 0x90 and m[2]:
+                        pitch = m[1]; break
+                idle(2 * CYCLE_MS / 1000.0)
+                later = [phase(t, t0) for t in ons(tk + 700_000_000, pitch)] if pitch is not None else []
+                oks = [near(x, 8 * STEP_MS, a.tolerance) for x in later]
+                check(len(later) >= 1 and all(o for o, _ in oks), "the new clip plays the recorded note on its step in the following loops", ["%+.2f" % d for _, d in oks])
+                l.press("REC"); idle(0.3); s = l.steps_state()
+                check(s["recording"] == 0 and s["events"] == 1 and s["dirty"], "REC stops the take: one note in the new clip, unsaved", (s["recording"], s["events"]))
+                refused = False
+                try:
+                    l.edit_save()
+                except T.DeviceError:
+                    refused = True
+                check(refused, "a save while the song plays is refused")
+            l.press("PLAY"); idle(0.8)
+            l.edit_save(); idle(0.5); s = l.steps_state(); c = l.clips_state()
+            check(not s["dirty"] and (c["pads"][empty]["code"] & 7) == 1, "stopped: the clip and the song are saved; the pad holds a clip", (s["dirty"], c["pads"][empty]["code"]))
+            l.select_song(a.song - 1); idle(0.4)                    # remote op 1 reads the song from storage again
+            c = l.clips_state()
+            check((c["pads"][empty]["code"] & 7) == 1, "loaded again from storage: the new clip is in its place", c["pads"][empty])
         l.show_page("overview")
         h = l.health()
         check(h["underruns"] == h0["underruns"] and h["dma_overruns"] == h0["dma_overruns"], "no audio underrun, no DMA overrun during the test",
