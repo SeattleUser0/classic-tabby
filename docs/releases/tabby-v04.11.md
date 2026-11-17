@@ -6,6 +6,8 @@ Clip chains: a launched clip leads to the next one by itself. Reinstall to get t
   below the 519457-byte limit (docs/FLASH-BUDGET.md 34). From tabby-v04.10 (`7e376d6bb50aacdb`): +864 bytes.
 - Installing over tabby-v04.2 to tabby-v04.10 keeps storage as it is. Take a Full backup first anyway.
 - A clip with a chain is not played by firmware before tabby-v04.10 (the track is silent there).
+- **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
+  an older build only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.
 
 ## What is new
 

@@ -344,7 +344,7 @@ main{max-width:1440px}
 <div id="manual-body" class="manual-body">
 <p id="manual-empty" class="manual-empty" hidden>No matching chapters. Try “LAUNCH”, “save” or “MIDI”, or click “Show all chapters”.</p>
 <article id="manual-tabby-changes" class="manual-chapter" tabindex="-1" data-removed-ok><h3>00 · What changed in tabby-v04</h3>
-<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.13. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
+<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.14. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
 <ul>
 <li><strong>The storage move. </strong>User storage went from 536576 to 471040 bytes: 16 project slots plus 97 song-region sectors (80 of them block sectors). Installing tabby-v04.0 over v03.x once clears the project slots, the device settings and the songs, so restore them from a Full backup; Bluetooth pairings are lost too. Later updates, tabby-v04.1 included, do not move storage again. See chapter 11.</li>
 <li><strong>The old pattern editing and recording are gone. </strong>(From tabby-v04.8 the clips of a song are edited on the new STEP page, and from tabby-v04.9 REC records into a clip; both in chapter 05.) The STEP DETAILS, LOCKS and RHYTHM/REC pages, REC recording, the count-in, the metronome, pad-step mode and the copy, paste, clear, repeat and undo menu entries are gone. Patterns already in a project still load, save and play. The metronome and count-in are planned for a later version.</li>
@@ -365,6 +365,8 @@ main{max-width:1440px}
 <li><strong>Clip workflow on the panel (tabby-v04.10). </strong><kbd>REC</kbd> or <kbd>EDIT</kbd> on an empty pad makes a new clip. <kbd>FX</kbd> on CLIPS opens CLIP SETTING: the clip's length, a copy to another pad, and the song's click and count-in. Holding an empty pad on SCENES stores what plays as a new scene. Every clip now loops at its own length. Chapter 05 has the details.</li>
 <li><strong>Clip chains (tabby-v04.11). </strong>CLIP SETTING has NEXT CLIP (STAY, STOP or a clip), AFTER (the clip's end, or a number of steps) and TIMES: a launched clip leads to the next one by itself. Chapter 05 has the details.</li>
 <li><strong>The scene chain (tabby-v04.12). </strong>On SCENES, K1 sets how many times a scene plays, K2 whether the next scene follows by itself, K3 holds the chain. A scene pad pressed while stopped is where <kbd>PLAY</kbd> starts. Chapter 05 has the details.</li>
+<li><strong>Click level, controller numbers, a clearer backup (tabby-v04.14). </strong>CLICK LEVEL sets the internal click to LOW, MID or HIGH. K1 CONTROLLER to K4 CONTROLLER choose, per song, what the four knobs on CLIPS send. CLIP SETTING is two pages: the clip's lines and the song's lines. The Full backup names a song this page cannot read and stops. The MIDI importer keeps a clip's own length and its chain when it rewrites a song. Chapter 05 has the details.</li>
+<li><strong>Going back to an older build. </strong>Songs saved on the device by tabby-v04.10 or later cannot be read by older firmware. Go back only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.</li>
 <li><strong>Program, bank and controller knobs (tabby-v04.13). </strong>CLIP SETTING has PROGRAM, BANK MSB and BANK LSB for each clip. On CLIPS, K1 to K4 send controllers 74, 71, 1 and 11, and a take records them. Chapter 05 has the details.</li>
 <li><strong>Recovery pages. </strong>Every published build has a permanent page under builds/, and the builds/ page lists them all. If an install is interrupted, the device’s update loader accepts only the build it was receiving: close this page, power-cycle the device, then open the page of that build. Never force flash; the Enable force flash and reconnect button is gone.</li>
 <li><strong>Control names. </strong>Knobs are called K1 to K8 by their printed numbers, from the left; the firmware’s SELECT is K5, PAGE is K6, PRESETS is K7 and MASTER is K8. The button the firmware calls SAVE is called the 4th button in the left group (after SHIFT, FADER BANK, HOME) in the manual. HOME / SRC is the 7th button in the right group (after ARP, PAD / STEP, SCL, ENV, MIX, BT); SHIFT + HOME / SRC opens the sound source page. The HOME button in the left group does not.</li>
@@ -590,6 +592,12 @@ main{max-width:1440px}
 <li><strong>PROGRAM</strong> (OFF, 1 to 128), <strong>BANK MSB</strong> (OFF, 0 to 127) and <strong>BANK LSB</strong> on CLIP SETTING, after TIMES: a bank select and a program change sent on the track's channel when the track enters the clip, before its first notes. They go to MIDI out only.</li>
 <li>Changed while the clip loops, the new values go out once at its next loop.</li>
 <li>On the CLIPS page <strong>K1 to K4</strong> send controllers 74, 71, 1 and 11 for the selected track, two per click; the screen shows the value. A take (<kbd>REC</kbd>) records the movements into the clip, thinned like any controller, and the clip plays them back.</li>
+<li>From tabby-v04.14 the four numbers belong to the song: <strong>K1 CONTROLLER</strong> to <strong>K4 CONTROLLER</strong> on the second page of CLIP SETTING, 0 to 127 each (K2 moves by 16). A song that was never set uses 74, 71, 1 and 11.</li>
+</ul>
+<h4>The two pages of CLIP SETTING (tabby-v04.14)</h4>
+<ul>
+<li>Page 1/2 holds the clip's lines: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD. Page 2/2 holds the song's lines: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL, K1 CONTROLLER to K4 CONTROLLER. K5 walks through all of them and the page changes by itself.</li>
+<li><strong>CLICK LEVEL</strong>: LOW, MID or HIGH for the internal click, each twice as loud as the one before. A song that was never set is on MID. The click as a MIDI note is not affected.</li>
 </ul>
 <h4>The scene chain (tabby-v04.12)</h4>
 <p>The scenes of a song play in order. On the SCENES page three knobs set how, for the scene that plays (stopped: for the scene you reserved by pressing its pad).</p>
@@ -1289,7 +1297,8 @@ main{max-width:1440px}
   $('backup-make').addEventListener('click',()=>perform(async()=>{
     backupNotes([]);
     const rig=globalThis.TabbyRig?TabbyRig.rigLoad():null;
-    const file=await library.fullBackup(backupProgress('Reading the device…'),{workbench:FM1_SIMULATOR&&FM1_SIMULATOR.display_version||null,rig});
+    let file;try{file=await library.fullBackup(backupProgress('Reading the device…'),{workbench:FM1_SIMULATOR&&FM1_SIMULATOR.display_version||null,rig});}
+    catch(error){backupMessage('Full backup '+(error.unreadableSong?error.message:'STOPPED: '+error.message+' No backup file was made.'));throw error;}   // tabby-v04.14: said here too, not only in the status line
     const stamp=file.created.replace(/[:]/g,'-').replace(/\..*/,'');
     saveFile(new TextEncoder().encode(JSON.stringify(file)),'classic-tabby-backup-'+stamp+'.json');
     backupMessage('Full backup saved: '+file.counts.projects+' projects, '+file.counts.songs+' songs, '+file.counts.blocks+' blocks (USER '+file.device.user_bytes+'). Keep this file.');
@@ -1319,7 +1328,8 @@ main{max-width:1440px}
   }));
   $('backup-verify').addEventListener('click',()=>perform(async()=>{
     if(!backupText)throw Error('Choose a full backup file first.');
-    const v=await library.fullVerify(backupText,backupProgress('Verifying…'));
+    let v;try{v=await library.fullVerify(backupText,backupProgress('Verifying…'));}
+    catch(error){backupMessage('Verify '+(error.unreadableSong?error.message.replace('No backup file was made and nothing','Nothing'):'STOPPED: '+error.message));throw error;}
     backupMessage(v.pass?'Verify PASS: '+v.checked+' items identical to the file.':'Verify FAIL: '+v.difference);backupNotes(v.notes);
     await refreshLibrary();
   }));

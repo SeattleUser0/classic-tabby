@@ -5,6 +5,8 @@ Full backup works again on songs with a scene stored on the panel; otherwise tab
 - Firmware package build ID: `ea12999a89238727` (first 16 hex digits). App image 479236 bytes (measured), margin 40221 bytes below the
   519457-byte limit. The firmware's code is tabby-v04.11's; only the page changed.
 - Installing over tabby-v04.2 to tabby-v04.11 keeps storage as it is. Take a Full backup first, with this page.
+- **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
+  an older build only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.
 
 ## Fixed
 

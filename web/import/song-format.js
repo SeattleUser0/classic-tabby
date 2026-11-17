@@ -42,9 +42,12 @@
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.7
+ * Version: 0.9
  *
  * Revision log
+ *   v0.9  2026-11-17  tabby-v04.14: a v3 clip read from a song keeps its own length and its chain when it is written
+ *                     again (block.clip, block.steps, block.chain); the record keeps the click level (byte 44 bits 6-7)
+ *                     and the controller numbers of K1 to K4 (bytes 56 to 59, song.knobs).
  *   v0.8  2026-11-14  Task 17 (tabby-v04.5): a block is written as a v3 clip when the v2 grid cannot hold it (needsV3,
  *                     payloadOf, encodeClip): notes past step 63, more than four notes on a step, controller events, a clip
  *                     program or bank; decodeBlock reads any v3 clip; rows of up to 128 steps.
@@ -156,8 +159,10 @@
     const notes = [], stepFlags = {}, TN = T(), size = format === LIMITS.formatV1 ? LIMITS.noteBytesV1 : LIMITS.noteBytes;
     if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2 && format !== LIMITS.formatV3) fail('block payload format ' + format + ' unknown');
     if (format === LIMITS.formatV3) {                  /* a v3 clip: as the v2 block when a grid holds it, else the clip itself (Task 17) */
+      /* v0.9 (tabby-v04.14): only a clip of 64 steps goes back to the v2 grid; any other length is the clip's own (a clip
+       * made or shortened on the device) and stays a v3 clip. Before, a 32-step clip came back as 64 steps. */
       let v2 = null;
-      try { v2 = V3().toV2(bytes); } catch (e) { if (e.code !== V3().codes.NOT_V2_SHAPED) fail('block ' + id + ' (v3 clip): ' + e.message); }
+      if (bytes[0] === LIMITS.steps && !(bytes[8] | bytes[9] | bytes[10] | bytes[11])) try { v2 = V3().toV2(bytes); } catch (e) { if (e.code !== V3().codes.NOT_V2_SHAPED) fail('block ' + id + ' (v3 clip): ' + e.message); }
       if (v2) return decodeBlock(v2, id, LIMITS.formatV2);
       return decodeClip(bytes, id);
     }
@@ -191,14 +196,14 @@
    * (block.controls: [{ time (units from the clip start), kind (1 CC, 2 program, 3 bend, 4 pressure), a, b }]), a clip
    * program or bank (block.program, block.bankMsb, block.bankLsb), or block.steps above 64. Otherwise v2, as before. */
   function needsV3(block) {
-    if ((block.controls || []).length || Number.isInteger(block.program) || Number.isInteger(block.bankMsb) || Number.isInteger(block.bankLsb) || (block.steps || 0) > LIMITS.steps) return true;
+    if (block.clip || (block.controls || []).length || Number.isInteger(block.program) || Number.isInteger(block.bankMsb) || Number.isInteger(block.bankLsb) || (block.steps || 0) > LIMITS.steps) return true;
     const count = new Map();
     for (const n of block.notes || []) { if (n.step >= LIMITS.steps) return true; count.set(n.step, (count.get(n.step) || 0) + 1); if (count.get(n.step) > LIMITS.notesPerStep) return true; }
     return false;
   }
   function encodeClip(block, where = 'block') {
     const U = LIMITS.unitsPerStep, last = (block.notes || []).reduce((m, n) => Math.max(m, n.step), 0);
-    const steps = Math.max(block.steps || 0, Math.min(128, Math.ceil((last + 1) / 16) * 16), 16);
+    const steps = block.clip && block.steps ? block.steps : Math.max(block.steps || 0, Math.min(128, Math.ceil((last + 1) / 16) * 16), 16);   /* v0.9: a clip read from a song keeps its length */
     for (const n of block.notes || []) {
       if (!Number.isInteger(n.step) || n.step < 0 || n.step >= steps) fail(where + ': note step ' + n.step + ' outside 0..' + (steps - 1));
       if (!Number.isInteger(n.pitch) || n.pitch < 0 || n.pitch > 127) fail(where + ': pitch ' + n.pitch + ' outside 0..127');
@@ -207,7 +212,7 @@
       if (!Number.isInteger(n.length) || n.length < LIMITS.lengthMin) fail(where + ': length ' + n.length + ' invalid');
     }
     try {
-      return V3().build({ steps, program: block.program, bankMsb: block.bankMsb, bankLsb: block.bankLsb,
+      return V3().build({ steps, program: block.program, bankMsb: block.bankMsb, bankLsb: block.bankLsb, chain: block.chain,
         notes: sortNotes(block.notes || []).map(n => ({ time: n.step * U + (n.offset | 0), pitch: n.pitch, velocity: n.velocity, length: n.length, retrigger: n.retrigger })),
         controls: (block.controls || []).slice().sort((a, b) => a.time - b.time),
         stepMods: Object.entries(block.stepFlags || {}).map(([s, f]) => ({ step: Number(s), probability: f.probability || 0, alt: !!f.alt })) });
@@ -222,7 +227,8 @@
     const block = { id, notes: sortNotes(m.notes.map(n => { const step = A(n.time); return { step, pitch: n.pitch, velocity: n.velocity, offset: n.time - step * U, length: n.length, retrigger: !!n.retrigger }; })) };
     if (m.controls.length) block.controls = m.controls;
     if (m.stepMods.length) { block.stepFlags = {}; for (const s of m.stepMods) block.stepFlags[s.step] = { probability: s.probability, alt: s.alt }; }
-    if (m.steps > LIMITS.steps) block.steps = m.steps;
+    block.clip = true; block.steps = m.steps;          /* v0.9: read as a clip, written as a clip of the same length */
+    if (m.chain) block.chain = m.chain;                /* v0.9: NEXT CLIP, AFTER, TIMES (was dropped) */
     if ('program' in m) block.program = m.program;
     if ('bankMsb' in m) { block.bankMsb = m.bankMsb; block.bankLsb = m.bankLsb; }
     return block;
@@ -281,7 +287,8 @@
       /* Version 3: the clip table at 64 (8 tracks x 64 places, a block id each), the scenes at 1088 (12 bytes: a clip
        * place + 1 per track, repeat, flags, steps, 0), the master cycle in byte 43 (0 = 16 steps). */
       r[43] = (song.cycleSteps || 16) === 16 ? 0 : song.cycleSteps;
-      if (Array.isArray(song.click)) { r[44] = song.click[0] & 63; r[45] = song.click[1] & 31; r[46] = song.click[2] & 127; }   /* v0.8: kept as read */
+      if (Array.isArray(song.click)) { r[44] = song.click[0] & 255; r[45] = song.click[1] & 31; r[46] = song.click[2] & 127; }
+      if (Array.isArray(song.knobs)) for (let k = 0; k < 4; k++) r[56 + k] = song.knobs[k] & 255;   /* v0.9: the controller numbers of K1 to K4 (tabby-v04.14) */   /* v0.8: kept as read */
       const clips = clipTable(song);
       song.rows.forEach((row, i) => {
         const at = LIMITS.scenesOffset + i * LIMITS.sceneBytes;
@@ -345,6 +352,7 @@
       }
       /* v0.8: the song's click and count-in settings as the device stores them (header bytes 44 to 46, tabby-v04.10) */
       if (r[44] || r[45] || r[46]) song.click = [r[44], r[45], r[46]];
+      if (r[56] || r[57] || r[58] || r[59]) song.knobs = Array.from(r.subarray(56, 60));   /* v0.9 */
       for (let i = LIMITS.scenesOffset + rowCount * LIMITS.sceneBytes; i < LIMITS.bodyEnd; i++) if (r[i]) fail('song record bytes after the last scene are not 0');
       for (const list of song.clips) while (list.length && !list[list.length - 1]) list.pop();
     } else
@@ -542,7 +550,7 @@
   function quantize(song, mode, rule) { return song.blocks.reduce((n, b) => n + quantizeNotes(b.notes, mode, rule), 0); }
 
   const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, blockKeyOf, needsV3, payloadOf, structuralKey, encodeBlockRecord, validateEvents,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.8' };
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.9' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();

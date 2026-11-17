@@ -1,6 +1,6 @@
-# Development checks (Task 07)
+# Development checks (Task 07; releasing: 2026-11-17)
 
-Version 0.5, 2026-11-12. The opt-in checks between builds, what each catches, how long it takes, and
+Version 0.6, 2026-11-17. The opt-in checks between builds, what each catches, how long it takes, and
 the standing rules for every Classic Tabby session on this machine. The default build is unchanged:
 `make firmware`, `make package` and `make hosted` produce the same bytes as before Task 07 (the gate at
 the end). The measurement series that led here is docs/tasks/TASK-07-step1-assessment.md. The shape of
@@ -10,6 +10,8 @@ compiles 16 firmware units and 36 host units separately, its whole test cycle is
 here needed Orange Cat's per-compile profile, dependency database or `--changed` tier.
 
 Revision log
+- v0.6 2026-11-17: "Releasing": one session releases; a release candidate on the device first, then promote
+  (the user's rules; SPEC 17.12 and 17.13).
 - v0.4 2026-11-12: rule 0a: pushed tags and builds/ pages are never moved or deleted.
 - v0.3 2026-11-11: Task 16: rule 0, the standing testing rule (unattended, remote commands).
 - v0.2 2026-11-04: Task 08: the display version (DISPLAY_VERSION, tests/display-version.mjs in web-smoke);
@@ -59,6 +61,35 @@ Revision log
    (`make firmware`, `make web`, `make check`, `make lint`, `make test`, `make test-fast`) runs under
    `nice -n 19` and never waits. At most 2 compiles at once (`JOBS=2`). No background wait loops: run the
    locked target in the foreground, or start it and come back when it reports.
+
+## Releasing (SPEC 17.12 and 17.13; the user's rules of 2026-11-17)
+
+1. **One session releases.** Only the release session publishes pages, pushes tags, makes GitHub releases, or moves
+   another session's worktrees. Every other session stops at a pushed branch and says what it wants released.
+   tools/linux/publish-pages.py commits nothing unless `TABBY_RELEASE_SESSION=1`, which only
+   tools/linux/release-flow.sh sets.
+2. **A release candidate first, on the device.** A new build is published only at `builds/<tag>-rc<N>/`
+   (`make rc TAG=<tag> RC=<N> DISPLAY_VERSION=<tag>`; git tag `<tag>-rc<N>`). It is installed on the device from that
+   page and run through the full device test set, tools/linux/hw/rc-validate.py: a backup before, one install, the
+   device's build id, every device test (program and knobs, clip chains, scene chain, CLIP SETTING, recording, STEP,
+   CLIPS twice, the timing song, three one-line timing runs), then a full backup, a restore of that backup and a
+   verify. When every step passed, rc-validate.py writes build/device-gate.json (tools/linux/device-gate.py).
+3. **Promote only what passed.** `make promote TAG=<tag> DISPLAY_VERSION=<tag>` (git tag `<tag>` on the same commit)
+   publishes the main page and `builds/<tag>/` and makes the GitHub release. It is refused unless the device gate holds
+   this commit and the firmware build id of the package being published; `make release-assets` and publish-pages.py
+   check the same. The firmware does not depend on the source link, and `make rc` proves that for each candidate by
+   building the package with both links and comparing.
+4. **A candidate that fails stays a candidate.** Its page keeps the banner "Release candidate ... not a release".
+   Give it a note line in tools/linux/builds-notes.json with the next commit ("Failed on the device: ..."); the next
+   publish writes it into the page and the builds list. Fix, commit, and publish the next candidate number. Tags and
+   builds/ pages are never moved or deleted (SPEC 17.11).
+
+The whole sequence, unattended: `tools/linux/release-flow.sh <tag> <N> <log directory> [page for the backup before]`.
+It stops at the first failure and promotes nothing. The suite gate (hard limit 5) still comes first: the suite must
+have passed on the exact commit, with the release's display version.
+
+The display version of a candidate is the release's (`tabby-v04.14`, not `-rc1`), so the firmware that is promoted
+is byte for byte the firmware that was tested. Candidates of one release differ in their build id.
 
 ## The targets
 

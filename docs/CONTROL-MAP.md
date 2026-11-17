@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.8 (2026-11-16). Applies from tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.9 (2026-11-17). Applies from tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -260,13 +260,13 @@ Deliberate differences:
 | What REC records into | A new clip in an empty place, or the selected clip (overdub). | The same: REC on a selected empty pad makes a new clip, one master cycle long. | Same. The MC-707 sets the new clip's length with the MEASURE buttons before recording; here LENGTH on CLIP SETTING changes it. |
 | The clip must be playing | Yes: recording runs with the sequencer. | REC launches the clip on its track if it is not looping already, and the take starts when it does. | A take needs one fixed loop to place notes in; a track that follows the scenes changes clips under it. |
 | Input quantize | [QUANTIZE] on / off; SHIFT + [QUANTIZE] for the settings (RM p. 32). | SHIFT + REC on / off, to the nearest step. | No QUANTIZE button; grid sizes other than a step come with SCALE. |
-| Knob movements (motion) | The knobs' own parameters (filter, mod, effect), up to four per clip, as steps. | K1 to K4 on CLIPS send controllers 74, 71, 1 and 11 to the track; a take records them as events, thinned (one value per 1/32 note and the last value of a move), with pitch bend and channel pressure. | The sound is mostly outside gear here, so the knobs speak MIDI; clips hold timed events, not per-step lanes; thinning keeps a sweep from filling the clip. |
+| Knob movements (motion) | The knobs' own parameters (filter, mod, effect), up to four per clip, as steps. | K1 to K4 on CLIPS send four controllers to the track (74, 71, 1 and 11, or the numbers set in the song); a take records them as events, thinned (one value per 1/32 note and the last value of a move), with pitch bend and channel pressure. | The sound is mostly outside gear here, so the knobs speak MIDI; clips hold timed events, not per-step lanes; thinning keeps a sweep from filling the clip. |
 | A clip's sound | The clip holds its tone. | The clip holds a program change and a bank select, sent on the track's channel when the track enters the clip. | The tone lives in the outside gear; the SMK-37's own sounds belong to the project. |
 | Outside controllers | CC 1, 2 and 4 can be recorded as motion (UM, Ver. 1.80). | Every controller below 120, pitch bend and channel pressure on the track's channel. | Outside gear is the main use here. |
 | Undo of a take | UNDO takes the recording back; no undo while recording (UM, Ver. 1.80). | The same: a take is one undo level; FX does nothing during a take. | Same. |
 | When the clip is full | Not described. | The take stops: CLIP FULL - 512 EVENTS - REC STOPPED, the REC lamp goes out, the clip's pad shows red once; nothing is lost and undo still holds the clip before the take. | SPEC 14.2. |
 | Count-in | Count-In Step, OFF or 1 to 128 steps; MIDI Start goes out after it (UM, Ver. 1.20 and its fixes). | COUNT-IN, OFF or 1, 2 or 4 master cycles; MIDI Start after it. Only before a take that starts the song (REC, then PLAY). | Whole cycles keep the take's first bar on the grid. With the song already running there is nothing to count in. |
-| Metronome | ON or OFF with the master clock; type and level; sounds on the audio outputs (UM, Ver. 1.10 and 1.50). | CLICK: OFF, WHEN RECORDING or ALWAYS; output INTERNAL, MIDI NOTE (a channel and note you choose) or BOTH. | The SMK-37's audio may feed the house mix, so the click for the stage is a MIDI note (SPEC 14.1, decision 7). |
+| Metronome | ON or OFF with the master clock; type and level; sounds on the audio outputs (UM, Ver. 1.10 and 1.50). | CLICK: OFF, WHEN RECORDING or ALWAYS; output INTERNAL, MIDI NOTE (a channel and note you choose) or BOTH; CLICK LEVEL LOW, MID or HIGH for the internal click; one click sound. | The SMK-37's audio may feed the house mix, so the click for the stage is a MIDI note (SPEC 14.1, decision 7). |
 | Where the click settings live | In the system settings. | In each song. | The device's settings sector has no room without a format change; a song's click note belongs to that song's rig anyway. |
 | Unsaved clips | Any number. | One at a time. A copy or a new clip counts. | Memory. |
 | A scene pad while stopped | Reserves the scene; START plays it (RM p. 35 with p. 12). | The same from tabby-v04.12; the pad again takes the reservation back. | Same; taking back as for clips. |
@@ -419,8 +419,9 @@ when ENV sends the track back to the scenes.
 ## 14. CLIP SETTING page
 
 FX on the CLIPS page opens it on the track's selected clip (or the clip the track plays). The screen lists one
-setting per line: the upper two belong to the clip, the others to the song. Without a selected clip the clip's lines
-show a dash and the song's lines still work.
+setting per line, on two pages: page 1/2 holds the clip's eight lines (LENGTH to COPY TO PAD), page 2/2 the song's ten
+lines (COUNT-IN to K4 CONTROLLER). K5 walks through all eighteen; the screen changes page when it passes line 8.
+Without a selected clip the clip's lines show a dash and the song's lines still work.
 
 | Control | Result |
 | --- | --- |
@@ -443,6 +444,8 @@ show a dash and the song's lines still work.
 | CLICK OUT | INTERNAL, MIDI NOTE, BOTH | Section 15. |
 | CLICK CHANNEL | 1 to 16 | The MIDI click's channel (10 unless changed). |
 | CLICK NOTE | 1 to 127 | The MIDI click's note (37 unless changed). |
+| CLICK LEVEL | LOW, MID, HIGH | The internal click's level (MID unless changed). Each step is twice the one before. Section 15. |
+| K1 CONTROLLER to K4 CONTROLLER | 0 to 127 | The controller number each of K1 to K4 sends on the CLIPS page (74, 71, 1 and 11 unless changed). Section 19.2. |
 
 Messages: SELECT A CLIP FIRST, NOTES PAST THE END REMOVED, NOT DURING A TAKE, THE CLIP IS UNSAVED: SAVE IT FIRST,
 THAT PAD HOLDS A CLIP, COPIED - THE COPY IS OPEN, CLIP SHARED BY ANOTHER TRACK, STOP TO SAVE, SAVED, NOTHING TO SAVE.
@@ -455,6 +458,7 @@ The settings are part of the song and are saved with it. A song that was never s
 | --- | --- |
 | The click | One on every quarter note of the master cycle; the first of a cycle is louder (MIDI velocity 127, the others 90; the internal click is higher in pitch). |
 | CLICK | OFF: none. WHEN RECORDING: while a take is armed or runs. ALWAYS: whenever the song plays. |
+| CLICK LEVEL | The internal click only: LOW, MID or HIGH, each twice as loud as the one before. A song that was never set is on MID. HIGH is about as loud as a note of the built-in sounds; before tabby-v04.14 the click had half the level of LOW. |
 | CLICK OUT | INTERNAL: a short click mixed into the SMK-37's audio output, after the master volume (K8). MIDI NOTE: a note on the chosen channel and note, on every MIDI output, sent in time like a song note and released a 32nd note later. BOTH. |
 | COUNT-IN | With a take armed while the song is stopped (REC, section 13), PLAY first clicks for 1, 2 or 4 master cycles; then the song starts. The CLIPS page shows COUNT-IN and the quarter notes left. The count-in clicks whatever CLICK says, on the output CLICK OUT names. |
 | MIDI Start | Goes out when the song starts, after the count-in. |
@@ -541,7 +545,7 @@ set on the SCENES page for the scene that plays; while the song is stopped, for 
 
 ### 19.2 K1 to K4 on CLIPS
 
-| Knob | Controller | Starts at |
+| Knob | Controller unless changed | Starts at |
 | --- | --- | --- |
 | K1 | 74 (brightness, filter cutoff on most gear) | 64 |
 | K2 | 71 (resonance) | 64 |
@@ -553,4 +557,6 @@ set on the SCENES page for the scene that plays; while the song is stopped, for 
 - Each track keeps its four values while the power is on.
 - During a take the movements are recorded into the clip like controllers from outside gear (section 13.2: once per
   1/32 note while moving, and the last value), and the clip plays them back on the song's channel for the track.
-- The numbers are fixed in this release.
+- The four controller numbers belong to the song (from tabby-v04.14): K1 CONTROLLER to K4 CONTROLLER on page 2/2 of
+  CLIP SETTING, 0 to 127 each, saved with the song. A song that was never set uses 74, 71, 1 and 11. The values the
+  knobs start at stay as in the table whatever the number.

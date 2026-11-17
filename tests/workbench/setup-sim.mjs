@@ -11,9 +11,12 @@
 //
 //   Run:  /usr/bin/node tests/workbench/setup-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-17  tabby-v04.14: CLICK LEVEL and the controller numbers of K1 to K4 (the second page); every record and
+//                     clip the device wrote goes through both of the page's readers and back unchanged; the clip chain
+//                     survives the workbench; the Full backup names a song it cannot read.
 //   v0.1  2026-11-16  Initial version.
 
 import { readFileSync } from 'node:fs';
@@ -98,7 +101,7 @@ press(BT); shiftPad(0); pad(0); pad(0);                       /* CLIPS, track 1,
 let s = state();
 check(s.page === 20 && s.selected === 0, 'CLIPS: track 1, clip 1 selected');
 press(FX); let u = setup();
-check(u.page === 22 && u.track === 0 && u.place === 0 && u.steps === 16 && u.row === 0 && u.rows === 13, 'FX opens CLIP SETTING on the selected clip: 16 steps, the first row (page ' + u.page + ', ' + u.steps + ' steps)');
+check(u.page === 22 && u.track === 0 && u.place === 0 && u.steps === 16 && u.row === 0 && u.rows === 18, 'FX opens CLIP SETTING on the selected clip: 16 steps, the first row (page ' + u.page + ', ' + u.steps + ' steps)');
 /* LENGTH */
 knob(K1, 1); knob(K2, 1); u = setup();
 check(u.steps === 33 && u.unsaved === 1, 'K1 +1 and K2 +16: the clip is 33 steps long, unsaved (' + u.steps + ')');
@@ -242,6 +245,61 @@ knob(K3, -1); q = scene();
 toBar(times0 + 5, 100);
 check(q.hold === 0 && (c.sim_song_status(0) >>> 16 & 255) !== 1, 'K3 left: CHAIN RUNS: the song goes on (scene ' + ((c.sim_song_status(0) >>> 16 & 255) + 1) + ')');
 press(PLAY); step(60);
+
+/* ---- tabby-v04.14: the second page: CLICK LEVEL and the controller numbers of K1 to K4 ---- */
+if (c.sim_song_status(0) >>> 8 & 255) { press(PLAY); step(200); }
+check(!(c.sim_song_status(0) >>> 8 & 255), 'stopped');
+s = state(); if (s.page !== 20) { press(BT); s = state(); }
+pad(0); pad(0); press(FX); knob(K5, 30);
+const more = () => { const n = c.sim_setup_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n)); return { n, row: d[1], unsaved: d[11], level: d[28], knobs: d.slice(29, 33) }; };
+let w = more();
+check(w.n === 33 && w.row === 17 && w.level === 1 && w.knobs.join() === '74,71,1,11', 'K5 to the last line (K4 CONTROLLER); a song never set: CLICK LEVEL MID, controllers 74, 71, 1, 11 (' + [w.row, w.level, w.knobs] + ')');
+knob(K5, -3); knob(K2, -4); knob(K1, -3); knob(K5, -1); knob(K1, -5); w = more();
+check(w.row === 13 && w.knobs.join() === '7,71,1,11' && w.level === 0 && w.unsaved === 1, 'K1 CONTROLLER 7 (K2 moves by 16); CLICK LEVEL LOW, the lowest; unsaved (' + [w.level, w.knobs] + ')');
+knob(K1, 5); w = more();
+check(w.level === 2, 'CLICK LEVEL HIGH, the highest');
+knob(K5, 4); knob(K2, 8); w = more();
+check(w.row === 17 && w.knobs[3] === 127, 'K4 CONTROLLER stops at 127');
+knob(K2, -7); knob(K1, -4); press(SAVE); w = more();
+check(w.unsaved === 0 && w.knobs[3] === 11, 'saved');
+{ const r = stored(); check(r[44] >> 6 === 2 && r[56] === 8 && r[57] === 0 && r[59] === 12, 'the record: header byte 44 bits 6-7 = 2 (HIGH), byte 56 = 8 (controller 7), byte 57 = 0 (never set), byte 59 = 12 (set to 11) (' + [r[44] >> 6, r[56], r[57], r[59]] + ')'); }
+press(FX);
+{ const before = log.length; knob(K1, 1); const cc = log.slice(before).filter(m => (m[0] & 0xf0) === 0xb0);
+  check(cc.length === 1 && cc[0][1] === 7, 'on CLIPS K1 now sends controller 7 (' + cc.map(m => m.slice(0, 3)).join(' | ') + ')'); }
+check(c.sim_song_load(0) === 0 && more().level === 2 && more().knobs[0] === 7, 'loaded again: the level and the controller are the song\'s');
+
+/* ---- tabby-v04.14: everything the device wrote goes through both of the page's readers and back unchanged ---- */
+{ const { createRequire } = await import('node:module'); const req = createRequire(import.meta.url);
+  const Format = req(join(root, 'web/import/song-format.js')), V3 = req(join(root, 'web/clip-v3/clip-v3.js')), W = globalThis.FM1Web;
+  const bytes = stored(); let why = '';
+  let a = null, b = null, a2 = null, b2 = null;
+  try { a = W.songRecordParse(bytes); a2 = W.songRecordBuild(a); } catch (e) { why += ' page: ' + e.message; }
+  try { b = Format.decodeRecord(bytes); } catch (e) { why += ' workbench: ' + e.message; }
+  const same = (x, y, from, to) => { for (let i = from; i < to; i++) if (x[i] !== y[i]) return i; return -1; };
+  check(a && a2 && same(a2, bytes, 20, 2624) < 0, 'the page reads the saved record and builds the same bytes 20 to 2623 (first difference at ' + (a2 ? same(a2, bytes, 20, 2624) : '-') + why + ')');
+  check(b && b.knobs && b.knobs[0] === 8 && b.click && b.click[0] === bytes[44], 'the workbench reader keeps the controller numbers and the click level (' + why + ')');
+  const ids = [...new Set(b ? b.clips.flat().filter(Boolean) : [])]; let clips = 0, chains = 0, bad = [];
+  for (const id of ids) {
+    const n = c.sim_block_read(0, id); if (n <= 0) { bad.push(id + ': not read'); continue; }
+    const payload = mem().slice(c.sim_file(), c.sim_file() + n), v3 = V3.validate(payload) === 0;
+    if (!v3) continue;
+    clips++; if (payload[8]) chains++;
+    try { const back = Format.payloadOf(Format.decodeBlock(payload, id, Format.LIMITS.formatV3));
+      if (back.format !== Format.LIMITS.formatV3 || back.bytes.length !== payload.length || same(back.bytes, payload, 0, payload.length) >= 0) bad.push(id + ': differs at byte ' + (back.bytes.length !== payload.length ? 'length' : same(back.bytes, payload, 0, payload.length))); }
+    catch (e) { bad.push(id + ': ' + e.message); }
+  }
+  check(clips >= 2 && chains >= 2 && !bad.length, clips + ' clips made on the device (' + chains + ' with a chain) come back from the workbench byte for byte: length, chain, program and bank (' + bad.join('; ') + ')');
+  /* the Full backup names the song it cannot read and stops (the tabby-v04.10 page stood at 66 %) */
+  const lib = Object.create(W.Library.prototype);
+  Object.assign(lib, { link: { lost: false }, songStorage: true, settingsTransfer: false, radioSettings: false,
+    songStoragePlaying: async () => false, query: async cmd => { if (cmd === 0) return new Uint8Array(14); if (cmd === 9) throw Object.assign(new Error('empty'), { deviceCode: 1 }); return new Uint8Array(0); },
+    download: async () => new Uint8Array(8), upload: async () => {},
+    songRead: async slot => { if (slot === 6) throw new Error('Scene 5 is invalid'); return null; } });
+  let said = '', seen = 0; try { await lib.fullRead(p => { seen = p; }); } catch (e) { said = e.message; }
+  check(/^STOPPED at song 7: this page cannot read it \(Scene 5 is invalid\)\. No backup file was made/.test(said) && /delete song 7/.test(said), 'the Full backup stops at a song the page cannot read and names it (' + said.slice(0, 90) + '…)');
+  lib.songRead = async slot => { if (slot === 2) throw Object.assign(new Error('The device does not respond'), { code: 'NO_REPLY' }); return null; };
+  said = ''; try { await lib.fullRead(); } catch (e) { said = e.message; }
+  check(said === 'The device does not respond', 'a lost link is reported as it is, not as an unreadable song'); }
 
 c.sim_midi_capture(0); c.sim_midi_drain(0);
 { const held = new Map(); let bad = 0;

@@ -1,14 +1,14 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 3.0, 2026-11-16. For tabby-v04.13 on the M-VAVE SMK-37 Pro.
+Version 3.1, 2026-11-17. For tabby-v04.14 on the M-VAVE SMK-37 Pro.
 Written for the person who plays and tests the device. No programming needed.
 
-tabby-v04.13 is new firmware. It adds a clip's program and bank and the controller knobs (section 4.14). tabby-v04.12 added the scene chain (section 4.13). tabby-v04.11 added clip chains (section 4.12), and its page can back up songs with a scene stored on the panel. tabby-v04.10 added new clips from the panel, the CLIP SETTING page (a clip's length, copies), a click and a count-in, and storing a scene (section 4.11). tabby-v04.9 added recording: REC records what you play into a clip (section 4.10). tabby-v04.8 added the STEP page: edit a clip's notes on the pads and keys (section 4.9). tabby-v04.7 added the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
+tabby-v04.14 is new firmware. It adds CLICK LEVEL and lets each song choose the controller numbers of K1 to K4 (sections 4.11 and 4.14); its page names a song it cannot back up instead of standing still (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song. tabby-v04.13 added a clip's program and bank and the controller knobs (section 4.14). tabby-v04.12 added the scene chain (section 4.13). tabby-v04.11 added clip chains (section 4.12), and its page can back up songs with a scene stored on the panel. tabby-v04.10 added new clips from the panel, the CLIP SETTING page (a clip's length, copies), a click and a count-in, and storing a scene (section 4.11). tabby-v04.9 added recording: REC records what you play into a clip (section 4.10). tabby-v04.8 added the STEP page: edit a clip's notes on the pads and keys (section 4.9). tabby-v04.7 added the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
 at the time they are due, within about 2 ms (timed MIDI, on at power-up),
 and a song can now follow an external MIDI clock. It also has a remote control
 command for the workbench tools, so tests can run without anyone at the panel.
-If an older firmware is on your SMK-37, install tabby-v04.13 to get these. The page also has English-only Help and this guide.
+If an older firmware is on your SMK-37, install tabby-v04.14 to get these. The page also has English-only Help and this guide.
 
 How to read this guide
 ----------------------
@@ -87,6 +87,7 @@ Removed:
 - tabby-v04.9: Recording. REC on the CLIPS or STEP page records what you play, on the keys or from outside gear at MIDI in, into the selected clip while it loops. Notes land on the nearest step unless you switch input quantize off (SHIFT and REC). FX undoes a whole take. See 4.10.
 - tabby-v04.9.1: HOME works on the STEP page while a clip is open (in tabby-v04.8 and tabby-v04.9 it did nothing there; EDIT or BT were the way out).
 - tabby-v04.9.2: After you stop the song, no pad on the CLIPS page stays green, and the clip you had launched can be reserved for the next PLAY like any other (before, its pad stayed green and a press did nothing).
+- tabby-v04.14: CLICK LEVEL (LOW, MID, HIGH) for the internal click; K1 CONTROLLER to K4 CONTROLLER choose what the four knobs on CLIPS send, per song; CLIP SETTING is two pages. The Full backup names a song the page cannot read and stops. The workbench importer keeps a clip's own length and its chain when it rewrites a song (before, it dropped them).
 - tabby-v04.13: CLIP SETTING has PROGRAM, BANK MSB and BANK LSB for each clip; on CLIPS K1 to K4 send controllers 74, 71, 1 and 11, and a take records them (4.14).
 - tabby-v04.12: the scene chain: on SCENES K1 sets how many times a scene plays, K2 what follows it, K3 holds the chain; a scene pad pressed while stopped is where PLAY starts (4.13).
 - tabby-v04.11.2: Full backup, verify and restore work on a song that has a scene stored on the panel. On the pages of tabby-v04.10, tabby-v04.11 and tabby-v04.11.1 the backup stopped at about 66 % for such a song, with "Scene n is invalid" in the status line. The firmware is tabby-v04.11's.
@@ -131,6 +132,10 @@ Install is only needed when you want a new firmware. tabby-v04.13 has new firmwa
 8. When the page says done, the SMK-37 restarts. The boot screen shows SMK37, OFFICIAL OPEN and the version.
 
 Never tick Force flash for a Classic Tabby update. It is only for the first move from the factory firmware.
+
+Going back to an older build: songs saved on the device by tabby-v04.10 or later cannot be read by older firmware. Go back to an older build only with a Full backup made before tabby-v04.10: install the older build from its page in the builds list, then restore that backup. Songs made since then stay in your newer backup files; they play again when you return to the newer build and restore it.
+
+Release candidates: a page whose address ends in -rc1, -rc2 and so on, with a red line at the top, is a build under test. Use the main page unless you were asked to try one.
 
 [not checked in simulator] (the whole of 3.1 and 3.2: the simulator has no USB)
 
@@ -357,7 +362,7 @@ A new clip
 3. The CLIPS page shows UNSAVED. Stop the song and press the 4th button in the left group, or wait ten seconds: SAVED. The new clip is now part of the song.
 
 CLIP SETTING
-1. On CLIPS select a clip (hold its pad) and press FX. The SETTING page lists LENGTH, COPY TO PAD, COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL and CLICK NOTE.
+1. On CLIPS select a clip (hold its pad) and press FX. The SETTING page has two pages. Page 1/2 is the clip: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB and COPY TO PAD. Page 2/2 is the song: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL and K1 CONTROLLER to K4 CONTROLLER. K5 walks through all the lines; the page changes by itself.
 2. Turn K5 to choose a line. Turn K1 to change it; K2 changes it by 16.
 3. LENGTH is the clip's length, 1 to 128 steps. Making it shorter removes the notes past the new end; FX on the STEP page brings them back.
 4. COPY TO PAD: turn K1 to an empty pad and press the 4th button in the left group. The copy is open and UNSAVED. A clip you changed must be saved before you copy it.
@@ -368,7 +373,8 @@ Click and count-in
 1. On the SETTING page turn K5 to CLICK. K1 chooses OFF, WHEN RECORDING or ALWAYS.
 2. CLICK OUT: INTERNAL is a click on the SMK-37's audio output. MIDI NOTE sends a note on CLICK CHANNEL and CLICK NOTE (channel 10, note 37 unless you change them). BOTH does both. If your audio goes to the house mix, use MIDI NOTE.
 3. COUNT-IN: OFF, 1, 2 or 4 CYCLES. Arm a take with REC while the song is stopped, then press PLAY: the click counts in, the screen shows COUNT-IN and the beats left, then the song starts.
-4. These settings belong to the song and are saved with it. A song you never set has no click.
+4. CLICK LEVEL (tabby-v04.14): LOW, MID or HIGH for the internal click. Each step is twice as loud. A song you never set is on MID; HIGH is about as loud as a note.
+5. These settings belong to the song and are saved with it. A song you never set has no click.
 
 Storing a scene
 1. Let the song play. Launch the clips you want on their tracks.
@@ -402,6 +408,7 @@ Storing a scene
 3. When the track enters the clip (its pad, a chain, a scene), the bank select and the program change go out on the track's channel, just before the clip's first notes. They go to MIDI out only.
 4. On the CLIPS page turn K1 to K4: they send controllers 74, 71, 1 and 11 for the selected track. The screen shows the value.
 5. Press REC and turn a knob: the movement is recorded into the clip and plays back in the loop.
+6. To send other controllers (tabby-v04.14): press FX, turn K5 to K1 CONTROLLER (page 2/2) and choose a number from 0 to 127 with K1 (K2 moves by 16). The same for K2, K3 and K4 CONTROLLER. Save. The numbers belong to the song.
 
 
 5. USING THE WORKBENCH
@@ -470,6 +477,7 @@ Make a Full backup before every firmware update.
 2. Click Full backup. A file is saved on the computer. It holds the 16 project slots, device settings, every song, and your My rig profile. It does not hold Bluetooth pairings.
 3. To restore: choose the Backup file, click Full restore, and confirm. It checks the whole file before it writes anything.
 4. At the end it reads everything back. It shows PASS or the first difference. Click Verify against file any time to check again.
+5. If the page cannot read a song, the backup stops and says so: STOPPED at song 7: this page cannot read it. No file was made and nothing on the device changed. This happens when the song was saved by newer firmware than the page you opened. Open the page of the firmware that is on the device (the builds list has every page) and make the backup there.
 
 A factory restore overwrites the last 40 KB of song storage. Export your songs as .tabby files first.
 
@@ -1072,6 +1080,26 @@ Set up: a clip launched and looping, a synth on MIDI out that reacts to controll
 1. Turn K1 on the CLIPS page. The screen shows K1 CONTROLLER 074 and a value; the synth's filter moves.
 2. Press REC. Turn K1 slowly down and up over one bar. Press REC.
 You should hear: the filter movement comes back in every loop. On the STEP page EVENTS has grown by a dozen or so, not by hundreds. FX on the STEP page takes the take back. [not checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
+T80. The click level (tabby-v04.14)
+Set up: headphones or speakers on the SMK-37's audio output. A song loaded, stopped. CLICK on ALWAYS and CLICK OUT on INTERNAL (4.11).
+1. Press FX on CLIPS. Turn K5 to CLICK LEVEL on page 2/2. It says MID.
+2. Press PLAY. Turn K1 left to LOW, then right to HIGH.
+You should hear: the click gets clearly quieter on LOW and louder on HIGH, without a crackle. HIGH is about as loud as a note you play. [not checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
+T81. Choose a knob's controller (tabby-v04.14)
+Set up: a synth or a MIDI monitor on MIDI out. A song loaded, stopped.
+1. Press FX on CLIPS. Turn K5 to K1 CONTROLLER. Turn K1 until it says 7. Press the 4th button in the left group: SAVED.
+2. Press FX. Turn K1.
+You should see: the screen says K1 CONTROLLER 007 and a value, and the monitor shows controller 7 (volume on most gear). Load another song and come back: it is still 7. [checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
+T82. A backup the page cannot read (tabby-v04.14)
+Set up: only if you have a song saved by firmware newer than the page you open. Otherwise skip.
+1. Open the older page. In Projects & sounds click Full backup.
+You should see: the backup line says STOPPED at song n: this page cannot read it, and what to do. No file is downloaded. [checked in simulator]
 Result: PASS / FAIL   Notes: ________________________________
 
 

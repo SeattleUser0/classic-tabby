@@ -2502,6 +2502,18 @@ int main(void)
         CHECK(song_setting(SONG_SET_CLICK) == 2 && song_setting(SONG_SET_CLICK_OUT) == 1 && song_setting(SONG_SET_CLICK_CH) == 3 && song_setting(SONG_SET_CLICK_NOTE) == 40 && song_setting(SONG_SET_COUNT_IN) == 1 && song_unsaved(),
               "click: always, as a MIDI note, channel 4, note 40; count-in one cycle; the song is unsaved");
         CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_setting(SONG_SET_CLICK) == 2 && song_setting(SONG_SET_CLICK_CH) == 3 && song_setting(SONG_SET_CLICK_NOTE) == 40 && song_setting(SONG_SET_COUNT_IN) == 1, "click: the settings are stored with the song");
+        /* tabby-v04.14: CLICK LEVEL and the controller numbers of K1 to K4 on CLIPS */
+        CHECK(song_setting(SONG_SET_CLICK_LEVEL) == 1 && song_setting(SONG_SET_KNOB1) == 74 && song_setting(SONG_SET_KNOB2) == 71 && song_setting(SONG_SET_KNOB3) == 1 && song_setting(SONG_SET_KNOB4) == 11,
+              "settings: a song never set: CLICK LEVEL MID, K1 to K4 send controllers 74, 71, 1, 11");
+        (void)song_setting_edit(SONG_SET_CLICK_LEVEL, -9); (void)song_setting_edit(SONG_SET_KNOB1, -100); (void)song_setting_edit(SONG_SET_KNOB3, 300); (void)song_setting_edit(SONG_SET_KNOB4, -1);
+        CHECK(song_setting(SONG_SET_CLICK_LEVEL) == 0 && song_setting(SONG_SET_KNOB1) == 0 && song_setting(SONG_SET_KNOB2) == 71 && song_setting(SONG_SET_KNOB3) == 127 && song_setting(SONG_SET_KNOB4) == 10 && song_unsaved(),
+              "settings: LOW; controller 0 can be chosen, 127 is the highest; unsaved");
+        CHECK(song_setting_edit(SONG_SETTINGS, 1) == SONG_INVALID, "settings: an unknown setting is refused");
+        (void)song_setting_edit(SONG_SET_CLICK_LEVEL, 9);
+        CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_setting(SONG_SET_CLICK_LEVEL) == 2 && song_setting(SONG_SET_KNOB1) == 0 && song_setting(SONG_SET_KNOB3) == 127 && song_setting(SONG_SET_KNOB4) == 10
+              && song_setting(SONG_SET_CLICK) == 2 && song_setting(SONG_SET_COUNT_IN) == 1, "settings: HIGH and the controllers are stored with the song; the click and the count-in are as they were");
+        (void)song_setting_edit(SONG_SET_CLICK_LEVEL, -1); (void)song_setting_edit(SONG_SET_KNOB1, 74); (void)song_setting_edit(SONG_SET_KNOB3, -126); (void)song_setting_edit(SONG_SET_KNOB4, 1);
+        CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_setting(SONG_SET_CLICK_LEVEL) == 1 && song_setting(SONG_SET_KNOB1) == 74, "settings: set back and stored");
         { struct message m[64]; (void)drain(m, 64); }
         no = 0; (void)sim_song_play();
         for (unsigned blocks = 0; blocks < 1500; ++blocks) {

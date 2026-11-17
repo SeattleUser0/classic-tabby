@@ -43,9 +43,12 @@ builds/index.json (schema 1)
     "page" is relative to the site root (the gh-pages root); the workbench resolves it against
     the URL it loaded the index from. Entries are ordered by published date, then tag.
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-17  The release flow of SPEC 17.13: the page of a release candidate (builds/<tag>-rc<N>/, published from
+                      2026-11-17) gets a note banner before <main> saying what it is: a candidate, a candidate that
+                      was released as <tag>, or the tracked note (a candidate that failed).
     v0.2  2026-11-14  Task 17: note lines tracked in tools/linux/builds-notes.json are applied to the index and to a page's
                       existing note banner on every rewrite (the correction of the tabby-v04.3 note).
     v0.1  2026-11-08  Initial version (Task 12 A5).
@@ -151,20 +154,49 @@ def tracked_notes(path=None):
     return notes
 
 
-def apply_note_banner(worktree, tag, note, log=print):
+RC_TAG = re.compile(r"^(.*)-rc(\d+)$")
+RC_FLOW_FROM = "2026-11-17"       # release candidates published from this day on follow SPEC 17.13; older rc pages are left as they are
+BANNER_OPEN = '<p style="margin:0;padding:10px 14px;background:#b00020;color:#fff;font:600 15px/1.4 system-ui,sans-serif">'
+
+
+def rc_note(worktree, tag):
+    """v0.3: the note of a release candidate's page that has no tracked note: released (builds/<base>/ holds the same
+    build) or not."""
+    base = RC_TAG.match(tag).group(1)
+    try:
+        same = inspect_site(Path(worktree) / BUILDS_DIR / base)["build"] == inspect_site(Path(worktree) / BUILDS_DIR / tag)["build"]
+    except (BuildsError, OSError):
+        same = False
+    if same:
+        return {"text": "Release candidate; it passed the device tests and was released as %s." % base, "link": base}
+    return {"text": "Release candidate of %s: not a release. Use the main page unless you were asked to test this build." % base, "link": ""}
+
+
+def apply_note_banner(worktree, tag, note, log=print, insert=False):
     """v0.2: a builds/<tag>/ page that already carries a note banner gets the tracked text (and link); assets.json
-    follows. A page without a banner is left alone: this never adds or removes anything else."""
+    follows. A page without a banner is left alone: this never adds or removes anything else. v0.3: with insert (a
+    release candidate's page), a page without a banner gets one before <main>."""
     page = Path(worktree) / BUILDS_DIR / tag / "index.html"
     if not page.is_file():
         return False
     text = page.read_text(encoding="utf-8")
     inner = html.escape(note["text"]) + ((' <a style="color:#fff" href="../%s/">builds/%s/</a>' % (note["link"], note["link"])) if note.get("link") else "")
     found = BANNER.search(text)
-    if not found or found.group(2) == inner:
+    if found and found.group(2) == inner:
+        return False
+    if not found and not (insert and "<main>" in text):
         return False
     old = page.read_bytes()
-    page.write_text(text[:found.start(2)] + inner + text[found.end(2):], encoding="utf-8")
+    if found:
+        page.write_text(text[:found.start(2)] + inner + text[found.end(2):], encoding="utf-8")
+    else:
+        at = text.index("<main>")
+        page.write_text(text[:at] + BANNER_OPEN + inner + "</p>\n" + text[at:], encoding="utf-8")
     new = page.read_bytes()
+    # the same page under its other names (Build-Hosted.cjs writes index.html and smk37-workbench.html alike)
+    twin = page.parent / "smk37-workbench.html"
+    if twin.is_file() and twin.read_bytes() == old:
+        twin.write_bytes(new)
     assets = page.parent / "assets.json"
     if assets.is_file():
         raw = assets.read_text(encoding="utf-8")
@@ -185,9 +217,14 @@ def write_index(worktree, log=print, notes=None):
         old = previous.get(entry["tag"]) or {}
         entry["published"] = old.get("published") or today()
         entry["note"] = old.get("note") or ""
+        rc = RC_TAG.match(entry["tag"]) and (worktree / BUILDS_DIR / entry["tag"] / "index.html").read_text(encoding="utf-8", errors="replace").count("<main>") == 1
         if entry["tag"] in notes:             # v0.2: a note line tracked in the repository wins, and the page's banner follows
             entry["note"] = notes[entry["tag"]]["text"]
-            apply_note_banner(worktree, entry["tag"], notes[entry["tag"]], log)
+            apply_note_banner(worktree, entry["tag"], notes[entry["tag"]], log, insert=bool(rc) and entry["published"] >= RC_FLOW_FROM)
+        elif rc and entry["published"] >= RC_FLOW_FROM:  # v0.3: a release candidate of the SPEC 17.13 flow always says what it is
+            note = rc_note(worktree, entry["tag"])
+            entry["note"] = note["text"]
+            apply_note_banner(worktree, entry["tag"], note, log, insert=True)
         if old.get("source"):                 # an explicit source (commit archive) beats the page's link
             entry["source"] = old["source"]
         if old.get("version") and not entry["version"]:

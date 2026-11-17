@@ -5,6 +5,8 @@ A program change and bank for each clip, and four controller knobs that a take r
 - Firmware package build ID: `9c6c2806e46ffae0` (first 16 hex digits). App image 481156 bytes (measured), margin 38301 bytes
   below the 519457-byte limit (docs/FLASH-BUDGET.md 36). From tabby-v04.12 (`568ffa35e8faa236`): +736 bytes.
 - Installing over tabby-v04.2 to tabby-v04.12 keeps storage as it is. Take a Full backup first anyway.
+- **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
+  an older build only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.
 
 ## What is new
 

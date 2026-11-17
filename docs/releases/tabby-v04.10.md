@@ -7,6 +7,8 @@ New clips, a clip's length, copies, a click and a count-in, and stored scenes, a
 - Installing over tabby-v04.2 to tabby-v04.9.3 keeps storage as it is. Take a Full backup first anyway.
 - Songs changed on the device with this release (a new clip, a copy, a stored scene, a click setting) are saved in a
   form that older firmware does not read. Keep the backup if you may go back.
+- **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
+  an older build only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.
 
 ## What is new
 

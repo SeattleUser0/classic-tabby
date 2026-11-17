@@ -1126,7 +1126,8 @@
       // each at 1088: a clip place + 1 per track, repeat, flags, steps). The editor sees scenes as rows with block ids;
       // song.clips keeps every track's places (also clips no scene uses) and song.cycle the master cycle in steps.
       song.version=3;song.cycle=bytes[43]||16;check(song.cycle>=2&&song.cycle<=128,'Invalid master cycle');
-      if(bytes[44]||bytes[45]||bytes[46])song.click=[bytes[44],bytes[45],bytes[46]];   // the song's click and count-in as the device stores them (tabby-v04.10)
+      if(bytes[44]||bytes[45]||bytes[46])song.click=[bytes[44],bytes[45],bytes[46]];
+      if(bytes[56]||bytes[57]||bytes[58]||bytes[59])song.knobs=Array.from(bytes.subarray(56,60));   // tabby-v04.14: the controller numbers of K1 to K4 (0 = the default, else number + 1)   // the song's click and count-in as the device stores them (tabby-v04.10)
       song.clips=Array.from({length:8},(_,t)=>Array.from({length:64},(_,c)=>u16(bytes,64+t*128+c*2)));
       for(let r=0;r<rows;r++){const at=1088+r*12,block=[];
         for(let t=0;t<8;t++){const place=bytes[at+t];check(place<=64&&(!place||song.clips[t][place-1]),'Scene '+(r+1)+' names a clip that does not exist');block.push(place?song.clips[t][place-1]:0);}
@@ -1156,7 +1157,8 @@
     check(Number.isInteger(song.tempo)&&song.tempo>=0&&song.tempo<=65535,'Invalid BPM');put16(bytes,38,song.tempo);
     check(Array.isArray(song.rows)&&song.rows.length>=1&&song.rows.length<=128,'A song needs 1-128 rows');bytes[40]=song.rows.length;
     check(Number.isInteger(song.loopRow)&&song.loopRow>=0&&song.loopRow<song.rows.length,'Invalid loop start row');bytes[42]=song.loopRow;
-    if(Array.isArray(song.click)){bytes[44]=song.click[0]&63;bytes[45]=song.click[1]&31;bytes[46]=song.click[2]&127;}
+    if(Array.isArray(song.click)){bytes[44]=song.click[0]&255;bytes[45]=song.click[1]&31;bytes[46]=song.click[2]&127;}   // tabby-v04.14: bits 6-7 of byte 44 = the click level
+    if(Array.isArray(song.knobs))for(let k=0;k<4;k++)bytes[56+k]=song.knobs[k]&255;
     for(let t=0;t<8;t++){const c=song.channel[t]|0;check(c>=0&&c<=16,'Output channels must be 0-16');bytes[48+t]=c;}
     if(scenes){
       // The clip table: the places the song already has (song.clips), then every block a scene uses that has none yet.
@@ -1329,7 +1331,11 @@
     const songs=[];
     for(let slot=0;slot<16;slot++){
       if(!this.songStorage){songs.push({slot,empty:true});continue;}
-      const song=await this.songRead(slot);
+      // tabby-v04.14: a song this page cannot read stops the backup with its number and the reason (before, the reader's
+      // own words went to another line and the progress stood still). A lost link or a device error passes as it is.
+      let song;try{song=await this.songRead(slot);}
+      catch(error){if(error.deviceCode||error.code||(this.link&&this.link.lost))throw error;
+        throw Object.assign(Error('STOPPED at song '+(slot+1)+': this page cannot read it ('+error.message+'). No backup file was made and nothing on the device was changed. The song was probably saved by newer firmware than this page knows: open the page of the firmware that is on the device (see the list of builds), or delete song '+(slot+1)+' on the device, then make the backup again.'),{unreadableSong:slot+1});}
       songs.push(song?{slot,record:song.record,blocks:song.blocks}:{slot,empty:true});
       progress(0.45+0.55*(slot+1)/16);
     }

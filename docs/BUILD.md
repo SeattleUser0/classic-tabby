@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.85
+Version: 0.86
 Revision log:
+- v0.86, 2026-11-17: section 50 (tabby-v04.14: the page fixes, CLICK LEVEL, the controller numbers; the release flow of SPEC 17.13 and its tools).
 - v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11) and 45.1 (on the device: 0x856014).
 - v0.80, 2026-11-16: 43.1 (tabby-v04.9.1 on the device; the publish gate and the untracked file), section 44 (tabby-v04.9.2).
 - v0.79, 2026-11-16: 42.3 (tabby-v04.9 on the device; the HOME fault, the killed test, the one odd timing run), section 43 (tabby-v04.9.1).
@@ -5559,3 +5560,50 @@ One DIN run of three is at 2.05 ms; the other five figures are 1.79 to 1.92. Dur
 clock ran -50 to -53 ppm against its raw clock (6.3 to 6.6 ms over a run, taken out by the mapping at four samples a
 second). With tabby-v04.12 an hour earlier (steering +4 to -19 ppm) the six figures were 1.83 to 1.93. The spread is
 the measurement's; a soak on the raw clock with the time service stopped would settle the last tenth.
+
+## 50. tabby-v04.14: two page fixes, CLICK LEVEL, the controller numbers; the release flow (2026-11-17)
+
+The user's answers of 2026-11-17 (CLICK LEVEL in three steps; click settings stay per song; the controller numbers
+settable per song on a second CLIP SETTING page; chains stay on launched tracks; the backup names an unreadable song;
+the chain loss fixed with it) and two new rules (SPEC 17.12, 17.13).
+
+### 50.1 What changed
+
+- Page, fix 5: `Library.fullRead` (sdk/WebUpdate.js) catches a song the page's reader refuses and throws
+  "STOPPED at song N: this page cannot read it (...)" with what to do; the backup and verify handlers in
+  sdk/Update.html.in put it on the backup line (it was only in the library status line; the backup line kept its
+  last percentage). Device errors and a lost link pass unchanged. tools/linux/hw/workbench.mjs already watched the
+  status line (BUILD 47.2).
+- Page, fix 6 (data loss): the importer path (web/import/song-format.js `decodeBlock` / `payloadOf`, used when a song
+  is read from the device into the importer and written again) turned a v3 clip back into a v2 block whenever a grid
+  could hold it, and built other clips from a model without the chain. Lost: NEXT CLIP, AFTER, TIMES, and a clip's own
+  length when it was 64 steps or fewer (a 32-step clip came back as 64). Now: only a clip of exactly 64 steps without
+  a chain goes back to the grid; every other clip is read with `block.clip`, `block.steps` and `block.chain` and
+  written as the same bytes. web/clip-v3/clip-v3.js v0.4 `model()` / `build()` carry the chain. The page's song editor
+  and the Full backup were never affected: sdk/WebUpdate.js keeps a v3 clip byte for byte.
+- Firmware: `SONG_SET_CLICK_LEVEL` (record header byte 44 bits 6-7) and `SONG_SET_KNOB1..4` (bytes 56 to 59) in
+  app/song.c `song_setting` / `song_setting_edit`; `song_click_mix` scales by `2000 << level`; app/screen.c: CLIP SETTING
+  in two pages (the clip's 8 lines, the song's 10), K1 to K4 on CLIPS read the song's numbers; remote op 17 returns 33
+  bytes. Both page readers keep the new bytes (byte 44 was masked to 6 bits before).
+- Tests: smoke.c section 26 (five new checks); tests/workbench/setup-sim.mjs v0.2 (66 checks: the second page through
+  the panel, the saved record through both page readers and back byte for byte, every clip the device made through
+  the importer and back byte for byte, the backup's stop message, a lost link not mistaken for an unreadable song);
+  tests/linux/device-gate-test.py (14 checks). Device: run-setup.py v0.6 (the click measured at the three levels on
+  the audio output; K1's controller number set and seen on MIDI out), tabby_link.py v0.18.
+
+### 50.2 The release flow (SPEC 17.13) as built
+
+- tools/linux/device-gate.py: `mark` (only from rc-validate.py, only when every required step passed, HEAD carries
+  the candidate's tag and the device reported this build id), `check` (publish, release-assets, promote).
+- tools/linux/hw/rc-validate.py: page live with this build, backup before, one install from the candidate's page,
+  the device's build id, the test song, run-program, run-chain, run-scenechain, run-setup, run-record, run-steps,
+  run-launch twice, run-clips on the timing song, run-15 one line three times (limit 2.5 ms per run; the bands are
+  reported), then full backup, restore and verify through the candidate's page. Stops all device writes at a failed
+  backup, install or restore.
+- tools/linux/publish-pages.py v0.7: `--rc N` publishes builds/<tag>-rc<N>/ only; any other tagged publish needs the
+  device gate for this commit and this firmware build id; nothing is committed without TABBY_RELEASE_SESSION=1.
+- tools/linux/builds-index.py v0.3: a candidate's page gets the red note line before `<main>` (candidate; released
+  as <tag>; or the tracked note of a failed candidate). Candidates published before 2026-11-17 are not touched.
+- Makefile v0.30: `make rc` (builds the package with the release's source link and with the candidate's and refuses
+  if the firmware package differs), `make promote`, `make device-gate`; release-assets needs the device gate.
+- tools/linux/release-flow.sh: the sequence, unattended.

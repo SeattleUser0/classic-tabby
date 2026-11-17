@@ -19,9 +19,11 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.5
+Version: 0.6
 
 Revision log
+    v0.6  2026-11-17  tabby-v04.14: CLICK LEVEL measured on the audio output at LOW, MID and HIGH; the controller number of
+                      K1 set on the second page and seen on MIDI out.
     v0.5  2026-11-16  tabby-v04.13: the page's lines moved again (PROGRAM, BANK MSB, BANK LSB follow TIMES).
     v0.4  2026-11-16  The internal click is found against the noise floor, not against the loudest sound (the song's notes are
                       eight times louder than the click and hid it in the second device run).
@@ -197,33 +199,76 @@ def main():
         l.press("FX"); idle(0.3)
         if not a.no_audio:
             import subprocess, wave
-            wav = os.path.join(a.out, "click.wav")
-            rec = subprocess.Popen(["arecord", "-q", "-D", "hw:AUDIO4c", "-c", "8", "-f", "S32_LE", "-r", "48000", "-d", "6", wav])
-            idle(1.0)
-            l.press("REC"); idle(0.3); l.press("PLAY"); idle((cycle or 2000.0) / 1000.0 + 1.0)
-            l.press("REC"); idle(0.2); l.press("PLAY"); idle(0.5)
-            rec.wait()
-            w = wave.open(wav); n = w.getnframes(); raw = w.readframes(n)
-            x = struct.unpack("<%di" % (n * 8), raw)
-            onsets = []
-            for cnum in (2, 3):
-                v = x[cnum::8]; win = 48                    # 1 ms
-                env = [max(abs(q) for q in v[i:i + win]) >> 16 for i in range(0, n - win, win)]
-                thr = max(6 * sorted(env)[len(env) // 2], 600)
-                on = []; last = -1000
-                for i, e in enumerate(env):
-                    if e > thr and i - last > 200:
-                        on.append(i)
-                    if e > thr:
-                        last = i
-                if len(on) > len(onsets):
-                    onsets = on
+
+            def capture(name):
+                """A count-in recorded from the audio interface: (onsets in ms, the first click's peak)."""
+                wav = os.path.join(a.out, name)
+                rec = subprocess.Popen(["arecord", "-q", "-D", "hw:AUDIO4c", "-c", "8", "-f", "S32_LE", "-r", "48000", "-d", "6", wav])
+                idle(1.0)
+                l.press("REC"); idle(0.3); l.press("PLAY"); idle((cycle or 2000.0) / 1000.0 + 1.0)
+                l.press("REC"); idle(0.2); l.press("PLAY"); idle(0.5)
+                rec.wait()
+                w = wave.open(wav); n = w.getnframes(); raw = w.readframes(n)
+                x = struct.unpack("<%di" % (n * 8), raw)
+                onsets = []; peak = 0
+                for cnum in (2, 3):
+                    v = x[cnum::8]; win = 48                    # 1 ms
+                    env = [max(abs(q) for q in v[i:i + win]) >> 16 for i in range(0, n - win, win)]
+                    thr = max(6 * sorted(env)[len(env) // 2], 600)
+                    on = []; last = -1000
+                    for i, e in enumerate(env):
+                        if e > thr and i - last > 200:
+                            on.append(i)
+                        if e > thr:
+                            last = i
+                    if len(on) > len(onsets):
+                        onsets = on
+                        peak = max(env[on[1]:on[1] + 30]) if len(on) > 1 else 0     # the second click: not the louder first of the cycle
+                return onsets, peak
+
+            onsets, mid = capture("click.wav")
             gaps = [y - x for x, y in zip(onsets, onsets[1:])]
             first4 = gaps[:3]
             check(ok and len(onsets) >= 4 and all(abs(g - beat) <= 6 for g in first4), "the internal click: bursts on the audio output a quarter note apart during the count-in", "onsets at ms %s" % onsets[:8])
             measured["internal_click_gaps_ms"] = gaps[:6]
+            # ---- tabby-v04.14: CLICK LEVEL: LOW, MID (a song never set), HIGH, each twice the one before ----
+            l.press("FX"); idle(0.4)
+            u = l.setup_state()
+            was_mid = u.get("click_level") == 1
+            ok_low = setting(13, "click_level", 0); l.press("FX"); idle(0.3)
+            _, low = capture("click-low.wav")
+            l.press("FX"); idle(0.4); ok_high = setting(13, "click_level", 2); l.press("FX"); idle(0.3)
+            _, high = capture("click-high.wav")
+            r1, r2 = (mid / low if low else 0), (high / mid if mid else 0)
+            check(was_mid and ok_low and ok_high and 1.6 <= r1 <= 2.5 and 1.6 <= r2 <= 2.5, "CLICK LEVEL: a song never set is on MID; LOW, MID and HIGH are each about twice the one before",
+                  "peaks %d, %d, %d (x%.2f, x%.2f)" % (low, mid, high, r1, r2))
+            measured["click_peaks_low_mid_high"] = [low, mid, high]
+            l.press("FX"); idle(0.4); setting(13, "click_level", 1); l.press("FX"); idle(0.3)
         else:
             l.press("REC"); idle(0.2); l.press("REC"); idle(0.2)
+        # ---- tabby-v04.14: the controller number of K1 on CLIPS is the song's ----
+        l.press("FX"); idle(0.4)
+        row(14)
+        for _ in range(140):
+            v = l.setup_state()["knobs"][0]
+            if v == 7:
+                break
+            l.knob(K1, 1 if v < 7 else -1) if abs(v - 7) < 16 else l.knob(K2, 1 if v < 7 else -1)
+            idle(0.06)
+        u = l.setup_state()
+        l.press("FX"); idle(0.3)
+        mark = time.monotonic_ns(); l.knob(K1, 1); idle(0.4)
+        cc = [m for _, m in since(mark, lambda m: len(m) == 3 and (m[0] & 0xF0) == 0xB0)]
+        check(u["knobs"][0] == 7 and len(cc) == 1 and cc[0][1] == 7, "K1 CONTROLLER set to 7 on the second page: K1 on CLIPS sends controller 7", (u["knobs"], [list(m) for m in cc]))
+        l.press("FX"); idle(0.4); row(14)
+        for _ in range(140):
+            v = l.setup_state()["knobs"][0]
+            if v == 74:
+                break
+            l.knob(K1, 1 if v < 74 else -1) if abs(v - 74) < 16 else l.knob(K2, 1 if v < 74 else -1)
+            idle(0.06)
+        check(l.setup_state()["knobs"] == [74, 71, 1, 11], "the controllers are 74, 71, 1 and 11 again", l.setup_state()["knobs"])
+        l.press("FX"); idle(0.3)
         # ---- everything off again, and saved ----
         l.press("FX"); idle(0.4)
         ok = setting(9, "click", 0) and setting(8, "count_in", 0)

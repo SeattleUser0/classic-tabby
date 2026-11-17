@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.36
+Version: 0.37
 Revision log:
+- v0.37, 2026-11-17: section 37: tabby-v04.14 measured, 481572 bytes, margin 37885.
 - v0.32, 2026-11-16: section 32: tabby-v04.9.3 measured, 471172 bytes, margin 48285.
 - v0.28, 2026-11-12: section 22: tabby-v04.3.1 measured, 452036 bytes, margin 67421.
 - v0.27, 2026-11-12 (Task 16 Goal 3): section 21: tabby-v04.3 measured, 451812 bytes, margin 67645.
@@ -1263,3 +1264,13 @@ RAM (runtime heap): 143116 bytes, unchanged.
 
 RAM (runtime heap): 143084 bytes (-32). The five steps of 2026-11-16 (tabby-v04.9.3 to tabby-v04.13) took 9984 bytes
 of flash and 1760 bytes of heap together.
+
+## 37. tabby-v04.14 (measured, 2026-11-17)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.13 | 481156 | | 38301 |
+| tabby-v04.14: CLICK LEVEL, the controller numbers of K1 to K4, CLIP SETTING in two pages | 481572 | +416 | **37885** |
+
+RAM (runtime heap): 143052 bytes (-32). The page fixes of this release (the backup's stop message, clip lengths and
+chains in the importer) cost no flash: they are in the workbench.

@@ -101,7 +101,7 @@ def main():
         h0 = l.health()
         # ---- clip 1: NEXT CLIP 2, TIMES 2 ----
         u = open_setting(0)
-        check(u["page_name"] == "SETTING" and u["place"] == 0 and u["rows"] == 13 and u["next"] == 0 and u["times"] == 1 and u["after"] == 0, "CLIP SETTING on clip 1: NEXT CLIP STAY, AFTER CLIP END, TIMES 1", (u["place"], u["rows"], u["next"], u["after"], u["times"]))
+        check(u["page_name"] == "SETTING" and u["place"] == 0 and u["rows"] == 18 and u["next"] == 0 and u["times"] == 1 and u["after"] == 0, "CLIP SETTING on clip 1: NEXT CLIP STAY, AFTER CLIP END, TIMES 1", (u["place"], u["rows"], u["next"], u["after"], u["times"]))
         ok = setting("next", 3) and setting("times", 2); u = l.setup_state()
         check(ok and u["unsaved"], "NEXT CLIP: STAY, STOP, CLIP 1, CLIP 2 with K1; TIMES 2; the clip is unsaved", (u["next"], u["times"]))
         l.setup_do(); idle(0.6); u = l.setup_state()

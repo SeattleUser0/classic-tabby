@@ -1,9 +1,10 @@
 # Scenes: song record version 3
 
-Version 0.1 (2026-11-14, Task 17 Goal 3, tabby-v04.6). How a song is stored as scenes with a clip table per track, what the
+Version 0.2 (2026-11-17; first version 2026-11-14, Task 17 Goal 3, tabby-v04.6). How a song is stored as scenes with a clip table per track, what the
 firmware does with it, and how songs get into this form. Source: docs/tasks/TASK-10-step1-assessment.md C.0, C.1, C.5, D.2, D.3.
 
 Revision log
+- v0.2 2026-11-17: section 2.1, the header bytes and the scene flag added since tabby-v04.10 (they were only in SPEC 19.13 to 19.16).
 - v0.1 2026-11-14: first version.
 
 ## 1. The model
@@ -22,6 +23,22 @@ Revision log
 Bytes 0..63 are the header of versions 1 and 2 with `version` = 3 (offset 20) and one new field: byte 43 = the master cycle
 in steps (0 = 16). `rows` (byte 40) is the number of scenes. Bytes 2624..4091 are the row event table of version 2 (events
 belong to scenes as they belonged to rows); it is always present (it may be empty). The CRC covers 20..4091.
+
+### 2.1 Header bytes added since (a song saved on the device)
+
+| Byte | Since | Content |
+| --- | --- | --- |
+| 44 | tabby-v04.10 | bits 0-1 CLICK (0 off, 1 when recording, 2 always); bits 2-3 CLICK OUT (0 internal, 1 MIDI note, 2 both); bits 4-5 COUNT-IN (0 off, 1, 2 = cycles, 3 = 4 cycles); bits 6-7 CLICK LEVEL (tabby-v04.14: 0 MID, 1 LOW, 2 HIGH) |
+| 45 | tabby-v04.10 | the MIDI click's channel + 1 (0: channel 10) |
+| 46 | tabby-v04.10 | the MIDI click's note (0: note 37) |
+| 56..59 | tabby-v04.14 | the controller numbers K1 to K4 send on CLIPS, each number + 1 (0: 74, 71, 1, 11) |
+| scene flags | tabby-v04.10 | bit 1: the scene was stored on the panel; its clips keep their own lengths (SONG_ROW_FLAG_OWN) |
+
+All of them are 0 in a song that was never changed on the device. Every reader must accept them and every writer
+must keep them: the device (app/song_storage.c), the page (sdk/WebUpdate.js songRecordParse / songRecordBuild) and the
+workbench importer (web/import/song-format.js decodeRecord / encodeRecord). tests/workbench/setup-sim.mjs runs a record
+the device wrote through both page readers and compares the bytes they write back. A page older than a byte's release
+either refuses the song (the tabby-v04.10 page and a stored scene) or drops the byte when it rewrites the song.
 
 | Bytes | Content |
 | --- | --- |

@@ -39,9 +39,14 @@ Usage (from the repository root)
         --source-url https://github.com/<owner>/<repo>/archive/refs/tags/tabby-v01.0.zip \
         --commit --push                                                   # + gh-pages
 
-Version: 0.6
+Version: 0.7
 
 Revision log
+    v0.7  2026-11-17  The release flow of SPEC 17.13: --rc N publishes only builds/<tag>-rc<N>/ (the tag on HEAD is
+                      <tag>-rc<N>; the main page and builds/<tag>/ are not touched). Every other --commit / --push
+                      with a tag is refused unless that firmware build passed on the device as a release candidate
+                      (tools/linux/device-gate.py; the marker is build/device-gate.json). --commit / --push are
+                      refused unless TABBY_RELEASE_SESSION=1 (SPEC 17.12: one session releases).
     v0.6  2026-11-14  Task 17: --commit / --push are refused unless make suite passed on HEAD (the suite gate,
                       tools/linux/suite-gate.py); --display-version.
     v0.5  2026-11-10  tabby-v04.1.1: every staged site also gets guide/index.html, the testing guide
@@ -219,13 +224,16 @@ def update_branch(staging, report, source_url, args, log):
     site_dir = (worktree / args.site_dir).resolve()
     if worktree not in site_dir.parents and site_dir != worktree:
         raise PublishError("--site-dir must stay inside the worktree.")
-    keep = set(args.keep or []) if site_dir == worktree else set()   # v0.3: other sites under the root
-    if site_dir.exists():
-        for child in list(site_dir.iterdir()):
-            if child.name == ".git" or child.name in keep:
-                continue
-            shutil.rmtree(child) if child.is_dir() else child.unlink()
-    shutil.copytree(staging, site_dir, dirs_exist_ok=True)
+    if args.rc:
+        site_dir = worktree / "builds" / args.tag          # v0.7: a release candidate lives at builds/<tag>-rc<N>/ only (add_site below)
+    else:
+        keep = set(args.keep or []) if site_dir == worktree else set()   # v0.3: other sites under the root
+        if site_dir.exists():
+            for child in list(site_dir.iterdir()):
+                if child.name == ".git" or child.name in keep:
+                    continue
+                shutil.rmtree(child) if child.is_dir() else child.unlink()
+        shutil.copytree(staging, site_dir, dirs_exist_ok=True)
     (worktree / ".nojekyll").write_bytes(b"")
     # v0.4 (Task 12 A5): the permanent page of this build and the index the workbench reads.
     permanent = ""
@@ -236,7 +244,7 @@ def update_branch(staging, report, source_url, args, log):
     if not git(["status", "--porcelain"], cwd=worktree):
         log("gh-pages already holds this site; nothing to commit.")
         return None
-    where = "" if site_dir == worktree else " in %s/" % args.site_dir.strip("/")   # v0.3
+    where = "" if site_dir == worktree else " in %s/" % (("builds/" + args.tag) if args.rc else args.site_dir.strip("/"))   # v0.3
     subject = "Pages: %s%s (build %s, release %s)" % (args.tag or "untagged", where, (report.get("build") or "")[:12], report.get("release"))
     body = ("Static site from build/official-web/%s/SMK37-Open-Source.html via tools/Build-Hosted.cjs.\n"
             "Source archive link: %s\nFirmware build_id: %s\nDisplay version: %s\nSource commit: %s\n%s"
@@ -272,11 +280,17 @@ def main(argv=None):
     parser.add_argument("--display-version", default="", help="Task 17: the display version the suite passed for (the suite gate)")
     parser.add_argument("--no-builds", action="store_true", help="v0.4: do not add the build to builds/<tag>/ and builds/index.json")
     parser.add_argument("--note", help="v0.4: a short note for the build's index entry")
+    parser.add_argument("--rc", help="v0.7: publish release candidate N of --tag: only builds/<tag>-rc<N>/ (HEAD must carry <tag>-rc<N>)")
     args = parser.parse_args(argv)
     if args.keep is None:
         args.keep = ["probe64", "builds", "recover"]
     if args.push:
         args.commit = True
+    base_tag = args.tag
+    if args.rc:
+        if not args.tag or not args.rc.isdigit() or args.no_builds:
+            parser.error("--rc needs --tag and a number, and cannot go with --no-builds")
+        args.tag = "%s-rc%s" % (args.tag, args.rc)      # the tag on HEAD, the source archive and the page's directory
     html = args.html or str(ROOT / "build/official-web" / args.model / "SMK37-Open-Source.html")
     staging = args.staging or str(ROOT / "build/hosted" / args.model)
 
@@ -284,6 +298,9 @@ def main(argv=None):
         print(message, flush=True)
 
     try:
+        if args.commit and os.environ.get("TABBY_RELEASE_SESSION") != "1":
+            # v0.7 (SPEC 17.12): one session releases. tools/linux/release-flow.sh sets this; nothing else should.
+            raise SystemExit("publish refused: only the release session publishes (SPEC 17.12). Releases go through tools/linux/release-flow.sh.")
         if args.commit:
             # Task 17 (hard limit 5): nothing goes to gh-pages unless make suite passed on exactly this commit, with this
             # display version, and the tree is clean (tools/linux/suite-gate.py; the marker is build/suite-gate.json).
@@ -298,6 +315,15 @@ def main(argv=None):
         elif args.commit:
             log("WARNING: no --tag given; the gh-pages commit will not be tied to a tagged source archive.")
         staging, report, source_url = build_site(html, staging, args.node, args.source_url, log)
+        if args.commit and args.tag and not args.rc:
+            # v0.7 (SPEC 17.13): the main page and builds/<tag>/ take only a build that passed on the device as a
+            # release candidate: the same commit and the same firmware build id.
+            spec = importlib.util.spec_from_file_location("device_gate", str(ROOT / "tools/linux/device-gate.py"))
+            dgate = importlib.util.module_from_spec(spec); spec.loader.exec_module(dgate)
+            why = dgate.check(base_tag, report.get("build"))
+            if why:
+                raise SystemExit("publish refused (device gate): " + why)
+            log("Device gate: this build passed on the device as a release candidate of %s." % base_tag)
         if args.commit:
             update_branch(staging, report, source_url, args, log)
         else:

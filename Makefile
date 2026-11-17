@@ -52,6 +52,8 @@
 #     make release-assets    build/release/<TAG>/: .fwsc, offline HTML, SHA256SUMS.txt
 #     make publish           package + hosted + commit the site to gh-pages and push it to
 #                            origin (HEAD must carry TAG, tree clean, TAG already pushed)
+#     make rc RC=N           SPEC 17.13: the build as release candidate N of TAG, only at builds/<TAG>-rc<N>/
+#     make promote           SPEC 17.13: the candidate that passed on the device -> main page, builds/<TAG>/, release
 #     make release           GitHub release for TAG with the release assets attached
 #                            (needs docs/releases/<TAG>.md as the notes)
 #     make clean             remove build/ (also detaches the gh-pages worktree)
@@ -78,9 +80,13 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.29
+# Version: 0.30
 #
 # Revision log
+#   v0.30 2026-11-17  SPEC 17.13: the release flow: `make rc` (a release candidate at builds/<TAG>-rc<RC>/ only) and
+#                     `make promote` (main page, builds/<TAG>/ and the GitHub release, only for the build that passed
+#                     on the device: tools/linux/device-gate.py); release-assets needs the device gate too;
+#                     tests/linux/device-gate-test.py in workbench-test.
 #   v0.29 2026-11-16  tests/linux/flash-part-guard.py in workbench-test (nothing may depend on the flash ID).
 #   v0.27 2026-11-14  Task 17: the suite gate (tools/linux/suite-gate.py): make suite writes build/suite-gate.json for the
 #                     commit it passed on; publish and release-assets refuse any other commit, display version or a
@@ -219,7 +225,7 @@ NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV) $(OPTS) $(A2OPT)
 
 .PHONY: suite-begin suite-gate help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
-        package hosted release-assets publish release clean midi-import-test midi-import-sim workbench-test timed-note-test clip-v3-test \
+        package hosted release-assets publish release rc promote device-gate clean midi-import-test midi-import-sim workbench-test timed-note-test clip-v3-test \
         check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide \
         web-normal web-diag web-old536 backup-test
 
@@ -386,6 +392,7 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/page-bundle.mjs
 	$(T) $(PYTHON) -I tests/linux/midi-monitor-test.py
 	$(T) $(PYTHON) -I tests/linux/suite-gate-test.py
+	$(T) $(PYTHON) -I tests/linux/device-gate-test.py
 	$(T) $(PYTHON) -I tests/linux/builds-index-test.py
 	$(T) $(PYTHON) -I tests/linux/flash-part-guard.py
 
@@ -467,7 +474,7 @@ package:
 hosted:
 	$(T) env NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --source-url "$(FM1_SOURCE_URL)"
 
-release-assets: suite-gate
+release-assets: suite-gate device-gate
 	@test -f "$(FWSC)" -a -f "$(PACKAGE_HTML)" || { echo "run 'make package' first"; exit 1; }
 	rm -rf "build/release/$(TAG)"; mkdir -p "build/release/$(TAG)"
 	cp "$(FWSC)" "$(PACKAGE_HTML)" "build/release/$(TAG)/"
@@ -482,6 +489,27 @@ publish: suite-gate package hosted
 	NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --tag "$(TAG)" \
 	    --source-url "$(FM1_SOURCE_URL)" --site-dir "$(SITE_DIR)" --display-version "$(DISPLAY_VERSION)" --push
 	@echo "Pages: $(PAGES_URL)  (GitHub deploys the gh-pages branch within a minute or two)"
+
+# SPEC 17.13 (2026-11-17, the user's rule): the release flow. A new build goes to builds/<TAG>-rc<RC>/ only
+# (`make rc`), is installed on the device from there and run through tools/linux/hw/rc-validate.py; when that has
+# written build/device-gate.json for this commit, `make promote` puts the same firmware on the main page and
+# builds/<TAG>/ and makes the GitHub release. Both need the suite gate. Tags: <TAG>-rc<RC> on HEAD for rc, <TAG> on
+# the same commit for promote (pushed first; tools/linux/release-flow.sh does the whole sequence).
+RC ?=
+rc: suite-gate
+	@test -n "$(RC)" || { echo "make rc TAG=tabby-vNN.N RC=1 DISPLAY_VERSION=tabby-vNN.N"; exit 1; }
+	@# the firmware must not depend on the source link: built once with the release's link, once with the candidate's
+	$(MAKE) --no-print-directory package TAG="$(TAG)"
+	sha256sum "$(FWSC)" | cut -d' ' -f1 > build/rc-package.sha256
+	$(MAKE) --no-print-directory package hosted TAG="$(TAG)-rc$(RC)"
+	@test "$$(sha256sum "$(FWSC)" | cut -d' ' -f1)" = "$$(cat build/rc-package.sha256)" || { echo "rc: the firmware package differs between the candidate's and the release's source link; it could not be promoted unchanged"; exit 1; }
+	NODE="$(NODE)" $(PYTHON) -I tools/linux/publish-pages.py --model $(MODEL) --tag "$(TAG)" --rc "$(RC)" \
+	    --source-url "https://github.com/$(GITHUB_REPO)/archive/refs/tags/$(TAG)-rc$(RC).zip" --display-version "$(DISPLAY_VERSION)" --push
+	@echo "Release candidate: $(PAGES_URL)builds/$(TAG)-rc$(RC)/  (then: tools/linux/hw/rc-validate.py --tag $(TAG) --rc $(RC))"
+device-gate:
+	@$(PYTHON) -I tools/linux/device-gate.py check --tag "$(TAG)"
+promote: suite-gate device-gate
+	$(MAKE) --no-print-directory publish release TAG="$(TAG)" DISPLAY_VERSION="$(DISPLAY_VERSION)" SITE_DIR=.
 
 # Task 11: PRERELEASE=1 marks the release a pre-release (the probe); RELEASE_TITLE overrides the title.
 PRERELEASE ?=

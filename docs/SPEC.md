@@ -1,7 +1,10 @@
 # Classic Tabby — Specification
 
-Version: 0.50
+Version: 0.51
 Revision log:
+- v0.51, 2026-11-17: 17.12 one session releases; 17.13 the release flow (release candidate on the device, then
+  promote); 17.14 songs saved on tabby-v04.10 or later and older firmware; 19.17 tabby-v04.14 (the backup names a
+  song it cannot read, clip lengths and chains survive the workbench, CLICK LEVEL, the controller numbers).
 - v0.46, 2026-11-16: 19.12 tabby-v04.9.3 (the flash part page, command 25 request 11; report only).
 - v0.45, 2026-11-16 (Goal 6, second step): 19.11 tabby-v04.9 (real-time recording); 14.2 amended: the cap is 512 events,
   because a block must fit one 4096-byte storage sector.
@@ -1371,6 +1374,43 @@ replaced or removed: a build that was installed on a device needs its page as th
 tools/linux/builds-notes.json and applied by tools/linux/builds-index.py on every publish (Task 17), never by hand in the
 gh-pages checkout. A pre-release for a device test gets its own tag and page (`-rcN`).
 
+### 17.12 One session releases (2026-11-17; the user's rule)
+
+Exactly one session releases: it alone publishes pages, pushes tags, makes GitHub releases and moves worktrees that
+another session made. Any other session (research, a side task) stops at a pushed branch and reports what it wants
+released; the release session takes it from there. Reason: on 2026-11-16 a second session released tabby-v04.9.3 while
+the release session was preparing tabby-v04.10 on the same branch. Enforced as far as a tool can:
+tools/linux/publish-pages.py commits nothing unless `TABBY_RELEASE_SESSION=1`, which only tools/linux/release-flow.sh
+sets. docs/DEV_CHECKS.md, "Releasing".
+
+### 17.13 The release flow: a release candidate on the device first (2026-11-17; the user's rule)
+
+1. A new build is published only at `builds/<tag>-rc<N>/` (git tag `<tag>-rc<N>`; `make rc`). Its display version is
+   the release's, so the firmware is the one that will be released, byte for byte. The page carries a banner:
+   release candidate, not a release.
+2. It is installed on the device from that page (the normal update path, identity checked, a full backup first, one
+   attempt) and run through the full device test set, tools/linux/hw/rc-validate.py: every device test, then a full
+   backup, a restore of that backup and a verify.
+3. Only when all of that passed is it promoted: `make promote` publishes the main page and `builds/<tag>/` and makes
+   the GitHub release (git tag `<tag>` on the same commit). tools/linux/device-gate.py refuses a promotion whose
+   commit or firmware build id is not the one that passed (build/device-gate.json, written by rc-validate.py).
+4. A build that fails stays a release candidate page with a note line (tools/linux/builds-notes.json). The fix is a
+   new commit and the next candidate number. 17.11 holds for candidate tags and pages as for any other.
+
+Hard limit 5 (the suite on the exact commit) comes before step 1 as before. Reason for the rule: tabby-v04.11 and
+tabby-v04.11.1 were on the main page before anything had been tried on the device, and tabby-v04.11.1's page fix was
+incomplete. Adding the candidate banner to a `-rc` page, and changing its text when the candidate is released or
+fails, counts as the note line of 17.11. Candidates published before 2026-11-17 are left as they are.
+
+### 17.14 Songs saved on tabby-v04.10 or later, and older firmware (2026-11-17)
+
+A song that is saved on the device by tabby-v04.10 or later is stored in the scenes format (record version 3) with
+fields older builds do not know: firmware before tabby-v04.6 cannot read it at all, and tabby-v04.6 to v04.9.3 refuse
+a song that holds a scene stored on the panel. To go back to an older build, restore a full backup made before
+tabby-v04.10 after installing it. This is said in the release notes of tabby-v04.10 and every later release, in the
+testing guide and in Help. Pages: a page older than the firmware may refuse such a song; from tabby-v04.14 the Full
+backup then names the song and stops (19.17).
+
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
 - **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
@@ -1763,3 +1803,25 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   recorder's panel queue, where the thinning rule of 14.2 applies as to any controller. Values per track, RAM only.
 - This is "CC automation recording" of the user's list: controllers from MIDI in and the wheels were recorded since
   tabby-v04.9; the knobs had nothing to send until now. The numbers are fixed; making them a setting is open.
+
+### 19.17 tabby-v04.14 (2026-11-17): two fixes on the page, CLICK LEVEL, the controller numbers
+
+- The Full backup and Verify name a song the page cannot read and stop: "STOPPED at song 7: this page cannot read it
+  (...). No backup file was made and nothing on the device was changed." with what to do (the page of the firmware on
+  the device, or delete the song). Before, the reader's own words went to the library status line and the backup line
+  stood at its last percentage (the tabby-v04.10 page and a stored scene). A lost link or a device error is reported as
+  it is. sdk/WebUpdate.js `fullRead`, sdk/Update.html.in.
+- Data loss fixed in the workbench importer path (web/import/song-format.js v0.9, web/clip-v3/clip-v3.js v0.4): a v3
+  clip read from a song and written again lost its chain (NEXT CLIP, AFTER, TIMES), and a clip whose own length was
+  not 64 steps came back as 64. A clip read from a song is now written as a clip of the same length with its chain.
+  The page's own reader (WebUpdate.js) always kept clips byte for byte.
+- CLICK LEVEL (the user's answer 1): LOW, MID, HIGH for the internal click; record header byte 44 bits 6-7 (0 MID,
+  1 LOW, 2 HIGH). The click's sample value is `n * (2000 << level)`: LOW is twice the level of tabby-v04.13, MID four
+  times, HIGH eight times. A song never set is on MID.
+- The controller numbers of K1 to K4 on CLIPS (answer 3): record header bytes 56 to 59, number + 1, 0 = the defaults
+  74, 71, 1, 11. `song_setting` / `song_setting_edit` settings 5 to 9.
+- CLIP SETTING is two pages: the clip's eight lines, the song's ten. K5 walks through both.
+- Click settings stay in the song (answer 2); clip chains stay on launched tracks only (answer 4).
+- Remote: op 17's reply grows to 33 bytes (28 the click level, 29 to 32 the controller numbers).
+- Both page readers keep the new bytes; pages before tabby-v04.14 drop them when they rewrite a song.
+- First release under 17.13.

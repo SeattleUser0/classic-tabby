@@ -126,7 +126,10 @@ int song_scene_store(void);
 /* The song's click and count-in settings (stored in the song record): the count-in in master cycles (0, 1, 2 or 4),
  * the click (0 off, 1 while a take is armed or runs, 2 always), its output (0 internal, 1 MIDI, 2 both), the MIDI
  * click's channel (0..15) and note. song_setting_edit steps a setting by `delta`. */
-enum { SONG_SET_COUNT_IN = 0, SONG_SET_CLICK = 1, SONG_SET_CLICK_OUT = 2, SONG_SET_CLICK_CH = 3, SONG_SET_CLICK_NOTE = 4 };
+enum { SONG_SET_COUNT_IN = 0, SONG_SET_CLICK = 1, SONG_SET_CLICK_OUT = 2, SONG_SET_CLICK_CH = 3, SONG_SET_CLICK_NOTE = 4,
+       SONG_SET_CLICK_LEVEL = 5,   /* tabby-v04.14: 0 LOW, 1 MID, 2 HIGH (header byte 44 bits 6-7: 0 MID, 1 LOW, 2 HIGH) */
+       SONG_SET_KNOB1 = 6, SONG_SET_KNOB2 = 7, SONG_SET_KNOB3 = 8, SONG_SET_KNOB4 = 9,   /* tabby-v04.14: the controller numbers of K1 to K4 on CLIPS (header bytes 56 to 59: 0 = 74, 71, 1, 11; else number + 1) */
+       SONG_SETTINGS = 10 };
 unsigned song_setting(unsigned which);
 int song_setting_edit(unsigned which, int delta);
 FM1_AUDIO_CODE void song_click_mix(int32_t *output);   /* audio thread: the internal click into one block of the output */

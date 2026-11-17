@@ -220,8 +220,9 @@ static volatile unsigned scene_hold;
  * chosen channel, sent with the song's events; either, both or none. A click falls on every quarter note of the
  * master cycle, the first of a cycle louder. The count-in: PLAY with a take armed plays `count_units` of clicks before
  * the song starts (the song's Start goes out after it, as on the MC-707 since its version 1.20); it clicks whatever
- * the click mode says, on the outputs chosen. Settings live in the song record (header bytes 44 to 46). */
-static volatile uint8_t click_live, click_out, click_ch = 9, click_note = 37;   /* control -> audio; out: 0 internal, 1 MIDI, 2 both */
+ * the click mode says, on the outputs chosen. Settings live in the song record (header bytes 44 to 46).
+ * tabby-v04.14: the internal click's level (LOW twice the level of tabby-v04.13, MID four times, HIGH eight times). */
+static volatile uint8_t click_live, click_out, click_ch = 9, click_note = 37, click_level = 1;   /* control -> audio; out: 0 internal, 1 MIDI, 2 both */
 static volatile uint32_t count_units;                                          /* control sets it with start_request; audio clears it */
 static uint32_t count_pos, count_acc, click_off_in;                            /* audio only */
 static volatile uint32_t count_from;                                           /* where the count-in's position starts (song_play) */
@@ -502,7 +503,7 @@ FM1_AUDIO_CODE void song_click_mix(int32_t *out)
     unsigned n = click_frames;
     if (!n) return;
     for (unsigned i = click_delay; i < FM1_BLOCK_FRAMES && n; ++i, --n) {
-        int32_t v = ((n >> (click_accent ? 2 : 3)) & 1U ? 1 : -1) * (int32_t)n * 1000;
+        int32_t v = ((n >> (click_accent ? 2 : 3)) & 1U ? 1 : -1) * (int32_t)n * (2000 << click_level);   /* tabby-v04.14: CLICK LEVEL: LOW twice the old level, MID four times, HIGH eight times */
         out[2U * i] += v; out[2U * i + 1U] += v;
     }
     click_delay = 0; click_frames = (uint16_t)n;
@@ -1358,6 +1359,7 @@ void song_poll(void)
 static void click_apply(void)
 {
     click_out = (uint8_t)song_setting(SONG_SET_CLICK_OUT); click_ch = (uint8_t)song_setting(SONG_SET_CLICK_CH); click_note = (uint8_t)song_setting(SONG_SET_CLICK_NOTE);
+    click_level = (uint8_t)song_setting(SONG_SET_CLICK_LEVEL);
 }
 unsigned song_setting(unsigned which);
 /* Does the click sound now: always, or while a take is armed or runs (control task; the audio thread reads click_live). */
@@ -1376,13 +1378,19 @@ unsigned song_setting(unsigned which)
     case SONG_SET_CLICK_OUT: return ((r[1] >> 2) & 3U) > 2 ? 0U : (r[1] >> 2) & 3U;
     case SONG_SET_CLICK_CH: return r[2] >= 1 && r[2] <= 16 && loaded != SONG_NONE ? r[2] - 1U : 9U;
     case SONG_SET_CLICK_NOTE: return r[3] >= 1 && r[3] <= 127 && loaded != SONG_NONE ? r[3] : 37U;
+    /* tabby-v04.14: stored 0 = MID (a song never set), 1 = LOW, 2 = HIGH; returned 0 LOW, 1 MID, 2 HIGH */
+    case SONG_SET_CLICK_LEVEL: { unsigned s = loaded != SONG_NONE ? r[1] >> 6 : 0; return s == 1 ? 0U : s == 2 ? 2U : 1U; }
+    case SONG_SET_KNOB1: case SONG_SET_KNOB2: case SONG_SET_KNOB3: case SONG_SET_KNOB4: {
+        static const uint8_t first[4] = {74, 71, 1, 11};
+        unsigned k = which - SONG_SET_KNOB1, s = loaded != SONG_NONE ? record.reserved2[k] : 0;
+        return s >= 1 && s <= 128 ? s - 1U : first[k]; }
     default: return 0;
     }
 }
 int song_setting_edit(unsigned which, int delta)
 {
-    if (loaded == SONG_NONE || which > SONG_SET_CLICK_NOTE || !delta) return SONG_INVALID;
-    static const uint8_t max[5] = {3, 2, 2, 15, 127}, min[5] = {0, 0, 0, 0, 1};
+    if (loaded == SONG_NONE || which >= SONG_SETTINGS || !delta) return SONG_INVALID;
+    static const uint8_t max[SONG_SETTINGS] = {3, 2, 2, 15, 127, 2, 127, 127, 127, 127}, min[SONG_SETTINGS] = {0, 0, 0, 0, 1};
     uint8_t *r = record.reserved;
     int now = (int)song_setting(which);
     if (which == SONG_SET_COUNT_IN && now == 4) now = 3;
@@ -1392,6 +1400,8 @@ int song_setting_edit(unsigned which, int delta)
     else if (which == SONG_SET_CLICK) r[1] = (uint8_t)((r[1] & ~3U) | (unsigned)v);
     else if (which == SONG_SET_CLICK_OUT) r[1] = (uint8_t)((r[1] & ~0x0cU) | (unsigned)v << 2);
     else if (which == SONG_SET_CLICK_CH) r[2] = (uint8_t)(v + 1);
+    else if (which == SONG_SET_CLICK_LEVEL) r[1] = (uint8_t)((r[1] & 0x3fU) | (v == 0 ? 0x40U : v == 2 ? 0x80U : 0U));
+    else if (which >= SONG_SET_KNOB1) record.reserved2[which - SONG_SET_KNOB1] = (uint8_t)(v + 1);
     else r[3] = (uint8_t)v;
     click_apply(); song_changed();
     return 0;

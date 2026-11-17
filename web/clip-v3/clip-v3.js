@@ -14,9 +14,11 @@
  *   importer's blocks. Loading: classic script (globalThis.TabbyClipV3) and CommonJS. Needs TabbyTimedNote (loaded
  *   first, or required) for the 6-byte note of v2.
  *
- * Version: 0.1
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-17  tabby-v04.14: model() and build() carry the clip chain (model.chain = { next, after, times }).
+ *   v0.3  2026-11-16  tabby-v04.11: validate() takes the chain in header bytes 8 to 11.
  *   v0.1  2026-11-12  Initial version (Task 16 Goal 5; not released).
  */
 (() => {
@@ -157,6 +159,7 @@
     out[0] = model.steps || 64; put16(out, 6, list.length);
     if (Number.isInteger(model.program)) { out[1] |= 1; out[2] = model.program; }
     if (Number.isInteger(model.bankMsb) || Number.isInteger(model.bankLsb)) { out[1] |= 2; out[3] = model.bankMsb | 0; out[4] = model.bankLsb | 0; }
+    if (model.chain) { out[8] = model.chain.next | 0; put16(out, 9, model.chain.after | 0); out[11] = model.chain.times | 0; }   /* v0.4 */
     list.forEach((x, i) => {
       const o = HEADER + EVENT * i;
       if (!Number.isInteger(x.time) || x.time < -BIAS || x.time + BIAS > 65535) fail(BAD_EVENT, 'event time ' + x.time + ' outside the clip');
@@ -175,6 +178,7 @@
     const m = { steps: p[0], notes: [], controls: [], stepMods: [] };
     if (p[1] & 1) m.program = p[2];
     if (p[1] & 2) { m.bankMsb = p[3]; m.bankLsb = p[4]; }
+    if (p[8] || p[9] || p[10] || p[11]) m.chain = { next: p[8], after: get16(p, 9), times: p[11] };   /* v0.4: the clip chain (was dropped: the workbench lost it on a rewrite) */
     for (const e of events(p)) {
       if (e.kind === NOTE) m.notes.push({ time: e.time, pitch: e.a, velocity: e.b, length: e.length, retrigger: !!e.retrigger });
       else if (e.kind === STEPMOD) m.stepMods.push({ step: e.b, probability: e.a & 7, alt: !!(e.a & 8) });
@@ -185,7 +189,7 @@
 
   const TabbyClipV3 = { HEADER, EVENT, EVENTS_MAX, STEPS_MAX, BIAS, NOTE, CC, PC, BEND, PRESSURE, STEPMOD,
     codes: { OK, BAD_SIZE, NOT_V2_SHAPED, BAD_HEADER, BAD_EVENT, BAD_ORDER, DUPLICATE, NO_ROOM, BAD_SOURCE },
-    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.3' };
+    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.4' };
   globalThis.TabbyClipV3 = TabbyClipV3;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyClipV3;
 })();
