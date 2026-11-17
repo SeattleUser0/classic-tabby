@@ -2,7 +2,7 @@
 
 Version: 0.81
 Revision log:
-- v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11).
+- v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11) and 45.1 (on the device: 0x856014).
 - v0.80, 2026-11-16: 43.1 (tabby-v04.9.1 on the device; the publish gate and the untracked file), section 44 (tabby-v04.9.2).
 - v0.79, 2026-11-16: 42.3 (tabby-v04.9 on the device; the HOME fault, the killed test, the one odd timing run), section 43 (tabby-v04.9.1).
 - v0.78, 2026-11-16: 41.3 (tabby-v04.8 on the device), section 42 (tabby-v04.9: real-time recording).
@@ -5342,3 +5342,16 @@ Puya, the UC25HQ80, Skiff's SMK-37 part, two unknown; each reported as given and
 it), backup.mjs v0.6 (the simulator says "none"; the text of a device line), tests/linux/flash-part-guard.py in
 workbench-test (the symbol and the decoded page are named nowhere else; no JEDEC constant in app/, web/, the page).
 App image 471172 bytes (+64), margin 48285; build id `85d3dd36e7d4288e`.
+
+### 45.1 The suite, the release and the device (2026-11-16)
+
+Suite green on 48ca383 (crosscheck: both tracks link twice and put `flash_info` at 0x01c5c268; the same sdk.elf
+626d23c5…, .fwsc ccc19f6d…). The suite and the publish ran in the main checkout, because another session was working in
+../firmware-clipv3. Its `build/gh-pages` worktree (clean, at origin) was removed for the publish and added back afterwards
+at the new gh-pages head. Tagged, published (root and builds/tabby-v04.9.3/), released. Before the install,
+tools/linux/hw/tabby_link.py was proven read-only on tabby-v04.9.2: request 11 gave error 71 and request 0 gave 64 bytes.
+Full backup through the tabby-v04.9.2 page, one install attempt: "Firmware ready." after 11.1 s, version tabby-v04.9.3
+(overnight/g6/v0493.log). Diagnostics on the page: `flash part (read by the SDK at boot): JEDEC 0x856014, 1024 KiB; USER
+471040 bytes`. tabby_link request 11: 16 bytes, 0x856014, 1048576, 471040, source 1. **This unit's flash is the Puya P25Q80**
+(docs/FLASH-CHIP.md 6). Backup after the install and verify against the file from before: PASS (41 items).
+

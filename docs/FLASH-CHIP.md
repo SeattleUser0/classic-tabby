@@ -96,8 +96,8 @@ flash part page of section 4 *reads* it for a report, and the guard test keeps i
 - **Skiff 2.2** (v2.2 tag, `firmware/hal/fm1_flash.h` `fl_jedec_ram`) is bare metal: from RAM with
   IRQs off it drives the SFC itself (`fl_cs(0); fl_tx(0x9F)`, three `fl_rx`). Its SMK-37 list is
   `FL_JEDEC_OK(id) = 0xEB6014 || 0x856014 || 0xB36014` (`fm1_flash_map.h` L17), and the
-  comment says 0xEB6014 is "the SMK-37's part (read on a unit)". **So the SMK-37 apparently
-  never used the Puya.** Skiff issue #96 names the other read-only route: the chip's UBOOT1.00
+  comment says 0xEB6014 is "the SMK-37's part (read on a unit)". **That is one unit; this unit has the Puya
+  (section 6), so SMK-37s have shipped with at least two parts.** Skiff issue #96 names the other read-only route: the chip's UBOOT1.00
   mode (hold OCT- and OCT+ for 5 s) plus jl-uboot-tool. That needs hands on the unit, and
   jl-uboot-tool lists the AC791N as unknown.
 - **M-Flasher:** no copy and no documentation found; its method is not known.
@@ -110,7 +110,7 @@ flash part page of section 4 *reads* it for a report, and the guard test keeps i
   (`--defsym ct_sdk_flash_info=<addr>`) and stops if the address moves (0x01c5c268). The SDK is not modified.
   `tests/linux/flash-part-guard.py` fails the tests if the ID reaches anything but this report, or if a JEDEC constant
   appears in app/, web/ or the page.
-- **This unit:** read after the tabby-v04.9.3 install; see section 6.
+- **This unit:** 0x856014, the Puya P25Q80 (section 6).
 
 ## 5. Conclusion
 
@@ -130,3 +130,18 @@ flash part page of section 4 *reads* it for a report, and the guard test keeps i
 
 Sources: Skiff v2.2 (github.com/illuminus5/skiff, tag v2.2), Skiff issue #96;
 github.com/kagaimiq/jl-uboot-tool (capacity code = log2 size; AC791N unknown).
+
+## 6. This unit's chip (read 2026-11-16, tabby-v04.9.3)
+
+The SMK-37 Pro on this NUC (USB serial 4150353439333112, identity SMK-37 Pro_8000001) after the tabby-v04.9.3 install
+(one attempt, "Firmware ready." after 11.1 s), read by two independent tools (overnight/g6/v0493.log):
+
+| Tool | Result |
+|---|---|
+| The workbench page, Diagnostics > Read counters (tools/linux/hw/workbench.mjs `diag`) | `flash part (read by the SDK at boot): JEDEC 0x856014, 1024 KiB; USER 471040 bytes` |
+| tools/linux/hw/tabby_link.py, command 25 request 11 directly | 16 bytes: JEDEC 0x856014, capacity 1048576, USER 471040, source 1 (device) |
+
+**This unit has the Puya P25Q80 (0x856014), 1 MiB.** Skiff's 0xEB6014 is another SMK-37's part, so the SMK-37 has
+come with at least two flash chips already. Classic Tabby needs neither: nothing checks the ID (sections 1 to 3). Before
+the install, the full backup was taken through the tabby-v04.9.2 page. After it, the backup verified identical: 41 items,
+PASS. tabby-v04.9.2 had answered request 11 with error 71, as old firmware should.

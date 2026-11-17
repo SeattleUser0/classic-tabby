@@ -15,3 +15,12 @@ Diagnostics shows the flash chip (JEDEC ID and size, a report only); otherwise t
   with another chip, and firmwares that accepted only known IDs refused saves and updates on them).
 
 Everything else is tabby-v04.9.2: recording with REC, step editing, clip launching.
+
+## Hardware validation
+
+Installed on the SMK-37 Pro on 2026-11-16 through the published page (Full backup first through the tabby-v04.9.2 page;
+identity checked; one attempt; "Firmware ready." after 11.1 s). Diagnostics on the page reads
+`flash part (read by the SDK at boot): JEDEC 0x856014, 1024 KiB; USER 471040 bytes` (the Puya P25Q80), and a second
+tool reading command 25 request 11 directly gives the same. Full backup after the install verified identical: 41 items, PASS
+(docs/BUILD.md 45.1, docs/FLASH-CHIP.md 6).
+
