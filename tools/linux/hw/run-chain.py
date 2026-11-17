@@ -17,9 +17,12 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-chain.py --song N --out DIR
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-16  The cycle comes from the notes (their times against the 125 ms grid), not from MIDI clock pulses that
+                      include the time before PLAY: the first device run called a chain step 5.82 ms late that was
+                      0.03 ms late.
     v0.1  2026-11-16  First version.
 """
 import argparse
@@ -130,6 +133,9 @@ def main():
         if check(bool(start), "PLAY starts the song"):
             t0 = start[0]
             ons = [((t - t0) / 1e6, m[0] & 15, m[1]) for t, m in msgs if len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[2]]
+            ratios = sorted(x[0] / (round(x[0] / 125.0) * 125.0) for x in ons if x[0] > 900)
+            if ratios:
+                cycle = 2000.0 * ratios[len(ratios) // 2]
             ch = ons[0][1] if ons else 0
             first = [x for x in ons if x[0] < 0.25 * cycle]
             chans = sorted(set(x[1] for x in ons))

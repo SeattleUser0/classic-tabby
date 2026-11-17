@@ -132,6 +132,8 @@ FM1_AUDIO_CODE void song_click_mix(int32_t *output);   /* audio thread: the inte
 /* The scene that plays repeats until the hold is taken off or a scene is recalled (RAM only). */
 void song_scene_hold_set(unsigned on);
 unsigned song_scene_hold(void);
+int song_scene_edit(unsigned row, unsigned field, int delta);   /* tabby-v04.12: 0 times (1..64), 1 then (0 next scene, 1 stay) */
+unsigned song_scene_reserved(void);                            /* the scene PLAY starts at (stopped) */
 /* Goal 6, second step (tabby-v04.9): real-time recording into the open clip (SPEC 19.11). */
 int song_record_start(void);                          /* 2 recording, 1 armed, negative: no clip open / cannot launch */
 void song_record_stop(void);

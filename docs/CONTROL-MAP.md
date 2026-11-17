@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.6 (2026-11-16). Applies from tabby-v04.11 (section 17, clip chains). v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.7 (2026-11-16). Applies from tabby-v04.12 (section 18, the scene chain). v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -127,7 +127,9 @@ each track plays in the scene.
 | Pad 1 to 16 | Recalls that scene of the bank. Every track goes back to following and plays the scene's clips. It lands by the jump mode. |
 | An empty pad held half a second, while the song plays | Stores what plays now as a new scene after the last one (STORED AS A NEW SCENE): per track the clip it plays, nothing for a stopped track. The new scene repeats until another is recalled. A short press on an empty pad says HOLD TO STORE WHAT PLAYS AS A SCENE and stores nothing. A pad that holds a scene is never written over. |
 | 4th left button | Saves the song (stopped only). |
+| K1, K2, K3 | The scene chain (section 18): how many times the scene plays, what follows it, and the hold. |
 | K4 | Jump mode: NEXT CYCLE (the next master cycle) or SCENE END (when the current scene has played out). |
+| Pad while the song is stopped | Reserves the scene: it blinks, the screen says RESERVED - PLAY STARTS AT THIS SCENE, and PLAY starts the song there. The same pad again takes it back (PLAY starts at scene 1). |
 | OCT - / OCT + | Previous / next bank of 16 scenes (8 banks). |
 | K5 or K7 | Selects the song (only while stopped). |
 | PLAY | Starts the song at scene 1; stops it. |
@@ -170,7 +172,7 @@ There are two mutes, and they look different everywhere.
 
 | Situation | Behaviour |
 | --- | --- |
-| PLAY, song stopped | The song starts at scene 1; every track follows, except tracks with a reserved clip (4.1), which start on that clip. |
+| PLAY, song stopped | The song starts at scene 1, or at the scene reserved on the SCENES page; every track follows, except tracks with a reserved clip (4.1), which start on that clip. |
 | PLAY, song playing | The song stops; every note is released. Launches and stops are forgotten. |
 | CLOCK = MIDI | The song waits for the master's Start and follows its clock. PLAY arms and disarms. Launching works the same; the master cycle is counted from the master's Start. |
 | End of the song with launched tracks | The launched tracks keep looping; the screen says SONG OVER. A scene recall or PLAY ends it. |
@@ -196,7 +198,7 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-Scene lengths and the scene chain, a clip's program change and bank: the next releases. Deleting a clip or a scene, a new song from nothing, and SCALE (step sizes other than a
+A clip's program change and bank, and recording knob movements: the next release. Deleting a clip or a scene, a new song from nothing, and SCALE (step sizes other than a
 16th): not planned yet. New songs still come from the web workbench (the MIDI importer or the song editor).
 
 ## 11. Differences from the MC-707
@@ -265,6 +267,8 @@ Deliberate differences:
 | Metronome | ON or OFF with the master clock; type and level; sounds on the audio outputs (UM, Ver. 1.10 and 1.50). | CLICK: OFF, WHEN RECORDING or ALWAYS; output INTERNAL, MIDI NOTE (a channel and note you choose) or BOTH. | The SMK-37's audio may feed the house mix, so the click for the stage is a MIDI note (SPEC 14.1, decision 7). |
 | Where the click settings live | In the system settings. | In each song. | The device's settings sector has no room without a format change; a song's click note belongs to that song's rig anyway. |
 | Unsaved clips | Any number. | One at a time. A copy or a new clip counts. | Memory. |
+| A scene pad while stopped | Reserves the scene; START plays it (RM p. 35 with p. 12). | The same from tabby-v04.12; the pad again takes the reservation back. | Same; taking back as for clips. |
+| Scenes in order | None: a scene stays until you press another. | The scene chain: each scene plays TIMES times and the next one follows; THEN STAY makes a scene wait like an MC-707 scene; K3 holds the whole chain. | Imported songs play through by themselves; the hold and the pads are the manual override. |
 | Clip chain: what follows | NEXT CLIP: STAY, STOP or CLIP 1 to 16 (UM, Ver. 1.30). | NEXT CLIP: STAY, STOP or a clip of the same track, 1 to 64; K1 steps through the pads that hold a clip. | 64 clips per track. |
 | Clip chain: when | LENGTH: OFF (when the clip has played to its end) or 1 to 512 steps. | AFTER: CLIP END or 1 to 512 steps. | The same setting. It is called AFTER because LENGTH on the same page is the clip's length. |
 | Clip chain: repeats | None: to play a clip four times before the next, set LENGTH to four times the clip. | TIMES, 1 to 64: the chain is due after TIMES x AFTER (or TIMES x the clip). | Our addition: the count stays right when the clip's length changes. |
@@ -492,3 +496,25 @@ track. It is set per clip on CLIP SETTING (section 14) and saved with the clip.
   was entered, and due at the end of the pass if that moment has passed.
 - NEXT CLIP naming a pad whose clip is gone is read as STAY.
 - Not during a take: NOT DURING A TAKE.
+
+## 18. The scene chain
+
+The scenes of a song play in order: scene 1, then 2, and so on. Each has a length and says what follows it. Both are
+set on the SCENES page for the scene that plays; while the song is stopped, for the reserved scene (press its pad).
+
+| Knob | Line on the screen | Meaning |
+| --- | --- | --- |
+| K1 | LEN n CYCLES | How many times the scene plays before the next one: 1 to 64 times its own steps. The screen shows the result in master cycles (in steps when it is not a whole number of cycles). |
+| K2 | THEN NEXT / STAY | NEXT: the following scene comes when this one has played its length (after the last scene: the song's loop point, or the end; the screen says LOOP or END). STAY: the scene repeats until you recall another. |
+| K3 | CHAIN RUNS / CHAIN HELD | The manual override. HELD: the scene that plays repeats, whatever its settings say, until you turn K3 back or recall a scene. Not stored; it is off after another song is loaded. |
+| K4 | JUMP | When a recalled scene lands (section 5). |
+
+- A pad always wins: recalling a scene jumps there (by the jump mode) and the chain goes on from that scene.
+- TIMES and THEN are part of the song: UNSAVED until saved (stopped, 4th left button, or by itself after ten
+  seconds). A change to the scene that plays is taken at once.
+- A scene stored from the panel (section 5) starts as THEN STAY, 1 time. Give it a length and THEN NEXT to make it a
+  step of the chain.
+- Each track that follows the scenes takes the new scene's clip from its beginning when the scene changes; launched
+  tracks stay on their clips (and their clip chains) until you send them back.
+- With CLOCK = MIDI the song starts at scene 1 (a reservation is not used) and the master's song position moves
+  through the chain.

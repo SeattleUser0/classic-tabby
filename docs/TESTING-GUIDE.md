@@ -1,14 +1,14 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 2.8, 2026-11-16. For tabby-v04.11.2 on the M-VAVE SMK-37 Pro.
+Version 2.9, 2026-11-16. For tabby-v04.12 on the M-VAVE SMK-37 Pro.
 Written for the person who plays and tests the device. No programming needed.
 
-tabby-v04.11.2 is new firmware. It adds clip chains (section 4.12), and its page can back up songs with a scene stored on the panel. tabby-v04.10 added new clips from the panel, the CLIP SETTING page (a clip's length, copies), a click and a count-in, and storing a scene (section 4.11). tabby-v04.9 added recording: REC records what you play into a clip (section 4.10). tabby-v04.8 added the STEP page: edit a clip's notes on the pads and keys (section 4.9). tabby-v04.7 added the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
+tabby-v04.12 is new firmware. It adds the scene chain (section 4.13). tabby-v04.11 added clip chains (section 4.12), and its page can back up songs with a scene stored on the panel. tabby-v04.10 added new clips from the panel, the CLIP SETTING page (a clip's length, copies), a click and a count-in, and storing a scene (section 4.11). tabby-v04.9 added recording: REC records what you play into a clip (section 4.10). tabby-v04.8 added the STEP page: edit a clip's notes on the pads and keys (section 4.9). tabby-v04.7 added the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
 at the time they are due, within about 2 ms (timed MIDI, on at power-up),
 and a song can now follow an external MIDI clock. It also has a remote control
 command for the workbench tools, so tests can run without anyone at the panel.
-If an older firmware is on your SMK-37, install tabby-v04.11.2 to get these. The page also has English-only Help and this guide.
+If an older firmware is on your SMK-37, install tabby-v04.12 to get these. The page also has English-only Help and this guide.
 
 How to read this guide
 ----------------------
@@ -87,6 +87,7 @@ Removed:
 - tabby-v04.9: Recording. REC on the CLIPS or STEP page records what you play, on the keys or from outside gear at MIDI in, into the selected clip while it loops. Notes land on the nearest step unless you switch input quantize off (SHIFT and REC). FX undoes a whole take. See 4.10.
 - tabby-v04.9.1: HOME works on the STEP page while a clip is open (in tabby-v04.8 and tabby-v04.9 it did nothing there; EDIT or BT were the way out).
 - tabby-v04.9.2: After you stop the song, no pad on the CLIPS page stays green, and the clip you had launched can be reserved for the next PLAY like any other (before, its pad stayed green and a press did nothing).
+- tabby-v04.12: the scene chain: on SCENES K1 sets how many times a scene plays, K2 what follows it, K3 holds the chain; a scene pad pressed while stopped is where PLAY starts (4.13).
 - tabby-v04.11.2: Full backup, verify and restore work on a song that has a scene stored on the panel. On the pages of tabby-v04.10, tabby-v04.11 and tabby-v04.11.1 the backup stopped at about 66 % for such a song, with "Scene n is invalid" in the status line. The firmware is tabby-v04.11's.
 - tabby-v04.11: clip chains: CLIP SETTING has NEXT CLIP, AFTER and TIMES, so a launched clip leads to the next one by itself (4.12).
 - tabby-v04.10: REC or EDIT on an empty pad makes a new clip. FX on CLIPS opens CLIP SETTING: LENGTH, COPY TO PAD, and the song's COUNT-IN and CLICK. Holding an empty pad on SCENES stores what plays as a new scene. Every clip loops at its own length. A take is placed 3 ms earlier, where you heard it (4.11).
@@ -117,7 +118,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. tabby-v04.11.2 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips, scenes, clip launching, clip editing and recording. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. tabby-v04.12 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips, scenes, clip launching, clip editing and recording. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -382,6 +383,15 @@ Storing a scene
 3. AFTER: CLIP END, or a number of steps (K2 changes it by 16). TIMES: how many times before the chain is due.
 4. Save (stop, 4th button in the left group). Launch the clip from its pad. Under the track's column the CLIPS page shows +05 (clip 5 is next) or +STP.
 5. The chain only runs on a track you launched by hand. A track that follows the scenes ignores it. A pad press, ENV or a scene recall ends it.
+
+
+4.13 The scene chain (tabby-v04.12)
+
+1. Open SCENES (SCL from CLIPS). The line LEN shows the length of the scene that plays, in master cycles, then THEN and CHAIN.
+2. K1 changes how many times the scene plays before the next one. K2 chooses THEN NEXT (the next scene follows by itself) or THEN STAY (it repeats until you recall another).
+3. K3 right: CHAIN HELD. The scene that plays repeats until you turn K3 left again (CHAIN RUNS) or press a scene pad.
+4. While the song is stopped, press a scene pad: RESERVED - PLAY STARTS AT THIS SCENE. PLAY starts there. The knobs then work on that scene.
+5. A pad always wins: the song jumps to its scene and goes on from there. Save the song when stopped.
 
 
 5. USING THE WORKBENCH
@@ -1031,6 +1041,15 @@ You should hear: the fill starts on the next bar, plays 4 steps, and the first c
 Result: PASS / FAIL   Notes: ________________________________
 
 
+T77. The scene chain (tabby-v04.12)
+Set up: a song with at least three scenes, stopped, SCENES page.
+1. Press pad 2: RESERVED - PLAY STARTS AT THIS SCENE. Turn K1 one click right. Press PLAY.
+2. Watch the SCENE number. When scene 3 plays, turn K3 right (CHAIN HELD). After a while turn it left.
+3. Press pad 1.
+You should see and hear: the song starts at scene 2, which plays one time more than before; scene 3 follows by itself and repeats while the chain is held; pad 1 jumps to scene 1 and the song goes on from there. [checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
+
 7. KNOWN LIMITS AND WHAT IS NOT BUILT YET
 =========================================
 
@@ -1041,7 +1060,7 @@ Do not spend time testing these. They are known.
 - One clip can be unsaved at a time, and a clip two tracks share cannot be edited on the device.
 - External clock in song mode (tabby-v04.3.1): the clock must come over USB or Bluetooth; the TRS jack cannot receive it. Song Position Pointer moves the song through its rows and repeats; a position past the end of a song that does not loop goes to its last step. The song sends no clock of its own while it follows.
 - The TRS jack is output only. A DIN clock cannot come in through it. Use USB or Bluetooth for clock in.
-- The MC-707 workflow: clip launching, scenes and mute are on the panel from tabby-v04.7 (4.8). Step editing (4.9), recording (4.10), new clips, lengths, copies, the click and stored scenes (4.11) followed. Clip chains (4.12) followed. Scene lengths and a clip's own program change on the panel are still to come.
+- The MC-707 workflow: clip launching, scenes and mute are on the panel from tabby-v04.7 (4.8). Step editing (4.9), recording (4.10), new clips, lengths, copies, the click and stored scenes (4.11) followed. Clip chains (4.12) and the scene chain (4.13) followed. A clip's own program change on the panel is still to come.
 - A mute set on the MIX page, and the mute tracks 6 and 7 of a new project start with, silence the SMK-37's own sound only; the song still plays those tracks on MIDI out. SHIFT and pad 9 to 16 mutes both.
 - OUT PORT is one setting for all tracks. You cannot send track 1 on the TRS jack and track 2 on USB.
 - A clip holds up to 512 events (notes and controller events together) and up to 128 steps. A song holds up to 128 rows and 2048 blocks. The device holds 16 songs. The step editor in the workbench still shows 64 steps and four notes per step; larger clips come from the importer.
@@ -1052,7 +1071,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.11.2.
+- The page badge and the boot screen show tabby-v04.12.
 
 
 8. HOW TO REPORT A PROBLEM

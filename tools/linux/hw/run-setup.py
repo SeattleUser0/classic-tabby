@@ -19,9 +19,11 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-16  The internal click is found against the noise floor, not against the loudest sound (the song's notes are
+                      eight times louder than the click and hid it in the second device run).
     v0.3  2026-11-16  Two tool errors of the first device run: the cycle was taken from MIDI clock pulses that included the
                       time before PLAY (it is now twice the note spacing of the 8-step clip), and the internal click
                       was looked for on inputs 1 and 2 with a capture that ended early (now arecord, inputs 3 and 4,
@@ -206,7 +208,7 @@ def main():
             for cnum in (2, 3):
                 v = x[cnum::8]; win = 48                    # 1 ms
                 env = [max(abs(q) for q in v[i:i + win]) >> 16 for i in range(0, n - win, win)]
-                thr = max(max(env) // 4, 300)
+                thr = max(6 * sorted(env)[len(env) // 2], 600)
                 on = []; last = -1000
                 for i, e in enumerate(env):
                     if e > thr and i - last > 200:

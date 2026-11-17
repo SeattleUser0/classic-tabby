@@ -527,8 +527,13 @@ unsigned ct_screen_setup_read(uint8_t *out)
     out[16] = clip ? (uint8_t)clip_v3_times(clip) : 1;
     out[17] = clip && (clip[1] & CLIP_V3_FLAG_PROGRAM) ? clip[2] : 255; out[18] = clip && (clip[1] & CLIP_V3_FLAG_BANK) ? clip[3] : 255; out[19] = clip ? clip[4] : 0;
     out[20] = rec ? rec->rows : 0; out[21] = (uint8_t)song_scene_hold();
-    { struct song_status st; song_status_read(&st); out[22] = st.count_in; }
-    return 23;
+    { struct song_status st; song_status_read(&st); out[22] = st.count_in;
+      /* tabby-v04.12: the scene the SCENES page's knobs work on: its index, times, flags, steps; the master cycle */
+      unsigned er = st.playing ? st.row : song_scene_reserved();
+      const struct song_model *mdl = song_model_current();
+      out[23] = (uint8_t)er; out[24] = rec && er < rec->rows ? rec->row[er].repeat : 0; out[25] = rec && er < rec->rows ? rec->row[er].flags : 0;
+      out[26] = rec && er < rec->rows ? rec->row[er].steps : 0; out[27] = mdl ? mdl->cycle : 16; }
+    return 28;
 }
 int ct_screen_setup_do(void)
 {
@@ -958,10 +963,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24) + (song_follow_state() << 27);
             sig = sig * 33U + clip_bank + ((unsigned)clip_select[track] << 3) + (track_muted(track) << 12) + ((unsigned)rec_lamp << 13);
             for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + mute_kind(t);   /* Task 16: the follow state */
-            sig = sig * 33U + song_unsaved() + (song_scene_hold() << 1);
+            sig = sig * 33U + song_unsaved() + (song_scene_hold() << 1) + (song_scene_reserved() << 2);
+            { const struct song_record *sr = song_current(); if (sr) for (unsigned i = 0; i < sr->rows; ++i) sig = sig * 33U + sr->row[i].repeat + ((unsigned)sr->row[i].flags << 7); }
         }
         if (visible == CLIP_SETUP) {
-            uint8_t v[24]; unsigned n = ct_screen_setup_read(v);
+            uint8_t v[32]; unsigned n = ct_screen_setup_read(v);
             sig = signature(sig, v, n);
             struct song_edit_info ei; song_edit_info(&ei); sig = sig * 33U + ei.dirty + ((unsigned)ei.undo << 1);
             struct song_status st; song_status_read(&st); sig = sig * 33U + st.playing;
@@ -1044,7 +1050,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
                               storage == SONG_STORAGE_COMPACTING ? "COMPACTING STORAGE..." : "SCANNING STORAGE...", AMBER);
             if (storage == SONG_STORAGE_OLD_DATA) dim_text(8, 88, "ACTIONS: ERASE OLD DATA (CONFIRM)");
         } else if (rec && st.song == song_select) {
-            unsigned row = st.playing ? st.row : 0;
+            unsigned row = st.playing ? st.row : song_scene_reserved() < rec->rows ? song_scene_reserved() : 0;
             const struct song_row *r = &rec->row[row];
             dim_text(8, 70, "SCENE"); small_number(44, 70, row + 1, 3, ACCENT);
             dim_text(70, 70, "/"); small_number(76, 70, rec->rows, 3, TEXT);
@@ -1058,6 +1064,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
                 color_text(8, 88, fol[st.follow < 8 ? st.follow : 0], st.follow == 4 ? GREEN : st.follow == 5 || st.follow == 6 ? AMBER : DIM);
             } else
             color_text(8, 88, st.playing == 2 ? "STOPPING" : st.playing ? "PLAYING" : "STOPPED - PLAY STARTS", st.playing ? GREEN : DIM);
+            if (!st.playing && song_scene_reserved()) { dim_text(140, 88, "AT SCENE"); small_number(194, 88, song_scene_reserved() + 1U, 3, AMBER); }
             if (st.queued != SONG_NONE) { dim_text(104, 88, "TO SCENE"); small_number(158, 88, st.queued + 1U, 3, AMBER); }
             else if (st.playing && st.next_row != SONG_NONE) { dim_text(104, 88, "NEXT"); small_number(134, 88, st.next_row + 1U, 3, TEXT); }
             else if (st.playing) dim_text(104, 88, r->flags & SONG_ROW_FLAG_LOOP_HERE ? "LOOPING SCENE" : "LAST SCENE");
@@ -1067,13 +1074,21 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
                 color_text(x, 108, "T", colors[t]); small_number(x + 6, 108, t + 1, 1, colors[t]);
                 if (r->block[t]) small_number(x, 120, r->block[t], 5, TEXT); else dim_text(x, 120, "-");
             }
+            /* tabby-v04.12: the scene chain's line: the scene the knobs work on, its length, what follows, the hold */
+            { unsigned er = st.playing ? st.row : song_scene_reserved();
+              const struct song_row *e = &rec->row[er < rec->rows ? er : 0];
+              const struct song_model *mdl = song_model_current();
+              unsigned total = (e->steps ? e->steps : 64U) * e->repeat, cyc = mdl && mdl->cycle ? mdl->cycle : 16U;
+              dim_text(8, 134, "LEN"); small_number(30, 134, total % cyc ? total : total / cyc, 4, TEXT); dim_text(58, 134, total % cyc ? "STEPS" : "CYCLES");
+              dim_text(102, 134, "THEN"); color_text(132, 134, e->flags & SONG_ROW_FLAG_LOOP_HERE ? "STAY" : er + 1U < rec->rows ? "NEXT" : rec->flags & SONG_FLAG_LOOP ? "LOOP" : "END", TEXT);
+              color_text(170, 134, song_scene_hold() ? "CHAIN HELD" : "CHAIN RUNS", song_scene_hold() ? AMBER : DIM); }
             /* Row pads: pads 1-16 = rows 1-16 of the pad page. */
-            dim_text(8, 140, "PADS"); small_number(38, 140, song_row_page * 16U + 1U, 3, TEXT);
-            dim_text(60, 140, "-"); small_number(68, 140, song_row_page * 16U + 16U, 3, TEXT);
-            dim_text(118, 140, st.jump_mode ? "JUMP: SCENE END" : "JUMP: NEXT CYCLE");
-            if (st.error) { color_text(8, 158, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS" : "BLOCK READ ERROR", AMBER); }
-            else if (st.underruns) color_text(8, 158, "ROW DECODE LATE", AMBER);
-            if (rec->tempo) { dim_text(130, 158, "BPM"); small_number(154, 158, rec->tempo, 3, TEXT); }
+            dim_text(8, 146, "PADS"); small_number(38, 146, song_row_page * 16U + 1U, 3, TEXT);
+            dim_text(60, 146, "-"); small_number(68, 146, song_row_page * 16U + 16U, 3, TEXT);
+            dim_text(118, 146, st.jump_mode ? "JUMP: SCENE END" : "JUMP: NEXT CYCLE");
+            if (st.error) { color_text(8, 160, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS" : "BLOCK READ ERROR", AMBER); }
+            else if (st.underruns) color_text(8, 160, "ROW DECODE LATE", AMBER);
+            if (rec->tempo) { dim_text(130, 160, "BPM"); small_number(154, 160, rec->tempo, 3, TEXT); }
             /* Task 04 (9.11): the song's row events and the late count since PLAY. */
             if (st.events) {
                 dim_text(8, 176, "EVENTS"); small_number(56, 176, st.events, 3, TEXT);
@@ -1084,7 +1099,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             dim_text(8, 88, "THE WEB WORKBENCH");
         }
         plain_text(8, 198, notice ? notice : "PADS RECALL SCENE  OCT BANK  K5 SONG");
-        dim_text(8, 213, "PLAY START/STOP  K4 JUMP MODE");
+        dim_text(8, 213, "K1 TIMES K2 THEN K3 HOLD K4 JUMP");
         dim_text(8, 231, "SCL CLIPS  ENV TRACK TO SCENES");
     } else if (visible == TRACK_LAUNCH) {
         /* Task 17 Goal 4 (docs/CONTROL-MAP.md 4): every track's state and clip, the selected track's clips of the pad
@@ -2087,6 +2102,12 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN));
         if (paging) song_row_page = (unsigned)clamp((int)song_row_page + paging, 0, SONG_ROWS / 16 - 1);
         if (controls->encoders[5]) song_jump_mode_set(controls->encoders[5] > 0);
+        /* tabby-v04.12 (docs/CONTROL-MAP.md 18): the scene chain: K1 how many times the scene plays (its length), K2
+         * what follows it, K3 holds the chain. They work on the scene that plays; stopped, on the reserved scene. */
+        { unsigned er = st.playing ? st.row : song_scene_reserved();
+          if (controls->encoders[2] && st.song == song_select) (void)song_scene_edit(er, 0, controls->encoders[2]);
+          if (controls->encoders[3] && st.song == song_select) (void)song_scene_edit(er, 1, controls->encoders[3]);
+          if (controls->encoders[4]) { song_scene_hold_set(controls->encoders[4] > 0); announce(song_scene_hold() ? "CHAIN HELD: THIS SCENE REPEATS" : "CHAIN RUNS", now + 1500U); } }
         for (unsigned i = 0; i < 16; ++i)
             if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
                 const struct song_record *rec = song_current();
@@ -2095,7 +2116,9 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 if (rec && st.song == song_select && st.playing && song_row_page * 16U + i >= rec->rows) {
                     scene_hold_pad = (uint8_t)i; scene_hold_ms = now; announce("HOLD TO STORE WHAT PLAYS AS A SCENE", now + 1500U); continue;
                 }
-                if (song_queue_jump(song_row_page * 16U + i)) announce("NO SUCH SCENE / NOT PLAYING", now + 1500U);
+                { int jr = song_queue_jump(song_row_page * 16U + i);
+                  if (!st.playing && jr >= 0) announce(jr ? "TAKEN BACK - PLAY STARTS AT SCENE 1" : "RESERVED - PLAY STARTS AT THIS SCENE", now + 1500U);
+                  else if (jr) announce("NO SUCH SCENE / NOT PLAYING", now + 1500U); }
             }
         if (scene_hold_pad != 255) {
             if (!(controls->keys & (1U << white_keys[scene_hold_pad]))) scene_hold_pad = 255;

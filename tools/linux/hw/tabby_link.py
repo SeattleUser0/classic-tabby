@@ -25,9 +25,10 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.16
+Version: 0.17
 
 Revision log
+    v0.17 2026-11-16  tabby-v04.12: setup_state() reports the scene chain's scene.
     v0.16 2026-11-16  tabby-v04.10: setup_state() and setup_do() (the CLIP SETTING page), flash_part().
     v0.15 2026-11-16  Goal 6: steps_state() reports the recorder (tabby-v04.9).
     v0.14 2026-11-16  Goal 6: steps_state(), edit_save(), edit_discard(), edit_open(), play_key(), knob() (remote ops 15 and 16, tabby-v04.8).
@@ -377,7 +378,10 @@ class Link:
         return {"page": d[0], "page_name": self.PAGES.get(d[0], str(d[0])), "row": d[1], "track": d[2], "place": d[3], "steps": d[4],
                 "to": d[5], "count_in": d[6], "click": d[7], "click_out": d[8], "click_ch": d[9], "click_note": d[10], "unsaved": d[11],
                 "rows": d[12], "next": d[13], "after": d[14] | d[15] << 8, "times": d[16], "program": d[17], "bank_msb": d[18],
-                "bank_lsb": d[19], "scenes": d[20], "hold": d[21], "counting": d[22]}
+                "bank_lsb": d[19], "scenes": d[20], "hold": d[21], "counting": d[22],
+                # v0.17 (tabby-v04.12): the scene the SCENES page's knobs work on
+                "scene": d[23] if len(d) > 27 else None, "scene_times": d[24] if len(d) > 27 else None,
+                "scene_flags": d[25] if len(d) > 27 else None, "scene_steps": d[26] if len(d) > 27 else None, "cycle": d[27] if len(d) > 27 else None}
 
     def setup_do(self):
         """v0.16: remote op 16 {16, 4}: what the 4th left button does on the CLIP SETTING page (COPY on its row, else save)."""

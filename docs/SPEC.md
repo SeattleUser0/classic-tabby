@@ -1,6 +1,6 @@
 # Classic Tabby — Specification
 
-Version: 0.48
+Version: 0.49
 Revision log:
 - v0.46, 2026-11-16: 19.12 tabby-v04.9.3 (the flash part page, command 25 request 11; report only).
 - v0.45, 2026-11-16 (Goal 6, second step): 19.11 tabby-v04.9 (real-time recording); 14.2 amended: the cap is 512 events,
@@ -1741,3 +1741,14 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   sounds runs out its length across the step; STOP releases the track.
 - Status: `track_chain[8]` (the row the chain leads to, 254 = stop, none); the CLIPS page shows it per track.
 - Differences from the MC-707 (NEXT CLIP / LENGTH, Update manual version 1.30): docs/CONTROL-MAP.md section 11.
+
+### 19.15 tabby-v04.12 (2026-11-16): the scene chain on the panel
+
+- The scene chain is the row sequence the song always had (rows with repeats, loop-here rows, the loop point): from
+  this release its two settings are on the SCENES page. `song_scene_edit`: TIMES (the row's repeat, 1 to 64; the
+  scene's length is its steps x that, shown in master cycles) and THEN (the loop-here flag: NEXT or STAY). A change
+  to the scene that plays is copied into the audio thread's row at once. Saved with the song (19.13).
+- The manual override: the pads (a recall, as before) and the hold (`song_scene_hold_set`, K3; RAM only).
+- A scene pad pressed while stopped reserves the start scene (`reserve_scene`; `song_queue_jump` while stopped);
+  `song_play` starts there on the internal clock and uses the reservation up. As the MC-707's reserved scene.
+- Remote: op 17's reply grows to 28 bytes (the scene the knobs work on, its times, flags, steps; the master cycle).

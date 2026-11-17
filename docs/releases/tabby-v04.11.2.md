@@ -22,3 +22,12 @@ Full backup works on songs with a scene stored on the panel; otherwise tabby-v04
 
 - Clip chains on CLIP SETTING: NEXT CLIP (STAY, STOP or a clip), AFTER (the clip's end, or 1 to 512 steps), TIMES.
 - The count-in ends exactly on the beat.
+
+## Validation on the device (2026-11-16, unattended)
+
+Full backup through this page (the device held a song with a panel-stored scene: 30 blocks), one install attempt:
+"Firmware ready." after 9.4 s. Clip chains 11 of 11 (clip 2 starts 0.03 ms from the cycle line; the first run's "5.8 ms
+late" was the test tool's own clock arithmetic). CLIP SETTING, click and count-in 21 of 21: MIDI Start 1999.47 ms after
+the first click of the count-in (one cycle is 1999.1 ms); the internal click recorded every 500 ms. Recording 25 of 25,
+STEP page 18 of 18, CLIPS page 40 of 40 twice. 960 notes on one line: 2.04 ms band on DIN, 2.02 ms on USB (clock ratio
+0.999556 in this run; 0.999600 and 1.89 / 1.80 ms on tabby-v04.10 an hour earlier). Backup and verify after: PASS.

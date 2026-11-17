@@ -2552,6 +2552,29 @@ int main(void)
         song_edit_discard();
         CHECK(stopped_store == SONG_INVALID && song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_current()->rows == 4 && song_current()->row[3].block[0] == 2 && (song_current()->row[3].flags & SONG_ROW_FLAG_OWN),
               "scene store: nothing is stored while stopped; saved and loaded again, the song has four scenes");
+        /* ---- tabby-v04.12: the scene chain: a start scene reserved while stopped, a scene's times and what follows it ---- */
+        { int r1 = song_queue_jump(2), r9 = song_queue_jump(9); struct song_status st; song_status_read(&st);
+          CHECK(r1 == 0 && r9 == SONG_INVALID && st.queued == 2 && song_scene_reserved() == 2, "scene chain: stopped, a scene pad reserves the scene PLAY starts at (%d %d, queued %u)", r1, r9, st.queued);
+          CHECK(song_queue_jump(2) == SONG_EMPTY && song_scene_reserved() == 0 && song_queue_jump(2) == 0, "scene chain: the reserved scene again takes it back; reserved once more"); }
+        CHECK(song_scene_edit(2, 1, -1) == 0 && !(song_current()->row[2].flags & SONG_ROW_FLAG_LOOP_HERE) && song_scene_edit(2, 0, 1) == 0 && song_current()->row[2].repeat == 2 && song_scene_edit(2, 0, 99) == 0 && song_current()->row[2].repeat == 64 && song_scene_edit(2, 0, -62) == 0 && song_unsaved(),
+              "scene chain: scene 3 no longer stays (THEN NEXT), plays 2 times; TIMES is held between 1 and 64; the song is unsaved");
+        (void)sim_song_play();
+        unsigned row50 = 0, sc1000 = 0, row1600 = 0, row3000 = 0, sheld = 0;
+        for (unsigned blocks = 0; blocks < 4400; ++blocks) {
+            if (blocks == 50) row50 = sim_song_status(0) >> 16 & 255U;
+            if (blocks == 1000) sc1000 = sim_song_status(0) >> 16 & 255U;                  /* scene 3 is 16 steps x 2 = 1378 blocks */
+            if (blocks == 1600) { row1600 = sim_song_status(0) >> 16 & 255U; (void)song_scene_edit(3, 1, -1); (void)song_scene_edit(3, 0, 1); }   /* scene 4 (32 steps): THEN NEXT (the last scene: the song loops or ends), 2 times */
+            if (blocks == 3000) { row3000 = sim_song_status(0) >> 16 & 255U; song_scene_hold_set(1); }
+            if (blocks == 4300) sheld = sim_song_status(0) >> 16 & 255U;
+            (void)sim_render();
+            struct message m[64]; (void)drain(m, 64);
+        }
+        CHECK(row50 == 2 && song_scene_reserved() == 0, "scene chain: PLAY starts at the reserved scene 3 (scene %u); the reservation is used up", row50 + 1);
+        CHECK(sc1000 == 2 && row1600 == 3, "scene chain: scene 3 plays its 2 times, then the next scene follows (scene %u at block 1000, %u at 1600)", sc1000 + 1, row1600 + 1);
+        CHECK(row3000 == 3 && sheld == 3 && (sim_song_status(0) >> 8 & 255U) == 1, "scene chain: TIMES changed while the scene plays is taken at once (still scene 4 at 3000); held, it repeats past its end (scene %u at 4300)", sheld + 1);
+        song_scene_hold_set(0);
+        sim_song_stop(); settle(); settle();
+        CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_current()->row[2].repeat == 2 && !(song_current()->row[2].flags & SONG_ROW_FLAG_LOOP_HERE) && song_current()->row[3].repeat == 2, "scene chain: the settings are saved with the song");
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

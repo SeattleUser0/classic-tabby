@@ -192,6 +192,7 @@ static struct {
 static uint8_t edit_refresh;           /* 1 + the track whose looping buffer should be decoded again */
 /* tabby-v04.10: the song itself (its clip table, scenes or header) was changed on the device: the record is written,
  * as version 3, when the song is saved (stopped only, as every flash write). */
+static uint8_t reserve_scene;           /* tabby-v04.12: the scene PLAY starts at (a scene pad pressed while stopped; 0: the first) */
 static uint8_t song_dirty;
 static uint32_t song_changed_ms;
 static void song_changed(void) { song_dirty = 1; song_changed_ms = fm1_millis(); }
@@ -1396,7 +1397,7 @@ int song_load(unsigned song)
 {
     if (state) return SONG_BUSY;
     if ((song_dirty || (edit.active && edit.dirty)) && loaded != SONG_NONE) (void)song_edit_save();   /* Goal 6: the unsaved clip and song changes belong to the song being left */
-    edit.active = 0; edit.dirty = 0; edit.created = 0; song_dirty = 0; scene_hold = 0;
+    edit.active = 0; edit.dirty = 0; edit.created = 0; song_dirty = 0; scene_hold = 0; reserve_scene = 0;
     loaded = SONG_NONE; memset(reserve_row, SONG_NONE, sizeof reserve_row);
     int r = song_record_read(song, &record);
     if (!r) r = song_directory_build(song);
@@ -1429,15 +1430,19 @@ int song_play(void)
     memset((void *)queue_kind, 0, sizeof queue_kind);
     ct_midi_flush();   /* Task 12 A4 */
     groove_midi_song_channels(record.channel);   /* before the decodes: the event slices use the channels */
+    /* tabby-v04.12: the scene reserved while stopped is where the song starts (internal clock; the MC-707's reserved
+     * scene); the reservation is used up */
+    unsigned first = follow || reserve_scene >= record.rows ? 0U : reserve_scene;
+    reserve_scene = 0;
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
         unsigned r = follow ? SONG_NONE : reserve_row[t];
         start_row[t] = (uint8_t)r; reserve_row[t] = SONG_NONE;
-        if (r == SONG_NONE) { decode_track(t, &tbuf[t][0], 0, P_SONG); continue; }
+        if (r == SONG_NONE) { decode_track(t, &tbuf[t][0], first, P_SONG); continue; }
         decode_track(t, &tbuf[t][0], r, P_LAUNCH);
         start_steps[t] = tbuf[t][0].steps;
     }
-    decode_rowinfo(&rowset[0], 0);
-    unsigned next = natural_next(0);
+    decode_rowinfo(&rowset[0], first);
+    unsigned next = natural_next(first);
     song_end = next == SONG_NONE && !rowset[0].loop_here;
     if (next != SONG_NONE) {
         for (unsigned t = 0; t < SONG_TRACKS; ++t) if (start_row[t] == SONG_NONE) decode_track(t, &tbuf[t][1], next, P_SONG);
@@ -1495,6 +1500,8 @@ int song_clock_in(unsigned status, unsigned a, unsigned b)
 unsigned song_follow_state(void) { return follow_on ? ext_state : 0U; }
 int song_queue_jump(unsigned row)
 {
+    /* tabby-v04.12: stopped: the scene is reserved and PLAY starts there; the reserved scene again takes it back */
+    if (!state && loaded != SONG_NONE && row < record.rows) { reserve_scene = (uint8_t)(reserve_scene == row ? 0U : row); return reserve_scene == row ? 0 : SONG_EMPTY; }
     if (state != 1 || row >= record.rows) return SONG_INVALID;
     memset((void *)queue_kind, 0, sizeof queue_kind);   /* a scene jump overrides every per-track queue (9.13) */
     jump_row = row;
@@ -1541,6 +1548,28 @@ int song_track_unqueue(unsigned track)
 }
 void song_mute_set(unsigned mask) { mute_mask = mask & 255U; }
 void song_scene_hold_set(unsigned on) { scene_hold = on != 0; }
+/* tabby-v04.12: the scene chain's settings. field 0: how many times the scene plays before the next one (1 to 64; its
+ * length is steps x that); field 1: what follows it: 0 the next scene, 1 it stays (loop here) until a scene is recalled.
+ * The scene that plays takes the change at once. Saved with the song. */
+int song_scene_edit(unsigned row, unsigned field, int delta)
+{
+    if (loaded == SONG_NONE || row >= record.rows || field > 1 || !delta) return SONG_INVALID;
+    struct song_row *w = &record.row[row];
+    if (field == 0) {
+        int v = (int)w->repeat + delta; v = v < 1 ? 1 : v > 64 ? 64 : v;
+        if (v == w->repeat) return 0;
+        w->repeat = (uint8_t)v;
+    } else {
+        unsigned want = delta > 0;
+        if (((w->flags & SONG_ROW_FLAG_LOOP_HERE) != 0) == want) return 0;
+        w->flags = (uint8_t)((w->flags & ~SONG_ROW_FLAG_LOOP_HERE) | (want ? SONG_ROW_FLAG_LOOP_HERE : 0));
+    }
+    for (unsigned i = 0; i < 2; ++i)
+        if (state && rowset[i].ready && rowset[i].row == row) { rowset[i].repeat = w->repeat; rowset[i].loop_here = (w->flags & SONG_ROW_FLAG_LOOP_HERE) != 0; }
+    song_changed();
+    return 0;
+}
+unsigned song_scene_reserved(void) { return reserve_scene; }
 unsigned song_scene_hold(void) { return scene_hold; }
 
 /* ---- Goal 6: the clip editor (control task) ------------------------------------------------------------------ */
@@ -2075,7 +2104,7 @@ void song_status_read(struct song_status *out)
     out->bar = (uint16_t)(m / BAR);
     out->bar_step = (uint8_t)((m % BAR) / UNITS);
     out->next_row = rowset[cur ^ 1U].ready ? rowset[cur ^ 1U].row : SONG_NONE;
-    out->queued = (uint8_t)jump_row;
+    out->queued = (uint8_t)(!state && reserve_scene && reserve_scene < record.rows ? reserve_scene : jump_row);   /* tabby-v04.12: stopped: the reserved start scene */
     out->jump_mode = (uint8_t)jump_mode;
     out->song_over = (uint8_t)song_over;
     out->error = (uint8_t)last_error;

@@ -205,6 +205,34 @@ check(pitches(0, 9) === '42 42 42 42' && pitches(1, 9) === '44' && pitches(2, 9)
 check(Math.abs(firstOn(1, 9)) <= 1 && pitches(1, 1) !== '', 'clip 2 starts within one block of the bar line; track 2 follows the scenes meanwhile');
 press(PLAY); step(60);
 
+/* ---- tabby-v04.12: the scene chain on SCENES: a start scene reserved while stopped; K1 times, K2 then, K3 hold ---- */
+const scene = () => { const n = c.sim_setup_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n)); return { row: d[23], times: d[24], flags: d[25], steps: d[26], cycle: d[27], hold: d[21], unsaved: d[11] }; };
+const K3 = 2;
+s = state(); if (s.page !== 19) { press(SCL); s = state(); }
+pad(1); s = state(); let q = scene();
+check(s.page === 19 && q.row === 1 && (s.pads[1].code & 7) === 3, 'stopped, pad 2 on SCENES: scene 2 is reserved (blinking) and is the scene the knobs work on');
+const times0 = q.times;
+knob(K1, 1); knob(K2, 1); q = scene();
+check(q.times === times0 + 1 && (q.flags & 1) === 1 && q.unsaved === 1, 'K1: one more time; K2 right: THEN STAY; the song is unsaved (' + q.times + ', flags ' + q.flags + ')');
+knob(K2, -1); q = scene();
+check((q.flags & 1) === 0, 'K2 left: THEN NEXT');
+origin = -1; const mark3 = log.length;
+press(PLAY);
+const songStart3 = () => log.slice(mark3).find(m => (m[0] & 0xf0) === 0x90 && m[2] && (m[0] & 15) !== 3);
+while (!songStart3() && block < 1200000) step();
+origin = songStart3()[3];
+toBar(0, 100);
+check((c.sim_song_status(0) >>> 16 & 255) === 1, 'PLAY starts at the reserved scene 2');
+toBar(times0, 100);
+check((c.sim_song_status(0) >>> 16 & 255) === 1, 'scene 2 plays one time more than before (still scene 2 in bar ' + (times0 + 1) + ')');
+knob(K3, 1); q = scene();
+toBar(times0 + 3, 100);
+check(q.hold === 1 && (c.sim_song_status(0) >>> 16 & 255) === 1, 'K3 right: CHAIN HELD: scene 2 repeats past its end');
+knob(K3, -1); q = scene();
+toBar(times0 + 5, 100);
+check(q.hold === 0 && (c.sim_song_status(0) >>> 16 & 255) !== 1, 'K3 left: CHAIN RUNS: the song goes on (scene ' + ((c.sim_song_status(0) >>> 16 & 255) + 1) + ')');
+press(PLAY); step(60);
+
 c.sim_midi_capture(0); c.sim_midi_drain(0);
 { const held = new Map(); let bad = 0;
   for (const m of log) { const st = m[0] & 0xf0, k = (m[0] & 15) + ':' + m[1]; if (st === 0x90 && m[2]) held.set(k, (held.get(k) || 0) + 1); else if (st === 0x80 || (st === 0x90 && !m[2])) { if (!held.get(k)) bad++; else held.set(k, held.get(k) - 1); } }

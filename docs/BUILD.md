@@ -1,6 +1,6 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.83
+Version: 0.84
 Revision log:
 - v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11) and 45.1 (on the device: 0x856014).
 - v0.80, 2026-11-16: 43.1 (tabby-v04.9.1 on the device; the publish gate and the untracked file), section 44 (tabby-v04.9.2).
@@ -5461,3 +5461,40 @@ waiting 15 minutes. **Before the suite** the built page was served from this com
 the device: "Full backup saved: 1 projects, 10 songs, 30 blocks" (overnight/backups/before-tabby-v04.11.2.json).
 Rule taken from this: a change to the page that a device operation depends on is run against the device from a local
 copy before it is published. Build id `5132d1244cb66781`, app image 479236 bytes.
+
+### 47.3 tabby-v04.11.2 on the device (2026-11-16)
+
+Suite green on aff1f77, gate ok, published, released. Backup through the new main page: 10 songs, 30 blocks. One
+install attempt: "Firmware ready." after 9.44 s (overnight/g7/tabby-v04.11.2-batch.log).
+
+| Test | Result |
+| --- | --- |
+| run-chain.py v0.2 | 11 of 11; clip 2 starts 0.03 ms from the cycle line; the track stops 8 steps into clip 2 |
+| run-setup.py v0.4 | 21 of 21; count-in: MIDI Start 1999.47 ms after the first click (tabby-v04.10: 2002.33); internal click every 500 ms on the audio output |
+| run-record.py | 25 of 25 |
+| run-steps.py / run-launch.py | 18 of 18 / 40 of 40, twice |
+| run-clips.py, song 13 | 960 of 960 on DIN and USB, worst 1.21 / 1.07 ms |
+| run-15.py, one line, 960 notes | DIN band 2.04 ms, USB 2.02 ms; clock ratio 0.999556 on both; underruns 0 |
+| backup and verify | PASS, 41 items |
+
+- Two tool errors in the first run, both of the kind 46.3 lists: run-chain.py took the cycle from MIDI clock pulses
+  (the mistake I had just corrected in run-setup.py and had copied into the new tool before that), and run-setup.py
+  set its click threshold from the loudest sound, the song's notes. Both tools corrected and run again on the device:
+  11 of 11 and 21 of 21.
+- **The one-line band is 2.04 ms on DIN, above the 2 ms it has held since tabby-v04.4** (1.67 to 1.98). The clock
+  ratio in this run is 0.999556; the three runs earlier today gave 0.999600. A band is measured against one straight
+  line, so a ratio that moves inside a run widens it. This is the effect asked about on 2026-11-16 (one run of 5 ms);
+  the ratio is now in every log, and this run and the next ones are the first data. Not called a device fault: the
+  notes are all there, in order, the latest 1.6 ms after its due time by the device's own count.
+- The internal click's level on the audio output is about an eighth of a note's (1600 against 12400 peak on the
+  capture, master volume as left): quiet next to a full song. A question for the user.
+
+## 48. tabby-v04.12: the scene chain on the panel (2026-11-16)
+
+- app/song.c: `song_scene_edit` (TIMES, THEN), the start scene (`reserve_scene`, `song_queue_jump` while stopped,
+  `song_play`), `song_scene_reserved`. app/screen.c: K1, K2, K3 and the LEN / THEN / CHAIN line on SCENES, the
+  reserved scene. The hold was in the engine since tabby-v04.10. Remote op 17: 28 bytes.
+- Tests: smoke.c section 26 (reserve and take back, TIMES and THEN and their limits, the start at the reserved scene,
+  a scene's length, a change while the scene plays, the hold, the save); setup-sim.mjs (50 checks, the page through
+  the panel); tools/linux/hw/run-scenechain.py v0.1, tabby_link.py v0.17.
+- Measured (the build): app image 480420 bytes (+1184), margin 39037, heap 143116, build id `568ffa35e8faa236`.
