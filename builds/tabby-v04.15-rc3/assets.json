@@ -1,0 +1,55 @@
+{
+  "build": "8b5a73f6a2d9ee40e426320a571603d8498a9f68302e05272c9aefb1a4afbe88",
+  "release": "V01",
+  "version": "tabby-v04.15",
+  "entryBytes": 375816,
+  "initialBytes": 1416402,
+  "standaloneBytes": 3169247,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/4cba00070d673384d7918efc573ebf65bdc6c4e53db6c75b55a3158a0a440fe6.bin",
+      "bytes": 520756,
+      "sha256": "4cba00070d673384d7918efc573ebf65bdc6c4e53db6c75b55a3158a0a440fe6"
+    },
+    {
+      "name": "assets/smk37/341278e2112d2e86705919d2f099dbecbd2e541fda1dc1079ff93ae2cb4fe28d.wasm",
+      "bytes": 357665,
+      "sha256": "341278e2112d2e86705919d2f099dbecbd2e541fda1dc1079ff93ae2cb4fe28d"
+    },
+    {
+      "name": "assets/smk37/1dac8fdc749a4d3b8e0f4b75a0ff97ade3acfc3222070cfe1e517e1d136ff113.js",
+      "bytes": 610280,
+      "sha256": "1dac8fdc749a4d3b8e0f4b75a0ff97ade3acfc3222070cfe1e517e1d136ff113"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 376037,
+      "sha256": "0755f44c45295e095d64059ab36c37395f264ab058be7c00a6e5493678e1ea30"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 376037,
+      "sha256": "0755f44c45295e095d64059ab36c37395f264ab058be7c00a6e5493678e1ea30"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3169247,
+      "sha256": "ea1c9f09bac5936164a490bda90013b43e5d47a1b806fca143d2a900f417e535"
+    }
+  ]
+}

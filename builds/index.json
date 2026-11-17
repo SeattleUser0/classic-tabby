@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-17T17:43:21Z",
+  "updated": "2026-11-17T18:36:24Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -360,7 +360,7 @@
       "page": "builds/tabby-v04.15-rc1/",
       "published": "2026-11-17",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.15-rc1.zip",
-      "note": "Not promoted: one device test failed through an error in the test tool, not in the firmware (docs/BUILD.md 51.1). The same firmware was tested again as tabby-v04.15-rc2."
+      "note": "Not promoted: device tests failed through errors in the test tools, not in the firmware (docs/BUILD.md 51.1, 51.2). The same firmware passed as tabby-v04.15-rc3."
     },
     {
       "tag": "tabby-v04.15-rc2",
@@ -370,6 +370,16 @@
       "page": "builds/tabby-v04.15-rc2/",
       "published": "2026-11-17",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.15-rc2.zip",
+      "note": "Not promoted: device tests failed through errors in the test tools, not in the firmware (docs/BUILD.md 51.2). The same firmware passed as tabby-v04.15-rc3."
+    },
+    {
+      "tag": "tabby-v04.15-rc3",
+      "build": "8b5a73f6a2d9ee40e426320a571603d8498a9f68302e05272c9aefb1a4afbe88",
+      "loader": "ota-SMK378b5a73f6a2d9ee40",
+      "version": "tabby-v04.15",
+      "page": "builds/tabby-v04.15-rc3/",
+      "published": "2026-11-17",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.15-rc3.zip",
       "note": "Release candidate of tabby-v04.15: not a release. Use the main page unless you were asked to test this build."
     },
     {
