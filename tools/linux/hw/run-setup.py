@@ -19,9 +19,14 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.1
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-16  Two tool errors of the first device run: the cycle was taken from MIDI clock pulses that included the
+                      time before PLAY (it is now twice the note spacing of the 8-step clip), and the internal click
+                      was looked for on inputs 1 and 2 with a capture that ended early (now arecord, inputs 3 and 4,
+                      where the SMK-37 is). The count-in must end within 1 ms of the beat (tabby-v04.11).
+    v0.2  2026-11-16  tabby-v04.11: the page's lines moved (the chain's three lines follow LENGTH).
     v0.1  2026-11-16  First version.
 """
 import argparse
@@ -120,10 +125,7 @@ def main():
             if (m[0] & 15) == ch:
                 hits.append(t)
         gaps = [(y - x) / 1e6 for x, y in zip(hits, hits[1:])]
-        cycle = None
-        clock = [t for t, m in since(mark, lambda m: list(m) == [0xF8])]
-        if len(clock) > 96:
-            cycle = (clock[-1] - clock[0]) / 1e6 / (len(clock) - 1) * 96.0
+        cycle = 2.0 * sorted(gaps[1:])[len(gaps[1:]) // 2] if len(gaps) >= 4 else None     # v0.3: from the notes themselves
         ok = len(gaps) >= 4 and cycle and all(abs(g - cycle / 2) <= 3.0 for g in gaps)
         check(ok, "the 8-step clip loops twice a cycle: its note every half cycle (%.2f ms by the device's MIDI clock)" % ((cycle or 0) / 2), ["%.2f" % g for g in gaps[:6]])
         measured["cycle_ms"] = round(cycle or 0, 3); measured["clock_ratio"] = round((cycle or 0) / 2000.0, 6)
@@ -154,16 +156,16 @@ def main():
         c = l.clips_state()
         if c["selected"] != empty:
             l.pad(empty); idle(0.2); l.pad(empty); idle(0.2)
-        l.press("FX"); idle(0.4); row(1); u = l.setup_state()
+        l.press("FX"); idle(0.4); row(4); u = l.setup_state()
         target = u["to"]
         l.setup_do(); idle(0.4); u2 = l.setup_state(); l.press("FX"); idle(0.3); c = l.clips_state()
-        check(u["row"] == 1 and target != empty and u2["place"] == target and u2["steps"] == 8 and u2["unsaved"] and (c["pads"][target % 16]["code"] & 7) == 1,
+        check(u["row"] == 4 and target != empty and u2["place"] == target and u2["steps"] == 8 and u2["unsaved"] and (c["pads"][target % 16]["code"] & 7) == 1,
               "COPY TO PAD %d: the copy is there (8 steps), open and unsaved" % (target + 1), (u2["place"], u2["steps"], u2["unsaved"]))
         l.edit_save(); idle(0.6)
         check(not l.setup_state()["unsaved"], "the copy is saved")
         # ---- the click as a MIDI note, and the count-in ----
         l.press("FX"); idle(0.4)
-        ok = setting(2, "count_in", 1) and setting(3, "click", 2) and setting(4, "click_out", 1) and setting(5, "click_ch", 15)
+        ok = setting(5, "count_in", 1) and setting(6, "click", 2) and setting(7, "click_out", 1) and setting(8, "click_ch", 15)
         u = l.setup_state()
         check(ok and u["click_note"] == 37, "the song's settings: COUNT-IN 1 cycle, CLICK ALWAYS, MIDI NOTE, channel 16 (note 37)", (u["count_in"], u["click"], u["click_out"], u["click_ch"], u["click_note"]))
         l.press("FX"); idle(0.3)
@@ -178,7 +180,7 @@ def main():
         if check(len(clicks) >= 10 and start, "clicks on channel 16 and the song's Start", (len(clicks), len(start))):
             pre = [t for t, _ in clicks if t < start[0] - 20_000_000]
             lead = (start[0] - clicks[0][0]) / 1e6
-            check(len(pre) == 4 and clicks[0][1] == 127 and clicks[1][1] == 90 and abs(lead - (cycle or 2000.0)) <= 6.0 and 1 <= counting <= 4,
+            check(len(pre) == 4 and clicks[0][1] == 127 and clicks[1][1] == 90 and abs(lead - (cycle or 2000.0)) <= 1.5 and 1 <= counting <= 4,
                   "the count-in: four clicks, the first louder, then MIDI Start one cycle after the first click", "%d clicks, %.2f ms, %d beats left after 1 s" % (len(pre), lead, counting))
             res = [((t - clicks[0][0]) / 1e6 + beat / 2) % beat - beat / 2 for t, _ in clicks]
             band = max(res) - min(res)
@@ -188,21 +190,23 @@ def main():
         l.press("PLAY"); idle(0.8)
         # ---- the internal click on the audio output ----
         l.press("FX"); idle(0.4)
-        ok = setting(4, "click_out", 0)
+        ok = setting(7, "click_out", 0)
         l.press("FX"); idle(0.3)
         if not a.no_audio:
-            cap = T.Capture(keep=(0, 1)); cap.start(); idle(0.5)
+            import subprocess, wave
+            wav = os.path.join(a.out, "click.wav")
+            rec = subprocess.Popen(["arecord", "-q", "-D", "hw:AUDIO4c", "-c", "8", "-f", "S32_LE", "-r", "48000", "-d", "6", wav])
+            idle(1.0)
             l.press("REC"); idle(0.3); l.press("PLAY"); idle((cycle or 2000.0) / 1000.0 + 1.0)
             l.press("REC"); idle(0.2); l.press("PLAY"); idle(0.5)
-            ch_data = cap.finish()
+            rec.wait()
+            w = wave.open(wav); n = w.getnframes(); raw = w.readframes(n)
+            x = struct.unpack("<%di" % (n * 8), raw)
             onsets = []
-            for cnum, raw in ch_data.items():
-                n = len(raw) // 2
-                x = struct.unpack("<%dh" % n, bytes(raw))
-                win = 48                                   # 1 ms
-                env = [max(abs(v) for v in x[i:i + win]) for i in range(0, n - win, win)]
-                floor = sorted(env)[len(env) // 2]
-                thr = max(4 * floor, 300)
+            for cnum in (2, 3):
+                v = x[cnum::8]; win = 48                    # 1 ms
+                env = [max(abs(q) for q in v[i:i + win]) >> 16 for i in range(0, n - win, win)]
+                thr = max(max(env) // 4, 300)
                 on = []; last = -1000
                 for i, e in enumerate(env):
                     if e > thr and i - last > 200:
@@ -211,7 +215,6 @@ def main():
                         last = i
                 if len(on) > len(onsets):
                     onsets = on
-                T.write_wav(os.path.join(a.out, "click-ch%d.wav" % cnum), raw)
             gaps = [y - x for x, y in zip(onsets, onsets[1:])]
             first4 = gaps[:3]
             check(ok and len(onsets) >= 4 and all(abs(g - beat) <= 6 for g in first4), "the internal click: bursts on the audio output a quarter note apart during the count-in", "onsets at ms %s" % onsets[:8])
@@ -220,7 +223,7 @@ def main():
             l.press("REC"); idle(0.2); l.press("REC"); idle(0.2)
         # ---- everything off again, and saved ----
         l.press("FX"); idle(0.4)
-        ok = setting(3, "click", 0) and setting(2, "count_in", 0)
+        ok = setting(6, "click", 0) and setting(5, "count_in", 0)
         l.setup_do(); idle(0.6); u = l.setup_state()
         check(ok and u["click"] == 0 and u["count_in"] == 0 and not u["unsaved"], "the click and the count-in are off again and the song is saved", (u["click"], u["count_in"], u["unsaved"]))
         l.press("FX"); idle(0.3)

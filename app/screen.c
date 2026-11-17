@@ -238,7 +238,7 @@ static uint8_t rec_lamp;   /* the recorder's state as the control pass last read
 /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the CLIP SETTING page: a list; K5 chooses the row, K1 changes its value (K2 in
  * steps of 16), the 4th left button does a row that is an action (COPY) and saves on the others. The scene pad that is
  * being held on the SCENES page (a long press on an empty pad stores what plays as a new scene). */
-enum { SET_LENGTH, SET_COPY, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE, SETUP_ROWS };
+enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_COPY, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
 static uint8_t setup_row, setup_to, scene_hold_pad = 255;
 static uint32_t scene_hold_ms;
 static uint8_t rec_full_seen;
@@ -505,6 +505,10 @@ static const char *setup_edit(int d)
         if (!ei.active) return "SELECT A CLIP FIRST";
         int r = song_edit_length(d);
         return r == SONG_BUSY ? "NOT DURING A TAKE" : r > 0 ? "NOTES PAST THE END REMOVED" : NULL;
+    }
+    if (setup_row >= SET_NEXT && setup_row <= SET_TIMES) {
+        if (!ei.active) return "SELECT A CLIP FIRST";
+        return song_edit_chain(setup_row - SET_NEXT, d) == SONG_BUSY ? "NOT DURING A TAKE" : NULL;
     }
     if (setup_row == SET_COPY) { setup_to = (uint8_t)clamp((int)setup_to + d, 0, SONG_CLIPS - 1); return NULL; }
     (void)song_setting_edit(setup_row - SET_COUNT_IN, d);
@@ -1105,7 +1109,10 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             if (queue == SONG_QUEUE_LAUNCH) { color_text(x, 90, ">", AMBER); small_number(x + 6, 90, song_row_place(t, st.track_queued[t]) + 1U, 2, AMBER); }
             else if (queue == SONG_QUEUE_STOP) color_text(x, 90, ">STP", AMBER);
             else if (queue == SONG_QUEUE_ATTACH) color_text(x, 90, ">SCN", AMBER);
-            else color_text(x, 90, words[state], state == 1 ? GREEN : state == 2 ? DIM : TEXT);
+            else if (st.track_chain[t] != SONG_NONE) {   /* tabby-v04.11: the launched clip's chain: the clip that follows, or a stop */
+                color_text(x, 90, "+", GREEN);
+                if (st.track_chain[t] == 254) color_text(x + 6, 90, "STP", GREEN); else small_number(x + 6, 90, song_row_place(t, st.track_chain[t]) + 1U, 2, GREEN);
+            } else color_text(x, 90, words[state], state == 1 ? GREEN : state == 2 ? DIM : TEXT);
         }
         /* The selected track's clips of this bank: a cell per pad: filled when the place holds a clip, green when it
          * plays, amber when queued, framed when selected. */
@@ -1146,7 +1153,8 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
     } else if (visible == CLIP_SETUP) {
         /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the settings of the open clip and of the song, one per line */
         struct song_edit_info ei; song_edit_info(&ei);
-        static const char *const labels[SETUP_ROWS] = {"LENGTH", "COPY TO PAD", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE"};
+        static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "COPY TO PAD", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE"};
+        const uint8_t *sclip = song_edit_clip();
         static const char *const modes[] = {"OFF", "WHEN RECORDING", "ALWAYS"}, *const outs[] = {"INTERNAL", "MIDI NOTE", "BOTH"}, *const counts[] = {"OFF", "1 CYCLE", "2 CYCLES", "", "4 CYCLES"};
         text(8, 40, "SETTING", 2, ACCENT, BACK);
         if (ei.active) { text(104, 40, "T", 2, colors[ei.track & 7U], BACK); number(118, 40, ei.track + 1, 1, 2, colors[ei.track & 7U], BACK);
@@ -1154,12 +1162,17 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         else dim_text(110, 44, "NO CLIP SELECTED");
         if (song_unsaved()) color_text(190, 40, "UNSAVED", AMBER);
         for (unsigned i = 0; i < SETUP_ROWS; ++i) {
-            unsigned y = 62 + i * 13, sel = i == setup_row, clip_row = i <= SET_COPY;
+            unsigned y = 60 + i * 12, sel = i == setup_row, clip_row = i <= SET_COPY;
             if (i == SET_COUNT_IN) dim_text(8, y - 1, "");
             color_text(8, y, sel ? ">" : " ", ACCENT);
             color_text(18, y, labels[i], sel ? TEXT : DIM);
             if (clip_row && !ei.active) { dim_text(130, y, "-"); continue; }
             if (i == SET_LENGTH) { small_number(130, y, ei.steps, 3, TEXT); dim_text(154, y, "STEPS"); }
+            else if (i == SET_NEXT) { unsigned nx = sclip ? clip_v3_next(sclip) : 0;
+                                      if (nx < CLIP_V3_NEXT_CLIP) color_text(130, y, nx ? "STOP" : "STAY", TEXT); else { dim_text(130, y, "CLIP"); small_number(158, y, nx - CLIP_V3_NEXT_CLIP + 1U, 2, TEXT); } }
+            else if (i == SET_AFTER) { unsigned af = sclip ? clip_v3_after(sclip) : 0;
+                                       if (!af) color_text(130, y, "CLIP END", TEXT); else { small_number(130, y, af, 3, TEXT); dim_text(154, y, "STEPS"); } }
+            else if (i == SET_TIMES) small_number(130, y, sclip ? clip_v3_times(sclip) : 1U, 2, TEXT);
             else if (i == SET_COPY) { const struct song_model *mdl = song_model_current();
                                       small_number(130, y, setup_to + 1U, 2, TEXT); dim_text(150, y, mdl && mdl->clip[ei.track][setup_to] ? "(HOLDS A CLIP)" : "(EMPTY)"); }
             else if (i == SET_COUNT_IN) color_text(130, y, counts[song_setting(SONG_SET_COUNT_IN)], TEXT);

@@ -222,6 +222,7 @@ static volatile unsigned scene_hold;
 static volatile uint8_t click_live, click_out, click_ch = 9, click_note = 37;   /* control -> audio; out: 0 internal, 1 MIDI, 2 both */
 static volatile uint32_t count_units;                                          /* control sets it with start_request; audio clears it */
 static uint32_t count_pos, count_acc, click_off_in;                            /* audio only */
+static volatile uint32_t count_from;                                           /* where the count-in's position starts (song_play) */
 static uint8_t click_held, click_held_ch, click_held_note;
 static volatile uint16_t click_frames; static volatile uint8_t click_delay, click_accent;   /* tabby-v04.10: the scene that plays repeats until this is taken off or a scene is recalled */
 /* audio -> control */
@@ -1020,6 +1021,7 @@ FM1_AUDIO_CODE void song_tick(unsigned tempo)
     if (start_request && count_units) {
         /* tabby-v04.10: the count-in: clicks at the song's tempo; the song starts with the block after its last unit */
         if (stop_request) { stop_request = 0; start_request = 0; count_units = 0; count_pos = count_acc = 0; click_release(); return; }
+        if (!count_pos) count_pos = count_from;
         count_acc += (tempo_override ? tempo_override : tempo) * ADV_MUL;
         unsigned adv = count_acc / ADV_DIV; count_acc %= ADV_DIV;
         click_window(count_pos, adv, 1, count_units);
@@ -1450,7 +1452,19 @@ int song_play(void)
     }
     /* tabby-v04.10: a take is armed: the count-in comes first (internal clock only) */
     click_update();
-    count_units = !follow && rec.state == REC_ARMED ? (uint32_t)song_setting(SONG_SET_COUNT_IN) * cycle_units : 0;
+    {
+        /* tabby-v04.11: the count-in ends exactly where a block begins, so the song's first beat is one beat after the
+         * last click (in tabby-v04.10 the song started with the next block: up to 2.9 ms late; measured 3.1 ms). The
+         * blocks the count-in takes are a whole number; what they overshoot is waited before the first click. The
+         * count runs from one cycle minus that lead to one cycle plus the count-in. Known tempo only (the song's own). */
+        uint32_t want = !follow && rec.state == REC_ARMED ? (uint32_t)song_setting(SONG_SET_COUNT_IN) * cycle_units : 0, lead = 0;
+        if (want && tempo_override) {
+            uint64_t per = (uint64_t)tempo_override * ADV_MUL, need = (uint64_t)want * ADV_DIV, blocks = (need + per - 1U) / per;
+            lead = (uint32_t)(blocks * per / ADV_DIV) - want;
+        }
+        count_from = cycle_units - lead;
+        count_units = want ? want + cycle_units : 0;
+    }
     barrier();
     start_request = 1;
     return 0;
@@ -1689,6 +1703,30 @@ int song_edit_length(int delta)
     int cut = clip_v3_steps_set(edit.clip, (unsigned)want);
     edit.gesture = 0x40000001U; edit_changed();
     return cut;
+}
+/* tabby-v04.11: the open clip's chain (docs/CLIP-V3.md 2.1): field 0 = next (stay, stop, then the places that hold a
+ * clip, in order), 1 = after (0 = the clip's end, 1 to 512 steps), 2 = times (1 to 64). One undo level per run of
+ * changes of the same field. */
+int song_edit_chain(unsigned field, int delta)
+{
+    if (!edit.active || field > 2 || !delta) return SONG_INVALID;
+    if (rec.state == REC_ON) return SONG_BUSY;
+    int next = (int)clip_v3_next(edit.clip), after = (int)clip_v3_after(edit.clip), times = (int)clip_v3_times(edit.clip);
+    int was_next = next, was_after = after, was_times = times;
+    if (field == 0) {
+        for (int n = delta < 0 ? -delta : delta; n > 0; --n) {
+            int v = next;
+            do { v += delta < 0 ? -1 : 1; } while (v >= CLIP_V3_NEXT_CLIP && v <= CLIP_V3_NEXT_MAX && !model.clip[edit.track][v - CLIP_V3_NEXT_CLIP]);
+            if (v < 0 || v > CLIP_V3_NEXT_MAX) break;
+            next = v;
+        }
+    } else if (field == 1) { after += delta; after = after < 0 ? 0 : after > CLIP_V3_AFTER_MAX ? CLIP_V3_AFTER_MAX : after; }
+    else { times += delta; times = times < 1 ? 1 : times > CLIP_V3_TIMES_MAX ? CLIP_V3_TIMES_MAX : times; }
+    if (next == was_next && after == was_after && times == was_times) return 0;
+    if (edit.gesture != (0x40000010U | field)) edit_push();
+    (void)clip_v3_chain_set(edit.clip, (unsigned)next, (unsigned)after, (unsigned)times);
+    edit.gesture = 0x40000010U | field; edit_changed();
+    return 0;
 }
 /* A copy of the track's clip in `from` as a new clip in the empty place `to`: it is the open clip, unsaved, and is
  * written with the song at the next save. SONG_BUSY: a clip is unsaved; SONG_EMPTY: no clip in `from`; SONG_INVALID:
@@ -2056,6 +2094,9 @@ void song_status_read(struct song_status *out)
         out->track_state[t] = (uint8_t)(ks | qk << 2 | (state && k->waiting ? 16U : 0U));
         out->track_row[t] = (uint8_t)(!state ? SONG_NONE : ks == 1 ? k->row : ks == 0 && !song_over ? rowset[cur].row : SONG_NONE);
         out->track_queued[t] = (uint8_t)(qk == Q_LAUNCH ? queue_row[t] : qk == Q_ATTACH ? out->row : SONG_NONE);
+        /* tabby-v04.11: where the launched clip's chain leads: a row, 254 = stop, SONG_NONE = no chain */
+        { const struct trackbuf *b = &tbuf[t][k->cur];
+          out->track_chain[t] = (uint8_t)(state && ks == 1 && !k->waiting && b->ready && b->chain_next ? (b->chain_next == 1 ? 254U : b->chain_row) : SONG_NONE); }
         if (!state && reserve_row[t] != SONG_NONE) {   /* stopped with a clip reserved: shown as a queued launch */
             out->track_state[t] = (uint8_t)(Q_LAUNCH << 2); out->track_queued[t] = reserve_row[t];
         }

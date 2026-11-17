@@ -54,6 +54,7 @@ struct song_status {
     uint8_t track_state[8];  /* bits 0-1 SONG_TRACK_*, bits 2-3 SONG_QUEUE_* pending, bit 4 waiting for its buffer */
     uint8_t track_row[8];    /* the pattern (row) the track plays, SONG_NONE when silent or stopped */
     uint8_t track_queued[8]; /* the queued pattern row (launch) or the row it returns to (attach), else SONG_NONE */
+    uint8_t track_chain[8];  /* tabby-v04.11: the row the launched clip's chain leads to, 254 = it stops the track, SONG_NONE = no chain */
     uint8_t count_in;    /* tabby-v04.10: quarter notes of the count-in still to come (0: none runs) */
     uint8_t follow;      /* Task 16: external clock follow: 0 off, 1 armed (waiting for Start), 2 preparing, 3 waiting for a pulse, 4 running, 5 held (missed pulses), 6 LOST, 7 stopped */
 };
@@ -119,6 +120,7 @@ unsigned song_unsaved(void);
  * same track (it becomes the open, unsaved clip); song_scene_store adds what plays now as a new scene (its index). */
 int song_edit_length(int delta);
 int song_clip_copy(unsigned track, unsigned from, unsigned to);
+int song_edit_chain(unsigned field, int delta);   /* tabby-v04.11: 0 next clip, 1 after (steps), 2 times */
 int song_scene_store(void);
 /* The song's click and count-in settings (stored in the song record): the count-in in master cycles (0, 1, 2 or 4),
  * the click (0 off, 1 while a take is armed or runs, 2 always), its output (0 internal, 1 MIDI, 2 both), the MIDI

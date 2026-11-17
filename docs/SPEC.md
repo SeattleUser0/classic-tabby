@@ -1,6 +1,6 @@
 # Classic Tabby — Specification
 
-Version: 0.47
+Version: 0.48
 Revision log:
 - v0.46, 2026-11-16: 19.12 tabby-v04.9.3 (the flash part page, command 25 request 11; report only).
 - v0.45, 2026-11-16 (Goal 6, second step): 19.11 tabby-v04.9 (real-time recording); 14.2 amended: the cap is 512 events,
@@ -1731,3 +1731,13 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - **The scene hold** (`song_scene_hold_set`, RAM only): the scene that plays repeats until the hold is taken off or a
   scene is recalled. In the engine from this release; on the panel with the scene chain.
 - Remote: command 29 op 17 reads the CLIP SETTING page; op 16 sub 4 is that page's 4th left button.
+
+### 19.14 tabby-v04.11 (2026-11-16): clip chains on the panel
+
+- CLIP SETTING gets NEXT CLIP, AFTER and TIMES after LENGTH (`song_edit_chain`: header bytes 8 to 11 of the open clip,
+  one undo level per setting). NEXT steps through STAY, STOP and the places of the track that hold a clip.
+- The engine is tabby-v04.10's (19.13): the chain acts on a launched track, exactly TIMES x AFTER (or TIMES x the
+  clip's length) after the clip was entered; the next clip is decoded ahead into the track's free buffer; a note that
+  sounds runs out its length across the step; STOP releases the track.
+- Status: `track_chain[8]` (the row the chain leads to, 254 = stop, none); the CLIPS page shows it per track.
+- Differences from the MC-707 (NEXT CLIP / LENGTH, Update manual version 1.30): docs/CONTROL-MAP.md section 11.

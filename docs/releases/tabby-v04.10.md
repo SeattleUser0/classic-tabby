@@ -37,3 +37,18 @@ New clips, a clip's length, copies, a click and a count-in, and stored scenes, a
   steps: set LENGTH once.
 - The click settings are stored in each song, not once for the device.
 - Clip chains, scene lengths and a clip's own program change are not on the panel yet (next releases).
+
+## Validation on the device (2026-11-16, unattended)
+
+Full backup first (through the tabby-v04.9.3 page), one install attempt: "Firmware ready." after 11.8 s. Then, by
+remote panel keys with the MIDI out read on a DIN input:
+
+- CLIP SETTING, new clip, length, copy, stored scene, click and count-in: 21 of 21 (three checks failed first through
+  errors in the test tool; the internal click was confirmed with a plain audio recording: clicks 500 ms apart).
+- Recording: 25 of 25, with REC on an empty pad. A take without input quantize now plays back -0.15, +0.10 and
+  -0.05 ms from where it was played (it was +3 ms).
+- STEP page 18 of 18; CLIPS page 40 of 40, twice.
+- 960 notes on one line: 1.89 ms band on DIN, 1.80 ms on USB; clock ratio 0.999600; no underruns.
+- The count-in's MIDI Start came 2002.3 ms after the first click, 3.1 ms after the exact cycle (the song starts with
+  the next audio block; made exact in tabby-v04.11).
+- Backup after the tests and verify: PASS, 41 items.

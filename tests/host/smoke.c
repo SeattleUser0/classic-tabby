@@ -2484,6 +2484,14 @@ int main(void)
               "length: back to 16 steps removes the note past the end (%d); the length is held between 1 and 128", l2);
         CHECK(song_edit_undo() == 0 && clip_v3_steps(song_edit_clip()) == 32 && clip_v3_note_find(song_edit_clip(), 20, 61) >= 0, "length: one undo brings the 32 steps and the note back");
         CHECK(song_edit_save() == 0, "length: saved");
+        /* tabby-v04.11: the chain's settings from the panel */
+        CHECK(song_edit_open(0, 0) == 0 && song_edit_chain(0, 1) == 0 && clip_v3_next(song_edit_clip()) == CLIP_V3_NEXT_STOP && song_edit_chain(0, 2) == 0 && clip_v3_next(song_edit_clip()) == CLIP_V3_NEXT_CLIP + 1,
+              "chain setting: NEXT steps through STAY, STOP and the places that hold a clip (%u)", clip_v3_next(song_edit_clip()));
+        CHECK(song_edit_chain(0, 50) == 0 && clip_v3_next(song_edit_clip()) == CLIP_V3_NEXT_CLIP + 9 && song_edit_chain(1, 600) == 0 && clip_v3_after(song_edit_clip()) == 512 && song_edit_chain(2, 100) == 0 && clip_v3_times(song_edit_clip()) == 64 && clip_v3_validate(song_edit_clip(), clip_v3_bytes(song_edit_clip())) == 0,
+              "chain setting: NEXT ends at the last place with a clip (place 10); AFTER holds at 512 steps, TIMES at 64 (%u)", clip_v3_next(song_edit_clip()));
+        { unsigned undone = 0; while (song_edit_undo() == 0) ++undone;
+          CHECK(undone >= 3 && undone <= 4 && clip_v3_next(song_edit_clip()) == 0 && clip_v3_after(song_edit_clip()) == 0 && clip_v3_times(song_edit_clip()) == 1, "chain setting: one undo level per setting: the undos give the clip without a chain (%u; one more level is the length test's)", undone); }
+        song_edit_discard();
         int c1 = song_clip_copy(0, 0, 1), c2 = song_clip_copy(0, 30, 20), cp3 = song_clip_copy(0, 0, 20); song_edit_info(&ei);
         CHECK(c1 == SONG_INVALID && c2 == SONG_EMPTY && cp3 == 0 && ei.active && ei.created && ei.place == 20 && ei.steps == 32 && ei.events == 2 && ei.block == 6 && song_clip_copy(0, 1, 21) == SONG_BUSY,
               "copy: a place that holds a clip and an empty source are refused; the copy is a new clip (block 6) in place 21, open and unsaved; no second copy before a save (%d %d %d)", c1, c2, cp3);

@@ -1,6 +1,6 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.82
+Version: 0.83
 Revision log:
 - v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11) and 45.1 (on the device: 0x856014).
 - v0.80, 2026-11-16: 43.1 (tabby-v04.9.1 on the device; the publish gate and the untracked file), section 44 (tabby-v04.9.2).
@@ -5390,3 +5390,44 @@ Full backup through the tabby-v04.9.2 page, one install attempt: "Firmware ready
 App image 478372 bytes (+7200 from tabby-v04.9.3), margin 41085 below the 519457 limit. Runtime heap 143116 bytes
 (-1728: the clip buffers' chain fields, the count-in and click state, the CLIP SETTING page). Build id
 `7e376d6bb50aacdb`. docs/FLASH-BUDGET.md 33.
+
+### 46.3 The suite, the release and the device (2026-11-16)
+
+Suite green on 5bce4d9 (overnight/g7/suite-v0410.log), gate ok, tagged, published (root and builds/tabby-v04.10/),
+released. Full backup through the tabby-v04.9.3 page, one install attempt: "Firmware ready." after 11.84 s
+(overnight/g7/v0410-batch.log). On the device:
+
+| Test | Result |
+| --- | --- |
+| run-setup.py (CLIP SETTING, new clip, LENGTH, COPY, stored scene, click, count-in) | 21 of 21 after three tool errors, below |
+| run-record.py v0.3 | 25 of 25; unquantized playback minus live note -0.15, +0.10, -0.05 ms (mean -0.03; +3 ms before); quantized -0.25, -0.35 ms; a sweep of 61 values recorded as 5 |
+| run-steps.py | 18 of 18 |
+| run-launch.py | 40 of 40, twice |
+| run-clips.py, song 13 | 960 of 960 on DIN and USB, worst 1.22 / 1.38 ms |
+| run-15.py v0.13, one line, 960 notes | DIN band 1.89 ms, USB 1.80 ms; clock ratio 0.999600 on both; latest event 1.60 ms after its due time; underruns 0 |
+| backup and verify after the tests | PASS, 41 items |
+
+Tool errors (not the device; each checked with a second reading before it was written down):
+1. The first run of run-setup.py failed four checks (COPY, the settings, the clicks): I had changed the tool's row
+   numbers for tabby-v04.11 while the batch for tabby-v04.10 was still using it. Rerun with the tool as committed
+   in 5bce4d9: those checks pass.
+2. "MIDI Start one cycle after the first click" and "every click on one grid" failed in the rerun: the tool took the
+   cycle from MIDI clock pulses that included the time before PLAY (1994.3 ms; the notes say 1999.2). With the right
+   cycle the Start is 3.1 ms late: the song starts with the block after the count-in's last unit, as SPEC 19.13
+   says (at most 2.9 ms plus the measuring jitter). tabby-v04.11 makes the count-in end on a block.
+3. "The internal click on the audio output" failed: the tool listened on inputs 1 and 2 of the audio interface and
+   its capture ended after 0.7 s. A plain arecord of all eight inputs shows the SMK-37 on inputs 3 and 4: a key at
+   1020 ms, then clicks at 4410, 4910, 5410, 5900, 6410, 6910, 7400 ms: the four of the count-in and the song's.
+   run-setup.py v0.3 does it this way.
+
+## 47. tabby-v04.11: clip chains on the panel; the count-in ends on the beat (2026-11-16)
+
+- app/song.c: `song_edit_chain` (NEXT CLIP, AFTER, TIMES of the open clip; NEXT steps through the places that hold
+  a clip); `track_chain[]` in the status; the count-in is shifted so that it ends where a block begins (`count_from`:
+  the blocks a count-in takes are a whole number, and what they overshoot is waited before the first click; the
+  song's own tempo only). app/screen.c: the three lines on CLIP SETTING (ten lines now), the chain's target under
+  the track's column on CLIPS.
+- Tests: smoke.c section 26 (the setting's steps, limits and undo), setup-sim.mjs v0.1 with the chain set and played
+  through the panel (40 checks); tools/linux/hw/run-chain.py v0.1, run-setup.py v0.3.
+- Measured (the build): app image 479236 bytes (+864), margin 40221, heap 143116 (unchanged), build id
+  `7b85cd8d3d193809`. docs/FLASH-BUDGET.md 34.

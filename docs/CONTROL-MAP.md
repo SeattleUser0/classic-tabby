@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.5 (2026-11-16). Applies from tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.6 (2026-11-16). Applies from tabby-v04.11 (section 17, clip chains). v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -196,8 +196,7 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-Clip chains (the next clip after a number of loops), scene lengths and the scene chain, a clip's program change and
-bank: the next releases. Deleting a clip or a scene, a new song from nothing, and SCALE (step sizes other than a
+Scene lengths and the scene chain, a clip's program change and bank: the next releases. Deleting a clip or a scene, a new song from nothing, and SCALE (step sizes other than a
 16th): not planned yet. New songs still come from the web workbench (the MIDI importer or the song editor).
 
 ## 11. Differences from the MC-707
@@ -266,6 +265,12 @@ Deliberate differences:
 | Metronome | ON or OFF with the master clock; type and level; sounds on the audio outputs (UM, Ver. 1.10 and 1.50). | CLICK: OFF, WHEN RECORDING or ALWAYS; output INTERNAL, MIDI NOTE (a channel and note you choose) or BOTH. | The SMK-37's audio may feed the house mix, so the click for the stage is a MIDI note (SPEC 14.1, decision 7). |
 | Where the click settings live | In the system settings. | In each song. | The device's settings sector has no room without a format change; a song's click note belongs to that song's rig anyway. |
 | Unsaved clips | Any number. | One at a time. A copy or a new clip counts. | Memory. |
+| Clip chain: what follows | NEXT CLIP: STAY, STOP or CLIP 1 to 16 (UM, Ver. 1.30). | NEXT CLIP: STAY, STOP or a clip of the same track, 1 to 64; K1 steps through the pads that hold a clip. | 64 clips per track. |
+| Clip chain: when | LENGTH: OFF (when the clip has played to its end) or 1 to 512 steps. | AFTER: CLIP END or 1 to 512 steps. | The same setting. It is called AFTER because LENGTH on the same page is the clip's length. |
+| Clip chain: repeats | None: to play a clip four times before the next, set LENGTH to four times the clip. | TIMES, 1 to 64: the chain is due after TIMES x AFTER (or TIMES x the clip). | Our addition: the count stays right when the clip's length changes. |
+| Which tracks a chain moves | Every track: there is no song. | A track that plays the clip launched: from its pad, reserved before PLAY, or reached through a chain. A track that follows the scenes takes its clips from the scenes; the chain waits. | One rule decides what a track plays next: the scenes, or its own chain. Launch the first clip of a chain by hand. |
+| Chain timing | At the LENGTH, counted from the clip's start. | The same, to the unit: no extra wait for the master cycle. A chain whose times are whole cycles stays on the cycle because the launch landed on one. | Fill-ins shorter than a cycle must work, as on the MC-707. |
+| Notes across a chain step | Cut (a fixed fault in Ver. 1.50 mentions it). | A note that sounds when the next clip starts plays out its length; STOP releases everything. | A held bass note should not be chopped by a clip change. |
 
 ## 12. STEP page: editing a clip
 
@@ -423,6 +428,7 @@ show a dash and the song's lines still work.
 
 | Line | Values | What it does |
 | --- | --- | --- |
+| NEXT CLIP, AFTER, TIMES | | The clip chain, section 17. They follow LENGTH on the page. |
 | LENGTH | 1 to 128 steps | The clip's length. It loops at this length wherever it plays. Shorter: the notes past the new end are removed (NOTES PAST THE END REMOVED; FX on the STEP page undoes). Longer: empty steps are added. Heard from the clip's next loop. Not during a take. |
 | COPY TO PAD | a pad of the same track, 1 to 64 | The 4th left button copies the clip to that pad if it is empty (the page offers the first empty one and says EMPTY or HOLDS A CLIP). The copy becomes the open clip, UNSAVED. A clip with unsaved changes must be saved first. |
 | COUNT-IN | OFF, 1 CYCLE, 2 CYCLES, 4 CYCLES | Section 15. |
@@ -461,3 +467,28 @@ The settings are part of the song and are saved with it. A song that was never s
   device, it plays the length of the first imported scene that uses it.
 - A clip edited on tabby-v04.8 to tabby-v04.9.3 was stored as 64 steps. If its scene is shorter it now loops at 64:
   set LENGTH once (section 14).
+
+## 17. Clip chains
+
+A chain tells a track what to do when a clip has played: stay on it, stop, or go on with another clip of the same
+track. It is set per clip on CLIP SETTING (section 14) and saved with the clip.
+
+| Line | Values | Meaning |
+| --- | --- | --- |
+| NEXT CLIP | STAY, STOP, CLIP 1 to 64 | STAY: no chain; the clip loops until you choose again. STOP: the track stops. CLIP n: the track goes on with that clip. K1 steps through STAY, STOP and the pads of the track that hold a clip. |
+| AFTER | CLIP END, 1 to 512 STEPS | When. CLIP END: when the clip has played to its end. A number: after that many steps, whether the clip is shorter (it loops meanwhile) or longer (it is cut). K2 changes it by 16. |
+| TIMES | 1 to 64 | How many times AFTER (or the clip) plays before the chain is due. |
+
+- The chain runs on a track that plays the clip launched: you pressed its pad, or reserved it and pressed PLAY, or
+  another clip's chain led to it. A track that follows the scenes ignores chains.
+- The step happens exactly TIMES x AFTER after the clip started. Launches land on the master cycle, so chains made of
+  whole cycles stay on it; a fill-in of 4 steps is possible too.
+- The next clip starts from its beginning and its own chain counts from there. A clip may name itself (it starts
+  again) or lead back to an earlier clip (a loop of clips).
+- Notes that sound when the next clip starts play out their length. STOP releases everything.
+- The CLIPS page shows where a launched clip's chain leads, under the track's column: +05 for clip 5, +STP for a stop.
+- A press on a pad, ENV or a scene recall takes the track out of the chain like out of any launched clip.
+- A chain is heard from the clip's next loop when you change it while the clip plays; counted from where the clip
+  was entered, and due at the end of the pass if that moment has passed.
+- NEXT CLIP naming a pad whose clip is gone is read as STAY.
+- Not during a take: NOT DURING A TAKE.
