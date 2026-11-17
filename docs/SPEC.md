@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.51
+Version: 0.52
 Revision log:
+- v0.52, 2026-11-17: 17.4 the words printed on the buttons, from the manufacturer's drawing; docs/STICKERS.md.
 - v0.51, 2026-11-17: 17.12 one session releases; 17.13 the release flow (release candidate on the device, then
   promote); 17.14 songs saved on tabby-v04.10 or later and older firmware; 19.17 tabby-v04.14 (the backup names a
   song it cannot read, clip lengths and chains survive the workbench, CLICK LEVEL, the controller numbers).
@@ -1276,6 +1277,12 @@ ids 6-17; firmware name = the FM1 button app/screen.c tests, through `button_map
 | 17 | REC | REC | from the workbench panel map, not confirmed |
 
 The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
+
+Printed words, from the top-view drawing in M-VAVE's SMK-37 PRO manual (2026-11-17; not checked against the unit):
+left group KNOB BANK (= SHIFT), FADER BANK, < (= HOME), > (= the 4th left button), OCTAVE-, OCTAVE+; right group ARP,
+NOTE REPEAT (= PAD / STEP), SCALE (= SCL), CHORD (= ENV), GLOBE (= MIX), BT, PATCH (= HOME / SRC), PARA (= EDIT), FX,
+SEQ, SEQ PLAY (= PLAY), SEQ REC (= REC). The names in the tables above stay the ones every text uses; docs/STICKERS.md
+is the sticker sheet that puts them on the panel.
 
 ### 17.5 The Help and panel text is held to the removed-features list (Task 14, 2026-11-10)
 

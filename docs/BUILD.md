@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.86
+Version: 0.87
 Revision log:
+- v0.87, 2026-11-17: 50.3 (tabby-v04.14 on the device, the first release through the flow), 50.4 (stickers, the manual).
 - v0.86, 2026-11-17: section 50 (tabby-v04.14: the page fixes, CLICK LEVEL, the controller numbers; the release flow of SPEC 17.13 and its tools).
 - v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11) and 45.1 (on the device: 0x856014).
 - v0.80, 2026-11-16: 43.1 (tabby-v04.9.1 on the device; the publish gate and the untracked file), section 44 (tabby-v04.9.2).
@@ -5607,3 +5608,34 @@ the chain loss fixed with it) and two new rules (SPEC 17.12, 17.13).
 - Makefile v0.30: `make rc` (builds the package with the release's source link and with the candidate's and refuses
   if the firmware package differs), `make promote`, `make device-gate`; release-assets needs the device gate.
 - tools/linux/release-flow.sh: the sequence, unattended.
+
+### 50.3 tabby-v04.14 on the device: the first release through the flow (2026-11-17)
+
+`tools/linux/release-flow.sh tabby-v04.14 1`: suite green on 4eac442, candidate published at
+builds/tabby-v04.14-rc1/ (build `781bd68d03f176ca`), every step of rc-validate.py passed at the first attempt,
+then promoted (main page, builds/tabby-v04.14/, GitHub release). Logs: overnight/g8/.
+
+| Step | Result |
+| --- | --- |
+| backup before (main page, tabby-v04.13) | 1 project, 10 songs, 28 blocks |
+| install from the candidate's page | Firmware ready, 12 s; the device reports build 781bd68d03f176ca |
+| run-program / run-chain / run-scenechain | 10 of 10 / 11 of 11 / 13 of 13 |
+| run-setup v0.6 | 24 of 24; click peaks LOW 3154, MID 6161, HIGH 12795 (x1.95, x2.08); K1 on CLIPS sent controller 7 after the setting |
+| run-record / run-steps / run-launch twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.25 and 1.13 ms |
+| run-15, one line, three runs | DIN 1.75, 1.73, 1.78 ms; USB 1.63, 1.72, 1.77 ms; clock ratio 0.999583 to 0.999584 |
+| full backup, restore, verify (candidate's page) | Verify PASS, 41 items, after the restore and again |
+
+Flash margin 37885 bytes, free RAM 143052 bytes. After the promotion the candidate's page says "it passed the device
+tests and was released as tabby-v04.14". No tool error and no device fault in this run.
+
+### 50.4 Stickers and the manual (2026-11-17; documents only, published with the next release)
+
+- docs/STICKERS.md, docs/stickers/ (PDF, HTML, measurements.json), tools/linux/stickers.py: four stickers with the
+  Classic Tabby names under the buttons, the knobs' functions per page and the fader tracks. Measured from the top-view
+  drawing in M-VAVE's manual (no photographs of the device exist on this computer), scaled by the published width;
+  what could not be measured is listed in STICKERS.md 4. The drawing also shows the printed button words (SPEC 17.4).
+- docs/TESTING-GUIDE.md v3.2: sections 1 and 2.1 rewritten for clips and scenes; section 4 in one order without the
+  duplicate numbers (the project and housekeeping sections are 4.15 to 4.18; the clip sections keep 4.8 to 4.14);
+  2.2 in release order. Help: chapters 01, 03, 12 and 20 brought up to tabby-v04.14.
+

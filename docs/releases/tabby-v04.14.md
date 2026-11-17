@@ -37,5 +37,11 @@ CLICK LEVEL, your own controller numbers for K1 to K4, a Full backup that names 
 
 ## Validation
 
-A release under the new flow exists only if its candidate passed every step on the device (SPEC 17.13). The figures of
-the run are in docs/BUILD.md 50.3 and are added to these notes after the release.
+Release candidate 1 (builds/tabby-v04.14-rc1/, the same firmware build) on the device, unattended, before the promotion:
+
+- Install from the candidate's page after a full backup: 12 s; the device reports the build above.
+- Device tests: program and knobs 10 of 10, clip chains 11 of 11, scene chain 13 of 13, CLIP SETTING 24 of 24 (the
+  click measured at LOW, MID and HIGH: each step x1.95 and x2.08; K1 sent the controller set in the song), recording
+  25 of 25, STEP page 18 of 18, CLIPS page 40 of 40 twice, the timing song 960 of 960 notes on DIN and USB.
+- One line, 960 notes, three runs: DIN 1.75, 1.73, 1.78 ms; USB 1.63, 1.72, 1.77 ms.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.
