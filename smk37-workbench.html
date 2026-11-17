@@ -344,7 +344,7 @@ main{max-width:1440px}
 <div id="manual-body" class="manual-body">
 <p id="manual-empty" class="manual-empty" hidden>No matching chapters. Try “LAUNCH”, “save” or “MIDI”, or click “Show all chapters”.</p>
 <article id="manual-tabby-changes" class="manual-chapter" tabindex="-1" data-removed-ok><h3>00 · What changed in tabby-v04</h3>
-<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.14. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
+<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.15. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
 <ul>
 <li><strong>The storage move. </strong>User storage went from 536576 to 471040 bytes: 16 project slots plus 97 song-region sectors (80 of them block sectors). Installing tabby-v04.0 over v03.x once clears the project slots, the device settings and the songs, so restore them from a Full backup; Bluetooth pairings are lost too. Later updates, tabby-v04.1 included, do not move storage again. See chapter 11.</li>
 <li><strong>The old pattern editing and recording are gone. </strong>(From tabby-v04.8 the clips of a song are edited on the new STEP page, and from tabby-v04.9 REC records into a clip; both in chapter 05.) The STEP DETAILS, LOCKS and RHYTHM/REC pages, REC recording, the count-in, the metronome, pad-step mode and the copy, paste, clear, repeat and undo menu entries are gone. Patterns already in a project still load, save and play. The metronome and count-in are planned for a later version.</li>
@@ -365,6 +365,7 @@ main{max-width:1440px}
 <li><strong>Clip workflow on the panel (tabby-v04.10). </strong><kbd>REC</kbd> or <kbd>EDIT</kbd> on an empty pad makes a new clip. <kbd>FX</kbd> on CLIPS opens CLIP SETTING: the clip's length, a copy to another pad, and the song's click and count-in. Holding an empty pad on SCENES stores what plays as a new scene. Every clip now loops at its own length. Chapter 05 has the details.</li>
 <li><strong>Clip chains (tabby-v04.11). </strong>CLIP SETTING has NEXT CLIP (STAY, STOP or a clip), AFTER (the clip's end, or a number of steps) and TIMES: a launched clip leads to the next one by itself. Chapter 05 has the details.</li>
 <li><strong>The scene chain (tabby-v04.12). </strong>On SCENES, K1 sets how many times a scene plays, K2 whether the next scene follows by itself, K3 holds the chain. A scene pad pressed while stopped is where <kbd>PLAY</kbd> starts. Chapter 05 has the details.</li>
+<li><strong>Transpose and delete a clip (tabby-v04.15). </strong>CLIP SETTING has TRANSPOSE (a clip's notes up or down by as much as 12 semitones when it plays; the clip itself is not changed) and DELETE CLIP (the 4th button in the left group twice, while stopped; a clip a scene uses is never deleted). Chapter 05 has the details.</li>
 <li><strong>Click level, controller numbers, a clearer backup (tabby-v04.14). </strong>CLICK LEVEL sets the internal click to LOW, MID or HIGH. K1 CONTROLLER to K4 CONTROLLER choose, per song, what the four knobs on CLIPS send. CLIP SETTING is two pages: the clip's lines and the song's lines. The Full backup names a song this page cannot read and stops. The MIDI importer keeps a clip's own length and its chain when it rewrites a song. Chapter 05 has the details.</li>
 <li><strong>Going back to an older build. </strong>Songs saved on the device by tabby-v04.10 or later cannot be read by older firmware. Go back only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.</li>
 <li><strong>Program, bank and controller knobs (tabby-v04.13). </strong>CLIP SETTING has PROGRAM, BANK MSB and BANK LSB for each clip. On CLIPS, K1 to K4 send controllers 74, 71, 1 and 11, and a take records them. Chapter 05 has the details.</li>
@@ -372,15 +373,18 @@ main{max-width:1440px}
 <li><strong>Control names. </strong>Knobs are called K1 to K8 by their printed numbers, from the left; the firmware’s SELECT is K5, PAGE is K6, PRESETS is K7 and MASTER is K8. The button the firmware calls SAVE is called the 4th button in the left group (after SHIFT, FADER BANK, HOME) in the manual. HOME / SRC is the 7th button in the right group (after ARP, PAD / STEP, SCL, ENV, MIX, BT); SHIFT + HOME / SRC opens the sound source page. The HOME button in the left group does not.</li>
 </ul></article>
 <article id="manual-tabby-about" class="manual-chapter" tabindex="-1"><h3>01 · What Classic Tabby is</h3>
-<p>Classic Tabby is a performance MIDI sequencer firmware for the M-VAVE SMK-37 Pro. It is a fork of SMK37 Open V01. It plays songs made of rows and blocks, keeps the exact timing of imported MIDI files, changes scenes on the bar, launches patterns per track, and sends program changes and control changes to the gear on each MIDI channel.</p>
+<p>Classic Tabby is a performance MIDI sequencer firmware for the M-VAVE SMK-37 Pro. It is a fork of SMK37 Open V01. It works like a Roland MC-707 that plays outside gear over MIDI: a song has eight tracks, each track has clips, a scene is one clip per track, and everything you launch lands on the next master cycle. Songs are imported from MIDI files or built on the panel, and both can be edited and recorded into on the device.</p>
 <h4>What it does</h4>
 <ul>
-<li>Plays up to 16 songs from the device. A song has up to 128 rows. Each row gives every one of the 8 tracks one block of up to 64 steps, with up to 4 notes per step.</li>
-<li>Keeps note starts and lengths to 1/480 of a 16th step, so a nudged kick stays nudged.</li>
-<li>Queues a jump to any row from the pads. The jump lands on the next bar or at the end of the row.</li>
-<li>Launches any pattern of a track on its own loop, on the next bar, while the other tracks keep following the song.</li>
-<li>Sends program changes, bank selects and control changes when a row starts, with the gaps your gear needs and a lead before the bar.</li>
-<li>Is the clock master. It sends MIDI Clock, Start, Stop and Song Position Pointer to the gear on the cable.</li>
+<li>Holds 16 songs. A song has 8 tracks, up to 64 clips per track and up to 128 scenes. A clip is 1 to 128 steps long and holds up to 512 events: notes, controller moves, pitch bend, pressure.</li>
+<li>Launches and stops clips from the pads of the CLIPS page, and recalls scenes from the pads of the SCENES page, always on the next master cycle (one bar unless the song says otherwise).</li>
+<li>Plays the scenes in order by itself (the scene chain: each scene a number of times, then the next), and lets a launched clip lead to another one (clip chains).</li>
+<li>Edits a clip on the STEP page (pads are steps, keys enter notes, four undo levels) and records into a clip from the keys or from outside gear, with input quantize, a click and a count-in.</li>
+<li>Makes new clips, copies them, changes their length, and stores what plays as a new scene, all on the panel.</li>
+<li>Keeps note starts and lengths to 1/480 of a 16th step and sends each note within about 2 ms of its time.</li>
+<li>Sends a program change and bank select when a track enters a clip, and program changes, bank selects and control changes when a scene starts, with the gaps your gear needs and a lead before the bar.</li>
+<li>Sends four controllers from K1 to K4 on the CLIPS page (the numbers are the song's), and records them in a take.</li>
+<li>Is the clock master (MIDI Clock, Start, Stop, Song Position Pointer), or follows a clock from USB or Bluetooth.</li>
 </ul>
 <h4>What it does not do</h4>
 <ul>
@@ -393,7 +397,7 @@ main{max-width:1440px}
 <p>The SMK-37 keeps five sound sources: DX7 FM (called FM6 in the documentation), BASS 303, DRUM 808, PSG and PLUCK. In a song they are there to audition a part before it goes to external gear, or to play a part when no gear is on that channel. Which tracks sound inside and which go out is set per track with the SEQ setting on the MIDI TRACK page. Chapter 09 explains it.</p>
 <h4>Where to see the installed version</h4>
 <ul>
-<li>Boot screen: the line under OFFICIAL OPEN shows the version, for example TABBY-V03.1. The screen font has capitals only.</li>
+<li>Boot screen: the line under OFFICIAL OPEN shows the version, for example TABBY-V04.14. The screen font has capitals only.</li>
 <li>Workbench: the badge next to the title shows the same version.</li>
 <li>Device update tab: the Version line shows it. Firmware details also show the build ID and the Open base version, which stays V01.</li>
 </ul>
@@ -420,13 +424,17 @@ main{max-width:1440px}
 <p>The Play &amp; edit tab has shortcuts into the simulator's pages. Song mode opens the SONG page and Track launch opens the CLIPS page in the browser simulator, which runs the same firmware code.</p>
 </article>
 <article id="manual-tabby-songs" class="manual-chapter" tabindex="-1"><h3>03 · Songs</h3>
+<h4>Clips and scenes</h4>
+<p>On the device a song is clips and scenes. Each of the 8 tracks has up to 64 clips. A scene names one clip (or nothing) for each track, how many times it plays, and whether the next scene follows by itself. The scenes in order are the song. Chapter 05 covers everything you do with them on the panel: launching, editing, recording, chains, settings.</p>
+<p>The workbench's song editor shows the same song as rows and blocks: a row is a scene, a block is a clip. The rest of this chapter uses the editor's words.</p>
+<p>Every clip loops at its own length: a 1-bar clip in a 4-bar scene plays four times. A song you imported plays as it did, and a song saved on the device (after a new clip, a stored scene or a changed setting) is kept in the scenes format, which firmware before tabby-v04.10 cannot read.</p>
 <h4>Rows, blocks, repeats, step lengths</h4>
 <p>A song is a list of rows. A row names one block per track, eight ids in all. A block is a pattern of up to 64 steps with up to 4 notes per step. Block id 0 means the track is silent in that row. One block can appear in many rows and on many tracks, so a drum pattern used in 20 rows is stored once.</p>
 <p>Each row also has a repeat count from 1 to 64, a step length of 16, 32, 48 or 64 steps, and a Loop here flag. A row of 16 steps is one bar. The song plays the row's blocks for the row's length, then plays the row again for each repeat, then moves to the next row. A row with Loop here repeats until you jump away.</p>
 <p>The song header holds the name (12 characters), a tempo override (0 keeps the project tempo), the Loop the song flag with its Loop start row, the jump landing rule (next bar or end of row), the swing flag, and an output channel per track (0 keeps the device OUT CH of that track).</p>
 <h4>What a song stores and what the project slot stores</h4>
 <p>The song stores notes, rows, row events, output channels and the tempo override. The project stores sounds, mixer levels, swing, the clock source and the per-track MIDI settings (IN CH, OUT CH, SEQ, OUT PORT). A song plays with whatever project is loaded on the device. The song's project slot field is only a note of the project it was made for. The device does not load that project for you. Load the project on HOME first, then start the song.</p>
-<p>The device holds 16 songs in its song storage, the flash area that used to hold samples. The workbench's Song mode group reads, writes, deletes and exports them. The device itself never edits a song.</p>
+<p>The device holds 16 songs in its song storage, the flash area that used to hold samples. The workbench's Song mode group reads, writes, deletes and exports them. From tabby-v04.8 the device edits songs too (chapter 05); it saves only while the song is stopped.</p>
 <h4>Playing a song on the device</h4>
 <ol>
 <li>Press <kbd>SEQ</kbd> and <kbd>EDIT</kbd> together to open ACTIONS.</li>
@@ -596,8 +604,13 @@ main{max-width:1440px}
 </ul>
 <h4>The two pages of CLIP SETTING (tabby-v04.14)</h4>
 <ul>
-<li>Page 1/2 holds the clip's lines: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD. Page 2/2 holds the song's lines: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL, K1 CONTROLLER to K4 CONTROLLER. K5 walks through all of them and the page changes by itself.</li>
+<li>Page 1/2 holds the clip's lines: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD, TRANSPOSE, DELETE CLIP. Page 2/2 holds the song's lines: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL, K1 CONTROLLER to K4 CONTROLLER. K5 walks through all of them and the page changes by itself.</li>
 <li><strong>CLICK LEVEL</strong>: LOW, MID or HIGH for the internal click, each twice as loud as the one before. A song that was never set is on MID. The click as a MIDI note is not affected.</li>
+</ul>
+<h4>Transpose and delete a clip (tabby-v04.15)</h4>
+<ul>
+<li><strong>TRANSPOSE</strong>, -12 to +12 semitones: every note of the clip is moved when the clip plays. The notes stored in the clip stay, so 0 plays the clip as it was. Heard from the clip's next loop; saved with the clip.</li>
+<li><strong>DELETE CLIP</strong>: with the song stopped, press the 4th button in the left group (PRESS AGAIN TO DELETE THE CLIP) and press it again within two seconds (CLIP DELETED - SAVE THE SONG). A clip that a scene uses is not deleted; the screen says USED BY SCENE n. Until you save the song, loading it again brings the clip back.</li>
 </ul>
 <h4>The scene chain (tabby-v04.12)</h4>
 <p>The scenes of a song play in order. On the SCENES page three knobs set how, for the scene that plays (stopped: for the scene you reserved by pressing its pad).</p>
@@ -750,7 +763,7 @@ main{max-width:1440px}
 <article id="manual-tabby-quickref" class="manual-chapter manual-quickref" tabindex="-1"><h3>12 · Quick reference</h3>
 <div class="manual-table"><table><thead><tr><th scope="col">Page</th><th scope="col">Control</th><th scope="col">Action</th></tr></thead><tbody>
 <tr><td>Any page</td><td><kbd>SEQ</kbd>+<kbd>EDIT</kbd> together</td><td>Open ACTIONS (COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE, COMPACT SONG STORAGE, SEND SETUP).</td></tr>
-<tr><td>Any page</td><td><kbd>SEQ</kbd></td><td>SYNC / MIDI: K1 CLOCK (INT, MIDI), K2 CLK IN (AUTO, USB, BLE; DIN receives nothing on the Pro and Elite), K3 SWING, K4 SEQ OUT (OFF, ON, CLOCK), <kbd>K7</kbd> KEY OUT. Songs need INT.</td></tr>
+<tr><td>Any page</td><td><kbd>SEQ</kbd></td><td>SYNC / MIDI: K1 CLOCK (INT, MIDI), K2 CLK IN (AUTO, USB, BLE; DIN receives nothing on the Pro and Elite), K3 SWING, K4 SEQ OUT (OFF, ON, CLOCK), <kbd>K7</kbd> KEY OUT. A song plays on INT or follows a clock from USB or BLE.</td></tr>
 <tr><td>Any page</td><td><kbd>HOME</kbd>+<kbd>SEQ</kbd></td><td>Tap the tempo.</td></tr>
 <tr><td>HOME</td><td><kbd>K4</kbd></td><td>BPM (the only tempo control; read only with MIDI clock).</td></tr>
 <tr><td>Any page, while playing</td><td>the 4th button in the left group (after <kbd>SHIFT</kbd>, <kbd>FADER BANK</kbd>, <kbd>HOME</kbd>), ERASE OLD DATA, COMPACT</td><td>Nothing is written to flash while a song or the pattern plays: the screen says STOP TO SAVE (or STOP TO ERASE / COMPACT), the workbench says the device is playing and sends nothing. Setting changes made while playing are kept and saved after the stop.</td></tr>
@@ -765,6 +778,10 @@ main{max-width:1440px}
 <tr><td>SONG</td><td>Pad 1 to 16</td><td>Recall that scene of the pad bank.</td></tr>
 <tr><td>SONG</td><td><kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Pad bank down / up by 16 scenes.</td></tr>
 <tr><td>SONG</td><td><kbd>K4</kbd></td><td>JUMP: NEXT CYCLE / JUMP: SCENE END.</td></tr>
+<tr><td>SONG</td><td><kbd>K1</kbd> / <kbd>K2</kbd> / <kbd>K3</kbd></td><td>The scene chain: how many times the scene plays / THEN NEXT or THEN STAY / hold the chain.</td></tr>
+<tr><td>SONG</td><td>Pad while stopped</td><td>Reserve the scene: <kbd>PLAY</kbd> starts there.</td></tr>
+<tr><td>SONG</td><td>Empty pad held half a second, song playing</td><td>Store what plays as a new scene.</td></tr>
+<tr><td>SONG, CLIPS, CLIP SETTING</td><td>the 4th button in the left group</td><td>Save the song (stopped only).</td></tr>
 <tr><td>SONG</td><td><kbd>SCL</kbd></td><td>Open CLIPS.</td></tr>
 <tr><td>SONG</td><td><kbd>HOME</kbd></td><td>Back to the overview; the song keeps playing.</td></tr>
 <tr><td>CLIPS</td><td><kbd>SHIFT</kbd>+pad 1 to 8, or <kbd>K5</kbd></td><td>Select the track.</td></tr>
@@ -775,6 +792,10 @@ main{max-width:1440px}
 <tr><td>CLIPS</td><td><kbd>ENV</kbd> / <kbd>SHIFT</kbd>+<kbd>ENV</kbd></td><td>Selected track / every track back to the scenes, next master cycle.</td></tr>
 <tr><td>CLIPS</td><td><kbd>OCT−</kbd> / <kbd>OCT+</kbd> or <kbd>K6</kbd></td><td>Clip bank down / up by 16.</td></tr>
 <tr><td>CLIPS</td><td><kbd>EDIT</kbd></td><td>Open the STEP page on the selected clip.</td></tr>
+<tr><td>CLIPS</td><td>Empty pad, then <kbd>REC</kbd> or <kbd>EDIT</kbd></td><td>Make a new clip there (one master cycle long).</td></tr>
+<tr><td>CLIPS</td><td>Pad while stopped</td><td>Reserve the clip: <kbd>PLAY</kbd> starts the song with it.</td></tr>
+<tr><td>CLIPS</td><td><kbd>K1</kbd> to <kbd>K4</kbd></td><td>Send controllers 74, 71, 1 and 11 (or the song's numbers) on the selected track; a take records them.</td></tr>
+<tr><td>CLIPS</td><td><kbd>FX</kbd></td><td>CLIP SETTING: <kbd>K5</kbd> line, <kbd>K1</kbd> value, <kbd>K2</kbd> value in steps of 16. Page 1/2 the clip (LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD, TRANSPOSE, DELETE CLIP), page 2/2 the song (COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL, K1 to K4 CONTROLLER).</td></tr>
 <tr><td>CLIPS, STEP</td><td><kbd>REC</kbd> / <kbd>SHIFT</kbd>+<kbd>REC</kbd></td><td>Start or stop a take into the clip / input quantize on or off.</td></tr>
 <tr><td>STEP</td><td>Pad, then keys</td><td>Select a step; enter or remove notes on it.</td></tr>
 <tr><td>STEP</td><td><kbd>K1</kbd> to <kbd>K4</kbd></td><td>Choose a note of the step; velocity; start; length.</td></tr>
@@ -872,7 +893,13 @@ main{max-width:1440px}
 <article id="manual-update" class="manual-chapter" tabindex="-1"><h3>20 · Firmware updates</h3><p>Download the Pro workbench for your device. Connect USB, export project and song (.tabby) backups, then connect in Device update, confirm your backup and update. Updating from one tabby firmware to another never needs force flash, and it works with CLOCK on INT or on MIDI. Only for the first migration from the same model’s factory firmware, tick Force flash by hand under Migration, factory restore and forced updates. The page verifies the model and the build hash afterward. Pro and Elite firmware are not interchangeable.</p>
 <p>Choose Restore factory V16 under Migration, factory restore and forced updates. Check the model, back up your data and confirm. After firmware installation and resource read-back finish, power-cycle the device. To return to Open, choose Switch to Open firmware, reconnect and update, then restore projects and songs from their separate backups.</p><ol><li>In Projects &amp; sounds, back up the current project, then load and back up any other project slots you need; back up each song with Export .tabby. Export LIVE timbre edits separately as track sounds.</li><li>Open Device update in the latest workbench and connect SMK37 OPEN by USB. Firmware is included.</li><li>Check “I have backed up the sounds, projects and songs I want to keep”, click “Connect device” and allow MIDI / SysEx.</li><li>Check the device information, click “Start update” and maintain power and USB until completion.</li><li>Wait for restart and version verification. After the first install of tabby-v04.0 or later, if the device reports OLD DATA, choose ERASE OLD DATA in ACTIONS (see chapter 02 and "What changed in tabby-v04").</li></ol>
 <p>A successfully completed update using the same storage layout preserves valid project slots and the song storage. Still back up projects, voices and songs separately before flashing. Unsaved memory edits are not restored after restart. Updating firmware does not transfer the browser project to the device automatically.</p><p>If the update is interrupted or the device stays in update mode: <strong>close this page, power-cycle the SMK-37, then open the page the loader asks for</strong> (the page shows its name and link; the list of every build is under builds/). Never force flash. Firmware without the USB-MIDI update protocol requires its matching recovery tool. Migration may erase projects and songs; back up first.</p>
-<p>After reconnecting USB, click Connect again; old device information is cleared. Reconnect when switching between firmware update and the project library.</p><p>If connection fails, open Connection details to see the MIDI IN / OUT ports detected for this attempt. Missing ports, unpaired ports and no identity reply are different problems. Close other MIDI apps and updater tabs, then power-cycle, reconnect USB and connect again. Force flash cannot skip the device handshake.</p></article>
+<p>After reconnecting USB, click Connect again; old device information is cleared. Reconnect when switching between firmware update and the project library.</p><p>If connection fails, open Connection details to see the MIDI IN / OUT ports detected for this attempt. Missing ports, unpaired ports and no identity reply are different problems. Close other MIDI apps and updater tabs, then power-cycle, reconnect USB and connect again. Force flash cannot skip the device handshake.</p><h4>Going back, and release candidates</h4>
+<ul>
+<li>Songs saved on the device by tabby-v04.10 or later cannot be read by older firmware. Go back to an older build only with a Full backup made before tabby-v04.10: install the older build from its page in the builds list, then restore that backup.</li>
+<li>A Full backup made with a page older than the firmware can stop at a song that page cannot read; it then names the song. Make the backup with the page of the firmware that is on the device.</li>
+<li>A page whose address ends in -rc1, -rc2 and so on, with a red line at the top, is a release candidate: a build under test on the developer's device. Every release is first such a candidate, installed and tested, before it reaches the main page. Use the main page unless you were asked to try a candidate.</li>
+</ul>
+</article>
 <article id="manual-help" class="manual-chapter" tabindex="-1"><h3>21 · Troubleshooting</h3>
 <h4>No sound, or MASTER seems unresponsive</h4><p>In the browser, check Mute, output level and system volume. On SMK37 OPEN, check K8, track LEVEL, mute/solo and output connections. K8 at minimum mutes the output.</p>
 <h4>PLAY does not advance</h4><p>Press SEQ for SYNC / MIDI and check whether K1 CLOCK is INT or MIDI; without an external clock switch back to INT. If playback runs but makes no sound, check that the track is not muted and its level is not zero.</p>
@@ -883,7 +910,7 @@ main{max-width:1440px}
 <p>The Play button, panel PLAY and Space enable sound before starting playback. If sound cannot start, playback stays stopped; resolve the browser audio issue and try again. Panic / Stop all or changing panel pages cancels pending playback while sound is starting.</p><p>Tap Tempo: hold HOME and tap SEQ on any page, or click TAP on the web page. Two taps start detection; up to four intervals are averaged over 30–300 BPM. In FX, turn K7 to DELAY: K1 toggles SYNC, K2 sets division or milliseconds, K3 sets internal BPM and K4 sets feedback. New projects default to synchronized eighth notes. With SYNC off, FREE holds a fixed time of about 30–2040 ms. Switching modes selects the nearest available time. T means triplet and D means dotted. Delay follows internal or external MIDI BPM and retains its last interval if clock is lost. Old projects keep their manual delay; projects using synchronized divisions or extended fixed times require updated firmware.</p></article>
 </div></div>
 </section>
-<dialog id="about-dialog" class="save-dialog about-dialog" aria-labelledby="about-title"><h2 id="about-title">M-VAVE SMK37 OPEN</h2><p>© 2026 M-VAVE. APP: GPLv3 with an SDK linking exception; modification and redistribution are permitted under its terms. No warranty except as required by law or agreed in writing. See below for SDK and third-party terms.</p><p><a href="https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.14.zip" target="_blank" rel="noopener noreferrer">Source + SDK</a> · <a href="https://forum.m-vave.com" target="_blank" rel="noopener noreferrer">Official forum</a></p><details><summary>Copyright and license notices</summary><pre>APP: GPLv3 with the SMK37 SDK linking exception. SDK and resource terms: THIRD_PARTY.md. Source: https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.14.zip
+<dialog id="about-dialog" class="save-dialog about-dialog" aria-labelledby="about-title"><h2 id="about-title">M-VAVE SMK37 OPEN</h2><p>© 2026 M-VAVE. APP: GPLv3 with an SDK linking exception; modification and redistribution are permitted under its terms. No warranty except as required by law or agreed in writing. See below for SDK and third-party terms.</p><p><a href="https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.15.zip" target="_blank" rel="noopener noreferrer">Source + SDK</a> · <a href="https://forum.m-vave.com" target="_blank" rel="noopener noreferrer">Official forum</a></p><details><summary>Copyright and license notices</summary><pre>APP: GPLv3 with the SMK37 SDK linking exception. SDK and resource terms: THIRD_PARTY.md. Source: https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.15.zip
 
 ===== THIRD_PARTY.md =====
 # Third-party notices
@@ -4546,7 +4573,7 @@ Public License instead of this License.  But first, please read
 </main>
 <script data-smk37-entry>
 if(location.protocol==="file:"){location.replace(new URL("./SMK37-Open-Source.html"+location.search+location.hash,location.href));}
-else for(const item of [{"url":"./assets/smk37/66aac442daab5d6d32636a93c952849ce90078f4ce3df3f14a473c813fe4f9e5.js","integrity":"sha256-ZqrEQtqrXW0yY2qTyVKEnOkAePTOPfPxSkc8gT/k+eU="},{"url":"./assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js","integrity":"sha256-Wk8CCfWcFY/Icvd4xjJpn+XG+QWnwEjKbbjeXoW+KnA="},{"url":"./assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js","integrity":"sha256-HQAJu3m0TFRvVOz2lLzXZupYehoyVrp2v5ETpgCR0jI="}]){const script=document.createElement("script");script.src=item.url;script.integrity=item.integrity;script.crossOrigin="anonymous";script.async=false;document.body.append(script);}
+else for(const item of [{"url":"./assets/smk37/1dac8fdc749a4d3b8e0f4b75a0ff97ade3acfc3222070cfe1e517e1d136ff113.js","integrity":"sha256-HayP3HSaTTuOD0t1oP+XreOs/DIiBwz+HlF+HRNv8RM="},{"url":"./assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js","integrity":"sha256-Wk8CCfWcFY/Icvd4xjJpn+XG+QWnwEjKbbjeXoW+KnA="},{"url":"./assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js","integrity":"sha256-HQAJu3m0TFRvVOz2lLzXZupYehoyVrp2v5ETpgCR0jI="}]){const script=document.createElement("script");script.src=item.url;script.integrity=item.integrity;script.crossOrigin="anonymous";script.async=false;document.body.append(script);}
 </script>
 
 
