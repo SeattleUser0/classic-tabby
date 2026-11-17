@@ -5540,3 +5540,22 @@ the song's notes: +1.62 and +1.80 ms, as on the releases before.
   its block; one more program change after an edit while it loops), setup-sim.mjs (52 checks),
   tools/linux/hw/run-program.py v0.1.
 - Measured (the build): app image 481156 bytes (+736), margin 38301, heap 143084 (-32), build id `9c6c2806e46ffae0`.
+
+### 49.1 tabby-v04.13 on the device (2026-11-16)
+
+Suite green on the release commit, gate ok, published, released; full backup, one install attempt: "Firmware ready."
+after 9.58 s (overnight/g7/tabby-v04.13-batch.log). No tool error and no failed check in this batch.
+
+| Test | Result |
+| --- | --- |
+| run-program.py | 10 of 10 |
+| run-chain.py / run-scenechain.py / run-setup.py | 11 of 11 / 13 of 13 / 21 of 21 |
+| run-record.py v0.5 / run-steps.py / run-launch.py | 25 of 25 / 18 of 18 / 40 of 40, twice |
+| run-clips.py, song 13 | 960 of 960 on DIN and USB, worst 1.14 / 1.19 ms |
+| run-15.py v0.14, one line, 960 notes, three runs | DIN 2.05, 1.92, 1.85 ms; USB 1.80, 1.91, 1.79 ms; clock ratio 0.999580 in all three |
+| backup and verify | PASS, 41 items |
+
+One DIN run of three is at 2.05 ms; the other five figures are 1.79 to 1.92. During these runs this computer's steered
+clock ran -50 to -53 ppm against its raw clock (6.3 to 6.6 ms over a run, taken out by the mapping at four samples a
+second). With tabby-v04.12 an hour earlier (steering +4 to -19 ppm) the six figures were 1.83 to 1.93. The spread is
+the measurement's; a soak on the raw clock with the time service stopped would settle the last tenth.

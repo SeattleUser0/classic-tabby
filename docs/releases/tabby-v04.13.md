@@ -21,3 +21,11 @@ A program change and bank for each clip, and four controller knobs that a take r
 - The four controller numbers are fixed.
 - A clip's program change leaves together with its first note. Gear that needs time to change sounds wants a scene's
   row event with a pre-roll (the workbench's song editor).
+
+## Validation on the device (2026-11-16, unattended)
+
+Full backup first, one install attempt: "Firmware ready." after 9.6 s. Program and knobs 10 of 10 (bank MSB, LSB and
+program on the track's channel before the clip's first note; K1 sends controller 74; twelve clicks in a take are
+recorded thinned and played back). Clip chains 11 of 11, scene chain 13 of 13, CLIP SETTING 21 of 21, recording 25 of
+25, STEP page 18 of 18, CLIPS page 40 of 40 twice. 960 notes on one line, three runs: DIN band 2.05, 1.92, 1.85 ms; USB
+1.80, 1.91, 1.79 ms; the device's rate 0.999580 in each. Backup and verify after: PASS.
