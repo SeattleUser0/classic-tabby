@@ -1,0 +1,55 @@
+{
+  "build": "5132d1244cb667819e9f5a2988ff63a04e76268b9b461db7ecf23fd9288fb2e3",
+  "release": "V01",
+  "version": "tabby-v04.11.2",
+  "entryBytes": 367194,
+  "initialBytes": 1398173,
+  "standaloneBytes": 3149127,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/addf48d2860640daba75d62962e12282ea52742f54bd1498cdae98c333bdb77c.bin",
+      "bytes": 520756,
+      "sha256": "addf48d2860640daba75d62962e12282ea52742f54bd1498cdae98c333bdb77c"
+    },
+    {
+      "name": "assets/smk37/0ad590eb3d3982b417f0bbbd6b9e040225b5819da9c018cdba70dee3204c2a20.wasm",
+      "bytes": 351988,
+      "sha256": "0ad590eb3d3982b417f0bbbd6b9e040225b5819da9c018cdba70dee3204c2a20"
+    },
+    {
+      "name": "assets/smk37/d1a6f388e97c4a56b0e8c9853dffad32dd7885a10ced0e90ff8f7eb4fdbafc28.js",
+      "bytes": 606350,
+      "sha256": "d1a6f388e97c4a56b0e8c9853dffad32dd7885a10ced0e90ff8f7eb4fdbafc28"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 367194,
+      "sha256": "af453e37da68a8d7e2f6334ef5058f51a4c6d206d97fe8436d7370e83589e81f"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 367194,
+      "sha256": "af453e37da68a8d7e2f6334ef5058f51a4c6d206d97fe8436d7370e83589e81f"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3149127,
+      "sha256": "b2b51e6a3c54eafedbae793f570272d4cb64a56db4d580b8581134993618406f"
+    }
+  ]
+}

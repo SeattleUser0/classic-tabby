@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-17T02:39:45Z",
+  "updated": "2026-11-17T03:04:04Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -280,7 +280,7 @@
       "page": "builds/tabby-v04.10/",
       "published": "2026-11-17",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.10.zip",
-      "note": "Use tabby-v04.11.1 or later; on this page Full backup stops on a song that has a scene stored on the panel."
+      "note": "Use tabby-v04.11.2 or later; on this page Full backup stops on a song that has a scene stored on the panel."
     },
     {
       "tag": "tabby-v04.11",
@@ -290,7 +290,7 @@
       "page": "builds/tabby-v04.11/",
       "published": "2026-11-17",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.11.zip",
-      "note": "Use tabby-v04.11.1 or later; on this page Full backup stops on a song that has a scene stored on the panel."
+      "note": "Use tabby-v04.11.2 or later; on this page Full backup stops on a song that has a scene stored on the panel."
     },
     {
       "tag": "tabby-v04.11.1",
@@ -300,6 +300,16 @@
       "page": "builds/tabby-v04.11.1/",
       "published": "2026-11-17",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.11.1.zip",
+      "note": "Use tabby-v04.11.2 or later; on this page Full backup stops on a song that has a scene stored on the panel."
+    },
+    {
+      "tag": "tabby-v04.11.2",
+      "build": "5132d1244cb667819e9f5a2988ff63a04e76268b9b461db7ecf23fd9288fb2e3",
+      "loader": "ota-SMK375132d1244cb66781",
+      "version": "tabby-v04.11.2",
+      "page": "builds/tabby-v04.11.2/",
+      "published": "2026-11-17",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.11.2.zip",
       "note": ""
     },
     {

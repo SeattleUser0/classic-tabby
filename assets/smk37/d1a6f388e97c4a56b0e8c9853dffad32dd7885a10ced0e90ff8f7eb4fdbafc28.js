@@ -33,7 +33,7 @@
   };
 })();
 
-const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.11.1","build_id":"ea12999a89238727f35534c70cc7670b73238954ed80da9aef727a9fb6f20e2d","sha256":"f9b69c25c66a6f48d4e512a11a3f4994a1f0dc5a8ea1d45d8e7fbaf22ef4fa7f","bytes":520756,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/f9b69c25c66a6f48d4e512a11a3f4994a1f0dc5a8ea1d45d8e7fbaf22ef4fa7f.bin"};
+const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.11.2","build_id":"5132d1244cb667819e9f5a2988ff63a04e76268b9b461db7ecf23fd9288fb2e3","sha256":"addf48d2860640daba75d62962e12282ea52742f54bd1498cdae98c333bdb77c","bytes":520756,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/addf48d2860640daba75d62962e12282ea52742f54bd1498cdae98c333bdb77c.bin"};
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. */
 /* SMK37 OPEN browser updater.
@@ -1162,11 +1162,12 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       // each at 1088: a clip place + 1 per track, repeat, flags, steps). The editor sees scenes as rows with block ids;
       // song.clips keeps every track's places (also clips no scene uses) and song.cycle the master cycle in steps.
       song.version=3;song.cycle=bytes[43]||16;check(song.cycle>=2&&song.cycle<=128,'Invalid master cycle');
+      if(bytes[44]||bytes[45]||bytes[46])song.click=[bytes[44],bytes[45],bytes[46]];   // the song's click and count-in as the device stores them (tabby-v04.10)
       song.clips=Array.from({length:8},(_,t)=>Array.from({length:64},(_,c)=>u16(bytes,64+t*128+c*2)));
       for(let r=0;r<rows;r++){const at=1088+r*12,block=[];
         for(let t=0;t<8;t++){const place=bytes[at+t];check(place<=64&&(!place||song.clips[t][place-1]),'Scene '+(r+1)+' names a clip that does not exist');block.push(place?song.clips[t][place-1]:0);}
-        const steps=bytes[at+10];check(bytes[at+8]>=1&&bytes[at+8]<=64&&!(bytes[at+9]&~1)&&steps%16===0&&steps>=16&&steps<=128&&!bytes[at+11],'Scene '+(r+1)+' is invalid');
-        song.rows.push({block,repeat:bytes[at+8],loopHere:!!(bytes[at+9]&1),steps});}
+        const steps=bytes[at+10];check(bytes[at+8]>=1&&bytes[at+8]<=64&&!(bytes[at+9]&~3)&&steps%16===0&&steps>=16&&steps<=128&&!bytes[at+11],'Scene '+(r+1)+' is invalid');   // bit 1: a scene stored on the device (tabby-v04.10); tabby-v04.11.2: accepted (the Full backup stopped here)
+        song.rows.push({block,repeat:bytes[at+8],loopHere:!!(bytes[at+9]&1),steps,...(bytes[at+9]&2?{own:true}:{})});}
       for(let i=1088+rows*12;i<SONG_BODY;i++)check(!bytes[i],'Invalid song record: bytes after the last scene');
       for(const list of song.clips)while(list.length&&!list[list.length-1])list.pop();
     }else
@@ -1191,6 +1192,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     check(Number.isInteger(song.tempo)&&song.tempo>=0&&song.tempo<=65535,'Invalid BPM');put16(bytes,38,song.tempo);
     check(Array.isArray(song.rows)&&song.rows.length>=1&&song.rows.length<=128,'A song needs 1-128 rows');bytes[40]=song.rows.length;
     check(Number.isInteger(song.loopRow)&&song.loopRow>=0&&song.loopRow<song.rows.length,'Invalid loop start row');bytes[42]=song.loopRow;
+    if(Array.isArray(song.click)){bytes[44]=song.click[0]&63;bytes[45]=song.click[1]&31;bytes[46]=song.click[2]&127;}
     for(let t=0;t<8;t++){const c=song.channel[t]|0;check(c>=0&&c<=16,'Output channels must be 0-16');bytes[48+t]=c;}
     if(scenes){
       // The clip table: the places the song already has (song.clips), then every block a scene uses that has none yet.
@@ -1200,7 +1202,7 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
         for(let t=0;t<8;t++){const id=row.block[t]|0;check(id>=0&&id<=65535,'Scene '+(r+1)+' has an invalid block id');let place=0;
           if(id){place=clips[t].indexOf(id)+1;if(!place){let free=clips[t].indexOf(0);if(free<0)free=clips[t].length;check(free<64,'Track '+(t+1)+' has more than 64 clips; a song with scenes holds 64 per track');clips[t][free]=id;place=free+1;}}
           bytes[at+t]=place;}
-        check(row.repeat>=1&&row.repeat<=64,'Scene '+(r+1)+': the repeat count must be 1-64');bytes[at+8]=row.repeat;bytes[at+9]=row.loopHere?1:0;
+        check(row.repeat>=1&&row.repeat<=64,'Scene '+(r+1)+': the repeat count must be 1-64');bytes[at+8]=row.repeat;bytes[at+9]=(row.loopHere?1:0)|(row.own?2:0);
         check(row.steps%16===0&&row.steps>=16&&row.steps<=128,'Scene '+(r+1)+': the step count must be a multiple of 16 from 16 to 128');bytes[at+10]=row.steps;});
       clips.forEach((list,t)=>list.forEach((id,c)=>put16(bytes,64+t*128+c*2,id|0)));
     }else
@@ -4572,7 +4574,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();
 
-const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.11.1","sha256":"3e5327d80c26b41f82aff72b748a09e649a7f2640987490b1139f6650b4d0290","source_sha256":"1d55bf97dee473e242d64f8a09f2f85137420715d1d398bb7d06ce75d4d3d019","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":351988,"url":"./assets/smk37/3e5327d80c26b41f82aff72b748a09e649a7f2640987490b1139f6650b4d0290.wasm"};
+const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.11.2","sha256":"0ad590eb3d3982b417f0bbbd6b9e040225b5819da9c018cdba70dee3204c2a20","source_sha256":"1d55bf97dee473e242d64f8a09f2f85137420715d1d398bb7d06ce75d4d3d019","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":351988,"url":"./assets/smk37/0ad590eb3d3982b417f0bbbd6b9e040225b5819da9c018cdba70dee3204c2a20.wasm"};
 (() => {
   const $=id=>document.getElementById(id);
   // Task 08: the badge shows the Classic Tabby display version (the git tag); the Open label is the fallback.
