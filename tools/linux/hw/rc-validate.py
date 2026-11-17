@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-17  The install step accepts "already installed" (the build is on the device from an earlier candidate).
     v0.1  2026-11-17  First version (the user's release-flow rule).
 """
 import argparse, json, re, subprocess, sys, time, urllib.request
@@ -118,7 +119,10 @@ def main():
     # install: one attempt
     code, o = sh(W + ["install", "--url", url, "--expect", a.tag, "--log", str(out / ("install-%s.log" % rc_tag))], 900, log)
     j = last_json(o)
-    if not step("install", code == 0 and j.get("installed") is True, (j.get("status") or j.get("error") or o[-200:]) + (" in %.0f s" % j["seconds"] if j.get("seconds") else "")):
+    # v0.2: the same firmware build can already be on the device (an earlier candidate of this release whose failure was
+    # a tool error): the page then says so and writes nothing. That counts; the identity step below proves the build.
+    already = code == 0 and j.get("installed") is False and re.search(r"already installed", j.get("status") or "")
+    if not step("install", (code == 0 and j.get("installed") is True) or already, (j.get("status") or j.get("error") or o[-200:]) + (" in %.0f s" % j["seconds"] if j.get("seconds") else "") + (" (this build is on the device already: nothing written)" if already else "")):
         return stop("the install did not complete (one attempt per build)")
     time.sleep(6)
     code, o = sh(W + ["info", "--url", url, "--log", wb_log], 300, log)

@@ -5655,3 +5655,23 @@ the highest value for a live set that were cheap, a clip's transpose and deletin
   without the copy, a transposed clip through the workbench). Device: run-setup.py v0.7, tabby_link.py v0.19.
 - A test-tool slip while writing setup-sim: FX reopens CLIP SETTING on line 1, so presses meant for DELETE CLIP
   saved the song instead; found from the simulator's state, not on the device.
+
+### 51.1 tabby-v04.15-rc1 on the device: not promoted; a tool error (2026-11-17)
+
+The first candidate that the device gate held back. Suite green on 980c89f; builds/tabby-v04.15-rc1/ (build
+`8b5a73f6a2d9ee40`) installed in 10 s; every step passed except `setup`: run-setup.py v0.7, 25 of 29 (TRANSPOSE back to
+0, DELETE CLIP, the internal click, CLICK LEVEL). Nothing was promoted and no marker was written.
+
+The cause was the tool, the same slip as in setup-sim.mjs (section 51): FX opens CLIP SETTING on its first line, and
+the tool went to CLIPS and back before it turned K1 and pressed the 4th left button. It turned LENGTH instead of
+TRANSPOSE, never reached DELETE CLIP, the copy stayed reserved, and its notes on the audio output hid the click in
+the two audio checks. Confirmed with a second run on the same firmware (hard limit 6): run-setup.py v0.8, which
+returns to the line after each reopening, 29 of 29 (click peaks LOW 3187, MID 6058, HIGH 12625). The other steps of
+rc1: program 10 of 10, chains 11 of 11, scene chain 13 of 13, recording 25 of 25, STEP 18 of 18, CLIPS 40 of 40
+twice, the timing song 960 of 960, one line DIN 1.80, 1.56, 1.77 ms and USB 1.66, 1.61, 1.61 ms, backup, restore and
+verify PASS.
+
+rc1's page keeps its banner with a note (tools/linux/builds-notes.json). rc-validate.py v0.2 accepts "already
+installed" in the install step, because candidate 2 is the same firmware build (only a test tool changed) and one
+install attempt per build has been used.
+

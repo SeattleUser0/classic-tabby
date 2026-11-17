@@ -19,9 +19,12 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.7
+Version: 0.8
 
 Revision log
+    v0.8  2026-11-17  A tool error in the tabby-v04.15-rc1 run: FX opens CLIP SETTING on its first line, so after going to
+                      CLIPS and back the tool turned LENGTH instead of TRANSPOSE and pressed the 4th left button on
+                      the wrong line; the copy stayed, was still reserved, and its notes hid the internal click.
     v0.7  2026-11-17  tabby-v04.15: TRANSPOSE heard on MIDI out; DELETE CLIP asks twice, refuses a clip a scene uses, deletes
                       the copy; the song's lines are addressed from the end of the list.
     v0.6  2026-11-17  tabby-v04.14: CLICK LEVEL measured on the audio output at LOW, MID and HIGH; the controller number of
@@ -182,11 +185,13 @@ def main():
             ups = [m[1] for _, m in since(mark, lambda m: len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[2] and (m[0] & 15) == ch)]
             l.press("PLAY"); idle(0.8)
             check(u["transpose"] == 3 and u["place"] == target and ups and all(x == pitch + 3 for x in ups), "TRANSPOSE +3 on the copy: its note plays three semitones up", (u["transpose"], pitch, ups[:6]))
-            l.press("FX"); idle(0.4); l.knob(K1, -3); idle(0.3)
-            check(l.setup_state()["transpose"] == 0, "TRANSPOSE back to 0")
+            # FX opens the page on its first line each time (v0.8: the first device run turned LENGTH instead)
+            l.press("FX"); idle(0.4); l.knob(K5, 8 - l.setup_state()["row"]); idle(0.3); l.knob(K1, -3); idle(0.3)
+            check(l.setup_state()["row"] == 8 and l.setup_state()["transpose"] == 0, "TRANSPOSE back to 0")
             l.edit_save(); idle(0.6)
             l.knob(K5, 1); idle(0.3)                                                   # DELETE CLIP
-            l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c1 = l.clips_state(); l.press("FX"); idle(0.3)
+            l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c1 = l.clips_state()
+            l.press("FX"); idle(0.4); l.knob(K5, 9 - l.setup_state()["row"]); idle(2.4)   # more than two seconds after the first press
             l.setup_do(); idle(0.3); l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c2 = l.clips_state()
             check((c1["pads"][target % 16]["code"] & 7) != 0 and (c2["pads"][target % 16]["code"] & 7) == 0 and l.setup_state()["unsaved"],
                   "DELETE CLIP: one press only asks, two presses delete the copy; the song is unsaved", (c1["pads"][target % 16]["code"], c2["pads"][target % 16]["code"]))
