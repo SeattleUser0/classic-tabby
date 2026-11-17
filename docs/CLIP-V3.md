@@ -1,6 +1,6 @@
 # The v3 clip: an event list
 
-Version 0.3 (2026-11-14; first version 2026-11-12, Task 16 Goal 5, MC-707 workflow Phase 2). The block payload that replaces the
+Version 0.4 (2026-11-16; v0.3 2026-11-14; first version 2026-11-12, Task 16 Goal 5, MC-707 workflow Phase 2). The block payload that replaces the
 v2 step grid (docs/TIMED-NOTE.md, TASK-03 9.12) when a clip needs more than 64 steps, more than four
 notes in a step, or controller events. It is built and tested on the host and in the simulator on the
 branch classic-tabby/mc707-phase2; released in tabby-v04.5 (Task 17 Goal 2; the user's decisions on docs/CLIP-V3-REVIEW.md: the 240 bias, the length clamp, option B
@@ -14,6 +14,8 @@ for kind-6 downloads). Source: docs/tasks/TASK-10-step1-assessment.md C.3 to C.5
 | Where it is used | block record byte 1 (format) = 2; `song_payload_valid`, `decode_track` (app/song.c) |
 
 Revision log
+- v0.4 2026-11-16: tabby-v04.10: the clip chain in header bytes 8 to 11 (section 2.1); a v3 clip loops at its own length
+  wherever it plays.
 - v0.3 2026-11-14: tabby-v04.5: sections 4 to 6 (the cursor complete, header program and bank, rows to 128 steps, kind 9, the
   workbench and the importer, the tests); the event time is 32 bits in the C module.
 - v0.2 2026-11-14: section 4, the scheduler cursor's first step (branch clipv3-cursor).
@@ -42,7 +44,10 @@ All fields little-endian. A payload is `16 + 6 x count` bytes.
 | 4 | `bank_lsb` | 0..127 (0 when flag bit 1 is clear) |
 | 5 | reserved | 0 |
 | 6..7 | `count` | number of events, 0..512 |
-| 8..15 | reserved | 0 |
+| 8 | `next` | the clip chain (tabby-v04.10, section 2.1): 0 = stay (no chain), 1 = stop the track, 2..65 = go to the clip in place 1..64 of the same track |
+| 9..10 | `after` | u16: the chain is due after this many steps, 1..512; 0 = after the clip's own length |
+| 11 | `times` | how many times `after` (or the clip) plays before the chain is due, 2..64; 0 = once |
+| 12..15 | reserved | 0 |
 
 **Event, 6 bytes.** Sorted by `time` (ascending; events at the same time keep their list order, which the
 scheduler follows). `time` is stored with a bias of 240: stored = time + 240, so times from -240 (a note
@@ -67,6 +72,18 @@ Rules: no two notes of the same pitch in the same anchor step (the v2 rule);
 `time` is non-decreasing; every event's time is inside `[-240, steps x 480 - 240]`; a note longer than the clip is
 legal (it plays its length: legato over the loop, as in v2).
 
+### 2.1 The clip chain (tabby-v04.10)
+
+Header bytes 8 to 11 say what a track does after a clip it was launched on has played: nothing (`next` 0: the clip
+loops until the player chooses again), stop, or go on with another clip of the same track. The chain is due `times` x
+`after` steps after the clip was entered (`after` 0: `times` x the clip's length). It is the MC-707's NEXT CLIP and
+LENGTH (Update manual, version 1.30) with a repeat count added. The chain acts on a track that plays the clip
+launched (from its pad, or reached through another clip's chain); a track that follows the scenes takes its clips
+from the scenes and ignores the field. A `next` that names a place without a clip is read as 0. Firmware before
+tabby-v04.10 refuses a clip whose bytes 8 to 11 are not 0 (the track plays silent); a clip without a chain is
+byte for byte what it was. A clip with a chain is not v2-shaped (`toV2` refuses it).
+
+The engine reads the field from tabby-v04.10; the panel sets it from the release that brings clip chains.
 ## 3. Migration
 
 - **v2 -> v3** (`clip_v3_from_v2`): a 64-step v2 payload becomes a 64-step clip. Each step's notes become note

@@ -1,6 +1,6 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.81
+Version: 0.82
 Revision log:
 - v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11) and 45.1 (on the device: 0x856014).
 - v0.80, 2026-11-16: 43.1 (tabby-v04.9.1 on the device; the publish gate and the untracked file), section 44 (tabby-v04.9.2).
@@ -5355,3 +5355,38 @@ Full backup through the tabby-v04.9.2 page, one install attempt: "Firmware ready
 471040 bytes`. tabby_link request 11: 16 bytes, 0x856014, 1048576, 471040, source 1. **This unit's flash is the Puya P25Q80**
 (docs/FLASH-CHIP.md 6). Backup after the install and verify against the file from before: PASS (41 items).
 
+## 46. tabby-v04.10: the clip workflow on the panel (2026-11-16)
+
+### 46.1 What was built (SPEC 19.13, docs/CONTROL-MAP.md sections 13 to 16)
+
+- app/song.c: every track loops its clip at the clip's own length (`frame_set`, `SW_LOOP` for tracks that follow the
+  scenes too; a scene repeat no longer restarts the tracks); the v2 length rule (`v2_steps`, `SONG_ROW_FLAG_OWN`);
+  clip chains (`SW_CHAIN`, `chain_set`, the next clip decoded ahead by `wanted`); the scene hold; `song_clip_new`,
+  `song_clip_copy`, `song_edit_length`, `song_scene_store`; the song's settings (`song_setting`, header bytes 44 to
+  46); the click (`click_window`, `song_click_mix`) and the count-in (in `song_tick`, before the start request);
+  takes one block earlier (`rec_units_at`); `song_edit_save` also writes the song record.
+- app/song_storage.c: `song_record_write_model` (the loaded song as a version-3 record, built in the sector image);
+  scene flag bit 1; a staged version-3 record is recovered (`staged_target` used the version-1 CRC range for it).
+- app/clip_v3.c v0.4: the chain in header bytes 8 to 11, `clip_v3_steps_set`, `clip_v3_chain_set`,
+  `clip_v3_program_set`; web/clip-v3/clip-v3.js v0.3 validates the same.
+- app/screen.c: an empty pad on CLIPS is selected; REC and EDIT make a new clip there; page 22 CLIP SETTING (FX on
+  CLIPS); the 4th left button saves the song on CLIPS and SCENES; a held empty scene pad stores a scene; COUNT-IN on
+  the CLIPS page. app/audio_output.c: the internal click before the master gain. app/transfer.c: remote op 17 and
+  op 16 sub 4.
+- Tests: tests/host/smoke.c v0.25 section 26 (own lengths in scenes, the hold, a chain, a new clip, the song saved as
+  version 3 from a version-3 and from a version-1 record, length, copy, the settings, the MIDI click, the count-in
+  and MIDI Start, a stored scene); tests/host/clip_v3_test.c (chain bytes, the setters); clips-sim (an empty pad),
+  steps-sim, record-sim (REC on an empty pad, the save), tests/workbench/setup-sim.mjs (the page through the panel).
+  Old tests that changed: smoke section 22 (a place row of a v2 block plays the block's 16 steps, not 64) and section
+  23 (an edited v2 block is stored with its 32 steps).
+- One rule was wrong in the first draft and the old tests caught it: giving a v2 block the steps of its first scene
+  everywhere made the tabby-v02.0 reference song play 8 extra notes (the same block sits in rows of different
+  lengths). A v2 block in an imported scene keeps the scene's steps.
+- Tools: tools/linux/hw/run-15.py v0.13 logs the clock ratio in every timing run (the user's answer 3);
+  run-record.py v0.3 (the unquantized error, REC on an empty pad); run-setup.py v0.1; tabby_link.py v0.16.
+
+### 46.2 Measured (the build)
+
+App image 478372 bytes (+7200 from tabby-v04.9.3), margin 41085 below the 519457 limit. Runtime heap 143116 bytes
+(-1728: the clip buffers' chain fields, the count-in and click state, the CLIP SETTING page). Build id
+`7e376d6bb50aacdb`. docs/FLASH-BUDGET.md 33.

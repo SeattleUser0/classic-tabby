@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.4 (2026-11-16). Applies from tabby-v04.9 (section 13, recording). v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.5 (2026-11-16). Applies from tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -62,7 +62,7 @@ queued for it), the 16 clips of the pad bank, and the selected clip's length.
 | Short press, the playing clip | Queues a stop for the track at the next master cycle. |
 | Short press, a blinking (queued) pad | Takes the queued launch or stop back. |
 | Long press (half a second) | Selects the clip without launching it: the launch or stop the press queued is taken back if it has not landed. |
-| Press an empty pad | Nothing is queued. Screen: NO CLIP ON THIS PAD. |
+| Press an empty pad | The pad is selected (dim cyan) and nothing is queued. Screen: EMPTY PAD - REC OR EDIT MAKES A CLIP. REC then records a new clip there (section 13), EDIT opens a new empty clip on the STEP page. |
 | Press while the song is stopped | Reserves the clip: the pad blinks, the screen says RESERVED - PLAY STARTS IT. PLAY then starts the song with that track on the reserved clip; tracks with nothing reserved follow scene 1. Press the blinking pad again to take the reservation back. (With CLOCK = MIDI a reservation is not used: the song starts on its scenes.) |
 | SHIFT + pad 1 to 8 | Selects track 1 to 8. |
 | SHIFT + pad 9 to 16 | Mutes or unmutes track 1 to 8. |
@@ -72,6 +72,7 @@ queued for it), the 16 clips of the pad bank, and the selected clip's length.
 | Colour | Meaning |
 | --- | --- |
 | Off | Empty: no clip in this place. |
+| Dim cyan | An empty pad that is selected: REC or EDIT makes a clip there. |
 | Dim white | Stopped: a clip that is not playing. |
 | Green | Playing. |
 | Blinking green | Queued: starts at the next master cycle. |
@@ -100,8 +101,10 @@ blue: internal sound only, dim green: not muted).
 | FADER BANK | Faders work tracks 1 to 4 / 5 to 8. | same |
 | MIX | The mixer page (levels, mute, solo); MIX again returns. | same |
 | REC | Starts a take into the track's selected clip, or stops it (section 13). | Input quantize on / off. |
-| EDIT | Opens the STEP page on the selected clip of the track (section 12). | same |
-| 4th left button, ARP, FX, SEQ, PAD / STEP | As on every page (SPEC.md); they leave CLIPS. | |
+| EDIT | Opens the STEP page on the selected clip of the track (section 12); on a selected empty pad, on a new clip. | same |
+| FX | Opens CLIP SETTING on the selected clip (section 14). | same |
+| 4th left button | Saves the song: the unsaved clip and what was changed in the song (stopped only; STOP TO SAVE otherwise). | same |
+| ARP, SEQ, PAD / STEP | As on every page (SPEC.md); they leave CLIPS. | |
 
 No button on these two pages has a long-press action. The only long press is a pad on CLIPS (4.1).
 
@@ -122,6 +125,8 @@ each track plays in the scene.
 | Control | Result |
 | --- | --- |
 | Pad 1 to 16 | Recalls that scene of the bank. Every track goes back to following and plays the scene's clips. It lands by the jump mode. |
+| An empty pad held half a second, while the song plays | Stores what plays now as a new scene after the last one (STORED AS A NEW SCENE): per track the clip it plays, nothing for a stopped track. The new scene repeats until another is recalled. A short press on an empty pad says HOLD TO STORE WHAT PLAYS AS A SCENE and stores nothing. A pad that holds a scene is never written over. |
+| 4th left button | Saves the song (stopped only). |
 | K4 | Jump mode: NEXT CYCLE (the next master cycle) or SCENE END (when the current scene has played out). |
 | OCT - / OCT + | Previous / next bank of 16 scenes (8 banks). |
 | K5 or K7 | Selects the song (only while stopped). |
@@ -191,9 +196,9 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-A count-in and a metronome, changing a clip's length, recording into an empty place (a new clip), copying clips
-between places, and storing a scene from what plays now. New songs still come from the web workbench (the MIDI
-importer or the song editor); the STEP page and REC change the clips of a song that is on the device.
+Clip chains (the next clip after a number of loops), scene lengths and the scene chain, a clip's program change and
+bank: the next releases. Deleting a clip or a scene, a new song from nothing, and SCALE (step sizes other than a
+16th): not planned yet. New songs still come from the web workbench (the MIDI importer or the song editor).
 
 ## 11. Differences from the MC-707
 
@@ -227,7 +232,9 @@ Deliberate differences:
 | Track play / stop pads | Mute mode: pads 1 to 8 start and stop tracks. | Press the playing clip to stop a track; ENV to bring it back. Pads 1 to 8 under SHIFT select tracks instead. | The pads are needed for track selection. |
 | Mute | One mute per track. | Two: altogether (orange) and internal sound only (blue). | The SMK-37 both makes sound and drives outside gear; a mixer mute must not silence the outside gear of existing songs. |
 | Mute pads | Mute mode: pads 9 to 16, no SHIFT. | SHIFT + pad 9 to 16, on every page. | No separate pad-mode buttons; SHIFT keeps one gesture for all pages. |
-| Scenes | SCENE buttons: press recalls; long press stores the playing combination; eight scenes (RM p. 35). | Pads on the SONG page: press recalls; 128 scenes in banks of 16. Nothing is stored from the panel yet. | Storing writes the song; panel editing of songs comes with clip editing (section 10). |
+| Scenes | SCENE buttons: press recalls; long press stores the playing combination; eight scenes (RM p. 35). | Pads on the SCENES page: press recalls; a long press on an empty pad stores the playing combination as a new scene; 128 scenes in banks of 16. | More scenes than buttons: imported songs are made of scenes. |
+| Long press on a scene that exists | Writes it over with what plays (RM p. 35). | Recalls it, like a short press. Nothing is written over. | Unsafe on stage: a press held a little long would destroy a scene of the song. A new scene is always added at the end. |
+| A stored scene's length | Scenes have no length: clips loop until you choose again. | The scene is as long as its longest clip and repeats until another scene is recalled; its clips keep their own lengths. | Scenes here are also the steps of a song that plays through; a stored one waits like an MC-707 scene. |
 | Scene recall timing | On the master clock. | On the master clock, or at the end of the scene that plays (K4). | The older "row end" jump of songs made before scenes is kept. |
 | Master clock length | SCALE and STEP LENGTH of the project (RM p. 51). | A number of steps stored in the song (16 unless the song says otherwise); set in the workbench. | One number per song is enough and an imported 3/4 song sets it by itself. |
 | Pad colours | Chosen per project (RM, project settings). | Fixed. | No settings page for it; fixed colours can be learnt once. |
@@ -242,17 +249,23 @@ Deliberate differences:
 | Undo | 10 levels; cleared when the clip or track changes (UM, Ver. 1.80). | 4 levels; cleared when another clip is opened (SPEC 14.1, decision 8). | Memory: each level is a copy of the clip. |
 | Saving | The project lives in memory until you save it. | A clip saves by itself ten seconds after the song stops, or with the 4th left button; never while playing. | Flash writes stop the MIDI out for a moment, so they wait for the stop; saving by itself protects against a forgotten save. |
 | Hearing an edit | At once. | A launched clip from its next loop; a track following the scenes from its next scene. | The player reads a prepared copy of the clip; it is swapped only where a loop begins. |
-| Clip length (STEP LEN), SCALE, sub steps | On the device. | Not on the device yet. | Later releases. |
+| Clip length (STEP LEN) | 1 to 128 steps, in the clip settings (RM, "STEP LEN 1-128"). | The same: LENGTH on CLIP SETTING, 1 to 128 steps. | Same. |
+| Shortening a clip | Not described in either manual. | The notes past the new end are removed; undo (FX on the STEP page) brings them back. | The clip's event list holds only what plays; one undo level covers a slip of the knob. |
+| SCALE, sub steps | On the device. | Not on the device. | Not planned yet. |
+| Copying a clip | COPY and PASTE from the clip menu, onto any clip slot of the same track type (RM p. 15). | COPY TO PAD on CLIP SETTING, into an empty pad of the same track only. | No cursor buttons; writing over a clip is not offered because nothing on the panel brings a clip back. |
+| Clips of different lengths | Each clip loops at its own length. | The same from tabby-v04.10. In scenes of an imported song an old-format (grid) block still plays the scene's length, as it always did. | Imported songs must sound as before. |
 | REC while stopped | Recording is reserved; START begins it (RM p. 31: "If playback is stopped, press the [START/STOP] button"). | The same: REC arms, PLAY starts the song and the take. | Same. |
-| What REC records into | A new clip in an empty place, or the selected clip (overdub). | The selected clip only (overdub). | Making a clip changes the song's clip table; that comes with clip length and copy. |
+| What REC records into | A new clip in an empty place, or the selected clip (overdub). | The same: REC on a selected empty pad makes a new clip, one master cycle long. | Same. The MC-707 sets the new clip's length with the MEASURE buttons before recording; here LENGTH on CLIP SETTING changes it. |
 | The clip must be playing | Yes: recording runs with the sequencer. | REC launches the clip on its track if it is not looping already, and the take starts when it does. | A take needs one fixed loop to place notes in; a track that follows the scenes changes clips under it. |
 | Input quantize | [QUANTIZE] on / off; SHIFT + [QUANTIZE] for the settings (RM p. 32). | SHIFT + REC on / off, to the nearest step. | No QUANTIZE button; grid sizes other than a step come with SCALE. |
 | Knob movements (motion) | Up to four parameters per clip, as steps. | Controllers, pitch bend and channel pressure are recorded as events, thinned (one value per 1/32 note and the last value of a move). | Our clips hold timed events, not per-step motion lanes; thinning keeps a sweep from filling the clip. |
 | Outside controllers | CC 1, 2 and 4 can be recorded as motion (UM, Ver. 1.80). | Every controller below 120, pitch bend and channel pressure on the track's channel. | Outside gear is the main use here. |
 | Undo of a take | UNDO takes the recording back; no undo while recording (UM, Ver. 1.80). | The same: a take is one undo level; FX does nothing during a take. | Same. |
 | When the clip is full | Not described. | The take stops: CLIP FULL - 512 EVENTS - REC STOPPED, the REC lamp goes out, the clip's pad shows red once; nothing is lost and undo still holds the clip before the take. | SPEC 14.2. |
-| Count-in, metronome | PRE COUNT and click. | Not yet. | Next release. |
-| Unsaved clips | Any number. | One at a time. | Memory. |
+| Count-in | Count-In Step, OFF or 1 to 128 steps; MIDI Start goes out after it (UM, Ver. 1.20 and its fixes). | COUNT-IN, OFF or 1, 2 or 4 master cycles; MIDI Start after it. Only before a take that starts the song (REC, then PLAY). | Whole cycles keep the take's first bar on the grid. With the song already running there is nothing to count in. |
+| Metronome | ON or OFF with the master clock; type and level; sounds on the audio outputs (UM, Ver. 1.10 and 1.50). | CLICK: OFF, WHEN RECORDING or ALWAYS; output INTERNAL, MIDI NOTE (a channel and note you choose) or BOTH. | The SMK-37's audio may feed the house mix, so the click for the stage is a MIDI note (SPEC 14.1, decision 7). |
+| Where the click settings live | In the system settings. | In each song. | The device's settings sector has no room without a format change; a song's click note belongs to that song's rig anyway. |
+| Unsaved clips | Any number. | One at a time. A copy or a new clip counts. | Memory. |
 
 ## 12. STEP page: editing a clip
 
@@ -326,7 +339,10 @@ pads in Note mode, here the 16 pads and the 37 keys.
 - A clip holds 512 events. The 513th is refused: CLIP FULL, and nothing changes.
 - A clip that two tracks share (two tracks with the very same notes in an imported song) cannot be edited on the
   device: CLIP SHARED BY ANOTHER TRACK.
-- A saved clip is stored in the new clip format (v3). It plays the same.
+- A saved clip is stored in the new clip format (v3) with its own length: the steps it played with. It loops at that
+  length wherever it plays (section 16).
+- From tabby-v04.10 the 4th left button also saves what was changed in the song itself (new clips, copies, stored
+  scenes, the click settings); the screen says SAVED.
 
 ### 12.6 Messages
 
@@ -353,9 +369,9 @@ bend and channel pressure arriving at MIDI in on the track's channel. What was i
 
 | Step | Press | Result |
 | --- | --- | --- |
-| 1 | On CLIPS select the clip (hold its pad, or launch it). Or open it on the STEP page. | |
+| 1 | On CLIPS select the clip (hold its pad, or launch it), or press an empty pad to record a new clip there. Or open a clip on the STEP page. | |
 | 2 | REC | The song playing and the clip looping on its track: RECORDING at once, the REC lamp lights. The song playing but the clip not looping: the clip is launched, REC WHEN THE CLIP LOOPS, and the take starts on the next master cycle. The song stopped: REC ARMED - PLAY STARTS IT. |
-| 3 | PLAY (only if the song was stopped) | The song starts with the clip looping on its track, and the take runs. |
+| 3 | PLAY (only if the song was stopped) | With COUNT-IN set (section 15) the click counts in first. Then the song starts with the clip looping on its track, and the take runs. |
 | 4 | Play. | Each note is written when you let its key go, and the clip plays it from its next loop. |
 | 5 | REC | REC STOPPED. The clip is UNSAVED; it is saved as on the STEP page (12.5). |
 
@@ -374,6 +390,8 @@ when ENV sends the track back to the scenes.
 | Undo | A whole take is one undo level (FX on the STEP page). FX does nothing during a take. A take in which nothing was played leaves no undo level. |
 | Full | A clip holds 512 events. Held keys have their places reserved. When the clip is full the take stops by itself: CLIP FULL - 512 EVENTS - REC STOPPED for two seconds, the REC lamp goes out, the clip's pad on CLIPS shows red once. Nothing already recorded is lost. |
 | One clip | The take goes into the one open clip. With another clip unsaved, REC says ANOTHER CLIP IS UNSAVED. |
+| A new clip | REC on a selected empty pad makes a clip one master cycle long and records into it. It is UNSAVED, and part of the song once saved; SHIFT + ENV on the STEP page takes it out again before that. |
+| Where a note lands | Where you heard it: the take is placed one audio block (3 ms) earlier than the device's clock says, because what you hear is one block behind it. Before tabby-v04.10 a take without input quantize played back 3 ms late (measured); BUILD.md 46 has the figure measured after the change. |
 
 ### 13.3 Messages
 
@@ -387,3 +405,59 @@ when ENV sends the track back to the scenes.
 | REC: ON THE CLIPS OR STEP PAGE | REC on another page. |
 | ANOTHER CLIP IS UNSAVED / CLIP SHARED BY ANOTHER TRACK / HOLD A PAD TO SELECT A CLIP FIRST | As for EDIT (12.6). |
 
+## 14. CLIP SETTING page
+
+FX on the CLIPS page opens it on the track's selected clip (or the clip the track plays). The screen lists one
+setting per line: the upper two belong to the clip, the others to the song. Without a selected clip the clip's lines
+show a dash and the song's lines still work.
+
+| Control | Result |
+| --- | --- |
+| K5, OCT - / OCT + | Chooses the line. |
+| K1 | Changes the line's value by one. |
+| K2 | Changes it by 16 (a bar of LENGTH). |
+| 4th left button | On COPY TO PAD: makes the copy. On every other line: saves the song (stopped only). |
+| FX, EDIT, BT | Back to CLIPS. |
+| PLAY | Starts and stops the song. |
+| HOME | To the overview. |
+
+| Line | Values | What it does |
+| --- | --- | --- |
+| LENGTH | 1 to 128 steps | The clip's length. It loops at this length wherever it plays. Shorter: the notes past the new end are removed (NOTES PAST THE END REMOVED; FX on the STEP page undoes). Longer: empty steps are added. Heard from the clip's next loop. Not during a take. |
+| COPY TO PAD | a pad of the same track, 1 to 64 | The 4th left button copies the clip to that pad if it is empty (the page offers the first empty one and says EMPTY or HOLDS A CLIP). The copy becomes the open clip, UNSAVED. A clip with unsaved changes must be saved first. |
+| COUNT-IN | OFF, 1 CYCLE, 2 CYCLES, 4 CYCLES | Section 15. |
+| CLICK | OFF, WHEN RECORDING, ALWAYS | Section 15. |
+| CLICK OUT | INTERNAL, MIDI NOTE, BOTH | Section 15. |
+| CLICK CHANNEL | 1 to 16 | The MIDI click's channel (10 unless changed). |
+| CLICK NOTE | 1 to 127 | The MIDI click's note (37 unless changed). |
+
+Messages: SELECT A CLIP FIRST, NOTES PAST THE END REMOVED, NOT DURING A TAKE, THE CLIP IS UNSAVED: SAVE IT FIRST,
+THAT PAD HOLDS A CLIP, COPIED - THE COPY IS OPEN, CLIP SHARED BY ANOTHER TRACK, STOP TO SAVE, SAVED, NOTHING TO SAVE.
+
+## 15. Click and count-in
+
+The settings are part of the song and are saved with it. A song that was never set has no click and no count-in.
+
+| | |
+| --- | --- |
+| The click | One on every quarter note of the master cycle; the first of a cycle is louder (MIDI velocity 127, the others 90; the internal click is higher in pitch). |
+| CLICK | OFF: none. WHEN RECORDING: while a take is armed or runs. ALWAYS: whenever the song plays. |
+| CLICK OUT | INTERNAL: a short click mixed into the SMK-37's audio output, after the master volume (K8). MIDI NOTE: a note on the chosen channel and note, on every MIDI output, sent in time like a song note and released a 32nd note later. BOTH. |
+| COUNT-IN | With a take armed while the song is stopped (REC, section 13), PLAY first clicks for 1, 2 or 4 master cycles; then the song starts. The CLIPS page shows COUNT-IN and the quarter notes left. The count-in clicks whatever CLICK says, on the output CLICK OUT names. |
+| MIDI Start | Goes out when the song starts, after the count-in. |
+| PLAY during the count-in | Stops it; nothing was played. |
+| CLOCK = MIDI | No count-in: the master starts the song. The click follows the song. |
+| On stage | If the audio output feeds the house mix, use MIDI NOTE and point it at a click sound in your monitor mix. |
+
+## 16. How long a clip plays
+
+- Every clip has its own length and loops at it, on a launched track and on a track that follows the scenes. A
+  1-bar clip in a 4-bar scene plays four times; a 4-bar clip in a scene of 1 bar, repeated four times, plays through.
+- A scene lasts its steps times its repeats, whatever its clips' lengths are. When the next scene comes, every
+  following track starts that scene's clip from its beginning.
+- A clip in the new format (every clip that was edited, recorded, copied or made on the device, and long clips
+  from the importer) carries its length. An old-format (grid) block has none: in the scenes of an imported song it
+  plays the scene's length, as it always did; launched from a pad no scene uses, or in a scene stored on the
+  device, it plays the length of the first imported scene that uses it.
+- A clip edited on tabby-v04.8 to tabby-v04.9.3 was stored as 64 steps. If its scene is shorter it now loops at 64:
+  set LENGTH once (section 14).

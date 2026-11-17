@@ -1,6 +1,6 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.32
+Version: 0.33
 Revision log:
 - v0.32, 2026-11-16: section 32: tabby-v04.9.3 measured, 471172 bytes, margin 48285.
 - v0.28, 2026-11-12: section 22: tabby-v04.3.1 measured, 452036 bytes, margin 67421.
@@ -1224,3 +1224,14 @@ RAM (runtime heap): 144844 bytes, unchanged.
 | tabby-v04.9.3: command 25 request 11, the flash part page (app/diag.c v0.8) | 471172 | +64 | **48285** |
 
 RAM (runtime heap): 144844 bytes, unchanged. `flash_info` stays at 0x01c5c268 in both links (tools/linux/build.py v0.12).
+
+## 33. tabby-v04.10 (measured, 2026-11-16)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.9.3 | 471172 | | 48285 |
+| tabby-v04.10: own clip lengths, clip chains in the engine, new clips, the song record written by the device, CLIP SETTING, click, count-in, stored scenes | 478372 | +7200 | **41085** |
+
+RAM (runtime heap): 143116 bytes (-1728). The three releases that follow (clip chains on the panel, scene chains, a
+clip's program and controller recording from the knobs) are mostly panel code; at this release's rate of about 7 KB a
+step the margin stays above 20 KB.

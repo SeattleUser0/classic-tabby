@@ -25,9 +25,10 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.15
+Version: 0.16
 
 Revision log
+    v0.16 2026-11-16  tabby-v04.10: setup_state() and setup_do() (the CLIP SETTING page), flash_part().
     v0.15 2026-11-16  Goal 6: steps_state() reports the recorder (tabby-v04.9).
     v0.14 2026-11-16  Goal 6: steps_state(), edit_save(), edit_discard(), edit_open(), play_key(), knob() (remote ops 15 and 16, tabby-v04.8).
     v0.13 2026-11-14  Task 17 Goal 4: clips_state(), clip_launch(), unqueue(), pad(), shift_pad() (remote ops 12 to 14, tabby-v04.7).
@@ -280,7 +281,7 @@ class Link:
     # ---- remote control, command 29 (v0.8) -----------------------------------------------------
     PAGES = {0: "OVERVIEW", 1: "STEPS", 2: "FM_EDIT", 3: "FM_ENV", 4: "FM_LFO", 5: "TONE_EDIT", 6: "MIX", 7: "BLE",
              8: "PROJECT", 9: "NAME", 10: "EFFECTS", 11: "SOURCE", 12: "ACTIONS", 13: "STEP_EDIT", 14: "RHYTHM",
-             15: "FM_QUICK", 16: "PRESET_BROWSER", 17: "ARP_EDIT", 18: "STARTUP", 19: "SONG", 20: "CLIPS", 21: "STEP"}
+             15: "FM_QUICK", 16: "PRESET_BROWSER", 17: "ARP_EDIT", 18: "STARTUP", 19: "SONG", 20: "CLIPS", 21: "STEP", 22: "SETTING"}
     # Physical button ids (app/smk37_controls.c button_map) by the firmware's names. SAVE (physical 3) is
     # refused by the device on purpose. HOME has two physical ids (2 and 12); 12 is HOME / SRC.
     PANEL = {"SHIFT": 0, "FADER_BANK": 1, "HOME": 2, "OCT_DOWN": 4, "OCT_UP": 5, "ARP": 6, "PAD_STEP": 7, "SCL": 8,
@@ -364,6 +365,29 @@ class Link:
     def edit_open(self, track, place):
         """v0.14: remote op 16 {16, 3, track, place}: open the STEP page on a clip (both 0-based)."""
         return self.remote(16, 3, track, place)
+
+    def setup_state(self):
+        """v0.16: remote op 17 (tabby-v04.10): the CLIP SETTING page: page, row, the open clip's track / place / steps, the
+        COPY target, the song's count-in / click / click output / channel / note, unsaved, rows, the clip's chain and
+        program, the number of scenes, the scene hold, the count-in's beats left."""
+        d = self.query(29, bytes([17]), attempts=1)
+        if len(d) < 24 or d[0] != 4:
+            raise DeviceError(-1)
+        d = d[1:]
+        return {"page": d[0], "page_name": self.PAGES.get(d[0], str(d[0])), "row": d[1], "track": d[2], "place": d[3], "steps": d[4],
+                "to": d[5], "count_in": d[6], "click": d[7], "click_out": d[8], "click_ch": d[9], "click_note": d[10], "unsaved": d[11],
+                "rows": d[12], "next": d[13], "after": d[14] | d[15] << 8, "times": d[16], "program": d[17], "bank_msb": d[18],
+                "bank_lsb": d[19], "scenes": d[20], "hold": d[21], "counting": d[22]}
+
+    def setup_do(self):
+        """v0.16: remote op 16 {16, 4}: what the 4th left button does on the CLIP SETTING page (COPY on its row, else save)."""
+        return self.remote(16, 4)
+
+    def flash_part(self):
+        """v0.16: command 25 request 11 (tabby-v04.9.3): the flash chip's JEDEC ID and size as the SDK read them at boot."""
+        d = self.query(25, bytes([11]))
+        jedec, capacity, user, source = struct.unpack_from("<IIII", bytes(d), 0)
+        return {"jedec": jedec, "capacity": capacity, "user": user, "source": source}
 
     def play_key(self, key, hold=0.05, velocity=100):
         """v0.14: press keyboard key `key` (0 to 36; key 12 is note 60 at octave 0) through the remote panel keys."""
