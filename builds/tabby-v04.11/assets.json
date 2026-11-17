@@ -1,0 +1,55 @@
+{
+  "build": "7b85cd8d3d193809c4317d74316671217f9fa44c59361e722ad3ca5d89aacb50",
+  "release": "V01",
+  "version": "tabby-v04.11",
+  "entryBytes": 367188,
+  "initialBytes": 1397200,
+  "standaloneBytes": 3148146,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/9c3a560825f5f59ed7935f2ef0389e1b5b2870c55997aaeb84a001d8c16d7790.bin",
+      "bytes": 520756,
+      "sha256": "9c3a560825f5f59ed7935f2ef0389e1b5b2870c55997aaeb84a001d8c16d7790"
+    },
+    {
+      "name": "assets/smk37/e26da7b8fee83cc11be6b428fdb79629cdd78461ac481a01f7ce6f76b30c8e1c.wasm",
+      "bytes": 351972,
+      "sha256": "e26da7b8fee83cc11be6b428fdb79629cdd78461ac481a01f7ce6f76b30c8e1c"
+    },
+    {
+      "name": "assets/smk37/a228cadadfeb59736bb448ea7ab1a20d5502d741a31707b9e996ac3028ca685e.js",
+      "bytes": 605399,
+      "sha256": "a228cadadfeb59736bb448ea7ab1a20d5502d741a31707b9e996ac3028ca685e"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 367188,
+      "sha256": "48dd021619371d89416abab55738c6ab6aee10fb587317c219e42673d65f40c0"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 367188,
+      "sha256": "48dd021619371d89416abab55738c6ab6aee10fb587317c219e42673d65f40c0"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3148146,
+      "sha256": "d2ecd41c45da15f469d918f325277bb961e105b4ce1b0c44596e4000a9c03502"
+    }
+  ]
+}
