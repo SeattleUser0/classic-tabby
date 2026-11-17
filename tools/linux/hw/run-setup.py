@@ -19,9 +19,13 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.8
+Version: 0.9
 
 Revision log
+    v0.9  2026-11-17  Two more tool errors, found in the tabby-v04.15-rc2 run: the takes of the click checks ran on clip 1,
+                      which the scenes leave after two bars (the take ends by design; the tool's next REC armed one), and
+                      the K1 check assumed the knob's value of a fresh start. The internal-click check reports what the
+                      device did during the capture (selection, take, count-in, notes).
     v0.8  2026-11-17  A tool error in the tabby-v04.15-rc1 run: FX opens CLIP SETTING on its first line, so after going to
                       CLIPS and back the tool turned LENGTH instead of TRANSPOSE and pressed the 4th left button on
                       the wrong line; the copy stayed, was still reserved, and its notes hid the internal click.
@@ -201,6 +205,11 @@ def main():
             check((c3["pads"][0]["code"] & 7) != 0, "a clip a scene uses is not deleted", c3["pads"][0]["code"])
             l.edit_save(); idle(0.6)
             check(not l.setup_state()["unsaved"], "saved without the copy")
+            # v0.9: the takes below need a clip no scene of the first bars uses (a take on clip 1 ends by design when the
+            # song reaches scene 3, and the next REC press then arms a take instead of stopping one): the clip made above
+            l.pad(empty % 16); idle(0.2)
+            if l.clips_state()["selected"] != empty or (l.clips_state()["pads"][empty % 16]["code"] & 7) == 3:
+                l.pad(empty % 16); idle(0.2)
         # ---- the click as a MIDI note, and the count-in ----
         l.press("FX"); idle(0.4)
         ok = setting(8, "count_in", 1) and setting(9, "click", 2) and setting(10, "click_out", 1) and setting(11, "click_ch", 15)
@@ -238,9 +247,14 @@ def main():
                 wav = os.path.join(a.out, name)
                 rec = subprocess.Popen(["arecord", "-q", "-D", "hw:AUDIO4c", "-c", "8", "-f", "S32_LE", "-r", "48000", "-d", "6", wav])
                 idle(1.0)
-                l.press("REC"); idle(0.3); l.press("PLAY"); idle((cycle or 2000.0) / 1000.0 + 1.0)
+                m0 = time.monotonic_ns(); before = l.clips_state(); st0 = l.steps_state()
+                l.press("REC"); idle(0.3); st1 = l.steps_state(); l.press("PLAY"); idle(0.6); cnt = l.setup_state()["counting"]; idle((cycle or 2000.0) / 1000.0 + 0.4)
                 l.press("REC"); idle(0.2); l.press("PLAY"); idle(0.5)
                 rec.wait()
+                # v0.9: what the device did during the capture, for the check's detail line
+                seen = [(round((x - m0) / 1e6), m[0], m[1]) for x, m in since(m0, lambda m: len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[2])]
+                capture.detail = "selected pad %s, recording %s -> %s after REC, count-in beats left %s, notes on DIN (ms, status, note) %s" % (
+                    before["selected"], st0.get("recording"), st1.get("recording"), cnt, seen[:10])
                 w = wave.open(wav); n = w.getnframes(); raw = w.readframes(n)
                 x = struct.unpack("<%di" % (n * 8), raw)
                 onsets = []; peak = 0
@@ -262,7 +276,7 @@ def main():
             onsets, mid = capture("click.wav")
             gaps = [y - x for x, y in zip(onsets, onsets[1:])]
             first4 = gaps[:3]
-            check(ok and len(onsets) >= 4 and all(abs(g - beat) <= 6 for g in first4), "the internal click: bursts on the audio output a quarter note apart during the count-in", "onsets at ms %s" % onsets[:8])
+            check(ok and len(onsets) >= 4 and all(abs(g - beat) <= 6 for g in first4), "the internal click: bursts on the audio output a quarter note apart during the count-in", "onsets at ms %s; %s" % (onsets[:8], capture.detail))
             measured["internal_click_gaps_ms"] = gaps[:6]
             # ---- tabby-v04.14: CLICK LEVEL: LOW, MID (a song never set), HIGH, each twice the one before ----
             l.press("FX"); idle(0.4)
@@ -290,6 +304,7 @@ def main():
             idle(0.06)
         u = l.setup_state()
         l.press("FX"); idle(0.3)
+        l.knob(K1, -4); idle(0.4)                      # v0.9: the knob's value is kept while the power is on; leave the top first
         mark = time.monotonic_ns(); l.knob(K1, 1); idle(0.4)
         cc = [m for _, m in since(mark, lambda m: len(m) == 3 and (m[0] & 0xF0) == 0xB0)]
         check(u["knobs"][0] == 7 and len(cc) == 1 and cc[0][1] == 7, "K1 CONTROLLER set to 7 on the second page: K1 on CLIPS sends controller 7", (u["knobs"], [list(m) for m in cc]))

@@ -22,8 +22,12 @@
       "link": "tabby-v04.11.2"
     },
     "tabby-v04.15-rc1": {
-      "text": "Not promoted: one device test failed through an error in the test tool, not in the firmware (docs/BUILD.md 51.1). The same firmware was tested again as tabby-v04.15-rc2.",
-      "link": "tabby-v04.15-rc2"
+      "text": "Not promoted: device tests failed through errors in the test tools, not in the firmware (docs/BUILD.md 51.1, 51.2). The same firmware passed as tabby-v04.15-rc3.",
+      "link": "tabby-v04.15"
+    },
+    "tabby-v04.15-rc2": {
+      "text": "Not promoted: device tests failed through errors in the test tools, not in the firmware (docs/BUILD.md 51.2). The same firmware passed as tabby-v04.15-rc3.",
+      "link": "tabby-v04.15"
     }
   }
 }

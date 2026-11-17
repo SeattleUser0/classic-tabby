@@ -15,9 +15,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-program.py --song N --out DIR
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-17  K1 is set to 64 first (the tabby-v04.15-rc2 run had no fresh start: the knob's value was 98).
     v0.1  2026-11-16  First version.
 """
 import argparse
@@ -106,6 +107,8 @@ def main():
             check(b0 and b32 and b0[0] <= b32[0] <= tpc and notes and tpc <= notes[0] and (notes[0] - b0[0]) / 1e6 < 12.0,
                   "bank MSB 2, LSB 7, then the program, on the track's channel %d, before the clip's first note" % (ch + 1), "%.2f ms from the bank select to the note" % ((notes[0] - b0[0]) / 1e6 if b0 and notes else -1))
         # ---- K1 on CLIPS sends controller 74; a take records it ----
+        # v0.2: the knob keeps its value while the power is on: to the bottom, then to 64, where a fresh start has it
+        l.knob(K1, -64); idle(0.3); l.knob(K1, 32); idle(0.4)
         t1 = time.monotonic_ns()
         l.knob(K1, 3); idle(0.4)
         cc = [m for t, m in list(din.messages) if t > t1 and len(m) == 3 and (m[0] & 0xF0) == 0xB0 and m[1] == 74]
@@ -114,7 +117,7 @@ def main():
         l.press("REC"); idle(2.5); s = l.steps_state(); before = s["events"]
         check(s["recording"] == 2, "REC: the take runs (the clip loops already)", s["recording"])
         for _ in range(12):
-            l.knob(K1, 1); idle(0.05)
+            l.knob(K1, 1); idle(0.02)      # v0.2: well under a 1/32 note apart (at 0.05 s the spacing was near one 1/32 and 7 to 9 events were all correct)
         idle(1.5); s = l.steps_state(); grown = s["events"] - before
         check(1 <= grown <= 8, "twelve clicks of K1 in under a second are recorded as %d controller events (thinned)" % grown, grown)
         l.press("REC"); idle(0.3)

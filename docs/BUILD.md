@@ -5675,3 +5675,37 @@ rc1's page keeps its banner with a note (tools/linux/builds-notes.json). rc-vali
 installed" in the install step, because candidate 2 is the same firmware build (only a test tool changed) and one
 install attempt per build has been used.
 
+### 51.2 tabby-v04.15-rc2: not promoted either; three more tool errors, and 51.1 corrected (2026-11-17)
+
+Candidate 2 (the same firmware build, nothing written at the install step) failed `program` (8 of 10) and `setup`
+(26 of 29). Nothing was promoted. Every failure was traced on the device before anything was changed, and each was the
+tools':
+
+1. run-setup.py, the internal click and CLICK LEVEL (the failure 51.1 explained wrongly). The step added for
+   tabby-v04.15 ("a clip a scene uses is not deleted") leaves clip 1 selected, so the takes of the click checks ran on
+   clip 1. Clip 1 belongs to scenes 1 and 2 only: its track follows the scenes, and when the song reaches scene 3 the
+   track leaves the clip and the take ends, as designed. The tool's next REC press, meant to stop the take, armed a
+   new one; the capture's REC press then disarmed it, PLAY started the song without a count-in, and the song's notes
+   hid the click. Shown by reading the take state every 0.9 s: recording until 6.0 s after PLAY, then off, with pad 2
+   playing. Before tabby-v04.15 the selected clip at that point was the copy, which no scene uses. This also failed
+   rc1; the "copy stayed reserved" of 51.1 was a guess that the first rerun seemed to confirm. Why that rerun and two
+   others passed is not established: in them the song must have stayed on scenes 1 and 2 for the seven seconds of
+   the take (a scene hold left on by an earlier test would do that; not checked). v0.9 selects the clip
+   the test made itself.
+2. run-setup.py, K1 CONTROLLER, and run-program.py, "value 64 + 6": both assumed the knob values of a fresh start.
+   Candidate 2 was not installed (the build was on the device), so K1 still had its value from earlier runs (at 127
+   a turn up sends nothing). run-setup.py v0.9 turns down first; run-program.py v0.2 sets 64 first.
+3. run-program.py, "twelve clicks ... thinned": the tool's clicks were about one 1/32 note apart, where 7 to 9
+   events are all correct; its limit was 8 and this run gave 9. v0.2 sends them 20 ms apart: 6 and 7 events in two
+   runs.
+
+Two wrong tracks on the way, both ruled out with a second reader before they were written down as faults: that the
+workbench's song rewrite left a stale clip in memory (the clip read back from storage through remote op 16 / 17 had
+no chain, and no clip was open), and that a chain fired (the track's move to clip 2 at 6.0 s was the scene change).
+
+After the fixes, in the batch's order on the device: run-program.py 10 of 10 (twice), run-chain.py 11 of 11,
+run-setup.py 29 of 29.
+
+Seen on the way, behaviour not fault: when a take has ended by itself, REC arms a new take, and a take that is armed
+when the song stops stays armed (the REC lamp shows it). Question for the user in the report.
+
