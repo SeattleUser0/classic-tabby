@@ -157,7 +157,8 @@ static inline unsigned song_event_count(const struct song_record *r)
 { return r->version >= 2 ? (unsigned)(r->tail[0] | r->tail[1] << 8) : 0; }   /* version 3 carries the same table */
 static inline const uint8_t *song_event(const struct song_record *r, unsigned i)
 { return r->tail + (SONG_EVENTS_START - SONG_RECORD_BODY_END) + SONG_EVENT_BYTES * i; }
-enum { SONG_FLAG_LOOP = 1, SONG_FLAG_JUMP_ROW = 2, SONG_FLAG_SWING = 4 /* v0.7: v2 blocks follow the project swing */, SONG_ROW_FLAG_LOOP_HERE = 1 };
+enum { SONG_FLAG_LOOP = 1, SONG_FLAG_JUMP_ROW = 2, SONG_FLAG_SWING = 4 /* v0.7: v2 blocks follow the project swing */, SONG_ROW_FLAG_LOOP_HERE = 1,
+       SONG_ROW_FLAG_OWN = 2 /* tabby-v04.10 (version-3 scenes only): a scene stored on the device: a v2 block in it plays with the steps of its first imported scene, not this scene's */ };
 
 /* Migration state (control task), checkpoint (a):
  *   SONG_STORAGE_SCANNING  boot scan in progress (a few sectors per poll)
@@ -183,6 +184,7 @@ int song_storage_prepare(void);       /* finish a committed staged image (recove
 int song_record_valid(const struct song_record *r); /* 0 valid, SONG_INVALID otherwise */
 int song_record_read(unsigned song, struct song_record *out);
 int song_record_write(unsigned song, const struct song_record *in); /* magic/gen/crc set here */
+int song_record_write_model(unsigned song, const struct song_record *rows, const struct song_model *model);   /* tabby-v04.10: as version 3 */
 int song_record_delete(unsigned song);
 /* Blocks. Payload formats: 0 = 9.3 (3-byte notes), 1 = 9.12 (6-byte timed notes); both
  * are validated on append. On read, *bytes receives the payload length and *format (may be

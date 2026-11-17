@@ -182,7 +182,7 @@ press(PLAY); step(40);
 press(SAVE); e = sstate();
 check(e.dirty === 0, 'stopped: the clip is saved');
 { const n = c.sim_block_read(0, 5), d = mem().subarray(c.sim_file(), c.sim_file() + n);
-  check(n === 16 + 6 * 5 && d[0] === 64 && (d[6] | d[7] << 8) === 5, 'song storage holds the edited clip as block 5 (a v3 clip, 5 events; ' + n + ' bytes)'); }
+  check(n === 16 + 6 * 5 && d[0] === e.steps && (d[6] | d[7] << 8) === 5, 'song storage holds the edited clip as block 5 (a v3 clip of its own ' + d[0] + ' steps, 5 events; ' + n + ' bytes)'); }
 c.sim_edit(2, 0, 0);
 check(c.sim_song_load(0) === 0, 'the song loads again');
 { origin = -1; c.sim_song_play(); while (origin < 0 && block < 400000) step(); toBar(2, 0);

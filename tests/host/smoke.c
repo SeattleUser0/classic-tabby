@@ -47,6 +47,9 @@
  * Version: 0.24
  *
  * Revision log
+ *   v0.25 2026-11-16  tabby-v04.10: section 26: every clip loops at its own length, a new clip made on the device, the
+ *                     song saved as a version-3 record, clip chains, the scene hold. Sections 22 and 23 follow the
+ *                     own-length rule (a v2 block has the steps of its first scene).
  *   v0.24 2026-11-16  Section 25, the flash part page (command 25 request 11): any ID is reported, none is needed.
  *   v0.23 2026-11-16  Goal 6: section 24, recording at the event cap (SPEC 14.2).
  *   v0.22 2026-11-16  Goal 6: section 23, the clip editor (song_edit_*).
@@ -2200,7 +2203,8 @@ int main(void)
           /* the place row: queued at 800, lands at cycle 2 (1378): 62 on step 4 at 1550, then every 64 steps (2756 blocks) */
           int p = -1, q = -1; for (unsigned i = 0; i < nc; ++i) if (lc[i].s == 0x94 && lc[i].d1 == 62 && lc[i].d2 && lc[i].block - o > 1400) { if (p < 0) p = (int)i; else if (q < 0) q = (int)i; }
           unsigned dp = p >= 0 ? lc[p].block - o : 0, dq = q >= 0 ? lc[q].block - o : 0;
-          CHECK(r2 == 0 && row2000 == SONG_ROWS + 5 && dp >= 1548 && dp <= 1552 && dq >= 4304 && dq <= 4308, "clips: a clip no scene uses plays as a place row (row %u) of 64 steps from the next cycle (%u and %u; 1550 and 4306)", row2000, dp, dq);
+          /* tabby-v04.10: block 2 is also scene 2's clip (16 steps): a v2 block has the steps of the first scene that uses it, in every place */
+          CHECK(r2 == 0 && row2000 == SONG_ROWS + 5 && dp >= 1548 && dp <= 1552 && dq >= 2237 && dq <= 2241, "clips: a place no scene uses plays as a place row (row %u) with its block's 16 steps from the next cycle (%u and %u; 1550 and 2239)", row2000, dp, dq);
           /* the v3 place row: queued at 4400, lands at cycle 7 (4823): 67 on step 8 at 5168, then every 32 steps (1378 blocks) */
           int g = find_log(lc, nc, 0x94, 67, 100, 0), h = g >= 0 ? find_log(lc, nc, 0x94, 67, 100, g + 1) : -1;
           unsigned dg = g >= 0 ? lc[g].block - o : 0, dh = h >= 0 ? lc[h].block - o : 0;
@@ -2273,7 +2277,7 @@ int main(void)
         int saved = song_edit_save(); song_edit_info(&ei);
         CHECK(saved == 0 && !ei.dirty, "editor: stopped, the clip is saved (%d)", saved);
         { int n = sim_block_read(SONG, 1);
-          CHECK(n == 16 + 6 * (int)ei.events && f[0] == 64 && clip_v3_validate(f, (unsigned)n) == 0, "editor: storage holds it as a v3 clip of %u events (%d bytes)", ei.events, n); }
+          CHECK(n == 16 + 6 * (int)ei.events && f[0] == 32 && clip_v3_validate(f, (unsigned)n) == 0, "editor: storage holds it as a v3 clip of %u events (%d bytes)", ei.events, n); }
         CHECK(song_edit_open(0, 0) == 0 && song_edit_note_toggle(0, 61, 100, 480) == 1, "editor: open and changed again");
         song_edit_discard(); song_edit_info(&ei);
         CHECK(!ei.active && song_edit_open(0, 0) == 0 && clip_v3_note_find(song_edit_clip(), 0, 61) < 0 && clip_v3_note_find(song_edit_clip(), 8, 65) >= 0, "editor: a discard gives the stored clip back");
@@ -2352,6 +2356,126 @@ int main(void)
         }
         ct_test_flash_jedec = 0; ct_test_flash_bytes = 0;
         sim_boot(1); settle();
+    }
+
+    /* ---- 26. tabby-v04.10: clips loop at their own length; a clip made on the device; the song saved as a version-3
+     *          record; clip chains; the scene hold ---- */
+    {
+        sim_boot(1); sim_midi_capture(1); sim_midi_drain(1); sim_test_request_passes(1);
+        uint8_t *f = sim_file(); const unsigned SONG = 8;
+        static uint8_t c3[CLIP_V3_BYTES_MAX];
+        /* v3 clips of track 1: id 1: 16 steps, 60 on step 0; id 2: 32 steps, 62 on step 20; id 3: 16 steps, 64 on step 0,
+         * chain: twice, then the clip of place 4; id 4: 16 steps, 65 on step 0, chain: after 8 steps, stop */
+        static const struct { uint8_t steps, pitch, step, next, after, times; } spec[4] = {{16, 60, 0, 0, 0, 1}, {32, 62, 20, 0, 0, 1}, {16, 64, 0, CLIP_V3_NEXT_CLIP + 3, 0, 2}, {16, 65, 0, CLIP_V3_NEXT_STOP, 8, 1}};
+        for (unsigned id = 1; id <= 4; ++id) {
+            clip_v3_empty(c3, spec[id - 1].steps);
+            struct clip_v3_event v = { (int32_t)spec[id - 1].step * 480, CLIP_V3_NOTE, spec[id - 1].pitch, 100, 1, 240 };
+            int ins = clip_v3_insert(c3, &v), ch = clip_v3_chain_set(c3, spec[id - 1].next, spec[id - 1].after, spec[id - 1].times);
+            unsigned n = clip_v3_bytes(c3);
+            memcpy(f, c3, n);
+            CHECK(ins >= 0 && ch == 0 && clip_v3_validate(c3, n) == 0 && sim_block_write2(SONG, id, 2, n) == 0, "own length: v3 clip %u stored", id);
+        }
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 3; memcpy(f + 24, "OWN LENGTH  ", 12); f[40] = 3; f[48] = 5; f[49] = 6;
+        memset(f + 2624, 0xff, 4096 - 2624); memset(f + 2624, 0, 8); f[2626] = 1;
+        f[64] = 1; f[66] = 2; f[68] = 3; f[70] = 4;                         /* T1 places 1..4: clips 1..4 */
+        f[1088] = 1; f[1088 + 8] = 1; f[1088 + 10] = 64;                    /* scene 1: clip 1 (16 steps) in a scene of 64 steps */
+        f[1100] = 2; f[1100 + 8] = 3; f[1100 + 10] = 16;                    /* scene 2: clip 2 (32 steps) in a scene of 16 steps x 3 */
+        f[1112] = 1; f[1112 + 8] = 1; f[1112 + 9] = 1; f[1112 + 10] = 16;   /* scene 3: clip 1, loops here */
+        CHECK(sim_song_record_write(SONG) == 0 && sim_song_load(SONG) == 0, "own length: the song stored and loaded");
+        { struct message m[64]; (void)drain(m, 64); }
+        static struct log_entry lo[512]; unsigned no = 0;
+        (void)sim_song_play();
+        for (unsigned blocks = 0; blocks < 5600; ++blocks) {
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && (m[k].data[0] & 0xf0) == 0x90 && m[k].data[2] && no < 512) { lo[no].s = m[k].data[0]; lo[no].d1 = m[k].data[1]; lo[no].d2 = m[k].data[2]; lo[no].block = blocks; ++no; }
+        }
+        { /* scene 1 (64 steps = 2756 blocks): the 16-step clip sounds four times, 689 blocks apart. Scene 2 (48 steps from
+           * step 64): the 32-step clip plays through: its note on step 20 at step 84 (3618 blocks), then the clip begins
+           * again at step 96 and the scene ends at step 112 before the note comes round. Scene 3 from step 112 (4823). */
+          unsigned n60 = 0, ok60 = 1, first = 0, n62 = 0, at62 = 0;
+          for (unsigned i = 0; i < no; ++i) {
+              if (lo[i].d1 == 60 && lo[i].block < 2700) { if (!n60) first = lo[i].block; else if (lo[i].block - first < n60 * 689 - 2 || lo[i].block - first > n60 * 689 + 2) ok60 = 0; ++n60; }
+              if (lo[i].d1 == 62) { ++n62; at62 = lo[i].block - first; }
+          }
+          int s3 = -1; for (unsigned i = 0; i < no; ++i) if (lo[i].d1 == 60 && lo[i].block - first > 4000 && s3 < 0) s3 = (int)(lo[i].block - first);
+          CHECK(n60 == 4 && ok60, "own length: a 16-step clip in a scene of 64 steps loops four times, a bar apart (%u times)", n60);
+          CHECK(n62 == 1 && at62 >= 3616 && at62 <= 3620, "own length: a 32-step clip in a scene of 16 steps x 3 plays through: its step-21 note once, at step 84 (%u times, block %u; 3618)", n62, at62);
+          CHECK(s3 >= 4821 && s3 <= 4825, "own length: the next scene starts where the scene's steps x repeats end (block %d; 4823)", s3); }
+        /* the scene hold: scene 3 would loop anyway; hold scene 1 instead and see it repeat past its 64 steps, then go on */
+        sim_song_stop(); settle();
+        { struct message m[64]; (void)drain(m, 64); }
+        no = 0; song_scene_hold_set(1);
+        (void)sim_song_play();
+        unsigned row_held = 0, row_after = 0;
+        for (unsigned blocks = 0; blocks < 6200; ++blocks) {
+            if (blocks == 3000) { row_held = sim_song_status(0) >> 16 & 255U; song_scene_hold_set(0); }
+            if (blocks == 6000) row_after = sim_song_status(0) >> 16 & 255U;
+            (void)sim_render();
+            struct message m[64]; (void)drain(m, 64);
+        }
+        CHECK(row_held == 0 && row_after == 1 && song_scene_hold() == 0, "hold: with the hold on, scene 1 repeats past its length (scene %u at block 3000); taken off, the song goes on at the scene's next end (scene %u at 6000)", row_held + 1, row_after + 1);
+        sim_song_stop(); settle();
+        /* clip chains: launch clip 3 (twice, then clip 4; clip 4: after 8 steps, stop) */
+        { struct message m[64]; (void)drain(m, 64); }
+        no = 0;
+        CHECK(song_clip_launch(0, 2) == 0, "chain: clip 3 reserved while stopped");
+        (void)sim_song_play();
+        unsigned st1800 = 0, row1000 = 0, row1500 = 0;
+        for (unsigned blocks = 0; blocks < 2600; ++blocks) {
+            if (blocks == 1000) row1000 = (sim_song_track_status(0) >> 8) & 255U;
+            if (blocks == 1500) row1500 = (sim_song_track_status(0) >> 8) & 255U;
+            if (blocks == 1800) st1800 = sim_song_track_status(0) & 3U;
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && (m[k].data[0] & 0xf0) == 0x90 && m[k].data[2] && no < 512) { lo[no].s = m[k].data[0]; lo[no].d1 = m[k].data[1]; lo[no].d2 = m[k].data[2]; lo[no].block = blocks; ++no; }
+        }
+        sim_song_stop(); settle();
+        { unsigned n64 = 0, n65 = 0, first = 0, at65 = 0, other = 0;
+          for (unsigned i = 0; i < no; ++i) { if (lo[i].d1 == 64) { if (!n64) first = lo[i].block; ++n64; } else if (lo[i].d1 == 65) { ++n65; at65 = lo[i].block - first; } else ++other; }
+          CHECK(n64 == 2 && n65 == 1 && at65 >= 1376 && at65 <= 1380 && other == 0, "chain: clip 3 plays twice, then clip 4 starts at step 32 (%u, %u, block %u; 1378; %u other notes)", n64, n65, at65, other);
+          CHECK(row1000 == SONG_ROWS + 2 && row1500 == SONG_ROWS + 3 && st1800 == SONG_TRACK_STOPPED, "chain: the track is on clip 3, then on clip 4, and stopped 8 steps into clip 4 (rows %u, %u, state %u)", row1000, row1500, st1800); }
+        /* a clip made on the device, and the song saved */
+        int made = song_clip_new(0, 9), again = song_clip_new(0, 12), taken = song_clip_new(0, 0);
+        struct song_edit_info ei; song_edit_info(&ei);
+        CHECK(made == 0 && again == SONG_BUSY && taken == SONG_INVALID && ei.active && ei.created && ei.dirty && ei.steps == 16 && ei.place == 9 && ei.block == 5 && song_unsaved(),
+              "new clip: an empty clip of one master cycle in place 10, block id 5, open and unsaved; a place that holds a clip is refused (%d %d %d)", made, again, taken);
+        CHECK(song_edit_note_toggle(0, 72, 100, 240) == 1 && song_clip_launch(0, 9) == 0, "new clip: a note entered, the clip reserved");
+        { struct message m[64]; (void)drain(m, 64); }
+        no = 0; (void)sim_song_play();
+        for (unsigned blocks = 0; blocks < 1500; ++blocks) {
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && (m[k].data[0] & 0xf0) == 0x90 && m[k].data[2] && no < 512) { lo[no].s = m[k].data[0]; lo[no].d1 = m[k].data[1]; lo[no].d2 = m[k].data[2]; lo[no].block = blocks; ++no; }
+        }
+        int busy = song_edit_save();
+        sim_song_stop(); settle(); settle();
+        { unsigned n72 = 0; for (unsigned i = 0; i < no; ++i) if (lo[i].d1 == 72) ++n72;
+          CHECK(n72 >= 2 && busy == SONG_BUSY, "new clip: it plays before it is saved (%u times in 2 bars); a save while playing is refused", n72); }
+        int saved = song_edit_save();
+        CHECK(saved == 0 && !song_unsaved(), "new clip: stopped, the clip and the song are saved (%d)", saved);
+        CHECK(sim_song_load(SONG) == 0 && song_model_current()->clip[0][9] == 5 && song_model_current()->clips[0] == 10 && song_current()->rows == 3 && song_current()->row[1].repeat == 3, "new clip: loaded again, the clip table has it in place 10 and the scenes are as they were");
+        { int n = sim_block_read(SONG, 5); CHECK(n == 22 && f[0] == 16 && clip_v3_validate(f, 22) == 0, "new clip: its block is stored as a v3 clip of 16 steps with the note (%d bytes)", n); }
+        memset(f, 0, 4096); CHECK(sim_song_record_read(SONG) == 0 && f[20] == 3 && f[64 + 18] == 5 && f[1088] == 1 && f[1100 + 8] == 3, "new clip: the stored record is version 3 with the new clip in the table");
+        /* discarding a new clip takes it out of the song again */
+        CHECK(song_clip_new(0, 11) == 0 && song_model_current()->clip[0][11] == 6, "new clip: another one in place 12");
+        song_edit_discard();
+        CHECK(song_model_current()->clip[0][11] == 0 && song_model_current()->clips[0] == 10 && song_clip_launch(0, 11) == SONG_EMPTY, "new clip: discarded, its place is empty again");
+        (void)song_edit_save();
+        /* a song stored as rows (version 1) becomes a version-3 record when it is changed on the device, and plays the same */
+        { uint8_t b[64 + 6]; struct timed_note tn; tn.velocity = 100; tn.retrigger = 1; tn.offset = 0; tn.length = 240; tn.pitch = 60;
+          unsigned at = 0; memset(b, 0, sizeof b);
+          for (unsigned k = 0; k < 64; ++k) { if (k == 0) { b[at++] = 1; (void)timed_note_encode(&tn, b + at); at += 6; } else b[at++] = 0; }
+          memcpy(f, b, sizeof b); CHECK(sim_block_write2(SONG + 1, 1, 1, sizeof b) == 0, "rows to scenes: a grid block stored"); }
+        memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 1; memcpy(f + 24, "AS ROWS     ", 12); f[40] = 2; f[48] = 5;
+        f[64] = 1; f[64 + 16] = 2; f[64 + 18] = 16; f[84] = 1; f[84 + 16] = 1; f[84 + 18] = 32;
+        CHECK(sim_song_record_write(SONG + 1) == 0 && sim_song_load(SONG + 1) == 0 && song_clip_new(1, 0) == 0, "rows to scenes: a version-1 song loaded; a new clip on track 2");
+        int s1 = song_edit_save();
+        memset(f, 0, 4096);
+        CHECK(s1 == 0 && sim_song_record_read(SONG + 1) == 0 && f[20] == 3 && f[64] == 1 && f[64 + 128] == 2 && f[1088] == 1 && f[1088 + 8] == 2 && f[1088 + 10] == 16 && f[1100] == 1 && f[1100 + 10] == 32 && f[2626] == 1,
+              "rows to scenes: saved as a version-3 record: the clip table, the two scenes with their repeats and steps, an empty event table (%d)", s1);
+        CHECK(sim_song_load(SONG + 1) == 0 && song_current()->rows == 2 && song_current()->row[0].block[0] == 1 && song_current()->row[1].steps == 32, "rows to scenes: it loads again as the same rows");
+        sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);

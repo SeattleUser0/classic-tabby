@@ -104,7 +104,7 @@ enum { LOOK_NONE = 0x7fff, ACTIONS = 160 }; /* 8 tracks × 4 notes × 3 steps, n
 enum { P_SONG = 0, P_LAUNCH = 1 };
 enum { Q_NONE = SONG_QUEUE_NONE, Q_LAUNCH = SONG_QUEUE_LAUNCH, Q_STOP = SONG_QUEUE_STOP, Q_ATTACH = SONG_QUEUE_ATTACH };
 /* Switch actions (kind 1): what and which track. */
-enum { SW_SONG = 0, SW_LOOP = 1, SW_QUEUE = 2 };
+enum { SW_SONG = 0, SW_LOOP = 1, SW_QUEUE = 2, SW_CHAIN = 3 };   /* SW_CHAIN (tabby-v04.10): a launched clip's chain is due */
 /* The song playhead's next frame. */
 enum { NEXT_NONE = 0, NEXT_SAME = 1, NEXT_ROW = 2 };
 
@@ -134,6 +134,11 @@ struct trackbuf {
     uint8_t v3;
     uint8_t prob[CLIP_V3_STEPS_MAX];
     uint16_t block;                    /* the block id (the clip header's program and bank are sent once per clip) */
+    /* tabby-v04.10: `steps` above is the clip's own length (a v3 clip's header; a v2 block: the steps of the first
+     * scene that uses it, 64 when none does). The clip chain (docs/CLIP-V3.md 2.1), read from a v3 clip's header:
+     * chain_next 0 = none, 1 = stop the track, 2 = go to row chain_row (the next clip's launch row). */
+    uint8_t chain_next, chain_times, chain_row;
+    uint16_t chain_after;
     volatile uint8_t fresh;            /* Goal 6: decoded again after an edit of the clip this track loops: the loop takes it at its next pass */
 };
 #if defined(FM1_HOST_TEST) || defined(FM1_OPEN_WEB)
@@ -178,12 +183,18 @@ static struct {
     uint8_t clip[SONG_PAYLOAD_V3_MAX];
     uint8_t slot[EDIT_LEVELS][SONG_PAYLOAD_V3_MAX];
     uint16_t block;
-    uint8_t track, place, active, dirty, steps, undo, redo;
+    uint8_t track, place, active, dirty, undo, redo;
+    uint8_t created;                   /* tabby-v04.10: the clip was made on the device and is not in song storage yet */
     uint32_t gesture;                  /* the last knob gesture (step, note, field): one undo level per gesture */
     uint32_t changed_ms;
     uint16_t revision;                 /* counts the changes: the screen redraws on it */
 } edit;
 static uint8_t edit_refresh;           /* 1 + the track whose looping buffer should be decoded again */
+/* tabby-v04.10: the song itself (its clip table, scenes or header) was changed on the device: the record is written,
+ * as version 3, when the song is saved (stopped only, as every flash write). */
+static uint8_t song_dirty;
+static uint32_t song_changed_ms;
+static void song_changed(void) { song_dirty = 1; song_changed_ms = fm1_millis(); }
 /* ---- Goal 6, second step (tabby-v04.9): real-time recording into the open clip (SPEC 14.2, 19.11) -------------
  * Notes, controllers, pitch bend and channel pressure from the panel (queue 0, control task) and from MIDI in (queue
  * 1, the SDK's MIDI task) are stamped with TIMER4 where they arrive and turned into clip positions when the control
@@ -201,6 +212,7 @@ static struct {
     struct { uint8_t used, kind, number, has_pending, has_last; uint16_t last, pending; int32_t pending_time; uint32_t last_at, seen_at; } ctl[REC_CONTROLLERS];   /* a bend's value is lsb | msb << 7 */
 } rec = { .quantize = 1 };
 static volatile unsigned mute_mask;
+static volatile unsigned scene_hold;   /* tabby-v04.10: the scene that plays repeats until this is taken off or a scene is recalled */
 /* audio -> control */
 static volatile unsigned playing, cur, repeat, underruns, song_over;
 static volatile uint32_t master, song_start;
@@ -210,6 +222,7 @@ struct track {
     uint16_t head;                            /* the block whose header program and bank were sent last (0: none) */
     uint8_t cur, state, pass, waiting, row;   /* waiting: the frame began without its buffer; row: the launched pattern */
     uint32_t start, len;                      /* the current frame, master units */
+    uint32_t entry, chain_at;                 /* tabby-v04.10: when the clip was entered; when its chain is due (0: no chain) */
 };
 static struct track tr[SONG_TRACKS];
 static struct { uint8_t pitch; uint32_t remaining; } sounding[SONG_TRACKS][SONG_SOUNDING_MAX]; /* remaining: units from the next window start */
@@ -227,7 +240,7 @@ static struct action actions[ACTIONS];
 static unsigned action_count;
 /* The tick's plan per track: its next boundary (master units, or 0 = none), what happens
  * there and the buffer of the frame that follows (SONG_NONE = unknown). */
-static struct { uint32_t tb; uint8_t what, nb, landing; } plan[SONG_TRACKS];
+static struct { uint32_t tb; int32_t origin; uint8_t what, nb, landing; } plan[SONG_TRACKS];   /* origin: where in its clip a track that goes back to the scenes joins */
 /* Row event streams (9.11): stream 0 is the song playhead's (the whole row list), stream
  * 1 + t is track t's (its slice, for launches and "back to song"). A stream sends events
  * until a gap, waits the gap's blocks, and ends; the song stream of the next row is
@@ -509,6 +522,27 @@ static FM1_AUDIO_CODE void adopt(unsigned t, unsigned nb, unsigned at, unsigned 
     k->waiting = 0;
     enter_frame(t, nb, at, check_late);
 }
+/* tabby-v04.10: every track loops its clip at the clip's own length, whatever the scene's length is. chain_set: when the
+ * chain of the launched clip in the track's buffer is due: `times` times `after` steps (or the clip's length) after the
+ * clip was entered; a chain that is already past (the settings were edited while it played) is due at the end of this
+ * pass. frame_set: the length and chain of the buffer a frame was just entered from. */
+static FM1_AUDIO_CODE void chain_set(unsigned t)
+{
+    struct track *k = &tr[t];
+    const struct trackbuf *b = &tbuf[t][k->cur];
+    k->chain_at = 0;
+    if (k->state != 1 || !b->chain_next || !b->steps) return;
+    k->chain_at = k->entry + (uint32_t)b->chain_times * (b->chain_after ? b->chain_after : b->steps) * UNITS;
+    if (k->chain_at <= k->start) k->chain_at = k->start + k->len;
+}
+static FM1_AUDIO_CODE void frame_set(unsigned t)
+{
+    struct track *k = &tr[t];
+    if (k->waiting) return;
+    if (tbuf[t][k->cur].steps) k->len = (uint32_t)tbuf[t][k->cur].steps * UNITS;
+    k->entry = k->start;
+    chain_set(t);
+}
 /* Where the song playhead's frame ends (*bd, master units) and what follows: the queued
  * jump's row at the next bar (bar mode) or at the row end (row mode) once it is decoded,
  * the same row for another repeat (or a loop-here row waiting for a jump), the decoded next
@@ -523,7 +557,7 @@ static FM1_AUDIO_CODE unsigned song_next(uint32_t m0, uint32_t *bd)
     if (landing && !jump_mode) { *bd = bar < row_end ? bar : row_end; return NEXT_ROW; }
     *bd = row_end;
     if (landing) return NEXT_ROW;
-    if (repeat + 1U < b->repeat || (b->loop_here && (target_row == SONG_NONE || !n->ready))) return NEXT_SAME;
+    if (repeat + 1U < b->repeat || ((b->loop_here || scene_hold) && (target_row == SONG_NONE || !n->ready))) return NEXT_SAME;
     if (n->ready) return NEXT_ROW;
     return NEXT_NONE;
 }
@@ -636,15 +670,17 @@ static FM1_AUDIO_CODE int song_switch(unsigned next, uint32_t bd, unsigned at)
         if (streams[0].active) ++late_count;   /* events still pending after the boundary: late */
     }
     song_start = bd;
+    if (next != NEXT_ROW) return 1;   /* tabby-v04.10: a repeat of the scene: the tracks loop their clips by themselves (track_switch) */
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
         struct track *k = &tr[t];
         if (!landed && (k->state != 0 || plan[t].landing)) continue;
-        k->start = bd; k->len = song_len;
-        if (next == NEXT_ROW) {
-            adopt(t, plan[t].nb, at, 1);
-            /* A scene jump into a row with no block for this track stops the track (9.13). */
-            if (landed && !k->waiting && !tbuf[t][k->cur].has_block) release_track(t);
-        } else enter_frame(t, k->cur, at, 1);
+        unsigned o = k->cur ^ 1U, nr = rowset[cur].row;
+        unsigned nb = holds(&tbuf[t][k->cur], nr, P_SONG) ? k->cur : holds(&tbuf[t][o], nr, P_SONG) ? o : SONG_NONE;
+        k->start = bd; k->len = song_len; k->chain_at = 0;
+        adopt(t, nb, at, 1);
+        frame_set(t);
+        /* A scene jump into a row with no block for this track stops the track (9.13). */
+        if (landed && !k->waiting && !tbuf[t][k->cur].has_block) release_track(t);
     }
     return 1;
 }
@@ -658,8 +694,22 @@ static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
         if (nb != SONG_NONE && nb != k->cur && tbuf[t][nb].fresh) {   /* Goal 6: the loop's next pass plays the edited clip */
             tbuf[t][k->cur].ready = 0; barrier(); k->cur = (uint8_t)nb; tbuf[t][nb].fresh = 0;
             k->len = (uint32_t)tbuf[t][nb].steps * UNITS;
+            chain_set(t);   /* the edited clip's chain settings */
         }
         enter_frame(t, k->cur, at, 1); return;
+    }
+    if (what == SW_CHAIN) {
+        /* tabby-v04.10: the launched clip's chain is due: the track stops, or goes on with the next clip from here.
+         * Notes that sound run out at their own length (a stop releases them). */
+        const struct trackbuf *c = &tbuf[t][k->cur];
+        unsigned next = c->chain_next, row = c->chain_row;
+        k->chain_at = 0;
+        if (next == 1) { release_track(t); k->state = 2; k->waiting = 0; return; }
+        k->row = (uint8_t)row; k->start = plan[t].tb;
+        adopt(t, plan[t].nb, at, 1);
+        frame_set(t);
+        if (!k->waiting) { stream_begin(1 + t, 1, t * 2U + k->cur); stream_run_one(&streams[1 + t]); }
+        return;
     }
     unsigned kind = queue_kind[t];
     release_track(t);
@@ -670,12 +720,15 @@ static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
         k->start = plan[t].tb;
         k->len = (k->row >= SONG_ROWS ? (place_steps[t] ? place_steps[t] : SONG_BLOCK_STEPS)
                   : record.row[k->row].steps ? record.row[k->row].steps : SONG_BLOCK_STEPS) * UNITS;
+        k->chain_at = 0;
         adopt(t, plan[t].nb, at, 1);
-    } else {   /* Q_ATTACH: back to song, into the current row where it stands (no look-ahead) */
-        k->state = 0; k->row = 0;
-        k->start = song_start; k->len = song_len;
+        frame_set(t);   /* the clip's own length and its chain */
+    } else {   /* Q_ATTACH: back to song, into the scene's clip where it stands (no look-ahead) */
+        k->state = 0; k->row = 0; k->chain_at = 0;
+        k->start = plan[t].tb - (uint32_t)plan[t].origin; k->len = song_len;
         if (song_over) { k->waiting = 0; return; }
         adopt(t, plan[t].nb, at, 0);
+        if (!k->waiting && tbuf[t][k->cur].steps) k->len = (uint32_t)tbuf[t][k->cur].steps * UNITS;
     }
     /* The launch stream (the row's events on this track's channel): pre-fired, or now. */
     if (!tstreamed[t] && !k->waiting) { stream_begin(1 + t, 1, t * 2U + k->cur); tstreamed[t] = 1; }
@@ -708,6 +761,12 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         if (nb != k->cur) { tbuf[t][k->cur].ready = 0; barrier(); k->cur = (uint8_t)nb; }
         k->waiting = 0; ++k->pass; ++late_count;
         tbuf[t][nb].look_from = LOOK_NONE;
+        /* tabby-v04.10: the clip's own length; in phase with where it would have started (the scene's entry for a
+         * track that follows the scenes) */
+        if (k->state == 0) k->start = song_start - repeat * song_len;
+        frame_set(t);
+        while (k->len && (int32_t)(m0 - k->start) >= (int32_t)k->len) k->start += k->len;
+        chain_set(t);
     }
     for (unsigned t = 0; t < SONG_TRACKS; ++t)
         for (unsigned i = 0; i < sounding_count[t]; ++i)
@@ -725,27 +784,36 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         unsigned active = row != SONG_NONE && !k->waiting;
         unsigned o = k->cur ^ 1U;
         plan[t].landing = !scene && qk != Q_NONE && bar < m1;
-        plan[t].tb = 0; plan[t].what = SW_SONG; plan[t].nb = SONG_NONE;
+        plan[t].tb = 0; plan[t].what = SW_SONG; plan[t].nb = SONG_NONE; plan[t].origin = 0;
         if (active) {
-            plan[t].tb = k->state == 1 ? k->start + k->len : sbd;
-            plan[t].what = k->state == 1 ? SW_LOOP : SW_SONG;
-            if (k->state == 0 && snext == NEXT_NONE) plan[t].tb = 0;
+            /* tabby-v04.10: the track's own boundary is the end of its clip (every track loops its clip at the clip's
+             * length), for a launched clip its chain when that comes first; a track that follows the scenes takes the
+             * next scene's clip where the scene changes, and plays nothing past the end of the song. */
+            uint32_t loop_at = k->start + k->len;
+            plan[t].tb = loop_at; plan[t].what = SW_LOOP;
+            if (k->state == 1) { if (k->chain_at && k->chain_at <= loop_at) { plan[t].tb = k->chain_at; plan[t].what = SW_CHAIN; } }
+            else if (snext == NEXT_ROW && loop_at >= sbd) { plan[t].tb = sbd; plan[t].what = SW_SONG; }
+            else if (snext == NEXT_NONE && song_end && loop_at >= sbd) plan[t].tb = 0;
         }
-        if (scene) { plan[t].tb = sbd; plan[t].what = SW_SONG; qk = Q_NONE; }
+        if (scene && (!plan[t].tb || plan[t].tb >= sbd)) { plan[t].tb = sbd; plan[t].what = SW_SONG; }
+        if (scene) qk = Q_NONE;
         else if (qk != Q_NONE && (!plan[t].tb || bar <= plan[t].tb)) { plan[t].tb = bar; plan[t].what = SW_QUEUE; }
         /* The buffer of the frame that follows the boundary. */
-        if (scene) { unsigned nr = rowset[cur ^ 1U].row; plan[t].nb = holds(&tbuf[t][k->cur], nr, P_SONG) ? k->cur : holds(&tbuf[t][o], nr, P_SONG) ? o : SONG_NONE; }
-        else if (plan[t].what == SW_LOOP) plan[t].nb = tbuf[t][o].fresh && holds(&tbuf[t][o], k->row, P_LAUNCH) ? o : k->cur;   /* Goal 6: the edited clip, decoded again */
-        else if (plan[t].what == SW_QUEUE) {
+        if (plan[t].what == SW_SONG) { if (plan[t].tb) { unsigned nr = rowset[cur ^ 1U].row; plan[t].nb = holds(&tbuf[t][k->cur], nr, P_SONG) ? k->cur : holds(&tbuf[t][o], nr, P_SONG) ? o : SONG_NONE; } }
+        else if (plan[t].what == SW_LOOP) plan[t].nb = tbuf[t][o].fresh && holds(&tbuf[t][o], row, purpose) ? o : k->cur;   /* Goal 6: the edited clip, decoded again */
+        else if (plan[t].what == SW_CHAIN) {
+            const struct trackbuf *c = &tbuf[t][k->cur];
+            if (c->chain_next >= 2) plan[t].nb = holds(c, c->chain_row, P_LAUNCH) ? k->cur : holds(&tbuf[t][o], c->chain_row, P_LAUNCH) ? o : SONG_NONE;
+        } else if (plan[t].what == SW_QUEUE) {
             if (qk == Q_LAUNCH) plan[t].nb = holds(&tbuf[t][k->cur], qr, P_LAUNCH) ? k->cur : holds(&tbuf[t][o], qr, P_LAUNCH) ? o : SONG_NONE;
             else if (qk == Q_ATTACH && !song_over) {
                 /* The row the song is in at the bar: the next row when the song changes rows there. */
-                unsigned ar = sbd == bar && snext == NEXT_ROW ? rowset[cur ^ 1U].row : rowset[cur].row;
+                unsigned change = sbd == bar && snext == NEXT_ROW, ar = change ? rowset[cur ^ 1U].row : rowset[cur].row;
                 plan[t].nb = holds(&tbuf[t][k->cur], ar, P_SONG) ? k->cur : holds(&tbuf[t][o], ar, P_SONG) ? o : SONG_NONE;
+                /* it joins its clip where the clip stands: the clip has looped since the scene was entered */
+                if (!change && plan[t].nb != SONG_NONE && tbuf[t][plan[t].nb].steps)
+                    plan[t].origin = (int32_t)((bar - (song_start - repeat * song_len)) % ((uint32_t)tbuf[t][plan[t].nb].steps * UNITS));
             }
-        } else if (plan[t].tb && k->state == 0) {
-            if (snext == NEXT_SAME) plan[t].nb = k->cur;
-            else if (snext == NEXT_ROW) { unsigned nr = rowset[cur ^ 1U].row; plan[t].nb = holds(&tbuf[t][k->cur], nr, P_SONG) ? k->cur : holds(&tbuf[t][o], nr, P_SONG) ? o : SONG_NONE; }
         }
         uint32_t tb = plan[t].tb;
         unsigned crossing = tb && tb < m1;
@@ -756,7 +824,7 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         if (crossing && plan[t].what != SW_SONG) add_action(tb - m0, 1, 0, t, plan[t].what, qk, 0);
         if (tb && plan[t].nb != SONG_NONE && !(plan[t].what == SW_QUEUE && qk == Q_STOP)) {
             unsigned nb = plan[t].nb;
-            int32_t origin = plan[t].what == SW_QUEUE && qk == Q_ATTACH && !(sbd == bar && snext != NEXT_NONE) ? (int32_t)(bar - song_start) : 0;   /* back to song joins mid-row */
+            int32_t origin = plan[t].origin;   /* back to song joins mid-clip */
             if (crossing) scan(t, nb, origin, origin + (int32_t)(m1 - tb), (int32_t)(tb - m0), 0, k->pass + 1U);
             /* Look-ahead: step-0 notes of the next frame whose negative offset lands in this window. */
             if (!origin && m1 + HALF > tb) {
@@ -923,13 +991,16 @@ FM1_AUDIO_CODE void song_tick(unsigned tempo)
         memset(roll_step, 255, sizeof roll_step);
         for (unsigned t = 0; t < SONG_TRACKS; ++t) {
             struct track *k = &tr[t];
-            k->cur = 0; k->state = 0; k->pass = 0; k->waiting = 0; k->row = 0; k->head = 0; k->start = song_start; k->len = song_len;
+            k->cur = 0; k->state = 0; k->pass = 0; k->waiting = 0; k->row = 0; k->head = 0; k->len = song_len;
+            k->start = song_start - repeat * song_len;   /* where the scene was entered (a follow start may be inside it) */
             if (!fol && start_row[t] != SONG_NONE) {   /* a clip reserved while stopped: the track starts launched on it */
                 k->state = 1; k->row = start_row[t];
                 k->len = (uint32_t)(start_steps[t] ? start_steps[t] : SONG_BLOCK_STEPS) * UNITS;
             }
             tbuf[t][0].look_from = tbuf[t][1].look_from = LOOK_NONE;
             tstreamed[t] = 0; seen_kind[t] = Q_NONE; seen_row[t] = 0;
+            frame_set(t);   /* tabby-v04.10: the clip's own length and chain */
+            while (k->len && (int32_t)(from - k->start) >= (int32_t)k->len) k->start += k->len;
             enter_frame(t, 0, 0, fresh);
         }
         if (fol) {
@@ -996,6 +1067,26 @@ static unsigned slice_events(unsigned row, unsigned channel, uint8_t out[][4], u
     }
     return count;
 }
+/* tabby-v04.10: lengths. A v3 clip carries its length and loops at it wherever it plays. A v2 block has none: in a
+ * scene of a song as it was imported it plays the scene's steps, as it always did (the same block may sit in scenes of
+ * different lengths). Where it plays outside those scenes (launched from a place no scene uses, or in a scene that was
+ * stored on the device: SONG_ROW_FLAG_OWN), its length is v2_steps: the steps of the first imported scene that uses
+ * it on this track, 64 when none does. */
+static unsigned v2_steps(unsigned t, unsigned id)
+{
+    for (unsigned r = 0; r < record.rows; ++r)
+        if (record.row[r].block[t] == id && !(record.row[r].flags & SONG_ROW_FLAG_OWN)) return record.row[r].steps ? record.row[r].steps : SONG_BLOCK_STEPS;
+    return SONG_BLOCK_STEPS;
+}
+/* The row a clip is launched as: the first scene that uses it (the scene's row events for the track come with it), or
+ * its place row (SONG_ROWS + place) when no scene does. */
+static unsigned launch_row(unsigned track, unsigned place)
+{
+    unsigned id = model.clip[track][place];
+    for (unsigned r = 0; r < record.rows; ++r)
+        if (model.scene_clip[r][track] == place + 1U && record.row[r].block[track] == id) return r;
+    return SONG_ROWS + place;
+}
 /* Decode row `row`'s block of track t into buffer b (ready == 0) for `purpose`. A v1 block
  * is upgraded to timed notes on the way (9.12) and keeps the project swing. A missing or bad
  * block plays silent (has_block = 0). */
@@ -1006,6 +1097,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
     const struct song_row *r = &record.row[place_row ? 0 : row];
     b->row = (uint8_t)row; b->steps = place_row ? SONG_BLOCK_STEPS : r->steps ? r->steps : SONG_BLOCK_STEPS; b->purpose = (uint8_t)purpose;
     b->swing = (uint8_t)swing_song; b->has_block = 0; b->v3 = 0; b->block = 0;
+    b->chain_next = 0; b->chain_times = 1; b->chain_after = 0; b->chain_row = 0;
     memset(b->cell, 0, sizeof b->cell);
     unsigned id = place_row ? model.clip[t][(row - SONG_ROWS) % SONG_CLIPS] : r->block[t], bytes, format = SONG_FORMAT_V2;
     if (id) {
@@ -1019,8 +1111,15 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
         }
         if (e) last_error = (unsigned)e;
         else {
-            if (format == SONG_FORMAT_V3 && place_row) b->steps = (uint8_t)clip_v3_steps(payload);
+            /* tabby-v04.10: the clip's own length, and a v3 clip's chain */
+            if (format != SONG_FORMAT_V3 && (place_row || (r->flags & SONG_ROW_FLAG_OWN))) b->steps = (uint8_t)v2_steps(t, id);
             if (format == SONG_FORMAT_V3) {
+                unsigned next = clip_v3_next(payload);
+                b->steps = (uint8_t)clip_v3_steps(payload);
+                if (next >= CLIP_V3_NEXT_CLIP && !model.clip[t][next - CLIP_V3_NEXT_CLIP]) next = CLIP_V3_NEXT_STAY;   /* no clip there: no chain */
+                b->chain_next = (uint8_t)(next > CLIP_V3_NEXT_CLIP ? CLIP_V3_NEXT_CLIP : next);
+                b->chain_times = (uint8_t)clip_v3_times(payload); b->chain_after = (uint16_t)clip_v3_after(payload);
+                if (next >= CLIP_V3_NEXT_CLIP) b->chain_row = (uint8_t)launch_row(t, next - CLIP_V3_NEXT_CLIP);
                 /* Task 16 Goal 5: a v3 clip that the step grid can hold plays through the grid (identical MIDI to the same notes
                  * as v2); one it cannot hold (docs/CLIP-V3.md) is an error until the cursor replaces the grid scan. */
                 /* The cursor (branch clipv3-cursor): a clip the grid cannot hold plays from its event list. */
@@ -1054,7 +1153,7 @@ static void decode_rowinfo(struct rowinfo *b, unsigned row)
 {
     const struct song_row *r = &record.row[row];
     b->row = (uint8_t)row; b->steps = r->steps ? r->steps : SONG_BLOCK_STEPS;
-    b->repeat = r->repeat; b->loop_here = r->flags & SONG_ROW_FLAG_LOOP_HERE;
+    b->repeat = r->repeat; b->loop_here = (r->flags & SONG_ROW_FLAG_LOOP_HERE) != 0;
     b->event_count = (uint8_t)slice_events(row, 16, b->event, &b->lead);
     barrier();
     b->ready = 1;
@@ -1084,6 +1183,10 @@ static unsigned wanted(unsigned t, unsigned *row, unsigned *purpose)
         *row = next; *purpose = P_SONG; return 1;
     }
     if (k->state == 1 && k->waiting) { *row = k->row; *purpose = P_LAUNCH; return 1; }
+    if (k->state == 1) {   /* tabby-v04.10: the next clip of the launched clip's chain */
+        const struct trackbuf *b = &tbuf[t][k->cur];
+        if (b->ready && b->chain_next >= 2) { *row = b->chain_row; *purpose = P_LAUNCH; return 1; }
+    }
     return 0;
 }
 static void leave_song(void)
@@ -1167,6 +1270,7 @@ void song_poll(void)
         struct trackbuf *p = &tbuf[t][tr[t].cur], *o = &tbuf[t][tr[t].cur ^ 1U];
         if (holds(p, row, purpose) && purpose == P_LAUNCH) continue;   /* a relaunch of the pattern still in the playing buffer */
         if (holds(o, row, purpose)) continue;
+        if (o->ready && o->fresh) continue;   /* the edited clip waits there for the loop's next pass */
         o->ready = 0;
         barrier();
         decode_track(t, o, row, purpose);
@@ -1183,8 +1287,8 @@ void song_poll(void)
 int song_load(unsigned song)
 {
     if (state) return SONG_BUSY;
-    if (edit.active && edit.dirty && loaded != SONG_NONE) (void)song_edit_save();   /* Goal 6: the unsaved clip belongs to the song being left */
-    edit.active = 0; edit.dirty = 0;
+    if ((song_dirty || (edit.active && edit.dirty)) && loaded != SONG_NONE) (void)song_edit_save();   /* Goal 6: the unsaved clip and song changes belong to the song being left */
+    edit.active = 0; edit.dirty = 0; edit.created = 0; song_dirty = 0; scene_hold = 0;
     loaded = SONG_NONE; memset(reserve_row, SONG_NONE, sizeof reserve_row);
     int r = song_record_read(song, &record);
     if (!r) r = song_directory_build(song);
@@ -1293,17 +1397,11 @@ int song_clip_launch(unsigned track, unsigned place)
     if (state > 1 || loaded == SONG_NONE || track >= SONG_TRACKS || place >= SONG_CLIPS) return SONG_INVALID;
     unsigned id = model.clip[track][place];
     if (!id) return SONG_EMPTY;
-    for (unsigned r = 0; r < record.rows; ++r)
-        if (model.scene_clip[r][track] == place + 1U && record.row[r].block[track] == id) {
-            if (!state) { reserve_row[track] = (uint8_t)r; return 0; }   /* stopped: reserved, PLAY starts it */
-            return song_track_launch(track, r);
-        }
-    if (!state) { reserve_row[track] = (uint8_t)(SONG_ROWS + place); return 0; }
-    unsigned bytes, format = SONG_FORMAT_V2, steps = SONG_BLOCK_STEPS;
-    if (!song_block_read(loaded, id, payload, &bytes, &format) && format == SONG_FORMAT_V3 && !song_payload_valid(format, payload, bytes))
-        steps = clip_v3_steps(payload);
-    place_steps[track] = (uint8_t)steps;
-    queue_row[track] = (uint8_t)(SONG_ROWS + place);
+    unsigned row = launch_row(track, place);
+    if (!state) { reserve_row[track] = (uint8_t)row; return 0; }   /* stopped: reserved, PLAY starts it */
+    if (row < SONG_ROWS) return song_track_launch(track, row);
+    place_steps[track] = SONG_BLOCK_STEPS;   /* until its buffer is taken: the clip's own length comes with it (frame_set) */
+    queue_row[track] = (uint8_t)row;
     barrier();
     queue_kind[track] = Q_LAUNCH;
     return 0;
@@ -1318,6 +1416,8 @@ int song_track_unqueue(unsigned track)
     return 0;
 }
 void song_mute_set(unsigned mask) { mute_mask = mask & 255U; }
+void song_scene_hold_set(unsigned on) { scene_hold = on != 0; }
+unsigned song_scene_hold(void) { return scene_hold; }
 
 /* ---- Goal 6: the clip editor (control task) ------------------------------------------------------------------ */
 static void edit_swap(uint8_t *a, uint8_t *b)
@@ -1333,13 +1433,6 @@ static void edit_changed(void)
 {
     edit.dirty = 1; edit.changed_ms = fm1_millis(); ++edit.revision;
     edit_refresh = (uint8_t)(1U + edit.track);
-}
-/* The length the clip plays with: its scene's steps when a scene uses it, else its own. */
-static unsigned clip_play_steps(unsigned track, unsigned place, unsigned own)
-{
-    for (unsigned r = 0; r < record.rows; ++r)
-        if (model.scene_clip[r][track] == place + 1U) return record.row[r].steps ? record.row[r].steps : SONG_BLOCK_STEPS;
-    return own;
 }
 int song_edit_open(unsigned track, unsigned place)
 {
@@ -1358,7 +1451,10 @@ int song_edit_open(unsigned track, unsigned place)
     else {
         /* a grid block becomes an event list: each step's modifier, then its notes */
         if (format == SONG_FORMAT_V1) bytes = song_payload_upgrade(payload, bytes);
-        clip_v3_empty(edit.clip, SONG_BLOCK_STEPS);
+        /* tabby-v04.10: with the block's own length (the steps of its first scene); what a block holds past that was
+         * never played and is not taken over */
+        unsigned own = v2_steps(track, id);
+        clip_v3_empty(edit.clip, own > SONG_BLOCK_STEPS ? SONG_BLOCK_STEPS : own);
         for (unsigned step = 0, at = 0; step < SONG_BLOCK_STEPS; ++step) {
             unsigned head = payload[at++], count = head & 7U;
             if (head & 0x78U) (void)clip_v3_step_mod_set(edit.clip, step, ((head >> 3) & 7U) | ((head >> 6) & 1U) << 3);
@@ -1372,9 +1468,26 @@ int song_edit_open(unsigned track, unsigned place)
         }
     }
     edit.block = (uint16_t)id; edit.track = (uint8_t)track; edit.place = (uint8_t)place;
-    edit.steps = (uint8_t)clip_play_steps(track, place, clip_v3_steps(edit.clip));
-    if (edit.steps > clip_v3_steps(edit.clip)) edit.steps = (uint8_t)clip_v3_steps(edit.clip);
-    edit.undo = edit.redo = 0; edit.dirty = 0; edit.gesture = 0; edit.active = 1;
+    edit.undo = edit.redo = 0; edit.dirty = 0; edit.gesture = 0; edit.created = 0; edit.active = 1;
+    return 0;
+}
+/* tabby-v04.10: a new, empty clip in an empty place of the track: one master cycle long, open in the editor and
+ * unsaved (it is written, with the song's clip table, at the next save). SONG_BUSY: another clip is unsaved;
+ * SONG_INVALID: the place holds a clip; SONG_FULL: no block id is free. */
+int song_clip_new(unsigned track, unsigned place)
+{
+    if (loaded == SONG_NONE || track >= SONG_TRACKS || place >= SONG_CLIPS || model.clip[track][place]) return SONG_INVALID;
+    if (edit.active && edit.dirty) return SONG_BUSY;
+    unsigned id = 0;
+    for (unsigned t = 0; t < SONG_TRACKS; ++t)
+        for (unsigned c = 0; c < SONG_CLIPS; ++c) if (model.clip[t][c] > id) id = model.clip[t][c];
+    if (id >= 65535U) return SONG_FULL;
+    clip_v3_empty(edit.clip, model.cycle > CLIP_V3_STEPS_MAX ? CLIP_V3_STEPS_MAX : model.cycle);
+    edit.block = (uint16_t)(id + 1U); edit.track = (uint8_t)track; edit.place = (uint8_t)place;
+    edit.undo = edit.redo = 0; edit.gesture = 0; edit.created = 1; edit.active = 1;
+    model.clip[track][place] = edit.block;
+    if (place >= model.clips[track]) model.clips[track] = (uint8_t)(place + 1U);
+    edit_changed(); song_changed();
     return 0;
 }
 void song_edit_info(struct song_edit_info *out)
@@ -1382,9 +1495,10 @@ void song_edit_info(struct song_edit_info *out)
     memset(out, 0, sizeof *out);
     out->play_step = SONG_NONE;
     if (!edit.active) return;
-    out->active = 1; out->track = edit.track; out->place = edit.place; out->dirty = edit.dirty; out->steps = edit.steps;
+    out->active = 1; out->track = edit.track; out->place = edit.place; out->dirty = edit.dirty; out->steps = clip_v3_steps(edit.clip);
     out->undo = edit.undo; out->redo = edit.redo; out->block = edit.block; out->revision = edit.revision;
     out->recording = rec.state; out->quantize = rec.quantize; out->events = (uint16_t)clip_v3_count(edit.clip);
+    out->created = edit.created;
     const struct track *k = &tr[edit.track];
     if (state == 1 && playing && !k->waiting && k->state != 2) {
         const struct trackbuf *b = &tbuf[edit.track][k->cur];
@@ -1396,7 +1510,7 @@ void song_edit_info(struct song_edit_info *out)
 const uint8_t *song_edit_clip(void) { return edit.active ? edit.clip : NULL; }
 int song_edit_note_toggle(unsigned step, unsigned pitch, unsigned velocity, unsigned length)
 {
-    if (!edit.active || step >= edit.steps || pitch > 127) return SONG_INVALID;
+    if (!edit.active || step >= clip_v3_steps(edit.clip) || pitch > 127) return SONG_INVALID;
     int at = clip_v3_note_find(edit.clip, step, pitch);
     if (at >= 0) { edit_push(); clip_v3_remove(edit.clip, (unsigned)at); edit.gesture = 0; edit_changed(); return 0; }
     if (clip_v3_count(edit.clip) >= CLIP_V3_EVENTS_MAX) return SONG_FULL;      /* SPEC 14.2: CLIP FULL, nothing changes */
@@ -1410,7 +1524,7 @@ int song_edit_note_toggle(unsigned step, unsigned pitch, unsigned velocity, unsi
 int song_edit_step_clear(unsigned step)
 {
     uint16_t idx[8];
-    if (!edit.active || step >= edit.steps) return SONG_INVALID;
+    if (!edit.active || step >= clip_v3_steps(edit.clip)) return SONG_INVALID;
     unsigned n = clip_v3_step_notes(edit.clip, step, idx, 8);
     if (!n && !clip_v3_step_mod(edit.clip, step)) return SONG_EMPTY;
     edit_push();
@@ -1424,7 +1538,7 @@ int song_edit_step_clear(unsigned step)
 int song_edit_note_adjust(unsigned step, unsigned n, unsigned field, int delta)
 {
     uint16_t idx[16];
-    if (!edit.active || step >= edit.steps || field > 3 || !delta) return SONG_INVALID;
+    if (!edit.active || step >= clip_v3_steps(edit.clip) || field > 3 || !delta) return SONG_INVALID;
     uint32_t gesture = 0x80000000U | step << 16 | n << 8 | field;
     if (field == 3) {
         int now = (int)(clip_v3_step_mod(edit.clip, step) & 7U), want = now + delta;
@@ -1472,20 +1586,38 @@ int song_edit_redo(void)
  * Only while every transport is stopped (SPEC 15.4): SONG_BUSY otherwise. */
 int song_edit_save(void)
 {
-    if (!edit.active || !edit.dirty) return 0;
+    unsigned clip = edit.active && edit.dirty;
+    if (!clip && !song_dirty) return 0;
     if (ct_transport_running() || state) return SONG_BUSY;
-    int r = song_block_append(loaded, edit.block, SONG_FORMAT_V3, edit.clip, clip_v3_bytes(edit.clip));
-    if (!r) r = song_directory_build(loaded);
-    if (r) return r;
-    edit.dirty = 0;
+    if (clip) {
+        int r = song_block_append(loaded, edit.block, SONG_FORMAT_V3, edit.clip, clip_v3_bytes(edit.clip));
+        if (!r) r = song_directory_build(loaded);
+        if (r) return r;
+        edit.dirty = 0; edit.created = 0;
+    }
+    if (song_dirty) {   /* tabby-v04.10: after the clip, so that the record never names a block that is not stored */
+        int r = song_record_write_model(loaded, &record, &model);
+        if (r) return r;
+        song_dirty = 0;
+    }
     return 0;
 }
+unsigned song_unsaved(void) { return song_dirty || (edit.active && edit.dirty); }
 /* Give the edit up: the stored clip plays again. */
 void song_edit_discard(void)
 {
     rec.state = REC_OFF;
     if (!edit.active) return;
     unsigned was = edit.dirty;
+    if (edit.created) {
+        /* a clip made on the device and never saved goes out of the song again: its place, and the scenes that took it */
+        for (unsigned r = 0; r < record.rows; ++r)
+            if (model.scene_clip[r][edit.track] == edit.place + 1U) { model.scene_clip[r][edit.track] = 0; record.row[r].block[edit.track] = 0; }
+        model.clip[edit.track][edit.place] = 0;
+        while (model.clips[edit.track] && !model.clip[edit.track][model.clips[edit.track] - 1U]) --model.clips[edit.track];
+        if (reserve_row[edit.track] == SONG_ROWS + edit.place) reserve_row[edit.track] = SONG_NONE;
+        edit.created = 0;
+    }
     edit.active = 0; edit.dirty = 0; edit.undo = edit.redo = 0;
     if (was) edit_refresh = (uint8_t)(1U + edit.track);
 }
@@ -1511,6 +1643,10 @@ static uint32_t rec_units_at(uint32_t ticks)
     if (d > 3 * REC_TICKS_PER_BLOCK) d = 3 * REC_TICKS_PER_BLOCK;      /* the host has no TIMER4: block resolution */
     if (d < -16 * REC_TICKS_PER_BLOCK) d = -16 * REC_TICKS_PER_BLOCK;
     int32_t u = (int32_t)(((int64_t)d * (int64_t)adv) / REC_TICKS_PER_BLOCK);
+    /* tabby-v04.10: what the player hears is one block behind the master position while the MIDI out runs with its
+     * one-block look-ahead (app/midi_router.c, F + G): a key played on a note that sounds is one block later in master
+     * time than the note. The take is placed where it was heard (measured: unquantized takes played back 3 ms late). */
+    if (groove_midi_live()) u -= (int32_t)adv;
     return (uint32_t)((int32_t)m + u);
 }
 /* Does the recording track play the open clip as a launched loop now? */
@@ -1525,10 +1661,10 @@ static unsigned rec_track_plays(void)
 static int32_t rec_clip_time(uint32_t units, unsigned quantize)
 {
     const struct track *k = &tr[edit.track];
-    int32_t len = (int32_t)edit.steps * UNITS, p = (int32_t)(units - k->start) % len;
+    int32_t len = (int32_t)clip_v3_steps(edit.clip) * UNITS, p = (int32_t)(units - k->start) % len;
     if (p < 0) p += len;
     if (quantize) { p = (p + UNITS / 2) / UNITS * UNITS; if (p >= len) p = 0; }
-    if (p > len - HALF && edit.steps == clip_v3_steps(edit.clip)) p -= len;
+    if (p > len - HALF) p -= len;
     return p;
 }
 static unsigned rec_held_count(void)
@@ -1673,7 +1809,9 @@ void song_record_poll(void)
 int song_edit_poll(void)
 {
     song_record_poll();
-    if (!edit.active || !edit.dirty || state || fm1_millis() - edit.changed_ms < 10000U) return 0;
+    unsigned clip = edit.active && edit.dirty, now = fm1_millis();
+    if ((!clip && !song_dirty) || state) return 0;
+    if ((clip && now - edit.changed_ms < 10000U) || (song_dirty && now - song_changed_ms < 10000U)) return 0;
     if (ct_transport_running() || song_storage_state() != SONG_STORAGE_READY) return 0;
     return song_edit_save() == 0;
 }

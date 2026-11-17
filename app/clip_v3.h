@@ -12,9 +12,11 @@
  *   then `count` 6-byte events sorted by time. A note: {time u16 (biased by 240), pitch | retrigger << 7,
  *   velocity (bit 7 = 0), length u16}; other: {time u16, type, 0x80, a, b}. See the document for the types.
  *
- * Version: 0.1
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-16  The clip chain in the header (bytes 8..11: next, after, times; docs/CLIP-V3.md 2.1) and
+ *                     clip_v3_steps_set, clip_v3_chain_set, clip_v3_program_set (the CLIP SETTING page).
  *   v0.1  2026-11-12  Initial version (Task 16 Goal 5, branch classic-tabby/mc707-phase2; not released).
  */
 #ifndef CLIP_V3_H
@@ -30,6 +32,9 @@ enum {
 /* Event kinds: 0 = note; otherwise the "other" type byte. */
 enum { CLIP_V3_NOTE = 0, CLIP_V3_CC = 1, CLIP_V3_PC = 2, CLIP_V3_BEND = 3, CLIP_V3_PRESSURE = 4, CLIP_V3_STEPMOD = 8 };
 enum { CLIP_V3_FLAG_PROGRAM = 1, CLIP_V3_FLAG_BANK = 2 };
+/* The clip chain (header bytes 8..11, v0.4): what the track does when the clip has played `times` times `after` steps
+ * (after 0: the clip's own length). next: 0 = stay (no chain), 1 = stop the track, 2 + place = the clip in that place. */
+enum { CLIP_V3_NEXT_STAY = 0, CLIP_V3_NEXT_STOP = 1, CLIP_V3_NEXT_CLIP = 2, CLIP_V3_NEXT_MAX = 65, CLIP_V3_AFTER_MAX = 512, CLIP_V3_TIMES_MAX = 64 };
 /* Result codes (negative). */
 enum { CLIP_V3_OK = 0, CLIP_V3_BAD_SIZE = -1, CLIP_V3_NOT_V2_SHAPED = -2, CLIP_V3_BAD_HEADER = -3, CLIP_V3_BAD_EVENT = -4,
        CLIP_V3_BAD_ORDER = -5, CLIP_V3_DUPLICATE = -6, CLIP_V3_NO_ROOM = -7, CLIP_V3_BAD_SOURCE = -8 };
@@ -89,4 +94,14 @@ void clip_v3_remove(uint8_t *p, unsigned index);
 /* A step's probability (0..7) and tuning bit (bit 3): read (0 when the step has no modifier), and set (0 removes it). */
 unsigned clip_v3_step_mod(const uint8_t *p, unsigned step);
 int clip_v3_step_mod_set(uint8_t *p, unsigned step, unsigned value);
+/* v0.4: the header's settings. The chain: next (CLIP_V3_NEXT_*), after (0 = the clip's length, else 1..512 steps) and
+ * times (1..64). clip_v3_steps_set changes the length (1..128) and removes what lies past the new end (events later
+ * than steps * 480 - 240, step modifiers of removed steps): it returns how many events it removed. The program is
+ * 0..127 or 255 for none, the bank the same for its MSB (255: no bank; the LSB is then 0). Negative: CLIP_V3_BAD_HEADER. */
+unsigned clip_v3_next(const uint8_t *p);
+unsigned clip_v3_after(const uint8_t *p);
+unsigned clip_v3_times(const uint8_t *p);
+int clip_v3_chain_set(uint8_t *p, unsigned next, unsigned after, unsigned times);
+int clip_v3_steps_set(uint8_t *p, unsigned steps);
+int clip_v3_program_set(uint8_t *p, unsigned program, unsigned bank_msb, unsigned bank_lsb);
 #endif

@@ -51,7 +51,9 @@
     if (steps < 1 || steps > STEPS_MAX || (flags & ~3) || p[2] > 127 || p[3] > 127 || p[4] > 127 || p[5]) return BAD_HEADER;
     if (!(flags & 1) && p[2]) return BAD_HEADER;
     if (!(flags & 2) && (p[3] || p[4])) return BAD_HEADER;
-    for (let i = 8; i < HEADER; i++) if (p[i]) return BAD_HEADER;
+    // v0.3: the clip chain in bytes 8..11 (next, after u16, times); the last four bytes stay 0
+    if (p[8] > 65 || (p[9] | p[10] << 8) > 512 || p[11] > 64) return BAD_HEADER;
+    for (let i = 12; i < HEADER; i++) if (p[i]) return BAD_HEADER;
     let last = -BIAS - 1, groupAnchor = -1, groupStart = 0;
     const maxTime = steps * UNITS - BIAS;
     for (let i = 0; i < count; i++) {
@@ -122,7 +124,7 @@
     const r = validate(p);
     if (r) fail(r, 'invalid v3 clip');
     const steps = p[0], list = events(p);
-    if (steps > 64 || p[1]) fail(NOT_V2_SHAPED, 'a v2 block holds at most 64 steps and no header program or bank');
+    if (steps > 64 || p[1] || p[8]) fail(NOT_V2_SHAPED, 'a v2 block holds at most 64 steps and no header program, bank or chain');
     const perStep = new Array(64).fill(0), head = new Array(64).fill(0);
     for (const e of list) {
       if (e.kind === NOTE) { const a = anchor(e.time); if (a >= 64 || perStep[a] >= 4) fail(NOT_V2_SHAPED, 'more than four notes in a step'); perStep[a]++; }
@@ -183,7 +185,7 @@
 
   const TabbyClipV3 = { HEADER, EVENT, EVENTS_MAX, STEPS_MAX, BIAS, NOTE, CC, PC, BEND, PRESSURE, STEPMOD,
     codes: { OK, BAD_SIZE, NOT_V2_SHAPED, BAD_HEADER, BAD_EVENT, BAD_ORDER, DUPLICATE, NO_ROOM, BAD_SOURCE },
-    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.2' };
+    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.3' };
   globalThis.TabbyClipV3 = TabbyClipV3;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyClipV3;
 })();

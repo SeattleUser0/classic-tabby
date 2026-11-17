@@ -191,6 +191,31 @@ check(r.recording === 0 && note(67) && note(67).length >= 1, 'PLAY (stop) ends t
 check(((c.sim_song_status(2) >>> 16) & 0xffff) === 0, 'nothing came late during the takes');
 c.sim_edit(2, 0, 0);
 
+/* ---- tabby-v04.10: REC on an empty pad records a new clip; the 4th left button on CLIPS saves the song --------- */
+step(20);
+let n1 = state();
+check(n1.page === 20, 'the edit discarded: back on CLIPS (page ' + n1.page + ')');
+const empty = n1.pads.findIndex(p => (p.code & 7) === 0), track10 = n1.track;
+pad(empty); n1 = state();
+check(empty >= 0 && n1.selected === empty && n1.pads[empty].code === 8 && (trackStatus(track10) >> 2 & 3) === 0, 'an empty pad (pad ' + (empty + 1) + ') is selected, nothing is queued');
+press(REC); r = rstate(); n1 = state();
+check(r.recording === 1 && r.events === 0 && r.dirty === 1 && (n1.pads[empty].code & 7) === 3, 'REC on the empty pad: a new clip, reserved and armed (recording ' + r.recording + ', pad code ' + n1.pads[empty].code + ')');
+press(PLAY); step(80); r = rstate();
+check(r.recording === 2, 'PLAY starts the song with the new clip looping and the take running');
+key(12); step(40); key(16); step(40);
+press(REC); r = rstate();
+check(r.recording === 0 && r.events === 2 && note(60) && note(64), 'two notes are in the new clip (' + r.events + ' events)');
+{ const n = c.sim_edit_clip(), d = mem().subarray(c.sim_file(), c.sim_file() + n); check(d[0] === 16, 'the new clip is one master cycle long (' + d[0] + ' steps)'); }
+press(SAVE); check(rstate().dirty === 1, 'the 4th left button on CLIPS while playing: STOP TO SAVE');
+press(PLAY); step(60);
+press(SAVE); check(rstate().dirty === 0, 'stopped: the 4th left button on CLIPS saves the clip and the song');
+{ check(c.sim_song_record_read(0) === 0, 'the song record reads back');
+  const d = mem().subarray(c.sim_file(), c.sim_file() + 4096), id = d[64 + track10 * 128 + empty * 2] | d[65 + track10 * 128 + empty * 2] << 8;
+  check(d[20] === 3 && id > 0, 'the stored record (version 3) has the new clip in the track\'s clip table (block ' + id + ')');
+  const n = c.sim_block_read(0, id), b = mem().subarray(c.sim_file(), c.sim_file() + n);
+  check(n === 16 + 12 && b[0] === 16 && (b[6] | b[7] << 8) === 2, 'its block is stored: a v3 clip of 16 steps with 2 notes (' + n + ' bytes)'); }
+check(c.sim_song_load(0) === 0 && (state().pads[empty].code & 7) === 1, 'loaded again: the pad holds a clip');
+
 c.sim_midi_capture(0); c.sim_midi_drain(0);
 console.log(`\nrecord-sim: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

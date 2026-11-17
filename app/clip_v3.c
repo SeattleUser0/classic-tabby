@@ -6,7 +6,7 @@
  *   Everything the device and the tests do with a v3 payload. Pure C on <stdint.h> and timed_note.h. The device
  *   links what it calls (validate, to_v2, window; LTO drops from_v2, which only the host tools use).
  *
- * Version: 0.3
+ * Version: 0.4
  *
  * Revision log
  *   v0.3  2026-11-16  Goal 6: editing in place (insert, remove, the notes of a step, step modifiers) for the step editor.
@@ -48,7 +48,9 @@ int clip_v3_validate(const uint8_t *p, unsigned bytes)
     if (steps < 1 || steps > CLIP_V3_STEPS_MAX || (flags & ~3U) || p[2] > 127 || p[3] > 127 || p[4] > 127 || p[5]) return CLIP_V3_BAD_HEADER;
     if (!(flags & CLIP_V3_FLAG_PROGRAM) && p[2]) return CLIP_V3_BAD_HEADER;
     if (!(flags & CLIP_V3_FLAG_BANK) && (p[3] || p[4])) return CLIP_V3_BAD_HEADER;
-    for (unsigned i = 8; i < CLIP_V3_HEADER; ++i) if (p[i]) return CLIP_V3_BAD_HEADER;
+    /* v0.4: the clip chain: next, after (u16), times; the last four bytes stay 0 */
+    if (p[8] > CLIP_V3_NEXT_MAX || get16(p + 9) > CLIP_V3_AFTER_MAX || p[11] > CLIP_V3_TIMES_MAX) return CLIP_V3_BAD_HEADER;
+    for (unsigned i = 12; i < CLIP_V3_HEADER; ++i) if (p[i]) return CLIP_V3_BAD_HEADER;
     int last = -CLIP_V3_BIAS - 1, max_time = (int)steps * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS;
     unsigned group_anchor = 0xffffffffU, group_start = 0;
     for (unsigned i = 0; i < count; ++i) {
@@ -138,7 +140,7 @@ int clip_v3_to_v2(const uint8_t *v3, unsigned bytes, uint8_t *out, unsigned cap)
     int r = clip_v3_validate(v3, bytes);
     if (r) return r;
     unsigned steps = v3[0], count = clip_v3_count(v3);
-    if (steps > V2_STEPS || v3[1]) return CLIP_V3_NOT_V2_SHAPED;
+    if (steps > V2_STEPS || v3[1] || v3[8]) return CLIP_V3_NOT_V2_SHAPED;   /* v0.4: a chain is not v2 either */
     uint8_t per_step[V2_STEPS], head[V2_STEPS];
     memset(per_step, 0, sizeof per_step); memset(head, 0, sizeof head);
     unsigned notes = 0;
@@ -314,4 +316,32 @@ int clip_v3_step_mod_set(uint8_t *p, unsigned step, unsigned value)
     struct clip_v3_event v = { (int32_t)step * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS, CLIP_V3_STEPMOD, (uint8_t)value, (uint8_t)step, 0, 0 };
     return clip_v3_insert(p, &v);
 }
-
+/* ---- the header's settings (v0.4) -------------------------------------------------------------------------- */
+unsigned clip_v3_next(const uint8_t *p) { return p[8]; }
+unsigned clip_v3_after(const uint8_t *p) { return get16(p + 9); }
+unsigned clip_v3_times(const uint8_t *p) { return p[11] ? p[11] : 1U; }
+int clip_v3_chain_set(uint8_t *p, unsigned next, unsigned after, unsigned times)
+{
+    if (next > CLIP_V3_NEXT_MAX || after > CLIP_V3_AFTER_MAX || times < 1 || times > CLIP_V3_TIMES_MAX) return CLIP_V3_BAD_HEADER;
+    p[8] = (uint8_t)next; put16(p + 9, after); p[11] = (uint8_t)(times == 1 ? 0 : times);
+    return CLIP_V3_OK;
+}
+int clip_v3_steps_set(uint8_t *p, unsigned steps)
+{
+    if (steps < 1 || steps > CLIP_V3_STEPS_MAX) return CLIP_V3_BAD_HEADER;
+    int max_time = (int)steps * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS, removed = 0;
+    for (unsigned i = clip_v3_count(p); i-- > 0;) {
+        const uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * i;
+        int time = (int)get16(e) - CLIP_V3_BIAS;
+        if (time > max_time || ((e[3] & 0x80U) && e[2] == CLIP_V3_STEPMOD && e[5] >= steps)) { clip_v3_remove(p, i); ++removed; }
+    }
+    p[0] = (uint8_t)steps;
+    return removed;
+}
+int clip_v3_program_set(uint8_t *p, unsigned program, unsigned bank_msb, unsigned bank_lsb)
+{
+    if ((program > 127 && program != 255) || (bank_msb > 127 && bank_msb != 255) || bank_lsb > 127) return CLIP_V3_BAD_HEADER;
+    p[1] = (uint8_t)((p[1] & ~3U) | (program != 255 ? CLIP_V3_FLAG_PROGRAM : 0U) | (bank_msb != 255 ? CLIP_V3_FLAG_BANK : 0U));
+    p[2] = (uint8_t)(program != 255 ? program : 0); p[3] = (uint8_t)(bank_msb != 255 ? bank_msb : 0); p[4] = (uint8_t)(bank_msb != 255 ? bank_lsb : 0);
+    return CLIP_V3_OK;
+}

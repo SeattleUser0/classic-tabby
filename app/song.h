@@ -96,6 +96,7 @@ struct song_edit_info {
     uint16_t revision;                   /* changes since power-up */
     uint8_t recording;                   /* 0 off, 1 armed (waiting for the clip to loop on its track), 2 recording */
     uint8_t quantize;                    /* input quantize: notes are recorded on the nearest step */
+    uint8_t created;                     /* tabby-v04.10: made on the device, not in song storage yet */
 };
 int song_edit_open(unsigned track, unsigned place);   /* 0, SONG_EMPTY (no clip), SONG_BUSY (another clip is unsaved), SONG_EDIT_SHARED */
 void song_edit_info(struct song_edit_info *out);
@@ -108,6 +109,13 @@ int song_edit_redo(void);
 int song_edit_save(void);                             /* SONG_BUSY while a transport runs */
 void song_edit_discard(void);
 int song_edit_poll(void);
+/* tabby-v04.10: a new empty clip (one master cycle) in an empty place, open and unsaved; song_edit_save also writes the
+ * song record when the song was changed on the device (song_unsaved: a clip or the song waits for a save). */
+int song_clip_new(unsigned track, unsigned place);
+unsigned song_unsaved(void);
+/* The scene that plays repeats until the hold is taken off or a scene is recalled (RAM only). */
+void song_scene_hold_set(unsigned on);
+unsigned song_scene_hold(void);
 /* Goal 6, second step (tabby-v04.9): real-time recording into the open clip (SPEC 19.11). */
 int song_record_start(void);                          /* 2 recording, 1 armed, negative: no clip open / cannot launch */
 void song_record_stop(void);

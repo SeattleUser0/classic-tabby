@@ -69,7 +69,7 @@
 static uint32_t old_mask[4];                 /* one bit per region sector: holds old data */
 static unsigned state, position, old_count;
 /* ---- storage (checkpoint d) -------------------------------------------------------- */
-static uint8_t image[4096];                  /* the one RAM sector image (transactions, walks) */
+static uint8_t image[4096] __attribute__((aligned(4)));   /* the one RAM sector image (transactions, walks); aligned: song_record_write_model reads it as a record */
 /* Block sector cache, authoritative after the boot scan because every write passes
  * through this file: songs mask, generation and the end of the record area
  * (used = 20 for an erased sector, SONG_USED_UNKNOWN until the sector was walked). */
@@ -241,7 +241,7 @@ static unsigned staged_target(unsigned *n)
     uint32_t magic = le32(image);
     if (magic == SONG_MAGIC_RECORD) {
         uint32_t target = le32(image + 8);
-        unsigned end = image[20] == 2 ? SONG_RECORD_V2_END : SONG_RECORD_BODY_END; /* 9.11: CRC range by version */
+        unsigned end = image[20] >= 2 ? SONG_RECORD_V2_END : SONG_RECORD_BODY_END; /* 9.11: CRC range by version (tabby-v04.10: version 3 too; a staged version-3 record was not recovered) */
         *n = end;
         if (target < SONG_FIRST_SONG_SECTOR || target >= SONG_FIRST_BLOCK_SECTOR) return 0;
         return le32(image + 12) == crc(image + 20, end - 20) ? target : 0;
@@ -336,7 +336,7 @@ static int scenes_valid(const struct song_record *r)
     if (r->reserved[0] && (r->reserved[0] < 2 || r->reserved[0] > SONG_CYCLE_MAX)) return SONG_INVALID;
     for (unsigned i = 0; i < r->rows; ++i) {
         const struct song_scene *s = &b->scene[i];
-        if (s->repeat < 1 || s->repeat > 64 || (s->flags & ~1U) || s->reserved ||
+        if (s->repeat < 1 || s->repeat > 64 || (s->flags & ~3U) || s->reserved ||   /* tabby-v04.10: bit 1, SONG_ROW_FLAG_OWN */
             s->steps < 16 || s->steps > SONG_ROW_STEPS_MAX || s->steps % 16) return SONG_INVALID;
         for (unsigned t = 0; t < SONG_TRACKS; ++t)
             if (s->clip[t] > SONG_CLIPS || (s->clip[t] && !b->clip[t][s->clip[t] - 1U])) return SONG_INVALID;
@@ -423,6 +423,46 @@ int song_record_write(unsigned song, const struct song_record *in)
     put32(image + 8, SONG_FIRST_SONG_SECTOR + song); put32(image + 16, 0);
     put32(image + 12, crc(image + 20, end - 20));
     return transact(SONG_FIRST_SONG_SECTOR + song, end);
+}
+/* tabby-v04.10: write the loaded song as a version-3 record from its row form and model (what song_record_expand made
+ * of it, changed on the device since: a new clip, a stored scene, a setting). The record is built in the sector image.
+ * SONG_FULL: a scene plays a block that has no place in the clip table (more than 64 clips on a track). */
+int song_record_write_model(unsigned song, const struct song_record *r, const struct song_model *m)
+{
+    if (song >= SONG_SONGS || state != SONG_STORAGE_READY) return SONG_INVALID;
+    int e = song_storage_prepare();
+    if (e) return e;
+    uint8_t head[8];
+    e = fm1_flash_read(sector_address(SONG_FIRST_SONG_SECTOR + song), head, sizeof head);
+    if (e) return e;
+    uint32_t generation = le32(head) == SONG_MAGIC_RECORD ? le32(head + 4) + 1U : 1U;
+    memset(image, 0xff, sizeof image);
+    memcpy(image, r, 64);
+    struct song_record *o = (struct song_record *)(void *)image;
+    o->version = 3; o->reserved[0] = m->cycle == SONG_CYCLE_DEFAULT ? 0 : m->cycle;
+    struct song_scenes_body *b = (struct song_scenes_body *)(void *)o->row;
+    memset(b, 0, sizeof *b);
+    memcpy(b->clip, m->clip, sizeof b->clip);
+    for (unsigned i = 0; i < r->rows; ++i) {
+        struct song_scene *s = &b->scene[i];
+        for (unsigned t = 0; t < SONG_TRACKS; ++t) {
+            unsigned c = m->scene_clip[i][t], id = r->row[i].block[t];
+            if (id && (!c || m->clip[t][c - 1U] != id)) return SONG_FULL;
+            s->clip[t] = (uint8_t)(id ? c : 0);
+        }
+        s->repeat = r->row[i].repeat; s->flags = r->row[i].flags; s->steps = r->row[i].steps ? r->row[i].steps : SONG_BLOCK_STEPS;
+    }
+    memcpy(image + SONG_RECORD_BODY_END, r->tail, SONG_RECORD_V2_END - SONG_RECORD_BODY_END);
+    if (r->version < 2) {   /* a version-1 record had no event table: an empty one */
+        memset(image + SONG_RECORD_BODY_END, 0xff, SONG_RECORD_V2_END - SONG_RECORD_BODY_END);
+        memset(image + SONG_RECORD_BODY_END, 0, 8); image[SONG_RECORD_BODY_END + 2] = 1;
+    }
+    e = song_record_valid(o);
+    if (e) return e;
+    put32(image, SONG_MAGIC_RECORD); put32(image + 4, generation);
+    put32(image + 8, SONG_FIRST_SONG_SECTOR + song); put32(image + 16, 0);
+    put32(image + 12, crc(image + 20, SONG_RECORD_V2_END - 20));
+    return transact(SONG_FIRST_SONG_SECTOR + song, SONG_RECORD_V2_END);
 }
 int song_record_delete(unsigned song)
 {

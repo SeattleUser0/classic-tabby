@@ -109,7 +109,9 @@ check(s.selected === 0 && s.pads[0].code === (3 | 8) && (trackStatus(0) >> 2 & 3
 pad(0); s = state();
 check(s.pads[0].code === 9 && s.pads[0].rgb === 0x303030 && (trackStatus(0) >> 2 & 3) === 0, 'pressed again: the reservation is taken back; the clip stays selected, bright white (' + hex(s.pads[0].rgb) + ')');
 pad(2); s = state();
-check(s.selected === 0, 'an empty pad selects nothing');
+check(s.selected === 2 && s.pads[2].code === 8 && s.pads[2].rgb === 0x020810 && (trackStatus(0) >> 2 & 3) === 0, 'tabby-v04.10: an empty pad is selected (dim cyan; REC or EDIT makes a clip there) and nothing is queued (code ' + s.pads[2].code + ', ' + hex(s.pads[2].rgb) + ')');
+pad(0); pad(0); s = state();
+check(s.selected === 0 && s.pads[0].code === 9 && s.pads[2].code === 0, 'pad 1 pressed twice: selected again, nothing reserved');
 
 /* ---- play ------------------------------------------------------------------------------ */
 press(PLAY);

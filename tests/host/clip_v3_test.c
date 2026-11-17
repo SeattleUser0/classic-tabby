@@ -175,7 +175,24 @@ int main(int argc, char **argv)
         t[0] = 0; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 0"); t[0] = 129; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 129"); t[0] = 64;
         t[1] = 4; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved flag bit"); t[1] = 0;
         t[2] = 5; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "program without its flag"); t[2] = 0;
-        t[9] = 1; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved header byte"); t[9] = 0;
+        t[12] = 1; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved header byte"); t[12] = 0;
+        /* v0.4 (tabby-v04.10): the chain in bytes 8..11, the length and the program setters */
+        t[8] = 66; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "chain: next above the last place"); t[8] = 0;
+        t[9] = 1; t[10] = 2; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "chain: after above 512 steps"); t[9] = t[10] = 0;
+        t[11] = 65; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "chain: more than 64 times"); t[11] = 0;
+        CHECK(clip_v3_chain_set(t, CLIP_V3_NEXT_CLIP + 63, 512, 64) == 0 && clip_v3_validate(t, (unsigned)n) == 0 && clip_v3_next(t) == 65 && clip_v3_after(t) == 512 && clip_v3_times(t) == 64, "chain: the largest values are valid and read back");
+        CHECK(clip_v3_chain_set(t, 66, 0, 1) == CLIP_V3_BAD_HEADER && clip_v3_chain_set(t, 0, 513, 1) == CLIP_V3_BAD_HEADER && clip_v3_chain_set(t, 0, 0, 0) == CLIP_V3_BAD_HEADER && clip_v3_chain_set(t, 0, 0, 65) == CLIP_V3_BAD_HEADER, "chain: values out of range are refused");
+        CHECK(clip_v3_chain_set(t, 0, 0, 1) == 0 && t[8] == 0 && t[9] == 0 && t[10] == 0 && t[11] == 0 && clip_v3_times(t) == 1, "chain: none is all zero (one time)");
+        CHECK(clip_v3_program_set(t, 5, 1, 2) == 0 && t[1] == 3 && t[2] == 5 && t[3] == 1 && t[4] == 2 && clip_v3_validate(t, (unsigned)n) == 0, "program and bank set");
+        CHECK(clip_v3_program_set(t, 255, 255, 9) == 0 && t[1] == 0 && t[2] == 0 && t[3] == 0 && t[4] == 0 && clip_v3_validate(t, (unsigned)n) == 0 && clip_v3_program_set(t, 128, 0, 0) == CLIP_V3_BAD_HEADER, "program and bank taken off; 128 refused");
+        { static uint8_t w[CLIP_V3_BYTES_MAX]; clip_v3_empty(w, 32);
+          struct clip_v3_event a1 = { 0, CLIP_V3_NOTE, 60, 100, 1, 240 }, a2 = { 15 * 480 + 240, CLIP_V3_NOTE, 61, 100, 1, 240 }, a3 = { 15 * 480 + 241, CLIP_V3_NOTE, 62, 100, 1, 240 }, a4 = { 31 * 480, CLIP_V3_NOTE, 63, 100, 1, 240 }, a5 = { -100, CLIP_V3_NOTE, 64, 100, 1, 240 };
+          (void)clip_v3_insert(w, &a1); (void)clip_v3_insert(w, &a2); (void)clip_v3_insert(w, &a3); (void)clip_v3_insert(w, &a4); (void)clip_v3_insert(w, &a5);
+          (void)clip_v3_step_mod_set(w, 15, 3); (void)clip_v3_step_mod_set(w, 16, 4);
+          int cut = clip_v3_steps_set(w, 16);
+          CHECK(cut == 3 && clip_v3_steps(w) == 16 && clip_v3_count(w) == 4 && clip_v3_validate(w, clip_v3_bytes(w)) == 0 && clip_v3_note_find(w, 15, 61) >= 0 && clip_v3_note_find(w, 0, 64) >= 0 && clip_v3_step_mod(w, 15) == 3,
+                "length: 32 to 16 steps removes what lies past the end (the note at the last half step stays, the pickup before the start stays): %d removed, %u left", cut, clip_v3_count(w));
+          CHECK(clip_v3_steps_set(w, 128) == 0 && clip_v3_steps(w) == 128 && clip_v3_count(w) == 4 && clip_v3_validate(w, clip_v3_bytes(w)) == 0 && clip_v3_steps_set(w, 0) == CLIP_V3_BAD_HEADER && clip_v3_steps_set(w, 129) == CLIP_V3_BAD_HEADER, "length: longer keeps everything; 0 and 129 are refused"); }
         CHECK(clip_v3_validate(t, (unsigned)n) == 0, "restored, valid again");
         unsigned count = clip_v3_count(t);
         if (count >= 4) {

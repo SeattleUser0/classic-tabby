@@ -890,6 +890,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24) + (song_follow_state() << 27);
             sig = sig * 33U + clip_bank + ((unsigned)clip_select[track] << 3) + (track_muted(track) << 12) + ((unsigned)rec_lamp << 13);
             for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + mute_kind(t);   /* Task 16: the follow state */
+            sig = sig * 33U + song_unsaved() + (song_scene_hold() << 1);
         }
         if (visible == CLIP_STEPS) {
             struct song_edit_info ei; song_edit_info(&ei);
@@ -1024,6 +1025,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         if (mute_kind(track)) color_text(150, 52, mute_kind(track) == 2 ? "MUTED ALL" : "MUTED INT", mute_kind(track) == 2 ? AMBER : BLUE);
         { struct song_edit_info ei; song_edit_info(&ei);
           if (ei.recording && ei.track == track) color_text(8, 56, ei.recording == 2 ? "REC" : "REC ARMED", AMBER); }
+        if (song_unsaved()) color_text(86, 56, "UNSAVED", AMBER);   /* tabby-v04.10: a clip or the song waits for a save */
         static const char *const words[] = {"SCENE", "CLIP", "STOP"};
         for (unsigned t = 0; t < SONG_TRACKS; ++t) {
             unsigned x = 8 + t * 29, state = st.track_state[t] & 3U, queue = (st.track_state[t] >> 2) & 3U;
@@ -1047,7 +1049,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             unsigned has = have && mdl && mdl->clip[track][place] != 0;
             uint16_t c = !has ? PANEL : queued_place == place || (queue == SONG_QUEUE_STOP && playing_place == place) ? AMBER
                        : playing_place == place ? GREEN : DIM;
-            if (has && clip_select[track] == place) frame(x - 1, 125, 14, 14, TEXT);
+            if (have && clip_select[track] == place) frame(x - 1, 125, 14, 14, TEXT);
             paint_fill(x, 126, 12, 12, c);
             if (has) small_number(x + 1, 129, i + 1, 2, BACK);
         }
@@ -1059,6 +1061,8 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             if (steps) { dim_text(86, 150, "STEPS"); small_number(122, 150, steps, 3, TEXT); }
             else dim_text(86, 150, "IN NO SCENE");
             dim_text(160, 150, "BLK"); small_number(184, 150, mdl->clip[track][place], 5, TEXT);
+        } else if (have && clip_select[track] < SONG_CLIPS) {
+            dim_text(8, 150, "SELECTED"); small_number(62, 150, clip_select[track] + 1U, 2, TEXT); dim_text(86, 150, "EMPTY: REC OR EDIT");
         } else if (!have) dim_text(8, 150, "NO SONG HERE");
         if (st.playing) {
             dim_text(8, 168, "SCENE"); small_number(44, 168, st.row + 1U, 3, ACCENT);
@@ -1718,6 +1722,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         struct song_status st; song_status_read(&st);
         unsigned place = clip_select[track] < SONG_CLIPS ? clip_select[track] : song_row_place(track, st.track_row[track]);
         int r = place < SONG_CLIPS ? song_edit_open(track, place) : SONG_EMPTY;
+        /* tabby-v04.10: on a selected empty pad EDIT makes a new clip (one master cycle long) and opens it */
+        if (r == SONG_EMPTY && place < SONG_CLIPS && st.song == song_select) { r = song_clip_new(track, place); if (!r) announce("NEW CLIP", now + 1500U); }
         if (r == SONG_BUSY) { announce("ANOTHER CLIP IS UNSAVED: THIS ONE", now + 2500U); r = 0; }
         if (r == SONG_EDIT_SHARED) announce("CLIP SHARED BY ANOTHER TRACK", now + 2000U);
         else if (r) announce(r == SONG_EMPTY ? "HOLD A PAD TO SELECT A CLIP FIRST" : "BLOCK READ ERROR", now + 2000U);
@@ -1753,8 +1759,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             step_cursor = 0;
         }
         if (pressed & BUTTON(SAVE)) {
-            int r = ei.dirty ? song_edit_save() : 0;
-            announce(r == SONG_BUSY ? "STOP TO SAVE" : r == SONG_FULL ? "SONG STORAGE FULL" : r ? "SAVE FAILED" : ei.dirty ? "CLIP SAVED" : "NOTHING TO SAVE", now + 2000U);
+            unsigned had = song_unsaved(); int r = song_edit_save();
+            announce(r == SONG_BUSY ? "STOP TO SAVE" : r == SONG_FULL ? "SONG STORAGE FULL" : r ? "SAVE FAILED" : had ? "SAVED" : "NOTHING TO SAVE", now + 2000U);
         }
         for (unsigned i = 0; i < 16; ++i)
             if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
@@ -1843,6 +1849,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 struct song_status st; song_status_read(&st);
                 unsigned place = clip_select[track] < SONG_CLIPS ? clip_select[track] : song_row_place(track, st.track_row[track]);
                 r = place < SONG_CLIPS ? song_edit_open(track, place) : SONG_EMPTY;
+                /* tabby-v04.10: REC on a selected empty pad records a new clip, one master cycle long */
+                if (r == SONG_EMPTY && place < SONG_CLIPS && st.song == song_select) r = song_clip_new(track, place);
             }
             if (!r) r = song_record_start();
             announce(r == REC_ON_NOW ? "RECORDING" : r == REC_ARMED_NOW ? (song_playing() ? "REC WHEN THE CLIP LOOPS" : "REC ARMED - PLAY STARTS IT")
@@ -1856,6 +1864,13 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             int next=clamp(octave + !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN)), -2, 2);
             if(next!=octave) {octave=next;groove_settings_panel_changed();}
         }
+    if ((pressed & BUTTON(SAVE)) && (page == TRACK_LAUNCH || page == SONG)) {
+        /* tabby-v04.10: on CLIPS and SCENES the 4th left button saves the song: the unsaved clip and what was changed
+         * in the song on the device (stopped only) */
+        unsigned had = song_unsaved(); int r = song_edit_save();
+        announce(r == SONG_BUSY ? "STOP TO SAVE" : r == SONG_FULL ? "SONG STORAGE FULL" : r ? "SAVE FAILED" : had ? "SAVED" : "NOTHING TO SAVE", now + 2000U);
+        goto controls_done;
+    }
     if ((pressed & BUTTON(SAVE)) && page != PROJECT &&
         page != SOURCE && page != ACTIONS) {
         project_return = page; page = PROJECT; project_result = 0;
@@ -1961,7 +1976,11 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         for (unsigned i = 0; i < 16; ++i)
             if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
                 unsigned place = clip_bank * 16U + i;
-                if (st.song != song_select || !mdl || !mdl->clip[track][place]) { announce("NO CLIP ON THIS PAD", now + 1500U); continue; }
+                if (st.song != song_select || !mdl) { announce("NO SONG HERE", now + 1500U); continue; }
+                if (!mdl->clip[track][place]) {   /* tabby-v04.10: an empty pad is selected: REC or EDIT makes a clip there */
+                    clip_select[track] = (uint8_t)place; cache->middle_cache = ~0U;
+                    announce("EMPTY PAD - REC OR EDIT MAKES A CLIP", now + 2000U); continue;
+                }
                 clip_select[track] = (uint8_t)place; cache->middle_cache = ~0U;
                 clip_hold_pad = (uint8_t)i; clip_hold_ms = now; clip_hold_queued = 0; clip_hold_track = (uint8_t)track;
                 if ((queue == SONG_QUEUE_LAUNCH && (queued_place == place || playing_place == place)) || (queue == SONG_QUEUE_STOP && playing_place == place)) {
@@ -2292,7 +2311,7 @@ static void groove_screen_control_body(void)
         saved_cache.shown_page = ~0U;
     }
     uint32_t now = fm1_millis(), key_down = controls.keys & ~previous_keys;
-    if (song_edit_poll()) announce("CLIP SAVED", now + 2000U);   /* Goal 6: an unsaved clip, ten seconds after the song stopped */
+    if (song_edit_poll()) announce("SAVED", now + 2000U);   /* Goal 6: an unsaved clip, ten seconds after the song stopped */
     { struct song_edit_info ei; song_edit_info(&ei);
       if (rec_lamp == 1 && ei.recording == 2) announce("RECORDING", now + 1500U);
       else if (rec_lamp == 2 && !ei.recording && !song_record_full_seen()) announce("REC STOPPED", now + 1500U);
@@ -2448,7 +2467,8 @@ static unsigned clips_pad_state(const struct song_status *st, unsigned pad)
     }
     const struct song_model *mdl = song_model_current();
     unsigned place = clip_bank * 16U + pad, queue = (st->track_state[track] >> 2) & 3U;
-    if (!rec || !mdl || st->song != song_select || !mdl->clip[track][place]) return 0;
+    if (!rec || !mdl || st->song != song_select) return 0;
+    if (!mdl->clip[track][place]) return clip_select[track] == place ? 8U : 0U;   /* tabby-v04.10: an empty pad can be selected */
     unsigned playing_place = song_row_place(track, st->track_row[track]);
     unsigned code = queue == SONG_QUEUE_LAUNCH && song_row_place(track, st->track_queued[track]) == place ? 3U
                   : playing_place == place ? (queue == SONG_QUEUE_STOP ? 4U : 2U) : 1U;
@@ -2547,11 +2567,12 @@ int smk37_screen_launch_color(unsigned pad, uint32_t *rgb)
         return 1;
     }
     unsigned code = clips_pad_state(&st, pad), kind = code & 7U, selected = code & 8U, muted = code & 16U, internal = code & 32U;
+    if (page == SONG) selected = muted = internal = 0;
     if (page == TRACK_LAUNCH && kind && (int32_t)(rec_full_until - fm1_millis()) > 0) {
         struct song_edit_info ei; song_edit_info(&ei);
         if (ei.active && ei.track == track && ei.place == clip_bank * 16U + pad) { *rgb = 0x300808; return 1; }   /* CLIP FULL: red once */
     }
-    if (kind == 0) *rgb = 0;
+    if (kind == 0) *rgb = selected ? 0x020810 : 0;   /* a selected empty pad: dim cyan */
     else if (kind == 3) *rgb = phase ? 0x083008 : 0;
     else if (kind == 4) *rgb = phase ? 0x300808 : 0;
     else if (muted) *rgb = kind == 2 ? 0x301808 : 0x0c0600;
