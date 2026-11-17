@@ -1,0 +1,55 @@
+{
+  "build": "85d3dd36e7d4288e7b1d69fa2bd3f17134a8f2b1dd3674a84355201465e463da",
+  "release": "V01",
+  "version": "tabby-v04.9.3",
+  "entryBytes": 362632,
+  "initialBytes": 1375306,
+  "standaloneBytes": 3109615,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/ccc19f6d660efbca040050ddd11e92fe9294268407cea4a159c2d499cac886c4.bin",
+      "bytes": 512564,
+      "sha256": "ccc19f6d660efbca040050ddd11e92fe9294268407cea4a159c2d499cac886c4"
+    },
+    {
+      "name": "assets/smk37/a0124dd7b22e3718d4164198d801dd793ca27fcd2ffcabfe5a9bb10378f33aa6.wasm",
+      "bytes": 334825,
+      "sha256": "a0124dd7b22e3718d4164198d801dd793ca27fcd2ffcabfe5a9bb10378f33aa6"
+    },
+    {
+      "name": "assets/smk37/6d787eaebd7b348f2bb2b06276c7833a1943ee56d4a882e6f0d5e27563748d85.js",
+      "bytes": 605208,
+      "sha256": "6d787eaebd7b348f2bb2b06276c7833a1943ee56d4a882e6f0d5e27563748d85"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 362632,
+      "sha256": "5928dfb8c6d716c615d9d234cd9fbf88473d959a1291d21afabaf2c44e85ed92"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 362632,
+      "sha256": "5928dfb8c6d716c615d9d234cd9fbf88473d959a1291d21afabaf2c44e85ed92"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3109615,
+      "sha256": "fe6f9f5b30b00f04bd2d2309c322f79fdab009c06cf8987080fbe59fda2b0346"
+    }
+  ]
+}
