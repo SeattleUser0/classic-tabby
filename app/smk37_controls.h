@@ -42,6 +42,7 @@ unsigned ct_screen_clips_read(uint8_t *out);
 unsigned ct_screen_steps_read(uint8_t *out);      /* command 29 op 15: the STEP page state, 55 bytes */
 int ct_screen_steps_open(unsigned track, unsigned place);   /* command 29 op 16 {16, 3, track, place} */
 unsigned ct_screen_setup_read(uint8_t *out);      /* tabby-v04.10: command 29 op 17: the CLIP SETTING page state, 23 bytes */
+int smk37_send_controller(unsigned track, unsigned controller, unsigned value);   /* tabby-v04.13: K1..K4 on the CLIPS page */
 int ct_screen_setup_do(void);                     /* command 29 op 16 {16, 4}: the 4th left button on that page */
 void smk37_screen_key(unsigned note, unsigned velocity);   /* Goal 6: a keyboard key went down (after it was played) */      /* command 29 op 12: the CLIPS / SCENES page state, 54 bytes */
 unsigned ct_screen_action(void);

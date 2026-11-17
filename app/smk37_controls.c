@@ -43,6 +43,11 @@ static int send(unsigned status, unsigned a, unsigned b)
     return -1;
 }
 
+/* tabby-v04.13: a controller from a panel knob on the track's channel, as the wheels send theirs: to the engine and MIDI
+ * out by the track's settings, and into a take. */
+int smk37_send_controller(unsigned track,unsigned controller,unsigned value)
+{ return send(0xb0|(groove_midi_input_channel(track)&15U),controller&127U,value&127U); }
+
 static void release(struct held_note *held)
 {
     if(held->note<128) {

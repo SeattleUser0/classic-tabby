@@ -1,6 +1,6 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.84
+Version: 0.85
 Revision log:
 - v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11) and 45.1 (on the device: 0x856014).
 - v0.80, 2026-11-16: 43.1 (tabby-v04.9.1 on the device; the publish gate and the untracked file), section 44 (tabby-v04.9.2).
@@ -5498,3 +5498,45 @@ install attempt: "Firmware ready." after 9.44 s (overnight/g7/tabby-v04.11.2-bat
   a scene's length, a change while the scene plays, the hold, the save); setup-sim.mjs (50 checks, the page through
   the panel); tools/linux/hw/run-scenechain.py v0.1, tabby_link.py v0.17.
 - Measured (the build): app image 480420 bytes (+1184), margin 39037, heap 143116, build id `568ffa35e8faa236`.
+
+### 48.1 tabby-v04.12 on the device; which clock moved (2026-11-16)
+
+Suite green on 0bf1c07, gate ok, published, released; full backup, one install attempt: "Firmware ready." after 9.43 s
+(overnight/g7/tabby-v04.12-batch.log).
+
+| Test | Result |
+| --- | --- |
+| run-scenechain.py | 13 of 13 |
+| run-chain.py / run-setup.py | 11 of 11 / 21 of 21 |
+| run-record.py v0.5 | 25 of 25 (24 of 25 with v0.3 and v0.4: tool errors, below) |
+| run-steps.py / run-launch.py | 18 of 18 / 40 of 40, twice |
+| run-clips.py, song 13 | 960 of 960 on DIN and USB, worst 1.30 / 1.36 ms |
+| run-15.py v0.14, one line, 960 notes, three runs | DIN 1.90, 1.89, 1.86 ms; USB 1.83, 1.93, 1.89 ms; clock ratio 0.999580 in all three |
+| backup and verify | PASS, 41 items |
+
+**Which clock moved (the user's question 3 of the last round; answered).** run-15.py v0.13 logged the clock ratio as
+asked: 0.999600 (three runs on tabby-v04.10), 0.999556, 0.999699, 0.999670, 0.999648, with bands of 1.89, 2.04, 2.13,
+1.95 and 3.76 ms. The band followed the ratio's movement, not the firmware. Then, read from this computer itself:
+CLOCK_MONOTONIC ran -25.06 ppm against CLOCK_MONOTONIC_RAW over 20 s; systemd-timesyncd had exchanged time minutes
+before, with a server jitter of 91 ms, and changes the rate at every exchange. The kernel stamps the MIDI input with
+CLOCK_MONOTONIC. run-15.py v0.14 samples both clocks during a run and maps the stamps to the raw clock before the fit:
+three runs in a row give the ratio 0.999580 each and bands of 1.86 to 1.93 ms, while the steered clock ran +3.8, -9.1
+and -19.3 ppm against the raw one (0.5 to 2.4 ms over a run). So the "5 ms drift" of tabby-v04.9 and tonight's 3.76 ms
+were this computer's time service; the device's rate did not move. The 2.04 ms of 47.3 is withdrawn as a device
+figure. The other tools compare times inside a few seconds and are not affected beyond 0.1 ms; run-record.py and
+run-chain.py now take the cycle from the song's own notes.
+
+Tool errors on the way (not the device): run-record.py v0.3 used a fixed ratio (a MIDI-in note "6 ms late" 40 s into
+the run), v0.4 took the cycle from four seconds of MIDI clock pulses (wrong by 2.6e-4: "+5 ms"); v0.5 takes it from all
+the song's notes: +1.62 and +1.80 ms, as on the releases before.
+
+## 49. tabby-v04.13: a clip's program and bank; the controller knobs (2026-11-16)
+
+- app/song.c: `song_edit_program`; a buffer's `prog` word, compared when an edited clip is swapped in at its loop, so a
+  changed program or bank is sent again once. app/smk37_controls.c: `smk37_send_controller` (the panel's send path:
+  engine, MIDI out, the recorder's panel queue). app/screen.c: three lines on CLIP SETTING (13 lines, 11 pixels apart),
+  K1 to K4 on CLIPS with the value on the notice line.
+- Tests: smoke.c section 26 (the settings and their limits; bank MSB, LSB and program before the clip's first note in
+  its block; one more program change after an edit while it loops), setup-sim.mjs (52 checks),
+  tools/linux/hw/run-program.py v0.1.
+- Measured (the build): app image 481156 bytes (+736), margin 38301, heap 143084 (-32), build id `9c6c2806e46ffae0`.

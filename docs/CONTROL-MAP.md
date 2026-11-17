@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.7 (2026-11-16). Applies from tabby-v04.12 (section 18, the scene chain). v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.8 (2026-11-16). Applies from tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -115,7 +115,8 @@ No button on these two pages has a long-press action. The only long press is a p
 | K5 | Selects the track. |
 | K6 | Selects the clip bank (same as OCT - / OCT +). |
 | K8 | Master volume, as everywhere. |
-| K1 to K4, K7 | Nothing on this page. |
+| K1 to K4 | Send controllers 74, 71, 1 and 11 on the selected track (section 19). A take records them. |
+| K7 | Nothing on this page. |
 
 ## 5. SCENES page
 
@@ -198,7 +199,7 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-A clip's program change and bank, and recording knob movements: the next release. Deleting a clip or a scene, a new song from nothing, and SCALE (step sizes other than a
+Deleting a clip or a scene, a new song from nothing, and SCALE (step sizes other than a
 16th): not planned yet. New songs still come from the web workbench (the MIDI importer or the song editor).
 
 ## 11. Differences from the MC-707
@@ -259,7 +260,8 @@ Deliberate differences:
 | What REC records into | A new clip in an empty place, or the selected clip (overdub). | The same: REC on a selected empty pad makes a new clip, one master cycle long. | Same. The MC-707 sets the new clip's length with the MEASURE buttons before recording; here LENGTH on CLIP SETTING changes it. |
 | The clip must be playing | Yes: recording runs with the sequencer. | REC launches the clip on its track if it is not looping already, and the take starts when it does. | A take needs one fixed loop to place notes in; a track that follows the scenes changes clips under it. |
 | Input quantize | [QUANTIZE] on / off; SHIFT + [QUANTIZE] for the settings (RM p. 32). | SHIFT + REC on / off, to the nearest step. | No QUANTIZE button; grid sizes other than a step come with SCALE. |
-| Knob movements (motion) | Up to four parameters per clip, as steps. | Controllers, pitch bend and channel pressure are recorded as events, thinned (one value per 1/32 note and the last value of a move). | Our clips hold timed events, not per-step motion lanes; thinning keeps a sweep from filling the clip. |
+| Knob movements (motion) | The knobs' own parameters (filter, mod, effect), up to four per clip, as steps. | K1 to K4 on CLIPS send controllers 74, 71, 1 and 11 to the track; a take records them as events, thinned (one value per 1/32 note and the last value of a move), with pitch bend and channel pressure. | The sound is mostly outside gear here, so the knobs speak MIDI; clips hold timed events, not per-step lanes; thinning keeps a sweep from filling the clip. |
+| A clip's sound | The clip holds its tone. | The clip holds a program change and a bank select, sent on the track's channel when the track enters the clip. | The tone lives in the outside gear; the SMK-37's own sounds belong to the project. |
 | Outside controllers | CC 1, 2 and 4 can be recorded as motion (UM, Ver. 1.80). | Every controller below 120, pitch bend and channel pressure on the track's channel. | Outside gear is the main use here. |
 | Undo of a take | UNDO takes the recording back; no undo while recording (UM, Ver. 1.80). | The same: a take is one undo level; FX does nothing during a take. | Same. |
 | When the clip is full | Not described. | The take stops: CLIP FULL - 512 EVENTS - REC STOPPED, the REC lamp goes out, the clip's pad shows red once; nothing is lost and undo still holds the clip before the take. | SPEC 14.2. |
@@ -433,6 +435,7 @@ show a dash and the song's lines still work.
 | Line | Values | What it does |
 | --- | --- | --- |
 | NEXT CLIP, AFTER, TIMES | | The clip chain, section 17. They follow LENGTH on the page. |
+| PROGRAM, BANK MSB, BANK LSB | | The clip's program change and bank, section 19. They follow TIMES. |
 | LENGTH | 1 to 128 steps | The clip's length. It loops at this length wherever it plays. Shorter: the notes past the new end are removed (NOTES PAST THE END REMOVED; FX on the STEP page undoes). Longer: empty steps are added. Heard from the clip's next loop. Not during a take. |
 | COPY TO PAD | a pad of the same track, 1 to 64 | The 4th left button copies the clip to that pad if it is empty (the page offers the first empty one and says EMPTY or HOLDS A CLIP). The copy becomes the open clip, UNSAVED. A clip with unsaved changes must be saved first. |
 | COUNT-IN | OFF, 1 CYCLE, 2 CYCLES, 4 CYCLES | Section 15. |
@@ -518,3 +521,36 @@ set on the SCENES page for the scene that plays; while the song is stopped, for 
   tracks stay on their clips (and their clip chains) until you send them back.
 - With CLOCK = MIDI the song starts at scene 1 (a reservation is not used) and the master's song position moves
   through the chain.
+
+## 19. A clip's program and bank; the controller knobs
+
+### 19.1 PROGRAM, BANK MSB, BANK LSB (CLIP SETTING)
+
+| Line | Values | Meaning |
+| --- | --- | --- |
+| PROGRAM | OFF, 1 to 128 | A program change sent on the track's channel when the track enters the clip. |
+| BANK MSB | OFF, 0 to 127 | With a value: bank select (controllers 0 and 32) is sent before the program change. |
+| BANK LSB | 0 to 127 | The bank's second number; a dash while BANK MSB is OFF (SET BANK MSB FIRST). |
+
+- They go out when the track enters the clip: launched, reached through a chain, or brought by a scene; not on every
+  loop. Order: bank MSB, bank LSB, program, then the clip's first notes, all at the clip's start. Gear that needs time
+  to change sounds wants a scene's row event with a pre-roll instead (the workbench's song editor).
+- Changed while the clip loops, the new values go out once at the clip's next loop.
+- They go to MIDI out only; the SMK-37's own sound of the track does not change.
+- Saved with the clip. One undo level per line.
+
+### 19.2 K1 to K4 on CLIPS
+
+| Knob | Controller | Starts at |
+| --- | --- | --- |
+| K1 | 74 (brightness, filter cutoff on most gear) | 64 |
+| K2 | 71 (resonance) | 64 |
+| K3 | 1 (modulation) | 0 |
+| K4 | 11 (expression) | 127 |
+
+- A click changes the value by 2; the screen shows K1 CONTROLLER 074 = 070. The message goes where the selected track's
+  keys go: to the track's own sound and, with KEY OUT on, to MIDI out on the track's output channel.
+- Each track keeps its four values while the power is on.
+- During a take the movements are recorded into the clip like controllers from outside gear (section 13.2: once per
+  1/32 note while moving, and the last value), and the clip plays them back on the song's channel for the track.
+- The numbers are fixed in this release.

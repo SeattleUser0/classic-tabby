@@ -20,9 +20,15 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-record.py --song N --out DIR
 
-Version: 0.3
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-16  v0.4's cycle came from four seconds of MIDI clock pulses, whose own arrival jitter made it wrong by
+                      2.6e-4 (errors that grew through the run: +2, then +5 ms). The cycle is now the median ratio of
+                      every note of the song so far to the 125 ms grid, taken again before each comparison.
+    v0.4  2026-11-16  The cycle is measured from the device's MIDI clock after each Start (the clock ratio between this
+                      computer and the device moved from 0.999556 to 0.999699 in one evening; with the fixed 0.9996 a
+                      note 40 s into the run was called 6 ms late).
     v0.3  2026-11-16  tabby-v04.10: the unquantized error must now be inside 2 ms on average (takes are placed one audio
                       block earlier; it was +3 ms); REC on an empty pad records a new clip of one master cycle, the clip
                       plays, and the save (remote op 16, stopped) stores the clip and the song.
@@ -40,6 +46,11 @@ import tabby_link as T
 
 CYCLE_MS = 2000.0 * 0.9996
 STEP_MS = CYCLE_MS / 16.0
+
+
+def set_cycle(ms):
+    global CYCLE_MS, STEP_MS
+    CYCLE_MS = ms; STEP_MS = ms / 16.0
 RESULTS = []
 
 
@@ -84,6 +95,17 @@ def main():
                 return
             idle(min(0.2, (d - 60.0) / 1000.0))
 
+    def measure_cycle(t0):
+        idle(4.2)
+        refine(t0)
+        measured.setdefault("cycle_ms", []).append(round(CYCLE_MS, 4))
+
+    def refine(t0):
+        r = sorted(x / (round(x / 125.0) * 125.0) for x in ((t - t0) / 1e6 for t, m in list(din.messages)
+                   if t > t0 + 1_500_000_000 and len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[2]) if round(x / 125.0) > 0)
+        if len(r) >= 8:
+            set_cycle(2000.0 * r[len(r) // 2])
+
     def near(x, target, tol):
         d = (x - target + CYCLE_MS / 2) % CYCLE_MS - CYCLE_MS / 2
         return abs(d) <= tol, d
@@ -112,6 +134,7 @@ def main():
         if not check(bool(starts), "PLAY starts the song"):
             return 1
         t0 = starts[0]
+        measure_cycle(t0)
         s = l.steps_state()
         check(s["recording"] == 2 and s["undo"] == 1, "the take runs; the clip before it is one undo level", (s["recording"], s["undo"]))
         # ---- a key, quantize on: played at step 5.6 (0-based 4.6), recorded on step 6 (0-based 5) ----
@@ -124,6 +147,7 @@ def main():
         check(s["count"] == 1 and s["notes"][0]["pitch"] == p1 and s["notes"][0]["start"] == 0 and 800 <= s["notes"][0]["length"] <= 1500,
               "a key played between two steps is recorded on the nearer one, with its length (pitch %d)" % p1, s["notes"])
         l.pad(5); idle(2 * CYCLE_MS / 1000.0)
+        refine(t0)
         later = [phase(t, t0) for t in ons(tk + 700_000_000, p1)]
         oks = [near(x, 5 * STEP_MS, a.tolerance) for x in later]
         check(len(later) >= 1 and all(o for o, _ in oks), "the clip plays it on that step in the following loops", ["%+.2f" % d for _, d in oks])
@@ -132,6 +156,7 @@ def main():
         wait_phase(t0, 10.4)
         tk = time.monotonic_ns()
         l.send(bytes([0x90, 67, 90])); idle(0.2); l.send(bytes([0x80, 67, 0])); idle(2 * CYCLE_MS / 1000.0 + 0.2)
+        refine(t0)
         later = [phase(t, t0) for t in ons(tk + 600_000_000, 67)]
         oks = [near(x, 10 * STEP_MS, a.tolerance) for x in later]
         check(len(later) >= 1 and all(o for o, _ in oks), "a note sent to MIDI in is recorded on its nearest step and plays there", ["%+.2f" % d for _, d in oks])
@@ -193,6 +218,7 @@ def main():
             starts = [t for t, m in list(din.messages) if t >= armed and list(m) == [0xFA]]
             if check(bool(starts) and l.steps_state()["recording"] == 2, "PLAY starts the song and the take into the new clip"):
                 t0 = starts[0]
+                measure_cycle(t0)
                 wait_phase(t0, 7.6)
                 tk = time.monotonic_ns()
                 l.key(1, 16, 100); idle(0.2); l.key(1, 16, 0); idle(0.2)
@@ -201,6 +227,7 @@ def main():
                     if t > tk - 5_000_000 and len(m) == 3 and m[0] == 0x90 and m[2]:
                         pitch = m[1]; break
                 idle(2 * CYCLE_MS / 1000.0)
+                refine(t0)
                 later = [phase(t, t0) for t in ons(tk + 700_000_000, pitch)] if pitch is not None else []
                 oks = [near(x, 8 * STEP_MS, a.tolerance) for x in later]
                 check(len(later) >= 1 and all(o for o, _ in oks), "the new clip plays the recorded note on its step in the following loops", ["%+.2f" % d for _, d in oks])

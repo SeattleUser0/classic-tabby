@@ -1,6 +1,6 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.35
+Version: 0.36
 Revision log:
 - v0.32, 2026-11-16: section 32: tabby-v04.9.3 measured, 471172 bytes, margin 48285.
 - v0.28, 2026-11-12: section 22: tabby-v04.3.1 measured, 452036 bytes, margin 67421.
@@ -1253,3 +1253,13 @@ RAM (runtime heap): 143116 bytes, unchanged.
 | tabby-v04.12: the scene chain on SCENES, the start scene | 480420 | +1184 | **39037** |
 
 RAM (runtime heap): 143116 bytes, unchanged.
+
+## 36. tabby-v04.13 (measured, 2026-11-16)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.12 | 480420 | | 39037 |
+| tabby-v04.13: PROGRAM / BANK lines, the program sent again after an edit, K1 to K4 controllers on CLIPS | 481156 | +736 | **38301** |
+
+RAM (runtime heap): 143084 bytes (-32). The five steps of 2026-11-16 (tabby-v04.9.3 to tabby-v04.13) took 9984 bytes
+of flash and 1760 bytes of heap together.

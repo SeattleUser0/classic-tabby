@@ -344,7 +344,7 @@ main{max-width:1440px}
 <div id="manual-body" class="manual-body">
 <p id="manual-empty" class="manual-empty" hidden>No matching chapters. Try “LAUNCH”, “save” or “MIDI”, or click “Show all chapters”.</p>
 <article id="manual-tabby-changes" class="manual-chapter" tabindex="-1" data-removed-ok><h3>00 · What changed in tabby-v04</h3>
-<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.12. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
+<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.13. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
 <ul>
 <li><strong>The storage move. </strong>User storage went from 536576 to 471040 bytes: 16 project slots plus 97 song-region sectors (80 of them block sectors). Installing tabby-v04.0 over v03.x once clears the project slots, the device settings and the songs, so restore them from a Full backup; Bluetooth pairings are lost too. Later updates, tabby-v04.1 included, do not move storage again. See chapter 11.</li>
 <li><strong>The old pattern editing and recording are gone. </strong>(From tabby-v04.8 the clips of a song are edited on the new STEP page, and from tabby-v04.9 REC records into a clip; both in chapter 05.) The STEP DETAILS, LOCKS and RHYTHM/REC pages, REC recording, the count-in, the metronome, pad-step mode and the copy, paste, clear, repeat and undo menu entries are gone. Patterns already in a project still load, save and play. The metronome and count-in are planned for a later version.</li>
@@ -365,6 +365,7 @@ main{max-width:1440px}
 <li><strong>Clip workflow on the panel (tabby-v04.10). </strong><kbd>REC</kbd> or <kbd>EDIT</kbd> on an empty pad makes a new clip. <kbd>FX</kbd> on CLIPS opens CLIP SETTING: the clip's length, a copy to another pad, and the song's click and count-in. Holding an empty pad on SCENES stores what plays as a new scene. Every clip now loops at its own length. Chapter 05 has the details.</li>
 <li><strong>Clip chains (tabby-v04.11). </strong>CLIP SETTING has NEXT CLIP (STAY, STOP or a clip), AFTER (the clip's end, or a number of steps) and TIMES: a launched clip leads to the next one by itself. Chapter 05 has the details.</li>
 <li><strong>The scene chain (tabby-v04.12). </strong>On SCENES, K1 sets how many times a scene plays, K2 whether the next scene follows by itself, K3 holds the chain. A scene pad pressed while stopped is where <kbd>PLAY</kbd> starts. Chapter 05 has the details.</li>
+<li><strong>Program, bank and controller knobs (tabby-v04.13). </strong>CLIP SETTING has PROGRAM, BANK MSB and BANK LSB for each clip. On CLIPS, K1 to K4 send controllers 74, 71, 1 and 11, and a take records them. Chapter 05 has the details.</li>
 <li><strong>Recovery pages. </strong>Every published build has a permanent page under builds/, and the builds/ page lists them all. If an install is interrupted, the device’s update loader accepts only the build it was receiving: close this page, power-cycle the device, then open the page of that build. Never force flash; the Enable force flash and reconnect button is gone.</li>
 <li><strong>Control names. </strong>Knobs are called K1 to K8 by their printed numbers, from the left; the firmware’s SELECT is K5, PAGE is K6, PRESETS is K7 and MASTER is K8. The button the firmware calls SAVE is called the 4th button in the left group (after SHIFT, FADER BANK, HOME) in the manual. HOME / SRC is the 7th button in the right group (after ARP, PAD / STEP, SCL, ENV, MIX, BT); SHIFT + HOME / SRC opens the sound source page. The HOME button in the left group does not.</li>
 </ul></article>
@@ -583,6 +584,12 @@ main{max-width:1440px}
 <li>A chain runs on a track that plays the clip launched: from its pad, reserved before <kbd>PLAY</kbd>, or reached through another chain. A track that follows the scenes ignores chains.</li>
 <li>The CLIPS page shows under the track's column where the chain leads: +05 for clip 5, +STP for a stop.</li>
 <li>Notes that sound when the next clip starts play out their length. A pad press, <kbd>ENV</kbd> or a scene recall takes the track out of the chain.</li>
+</ul>
+<h4>A clip's program and bank; the controller knobs (tabby-v04.13)</h4>
+<ul>
+<li><strong>PROGRAM</strong> (OFF, 1 to 128), <strong>BANK MSB</strong> (OFF, 0 to 127) and <strong>BANK LSB</strong> on CLIP SETTING, after TIMES: a bank select and a program change sent on the track's channel when the track enters the clip, before its first notes. They go to MIDI out only.</li>
+<li>Changed while the clip loops, the new values go out once at its next loop.</li>
+<li>On the CLIPS page <strong>K1 to K4</strong> send controllers 74, 71, 1 and 11 for the selected track, two per click; the screen shows the value. A take (<kbd>REC</kbd>) records the movements into the clip, thinned like any controller, and the clip plays them back.</li>
 </ul>
 <h4>The scene chain (tabby-v04.12)</h4>
 <p>The scenes of a song play in order. On the SCENES page three knobs set how, for the scene that plays (stopped: for the scene you reserved by pressing its pad).</p>

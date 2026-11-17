@@ -19,9 +19,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-16  tabby-v04.13: the page's lines moved again (PROGRAM, BANK MSB, BANK LSB follow TIMES).
     v0.4  2026-11-16  The internal click is found against the noise floor, not against the loudest sound (the song's notes are
                       eight times louder than the click and hid it in the second device run).
     v0.3  2026-11-16  Two tool errors of the first device run: the cycle was taken from MIDI clock pulses that included the
@@ -158,16 +159,16 @@ def main():
         c = l.clips_state()
         if c["selected"] != empty:
             l.pad(empty); idle(0.2); l.pad(empty); idle(0.2)
-        l.press("FX"); idle(0.4); row(4); u = l.setup_state()
+        l.press("FX"); idle(0.4); row(7); u = l.setup_state()
         target = u["to"]
         l.setup_do(); idle(0.4); u2 = l.setup_state(); l.press("FX"); idle(0.3); c = l.clips_state()
-        check(u["row"] == 4 and target != empty and u2["place"] == target and u2["steps"] == 8 and u2["unsaved"] and (c["pads"][target % 16]["code"] & 7) == 1,
+        check(u["row"] == 7 and target != empty and u2["place"] == target and u2["steps"] == 8 and u2["unsaved"] and (c["pads"][target % 16]["code"] & 7) == 1,
               "COPY TO PAD %d: the copy is there (8 steps), open and unsaved" % (target + 1), (u2["place"], u2["steps"], u2["unsaved"]))
         l.edit_save(); idle(0.6)
         check(not l.setup_state()["unsaved"], "the copy is saved")
         # ---- the click as a MIDI note, and the count-in ----
         l.press("FX"); idle(0.4)
-        ok = setting(5, "count_in", 1) and setting(6, "click", 2) and setting(7, "click_out", 1) and setting(8, "click_ch", 15)
+        ok = setting(8, "count_in", 1) and setting(9, "click", 2) and setting(10, "click_out", 1) and setting(11, "click_ch", 15)
         u = l.setup_state()
         check(ok and u["click_note"] == 37, "the song's settings: COUNT-IN 1 cycle, CLICK ALWAYS, MIDI NOTE, channel 16 (note 37)", (u["count_in"], u["click"], u["click_out"], u["click_ch"], u["click_note"]))
         l.press("FX"); idle(0.3)
@@ -192,7 +193,7 @@ def main():
         l.press("PLAY"); idle(0.8)
         # ---- the internal click on the audio output ----
         l.press("FX"); idle(0.4)
-        ok = setting(7, "click_out", 0)
+        ok = setting(10, "click_out", 0)
         l.press("FX"); idle(0.3)
         if not a.no_audio:
             import subprocess, wave
@@ -225,7 +226,7 @@ def main():
             l.press("REC"); idle(0.2); l.press("REC"); idle(0.2)
         # ---- everything off again, and saved ----
         l.press("FX"); idle(0.4)
-        ok = setting(6, "click", 0) and setting(5, "count_in", 0)
+        ok = setting(9, "click", 0) and setting(8, "count_in", 0)
         l.setup_do(); idle(0.6); u = l.setup_state()
         check(ok and u["click"] == 0 and u["count_in"] == 0 and not u["unsaved"], "the click and the count-in are off again and the song is saved", (u["click"], u["count_in"], u["unsaved"]))
         l.press("FX"); idle(0.3)

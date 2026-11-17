@@ -98,7 +98,7 @@ press(BT); shiftPad(0); pad(0); pad(0);                       /* CLIPS, track 1,
 let s = state();
 check(s.page === 20 && s.selected === 0, 'CLIPS: track 1, clip 1 selected');
 press(FX); let u = setup();
-check(u.page === 22 && u.track === 0 && u.place === 0 && u.steps === 16 && u.row === 0 && u.rows === 10, 'FX opens CLIP SETTING on the selected clip: 16 steps, the first row (page ' + u.page + ', ' + u.steps + ' steps)');
+check(u.page === 22 && u.track === 0 && u.place === 0 && u.steps === 16 && u.row === 0 && u.rows === 13, 'FX opens CLIP SETTING on the selected clip: 16 steps, the first row (page ' + u.page + ', ' + u.steps + ' steps)');
 /* LENGTH */
 knob(K1, 1); knob(K2, 1); u = setup();
 check(u.steps === 33 && u.unsaved === 1, 'K1 +1 and K2 +16: the clip is 33 steps long, unsaved (' + u.steps + ')');
@@ -114,8 +114,8 @@ check(pitches(0, 9) === '42 42 42 42' && onsIn(...barBlocks(1), 9).length === 4,
 { const o = onsIn(...barBlocks(1), 9).map(m => m[3] - (origin + blockOf(BARU))); check(Math.abs(o[2] - blockOf(8 * 480)) <= 1, 'its second pass starts on step 9 of the bar (block ' + o[2] + ')'); }
 press(PLAY); step(60);
 /* COPY TO PAD */
-press(FX); knob(K5, 4); u = setup();
-check(u.row === 4 && u.to === 2, 'K5: the COPY TO PAD row; the first empty pad of the track is offered (pad ' + (u.to + 1) + ')');
+press(FX); knob(K5, 7); u = setup();
+check(u.row === 7 && u.to === 2, 'K5: the COPY TO PAD row; the first empty pad of the track is offered (pad ' + (u.to + 1) + ')');
 press(SAVE); u = setup();
 check(u.unsaved === 1 && u.place === 0, 'the 4th left button with the clip unsaved: THE CLIP IS UNSAVED: SAVE IT FIRST');
 knob(K5, 1); press(SAVE); u = setup();
@@ -123,8 +123,8 @@ check(u.unsaved === 0, 'on another row the 4th left button saves (stopped)');
 knob(K5, -1); press(SAVE); u = setup(); press(FX); s = state();
 check(u.place === 2 && u.unsaved === 1 && u.steps === 8 && s.selected === 2 && (s.pads[2].code & 7) === 1, 'COPY: pad 3 holds the copy (8 steps), open, selected and unsaved');
 /* the song settings */
-press(FX); knob(K5, 5); knob(K1, 1); knob(K5, 1); knob(K1, 2); knob(K5, 1); knob(K1, 1); knob(K5, 1); knob(K1, -6); knob(K5, 1); knob(K1, 3); u = setup();
-check(u.row === 9 && u.countIn === 1 && u.click === 2 && u.out === 1 && u.ch === 3 && u.note === 40, 'COUNT-IN 1 cycle, CLICK ALWAYS, as a MIDI NOTE, channel 4, note 40 (' + [u.countIn, u.click, u.out, u.ch, u.note] + ')');
+press(FX); knob(K5, 8); knob(K1, 1); knob(K5, 1); knob(K1, 2); knob(K5, 1); knob(K1, 1); knob(K5, 1); knob(K1, -6); knob(K5, 1); knob(K1, 3); u = setup();
+check(u.row === 12 && u.countIn === 1 && u.click === 2 && u.out === 1 && u.ch === 3 && u.note === 40, 'COUNT-IN 1 cycle, CLICK ALWAYS, as a MIDI NOTE, channel 4, note 40 (' + [u.countIn, u.click, u.out, u.ch, u.note] + ')');
 press(SAVE); u = setup();
 check(u.unsaved === 0, 'saved');
 { const r = stored(); check(r[20] === 3 && r[44] === (2 | 1 << 2 | 1 << 4) && r[45] === 4 && r[46] === 40 && (r[64 + 4] | r[65 + 4] << 8) > 0, 'the stored record (version 3) holds the settings and the copy in place 3 (bytes ' + [r[44], r[45], r[46]] + ')'); }
@@ -204,6 +204,16 @@ check(pitches(0, 9) === '42 42 42 42' && pitches(1, 9) === '44' && pitches(2, 9)
   'launched, clip 1 (8 steps) plays twice, clip 2 follows on the bar line and the track stops 8 steps into it (bars: ' + [0, 1, 2, 3].map(n => '[' + pitches(n, 9) + ']').join(' ') + ')');
 check(Math.abs(firstOn(1, 9)) <= 1 && pitches(1, 1) !== '', 'clip 2 starts within one block of the bar line; track 2 follows the scenes meanwhile');
 press(PLAY); step(60);
+
+/* ---- tabby-v04.13: a clip's program and bank on the page; K1 to K4 on CLIPS send controllers ---- */
+s = state(); if (s.page !== 20) { press(SCL); }
+pad(0); pad(0); press(FX); knob(K5, 4); knob(K1, 6); knob(K5, 1); knob(K1, 3); knob(K5, 1); knob(K1, 7);
+{ const n = c.sim_setup_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n));
+  check(d[1] === 6 && d[17] === 5 && d[18] === 2 && d[19] === 7 && d[11] === 1, 'PROGRAM 6, BANK MSB 2, BANK LSB 7 on the clip (stored 0-based: ' + [d[17], d[18], d[19]] + '); unsaved'); }
+knob(K5, 6); press(SAVE); press(FX);
+{ const before = log.length; knob(K1, 1); knob(2, -3);
+  const cc = log.slice(before).filter(m => (m[0] & 0xf0) === 0xb0);
+  check(cc.length === 1 && (cc[0][0] & 0xf0) === 0xb0 && cc[0][1] === 74 && cc[0][2] === 66, 'on CLIPS K1 sends controller 74 on the channel the track\'s keys use, two per click (' + cc.map(m => m.slice(0, 3)).join(' | ') + '); K3 at 0 sends nothing going down'); }
 
 /* ---- tabby-v04.12: the scene chain on SCENES: a start scene reserved while stopped; K1 times, K2 then, K3 hold ---- */
 const scene = () => { const n = c.sim_setup_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n)); return { row: d[23], times: d[24], flags: d[25], steps: d[26], cycle: d[27], hold: d[21], unsaved: d[11] }; };

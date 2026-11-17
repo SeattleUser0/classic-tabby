@@ -120,6 +120,7 @@ unsigned song_unsaved(void);
  * same track (it becomes the open, unsaved clip); song_scene_store adds what plays now as a new scene (its index). */
 int song_edit_length(int delta);
 int song_clip_copy(unsigned track, unsigned from, unsigned to);
+int song_edit_program(unsigned field, int delta);   /* tabby-v04.13: 0 program, 1 bank MSB, 2 bank LSB */
 int song_edit_chain(unsigned field, int delta);   /* tabby-v04.11: 0 next clip, 1 after (steps), 2 times */
 int song_scene_store(void);
 /* The song's click and count-in settings (stored in the song record): the count-in in master cycles (0, 1, 2 or 4),

@@ -1,6 +1,6 @@
 # Classic Tabby — Specification
 
-Version: 0.49
+Version: 0.50
 Revision log:
 - v0.46, 2026-11-16: 19.12 tabby-v04.9.3 (the flash part page, command 25 request 11; report only).
 - v0.45, 2026-11-16 (Goal 6, second step): 19.11 tabby-v04.9 (real-time recording); 14.2 amended: the cap is 512 events,
@@ -1752,3 +1752,14 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - A scene pad pressed while stopped reserves the start scene (`reserve_scene`; `song_queue_jump` while stopped);
   `song_play` starts there on the internal clock and uses the reservation up. As the MC-707's reserved scene.
 - Remote: op 17's reply grows to 28 bytes (the scene the knobs work on, its times, flags, steps; the master cycle).
+
+### 19.16 tabby-v04.13 (2026-11-16): a clip's program and bank on the panel; the controller knobs
+
+- CLIP SETTING gets PROGRAM, BANK MSB and BANK LSB (`song_edit_program`: the v3 clip header's flags and bytes 2 to 4,
+  docs/CLIP-V3.md 2). The engine has sent them since tabby-v04.5 when a track enters the clip; new: a buffer carries
+  the header's program word (`prog`), and when an edit changes it the loop's next pass sends it again.
+- K1 to K4 on the CLIPS page send controllers 74, 71, 1 and 11 on the selected track's input channel through the
+  panel's send path (`smk37_send_controller`): to the engine, to MIDI out by the track's settings, and to the
+  recorder's panel queue, where the thinning rule of 14.2 applies as to any controller. Values per track, RAM only.
+- This is "CC automation recording" of the user's list: controllers from MIDI in and the wheels were recorded since
+  tabby-v04.9; the knobs had nothing to send until now. The numbers are fixed; making them a setting is open.

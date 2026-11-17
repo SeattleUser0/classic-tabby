@@ -2552,6 +2552,27 @@ int main(void)
         song_edit_discard();
         CHECK(stopped_store == SONG_INVALID && song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_current()->rows == 4 && song_current()->row[3].block[0] == 2 && (song_current()->row[3].flags & SONG_ROW_FLAG_OWN),
               "scene store: nothing is stored while stopped; saved and loaded again, the song has four scenes");
+        /* ---- tabby-v04.13: a clip's program and bank from the panel: set, played when the track enters the clip, sent
+         *      again when an edit changes them while the clip loops ---- */
+        CHECK(song_edit_open(0, 0) == 0 && song_edit_program(2, 5) == SONG_EMPTY && song_edit_program(0, 6) == 0 && song_edit_program(1, 3) == 0 && song_edit_program(2, 7) == 0,
+              "program: the bank LSB needs a bank; program 6 (0-based 5), bank MSB 2, LSB 7 set");
+        { const uint8_t *h = song_edit_clip();
+          CHECK(h[1] == 3 && h[2] == 5 && h[3] == 2 && h[4] == 7 && clip_v3_validate(h, clip_v3_bytes(h)) == 0 && song_edit_program(0, 500) == 0 && song_edit_clip()[2] == 127 && song_edit_program(0, -122) == 0 && song_edit_clip()[2] == 5, "program: in the clip's header, valid; held at 128"); }
+        { struct message m[64]; (void)drain(m, 64); }
+        no = 0; CHECK(song_clip_launch(0, 0) == 0, "program: the clip reserved");
+        (void)sim_song_play();
+        for (unsigned blocks = 0; blocks < 2200; ++blocks) {
+            if (blocks == 1000) (void)song_edit_program(0, 4);                         /* while it loops: program 10 */
+            (void)sim_render();
+            struct message m[64]; unsigned n = drain(m, 64);
+            for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && ((m[k].data[0] & 0xf0) == 0xc0 || (m[k].data[0] & 0xf0) == 0xb0 || ((m[k].data[0] & 0xf0) == 0x90 && m[k].data[2])) && no < 512) { lo[no].s = m[k].data[0]; lo[no].d1 = m[k].data[1]; lo[no].d2 = (m[k].data[0] & 0xf0) == 0xc0 ? 0 : m[k].data[2]; lo[no].block = blocks; ++no; }
+        }
+        sim_song_stop(); settle(); settle();
+        { int b0 = find_log(lo, no, 0xb4, 0, 2, 0), b32 = find_log(lo, no, 0xb4, 32, 7, 0), pc = find_log(lo, no, 0xc4, 5, 0, 0), n0 = find_log(lo, no, 0x94, 60, 100, 0), pc2 = find_log(lo, no, 0xc4, 9, 0, 0);
+          unsigned pcs = 0; for (unsigned i = 0; i < no; ++i) if (lo[i].s == 0xc4) ++pcs;
+          CHECK(b0 >= 0 && b32 > b0 && pc > b32 && n0 > pc && lo[pc].block == lo[n0].block, "program: bank MSB, LSB, then the program go out on the track's channel before the clip's first note, in its block");
+          CHECK(pc2 > pc && lo[pc2].block > 1000 && pcs == 2, "program: changed while the clip loops, the new program goes out once, at the clip's next loop (%u program changes, the second at block %u)", pcs, pc2 >= 0 ? lo[pc2].block : 0); }
+        song_edit_discard();
         /* ---- tabby-v04.12: the scene chain: a start scene reserved while stopped, a scene's times and what follows it ---- */
         { int r1 = song_queue_jump(2), r9 = song_queue_jump(9); struct song_status st; song_status_read(&st);
           CHECK(r1 == 0 && r9 == SONG_INVALID && st.queued == 2 && song_scene_reserved() == 2, "scene chain: stopped, a scene pad reserves the scene PLAY starts at (%d %d, queued %u)", r1, r9, st.queued);

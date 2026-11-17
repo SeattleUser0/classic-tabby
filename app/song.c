@@ -139,6 +139,7 @@ struct trackbuf {
      * chain_next 0 = none, 1 = stop the track, 2 = go to row chain_row (the next clip's launch row). */
     uint8_t chain_next, chain_times, chain_row;
     uint16_t chain_after;
+    uint32_t prog;                     /* tabby-v04.13: a v3 clip's header program and bank (flags | program << 8 | msb << 16 | lsb << 24): sent again when an edit changes them */
     volatile uint8_t fresh;            /* Goal 6: decoded again after an edit of the clip this track loops: the loop takes it at its next pass */
 };
 #if defined(FM1_HOST_TEST) || defined(FM1_OPEN_WEB)
@@ -743,6 +744,7 @@ static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
         k->start += k->len;
         unsigned nb = plan[t].nb;
         if (nb != SONG_NONE && nb != k->cur && tbuf[t][nb].fresh) {   /* Goal 6: the loop's next pass plays the edited clip */
+            if (tbuf[t][nb].prog != tbuf[t][k->cur].prog) k->head = 0;   /* tabby-v04.13: the clip's program or bank was edited: it goes out again */
             tbuf[t][k->cur].ready = 0; barrier(); k->cur = (uint8_t)nb; tbuf[t][nb].fresh = 0;
             k->len = (uint32_t)tbuf[t][nb].steps * UNITS;
             chain_set(t);   /* the edited clip's chain settings */
@@ -1161,7 +1163,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
     const struct song_row *r = &record.row[place_row ? 0 : row];
     b->row = (uint8_t)row; b->steps = place_row ? SONG_BLOCK_STEPS : r->steps ? r->steps : SONG_BLOCK_STEPS; b->purpose = (uint8_t)purpose;
     b->swing = (uint8_t)swing_song; b->has_block = 0; b->v3 = 0; b->block = 0;
-    b->chain_next = 0; b->chain_times = 1; b->chain_after = 0; b->chain_row = 0;
+    b->chain_next = 0; b->chain_times = 1; b->chain_after = 0; b->chain_row = 0; b->prog = 0;
     memset(b->cell, 0, sizeof b->cell);
     unsigned id = place_row ? model.clip[t][(row - SONG_ROWS) % SONG_CLIPS] : r->block[t], bytes, format = SONG_FORMAT_V2;
     if (id) {
@@ -1180,6 +1182,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
             if (format == SONG_FORMAT_V3) {
                 unsigned next = clip_v3_next(payload);
                 b->steps = (uint8_t)clip_v3_steps(payload);
+                b->prog = (uint32_t)(payload[1] & 3U) | (uint32_t)payload[2] << 8 | (uint32_t)payload[3] << 16 | (uint32_t)payload[4] << 24;
                 if (next >= CLIP_V3_NEXT_CLIP && !model.clip[t][next - CLIP_V3_NEXT_CLIP]) next = CLIP_V3_NEXT_STAY;   /* no clip there: no chain */
                 b->chain_next = (uint8_t)(next > CLIP_V3_NEXT_CLIP ? CLIP_V3_NEXT_CLIP : next);
                 b->chain_times = (uint8_t)clip_v3_times(payload); b->chain_after = (uint16_t)clip_v3_after(payload);
@@ -1755,6 +1758,25 @@ int song_edit_chain(unsigned field, int delta)
     if (edit.gesture != (0x40000010U | field)) edit_push();
     (void)clip_v3_chain_set(edit.clip, (unsigned)next, (unsigned)after, (unsigned)times);
     edit.gesture = 0x40000010U | field; edit_changed();
+    return 0;
+}
+/* tabby-v04.13: the open clip's program and bank (its header; sent on the track's channel when the track enters the
+ * clip, bank first). field 0 = program (OFF, 1 to 128), 1 = bank MSB (OFF, 0 to 127), 2 = bank LSB (0 to 127, with a
+ * bank only). One undo level per run of changes of the same field. */
+int song_edit_program(unsigned field, int delta)
+{
+    if (!edit.active || field > 2 || !delta) return SONG_INVALID;
+    if (rec.state == REC_ON) return SONG_BUSY;
+    const uint8_t *h = edit.clip;
+    int program = h[1] & CLIP_V3_FLAG_PROGRAM ? h[2] : -1, msb = h[1] & CLIP_V3_FLAG_BANK ? h[3] : -1, lsb = h[4];
+    int p0 = program, m0 = msb, l0 = lsb;
+    if (field == 0) { program += delta; program = program < -1 ? -1 : program > 127 ? 127 : program; }
+    else if (field == 1) { msb += delta; msb = msb < -1 ? -1 : msb > 127 ? 127 : msb; if (msb < 0) lsb = 0; }
+    else { if (msb < 0) return SONG_EMPTY; lsb += delta; lsb = lsb < 0 ? 0 : lsb > 127 ? 127 : lsb; }
+    if (program == p0 && msb == m0 && lsb == l0) return 0;
+    if (edit.gesture != (0x40000020U | field)) edit_push();
+    (void)clip_v3_program_set(edit.clip, program < 0 ? 255U : (unsigned)program, msb < 0 ? 255U : (unsigned)msb, (unsigned)lsb);
+    edit.gesture = 0x40000020U | field; edit_changed();
     return 0;
 }
 /* A copy of the track's clip in `from` as a new clip in the empty place `to`: it is the open clip, unsaved, and is

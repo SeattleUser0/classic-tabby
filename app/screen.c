@@ -238,7 +238,7 @@ static uint8_t rec_lamp;   /* the recorder's state as the control pass last read
 /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the CLIP SETTING page: a list; K5 chooses the row, K1 changes its value (K2 in
  * steps of 16), the 4th left button does a row that is an action (COPY) and saves on the others. The scene pad that is
  * being held on the SCENES page (a long press on an empty pad stores what plays as a new scene). */
-enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_COPY, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
+enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_PROGRAM, SET_BANK_MSB, SET_BANK_LSB, SET_COPY, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
 static uint8_t setup_row, setup_to, scene_hold_pad = 255;
 static uint32_t scene_hold_ms;
 static uint8_t rec_full_seen;
@@ -509,6 +509,11 @@ static const char *setup_edit(int d)
     if (setup_row >= SET_NEXT && setup_row <= SET_TIMES) {
         if (!ei.active) return "SELECT A CLIP FIRST";
         return song_edit_chain(setup_row - SET_NEXT, d) == SONG_BUSY ? "NOT DURING A TAKE" : NULL;
+    }
+    if (setup_row >= SET_PROGRAM && setup_row <= SET_BANK_LSB) {
+        if (!ei.active) return "SELECT A CLIP FIRST";
+        int r = song_edit_program(setup_row - SET_PROGRAM, d);
+        return r == SONG_BUSY ? "NOT DURING A TAKE" : r == SONG_EMPTY ? "SET BANK MSB FIRST" : NULL;
     }
     if (setup_row == SET_COPY) { setup_to = (uint8_t)clamp((int)setup_to + d, 0, SONG_CLIPS - 1); return NULL; }
     (void)song_setting_edit(setup_row - SET_COUNT_IN, d);
@@ -1164,11 +1169,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         } else dim_text(8, 168, "STOPPED - PLAY STARTS THE SONG");
         plain_text(8, 198, notice ? notice : "PADS LAUNCH/STOP  HOLD: SELECT ONLY");
         dim_text(8, 213, "ENV TRACK TO SCENES  SHIFT+ENV ALL");
-        dim_text(8, 231, "SCL SCENES  BT BACK  K5 TRACK");
+        dim_text(8, 231, "SCL SCENES  K5 TRACK  K1-K4 CC");
     } else if (visible == CLIP_SETUP) {
         /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the settings of the open clip and of the song, one per line */
         struct song_edit_info ei; song_edit_info(&ei);
-        static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "COPY TO PAD", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE"};
+        static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "PROGRAM", "BANK MSB", "BANK LSB", "COPY TO PAD", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE"};
         const uint8_t *sclip = song_edit_clip();
         static const char *const modes[] = {"OFF", "WHEN RECORDING", "ALWAYS"}, *const outs[] = {"INTERNAL", "MIDI NOTE", "BOTH"}, *const counts[] = {"OFF", "1 CYCLE", "2 CYCLES", "", "4 CYCLES"};
         text(8, 40, "SETTING", 2, ACCENT, BACK);
@@ -1177,7 +1182,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         else dim_text(110, 44, "NO CLIP SELECTED");
         if (song_unsaved()) color_text(190, 40, "UNSAVED", AMBER);
         for (unsigned i = 0; i < SETUP_ROWS; ++i) {
-            unsigned y = 60 + i * 12, sel = i == setup_row, clip_row = i <= SET_COPY;
+            unsigned y = 57 + i * 11, sel = i == setup_row, clip_row = i <= SET_COPY;
             if (i == SET_COUNT_IN) dim_text(8, y - 1, "");
             color_text(8, y, sel ? ">" : " ", ACCENT);
             color_text(18, y, labels[i], sel ? TEXT : DIM);
@@ -1188,6 +1193,9 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             else if (i == SET_AFTER) { unsigned af = sclip ? clip_v3_after(sclip) : 0;
                                        if (!af) color_text(130, y, "CLIP END", TEXT); else { small_number(130, y, af, 3, TEXT); dim_text(154, y, "STEPS"); } }
             else if (i == SET_TIMES) small_number(130, y, sclip ? clip_v3_times(sclip) : 1U, 2, TEXT);
+            else if (i == SET_PROGRAM) { if (sclip && (sclip[1] & CLIP_V3_FLAG_PROGRAM)) small_number(130, y, sclip[2] + 1U, 3, TEXT); else color_text(130, y, "OFF", TEXT); }
+            else if (i == SET_BANK_MSB) { if (sclip && (sclip[1] & CLIP_V3_FLAG_BANK)) small_number(130, y, sclip[3], 3, TEXT); else color_text(130, y, "OFF", TEXT); }
+            else if (i == SET_BANK_LSB) { if (sclip && (sclip[1] & CLIP_V3_FLAG_BANK)) small_number(130, y, sclip[4], 3, TEXT); else dim_text(130, y, "-"); }
             else if (i == SET_COPY) { const struct song_model *mdl = song_model_current();
                                       small_number(130, y, setup_to + 1U, 2, TEXT); dim_text(150, y, mdl && mdl->clip[ei.track][setup_to] ? "(HOLDS A CLIP)" : "(EMPTY)"); }
             else if (i == SET_COUNT_IN) color_text(130, y, counts[song_setting(SONG_SET_COUNT_IN)], TEXT);
@@ -2153,6 +2161,21 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (controls->encoders[0]) select_track(controls->encoders[0]);
         int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN)) + controls->encoders[1];
         if (paging) clip_bank = (unsigned)clamp((int)clip_bank + paging, 0, SONG_CLIPS / 16 - 1);
+        /* tabby-v04.13 (docs/CONTROL-MAP.md 19): K1 to K4 send controllers 74, 71, 1 and 11 on the selected track, two
+         * per click; a take records them (thinned). Each track keeps its four values while the power is on. */
+        for (unsigned kb = 0; kb < 4; ++kb)
+            if (controls->encoders[2 + kb]) {
+                static const uint8_t cc[4] = {74, 71, 1, 11}, first[4] = {64, 64, 0, 127};
+                static uint8_t value[8][4], set[8];
+                if (!set[track]) { memcpy(value[track], first, 4); set[track] = 1; }
+                int v = clamp((int)value[track][kb] + 2 * controls->encoders[2 + kb], 0, 127);
+                if (v != value[track][kb]) { value[track][kb] = (uint8_t)v; (void)smk37_send_controller(track, cc[kb], (unsigned)v); }
+                memcpy(control_notice, "K1 CONTROLLER 000 = 000", 24);
+                control_notice[1] = (char)('1' + kb);
+                control_notice[14] = (char)('0' + cc[kb] / 100); control_notice[15] = (char)('0' + cc[kb] / 10 % 10); control_notice[16] = (char)('0' + cc[kb] % 10);
+                control_notice[20] = (char)('0' + v / 100); control_notice[21] = (char)('0' + v / 10 % 10); control_notice[22] = (char)('0' + v % 10);
+                announce(control_notice, now + 1200U);
+            }
         unsigned queue = (st.track_state[track] >> 2) & 3U, playing_place = song_row_place(track, st.track_row[track]);
         unsigned queued_place = queue == SONG_QUEUE_LAUNCH ? song_row_place(track, st.track_queued[track]) : SONG_NONE;
         for (unsigned i = 0; i < 16; ++i)

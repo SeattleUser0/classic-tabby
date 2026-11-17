@@ -41,9 +41,14 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.13
+Version: 0.14
 
 Revision log
+    v0.14 2026-11-16  Receive times are mapped from CLOCK_MONOTONIC (which the kernel stamps with, and which the time
+                      service steers: -25 ppm against CLOCK_MONOTONIC_RAW when it was looked at, the rate changing
+                      after each NTP exchange) to CLOCK_MONOTONIC_RAW before the fit. A sampler reads both clocks four
+                      times a second during the run; the log says how far they parted. This was the clock that
+                      "moved" in the 5 ms run of tabby-v04.9 and in the 3.8 ms run of tabby-v04.12.
     v0.13 2026-11-16  The clock ratio is logged in every run (the user's answer of 2026-11-16): the measured note spacing
                       against the nominal one at --bpm (default 120), per port; 1 = the device's clock and this
                       computer's agree, below 1 = the device runs fast. One run of v04.9 showed a slow 5 ms drift
@@ -96,6 +101,7 @@ import json
 import math
 import os
 import sys
+import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -110,6 +116,36 @@ def save(out, name, text):
 
 
 BPM = 120.0   # v0.13: --bpm, the song's tempo, for the clock ratio
+CLOCKMAP = []  # v0.14: (CLOCK_MONOTONIC ns, CLOCK_MONOTONIC_RAW ns), sampled during the run
+
+
+def clock_sampler():
+    while True:
+        a = time.clock_gettime_ns(time.CLOCK_MONOTONIC); r = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW); b = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+        if b - a < 200000:
+            CLOCKMAP.append(((a + b) // 2, r))
+        time.sleep(0.25)
+
+
+def to_raw(t):
+    """A CLOCK_MONOTONIC time in ns as CLOCK_MONOTONIC_RAW ns, by the samples around it."""
+    m = CLOCKMAP
+    if len(m) < 2:
+        return t
+    import bisect
+    i = min(max(bisect.bisect_left(m, (t, 0)), 1), len(m) - 1)
+    (a0, r0), (a1, r1) = m[i - 1], m[i]
+    return r0 + (t - a0) * (r1 - r0) / (a1 - a0)
+
+
+def clock_parted(events):
+    """How far the two clocks parted over the span of `events`, in ms and ppm."""
+    ts = [t for t, _ in events]
+    if len(ts) < 2 or len(CLOCKMAP) < 2:
+        return None
+    a, b = min(ts), max(ts)
+    d = (to_raw(b) - to_raw(a)) - (b - a)
+    return d / 1e6, d / (b - a) * 1e6
 
 
 def fit(times):
@@ -140,7 +176,7 @@ def analyze(events):
     first channel's grid, and the notes still held at the end."""
     ons = {}; held = {}; held_at = {}; last_on = {}
     for t, m in events:
-        t = t / 1e9                                 # v0.2: receive times are CLOCK_MONOTONIC ns
+        t = to_raw(t) / 1e9                         # v0.2: receive times are CLOCK_MONOTONIC ns; v0.14: mapped to the unsteered clock
         if len(m) != 3:
             continue
         kind, ch = m[0] & 0xF0, m[0] & 15
@@ -166,7 +202,8 @@ def analyze(events):
             lines[ch + 1] = {"notes": len(ts), "band_ms": f[0], "std_ms": f[1], "step_ms": f[2] * 1000.0,
                              "stretches": len(parts), "left_out": sum(len(q) for q in parts) - len(ts)}
         last_on[ch] = ts[-1]
-    out = {"lines": lines, "notes": sum(len(v) for v in ons.values()),
+    parted = clock_parted(events)
+    out = {"lines": lines, "notes": sum(len(v) for v in ons.values()), **({"clock_parted_ms": parted[0], "clock_steer_ppm": parted[1]} if parted else {}),
            "stuck": sorted("ch%d note %d" % (c + 1, n) for (c, n), v in held.items()
                            if v > 0 and end - held_at[(c, n)] > 0.3)}
     if lines:
@@ -386,6 +423,8 @@ def port_line(name, p):
         s += "; all lines on one grid %.2f ms" % p["all_lines_band_ms"]
     if "clock_ratio" in p:
         s += "; clock ratio %.6f (note spacing %.4f ms)" % (p["clock_ratio"], p["step_ms"])
+    if "clock_steer_ppm" in p:
+        s += "; this computer's steered clock ran %+.1f ppm against its raw clock (%+.2f ms over the run; taken out)" % (p["clock_steer_ppm"], p["clock_parted_ms"])
     return s + ("; STUCK: " + ", ".join(p["stuck"]) if p["stuck"] else "; no note left on")
 
 
@@ -496,6 +535,7 @@ def main():
     a = p.parse_args()
     global BPM
     BPM = a.bpm
+    threading.Thread(target=clock_sampler, daemon=True).start()
     os.makedirs(a.out, exist_ok=True)
     if a.cmd == "table":
         table(a)
