@@ -5709,3 +5709,20 @@ run-setup.py 29 of 29.
 Seen on the way, behaviour not fault: when a take has ended by itself, REC arms a new take, and a take that is armed
 when the song stops stays armed (the REC lamp shows it). Question for the user in the report.
 
+### 51.3 tabby-v04.15 released: candidate 3 (2026-11-17)
+
+Suite green on 9554ede; builds/tabby-v04.15-rc3/ (build `8b5a73f6a2d9ee40`, on the device since candidate 1: the
+install step wrote nothing); every step passed; promoted.
+
+| Step | Result |
+| --- | --- |
+| run-program v0.2 / run-chain / run-scenechain | 10 of 10 / 11 of 11 / 13 of 13 |
+| run-setup v0.9 | 29 of 29 (TRANSPOSE +3 heard on MIDI out; DELETE CLIP asks, deletes the copy, refuses a clip a scene uses) |
+| run-record / run-steps / run-launch twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.14 and 1.08 ms |
+| run-15, one line, three runs | DIN 1.83, 1.83, 1.65 ms; USB 1.67, 1.79, 1.65 ms; clock ratio 0.999583 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+Flash margin 36925 bytes, free RAM 143020 bytes. The candidates' pages: rc1 and rc2 carry their notes, rc3 says it
+was released.
+

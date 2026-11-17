@@ -29,4 +29,13 @@ TRANSPOSE for each clip and DELETE CLIP, both on CLIP SETTING; the page also car
 
 ## Validation
 
-The candidate's device results are in docs/BUILD.md 51.1 and are added here after the release.
+Candidate 3 (builds/tabby-v04.15-rc3/, the same firmware build) on the device, unattended, before the promotion:
+
+- Device tests: program and knobs 10 of 10, clip chains 11 of 11, scene chain 13 of 13, CLIP SETTING 29 of 29
+  (TRANSPOSE +3 heard on MIDI out; DELETE CLIP asks, deletes a copy, refuses a clip a scene uses), recording 25 of 25,
+  STEP page 18 of 18, CLIPS page 40 of 40 twice, the timing song 960 of 960 notes on DIN and USB.
+- One line, 960 notes, three runs: DIN 1.83, 1.83, 1.65 ms; USB 1.67, 1.79, 1.65 ms.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.
+- Candidates 1 and 2 were held back by the device gate: device tests failed. Each failure was traced on the device
+  to an error in the test tools, not in the firmware (docs/BUILD.md 51.1, 51.2); the firmware build is the same in
+  all three candidates. Their pages stay, with a note.
