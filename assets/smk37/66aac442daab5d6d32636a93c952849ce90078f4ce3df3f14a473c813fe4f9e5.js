@@ -33,7 +33,7 @@
   };
 })();
 
-const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.13","build_id":"9c6c2806e46ffae058d72b6bb5da514bceb9f47b7335cb0c6c5135e4ab22e285","sha256":"834b2cb4a7373d1716b7b22038951b043c5a62c882c92f4016f545d29730ee90","bytes":520756,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/834b2cb4a7373d1716b7b22038951b043c5a62c882c92f4016f545d29730ee90.bin"};
+const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.14","build_id":"781bd68d03f176cad5cca63ed824590df6cf8fd2853007b0747ec392876e5cbc","sha256":"74f3dd055e6ea50b6ac3246633fd71161e9cd640a2d68c49553ca950f31eed2b","bytes":520756,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/74f3dd055e6ea50b6ac3246633fd71161e9cd640a2d68c49553ca950f31eed2b.bin"};
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. */
 /* SMK37 OPEN browser updater.
@@ -1162,7 +1162,8 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
       // each at 1088: a clip place + 1 per track, repeat, flags, steps). The editor sees scenes as rows with block ids;
       // song.clips keeps every track's places (also clips no scene uses) and song.cycle the master cycle in steps.
       song.version=3;song.cycle=bytes[43]||16;check(song.cycle>=2&&song.cycle<=128,'Invalid master cycle');
-      if(bytes[44]||bytes[45]||bytes[46])song.click=[bytes[44],bytes[45],bytes[46]];   // the song's click and count-in as the device stores them (tabby-v04.10)
+      if(bytes[44]||bytes[45]||bytes[46])song.click=[bytes[44],bytes[45],bytes[46]];
+      if(bytes[56]||bytes[57]||bytes[58]||bytes[59])song.knobs=Array.from(bytes.subarray(56,60));   // tabby-v04.14: the controller numbers of K1 to K4 (0 = the default, else number + 1)   // the song's click and count-in as the device stores them (tabby-v04.10)
       song.clips=Array.from({length:8},(_,t)=>Array.from({length:64},(_,c)=>u16(bytes,64+t*128+c*2)));
       for(let r=0;r<rows;r++){const at=1088+r*12,block=[];
         for(let t=0;t<8;t++){const place=bytes[at+t];check(place<=64&&(!place||song.clips[t][place-1]),'Scene '+(r+1)+' names a clip that does not exist');block.push(place?song.clips[t][place-1]:0);}
@@ -1192,7 +1193,8 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     check(Number.isInteger(song.tempo)&&song.tempo>=0&&song.tempo<=65535,'Invalid BPM');put16(bytes,38,song.tempo);
     check(Array.isArray(song.rows)&&song.rows.length>=1&&song.rows.length<=128,'A song needs 1-128 rows');bytes[40]=song.rows.length;
     check(Number.isInteger(song.loopRow)&&song.loopRow>=0&&song.loopRow<song.rows.length,'Invalid loop start row');bytes[42]=song.loopRow;
-    if(Array.isArray(song.click)){bytes[44]=song.click[0]&63;bytes[45]=song.click[1]&31;bytes[46]=song.click[2]&127;}
+    if(Array.isArray(song.click)){bytes[44]=song.click[0]&255;bytes[45]=song.click[1]&31;bytes[46]=song.click[2]&127;}   // tabby-v04.14: bits 6-7 of byte 44 = the click level
+    if(Array.isArray(song.knobs))for(let k=0;k<4;k++)bytes[56+k]=song.knobs[k]&255;
     for(let t=0;t<8;t++){const c=song.channel[t]|0;check(c>=0&&c<=16,'Output channels must be 0-16');bytes[48+t]=c;}
     if(scenes){
       // The clip table: the places the song already has (song.clips), then every block a scene uses that has none yet.
@@ -1365,7 +1367,11 @@ const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","
     const songs=[];
     for(let slot=0;slot<16;slot++){
       if(!this.songStorage){songs.push({slot,empty:true});continue;}
-      const song=await this.songRead(slot);
+      // tabby-v04.14: a song this page cannot read stops the backup with its number and the reason (before, the reader's
+      // own words went to another line and the progress stood still). A lost link or a device error passes as it is.
+      let song;try{song=await this.songRead(slot);}
+      catch(error){if(error.deviceCode||error.code||(this.link&&this.link.lost))throw error;
+        throw Object.assign(Error('STOPPED at song '+(slot+1)+': this page cannot read it ('+error.message+'). No backup file was made and nothing on the device was changed. The song was probably saved by newer firmware than this page knows: open the page of the firmware that is on the device (see the list of builds), or delete song '+(slot+1)+' on the device, then make the backup again.'),{unreadableSong:slot+1});}
       songs.push(song?{slot,record:song.record,blocks:song.blocks}:{slot,empty:true});
       progress(0.45+0.55*(slot+1)/16);
     }
@@ -2524,9 +2530,11 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
  *   importer's blocks. Loading: classic script (globalThis.TabbyClipV3) and CommonJS. Needs TabbyTimedNote (loaded
  *   first, or required) for the 6-byte note of v2.
  *
- * Version: 0.1
+ * Version: 0.4
  *
  * Revision log
+ *   v0.4  2026-11-17  tabby-v04.14: model() and build() carry the clip chain (model.chain = { next, after, times }).
+ *   v0.3  2026-11-16  tabby-v04.11: validate() takes the chain in header bytes 8 to 11.
  *   v0.1  2026-11-12  Initial version (Task 16 Goal 5; not released).
  */
 (() => {
@@ -2667,6 +2675,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     out[0] = model.steps || 64; put16(out, 6, list.length);
     if (Number.isInteger(model.program)) { out[1] |= 1; out[2] = model.program; }
     if (Number.isInteger(model.bankMsb) || Number.isInteger(model.bankLsb)) { out[1] |= 2; out[3] = model.bankMsb | 0; out[4] = model.bankLsb | 0; }
+    if (model.chain) { out[8] = model.chain.next | 0; put16(out, 9, model.chain.after | 0); out[11] = model.chain.times | 0; }   /* v0.4 */
     list.forEach((x, i) => {
       const o = HEADER + EVENT * i;
       if (!Number.isInteger(x.time) || x.time < -BIAS || x.time + BIAS > 65535) fail(BAD_EVENT, 'event time ' + x.time + ' outside the clip');
@@ -2685,6 +2694,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     const m = { steps: p[0], notes: [], controls: [], stepMods: [] };
     if (p[1] & 1) m.program = p[2];
     if (p[1] & 2) { m.bankMsb = p[3]; m.bankLsb = p[4]; }
+    if (p[8] || p[9] || p[10] || p[11]) m.chain = { next: p[8], after: get16(p, 9), times: p[11] };   /* v0.4: the clip chain (was dropped: the workbench lost it on a rewrite) */
     for (const e of events(p)) {
       if (e.kind === NOTE) m.notes.push({ time: e.time, pitch: e.a, velocity: e.b, length: e.length, retrigger: !!e.retrigger });
       else if (e.kind === STEPMOD) m.stepMods.push({ step: e.b, probability: e.a & 7, alt: !!(e.a & 8) });
@@ -2695,7 +2705,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
 
   const TabbyClipV3 = { HEADER, EVENT, EVENTS_MAX, STEPS_MAX, BIAS, NOTE, CC, PC, BEND, PRESSURE, STEPMOD,
     codes: { OK, BAD_SIZE, NOT_V2_SHAPED, BAD_HEADER, BAD_EVENT, BAD_ORDER, DUPLICATE, NO_ROOM, BAD_SOURCE },
-    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.3' };
+    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.4' };
   globalThis.TabbyClipV3 = TabbyClipV3;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyClipV3;
 })();
@@ -3025,9 +3035,12 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.7
+ * Version: 0.9
  *
  * Revision log
+ *   v0.9  2026-11-17  tabby-v04.14: a v3 clip read from a song keeps its own length and its chain when it is written
+ *                     again (block.clip, block.steps, block.chain); the record keeps the click level (byte 44 bits 6-7)
+ *                     and the controller numbers of K1 to K4 (bytes 56 to 59, song.knobs).
  *   v0.8  2026-11-14  Task 17 (tabby-v04.5): a block is written as a v3 clip when the v2 grid cannot hold it (needsV3,
  *                     payloadOf, encodeClip): notes past step 63, more than four notes on a step, controller events, a clip
  *                     program or bank; decodeBlock reads any v3 clip; rows of up to 128 steps.
@@ -3139,8 +3152,10 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     const notes = [], stepFlags = {}, TN = T(), size = format === LIMITS.formatV1 ? LIMITS.noteBytesV1 : LIMITS.noteBytes;
     if (format !== LIMITS.formatV1 && format !== LIMITS.formatV2 && format !== LIMITS.formatV3) fail('block payload format ' + format + ' unknown');
     if (format === LIMITS.formatV3) {                  /* a v3 clip: as the v2 block when a grid holds it, else the clip itself (Task 17) */
+      /* v0.9 (tabby-v04.14): only a clip of 64 steps goes back to the v2 grid; any other length is the clip's own (a clip
+       * made or shortened on the device) and stays a v3 clip. Before, a 32-step clip came back as 64 steps. */
       let v2 = null;
-      try { v2 = V3().toV2(bytes); } catch (e) { if (e.code !== V3().codes.NOT_V2_SHAPED) fail('block ' + id + ' (v3 clip): ' + e.message); }
+      if (bytes[0] === LIMITS.steps && !(bytes[8] | bytes[9] | bytes[10] | bytes[11])) try { v2 = V3().toV2(bytes); } catch (e) { if (e.code !== V3().codes.NOT_V2_SHAPED) fail('block ' + id + ' (v3 clip): ' + e.message); }
       if (v2) return decodeBlock(v2, id, LIMITS.formatV2);
       return decodeClip(bytes, id);
     }
@@ -3174,14 +3189,14 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
    * (block.controls: [{ time (units from the clip start), kind (1 CC, 2 program, 3 bend, 4 pressure), a, b }]), a clip
    * program or bank (block.program, block.bankMsb, block.bankLsb), or block.steps above 64. Otherwise v2, as before. */
   function needsV3(block) {
-    if ((block.controls || []).length || Number.isInteger(block.program) || Number.isInteger(block.bankMsb) || Number.isInteger(block.bankLsb) || (block.steps || 0) > LIMITS.steps) return true;
+    if (block.clip || (block.controls || []).length || Number.isInteger(block.program) || Number.isInteger(block.bankMsb) || Number.isInteger(block.bankLsb) || (block.steps || 0) > LIMITS.steps) return true;
     const count = new Map();
     for (const n of block.notes || []) { if (n.step >= LIMITS.steps) return true; count.set(n.step, (count.get(n.step) || 0) + 1); if (count.get(n.step) > LIMITS.notesPerStep) return true; }
     return false;
   }
   function encodeClip(block, where = 'block') {
     const U = LIMITS.unitsPerStep, last = (block.notes || []).reduce((m, n) => Math.max(m, n.step), 0);
-    const steps = Math.max(block.steps || 0, Math.min(128, Math.ceil((last + 1) / 16) * 16), 16);
+    const steps = block.clip && block.steps ? block.steps : Math.max(block.steps || 0, Math.min(128, Math.ceil((last + 1) / 16) * 16), 16);   /* v0.9: a clip read from a song keeps its length */
     for (const n of block.notes || []) {
       if (!Number.isInteger(n.step) || n.step < 0 || n.step >= steps) fail(where + ': note step ' + n.step + ' outside 0..' + (steps - 1));
       if (!Number.isInteger(n.pitch) || n.pitch < 0 || n.pitch > 127) fail(where + ': pitch ' + n.pitch + ' outside 0..127');
@@ -3190,7 +3205,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
       if (!Number.isInteger(n.length) || n.length < LIMITS.lengthMin) fail(where + ': length ' + n.length + ' invalid');
     }
     try {
-      return V3().build({ steps, program: block.program, bankMsb: block.bankMsb, bankLsb: block.bankLsb,
+      return V3().build({ steps, program: block.program, bankMsb: block.bankMsb, bankLsb: block.bankLsb, chain: block.chain,
         notes: sortNotes(block.notes || []).map(n => ({ time: n.step * U + (n.offset | 0), pitch: n.pitch, velocity: n.velocity, length: n.length, retrigger: n.retrigger })),
         controls: (block.controls || []).slice().sort((a, b) => a.time - b.time),
         stepMods: Object.entries(block.stepFlags || {}).map(([s, f]) => ({ step: Number(s), probability: f.probability || 0, alt: !!f.alt })) });
@@ -3205,7 +3220,8 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     const block = { id, notes: sortNotes(m.notes.map(n => { const step = A(n.time); return { step, pitch: n.pitch, velocity: n.velocity, offset: n.time - step * U, length: n.length, retrigger: !!n.retrigger }; })) };
     if (m.controls.length) block.controls = m.controls;
     if (m.stepMods.length) { block.stepFlags = {}; for (const s of m.stepMods) block.stepFlags[s.step] = { probability: s.probability, alt: s.alt }; }
-    if (m.steps > LIMITS.steps) block.steps = m.steps;
+    block.clip = true; block.steps = m.steps;          /* v0.9: read as a clip, written as a clip of the same length */
+    if (m.chain) block.chain = m.chain;                /* v0.9: NEXT CLIP, AFTER, TIMES (was dropped) */
     if ('program' in m) block.program = m.program;
     if ('bankMsb' in m) { block.bankMsb = m.bankMsb; block.bankLsb = m.bankLsb; }
     return block;
@@ -3264,7 +3280,8 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
       /* Version 3: the clip table at 64 (8 tracks x 64 places, a block id each), the scenes at 1088 (12 bytes: a clip
        * place + 1 per track, repeat, flags, steps, 0), the master cycle in byte 43 (0 = 16 steps). */
       r[43] = (song.cycleSteps || 16) === 16 ? 0 : song.cycleSteps;
-      if (Array.isArray(song.click)) { r[44] = song.click[0] & 63; r[45] = song.click[1] & 31; r[46] = song.click[2] & 127; }   /* v0.8: kept as read */
+      if (Array.isArray(song.click)) { r[44] = song.click[0] & 255; r[45] = song.click[1] & 31; r[46] = song.click[2] & 127; }
+      if (Array.isArray(song.knobs)) for (let k = 0; k < 4; k++) r[56 + k] = song.knobs[k] & 255;   /* v0.9: the controller numbers of K1 to K4 (tabby-v04.14) */   /* v0.8: kept as read */
       const clips = clipTable(song);
       song.rows.forEach((row, i) => {
         const at = LIMITS.scenesOffset + i * LIMITS.sceneBytes;
@@ -3328,6 +3345,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
       }
       /* v0.8: the song's click and count-in settings as the device stores them (header bytes 44 to 46, tabby-v04.10) */
       if (r[44] || r[45] || r[46]) song.click = [r[44], r[45], r[46]];
+      if (r[56] || r[57] || r[58] || r[59]) song.knobs = Array.from(r.subarray(56, 60));   /* v0.9 */
       for (let i = LIMITS.scenesOffset + rowCount * LIMITS.sceneBytes; i < LIMITS.bodyEnd; i++) if (r[i]) fail('song record bytes after the last scene are not 0');
       for (const list of song.clips) while (list.length && !list[list.length - 1]) list.pop();
     } else
@@ -3525,7 +3543,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
   function quantize(song, mode, rule) { return song.blocks.reduce((n, b) => n + quantizeNotes(b.notes, mode, rule), 0); }
 
   const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, blockKeyOf, needsV3, payloadOf, structuralKey, encodeBlockRecord, validateEvents,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.8' };
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.9' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();
@@ -4574,7 +4592,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();
 
-const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.13","sha256":"8a8e608927f2215be3943c89cbb649e9347c4e77d0d552ad9bb524c0991863b3","source_sha256":"7aee907b41c8c402efafb2bb637f222ad21f23132806c2b8e0e4559e1cabe891","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":355625,"url":"./assets/smk37/8a8e608927f2215be3943c89cbb649e9347c4e77d0d552ad9bb524c0991863b3.wasm"};
+const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.14","sha256":"6b90f527df718d0b6463c5f8c490e4e935d64b962a6dc70b873786660e924b73","source_sha256":"60846b96e6e32d0bd02b7a8022cf276d3c477af72bd3270f8fc1e031e81413b0","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":355831,"url":"./assets/smk37/6b90f527df718d0b6463c5f8c490e4e935d64b962a6dc70b873786660e924b73.wasm"};
 (() => {
   const $=id=>document.getElementById(id);
   // Task 08: the badge shows the Classic Tabby display version (the git tag); the Open label is the fallback.
@@ -4977,7 +4995,8 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
   $('backup-make').addEventListener('click',()=>perform(async()=>{
     backupNotes([]);
     const rig=globalThis.TabbyRig?TabbyRig.rigLoad():null;
-    const file=await library.fullBackup(backupProgress('Reading the device…'),{workbench:FM1_SIMULATOR&&FM1_SIMULATOR.display_version||null,rig});
+    let file;try{file=await library.fullBackup(backupProgress('Reading the device…'),{workbench:FM1_SIMULATOR&&FM1_SIMULATOR.display_version||null,rig});}
+    catch(error){backupMessage('Full backup '+(error.unreadableSong?error.message:'STOPPED: '+error.message+' No backup file was made.'));throw error;}   // tabby-v04.14: said here too, not only in the status line
     const stamp=file.created.replace(/[:]/g,'-').replace(/\..*/,'');
     saveFile(new TextEncoder().encode(JSON.stringify(file)),'classic-tabby-backup-'+stamp+'.json');
     backupMessage('Full backup saved: '+file.counts.projects+' projects, '+file.counts.songs+' songs, '+file.counts.blocks+' blocks (USER '+file.device.user_bytes+'). Keep this file.');
@@ -5007,7 +5026,8 @@ const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tab
   }));
   $('backup-verify').addEventListener('click',()=>perform(async()=>{
     if(!backupText)throw Error('Choose a full backup file first.');
-    const v=await library.fullVerify(backupText,backupProgress('Verifying…'));
+    let v;try{v=await library.fullVerify(backupText,backupProgress('Verifying…'));}
+    catch(error){backupMessage('Verify '+(error.unreadableSong?error.message.replace('No backup file was made and nothing','Nothing'):'STOPPED: '+error.message));throw error;}
     backupMessage(v.pass?'Verify PASS: '+v.checked+' items identical to the file.':'Verify FAIL: '+v.difference);backupNotes(v.notes);
     await refreshLibrary();
   }));
