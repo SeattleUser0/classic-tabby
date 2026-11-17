@@ -1,14 +1,14 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 2.7, 2026-11-16. For tabby-v04.11.1 on the M-VAVE SMK-37 Pro.
+Version 2.8, 2026-11-16. For tabby-v04.11.2 on the M-VAVE SMK-37 Pro.
 Written for the person who plays and tests the device. No programming needed.
 
-tabby-v04.11.1 is new firmware. It adds clip chains (section 4.12), and its page can back up songs with a scene stored on the panel. tabby-v04.10 added new clips from the panel, the CLIP SETTING page (a clip's length, copies), a click and a count-in, and storing a scene (section 4.11). tabby-v04.9 added recording: REC records what you play into a clip (section 4.10). tabby-v04.8 added the STEP page: edit a clip's notes on the pads and keys (section 4.9). tabby-v04.7 added the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
+tabby-v04.11.2 is new firmware. It adds clip chains (section 4.12), and its page can back up songs with a scene stored on the panel. tabby-v04.10 added new clips from the panel, the CLIP SETTING page (a clip's length, copies), a click and a count-in, and storing a scene (section 4.11). tabby-v04.9 added recording: REC records what you play into a clip (section 4.10). tabby-v04.8 added the STEP page: edit a clip's notes on the pads and keys (section 4.9). tabby-v04.7 added the CLIPS page: launch and stop clips from the pads, MC-707 style (section 4.8). MIDI notes of a song leave the device much
 at the time they are due, within about 2 ms (timed MIDI, on at power-up),
 and a song can now follow an external MIDI clock. It also has a remote control
 command for the workbench tools, so tests can run without anyone at the panel.
-If an older firmware is on your SMK-37, install tabby-v04.11.1 to get these. The page also has English-only Help and this guide.
+If an older firmware is on your SMK-37, install tabby-v04.11.2 to get these. The page also has English-only Help and this guide.
 
 How to read this guide
 ----------------------
@@ -87,7 +87,7 @@ Removed:
 - tabby-v04.9: Recording. REC on the CLIPS or STEP page records what you play, on the keys or from outside gear at MIDI in, into the selected clip while it loops. Notes land on the nearest step unless you switch input quantize off (SHIFT and REC). FX undoes a whole take. See 4.10.
 - tabby-v04.9.1: HOME works on the STEP page while a clip is open (in tabby-v04.8 and tabby-v04.9 it did nothing there; EDIT or BT were the way out).
 - tabby-v04.9.2: After you stop the song, no pad on the CLIPS page stays green, and the clip you had launched can be reserved for the next PLAY like any other (before, its pad stayed green and a press did nothing).
-- tabby-v04.11.1: Full backup, verify and restore work on a song that has a scene stored on the panel. On the pages of tabby-v04.10 and tabby-v04.11 the backup stopped at about 66 % for such a song. The firmware is tabby-v04.11's.
+- tabby-v04.11.2: Full backup, verify and restore work on a song that has a scene stored on the panel. On the pages of tabby-v04.10, tabby-v04.11 and tabby-v04.11.1 the backup stopped at about 66 % for such a song, with "Scene n is invalid" in the status line. The firmware is tabby-v04.11's.
 - tabby-v04.11: clip chains: CLIP SETTING has NEXT CLIP, AFTER and TIMES, so a launched clip leads to the next one by itself (4.12).
 - tabby-v04.10: REC or EDIT on an empty pad makes a new clip. FX on CLIPS opens CLIP SETTING: LENGTH, COPY TO PAD, and the song's COUNT-IN and CLICK. Holding an empty pad on SCENES stores what plays as a new scene. Every clip loops at its own length. A take is placed 3 ms earlier, where you heard it (4.11).
 - tabby-v04.9.3: Diagnostics shows the flash chip: its JEDEC ID and size, as the device read them at start-up (5.6). A report only; nothing depends on it.
@@ -117,7 +117,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. tabby-v04.11.1 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips, scenes, clip launching, clip editing and recording. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. tabby-v04.11.2 has new firmware: install it to get timed MIDI, the external clock follow, the larger clips, scenes, clip launching, clip editing and recording. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -1052,7 +1052,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.11.1.
+- The page badge and the boot screen show tabby-v04.11.2.
 
 
 8. HOW TO REPORT A PROBLEM

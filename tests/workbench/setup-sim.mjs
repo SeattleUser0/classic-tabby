@@ -169,6 +169,12 @@ check(c.sim_song_load(0) === 0 && setup().scenes === 3, 'loaded again: three sce
   try { song = Format.decodeRecord(bytes); } catch (e) { why = e.message; }
   check(song && song.rows.length === 3 && song.rows[2].own === true && !song.rows[0].own && song.click && song.click[0] === bytes[44], 'the workbench reads the device-written record: the stored scene and the click settings (' + why + ')');
   let again = null; try { again = Format.encodeRecord({ ...song, blocks: [...new Set([...song.rows.flatMap(r => r.blocks), ...song.clips.flat()].filter(Boolean))].map(id => ({ id, notes: [] })) }); } catch (e) { why = e.message; }
+  /* the page's own reader (sdk/WebUpdate.js: the Full backup goes through it; it said "Scene 5 is invalid") */
+  Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'node', requestMIDIAccess: () => Promise.reject(new Error('no midi')) }, configurable: true });
+  globalThis.window = globalThis; globalThis.document = { addEventListener() {}, querySelector() { return null; }, getElementById() { return null; } }; globalThis.location = { search: '' };
+  (0, eval)(readFileSync(join(root, 'sdk/WebUpdate.js'), 'utf8'));
+  let page = null, built = null; try { page = globalThis.FM1Web.songRecordParse(bytes); built = globalThis.FM1Web.songRecordBuild(page); } catch (e) { why = 'page: ' + e.message; }
+  check(page && page.rows.length === 3 && page.rows[2].own === true && built && built[1088 + 2 * 12 + 9] === 3 && built[44] === bytes[44] && built[46] === bytes[46], 'the page\'s reader takes the stored scene too, and its writer keeps it and the click settings (' + why + ')');
   check(again && again[1088 + 2 * 12 + 9] === 3 && again[44] === bytes[44] && again[45] === bytes[45] && again[46] === bytes[46], 'and writes them back unchanged (' + why + ')'); }
 
 /* ---- tabby-v04.11: the clip chain on the page: clip 1 (8 steps) twice, then clip 2; clip 2 stops the track after 8 steps ---- */

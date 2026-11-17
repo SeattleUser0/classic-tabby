@@ -1126,11 +1126,12 @@
       // each at 1088: a clip place + 1 per track, repeat, flags, steps). The editor sees scenes as rows with block ids;
       // song.clips keeps every track's places (also clips no scene uses) and song.cycle the master cycle in steps.
       song.version=3;song.cycle=bytes[43]||16;check(song.cycle>=2&&song.cycle<=128,'Invalid master cycle');
+      if(bytes[44]||bytes[45]||bytes[46])song.click=[bytes[44],bytes[45],bytes[46]];   // the song's click and count-in as the device stores them (tabby-v04.10)
       song.clips=Array.from({length:8},(_,t)=>Array.from({length:64},(_,c)=>u16(bytes,64+t*128+c*2)));
       for(let r=0;r<rows;r++){const at=1088+r*12,block=[];
         for(let t=0;t<8;t++){const place=bytes[at+t];check(place<=64&&(!place||song.clips[t][place-1]),'Scene '+(r+1)+' names a clip that does not exist');block.push(place?song.clips[t][place-1]:0);}
-        const steps=bytes[at+10];check(bytes[at+8]>=1&&bytes[at+8]<=64&&!(bytes[at+9]&~1)&&steps%16===0&&steps>=16&&steps<=128&&!bytes[at+11],'Scene '+(r+1)+' is invalid');
-        song.rows.push({block,repeat:bytes[at+8],loopHere:!!(bytes[at+9]&1),steps});}
+        const steps=bytes[at+10];check(bytes[at+8]>=1&&bytes[at+8]<=64&&!(bytes[at+9]&~3)&&steps%16===0&&steps>=16&&steps<=128&&!bytes[at+11],'Scene '+(r+1)+' is invalid');   // bit 1: a scene stored on the device (tabby-v04.10); tabby-v04.11.2: accepted (the Full backup stopped here)
+        song.rows.push({block,repeat:bytes[at+8],loopHere:!!(bytes[at+9]&1),steps,...(bytes[at+9]&2?{own:true}:{})});}
       for(let i=1088+rows*12;i<SONG_BODY;i++)check(!bytes[i],'Invalid song record: bytes after the last scene');
       for(const list of song.clips)while(list.length&&!list[list.length-1])list.pop();
     }else
@@ -1155,6 +1156,7 @@
     check(Number.isInteger(song.tempo)&&song.tempo>=0&&song.tempo<=65535,'Invalid BPM');put16(bytes,38,song.tempo);
     check(Array.isArray(song.rows)&&song.rows.length>=1&&song.rows.length<=128,'A song needs 1-128 rows');bytes[40]=song.rows.length;
     check(Number.isInteger(song.loopRow)&&song.loopRow>=0&&song.loopRow<song.rows.length,'Invalid loop start row');bytes[42]=song.loopRow;
+    if(Array.isArray(song.click)){bytes[44]=song.click[0]&63;bytes[45]=song.click[1]&31;bytes[46]=song.click[2]&127;}
     for(let t=0;t<8;t++){const c=song.channel[t]|0;check(c>=0&&c<=16,'Output channels must be 0-16');bytes[48+t]=c;}
     if(scenes){
       // The clip table: the places the song already has (song.clips), then every block a scene uses that has none yet.
@@ -1164,7 +1166,7 @@
         for(let t=0;t<8;t++){const id=row.block[t]|0;check(id>=0&&id<=65535,'Scene '+(r+1)+' has an invalid block id');let place=0;
           if(id){place=clips[t].indexOf(id)+1;if(!place){let free=clips[t].indexOf(0);if(free<0)free=clips[t].length;check(free<64,'Track '+(t+1)+' has more than 64 clips; a song with scenes holds 64 per track');clips[t][free]=id;place=free+1;}}
           bytes[at+t]=place;}
-        check(row.repeat>=1&&row.repeat<=64,'Scene '+(r+1)+': the repeat count must be 1-64');bytes[at+8]=row.repeat;bytes[at+9]=row.loopHere?1:0;
+        check(row.repeat>=1&&row.repeat<=64,'Scene '+(r+1)+': the repeat count must be 1-64');bytes[at+8]=row.repeat;bytes[at+9]=(row.loopHere?1:0)|(row.own?2:0);
         check(row.steps%16===0&&row.steps>=16&&row.steps<=128,'Scene '+(r+1)+': the step count must be a multiple of 16 from 16 to 128');bytes[at+10]=row.steps;});
       clips.forEach((list,t)=>list.forEach((id,c)=>put16(bytes,64+t*128+c*2,id|0)));
     }else

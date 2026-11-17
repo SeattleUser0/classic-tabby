@@ -10,12 +10,16 @@
       "link": "tabby-v04.5.1"
     },
     "tabby-v04.10": {
-      "text": "Use tabby-v04.11.1 or later; on this page Full backup stops on a song that has a scene stored on the panel.",
-      "link": "tabby-v04.11.1"
+      "text": "Use tabby-v04.11.2 or later; on this page Full backup stops on a song that has a scene stored on the panel.",
+      "link": "tabby-v04.11.2"
     },
     "tabby-v04.11": {
-      "text": "Use tabby-v04.11.1 or later; on this page Full backup stops on a song that has a scene stored on the panel.",
-      "link": "tabby-v04.11.1"
+      "text": "Use tabby-v04.11.2 or later; on this page Full backup stops on a song that has a scene stored on the panel.",
+      "link": "tabby-v04.11.2"
+    },
+    "tabby-v04.11.1": {
+      "text": "Use tabby-v04.11.2 or later; on this page Full backup stops on a song that has a scene stored on the panel.",
+      "link": "tabby-v04.11.2"
     }
   }
 }

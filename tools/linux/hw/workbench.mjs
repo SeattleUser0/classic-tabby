@@ -223,7 +223,12 @@ async function run() {
     else if (command === 'resume') result = await resume(page, { expect: opt('expect') });
     else if (command === 'backup') {
       await library(page);
-      const [download] = await Promise.all([page.waitForEvent('download', { timeout: 15 * 60000 }), page.click('#backup-make')]);
+      /* v0.x (2026-11-16): the page's status line is watched too: a song the page cannot read ("Scene 5 is invalid") left this
+       * waiting 15 minutes for a download that never came, twice. */
+      let waiting = true;
+      const refused = (async () => { while (waiting) { await new Promise(r => setTimeout(r, 1000)); const t = await text(page, 'library-status').catch(() => ''); if (/invalid|failed|error|refus|not respond/i.test(t)) throw new Error('the page stopped the backup: ' + t); } return new Promise(() => {}); })();
+      refused.catch(() => {});
+      const [download] = await Promise.all([Promise.race([page.waitForEvent('download', { timeout: 15 * 60000 }), refused]), page.click('#backup-make')]).finally(() => { waiting = false; });
       await download.saveAs(opt('file'));
       result = { file: opt('file'), message: await backupMessage(page, /Full backup saved/, 60000), notes: await notes(page) };
     } else if (command === 'restore' || command === 'verify') {

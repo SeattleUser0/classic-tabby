@@ -5446,3 +5446,18 @@ tabby-v04.11.1: song-format.js v0.8 accepts the flag, keeps it (`own`) and the c
 record; setup-sim.mjs decodes and re-encodes the record the simulated device saved (42 checks). Note lines on the
 builds pages of tabby-v04.10 and tabby-v04.11 (tools/linux/builds-notes.json). App image 479236 bytes, build id `ea12999a89238727`.
 Still open: the page shows no error when a song cannot be read; it should say which song and stop.
+
+### 47.2 tabby-v04.11.1 published, not installed; tabby-v04.11.2 (2026-11-16)
+
+The backup through the tabby-v04.11.1 page stood still again. This time the page's status line was read: "Scene 5 is
+invalid". The page has a second reader of song records, `songRecordParse` in sdk/WebUpdate.js, with the same check, and
+the Full backup goes through that one. 47.1's diagnosis was half of it: I fixed the reader I found, a test of that
+reader passed, and I published without running the fixed page against the device. Hours cost: one suite and one release.
+
+tabby-v04.11.2: sdk/WebUpdate.js accepts scene flag bit 1 in `songRecordParse` and keeps it and the click bytes in
+`songRecordBuild`; setup-sim.mjs runs the simulated device's record through both readers (43 checks);
+tools/linux/hw/workbench.mjs `backup` watches the page's status line and fails at once with its words instead of
+waiting 15 minutes. **Before the suite** the built page was served from this computer and the Full backup run against
+the device: "Full backup saved: 1 projects, 10 songs, 30 blocks" (overnight/backups/before-tabby-v04.11.2.json).
+Rule taken from this: a change to the page that a device operation depends on is run against the device from a local
+copy before it is published. Build id `5132d1244cb66781`, app image 479236 bytes.
