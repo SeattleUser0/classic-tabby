@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.87
+Version: 0.88
 Revision log:
+- v0.88, 2026-11-17: section 51 (tabby-v04.15: TRANSPOSE, DELETE CLIP; the parity list v0.2).
 - v0.87, 2026-11-17: 50.3 (tabby-v04.14 on the device, the first release through the flow), 50.4 (stickers, the manual).
 - v0.86, 2026-11-17: section 50 (tabby-v04.14: the page fixes, CLICK LEVEL, the controller numbers; the release flow of SPEC 17.13 and its tools).
 - v0.81, 2026-11-16: section 45 (tabby-v04.9.3: the flash part page, command 25 request 11) and 45.1 (on the device: 0x856014).
@@ -5639,3 +5640,18 @@ tests and was released as tabby-v04.14". No tool error and no device fault in th
   duplicate numbers (the project and housekeeping sections are 4.15 to 4.18; the clip sections keep 4.8 to 4.14);
   2.2 in release order. Help: chapters 01, 03, 12 and 20 brought up to tabby-v04.14.
 
+## 51. tabby-v04.15: TRANSPOSE per clip, DELETE CLIP (2026-11-17)
+
+The first release from the parity list (docs/MC707-PARITY.md 0.2, written in the same change): the two items with
+the highest value for a live set that were cheap, a clip's transpose and deleting a clip.
+
+- app/clip_v3.c v0.5: header byte 12 (validate, `clip_v3_transpose`, `_set`, `_apply`); `clip_v3_to_v2` refuses a
+  transposed clip. app/song.c: `decode_track` applies it to the copy it plays; `song_edit_transpose`,
+  `song_clip_delete`, `song_clip_scene`. app/screen.c: the two lines, the two-press question, op 17 byte 33.
+- Page: clip-v3.js v0.5, song-format.js v0.10.
+- Tests: clip_v3_test.c (the byte's range, apply with the retrigger bit and the clamp; the fuzz rule about the two
+  grid conversions holds for clips without a chain or a transpose); setup-sim.mjs v0.3 (76 checks: TRANSPOSE through
+  the panel and heard, its limits, DELETE CLIP asking, the two-second window, a clip a scene uses, the saved song
+  without the copy, a transposed clip through the workbench). Device: run-setup.py v0.7, tabby_link.py v0.19.
+- A test-tool slip while writing setup-sim: FX reopens CLIP SETTING on line 1, so presses meant for DELETE CLIP
+  saved the song instead; found from the simulator's state, not on the device.

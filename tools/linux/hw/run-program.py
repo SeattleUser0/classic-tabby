@@ -86,7 +86,7 @@ def main():
             l.shift_pad(0); idle(0.3)
         l.pad(0); idle(0.2); l.pad(0); idle(0.2)
         l.press("FX"); idle(0.4); u = l.setup_state()
-        check(u["page_name"] == "SETTING" and u["rows"] == 18 and u["program"] == 255 and u["bank_msb"] == 255, "CLIP SETTING on clip 1: PROGRAM OFF, BANK OFF, 18 lines", (u["rows"], u["program"], u["bank_msb"]))
+        check(u["page_name"] == "SETTING" and u["rows"] >= 18 and u["program"] == 255 and u["bank_msb"] == 255, "CLIP SETTING on clip 1: PROGRAM OFF, BANK OFF", (u["rows"], u["program"], u["bank_msb"]))
         ok = setting(4, "program", 5) and setting(5, "bank_msb", 2) and setting(6, "bank_lsb", 7); u = l.setup_state()
         check(ok and u["unsaved"], "PROGRAM 6, BANK MSB 2, BANK LSB 7", (u["program"], u["bank_msb"], u["bank_lsb"]))
         l.setup_do() if u["row"] != 7 else None; idle(0.6)

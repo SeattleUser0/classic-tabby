@@ -1,8 +1,12 @@
 # MC-707 parity matrix for Classic Tabby
 
-Version 0.1, 2026-11-07 (Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
+Version 0.2, 2026-11-17 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
+Section 0 is the list that is worked from: what is done, and what is left in the order it will be built. Sections 1 to 8
+are the matrix of 2026-11-07; its "Today" and "Status" columns describe that day, and section 0 says what changed since.
 
 Revision log
+- v0.2 2026-11-17: section 0, the state at tabby-v04.15 and the ranked list of what is left (the user's instruction:
+  highest value for live MIDI performance first, within the flash margin, the margin reported in every release).
 - v0.1 2026-11-07: first matrix, written against head 11bb153 and Roland's MC-707 Reference
   Manual eng02 (RM) and Update manual eng08 (UM). Page numbers are the printed ones. The MC-101
   Reference Manual eng01 (MC-101 RM) is cited where its 16-pad layout is the closer example.
@@ -13,6 +17,54 @@ MIDI orchestrator), **excluded** (decided out by the task). "Today" names what C
 now, with the files involved. Roland's limits are conventions; the "Tabby target" column says
 where this plan exceeds them. Nothing here is a commitment; the roadmap is in the assessment,
 section K.
+
+## 0. Where it stands, and what comes next (tabby-v04.15, 2026-11-17)
+
+Flash margin after tabby-v04.15: 36925 bytes (app image 482532 of 519457). Free RAM 143020 bytes.
+
+### 0.1 Done since the matrix was written
+
+| Matrix row | Release | As built |
+| --- | --- | --- |
+| Clips per track; clip = phrase + settings | v04.5 to v04.7 | 64 clips per track in banks of 16; the v3 clip (512 events, 128 steps, a header with length, program, bank, chain, transpose) |
+| STEP LEN 1 to 128 | v04.10 | LENGTH on CLIP SETTING; every clip loops at its own length |
+| Master clock length | v04.6 | the master cycle, 2 to 128 steps, per song |
+| Launch and stop at the master clock, reservation | v04.7, v04.7.1 | CLIPS page; a pad pressed while stopped reserves |
+| Pad MUTE mode | v04.7 | SHIFT + pad 1 to 8 selects a track, 9 to 16 mutes |
+| Scenes: store, recall, chain, reserve | v04.6, v04.10, v04.12 | SCENES page; hold an empty pad to store; TIMES, THEN, the hold; a scene pad while stopped is the first scene |
+| Clip chains | v04.11 | NEXT CLIP, AFTER (the MC-707's LENGTH), TIMES (ours) |
+| Real-time REC, overdub, input quantize | v04.9 | REC on CLIPS and STEP; SHIFT + REC; a take is one undo level |
+| Step recording, TR-REC, step edit | v04.8 | STEP page: pads are steps, keys enter notes, PADS TOGGLE for drums, velocity / start / length per note |
+| Undo / redo | v04.8 | 4 levels per clip |
+| Count-in, metronome, level | v04.10, v04.14 | COUNT-IN 1, 2, 4 cycles; CLICK internal, MIDI note or both; CLICK LEVEL |
+| Motion / external controllers | v04.9, v04.13, v04.14 | controllers, bend and pressure recorded as events, thinned; K1 to K4 send four controllers, numbers per song |
+| Per-clip program change and bank | v04.5, v04.13 | in the clip header; PROGRAM, BANK MSB, BANK LSB on CLIP SETTING |
+| MIDI sync, Continue, SPP | v04.3.1 | the song follows USB or BLE clock, Start, Stop, Continue and Song Position |
+| Copy a clip, new clip | v04.10 | COPY TO PAD; REC or EDIT on an empty pad |
+| Transpose per clip | **v04.15** | TRANSPOSE, -12 to +12, on CLIP SETTING; the stored notes are not changed |
+| Delete a clip | **v04.15** | DELETE CLIP on CLIP SETTING, two presses, stopped, never a clip a scene uses |
+
+### 0.2 What is left, in the order it will be built
+
+Ranked by what it gives a live MIDI set, then by cost. "Flash" is an estimate from the releases so far (a setting with
+a line on the page costs 0.4 to 1 KB; an engine change 1 to 3 KB).
+
+| # | Feature (MC-707) | Why it ranks here | Flash | Notes |
+| ---: | --- | --- | ---: | --- |
+| 1 | Delete a scene; insert a scene after the one that plays | Songs are now built on stage: without it a wrong stored scene stays for ever | 1.5 KB | row events and the loop row must follow the scenes that move |
+| 2 | Shuffle per clip (-50 to +50) | Feel is the most audible clip setting after transpose; the swing engine exists per song | 0.8 KB | header byte 13; positive values first (the engine's swing), negative later |
+| 3 | SCALE per clip (1/8, 1/16, 1/32, triplets) | Half-time and double-time clips against the same master cycle | 3 KB | the clip's time base in the player and on the STEP page |
+| 4 | Temporary step loop while held (UM p. 20) | A performance gesture: stutter the last beat of a clip | 2 KB | pads on CLIPS with a modifier; needs the cursor to loop a window |
+| 5 | Direction REV and RND | Variation without new clips | 2 KB | the cursor walks backwards; RND per loop |
+| 6 | Playback quantize per clip | Tightens a loose take without changing it | 1 KB | at decode, like transpose |
+| 7 | Note repeat on the pads | Drum rolls | 2 KB | the arpeggiator's clock |
+| 8 | Clear notes while REC (hold a pad or key) | Fix a take without stopping | 1 KB | |
+| 9 | A new empty song on the panel | The last step that still needs the workbench | 1.5 KB | name from the slot number |
+| 10 | Edit all events of a step together; shift a clip by a step | Editing comfort | 1 KB | |
+| 11 | Scene program change on a control channel; Tx switches per track | Only if asked | 1 KB | |
+
+Items 1 to 6 together are about 10 KB: the margin would stay near 26 KB. Not planned: chord pads, the motion designer,
+multitrack note mode, a user pad palette, and everything in section 1.
 
 ## 1. Excluded once
 

@@ -6,7 +6,7 @@
  *   Everything the device and the tests do with a v3 payload. Pure C on <stdint.h> and timed_note.h. The device
  *   links what it calls (validate, to_v2, window; LTO drops from_v2, which only the host tools use).
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
  *   v0.3  2026-11-16  Goal 6: editing in place (insert, remove, the notes of a step, step modifiers) for the step editor.
@@ -50,7 +50,9 @@ int clip_v3_validate(const uint8_t *p, unsigned bytes)
     if (!(flags & CLIP_V3_FLAG_BANK) && (p[3] || p[4])) return CLIP_V3_BAD_HEADER;
     /* v0.4: the clip chain: next, after (u16), times; the last four bytes stay 0 */
     if (p[8] > CLIP_V3_NEXT_MAX || get16(p + 9) > CLIP_V3_AFTER_MAX || p[11] > CLIP_V3_TIMES_MAX) return CLIP_V3_BAD_HEADER;
-    for (unsigned i = 12; i < CLIP_V3_HEADER; ++i) if (p[i]) return CLIP_V3_BAD_HEADER;
+    /* v0.5: byte 12 is the transpose (-12..12 as a signed byte); the last three bytes stay 0 */
+    if ((int8_t)p[12] < -CLIP_V3_TRANSPOSE_MAX || (int8_t)p[12] > CLIP_V3_TRANSPOSE_MAX) return CLIP_V3_BAD_HEADER;
+    for (unsigned i = 13; i < CLIP_V3_HEADER; ++i) if (p[i]) return CLIP_V3_BAD_HEADER;
     int last = -CLIP_V3_BIAS - 1, max_time = (int)steps * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS;
     unsigned group_anchor = 0xffffffffU, group_start = 0;
     for (unsigned i = 0; i < count; ++i) {
@@ -140,7 +142,7 @@ int clip_v3_to_v2(const uint8_t *v3, unsigned bytes, uint8_t *out, unsigned cap)
     int r = clip_v3_validate(v3, bytes);
     if (r) return r;
     unsigned steps = v3[0], count = clip_v3_count(v3);
-    if (steps > V2_STEPS || v3[1] || v3[8]) return CLIP_V3_NOT_V2_SHAPED;   /* v0.4: a chain is not v2 either */
+    if (steps > V2_STEPS || v3[1] || v3[8] || v3[12]) return CLIP_V3_NOT_V2_SHAPED;   /* v0.4: a chain is not v2 either; v0.5: nor a transpose */
     uint8_t per_step[V2_STEPS], head[V2_STEPS];
     memset(per_step, 0, sizeof per_step); memset(head, 0, sizeof head);
     unsigned notes = 0;
@@ -344,4 +346,24 @@ int clip_v3_program_set(uint8_t *p, unsigned program, unsigned bank_msb, unsigne
     p[1] = (uint8_t)((p[1] & ~3U) | (program != 255 ? CLIP_V3_FLAG_PROGRAM : 0U) | (bank_msb != 255 ? CLIP_V3_FLAG_BANK : 0U));
     p[2] = (uint8_t)(program != 255 ? program : 0); p[3] = (uint8_t)(bank_msb != 255 ? bank_msb : 0); p[4] = (uint8_t)(bank_msb != 255 ? bank_lsb : 0);
     return CLIP_V3_OK;
+}
+int clip_v3_transpose(const uint8_t *p) { return (int8_t)p[12]; }
+int clip_v3_transpose_set(uint8_t *p, int semitones)
+{
+    if (semitones < -CLIP_V3_TRANSPOSE_MAX || semitones > CLIP_V3_TRANSPOSE_MAX) return CLIP_V3_BAD_HEADER;
+    p[12] = (uint8_t)(int8_t)semitones;
+    return CLIP_V3_OK;
+}
+void clip_v3_transpose_apply(uint8_t *p)
+{
+    int by = (int8_t)p[12];
+    p[12] = 0;
+    if (!by) return;
+    for (unsigned i = 0, n = clip_v3_count(p); i < n; ++i) {
+        uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * i;
+        if (e[3] & 0x80U) continue;
+        int pitch = (int)(e[2] & 127U) + by;
+        pitch = pitch < 0 ? 0 : pitch > 127 ? 127 : pitch;
+        e[2] = (uint8_t)((e[2] & 0x80U) | (unsigned)pitch);
+    }
 }

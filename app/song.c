@@ -1183,6 +1183,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
             if (format == SONG_FORMAT_V3) {
                 unsigned next = clip_v3_next(payload);
                 b->steps = (uint8_t)clip_v3_steps(payload);
+                clip_v3_transpose_apply(payload);        /* the clip's TRANSPOSE: the copy that plays is moved, the stored clip is not */
                 b->prog = (uint32_t)(payload[1] & 3U) | (uint32_t)payload[2] << 8 | (uint32_t)payload[3] << 16 | (uint32_t)payload[4] << 24;
                 if (next >= CLIP_V3_NEXT_CLIP && !model.clip[t][next - CLIP_V3_NEXT_CLIP]) next = CLIP_V3_NEXT_STAY;   /* no clip there: no chain */
                 b->chain_next = (uint8_t)(next > CLIP_V3_NEXT_CLIP ? CLIP_V3_NEXT_CLIP : next);
@@ -1792,6 +1793,41 @@ int song_edit_program(unsigned field, int delta)
 /* A copy of the track's clip in `from` as a new clip in the empty place `to`: it is the open clip, unsaved, and is
  * written with the song at the next save. SONG_BUSY: a clip is unsaved; SONG_EMPTY: no clip in `from`; SONG_INVALID:
  * `to` holds a clip. */
+int song_edit_transpose(int delta)
+{
+    if (!edit.active || !delta) return SONG_INVALID;
+    if (rec.state == REC_ON) return SONG_BUSY;
+    int now = clip_v3_transpose(edit.clip), v = now + delta;
+    v = v < -CLIP_V3_TRANSPOSE_MAX ? -CLIP_V3_TRANSPOSE_MAX : v > CLIP_V3_TRANSPOSE_MAX ? CLIP_V3_TRANSPOSE_MAX : v;
+    if (v == now) return 0;
+    if (edit.gesture != 0x40000030U) edit_push();
+    (void)clip_v3_transpose_set(edit.clip, v);
+    edit.gesture = 0x40000030U; edit_changed();
+    return 0;
+}
+/* tabby-v04.15: take the track's clip in `place` out of the song. Only while the song is stopped, and only a clip no
+ * scene uses (SONG_EDIT_SHARED otherwise: the caller says which scene with song_clip_scene). The place is empty
+ * afterwards; chains that led to it stay as they are and do nothing. Written with the song at the next save; the
+ * clip's bytes stay in storage until the next compaction. */
+int song_clip_scene(unsigned track, unsigned place)
+{
+    if (track >= SONG_TRACKS || place >= SONG_CLIPS) return -1;
+    for (unsigned r = 0; r < record.rows; ++r) if (model.scene_clip[r][track] == place + 1U) return (int)r;
+    return -1;
+}
+int song_clip_delete(unsigned track, unsigned place)
+{
+    if (loaded == SONG_NONE || track >= SONG_TRACKS || place >= SONG_CLIPS) return SONG_INVALID;
+    if (!model.clip[track][place]) return SONG_EMPTY;
+    if (state) return SONG_BUSY;
+    if (song_clip_scene(track, place) >= 0) return SONG_EDIT_SHARED;
+    if (edit.active && edit.track == track && edit.place == place) { rec.state = REC_OFF; edit.active = 0; edit.dirty = 0; edit.created = 0; edit.undo = edit.redo = 0; }
+    model.clip[track][place] = 0;
+    while (model.clips[track] && !model.clip[track][model.clips[track] - 1U]) --model.clips[track];
+    if (reserve_row[track] == SONG_ROWS + place) reserve_row[track] = SONG_NONE;
+    song_changed();
+    return 0;
+}
 int song_clip_copy(unsigned track, unsigned from, unsigned to)
 {
     if (loaded == SONG_NONE || track >= SONG_TRACKS || from >= SONG_CLIPS || to >= SONG_CLIPS || model.clip[track][to]) return SONG_INVALID;

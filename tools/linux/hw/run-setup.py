@@ -19,9 +19,11 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.6
+Version: 0.7
 
 Revision log
+    v0.7  2026-11-17  tabby-v04.15: TRANSPOSE heard on MIDI out; DELETE CLIP asks twice, refuses a clip a scene uses, deletes
+                      the copy; the song's lines are addressed from the end of the list.
     v0.6  2026-11-17  tabby-v04.14: CLICK LEVEL measured on the audio output at LOW, MID and HIGH; the controller number of
                       K1 set on the second page and seen on MIDI out.
     v0.5  2026-11-16  tabby-v04.13: the page's lines moved again (PROGRAM, BANK MSB, BANK LSB follow TIMES).
@@ -76,6 +78,8 @@ def main():
 
     def row(n):
         s = l.setup_state()
+        if n >= 8:
+            n += s["rows"] - 18          # v0.7: the song's lines are the last ten; lines added to the clip's page move them
         if n != s["row"]:
             l.knob(K5, n - s["row"]); idle(0.2)
 
@@ -168,6 +172,30 @@ def main():
               "COPY TO PAD %d: the copy is there (8 steps), open and unsaved" % (target + 1), (u2["place"], u2["steps"], u2["unsaved"]))
         l.edit_save(); idle(0.6)
         check(not l.setup_state()["unsaved"], "the copy is saved")
+        # ---- tabby-v04.15: TRANSPOSE on the copy, heard; DELETE CLIP ----
+        if l.setup_state().get("transpose") is not None:
+            l.press("FX"); idle(0.4); l.knob(K5, 8 - l.setup_state()["row"]); idle(0.3)   # line 9, TRANSPOSE, follows COPY TO PAD
+            l.knob(K1, 3); idle(0.3); u = l.setup_state()
+            l.press("FX"); idle(0.3); l.pad(target % 16); idle(0.3)
+            mark = time.monotonic_ns()
+            l.press("PLAY"); idle(4.5)
+            ups = [m[1] for _, m in since(mark, lambda m: len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[2] and (m[0] & 15) == ch)]
+            l.press("PLAY"); idle(0.8)
+            check(u["transpose"] == 3 and u["place"] == target and ups and all(x == pitch + 3 for x in ups), "TRANSPOSE +3 on the copy: its note plays three semitones up", (u["transpose"], pitch, ups[:6]))
+            l.press("FX"); idle(0.4); l.knob(K1, -3); idle(0.3)
+            check(l.setup_state()["transpose"] == 0, "TRANSPOSE back to 0")
+            l.edit_save(); idle(0.6)
+            l.knob(K5, 1); idle(0.3)                                                   # DELETE CLIP
+            l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c1 = l.clips_state(); l.press("FX"); idle(0.3)
+            l.setup_do(); idle(0.3); l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c2 = l.clips_state()
+            check((c1["pads"][target % 16]["code"] & 7) != 0 and (c2["pads"][target % 16]["code"] & 7) == 0 and l.setup_state()["unsaved"],
+                  "DELETE CLIP: one press only asks, two presses delete the copy; the song is unsaved", (c1["pads"][target % 16]["code"], c2["pads"][target % 16]["code"]))
+            l.pad(0); idle(0.2); l.pad(0); idle(0.2)                                     # clip 1 is used by scene 1
+            l.press("FX"); idle(0.4); l.knob(K5, 9 - l.setup_state()["row"]); idle(0.3)
+            l.setup_do(); idle(0.3); l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c3 = l.clips_state()
+            check((c3["pads"][0]["code"] & 7) != 0, "a clip a scene uses is not deleted", c3["pads"][0]["code"])
+            l.edit_save(); idle(0.6)
+            check(not l.setup_state()["unsaved"], "saved without the copy")
         # ---- the click as a MIDI note, and the count-in ----
         l.press("FX"); idle(0.4)
         ok = setting(8, "count_in", 1) and setting(9, "click", 2) and setting(10, "click_out", 1) and setting(11, "click_ch", 15)

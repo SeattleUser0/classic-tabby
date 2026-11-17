@@ -12,9 +12,10 @@
  *   then `count` 6-byte events sorted by time. A note: {time u16 (biased by 240), pitch | retrigger << 7,
  *   velocity (bit 7 = 0), length u16}; other: {time u16, type, 0x80, a, b}. See the document for the types.
  *
- * Version: 0.4
+ * Version: 0.5
  *
  * Revision log
+ *   v0.5  2026-11-17  tabby-v04.15: the clip's transpose in header byte 12 (clip_v3_transpose, _set, _apply).
  *   v0.4  2026-11-16  The clip chain in the header (bytes 8..11: next, after, times; docs/CLIP-V3.md 2.1) and
  *                     clip_v3_steps_set, clip_v3_chain_set, clip_v3_program_set (the CLIP SETTING page).
  *   v0.1  2026-11-12  Initial version (Task 16 Goal 5, branch classic-tabby/mc707-phase2; not released).
@@ -104,4 +105,11 @@ unsigned clip_v3_times(const uint8_t *p);
 int clip_v3_chain_set(uint8_t *p, unsigned next, unsigned after, unsigned times);
 int clip_v3_steps_set(uint8_t *p, unsigned steps);
 int clip_v3_program_set(uint8_t *p, unsigned program, unsigned bank_msb, unsigned bank_lsb);
+/* v0.5 (tabby-v04.15): the clip's transpose, header byte 12 as a signed byte, -12 to 12 semitones (0: none). The
+ * stored notes are not changed; the player adds it (notes that would leave 0..127 stay at the edge). */
+#define CLIP_V3_TRANSPOSE_MAX 12
+int clip_v3_transpose(const uint8_t *p);
+int clip_v3_transpose_set(uint8_t *p, int semitones);
+/* The notes of the clip moved by its transpose, the header's transpose cleared: what the player plays. */
+void clip_v3_transpose_apply(uint8_t *p);
 #endif

@@ -344,7 +344,7 @@ main{max-width:1440px}
 <div id="manual-body" class="manual-body">
 <p id="manual-empty" class="manual-empty" hidden>No matching chapters. Try “LAUNCH”, “save” or “MIDI”, or click “Show all chapters”.</p>
 <article id="manual-tabby-changes" class="manual-chapter" tabindex="-1" data-removed-ok><h3>00 · What changed in tabby-v04</h3>
-<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.14. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
+<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.15. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
 <ul>
 <li><strong>The storage move. </strong>User storage went from 536576 to 471040 bytes: 16 project slots plus 97 song-region sectors (80 of them block sectors). Installing tabby-v04.0 over v03.x once clears the project slots, the device settings and the songs, so restore them from a Full backup; Bluetooth pairings are lost too. Later updates, tabby-v04.1 included, do not move storage again. See chapter 11.</li>
 <li><strong>The old pattern editing and recording are gone. </strong>(From tabby-v04.8 the clips of a song are edited on the new STEP page, and from tabby-v04.9 REC records into a clip; both in chapter 05.) The STEP DETAILS, LOCKS and RHYTHM/REC pages, REC recording, the count-in, the metronome, pad-step mode and the copy, paste, clear, repeat and undo menu entries are gone. Patterns already in a project still load, save and play. The metronome and count-in are planned for a later version.</li>
@@ -365,6 +365,7 @@ main{max-width:1440px}
 <li><strong>Clip workflow on the panel (tabby-v04.10). </strong><kbd>REC</kbd> or <kbd>EDIT</kbd> on an empty pad makes a new clip. <kbd>FX</kbd> on CLIPS opens CLIP SETTING: the clip's length, a copy to another pad, and the song's click and count-in. Holding an empty pad on SCENES stores what plays as a new scene. Every clip now loops at its own length. Chapter 05 has the details.</li>
 <li><strong>Clip chains (tabby-v04.11). </strong>CLIP SETTING has NEXT CLIP (STAY, STOP or a clip), AFTER (the clip's end, or a number of steps) and TIMES: a launched clip leads to the next one by itself. Chapter 05 has the details.</li>
 <li><strong>The scene chain (tabby-v04.12). </strong>On SCENES, K1 sets how many times a scene plays, K2 whether the next scene follows by itself, K3 holds the chain. A scene pad pressed while stopped is where <kbd>PLAY</kbd> starts. Chapter 05 has the details.</li>
+<li><strong>Transpose and delete a clip (tabby-v04.15). </strong>CLIP SETTING has TRANSPOSE (a clip's notes up or down by as much as 12 semitones when it plays; the clip itself is not changed) and DELETE CLIP (the 4th button in the left group twice, while stopped; a clip a scene uses is never deleted). Chapter 05 has the details.</li>
 <li><strong>Click level, controller numbers, a clearer backup (tabby-v04.14). </strong>CLICK LEVEL sets the internal click to LOW, MID or HIGH. K1 CONTROLLER to K4 CONTROLLER choose, per song, what the four knobs on CLIPS send. CLIP SETTING is two pages: the clip's lines and the song's lines. The Full backup names a song this page cannot read and stops. The MIDI importer keeps a clip's own length and its chain when it rewrites a song. Chapter 05 has the details.</li>
 <li><strong>Going back to an older build. </strong>Songs saved on the device by tabby-v04.10 or later cannot be read by older firmware. Go back only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.</li>
 <li><strong>Program, bank and controller knobs (tabby-v04.13). </strong>CLIP SETTING has PROGRAM, BANK MSB and BANK LSB for each clip. On CLIPS, K1 to K4 send controllers 74, 71, 1 and 11, and a take records them. Chapter 05 has the details.</li>
@@ -603,8 +604,13 @@ main{max-width:1440px}
 </ul>
 <h4>The two pages of CLIP SETTING (tabby-v04.14)</h4>
 <ul>
-<li>Page 1/2 holds the clip's lines: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD. Page 2/2 holds the song's lines: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL, K1 CONTROLLER to K4 CONTROLLER. K5 walks through all of them and the page changes by itself.</li>
+<li>Page 1/2 holds the clip's lines: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD, TRANSPOSE, DELETE CLIP. Page 2/2 holds the song's lines: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL, K1 CONTROLLER to K4 CONTROLLER. K5 walks through all of them and the page changes by itself.</li>
 <li><strong>CLICK LEVEL</strong>: LOW, MID or HIGH for the internal click, each twice as loud as the one before. A song that was never set is on MID. The click as a MIDI note is not affected.</li>
+</ul>
+<h4>Transpose and delete a clip (tabby-v04.15)</h4>
+<ul>
+<li><strong>TRANSPOSE</strong>, -12 to +12 semitones: every note of the clip is moved when the clip plays. The notes stored in the clip stay, so 0 plays the clip as it was. Heard from the clip's next loop; saved with the clip.</li>
+<li><strong>DELETE CLIP</strong>: with the song stopped, press the 4th button in the left group (PRESS AGAIN TO DELETE THE CLIP) and press it again within two seconds (CLIP DELETED - SAVE THE SONG). A clip that a scene uses is not deleted; the screen says USED BY SCENE n. Until you save the song, loading it again brings the clip back.</li>
 </ul>
 <h4>The scene chain (tabby-v04.12)</h4>
 <p>The scenes of a song play in order. On the SCENES page three knobs set how, for the scene that plays (stopped: for the scene you reserved by pressing its pad).</p>
@@ -789,7 +795,7 @@ main{max-width:1440px}
 <tr><td>CLIPS</td><td>Empty pad, then <kbd>REC</kbd> or <kbd>EDIT</kbd></td><td>Make a new clip there (one master cycle long).</td></tr>
 <tr><td>CLIPS</td><td>Pad while stopped</td><td>Reserve the clip: <kbd>PLAY</kbd> starts the song with it.</td></tr>
 <tr><td>CLIPS</td><td><kbd>K1</kbd> to <kbd>K4</kbd></td><td>Send controllers 74, 71, 1 and 11 (or the song's numbers) on the selected track; a take records them.</td></tr>
-<tr><td>CLIPS</td><td><kbd>FX</kbd></td><td>CLIP SETTING: <kbd>K5</kbd> line, <kbd>K1</kbd> value, <kbd>K2</kbd> value in steps of 16. Page 1/2 the clip (LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD), page 2/2 the song (COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL, K1 to K4 CONTROLLER).</td></tr>
+<tr><td>CLIPS</td><td><kbd>FX</kbd></td><td>CLIP SETTING: <kbd>K5</kbd> line, <kbd>K1</kbd> value, <kbd>K2</kbd> value in steps of 16. Page 1/2 the clip (LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD, TRANSPOSE, DELETE CLIP), page 2/2 the song (COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL, K1 to K4 CONTROLLER).</td></tr>
 <tr><td>CLIPS, STEP</td><td><kbd>REC</kbd> / <kbd>SHIFT</kbd>+<kbd>REC</kbd></td><td>Start or stop a take into the clip / input quantize on or off.</td></tr>
 <tr><td>STEP</td><td>Pad, then keys</td><td>Select a step; enter or remove notes on it.</td></tr>
 <tr><td>STEP</td><td><kbd>K1</kbd> to <kbd>K4</kbd></td><td>Choose a note of the step; velocity; start; length.</td></tr>

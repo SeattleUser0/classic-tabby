@@ -175,7 +175,16 @@ int main(int argc, char **argv)
         t[0] = 0; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 0"); t[0] = 129; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 129"); t[0] = 64;
         t[1] = 4; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved flag bit"); t[1] = 0;
         t[2] = 5; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "program without its flag"); t[2] = 0;
-        t[12] = 1; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved header byte"); t[12] = 0;
+        t[13] = 1; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved header byte"); t[13] = 0;
+        t[12] = 13; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "transpose above 12"); t[12] = (uint8_t)-13; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "transpose below -12");
+        t[12] = (uint8_t)-12; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_OK && clip_v3_transpose(t) == -12, "transpose -12 is valid"); t[12] = 0;
+        { uint8_t c2[CLIP_V3_HEADER + CLIP_V3_EVENT * 2]; clip_v3_empty(c2, 16); c2[6] = 2;
+          uint8_t *e0 = c2 + CLIP_V3_HEADER, *e1 = e0 + CLIP_V3_EVENT;
+          e0[0] = 240; e0[1] = 0; e0[2] = 60; e0[3] = 100; e0[4] = 240; e0[5] = 0;
+          e1[0] = 0xd0; e1[1] = 0x02; e1[2] = 0x80 | 125; e1[3] = 90; e1[4] = 240; e1[5] = 0;
+          CHECK(clip_v3_validate(c2, sizeof c2) == CLIP_V3_OK && clip_v3_transpose_set(c2, 13) == CLIP_V3_BAD_HEADER && clip_v3_transpose_set(c2, 7) == CLIP_V3_OK && clip_v3_validate(c2, sizeof c2) == CLIP_V3_OK, "transpose: set 7, 13 refused");
+          clip_v3_transpose_apply(c2);
+          CHECK(c2[12] == 0 && e0[2] == 67 && e1[2] == (0x80 | 127) && clip_v3_validate(c2, sizeof c2) == CLIP_V3_OK, "transpose applied: 60 -> 67, 125 stays at 127 with its retrigger bit, the header is cleared"); }
         /* v0.4 (tabby-v04.10): the chain in bytes 8..11, the length and the program setters */
         t[8] = 66; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "chain: next above the last place"); t[8] = 0;
         t[9] = 1; t[10] = 2; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "chain: after above 512 steps"); t[9] = t[10] = 0;
@@ -275,7 +284,7 @@ int main(int argc, char **argv)
             if (delivered != count || cursor != count) ++bad;
             ++walked;
             int a = clip_v3_to_v2(f, bytes, out2, sizeof out2), b = clip_v3_to_cells(f, bytes, cells);
-            if ((a < 0) != (b != 0)) ++bad;                    /* the two grid conversions agree on what a grid can hold */
+            if (!f[8] && !f[12] && (a < 0) != (b != 0)) ++bad;   /* the two grid conversions agree on what a grid can hold (a chain or a transpose keeps a clip out of v2 only) */
             if (a > 0) { int c = clip_v3_from_v2(out2, (unsigned)a, f, sizeof f, NULL); if (c <= 0) ++bad; }
         }
         CHECK(bad == 0, "fuzz: nothing the validator accepts breaks a rule (%u bad)", bad);

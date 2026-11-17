@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.52
+Version: 0.53
 Revision log:
+- v0.53, 2026-11-17: 19.18 tabby-v04.15 (TRANSPOSE per clip, DELETE CLIP); docs/MC707-PARITY.md v0.2 is the worked list.
 - v0.52, 2026-11-17: 17.4 the words printed on the buttons, from the manufacturer's drawing; docs/STICKERS.md.
 - v0.51, 2026-11-17: 17.12 one session releases; 17.13 the release flow (release candidate on the device, then
   promote); 17.14 songs saved on tabby-v04.10 or later and older firmware; 19.17 tabby-v04.14 (the backup names a
@@ -1832,3 +1833,19 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - Remote: op 17's reply grows to 33 bytes (28 the click level, 29 to 32 the controller numbers).
 - Both page readers keep the new bytes; pages before tabby-v04.14 drop them when they rewrite a song.
 - First release under 17.13.
+
+### 19.18 tabby-v04.15 (2026-11-17): TRANSPOSE per clip, DELETE CLIP (the first two items of the parity list)
+
+- docs/MC707-PARITY.md section 0 is the list worked from: what is done and what is left, ranked for live MIDI use.
+- TRANSPOSE: v3 clip header byte 12, a signed byte, -12 to 12 (docs/CLIP-V3.md 2). `clip_v3_transpose_apply` moves
+  the notes of the copy that `decode_track` plays and clears the byte in that copy; the stored clip keeps its notes.
+  `song_edit_transpose` (one undo level per run). A clip with a transpose is refused by firmware before tabby-v04.15
+  (its validator wants byte 12 = 0): 17.14 applies.
+- DELETE CLIP: `song_clip_delete` (stopped; not a clip a scene uses, `song_clip_scene`); the place is emptied in the
+  model and the record is written at the next save. The clip's bytes stay in storage until COMPACT SONG STORAGE.
+  The page asks twice (two presses of the 4th left button within two seconds). Difference from the MC-707 with its
+  reason: docs/CONTROL-MAP.md 11.
+- CLIP SETTING: page 1/2 has ten lines (TRANSPOSE and DELETE CLIP follow COPY TO PAD); twenty lines in all.
+- Remote: op 17's reply grows to 34 bytes (33: the open clip's transpose).
+- Page: both song readers keep byte 12 (web/clip-v3/clip-v3.js v0.5, web/import/song-format.js v0.10; the page's own
+  reader keeps a clip byte for byte).

@@ -11,9 +11,10 @@
 //
 //   Run:  /usr/bin/node tests/workbench/setup-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.2
+// Version: 0.3
 //
 // Revision log
+//   v0.3  2026-11-17  tabby-v04.15: TRANSPOSE and DELETE CLIP.
 //   v0.2  2026-11-17  tabby-v04.14: CLICK LEVEL and the controller numbers of K1 to K4 (the second page); every record and
 //                     clip the device wrote goes through both of the page's readers and back unchanged; the clip chain
 //                     survives the workbench; the Full backup names a song it cannot read.
@@ -101,7 +102,7 @@ press(BT); shiftPad(0); pad(0); pad(0);                       /* CLIPS, track 1,
 let s = state();
 check(s.page === 20 && s.selected === 0, 'CLIPS: track 1, clip 1 selected');
 press(FX); let u = setup();
-check(u.page === 22 && u.track === 0 && u.place === 0 && u.steps === 16 && u.row === 0 && u.rows === 18, 'FX opens CLIP SETTING on the selected clip: 16 steps, the first row (page ' + u.page + ', ' + u.steps + ' steps)');
+check(u.page === 22 && u.track === 0 && u.place === 0 && u.steps === 16 && u.row === 0 && u.rows === 20, 'FX opens CLIP SETTING on the selected clip: 16 steps, the first row (page ' + u.page + ', ' + u.steps + ' steps)');
 /* LENGTH */
 knob(K1, 1); knob(K2, 1); u = setup();
 check(u.steps === 33 && u.unsaved === 1, 'K1 +1 and K2 +16: the clip is 33 steps long, unsaved (' + u.steps + ')');
@@ -126,8 +127,8 @@ check(u.unsaved === 0, 'on another row the 4th left button saves (stopped)');
 knob(K5, -1); press(SAVE); u = setup(); press(FX); s = state();
 check(u.place === 2 && u.unsaved === 1 && u.steps === 8 && s.selected === 2 && (s.pads[2].code & 7) === 1, 'COPY: pad 3 holds the copy (8 steps), open, selected and unsaved');
 /* the song settings */
-press(FX); knob(K5, 8); knob(K1, 1); knob(K5, 1); knob(K1, 2); knob(K5, 1); knob(K1, 1); knob(K5, 1); knob(K1, -6); knob(K5, 1); knob(K1, 3); u = setup();
-check(u.row === 12 && u.countIn === 1 && u.click === 2 && u.out === 1 && u.ch === 3 && u.note === 40, 'COUNT-IN 1 cycle, CLICK ALWAYS, as a MIDI NOTE, channel 4, note 40 (' + [u.countIn, u.click, u.out, u.ch, u.note] + ')');
+press(FX); knob(K5, 10); knob(K1, 1); knob(K5, 1); knob(K1, 2); knob(K5, 1); knob(K1, 1); knob(K5, 1); knob(K1, -6); knob(K5, 1); knob(K1, 3); u = setup();
+check(u.row === 14 && u.countIn === 1 && u.click === 2 && u.out === 1 && u.ch === 3 && u.note === 40, 'COUNT-IN 1 cycle, CLICK ALWAYS, as a MIDI NOTE, channel 4, note 40 (' + [u.countIn, u.click, u.out, u.ch, u.note] + ')');
 press(SAVE); u = setup();
 check(u.unsaved === 0, 'saved');
 { const r = stored(); check(r[20] === 3 && r[44] === (2 | 1 << 2 | 1 << 4) && r[45] === 4 && r[46] === 40 && (r[64 + 4] | r[65 + 4] << 8) > 0, 'the stored record (version 3) holds the settings and the copy in place 3 (bytes ' + [r[44], r[45], r[46]] + ')'); }
@@ -191,7 +192,7 @@ knob(K1, 5); h = chain();
 check(h.next === 4, 'K1 further stops at the last pad that holds a clip (CLIP 3; ' + h.next + ')');
 knob(K1, -1); knob(K5, 2); knob(K1, 1); h = chain();
 check(h.next === 3 && h.times === 2 && h.after === 0 && h.unsaved === 1, 'NEXT CLIP 2, TIMES 2, AFTER the clip\'s end; unsaved');
-knob(K5, 6); press(SAVE); press(FX);
+knob(K5, 5); press(SAVE); press(FX);
 pad(1); pad(1); press(FX); knob(K5, 1); knob(K1, 1); knob(K5, 1); knob(K1, 8); h = chain();
 check(h.place === 1 && h.next === 1 && h.after === 8, 'clip 2: NEXT CLIP STOP, AFTER 8 STEPS');
 knob(K5, 6); press(SAVE); h = chain(); press(FX);
@@ -253,13 +254,13 @@ s = state(); if (s.page !== 20) { press(BT); s = state(); }
 pad(0); pad(0); press(FX); knob(K5, 30);
 const more = () => { const n = c.sim_setup_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n)); return { n, row: d[1], unsaved: d[11], level: d[28], knobs: d.slice(29, 33) }; };
 let w = more();
-check(w.n === 33 && w.row === 17 && w.level === 1 && w.knobs.join() === '74,71,1,11', 'K5 to the last line (K4 CONTROLLER); a song never set: CLICK LEVEL MID, controllers 74, 71, 1, 11 (' + [w.row, w.level, w.knobs] + ')');
+check(w.n === 34 && w.row === 19 && w.level === 1 && w.knobs.join() === '74,71,1,11', 'K5 to the last line (K4 CONTROLLER); a song never set: CLICK LEVEL MID, controllers 74, 71, 1, 11 (' + [w.row, w.level, w.knobs] + ')');
 knob(K5, -3); knob(K2, -4); knob(K1, -3); knob(K5, -1); knob(K1, -5); w = more();
-check(w.row === 13 && w.knobs.join() === '7,71,1,11' && w.level === 0 && w.unsaved === 1, 'K1 CONTROLLER 7 (K2 moves by 16); CLICK LEVEL LOW, the lowest; unsaved (' + [w.level, w.knobs] + ')');
+check(w.row === 15 && w.knobs.join() === '7,71,1,11' && w.level === 0 && w.unsaved === 1, 'K1 CONTROLLER 7 (K2 moves by 16); CLICK LEVEL LOW, the lowest; unsaved (' + [w.level, w.knobs] + ')');
 knob(K1, 5); w = more();
 check(w.level === 2, 'CLICK LEVEL HIGH, the highest');
 knob(K5, 4); knob(K2, 8); w = more();
-check(w.row === 17 && w.knobs[3] === 127, 'K4 CONTROLLER stops at 127');
+check(w.row === 19 && w.knobs[3] === 127, 'K4 CONTROLLER stops at 127');
 knob(K2, -7); knob(K1, -4); press(SAVE); w = more();
 check(w.unsaved === 0 && w.knobs[3] === 11, 'saved');
 { const r = stored(); check(r[44] >> 6 === 2 && r[56] === 8 && r[57] === 0 && r[59] === 12, 'the record: header byte 44 bits 6-7 = 2 (HIGH), byte 56 = 8 (controller 7), byte 57 = 0 (never set), byte 59 = 12 (set to 11) (' + [r[44] >> 6, r[56], r[57], r[59]] + ')'); }
@@ -267,6 +268,33 @@ press(FX);
 { const before = log.length; knob(K1, 1); const cc = log.slice(before).filter(m => (m[0] & 0xf0) === 0xb0);
   check(cc.length === 1 && cc[0][1] === 7, 'on CLIPS K1 now sends controller 7 (' + cc.map(m => m.slice(0, 3)).join(' | ') + ')'); }
 check(c.sim_song_load(0) === 0 && more().level === 2 && more().knobs[0] === 7, 'loaded again: the level and the controller are the song\'s');
+
+/* ---- tabby-v04.15: TRANSPOSE and DELETE CLIP on the first page ---- */
+{ const tr = () => { const n = c.sim_setup_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n)); return { row: d[1], place: d[3], unsaved: d[11], transpose: d[33] << 24 >> 24 }; };
+  s = state(); if (s.page !== 20) press(BT);
+  pad(0); pad(0); press(FX); knob(K5, 7); const to = setup().to; press(SAVE);            /* a fresh copy of clip 1 in the first empty pad */
+  knob(K5, 1); knob(K1, 5); let x = tr();
+  check(x.row === 8 && x.place === to && x.transpose === 5 && x.unsaved === 1, 'TRANSPOSE (line 9) +5 on a new copy of clip 1 in pad ' + (to + 1) + ' (' + [x.row, x.place, x.transpose] + ')');
+  knob(K1, 20); x = tr(); check(x.transpose === 12, 'it stops at +12');
+  knob(K1, -30); x = tr(); check(x.transpose === -12, 'and at -12');
+  knob(K1, 15); press(FX); pad(to); const markT = log.length;
+  press(PLAY); const firstT = () => log.slice(markT).find(m => (m[0] & 0xf0) === 0x90 && m[2] && (m[0] & 15) === 9);
+  while (!firstT() && block < 3000000) step();
+  const t0 = firstT()[3]; step(300);
+  const heard = [...new Set(log.slice(markT).filter(m => (m[0] & 0xf0) === 0x90 && m[2] && (m[0] & 15) === 9 && m[3] < t0 + 250).map(m => m[1]))];
+  check(heard.length === 1 && heard[0] === 45, 'TRANSPOSE +3: the copy of clip 1 (note 42) plays note 45 and nothing else in its first loops (' + heard + ')');
+  press(PLAY); step(400);
+  press(FX); knob(K5, 30); knob(K5, -30); knob(K5, 9); press(SAVE); x = tr(); s = (press(FX), state());
+  check(x.row === 9 && (s.pads[to].code & 7) !== 0, 'DELETE CLIP (line 10): one press asks, the clip is still there');
+  press(FX); knob(K5, 9); step(900); press(SAVE); step(900); press(SAVE); s = (press(FX), state());
+  check((s.pads[to].code & 7) !== 0, 'presses more than two seconds apart only ask again');
+  step(900); press(FX); knob(K5, 9); press(SAVE); press(SAVE); s = (press(FX), state());
+  check((s.pads[to].code & 7) === 0 && tr().unsaved === 1, 'two presses delete the copy: the pad is empty, the song is unsaved (code ' + s.pads[to].code + ')');
+  pad(0); pad(0); press(FX); knob(K5, 30); knob(K5, -30); knob(K5, 9); press(SAVE); press(SAVE); s = (press(FX), state());
+  check((s.pads[0].code & 7) !== 0, 'clip 1 is used by a scene: it is not deleted');
+  press(FX); knob(K5, 1); press(SAVE); x = tr(); press(FX);
+  check(x.unsaved === 0 && c.sim_song_load(0) === 0, 'saved, and the song loads again without the copy');
+  s = state(); check((s.pads[to].code & 7) === 0 && (s.pads[0].code & 7) !== 0, 'after loading: the copy\'s pad is empty, clip 1 is there'); }
 
 /* ---- tabby-v04.14: everything the device wrote goes through both of the page's readers and back unchanged ---- */
 { const { createRequire } = await import('node:module'); const req = createRequire(import.meta.url);
@@ -288,6 +316,12 @@ check(c.sim_song_load(0) === 0 && more().level === 2 && more().knobs[0] === 7, '
       if (back.format !== Format.LIMITS.formatV3 || back.bytes.length !== payload.length || same(back.bytes, payload, 0, payload.length) >= 0) bad.push(id + ': differs at byte ' + (back.bytes.length !== payload.length ? 'length' : same(back.bytes, payload, 0, payload.length))); }
     catch (e) { bad.push(id + ': ' + e.message); }
   }
+  { /* tabby-v04.15: a transposed clip comes back with its transpose */
+    const n = c.sim_block_read(0, ids.find(id => { const k = c.sim_block_read(0, id); return k > 0 && V3.validate(mem().slice(c.sim_file(), c.sim_file() + k)) === 0; }));
+    const q = mem().slice(c.sim_file(), c.sim_file() + n); q[12] = 0xfe;
+    let back = null, why2 = ''; try { back = Format.payloadOf(Format.decodeBlock(q, 9, Format.LIMITS.formatV3)); } catch (e) { why2 = e.message; }
+    q[12] = 13; const refused = V3.validate(q) !== 0;
+    check(back && back.bytes[12] === 0xfe && back.bytes.length === q.length && refused, 'a clip with TRANSPOSE -2 comes back from the workbench with it; +13 is refused (' + why2 + ')'); }
   check(clips >= 2 && chains >= 2 && !bad.length, clips + ' clips made on the device (' + chains + ' with a chain) come back from the workbench byte for byte: length, chain, program and bank (' + bad.join('; ') + ')');
   /* the Full backup names the song it cannot read and stops (the tabby-v04.10 page stood at 66 %) */
   const lib = Object.create(W.Library.prototype);

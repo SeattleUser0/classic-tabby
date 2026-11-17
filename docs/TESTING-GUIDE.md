@@ -1,11 +1,11 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 3.2, 2026-11-17. For tabby-v04.14 on the M-VAVE SMK-37 Pro.
+Version 3.3, 2026-11-17. For tabby-v04.15 on the M-VAVE SMK-37 Pro.
 The user manual and the test checklist in one, for the person who plays and tests the device. No programming needed.
 Sections 3 to 5 are the manual: setting up, every page of the device in the order you use it, and the workbench. Section 6 is the checklist.
 
-This guide is for tabby-v04.14. If an older firmware is on your SMK-37, install tabby-v04.14 (section 3.2); section 2.2 lists what each release added. New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
+This guide is for tabby-v04.15. If an older firmware is on your SMK-37, install tabby-v04.15 (section 3.2); section 2.2 lists what each release added. New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
 
 Where to find what: playing a song from the pads is 4.7 and 4.8. Building and changing a song on the panel is 4.9 to 4.14. Projects, sounds and housekeeping are 4.1 to 4.6 and 4.15 to 4.18. The workbench is section 5.
 
@@ -102,6 +102,7 @@ Oldest first. The last line is the release this guide is for.
 - tabby-v04.12: the scene chain: on SCENES K1 sets how many times a scene plays, K2 what follows it, K3 holds the chain; a scene pad pressed while stopped is where PLAY starts (4.13).
 - tabby-v04.13: CLIP SETTING has PROGRAM, BANK MSB and BANK LSB for each clip; on CLIPS K1 to K4 send controllers 74, 71, 1 and 11, and a take records them (4.14).
 - tabby-v04.14: CLICK LEVEL (LOW, MID, HIGH) for the internal click; K1 CONTROLLER to K4 CONTROLLER choose what the four knobs on CLIPS send, per song; CLIP SETTING is two pages. The Full backup names a song the page cannot read and stops. The workbench importer keeps a clip's own length and its chain when it rewrites a song (before, it dropped them).
+- tabby-v04.15: TRANSPOSE on CLIP SETTING moves a clip's notes by up to 12 semitones either way when it plays. DELETE CLIP takes a clip out of the song (two presses, stopped, never a clip a scene uses).
 
 
 3. SETUP
@@ -125,7 +126,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. Install tabby-v04.14 to get everything in this guide. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. Install tabby-v04.15 to get everything in this guide. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -330,11 +331,13 @@ A new clip
 3. The CLIPS page shows UNSAVED. Stop the song and press the 4th button in the left group, or wait ten seconds: SAVED. The new clip is now part of the song.
 
 CLIP SETTING
-1. On CLIPS select a clip (hold its pad) and press FX. The SETTING page has two pages. Page 1/2 is the clip: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB and COPY TO PAD. Page 2/2 is the song: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL and K1 CONTROLLER to K4 CONTROLLER. K5 walks through all the lines; the page changes by itself.
+1. On CLIPS select a clip (hold its pad) and press FX. The SETTING page has two pages. Page 1/2 is the clip: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD, TRANSPOSE and DELETE CLIP. Page 2/2 is the song: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL and K1 CONTROLLER to K4 CONTROLLER. K5 walks through all the lines; the page changes by itself.
 2. Turn K5 to choose a line. Turn K1 to change it; K2 changes it by 16.
 3. LENGTH is the clip's length, 1 to 128 steps. Making it shorter removes the notes past the new end; FX on the STEP page brings them back.
 4. COPY TO PAD: turn K1 to an empty pad and press the 4th button in the left group. The copy is open and UNSAVED. A clip you changed must be saved before you copy it.
-5. FX goes back to CLIPS.
+5. TRANSPOSE (tabby-v04.15): K1 moves the clip's notes up or down, 12 semitones at most. The clip itself is not changed: 0 plays it as it was. You hear it from the clip's next loop.
+6. DELETE CLIP (tabby-v04.15): stop the song, turn K5 to DELETE CLIP and press the 4th button in the left group. The screen says PRESS AGAIN TO DELETE THE CLIP. Press it again within two seconds: CLIP DELETED - SAVE THE SONG. A clip that a scene uses is not deleted; the screen names the scene.
+7. FX goes back to CLIPS.
 Every clip loops at its own length: a 1-bar clip in a 4-bar scene plays four times. Songs you imported play as before.
 
 Click and count-in
@@ -1109,6 +1112,21 @@ Set up: only if you have a song saved by firmware newer than the page you open. 
 You should see: the backup line says STOPPED at song n: this page cannot read it, and what to do. No file is downloaded. [checked in simulator]
 Result: PASS / FAIL   Notes: ________________________________
 
+T83. Transpose a clip (tabby-v04.15)
+Set up: a clip with notes, launched and looping. A synth on MIDI out, or the track's own sound.
+1. Press FX on CLIPS. Turn K5 to TRANSPOSE. Turn K1 to +3.
+2. Listen for two loops. Turn K1 back to 0.
+You should hear: from the next loop every note is three semitones higher; at 0 the clip sounds as before. The screen shows UNSAVED until you save. [checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
+T84. Delete a clip (tabby-v04.15)
+Set up: the song stopped. Make a copy of a clip first (COPY TO PAD), so nothing you need is lost.
+1. Select the copy, press FX, turn K5 to DELETE CLIP. Press the 4th button in the left group once.
+2. Wait three seconds. Press it once more. Then press it twice quickly.
+3. Select a clip that a scene plays and try the same.
+You should see: one press, and presses three seconds apart, only ask (PRESS AGAIN TO DELETE THE CLIP). Two quick presses: CLIP DELETED - SAVE THE SONG and the pad goes dark. The scene's clip stays: USED BY SCENE n - NOT DELETED. [checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
 
 7. KNOWN LIMITS AND WHAT IS NOT BUILT YET
 =========================================
@@ -1116,7 +1134,7 @@ Result: PASS / FAIL   Notes: ________________________________
 Do not spend time testing these. They are known.
 
 - MIDI timing (tabby-v04.4 and later): one line stays within about 2 ms and eight lines within about 3 ms of their times, on DIN and USB. On DIN eight notes at the same step still take 9 ms to pass the cable one after the other.
-- New songs come from the workbench; their clips can be edited on the STEP page (4.9) and recorded into (4.10). You can make new clips, change a clip's length and copy clips on the device (4.11); you cannot delete a clip or a scene there. The click and count-in settings are stored in each song, not once for the device.
+- New songs come from the workbench; their clips can be edited on the STEP page (4.9) and recorded into (4.10). You can make new clips, change a clip's length and copy clips on the device (4.11); you can delete a clip (4.11) but not a scene. The click and count-in settings are stored in each song, not once for the device.
 - One clip can be unsaved at a time, and a clip two tracks share cannot be edited on the device.
 - External clock in song mode (tabby-v04.3.1): the clock must come over USB or Bluetooth; the TRS jack cannot receive it. Song Position Pointer moves the song through its rows and repeats; a position past the end of a song that does not loop goes to its last step. The song sends no clock of its own while it follows.
 - The TRS jack is output only. A DIN clock cannot come in through it. Use USB or Bluetooth for clock in.
@@ -1131,7 +1149,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.14.
+- The page badge and the boot screen show tabby-v04.15.
 
 
 8. HOW TO REPORT A PROBLEM

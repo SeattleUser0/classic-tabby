@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.9 (2026-11-17). Applies from tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.10 (2026-11-17). Applies from tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -199,8 +199,8 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-Deleting a clip or a scene, a new song from nothing, and SCALE (step sizes other than a
-16th): not planned yet. New songs still come from the web workbench (the MIDI importer or the song editor).
+Deleting a scene, a new song from nothing, and SCALE (step sizes other than a
+16th): next on the list in docs/MC707-PARITY.md section 0. New songs still come from the web workbench (the MIDI importer or the song editor).
 
 ## 11. Differences from the MC-707
 
@@ -268,6 +268,8 @@ Deliberate differences:
 | Count-in | Count-In Step, OFF or 1 to 128 steps; MIDI Start goes out after it (UM, Ver. 1.20 and its fixes). | COUNT-IN, OFF or 1, 2 or 4 master cycles; MIDI Start after it. Only before a take that starts the song (REC, then PLAY). | Whole cycles keep the take's first bar on the grid. With the song already running there is nothing to count in. |
 | Metronome | ON or OFF with the master clock; type and level; sounds on the audio outputs (UM, Ver. 1.10 and 1.50). | CLICK: OFF, WHEN RECORDING or ALWAYS; output INTERNAL, MIDI NOTE (a channel and note you choose) or BOTH; CLICK LEVEL LOW, MID or HIGH for the internal click; one click sound. | The SMK-37's audio may feed the house mix, so the click for the stage is a MIDI note (SPEC 14.1, decision 7). |
 | Where the click settings live | In the system settings. | In each song. | The device's settings sector has no room without a format change; a song's click note belongs to that song's rig anyway. |
+| Transpose | Per clip, -12 to +12 (RM p. 50). | TRANSPOSE per clip, -12 to +12; applied when the clip plays, the stored notes stay. | Same. Applied at play time so that 0 always restores the clip. |
+| Deleting a clip | Delete in the clip operations (RM pp. 14 to 16). | DELETE CLIP on CLIP SETTING, the 4th left button twice within two seconds; only while stopped; never a clip a scene uses. | Stage safety: one wrong press must not take a clip out of a running set, and a scene must not lose its clip. |
 | Unsaved clips | Any number. | One at a time. A copy or a new clip counts. | Memory. |
 | A scene pad while stopped | Reserves the scene; START plays it (RM p. 35 with p. 12). | The same from tabby-v04.12; the pad again takes the reservation back. | Same; taking back as for clips. |
 | Scenes in order | None: a scene stays until you press another. | The scene chain: each scene plays TIMES times and the next one follows; THEN STAY makes a scene wait like an MC-707 scene; K3 holds the whole chain. | Imported songs play through by themselves; the hold and the pads are the manual override. |
@@ -419,8 +421,8 @@ when ENV sends the track back to the scenes.
 ## 14. CLIP SETTING page
 
 FX on the CLIPS page opens it on the track's selected clip (or the clip the track plays). The screen lists one
-setting per line, on two pages: page 1/2 holds the clip's eight lines (LENGTH to COPY TO PAD), page 2/2 the song's ten
-lines (COUNT-IN to K4 CONTROLLER). K5 walks through all eighteen; the screen changes page when it passes line 8.
+setting per line, on two pages: page 1/2 holds the clip's ten lines (LENGTH to DELETE CLIP), page 2/2 the song's ten
+lines (COUNT-IN to K4 CONTROLLER). K5 walks through all twenty; the screen changes page when it passes line 10.
 Without a selected clip the clip's lines show a dash and the song's lines still work.
 
 | Control | Result |
@@ -428,7 +430,7 @@ Without a selected clip the clip's lines show a dash and the song's lines still 
 | K5, OCT - / OCT + | Chooses the line. |
 | K1 | Changes the line's value by one. |
 | K2 | Changes it by 16 (a bar of LENGTH). |
-| 4th left button | On COPY TO PAD: makes the copy. On every other line: saves the song (stopped only). |
+| 4th left button | On COPY TO PAD: makes the copy. On DELETE CLIP: pressed twice within two seconds, deletes the clip. On every other line: saves the song (stopped only). |
 | FX, EDIT, BT | Back to CLIPS. |
 | PLAY | Starts and stops the song. |
 | HOME | To the overview. |
@@ -439,6 +441,8 @@ Without a selected clip the clip's lines show a dash and the song's lines still 
 | PROGRAM, BANK MSB, BANK LSB | | The clip's program change and bank, section 19. They follow TIMES. |
 | LENGTH | 1 to 128 steps | The clip's length. It loops at this length wherever it plays. Shorter: the notes past the new end are removed (NOTES PAST THE END REMOVED; FX on the STEP page undoes). Longer: empty steps are added. Heard from the clip's next loop. Not during a take. |
 | COPY TO PAD | a pad of the same track, 1 to 64 | The 4th left button copies the clip to that pad if it is empty (the page offers the first empty one and says EMPTY or HOLDS A CLIP). The copy becomes the open clip, UNSAVED. A clip with unsaved changes must be saved first. |
+| TRANSPOSE | -12 to +12 semitones | Moves every note of the clip when it plays; the notes stored in the clip are not changed, so 0 brings the clip back as it was. Heard from the clip's next loop. A note that would leave the MIDI range stays at its edge. Saved with the clip; FX on the STEP page undoes. Not during a take. For a drum clip leave it at 0. |
+| DELETE CLIP | | Press the 4th left button: PRESS AGAIN TO DELETE THE CLIP. Press it again within two seconds: CLIP DELETED - SAVE THE SONG, and the pad is empty. Only while the song is stopped (STOP TO DELETE). A clip that a scene uses is not deleted: USED BY SCENE n - NOT DELETED. Chains that led to the clip do nothing afterwards. The song is UNSAVED until you save it; loading the song again before saving brings the clip back. |
 | COUNT-IN | OFF, 1 CYCLE, 2 CYCLES, 4 CYCLES | Section 15. |
 | CLICK | OFF, WHEN RECORDING, ALWAYS | Section 15. |
 | CLICK OUT | INTERNAL, MIDI NOTE, BOTH | Section 15. |
@@ -448,7 +452,8 @@ Without a selected clip the clip's lines show a dash and the song's lines still 
 | K1 CONTROLLER to K4 CONTROLLER | 0 to 127 | The controller number each of K1 to K4 sends on the CLIPS page (74, 71, 1 and 11 unless changed). Section 19.2. |
 
 Messages: SELECT A CLIP FIRST, NOTES PAST THE END REMOVED, NOT DURING A TAKE, THE CLIP IS UNSAVED: SAVE IT FIRST,
-THAT PAD HOLDS A CLIP, COPIED - THE COPY IS OPEN, CLIP SHARED BY ANOTHER TRACK, STOP TO SAVE, SAVED, NOTHING TO SAVE.
+THAT PAD HOLDS A CLIP, COPIED - THE COPY IS OPEN, CLIP SHARED BY ANOTHER TRACK, STOP TO SAVE, SAVED, NOTHING TO SAVE,
+PRESS AGAIN TO DELETE THE CLIP, CLIP DELETED - SAVE THE SONG, USED BY SCENE n - NOT DELETED, STOP TO DELETE.
 
 ## 15. Click and count-in
 

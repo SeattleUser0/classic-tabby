@@ -238,7 +238,7 @@ static uint8_t rec_lamp;   /* the recorder's state as the control pass last read
 /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the CLIP SETTING page: a list; K5 chooses the row, K1 changes its value (K2 in
  * steps of 16), the 4th left button does a row that is an action (COPY) and saves on the others. The scene pad that is
  * being held on the SCENES page (a long press on an empty pad stores what plays as a new scene). */
-enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_PROGRAM, SET_BANK_MSB, SET_BANK_LSB, SET_COPY, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE,
+enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_PROGRAM, SET_BANK_MSB, SET_BANK_LSB, SET_COPY, SET_TRANSPOSE, SET_DELETE /* tabby-v04.15 */, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE,
        SET_CLICK_LEVEL, SET_KNOB1, SET_KNOB2, SET_KNOB3, SET_KNOB4 /* tabby-v04.14: the second page starts at SET_COUNT_IN */, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
 static uint8_t setup_row, setup_to, scene_hold_pad = 255;
 static uint32_t scene_hold_ms;
@@ -490,6 +490,25 @@ static void setup_open(unsigned place)
 static const char *setup_do(void)
 {
     struct song_edit_info ei; song_edit_info(&ei);
+    if (setup_row == SET_DELETE) {
+        /* tabby-v04.15: DELETE CLIP asks once: the second press within two seconds deletes */
+        static uint32_t asked_at; static uint8_t asked_track, asked_place, asked;
+        uint32_t t_now = fm1_millis();
+        if (!ei.active) return "SELECT A CLIP FIRST";
+        if (!asked || asked_track != ei.track || asked_place != ei.place || t_now - asked_at > 2000U) {
+            asked = 1; asked_track = ei.track; asked_place = ei.place; asked_at = t_now;
+            return "PRESS AGAIN TO DELETE THE CLIP";
+        }
+        asked = 0;
+        int r = song_clip_delete(ei.track, ei.place);
+        if (r == SONG_EDIT_SHARED) {
+            static char used[] = "USED BY SCENE 000 - NOT DELETED";
+            unsigned sc = (unsigned)song_clip_scene(ei.track, ei.place) + 1U;
+            used[14] = (char)('0' + sc / 100); used[15] = (char)('0' + sc / 10 % 10); used[16] = (char)('0' + sc % 10);
+            return used;
+        }
+        return r == SONG_BUSY ? "STOP TO DELETE" : r ? "NOT DELETED" : "CLIP DELETED - SAVE THE SONG";
+    }
     if (setup_row == SET_COPY) {
         if (!ei.active) return "SELECT A CLIP FIRST";
         int r = song_clip_copy(ei.track, ei.place, setup_to);
@@ -517,6 +536,11 @@ static const char *setup_edit(int d)
         return r == SONG_BUSY ? "NOT DURING A TAKE" : r == SONG_EMPTY ? "SET BANK MSB FIRST" : NULL;
     }
     if (setup_row == SET_COPY) { setup_to = (uint8_t)clamp((int)setup_to + d, 0, SONG_CLIPS - 1); return NULL; }
+    if (setup_row == SET_TRANSPOSE) {
+        if (!ei.active) return "SELECT A CLIP FIRST";
+        return song_edit_transpose(d) == SONG_BUSY ? "NOT DURING A TAKE" : NULL;
+    }
+    if (setup_row == SET_DELETE) return NULL;
     (void)song_setting_edit(setup_row - SET_COUNT_IN, d);
     return NULL;
 }
@@ -540,7 +564,8 @@ unsigned ct_screen_setup_read(uint8_t *out)
       const struct song_model *mdl = song_model_current();
       out[23] = (uint8_t)er; out[24] = rec && er < rec->rows ? rec->row[er].repeat : 0; out[25] = rec && er < rec->rows ? rec->row[er].flags : 0;
       out[26] = rec && er < rec->rows ? rec->row[er].steps : 0; out[27] = mdl ? mdl->cycle : 16; }
-    return 33;
+    out[33] = clip ? clip[12] : 0;   /* tabby-v04.15: the open clip's transpose, a signed byte */
+    return 34;
 }
 int ct_screen_setup_do(void)
 {
@@ -1175,7 +1200,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
     } else if (visible == CLIP_SETUP) {
         /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the settings of the open clip and of the song, one per line */
         struct song_edit_info ei; song_edit_info(&ei);
-        static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "PROGRAM", "BANK MSB", "BANK LSB", "COPY TO PAD", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE",
+        static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "PROGRAM", "BANK MSB", "BANK LSB", "COPY TO PAD", "TRANSPOSE", "DELETE CLIP", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE",
                                                        "CLICK LEVEL", "K1 CONTROLLER", "K2 CONTROLLER", "K3 CONTROLLER", "K4 CONTROLLER"};
         const uint8_t *sclip = song_edit_clip();
         static const char *const modes[] = {"OFF", "WHEN RECORDING", "ALWAYS"}, *const outs[] = {"INTERNAL", "MIDI NOTE", "BOTH"}, *const counts[] = {"OFF", "1 CYCLE", "2 CYCLES", "", "4 CYCLES"},
@@ -1190,7 +1215,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         if (song_unsaved()) color_text(190, 40, "UNSAVED", AMBER);
         dim_text(204, 52, second ? "2/2" : "1/2");
         for (unsigned i = from; i < to; ++i) {
-            unsigned y = 64 + (i - from) * 12, sel = i == setup_row, clip_row = i <= SET_COPY;
+            unsigned y = 64 + (i - from) * 12, sel = i == setup_row, clip_row = i < SET_COUNT_IN;
             color_text(8, y, sel ? ">" : " ", ACCENT);
             color_text(18, y, labels[i], sel ? TEXT : DIM);
             if (clip_row && !ei.active) { dim_text(130, y, "-"); continue; }
@@ -1205,6 +1230,9 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             else if (i == SET_BANK_LSB) { if (sclip && (sclip[1] & CLIP_V3_FLAG_BANK)) small_number(130, y, sclip[4], 3, TEXT); else dim_text(130, y, "-"); }
             else if (i == SET_COPY) { const struct song_model *mdl = song_model_current();
                                       small_number(130, y, setup_to + 1U, 2, TEXT); dim_text(150, y, mdl && mdl->clip[ei.track][setup_to] ? "(HOLDS A CLIP)" : "(EMPTY)"); }
+            else if (i == SET_TRANSPOSE) { int tr = sclip ? clip_v3_transpose(sclip) : 0;
+                                           color_text(130, y, tr < 0 ? "-" : tr > 0 ? "+" : " ", TEXT); small_number(138, y, tr < 0 ? -tr : tr, 2, TEXT); dim_text(158, y, "SEMITONES"); }
+            else if (i == SET_DELETE) dim_text(130, y, "4TH LEFT BTN TWICE");
             else if (i == SET_COUNT_IN) color_text(130, y, counts[song_setting(SONG_SET_COUNT_IN)], TEXT);
             else if (i == SET_CLICK) color_text(130, y, modes[song_setting(SONG_SET_CLICK)], TEXT);
             else if (i == SET_CLICK_OUT) color_text(130, y, outs[song_setting(SONG_SET_CLICK_OUT)], TEXT);
@@ -1214,7 +1242,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             else small_number(130, y, song_setting(SONG_SET_KNOB1 + i - SET_KNOB1), 3, TEXT);
         }
         plain_text(8, 198, notice ? notice : "K5 ROW  K1 VALUE  K2 VALUE X16");
-        dim_text(8, 213, setup_row == SET_COPY ? "4TH LEFT BTN COPIES THE CLIP" : "4TH LEFT BTN SAVES (STOPPED)");
+        dim_text(8, 213, setup_row == SET_COPY ? "4TH LEFT BTN COPIES THE CLIP" : setup_row == SET_DELETE ? "4TH LEFT BTN TWICE DELETES  " : "4TH LEFT BTN SAVES (STOPPED)");
         dim_text(8, 231, "FX BACK TO CLIPS  PLAY START/STOP");
     } else if (visible == CLIP_STEPS) {
         /* Goal 6 (docs/CONTROL-MAP.md 12): the clip being edited: its bar of 16 steps, the selected step's notes. */

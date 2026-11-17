@@ -47,7 +47,8 @@ All fields little-endian. A payload is `16 + 6 x count` bytes.
 | 8 | `next` | the clip chain (tabby-v04.10, section 2.1): 0 = stay (no chain), 1 = stop the track, 2..65 = go to the clip in place 1..64 of the same track |
 | 9..10 | `after` | u16: the chain is due after this many steps, 1..512; 0 = after the clip's own length |
 | 11 | `times` | how many times `after` (or the clip) plays before the chain is due, 2..64; 0 = once |
-| 12..15 | reserved | 0 |
+| 12 | transpose | a signed byte, -12 to 12 semitones, 0 = none (tabby-v04.15). Added to every note when the clip is decoded for playing; the event list is not changed. A clip with a transpose is not v2-shaped |
+| 13..15 | reserved | 0 |
 
 **Event, 6 bytes.** Sorted by `time` (ascending; events at the same time keep their list order, which the
 scheduler follows). `time` is stored with a bias of 240: stored = time + 240, so times from -240 (a note
