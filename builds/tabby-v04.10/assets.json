@@ -1,0 +1,55 @@
+{
+  "build": "7e376d6bb50aacdba33b3373951c87f97b518fd81a5b06d00bb2f250513b21a3",
+  "release": "V01",
+  "version": "tabby-v04.10",
+  "entryBytes": 365968,
+  "initialBytes": 1394352,
+  "standaloneBytes": 3139294,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/72ecc71e78c9f7abe0125b84778ff5281c61cbf9e6174ae2f697ad366e953ac0.bin",
+      "bytes": 516660,
+      "sha256": "72ecc71e78c9f7abe0125b84778ff5281c61cbf9e6174ae2f697ad366e953ac0"
+    },
+    {
+      "name": "assets/smk37/9de135799fa5577c14eb76dad1617ff8d8321d6587bef094997f9166f64f9428.wasm",
+      "bytes": 350344,
+      "sha256": "9de135799fa5577c14eb76dad1617ff8d8321d6587bef094997f9166f64f9428"
+    },
+    {
+      "name": "assets/smk37/4f693c282bac2197e9064f951286d85f3a4afd23cbf5c0de8e4ff5ed30215436.js",
+      "bytes": 605399,
+      "sha256": "4f693c282bac2197e9064f951286d85f3a4afd23cbf5c0de8e4ff5ed30215436"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 365968,
+      "sha256": "298e6117b5d47e796d459b49622aa790c70772aa2fd2b74123a036c055f1e6f0"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 365968,
+      "sha256": "298e6117b5d47e796d459b49622aa790c70772aa2fd2b74123a036c055f1e6f0"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3139294,
+      "sha256": "08f7441875fdbfbb227c5c57941c0def369373f8df928e367b8b308752e06ebe"
+    }
+  ]
+}

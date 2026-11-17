@@ -33,7 +33,7 @@
   };
 })();
 
-const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.9.3","build_id":"85d3dd36e7d4288e7b1d69fa2bd3f17134a8f2b1dd3674a84355201465e463da","sha256":"ccc19f6d660efbca040050ddd11e92fe9294268407cea4a159c2d499cac886c4","bytes":512564,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/ccc19f6d660efbca040050ddd11e92fe9294268407cea4a159c2d499cac886c4.bin"};
+const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.10","build_id":"7e376d6bb50aacdba33b3373951c87f97b518fd81a5b06d00bb2f250513b21a3","sha256":"72ecc71e78c9f7abe0125b84778ff5281c61cbf9e6174ae2f697ad366e953ac0","bytes":516660,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/72ecc71e78c9f7abe0125b84778ff5281c61cbf9e6174ae2f697ad366e953ac0.bin"};
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. */
 /* SMK37 OPEN browser updater.
@@ -2559,7 +2559,9 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     if (steps < 1 || steps > STEPS_MAX || (flags & ~3) || p[2] > 127 || p[3] > 127 || p[4] > 127 || p[5]) return BAD_HEADER;
     if (!(flags & 1) && p[2]) return BAD_HEADER;
     if (!(flags & 2) && (p[3] || p[4])) return BAD_HEADER;
-    for (let i = 8; i < HEADER; i++) if (p[i]) return BAD_HEADER;
+    // v0.3: the clip chain in bytes 8..11 (next, after u16, times); the last four bytes stay 0
+    if (p[8] > 65 || (p[9] | p[10] << 8) > 512 || p[11] > 64) return BAD_HEADER;
+    for (let i = 12; i < HEADER; i++) if (p[i]) return BAD_HEADER;
     let last = -BIAS - 1, groupAnchor = -1, groupStart = 0;
     const maxTime = steps * UNITS - BIAS;
     for (let i = 0; i < count; i++) {
@@ -2630,7 +2632,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     const r = validate(p);
     if (r) fail(r, 'invalid v3 clip');
     const steps = p[0], list = events(p);
-    if (steps > 64 || p[1]) fail(NOT_V2_SHAPED, 'a v2 block holds at most 64 steps and no header program or bank');
+    if (steps > 64 || p[1] || p[8]) fail(NOT_V2_SHAPED, 'a v2 block holds at most 64 steps and no header program, bank or chain');
     const perStep = new Array(64).fill(0), head = new Array(64).fill(0);
     for (const e of list) {
       if (e.kind === NOTE) { const a = anchor(e.time); if (a >= 64 || perStep[a] >= 4) fail(NOT_V2_SHAPED, 'more than four notes in a step'); perStep[a]++; }
@@ -2691,7 +2693,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
 
   const TabbyClipV3 = { HEADER, EVENT, EVENTS_MAX, STEPS_MAX, BIAS, NOTE, CC, PC, BEND, PRESSURE, STEPMOD,
     codes: { OK, BAD_SIZE, NOT_V2_SHAPED, BAD_HEADER, BAD_EVENT, BAD_ORDER, DUPLICATE, NO_ROOM, BAD_SOURCE },
-    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.2' };
+    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.3' };
   globalThis.TabbyClipV3 = TabbyClipV3;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyClipV3;
 })();
@@ -4567,7 +4569,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();
 
-const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.9.3","sha256":"a0124dd7b22e3718d4164198d801dd793ca27fcd2ffcabfe5a9bb10378f33aa6","source_sha256":"c86575bf30623412dabd162d2fc1bafc6178ca7b948d12e09f6326b91065f940","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":334825,"url":"./assets/smk37/a0124dd7b22e3718d4164198d801dd793ca27fcd2ffcabfe5a9bb10378f33aa6.wasm"};
+const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.10","sha256":"9de135799fa5577c14eb76dad1617ff8d8321d6587bef094997f9166f64f9428","source_sha256":"0daed2402c01ab0e77a504d74d24eb364844621bcb29d056d7396f0c047b1821","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":350344,"url":"./assets/smk37/9de135799fa5577c14eb76dad1617ff8d8321d6587bef094997f9166f64f9428.wasm"};
 (() => {
   const $=id=>document.getElementById(id);
   // Task 08: the badge shows the Classic Tabby display version (the git tag); the Open label is the fallback.
