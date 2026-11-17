@@ -281,11 +281,12 @@
       /* Version 3: the clip table at 64 (8 tracks x 64 places, a block id each), the scenes at 1088 (12 bytes: a clip
        * place + 1 per track, repeat, flags, steps, 0), the master cycle in byte 43 (0 = 16 steps). */
       r[43] = (song.cycleSteps || 16) === 16 ? 0 : song.cycleSteps;
+      if (Array.isArray(song.click)) { r[44] = song.click[0] & 63; r[45] = song.click[1] & 31; r[46] = song.click[2] & 127; }   /* v0.8: kept as read */
       const clips = clipTable(song);
       song.rows.forEach((row, i) => {
         const at = LIMITS.scenesOffset + i * LIMITS.sceneBytes;
         for (let t = 0; t < 8; t++) r[at + t] = row.blocks[t] ? clips[t].indexOf(row.blocks[t]) + 1 : 0;
-        r[at + 8] = row.repeat; r[at + 9] = row.loopHere ? 1 : 0; r[at + 10] = row.steps; r[at + 11] = 0;
+        r[at + 8] = row.repeat; r[at + 9] = (row.loopHere ? 1 : 0) | (row.own ? 2 : 0); r[at + 10] = row.steps; r[at + 11] = 0;
       });
       clips.forEach((list, t) => list.forEach((id, c) => v.setUint16(LIMITS.clipsOffset + t * 128 + c * 2, id, true)));
     } else song.rows.forEach((row, i) => {
@@ -338,10 +339,12 @@
       song.clips = Array.from({ length: 8 }, (_, t) => Array.from({ length: LIMITS.clipsPerTrack }, (_, c) => v.getUint16(LIMITS.clipsOffset + t * 128 + c * 2, true)));
       for (let i = 0; i < rowCount; i++) {
         const at = LIMITS.scenesOffset + i * LIMITS.sceneBytes, steps = r[at + 10];
-        if (!LIMITS.rowStepsAllowed.includes(steps) || r[at + 8] < 1 || r[at + 8] > 64 || (r[at + 9] & ~1) || r[at + 11]) fail('song record scene ' + (i + 1) + ' invalid');
+        if (!LIMITS.rowStepsAllowed.includes(steps) || r[at + 8] < 1 || r[at + 8] > 64 || (r[at + 9] & ~3) || r[at + 11]) fail('song record scene ' + (i + 1) + ' invalid');   /* v0.8: bit 1, a scene stored on the device (tabby-v04.10) */
         const blocks = Array.from({ length: 8 }, (_, t) => { const place = r[at + t]; if (place > LIMITS.clipsPerTrack || (place && !song.clips[t][place - 1])) fail('song record scene ' + (i + 1) + ' names a clip that does not exist'); return place ? song.clips[t][place - 1] : 0; });
-        song.rows.push({ blocks, repeat: r[at + 8], loopHere: !!(r[at + 9] & 1), steps });
+        song.rows.push({ blocks, repeat: r[at + 8], loopHere: !!(r[at + 9] & 1), steps, ...(r[at + 9] & 2 ? { own: true } : {}) });
       }
+      /* v0.8: the song's click and count-in settings as the device stores them (header bytes 44 to 46, tabby-v04.10) */
+      if (r[44] || r[45] || r[46]) song.click = [r[44], r[45], r[46]];
       for (let i = LIMITS.scenesOffset + rowCount * LIMITS.sceneBytes; i < LIMITS.bodyEnd; i++) if (r[i]) fail('song record bytes after the last scene are not 0');
       for (const list of song.clips) while (list.length && !list[list.length - 1]) list.pop();
     } else
@@ -504,7 +507,7 @@
         ? (v1 ? { step: n[0], pitch: n[1], velocity: n[2], offset: 0, length: n[3] * LIMITS.unitsPerStep, retrigger: !!n[4] }
               : { step: n[0], pitch: n[1], velocity: n[2], length: n[3], offset: n[4] | 0, retrigger: !!n[5] })
         : { ...n, offset: v1 ? 0 : n.offset | 0, length: v1 ? n.length * LIMITS.unitsPerStep : n.length, retrigger: !!n.retrigger }) }));
-    song.rows = (data.rows || []).map(r => ({ blocks: Array.from(r.blocks || []), repeat: r.repeat, loopHere: !!r.loopHere, steps: r.steps || data.rowSteps || 64 }));
+    song.rows = (data.rows || []).map(r => ({ blocks: Array.from(r.blocks || []), repeat: r.repeat, loopHere: !!r.loopHere, steps: r.steps || data.rowSteps || 64, ...(r.own ? { own: true } : {}) }));
     song.events = (data.events || []).map(e => ({ row: e.row, channel: e.channel, type: e.type, d0: e.d0 | 0, d1: e.d1 | 0, d2: e.d2 | 0 }));
     delete song.rowSteps;                                 /* v0.1 files: the length now lives in each row */
     checkSong(song);
@@ -539,7 +542,7 @@
   function quantize(song, mode, rule) { return song.blocks.reduce((n, b) => n + quantizeNotes(b.notes, mode, rule), 0); }
 
   const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, blockKeyOf, needsV3, payloadOf, structuralKey, encodeBlockRecord, validateEvents,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.7' };
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.8' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();

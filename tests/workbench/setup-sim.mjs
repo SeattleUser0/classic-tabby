@@ -162,6 +162,14 @@ press(SAVE); u = setup();
 check(u.unsaved === 0, 'stopped: the 4th left button on SCENES saves the song');
 { const r = stored(), q = 1088 + 2 * 12; check(r[40] === 3 && r[q] === 3 && r[q + 8] === 1 && r[q + 9] === 3 && r[q + 10] === 16, 'the stored record has scene 3: T1 place 3, once, looping, keeping its clips\' lengths, 16 steps (' + [r[q], r[q + 8], r[q + 9], r[q + 10]] + ')'); }
 check(c.sim_song_load(0) === 0 && setup().scenes === 3, 'loaded again: three scenes');
+/* The workbench must read what the device wrote: the Full backup of the tabby-v04.10 page stalled on a song with a
+ * stored scene (its reader refused the scene's flag; found on the device before the tabby-v04.11 install). */
+{ const { createRequire } = await import('node:module'); const Format = createRequire(import.meta.url)(join(root, 'web/import/song-format.js'));
+  let song = null, why = ''; const bytes = stored();
+  try { song = Format.decodeRecord(bytes); } catch (e) { why = e.message; }
+  check(song && song.rows.length === 3 && song.rows[2].own === true && !song.rows[0].own && song.click && song.click[0] === bytes[44], 'the workbench reads the device-written record: the stored scene and the click settings (' + why + ')');
+  let again = null; try { again = Format.encodeRecord({ ...song, blocks: [...new Set([...song.rows.flatMap(r => r.blocks), ...song.clips.flat()].filter(Boolean))].map(id => ({ id, notes: [] })) }); } catch (e) { why = e.message; }
+  check(again && again[1088 + 2 * 12 + 9] === 3 && again[44] === bytes[44] && again[45] === bytes[45] && again[46] === bytes[46], 'and writes them back unchanged (' + why + ')'); }
 
 /* ---- tabby-v04.11: the clip chain on the page: clip 1 (8 steps) twice, then clip 2; clip 2 stops the track after 8 steps ---- */
 const chain = () => { const n = c.sim_setup_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n)); return { next: d[13], after: d[14] | d[15] << 8, times: d[16], unsaved: d[11], place: d[3] }; };

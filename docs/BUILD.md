@@ -5431,3 +5431,18 @@ Tool errors (not the device; each checked with a second reading before it was wr
   through the panel (40 checks); tools/linux/hw/run-chain.py v0.1, run-setup.py v0.3.
 - Measured (the build): app image 479236 bytes (+864), margin 40221, heap 143116 (unchanged), build id
   `7b85cd8d3d193809`. docs/FLASH-BUDGET.md 34.
+
+### 47.1 tabby-v04.11 published, not installed: the page could not back up a stored scene (2026-11-16)
+
+Suite green on d5f975f, tagged, published, released. The Full backup before the install (through the tabby-v04.10
+page) stood still at "Reading the device... 66 %" and timed out after 15 minutes; by the rule no install was made. A
+second run with the page's text printed showed the same. Cause, read from the code and then proven by a test:
+web/import/song-format.js `decodeRecord` refused scene flags other than bit 0, and the test song on the device held a
+scene stored from the panel (flag bit 1, new in tabby-v04.10). The firmware was right; the page's reader was not
+updated with it, and no test read a device-written record with the workbench code. The backups of the tabby-v04.10
+batch passed because the song had just been imported again each time.
+
+tabby-v04.11.1: song-format.js v0.8 accepts the flag, keeps it (`own`) and the click bytes 44 to 46 when it writes a
+record; setup-sim.mjs decodes and re-encodes the record the simulated device saved (42 checks). Note lines on the
+builds pages of tabby-v04.10 and tabby-v04.11 (tools/linux/builds-notes.json). App image 479236 bytes, build id `ea12999a89238727`.
+Still open: the page shows no error when a song cannot be read; it should say which song and stop.
