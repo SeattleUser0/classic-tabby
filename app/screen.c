@@ -1572,7 +1572,7 @@ static void draw_page(const struct fm1_ble_status *ble)
         text(8, 198, "KNOB BANK SHORTCUTS", 1, ACCENT, PANEL);
         text(8, 209, "PADS 1-8 TRACK   PADS 9-16 MUTE", 1, TEXT, PANEL);
         text(8, 220, "PATCH SOURCE  SEQ MIDI", 1, TEXT, PANEL);
-        text(8, 231, "NOTE REPEAT KEY-PAD  RELEASE: RETURN", 1, DIM, PANEL);
+        text(8, 231, "NOTE REPEAT KEY-PAD  RELEASE: RETURN", 1, DIM, PANEL);   /* tabby-v04.22: true as written now (it is a KNOB BANK shortcut) */
     }
     if (boot_active || (paint_rendering && paint_top >= 30)) return;
     uint32_t since = 0;
@@ -1945,6 +1945,13 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (r == SONG_EDIT_SHARED) announce("CLIP SHARED BY ANOTHER TRACK", now + 2000U);
         else if (r) announce(r == SONG_EMPTY ? "HOLD A PAD TO SELECT A CLIP FIRST" : "BLOCK READ ERROR", now + 2000U);
         else { page = CLIP_STEPS; step_bar = 0; step_sel = 255; step_cursor = 0; step_pads_toggle = groove_pad_count(track) != 0; cache->shown_page = ~0U; }
+        goto controls_done;
+    }
+    /* tabby-v04.22 (docs/CONTROL-MAP.md 3.1): NOTE REPEAT held and K1 turned: the repeat's rate (the ARP rate of the
+     * repeating tracks). Nothing else reads the knobs in that pass. */
+    if (smk37_note_repeat() && controls->encoders[2]) {
+        for (unsigned t = 0; t < 8; ++t) if (smk37_note_repeat() & (1U << t)) groove_arp_edit(t, 0, controls->encoders[2]);
+        smk37_screen_note_repeat(smk37_note_repeat());
         goto controls_done;
     }
     if (remote_action_do) { remote_action_do = 0; if (page == ACTIONS && action == ACT_NEW_SONG) pressed |= BUTTON(SAVE); }
@@ -2988,6 +2995,14 @@ __attribute__((noinline, cold, minsize)) void smk37_screen_pad_mode(unsigned ste
     notice=pad_focus?"PAD READY - PARA / FX":"KEY READY - PARA / FX";
     notice_until=fm1_millis()+2000U;
     boot_active=0;cache->shown_page=~0U;
+}
+/* tabby-v04.22: NOTE REPEAT went down. `tracks`: the tracks it switched to repeating (0: their ARP is on already, or
+ * the tracks are off). */
+void smk37_screen_note_repeat(unsigned tracks)
+{
+    static const char *const say[] = { "NOTE REPEAT 1/4 - HOLD A KEY OR PAD", "NOTE REPEAT 1/8 - HOLD A KEY OR PAD", "NOTE REPEAT 1/16 - HOLD A KEY OR PAD", "NOTE REPEAT 1/32 - HOLD A KEY OR PAD" };
+    notice = tracks ? say[groove_arp_setting(smk37_performance_track(pad_focus), 0) & 3U] : "ARP IS ON: IT REPEATS ALREADY";
+    notice_until = fm1_millis() + 2000U;
 }
 unsigned smk37_screen_pad_key(unsigned pad)
 {

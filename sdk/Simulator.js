@@ -786,7 +786,7 @@
   function resetWheels(){ui.wheels.forEach((input,i)=>{input.value=i?0:64;});}
   function feedback(kind,index,element){
     if(kind===10&&index===7){
-      say('NOTE REPEAT: tap to enter or leave the independent Pad instrument. KEY and PAD retain their own tracks, channels and octaves.');return;
+      say('NOTE REPEAT: hold it and hold a key or pad: the note repeats at the ARP rate (K1 while held sets the rate). KNOB BANK + NOTE REPEAT enters or leaves the independent Pad instrument; KEY and PAD retain their own tracks, channels and octaves.');return;
     }
     if(kind===0){
     const tips={2:'FX: K5 chooses a track; K1 reverb, K2 delay, 0 disables sends. K7 switches to detailed settings.',3:'SCALE: switches between the SONG and TRACK LAUNCH pages; on other pages it says voice editing moved to the workbench.',10:'ARP: tap to toggle, hold for settings. K6 changes pages: rate / direction / range / gate, then Swing / Hold. K5 chooses a track. Enable and settings are saved with the project; held notes are not.',11:'SEQ: tap to open SYNC / MIDI, KNOB BANK + SEQ opens MIDI TRACK, SEQ + PARA together open ACTIONS; PATCH + SEQ taps the tempo.'};if(tips[index])say(tips[index]);}}

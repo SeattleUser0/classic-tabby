@@ -23,6 +23,8 @@ unsigned smk37_performance_track(unsigned pad);
 int smk37_performance_octave(unsigned pad);
 unsigned smk37_pad_focus(void);
 unsigned smk37_pad_aftertouch(void);
+unsigned smk37_note_repeat(void);                 /* tabby-v04.22: bit t: NOTE REPEAT holds track t's arpeggiator on */
+void smk37_screen_note_repeat(unsigned tracks);   /* tabby-v04.22: NOTE REPEAT went down (the screen says so) */
 void smk37_screen_note(unsigned owner, unsigned note);
 void smk37_screen_pad_mode(unsigned steps, unsigned instrument);
 void smk37_panel_preferences_read(uint8_t data[4]);

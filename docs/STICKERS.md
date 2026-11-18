@@ -1,6 +1,7 @@
 # Classic Tabby stickers for the SMK-37 Pro
 
-Version 0.4 (2026-11-18). For tabby-v04.21 and docs/CONTROL-MAP.md v0.16.
+Version 0.5 (2026-11-18). For tabby-v04.22 and docs/CONTROL-MAP.md v0.17.
+v0.5: NOTE REPEAT on sticker C says what it does from tabby-v04.22.
 v0.4: no type below 6 point (the user's rule: 3.3 to 4.4 point cannot be read on a dark stage). To make room, stickers
 A, B and C now cover the strip of key functions printed above the keys, on purpose: section 2 lists every function
 printed there and shows that none of them does anything in Classic Tabby. A fifth, optional sticker E covers the
@@ -135,7 +136,7 @@ If you return the SMK-37 to M-VAVE's firmware the strip's functions work again a
 | Printed on the button | Sticker |
 | --- | --- |
 | ARP | ARP ON/OFF / HOLD: SETUP |
-| NOTE REPEAT | KEYS/PADS / FOCUS |
+| NOTE REPEAT | REPEATS (while held) / K1: RATE / KB: KEY/PAD (the focus switch) |
 | SCALE | CLIPS OR / SCENES / STEP: PADS (on the STEP page it switches what a pad does) |
 | CHORD | TRACK TO / SCENES / STEP: CLEAR |
 | GLOBE | MIXER / MUTE / SOLO |
@@ -147,8 +148,8 @@ If you return the SMK-37 to M-VAVE's firmware the strip's functions work again a
 | SEQ PLAY | PLAY / STOP / THE SONG |
 | SEQ REC | TAKE / KB: INPUT / QUANTIZE |
 
-NOTE REPEAT changes with the next release (it gets note repeat; the focus switch moves to KNOB BANK + NOTE REPEAT):
-the sheet is made again then. Print after that release if you can wait.
+From tabby-v04.22 NOTE REPEAT, held, repeats a held key or pad, and KNOB BANK + NOTE REPEAT is the keys / pads
+focus switch; the sticker says so. With older firmware the button alone is the focus switch.
 
 ### Sticker B (eight columns, one under each pad column)
 

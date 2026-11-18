@@ -16,7 +16,7 @@ For M-VAVE SMK-37 Pro and SMK-37 Elite, with 37 keys, 16 pads, eight encoders an
 
 ## SMK37 controls
 
-- **NOTE REPEAT** enters or leaves the Pad instrument (tabby-v04.0 has no pad-step mode). K5 chooses the focused instrument's track. KEY and PAD assignments are independent, initially track 1 / channel 1 and track 8 / channel 10. KNOB BANK + Pads 1–8 selects tracks; KNOB BANK + Pads 9–16 toggles mute.
+- **NOTE REPEAT**, held, repeats a held key or pad at the ARP rate (tabby-v04.22). **KNOB BANK + NOTE REPEAT** enters or leaves the Pad instrument (before tabby-v04.22: NOTE REPEAT alone). K5 chooses the focused instrument's track. KEY and PAD assignments are independent, initially track 1 / channel 1 and track 8 / channel 10. KNOB BANK + Pads 1–8 selects tracks; KNOB BANK + Pads 9–16 toggles mute.
 - **KNOB BANK + PATCH** opens source selection: Pads 1–6 or K1 chooses, the > button applies, PATCH cancels. PARA, FX and OCTAVE- / OCTAVE+ follow the focused instrument. K1–K4 edit screen parameters; K6 changes pages; K7 selects the current page's preset or voice (KEY OUT on SYNC / MIDI).
 - **FADER BANK** assigns the faders to tracks 1–4 or 5–8. Move through the displayed target to take control after switching banks or loading a project. Pitch/modulation wheels and the pedal follow KEY; return the wheels to rest before powering on.
 - **Pad pressure** sends channel aftertouch on the original Pad note channel; the final release resets it to zero. DX7 responds with vibrato. Other engines and external instruments determine their own response. Browser Pads support upward dragging or a pressure-sensitive pen.

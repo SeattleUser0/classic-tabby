@@ -24,9 +24,10 @@ Purpose
 Usage (from the repository root)
     python3 -I tools/linux/stickers.py [--out docs/stickers] [--table] [--no-pdf]
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-18  tabby-v04.22: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT (sticker C).
     v0.4  2026-11-18  The user's rule: no type below 6 point. Nothing printed in the function strip does anything in Classic
                       Tabby (STRIP_ITEMS), so A, B and C now cover it on purpose: 11/16" high, from under the transport
                       symbols to the keys, their side edges in gaps of the printing (STRIP_LABELS, measured in the
@@ -70,7 +71,7 @@ KEYS = (109, 2856, 22)                     # first and last white-key edge, numb
 LEFT = [[("KNOB BANK", ("SHIFT: HOLD FOR", "2ND FUNCTIONS")), ("FADER BANK", ("FADERS ON", "T1-4 / T5-8"))],
         [("<", ("AS PATCH:", "OVERVIEW")), (">", ("SAVE /", "CONFIRM"))],
         [("OCTAVE-", ("BANK / BAR -", "KB: SHIFT CLIP")), ("OCTAVE+", ("BANK / BAR +", "KB: SHIFT CLIP"))]]
-RIGHT = [[("ARP", ("ARP ON/OFF", "HOLD: SETUP")), ("NOTE REPEAT", ("KEYS/PADS", "FOCUS")), ("SCALE", ("CLIPS OR", "SCENES", "STEP: PADS")),
+RIGHT = [[("ARP", ("ARP ON/OFF", "HOLD: SETUP")), ("NOTE REPEAT", ("REPEATS", "K1: RATE", "KB: KEY/PAD")), ("SCALE", ("CLIPS OR", "SCENES", "STEP: PADS")),
           ("CHORD", ("TRACK TO", "SCENES", "STEP: CLEAR")), ("GLOBE", ("MIXER", "MUTE / SOLO")), ("BT", ("CLIPS PAGE", "AGAIN: BACK"))],
          [("PATCH", ("OVERVIEW", "KB: SOURCE")), ("PARA", ("STEP PAGE", "EDIT A CLIP")), ("FX", ("SETTING", "STEP: UNDO", "TAKE: CLEAR")),
           ("SEQ", ("SYNC / MIDI", "+ PARA:", "ACTIONS")), ("SEQ PLAY", ("PLAY / STOP", "THE SONG")), ("SEQ REC", ("TAKE", "KB: INPUT", "QUANTIZE"))]]

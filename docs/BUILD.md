@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.94
+Version: 0.95
 Revision log:
+- v0.95, 2026-11-18: 57.5 (tabby-v04.21 released as candidate 2), section 58 (tabby-v04.22: NOTE REPEAT).
 - v0.94, 2026-11-18: 56.1 (tabby-v04.20 released as candidate 1), 57.4 (tabby-v04.21-rc1 not promoted: a test tool error), section 57 (tabby-v04.21: clear notes in a take, NEW SONG, shift a clip; the pad rows; stickers v0.4).
 - v0.93, 2026-11-18: 55.1 (tabby-v04.19 released as candidate 1), section 56 (tabby-v04.20: DIRECTION per clip).
 - v0.92, 2026-11-17: 54.3, 54.4 (tabby-v04.18: candidate 1 held back by a tool limit, candidate 2 released), section 55 (tabby-v04.19: STEP SIZE per clip).
@@ -6113,3 +6114,28 @@ every step passed; promoted.
 | full backup, restore, verify | Verify PASS, 41 items, twice |
 
 Flash margin 30269 bytes, free RAM 142700 bytes.
+
+## 58. tabby-v04.22: NOTE REPEAT repeats; the focus switch on KNOB BANK + NOTE REPEAT (2026-11-18)
+
+The user's answer 4 of 2026-11-18 (SPEC 17.16, 19.25).
+
+| Part | Change |
+| --- | --- |
+| app/smk37_controls.c | button 7: alone, the arpeggiator of the key track and the pad track on while it is down (`repeat_tracks`, `smk37_note_repeat`); with KNOB BANK, the focus switch as before |
+| app/screen.c | `smk37_screen_note_repeat` (the notice with the rate); K1 while NOTE REPEAT is held edits the ARP rate |
+| app/board/panel.c | the NOTE REPEAT lamp also while notes repeat |
+| app/transfer.c | command 29 {18}: the panel's playing state, 9 bytes |
+| texts | the guide (4.1, T7, T94), Help, the workbench panel's hint, README, CONTROL-MAP v0.17 (1.1, 3.1, 4.3, 11), STICKERS v0.5 (sticker C) |
+| tests | smoke.c (8 checks: 8 note-ons a second 43 blocks apart; 16 at 1/32; ARP off again; a track with ARP on left alone; the focus with KNOB BANK); record-sim.mjs v0.4 (4 checks through the panel) |
+| tools/linux/hw | run-repeat.py v0.1 (new), rc-validate.py v0.5 (the step `repeat`) |
+
+Why the arpeggiator and not a generator of our own: SPEC 19.25. What follows from it (a chord is arpeggiated, the
+ARP's GATE / SWING / DIRECTION / RANGE apply, the project counts as changed) is in CONTROL-MAP 3.1 and goes to the
+user as a question.
+
+Developed in a scratch clone while the tabby-v04.21 flow held the tree. A first version lengthened the remote status
+reply to 16 bytes; eleven host checks pin its 14 bytes, so the new state got its own op instead.
+
+run-repeat.py could not be proven on tabby-v04.21 first (it needs op 18).
+
+Measured: app image 489796 bytes (+608), margin 29661, heap 142700. Build `1726ba6b317b1bb5`.

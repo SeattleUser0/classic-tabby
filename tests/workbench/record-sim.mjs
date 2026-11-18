@@ -16,9 +16,10 @@
 //
 //   Run:  /usr/bin/node tests/workbench/record-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.3
+// Version: 0.4
 //
 // Revision log
+//   v0.4  2026-11-18  tabby-v04.22: NOTE REPEAT held repeats a held key, KNOB BANK + NOTE REPEAT is the focus switch.
 //   v0.3  2026-11-18  tabby-v04.21: shift a clip by a step (KNOB BANK + OCTAVE-/+ on STEP), FX + a key clears notes during a
 //                     take, ACTIONS: NEW SONG.
 //   v0.2  2026-11-17  tabby-v04.16: a stop takes an armed take off; armed while stopped it stays.
@@ -297,6 +298,27 @@ check(r.recording === 0 && r.events === 1 && note(60), 'a key played into the ta
 press(SAVE); step(10);
 check(rstate().dirty === 0 && c.sim_song_load(0) === 0 && c.sim_song_load(3) === 0 && (state().pads[0].code & 7) === 1, 'saved; loaded again from storage the pad holds the clip');
 check(c.sim_song_record_delete(3) === 0 && c.sim_song_load(0) === 0, 'the new song deleted again; the test song loaded');
+
+/* ---- tabby-v04.22: NOTE REPEAT held repeats a held key; KNOB BANK + NOTE REPEAT is the focus switch ---- */
+const NR = 7;
+const allOns = (from, to) => log.filter(m => (m[0] & 0xf0) === 0x90 && m[2] && m[3] >= from && m[3] < to);
+press(2); step(10);                                              /* PATCH: the overview */
+{ const p0 = state().page;
+  c.sim_smk37(BUTTON, NR, 1); step(8);
+  check(state().page === p0, 'NOTE REPEAT held: the page stays');
+  const from = block; c.sim_smk37(KEY, 12, 100); step(345);     /* one second at 120 BPM */
+  const n = allOns(from, block).filter(m => m[1] === 60);
+  const gaps = n.slice(1).map((m, i) => m[3] - n[i][3]);
+  check(n.length >= 7 && n.length <= 9 && gaps.every(g => g >= 42 && g <= 44), 'a held key repeats in 16ths: ' + n.length + ' note-ons in a second, ' + gaps.join(' ') + ' blocks apart');
+  c.sim_smk37(BUTTON, NR, 0); step(8);
+  const after = block; step(200);
+  check(allOns(after, block).length === 0, 'NOTE REPEAT let go: nothing more comes');
+  c.sim_smk37(KEY, 12, 0); step(8);
+  c.sim_smk37(BUTTON, SHIFT, 1); step(4); press(NR); c.sim_smk37(BUTTON, SHIFT, 0); step(8);
+  const f1 = (c.sim_smk37_instruments() >>> 20) & 1;
+  c.sim_smk37(BUTTON, SHIFT, 1); step(4); press(NR); c.sim_smk37(BUTTON, SHIFT, 0); step(8);
+  const f2 = (c.sim_smk37_instruments() >>> 20) & 1;
+  check(f1 === 1 && f2 === 0, 'KNOB BANK + NOTE REPEAT switches the focus to the pads and back (' + f1 + ', ' + f2 + ')'); }
 
 c.sim_midi_capture(0); c.sim_midi_drain(0);
 console.log(`\nrecord-sim: ${passed} passed, ${failed} failed`);

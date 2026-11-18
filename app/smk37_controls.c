@@ -33,6 +33,8 @@ static const uint8_t button_map[18] = {
 };
 static const uint8_t encoder_map[7] = {2,3,4,5,0,1,6};
 
+static uint8_t repeat_tracks;   /* tabby-v04.22: the tracks whose arpeggiator NOTE REPEAT switched on (and switches off again) */
+
 static int send(unsigned status, unsigned a, unsigned b)
 {
     uint8_t bytes[3]={(uint8_t)status,(uint8_t)a,(uint8_t)b};
@@ -284,12 +286,30 @@ void smk37_control_event(unsigned kind,unsigned id,int value)
         if(!!was==!!value)return;
         if(value)physical_buttons|=bit;else physical_buttons&=~bit;
         if(!value)shifted_buttons&=~bit;
+        if(!value && id==7 && repeat_tracks) {   /* tabby-v04.22: NOTE REPEAT let go: those arpeggiators off again */
+            for(unsigned t=0;t<8;++t)if(repeat_tracks&(1U<<t))groove_arp_set(t,0);
+            repeat_tracks=0;
+        }
         if(value) {
             if(physical_buttons&1U)shifted_buttons|=bit&((1U<<9)|(1U<<12)|(1U<<15));
             if(id==1) {bank^=1;pickup=15;}
+            else if(id==7 && !(physical_buttons&1U)) {
+                /* tabby-v04.22: NOTE REPEAT held = note repeat (its printed meaning): the arpeggiator of the key track
+                 * and of the pad track is on for as long as the button is down (a held key or pad repeats at the ARP
+                 * rate). A track whose ARP is on already is left alone. The focus switch moved to KNOB BANK + NOTE
+                 * REPEAT (below). */
+                for(unsigned i=0;i<2;++i) {
+                    unsigned t=smk37_performance_track(i);
+                    if(t<8 && !groove_arp_enabled(t)) {
+                        groove_arp_set(t,1);
+                        if(groove_arp_enabled(t))repeat_tracks|=(uint8_t)(1U<<t);
+                    }
+                }
+                smk37_screen_note_repeat(repeat_tracks);
+            }
             else if(id==7) {
                 /* Task 12 A2: SHIFT+PAD (pad-step mode) left with the step editor; the button
-                 * only switches the keyboard / pad focus. */
+                 * only switches the keyboard / pad focus (tabby-v04.22: with KNOB BANK held). */
                 unsigned instrument=1;
                 step_pads=0;
                 /* Cancel held menu keys before moving pages. Sounding notes
@@ -319,6 +339,7 @@ void smk37_controls_snapshot(struct fm1_controls *out)
     *out=panel;memset(panel.encoders,0,sizeof panel.encoders);
 }
 unsigned smk37_fader_bank(void) {return bank;}
+unsigned smk37_note_repeat(void) {return repeat_tracks;}   /* tabby-v04.22: bit t: track t repeats while NOTE REPEAT is held */
 unsigned smk37_pad_steps(void) {return step_pads;}
 unsigned smk37_shift(void) {return physical_buttons&1U;}
 unsigned smk37_pad_aftertouch(void)

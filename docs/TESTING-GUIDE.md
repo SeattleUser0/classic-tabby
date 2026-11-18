@@ -1,11 +1,11 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 3.9, 2026-11-18. For tabby-v04.21 on the M-VAVE SMK-37 Pro.
+Version 4.0, 2026-11-18. For tabby-v04.22 on the M-VAVE SMK-37 Pro.
 The user manual and the test checklist in one, for the person who plays and tests the device. No programming needed.
 Sections 3 to 5 are the manual: setting up, every page of the device in the order you use it, and the workbench. Section 6 is the checklist.
 
-This guide is for tabby-v04.21. If an older firmware is on your SMK-37, install tabby-v04.21 (section 3.2); section 2.2 lists what each release added. The guide is also one printable file: https://seattleuser0.github.io/classic-tabby/guide/classic-tabby-manual.pdf. New in tabby-v04.21: FX with a key clears notes during a take (4.10), KNOB BANK with OCTAVE- or OCTAVE+ shifts a clip by a step (4.9), and NEW SONG in ACTIONS starts an empty song on the panel (4.11). New in tabby-v04.20: DIRECTION for each clip (section 4.11). New in tabby-v04.19: STEP SIZE for each clip (section 4.11). New in tabby-v04.18: the screen and this guide call every button by the word printed on it (see How to read this guide); nothing else changed. New in tabby-v04.17: SHUFFLE and PLAY QUANTIZE for each clip, and CLIP SETTING in three pages (section 4.11). New in tabby-v04.16: a scene can be deleted and moved on the SCENES page (section 4.11), and stopping the song takes an armed take off (4.10). New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
+This guide is for tabby-v04.22. If an older firmware is on your SMK-37, install tabby-v04.22 (section 3.2); section 2.2 lists what each release added. The guide is also one printable file: https://seattleuser0.github.io/classic-tabby/guide/classic-tabby-manual.pdf. New in tabby-v04.22: NOTE REPEAT repeats a held key or pad, and the switch between keys and pads is now KNOB BANK and NOTE REPEAT together (section 4.1). New in tabby-v04.21: FX with a key clears notes during a take (4.10), KNOB BANK with OCTAVE- or OCTAVE+ shifts a clip by a step (4.9), and NEW SONG in ACTIONS starts an empty song on the panel (4.11). New in tabby-v04.20: DIRECTION for each clip (section 4.11). New in tabby-v04.19: STEP SIZE for each clip (section 4.11). New in tabby-v04.18: the screen and this guide call every button by the word printed on it (see How to read this guide); nothing else changed. New in tabby-v04.17: SHUFFLE and PLAY QUANTIZE for each clip, and CLIP SETTING in three pages (section 4.11). New in tabby-v04.16: a scene can be deleted and moved on the SCENES page (section 4.11), and stopping the song takes an armed take off (4.10). New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
 
 Where to find what: playing a song from the pads is 4.7 and 4.8. Building and changing a song on the panel is 4.9 to 4.14. Projects, sounds and housekeeping are 4.1 to 4.6 and 4.15 to 4.18. The workbench is section 5.
 
@@ -111,6 +111,7 @@ Oldest first. The last line is the release this guide is for.
 - tabby-v04.19: STEP SIZE on CLIP SETTING: what one step of the clip lasts: 1/16, 1/8, 1/32, or the triplet sizes 1/16T and 1/8T. The MC-707 calls it SCALE.
 - tabby-v04.20: DIRECTION on CLIP SETTING: a clip plays FORWARD, in REVERSE, or FWD THEN REV (forwards, then backwards).
 - tabby-v04.21: during a take, FX held with a key clears that key's notes as the clip passes them. On the STEP page KNOB BANK with OCTAVE+ or OCTAVE- shifts the whole clip one step later or earlier. NEW SONG in ACTIONS makes an empty song in an empty slot.
+- tabby-v04.22: NOTE REPEAT does what is printed on it: held, a key or pad you hold repeats at the ARP rate. The switch between keys and pads, which was a tap on NOTE REPEAT, is now KNOB BANK and NOTE REPEAT together.
 
 
 3. SETUP
@@ -134,7 +135,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. Install tabby-v04.21 to get everything in this guide. With older firmware the screen still shows the old button names (the list is in How to read this guide). Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. Install tabby-v04.22 to get everything in this guide. With older firmware the screen still shows the old button names (the list is in How to read this guide). Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -180,10 +181,18 @@ At start, the keys play track 1 on MIDI channel 1. The pads play track 8 on chan
 2. Press a key. You hear track 1. MIDI goes out on channel 1. The lowest key is note 48 (C3).
 3. Press pad 1. You hear the 808 kick on track 8. MIDI goes out on channel 10, note 36.
 4. Press OCTAVE+ to move the keys up one octave each press. Press OCTAVE- to move down.
-5. Tap NOTE REPEAT to move the playing focus to the pads. The top shows PAD DRUM and the bottom says PAD READY - PARA / FX. Tap NOTE REPEAT again to go back to the keys.
+5. Hold KNOB BANK and tap NOTE REPEAT to move the playing focus to the pads (tabby-v04.22; before that a tap on NOTE REPEAT alone). The top shows PAD DRUM and the bottom says PAD READY - PARA / FX. Do it again to go back to the keys.
 6. Hold KNOB BANK. The screen lists the shortcuts. Pads 1 to 8 select a track. Pads 9 to 16 mute or unmute a track.
 
-On the KNOB BANK list, the line NOTE REPEAT STEP EDIT is an old screen text. Step editing is on the STEP page (4.9), not there.
+On the KNOB BANK list, the line NOTE REPEAT KEY-PAD is this switch.
+
+Note repeat (tabby-v04.22)
+1. Hold NOTE REPEAT. The screen says NOTE REPEAT 1/16 - HOLD A KEY OR PAD and the button lights.
+2. Hold a key, or a pad on a page where the pads play (the overview). The note comes again and again, as loud as you played it, for as long as you hold both. Let NOTE REPEAT go and it stops.
+3. While you hold NOTE REPEAT, turn K1 for the rate: 1/4, 1/8, 1/16 or 1/32.
+4. It works on every page, also on CLIPS and STEP, where the keys play. The page does not change.
+5. Note repeat is the track's arpeggiator, switched on for as long as you hold the button. So it uses the ARP settings of the track (hold ARP to see them): RATE is the rate you set with K1, GATE the length of each note, SWING its swing. One held key repeats. Several held keys take turns, in the ARP's DIRECTION, and with RANGE above 1 OCT a key also climbs octaves: set RANGE to 1 OCT for plain repeats. A track whose ARP is already on is not changed (ARP IS ON: IT REPEATS ALREADY).
+6. Press NOTE REPEAT first, then the key: a key that is already down when you press NOTE REPEAT is cut off. A take records the key you hold as one long note, not the repeats. The project shows as changed after a note repeat, because the ARP switch belongs to the project.
 
 4.2 Choosing an FM6 (DX7) sound and its quick page
 --------------------------------------------------
@@ -597,9 +606,9 @@ Result: PASS / FAIL   Notes: ________________________________
 
 T7. Keys and pads focus
 Set up: the overview.
-1. Tap NOTE REPEAT.
+1. Hold KNOB BANK and tap NOTE REPEAT.
 2. Press pad 1.
-3. Tap NOTE REPEAT again.
+3. Hold KNOB BANK and tap NOTE REPEAT again.
 You should see: PAD DRUM at the top and PAD READY - PARA / FX at the bottom after step 1. Pad 1 still plays the kick. After step 3 the top shows KEY PLAY again.
 Result: PASS / FAIL   Notes: ________________________________
 
@@ -1232,6 +1241,14 @@ Set up: the song stopped. You need one empty song slot.
 You should see: NEW SONG IN SLOT nn?, then NEW SONG - HOLD A PAD, SEQ REC and the CLIPS page with every pad dark. After step 3 pad 1 holds your clip; after step 4 it is saved. Step 5 says SLOT HOLDS A SONG - K5 ON SCENES and changes nothing. [checked in simulator]
 Result: PASS / FAIL   Notes: ________________________________
 
+T94. Note repeat (tabby-v04.22)
+Set up: the overview, the song stopped, the ARP of track 1 off (the top line says LIVE). Something that plays track 1's MIDI, or the SMK-37's own sound.
+1. Hold NOTE REPEAT. Hold a key for two seconds. Let the key go, then NOTE REPEAT.
+2. Hold NOTE REPEAT, hold a key, and turn K1 one click right, then one click left. Let both go.
+3. Tap NOTE REPEAT without a key. Then hold KNOB BANK and tap NOTE REPEAT twice.
+You should hear and see: in step 1 the note repeats in 16ths and stops when NOTE REPEAT is let go; the screen says NOTE REPEAT 1/16 - HOLD A KEY OR PAD and the NOTE REPEAT lamp is lit while you hold it. In step 2 it repeats twice as fast (1/32) and then as before. In step 3 the tap alone changes nothing; KNOB BANK with NOTE REPEAT shows PAD READY - PARA / FX, then KEY READY - PARA / FX. [checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
 
 7. KNOWN LIMITS AND WHAT IS NOT BUILT YET
 =========================================
@@ -1239,7 +1256,7 @@ Result: PASS / FAIL   Notes: ________________________________
 Do not spend time testing these. They are known.
 
 - MIDI timing (tabby-v04.4 and later): one line stays within about 2 ms and eight lines within about 3 ms of their times, on DIN and USB. On DIN eight notes at the same step still take 9 ms to pass the cable one after the other.
-- A new song made on the panel (4.11, tabby-v04.21) is always called NEW SONG; its name is changed in the workbench. Not built: a step loop while a pad is held, note repeat on the pads. The click and count-in settings are stored in each song, not once for the device.
+- A new song made on the panel (4.11, tabby-v04.21) is always called NEW SONG; its name is changed in the workbench. Note repeat (4.1) is the track's arpeggiator: one held note repeats, a held chord is played as an arpeggio, not as a repeated chord. Not built: a step loop while a pad is held. The click and count-in settings are stored in each song, not once for the device.
 - One clip can be unsaved at a time, and a clip two tracks share cannot be edited on the device.
 - External clock in song mode (tabby-v04.3.1): the clock must come over USB or Bluetooth; the TRS jack cannot receive it. Song Position Pointer moves the song through its rows and repeats; a position past the end of a song that does not loop goes to its last step. The song sends no clock of its own while it follows.
 - The TRS jack is output only. A DIN clock cannot come in through it. Use USB or Bluetooth for clock in.
@@ -1254,7 +1271,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the KNOB BANK list now say SEQ+PARA: ACTIONS and NOTE REPEAT KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.21.
+- The page badge and the boot screen show tabby-v04.22.
 
 
 8. HOW TO REPORT A PROBLEM

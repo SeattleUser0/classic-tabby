@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.59
+Version: 0.60
 Revision log:
+- v0.60, 2026-11-18: 19.25 tabby-v04.22 (NOTE REPEAT repeats; the focus switch on KNOB BANK + NOTE REPEAT).
 - v0.59, 2026-11-18: 17.16 the user's answers of 2026-11-18 (pad rows, stickers of 6 point that cover the dead strip, the order of the rest, NOTE REPEAT); 19.24 tabby-v04.21.
 - v0.58, 2026-11-18: 19.23 tabby-v04.20 (DIRECTION per clip).
 - v0.57, 2026-11-17: 19.22 tabby-v04.19 (STEP SIZE per clip).
@@ -1276,7 +1277,7 @@ BANK on the panel; right group = ids 6-17, two rows of six; firmware name = the 
 | 4 | OCT_DOWN | OCT_DOWN | OCT - | **OCTAVE-** |
 | 5 | OCT_UP | OCT_UP | OCT + | **OCTAVE+** |
 | 6 | ARP | ARP | ARP | **ARP** |
-| 7 | (PAD / STEP, panel code) | PAD_STEP | PAD / STEP | **NOTE REPEAT** |
+| 7 | (PAD / STEP, panel code) | PAD_STEP | PAD / STEP | **NOTE REPEAT** (from tabby-v04.22 it repeats notes; the focus switch is KNOB BANK + NOTE REPEAT, 19.25) |
 | 8 | SCL | SCL | SCL | **SCALE** |
 | 9 | ENV | ENV | ENV, ENV / LFO | **CHORD** |
 | 10 | GLO | GLO | MIX | **GLOBE** |
@@ -2019,3 +2020,25 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   be injected); {1, slot} now selects an empty slot too (the reply is still the error). Device test:
   tools/linux/hw/run-takeedit.py (the step `takeedit` of rc-validate.py v0.4).
 - Measured: +1600 bytes, margin 30269; heap 142700 (-64).
+
+### 19.25 tabby-v04.22 (2026-11-18): NOTE REPEAT repeats; the focus switch on KNOB BANK + NOTE REPEAT
+
+- The user's answer 4 of 2026-11-18 (17.16). Physical button 7 (app/smk37_controls.c): pressed with KNOB BANK it is
+  the focus switch (`smk37_screen_pad_mode`, unchanged); pressed alone it switches the arpeggiator of the key track
+  and of the pad track on (`groove_arp_set`) and remembers which it switched (`repeat_tracks`); released, it switches
+  those off again. A track whose arpeggiator is on is not in the set. `smk37_note_repeat()` returns the set.
+- Why the arpeggiator: the note generator is the SDK's (`groove_arp_render`, in the audio thread, in the SDK binary,
+  which is never modified); it is clocked with the engine, so the repeats are as even as an arpeggio. A generator of
+  our own that repeats a whole chord would run in the audio thread next to the song (about 2 KB): not built; it is
+  a question for the user.
+- Consequences, all documented in docs/CONTROL-MAP.md 3.1: one held note repeats, several take turns; the ARP's
+  GATE, SWING, DIRECTION and RANGE apply; `groove_arp_set` retires the track's held keys (a key down before NOTE
+  REPEAT is cut), makes an undo checkpoint and marks the project changed; a take records the held key, not the
+  repeats (the recorder takes the panel's and MIDI in's messages, not the arpeggiator's).
+- K1 while NOTE REPEAT is held edits the ARP rate of the repeating tracks (`groove_arp_edit(t, 0, ...)`); that
+  control pass does nothing else. The notice names the rate. The NOTE REPEAT lamp (LED 7) is lit for pad focus, as
+  before, and while notes repeat.
+- Remote: command 29 {18} reads the panel's playing state (focus, repeating tracks, ARP switches, key and pad
+  track, the key track's ARP rate), 9 bytes with the type byte 5. The status reply stays 14 bytes.
+- Texts changed with the gesture: the guide (4.1, T7), Help (the quick start, chapter 06), the workbench panel's
+  hint, the README, CONTROL-MAP 1.1, 3.1 and 4.3, the stickers (C: NOTE REPEAT).

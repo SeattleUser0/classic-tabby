@@ -21,7 +21,7 @@ void fm1_controls_read(struct fm1_controls *state)
     ct_prof_enter(CT_PROF_PANEL);   /* Task 12 A4 */
     smk37_scan_read();smk37_controls_snapshot(state);
     state->battery=smk37_battery_adc();
-    unsigned bank=smk37_fader_bank(),pad=smk37_pad_steps()||smk37_pad_focus();
+    unsigned bank=smk37_fader_bank(),pad=smk37_pad_steps()||smk37_pad_focus()||smk37_note_repeat();   /* tabby-v04.22: lit while notes repeat */
     unsigned modes=bank|(pad<<1),changed=led_modes==~0U?3:modes^led_modes;
     if(changed&1)smk37_led(1,bank);
     if(changed&2)smk37_led(7,pad);

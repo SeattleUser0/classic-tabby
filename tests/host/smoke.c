@@ -2836,6 +2836,44 @@ int main(void)
           CHECK(n64 >= 2 && n67 >= 2, "new song: SEQ PLAY starts the song and the reserved clip, which loops (%u, %u notes)", n64, n67);
           CHECK(song_new(NEW) == SONG_NEW_EXISTS, "new song: the slot is taken now");
           song_edit_discard(); (void)sim_song_record_delete(NEW); }
+        /* ---- tabby-v04.22: NOTE REPEAT held repeats a held key at the ARP rate; KNOB BANK + NOTE REPEAT is the focus switch ---- */
+        { extern unsigned smk37_performance_track(unsigned), smk37_pad_focus(void), groove_arp_enabled(unsigned), smk37_note_repeat(void), groove_arp_setting(unsigned, unsigned);
+          extern void groove_arp_set(unsigned, unsigned);
+          unsigned kt = smk37_performance_track(0), focus0 = smk37_pad_focus(), arp0 = groove_arp_enabled(kt);
+          { struct message m[64]; (void)drain(m, 64); }
+          (void)sim_smk37(SMK37_BUTTON, 7, 1); settle();
+          CHECK(!arp0 && smk37_note_repeat() == (1U << kt | 1U << smk37_performance_track(1)) && groove_arp_enabled(kt) && smk37_pad_focus() == focus0,
+                "note repeat: NOTE REPEAT down: the key track and the pad track repeat (mask 0x%x); the focus does not change", smk37_note_repeat());
+          (void)sim_smk37(SMK37_KEY, 12, 100);
+          unsigned ons = 0, first = 0, last = 0;
+          for (unsigned blocks = 0; blocks < 345; ++blocks) { (void)sim_render(); struct message m[64]; unsigned n = drain(m, 64);
+              for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && (m[k].data[0] & 0xf0) == 0x90 && m[k].data[1] == 60 && m[k].data[2]) { if (!ons) first = blocks; last = blocks; ++ons; } }
+          CHECK(ons >= 7 && ons <= 9 && (last - first) / (ons - 1U) >= 42 && (last - first) / (ons - 1U) <= 44, "note repeat: a held key repeats every 16th: %u note-ons in a second, %u blocks apart (43.07)", ons, ons > 1 ? (last - first) / (ons - 1U) : 0);
+          (void)sim_smk37(SMK37_ENCODER, 0, 1); settle();
+          CHECK(groove_arp_setting(kt, 0) == 3, "note repeat: K1 while it is held: the rate is 1/32 (%u)", groove_arp_setting(kt, 0));
+          { struct message m[64]; (void)drain(m, 64); }
+          ons = 0;
+          for (unsigned blocks = 0; blocks < 345; ++blocks) { (void)sim_render(); struct message m[64]; unsigned n = drain(m, 64);
+              for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && (m[k].data[0] & 0xf0) == 0x90 && m[k].data[1] == 60 && m[k].data[2]) ++ons; }
+          CHECK(ons >= 15 && ons <= 17, "note repeat: at 1/32 %u note-ons in a second", ons);
+          (void)sim_smk37(SMK37_ENCODER, 0, -1); settle();
+          (void)sim_smk37(SMK37_BUTTON, 7, 0); settle();
+          { struct message m[64]; (void)drain(m, 64); }
+          ons = 0;
+          for (unsigned blocks = 0; blocks < 200; ++blocks) { (void)sim_render(); struct message m[64]; unsigned n = drain(m, 64);
+              for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && (m[k].data[0] & 0xf0) == 0x90 && m[k].data[2]) ++ons; }
+          CHECK(ons == 0 && !smk37_note_repeat() && !groove_arp_enabled(kt) && groove_arp_setting(kt, 0) == 2, "note repeat: NOTE REPEAT up: nothing repeats, the ARP is off again, the rate is 1/16 again");
+          (void)sim_smk37(SMK37_KEY, 12, 0); settle();
+          groove_arp_set(kt, 1);
+          (void)sim_smk37(SMK37_BUTTON, 7, 1); settle();
+          unsigned own = smk37_note_repeat() & (1U << kt);
+          (void)sim_smk37(SMK37_BUTTON, 7, 0); settle();
+          CHECK(!own && groove_arp_enabled(kt), "note repeat: a track whose ARP is on is left alone, and its ARP stays on afterwards");
+          groove_arp_set(kt, 0);
+          (void)sim_smk37(SMK37_BUTTON, 0, 1); settle(); (void)sim_smk37(SMK37_BUTTON, 7, 1); settle(); (void)sim_smk37(SMK37_BUTTON, 7, 0); settle(); (void)sim_smk37(SMK37_BUTTON, 0, 0); settle();
+          CHECK(smk37_pad_focus() != focus0 && !smk37_note_repeat(), "focus: KNOB BANK + NOTE REPEAT switches keys / pads (%u -> %u); nothing repeats", focus0, smk37_pad_focus());
+          (void)sim_smk37(SMK37_BUTTON, 0, 1); settle(); (void)sim_smk37(SMK37_BUTTON, 7, 1); settle(); (void)sim_smk37(SMK37_BUTTON, 7, 0); settle(); (void)sim_smk37(SMK37_BUTTON, 0, 0); settle();
+          CHECK(smk37_pad_focus() == focus0, "focus: and back"); }
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

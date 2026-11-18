@@ -272,6 +272,14 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
     /* tabby-v04.21: {16, 5} does what the > button does on the ACTIONS page while NEW SONG is selected. */
     else if (op == 16 && n == 2 && data[1] == 5) { if (ct_screen_action_do()) return GROOVE_PROJECT_INVALID; }
     else if (op == 17 && n == 1) { out[0] = 4; *count = 1 + ct_screen_setup_read(out + 1); return 0; }
+    /* tabby-v04.22: {18} reads the playing state of the panel: the focus (0 keys, 1 pads), the tracks NOTE REPEAT holds
+     * repeating (bit t), the ARP switch of every track (bit t), the key track and the pad track. */
+    else if (op == 18 && n == 1) {
+        unsigned arp = 0; for (unsigned t = 0; t < GROOVE_TRACKS && t < 8; ++t) arp |= groove_arp_enabled(t) << t;
+        out[0] = 5; out[1] = (uint8_t)smk37_pad_focus(); out[2] = (uint8_t)(smk37_note_repeat() & 127U); out[3] = (uint8_t)(smk37_note_repeat() >> 7);
+        out[4] = (uint8_t)(arp & 127U); out[5] = (uint8_t)(arp >> 7); out[6] = (uint8_t)smk37_performance_track(0); out[7] = (uint8_t)smk37_performance_track(1);
+        out[8] = (uint8_t)groove_arp_setting(smk37_performance_track(0), 0); *count = 9; return 0;
+    }
     else return GROOVE_PROJECT_INVALID;
     remote_status(out, count);
     return 0;

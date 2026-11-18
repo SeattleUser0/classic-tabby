@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.16 (2026-11-18). Applies from tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.17 (2026-11-18). Applies from tabby-v04.22 (3.1: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT). v0.16 was for tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -34,7 +34,7 @@ test tools keep their own names; this table is the bridge.
 | > | left, row 2 | SAVE; "the 4th left button", 4TH LEFT BTN, BTN 4 | Saves (the song, the clip, the project) and confirms |
 | OCTAVE-, OCTAVE+ | left, row 3 | OCT_DOWN, OCT_UP; OCT -, OCT + | Octave of the keys; pad bank on CLIPS and SCENES; bar on STEP (with KNOB BANK: shift the clip a step); line on CLIP SETTING |
 | ARP | right, upper | ARP | Arpeggiator on / off; held: its settings |
-| NOTE REPEAT | right, upper | PAD / STEP | Playing focus: keys or pads |
+| NOTE REPEAT | right, upper | PAD / STEP | Held: note repeat (a held key or pad repeats at the ARP rate; K1 sets the rate). With KNOB BANK: the playing focus, keys or pads (tabby-v04.22; before, the button alone) |
 | SCALE | right, upper | SCL | CLIPS <> SCENES; pad mode on STEP |
 | CHORD | right, upper | ENV (ENV / LFO) | Selected track back to the scenes (with KNOB BANK: every track); clears a step on STEP |
 | GLOBE | right, upper | GLO; MIX | The mixer |
@@ -103,6 +103,22 @@ empty until it is deleted (section 5; FX twice) after a scene of your own is sto
 
 From any other page add one press: BT first.
 
+### 3.1 Note repeat (tabby-v04.22)
+
+| Press | Result |
+| --- | --- |
+| NOTE REPEAT, held | NOTE REPEAT 1/16 - HOLD A KEY OR PAD (the rate is the track's). The NOTE REPEAT lamp is lit. The arpeggiator of the key track and of the pad track is on for as long as the button is down. The page does not change. |
+| + a key, or a pad where pads play notes | The note repeats at that rate, with the velocity played, until the key or NOTE REPEAT is let go. |
+| + K1 | The rate: 1/4, 1/8, 1/16, 1/32 (the ARP rate of those tracks; it stays). Nothing else reads the knobs in that moment. |
+| NOTE REPEAT let go | The repeats end; the tracks' ARP switches are as before. |
+| KNOB BANK + NOTE REPEAT | The playing focus: keys or pads (PAD READY / KEY READY - PARA / FX), as NOTE REPEAT alone did before tabby-v04.22. Leaves to the overview. |
+
+It is the track's arpeggiator, not a generator of its own: one held note repeats; several held notes take turns in
+the ARP's DIRECTION; RANGE above 1 OCT adds octaves; GATE and SWING apply. A track whose ARP is on already is left
+alone (ARP IS ON: IT REPEATS ALREADY). A key that is down when NOTE REPEAT is pressed is cut off: press NOTE REPEAT
+first. A take records the held key as one note, not the repeats. Because the ARP switch belongs to the project, the
+project counts as changed afterwards.
+
 ## 4. CLIPS page
 
 The screen shows the selected track, the bar count, one column per track (the clip it plays, and what is
@@ -158,7 +174,8 @@ blue: internal sound only, dim green: not muted).
 | PARA | Opens the STEP page on the selected clip of the track (section 12); on a selected empty pad, on a new clip. | same |
 | FX | Opens CLIP SETTING on the selected clip (section 14). | same |
 | > button | Saves the song: the unsaved clip and what was changed in the song (stopped only; STOP TO SAVE otherwise). | same |
-| ARP, SEQ, NOTE REPEAT | As on every page (SPEC.md); they leave CLIPS. | |
+| ARP, SEQ | As on every page (SPEC.md); they leave CLIPS. | |
+| NOTE REPEAT | Held: note repeat for the keys (3.1); the page stays. | The focus switch; it leaves to the overview. |
 
 No button on these two pages has a long-press action. The only long press is a pad on CLIPS (4.1).
 
@@ -262,7 +279,7 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-A step loop while held and note repeat on the pads: next on the list in docs/MC707-PARITY.md section 0. A song made on the panel (2.1) gets its name in the web workbench.
+A step loop while held: last on the list in docs/MC707-PARITY.md section 0. Note repeat that repeats a whole chord (3.1 repeats one note and arpeggiates a chord). A song made on the panel (2.1) gets its name in the web workbench.
 
 ## 11. Differences from the MC-707
 
@@ -328,6 +345,7 @@ Deliberate differences:
 | Undo of a take | UNDO takes the recording back; no undo while recording (UM, Ver. 1.80). | The same: a take is one undo level; no undo during a take. | Same. |
 | Erasing during a take | Hold [ERASE] and a pad or key: that note is erased while held (RM p. 35). | FX held with a key (tabby-v04.21): that key's notes go as the clip passes them. | No ERASE button; FX is free during a take because undo is not allowed then. The key sounds. |
 | A new project / song | A new project from the menu. | ACTIONS, NEW SONG, in an empty slot (tabby-v04.21). | The song is the unit here; the project holds the SMK-37's own sounds. |
+| Note repeat | None (the MC-707 has SCATTER and the step loop instead). | NOTE REPEAT held: the track's arpeggiator while the button is down (tabby-v04.22). | The button is printed on the SMK-37; M-VAVE's firmware does it the same way. |
 | Shifting a clip | Clip edit: shift the steps left or right. | KNOB BANK + OCTAVE- / OCTAVE+ on the STEP page, one step at a time (tabby-v04.21). | No edit menu on a small screen. |
 | When the clip is full | Not described. | The take stops: CLIP FULL - 512 EVENTS - REC STOPPED, the SEQ REC lamp goes out, the clip's pad shows red once; nothing is lost and undo still holds the clip before the take. | SPEC 14.2. |
 | Count-in | Count-In Step, OFF or 1 to 128 steps; MIDI Start goes out after it (UM, Ver. 1.20 and its fixes). | COUNT-IN, OFF or 1, 2 or 4 master cycles; MIDI Start after it. Only before a take that starts the song (SEQ REC, then SEQ PLAY). | Whole cycles keep the take's first bar on the grid. With the song already running there is nothing to count in. |
