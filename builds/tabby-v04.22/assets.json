@@ -1,0 +1,55 @@
+{
+  "build": "1726ba6b317b1bb57b1641b1705a110605330c90026ee73b5c0a6214e39a43a1",
+  "release": "V01",
+  "version": "tabby-v04.22",
+  "entryBytes": 383031,
+  "initialBytes": 1438351,
+  "standaloneBytes": 3206376,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/9a377e866955f2bf4045c5f1a7d43e4bcd1b51def035d7f7284f6046cd4395fa.bin",
+      "bytes": 528948,
+      "sha256": "9a377e866955f2bf4045c5f1a7d43e4bcd1b51def035d7f7284f6046cd4395fa"
+    },
+    {
+      "name": "assets/smk37/1a78c9e5bbc8b6e8e90dd59aa92f00da6250ceb368dbbcb9d584b9ce2eb397f2.wasm",
+      "bytes": 370441,
+      "sha256": "1a78c9e5bbc8b6e8e90dd59aa92f00da6250ceb368dbbcb9d584b9ce2eb397f2"
+    },
+    {
+      "name": "assets/smk37/73a0e90a17a2c2b34d7e4efdd791a127f3d14a3a8b5b68a70a3883040833f438.js",
+      "bytes": 612440,
+      "sha256": "73a0e90a17a2c2b34d7e4efdd791a127f3d14a3a8b5b68a70a3883040833f438"
+    },
+    {
+      "name": "assets/smk37/3878db67e816ad0c2be406281da873cac20c6c777a7da82dbe189fb6c5bf4ef9.js",
+      "bytes": 71932,
+      "sha256": "3878db67e816ad0c2be406281da873cac20c6c777a7da82dbe189fb6c5bf4ef9"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 383031,
+      "sha256": "03660ed8fa06ca3f3fff85c8b304dafba19820e7adf7b3f178a6cb5f0d4ecf47"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 383031,
+      "sha256": "03660ed8fa06ca3f3fff85c8b304dafba19820e7adf7b3f178a6cb5f0d4ecf47"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3206376,
+      "sha256": "28468e4b558141ae576a99de6da080f5e649b93a7cb22fc6dd0c30f53966c3f8"
+    }
+  ]
+}
