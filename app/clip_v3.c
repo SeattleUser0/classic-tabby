@@ -6,7 +6,7 @@
  *   Everything the device and the tests do with a v3 payload. Pure C on <stdint.h> and timed_note.h. The device
  *   links what it calls (validate, to_v2, window; LTO drops from_v2, which only the host tools use).
  *
- * Version: 0.6
+ * Version: 0.7
  *
  * Revision log
  *   v0.3  2026-11-16  Goal 6: editing in place (insert, remove, the notes of a step, step modifiers) for the step editor.
@@ -53,7 +53,7 @@ int clip_v3_validate(const uint8_t *p, unsigned bytes)
     /* v0.5: byte 12 is the transpose (-12..12 as a signed byte); the last three bytes stay 0 */
     if ((int8_t)p[12] < -CLIP_V3_TRANSPOSE_MAX || (int8_t)p[12] > CLIP_V3_TRANSPOSE_MAX) return CLIP_V3_BAD_HEADER;
     /* v0.6: byte 13 is the shuffle, byte 15 the playback quantize; byte 14 stays 0 */
-    if (p[13] > CLIP_V3_SHUFFLE_MAX || p[14] || p[15] > CLIP_V3_QUANTIZE_MAX) return CLIP_V3_BAD_HEADER;
+    if (p[13] > CLIP_V3_SHUFFLE_MAX || p[14] > CLIP_V3_SCALE_MAX || p[15] > CLIP_V3_QUANTIZE_MAX) return CLIP_V3_BAD_HEADER;   /* v0.7: byte 14: the scale (its high four bits stay 0) */
     int last = -CLIP_V3_BIAS - 1, max_time = (int)steps * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS;
     unsigned group_anchor = 0xffffffffU, group_start = 0;
     for (unsigned i = 0; i < count; ++i) {
@@ -143,7 +143,7 @@ int clip_v3_to_v2(const uint8_t *v3, unsigned bytes, uint8_t *out, unsigned cap)
     int r = clip_v3_validate(v3, bytes);
     if (r) return r;
     unsigned steps = v3[0], count = clip_v3_count(v3);
-    if (steps > V2_STEPS || v3[1] || v3[8] || v3[12] || v3[13] || v3[15]) return CLIP_V3_NOT_V2_SHAPED;   /* v0.4: a chain is not v2 either; v0.5: nor a transpose */
+    if (steps > V2_STEPS || v3[1] || v3[8] || v3[12] || v3[13] || v3[14] || v3[15]) return CLIP_V3_NOT_V2_SHAPED;   /* v0.4: a chain is not v2 either; v0.5: nor a transpose */
     uint8_t per_step[V2_STEPS], head[V2_STEPS];
     memset(per_step, 0, sizeof per_step); memset(head, 0, sizeof head);
     unsigned notes = 0;
@@ -362,6 +362,79 @@ int clip_v3_shuffle_set(uint8_t *p, unsigned value)
     p[13] = (uint8_t)value;
     return CLIP_V3_OK;
 }
+/* After a change of event times: the list back in time order (events at one time keep their order), then, of two notes
+ * of one pitch anchored at one step, the first stays. */
+static void reorder(uint8_t *p)
+{
+    unsigned count = clip_v3_count(p);
+    uint8_t *base = p + CLIP_V3_HEADER;
+    for (unsigned i = 1; i < count; ++i) {
+        uint8_t x[CLIP_V3_EVENT]; unsigned k = i;
+        memcpy(x, base + CLIP_V3_EVENT * i, sizeof x);
+        for (; k && get16(base + CLIP_V3_EVENT * (k - 1U)) > get16(x); --k) memcpy(base + CLIP_V3_EVENT * k, base + CLIP_V3_EVENT * (k - 1U), sizeof x);
+        memcpy(base + CLIP_V3_EVENT * k, x, sizeof x);
+    }
+    for (unsigned i = 1; i < count; ++i) {
+        const uint8_t *e = base + CLIP_V3_EVENT * i;
+        if (e[3] & 0x80U) continue;
+        unsigned anchor = clip_v3_anchor((int)get16(e) - CLIP_V3_BIAS);
+        for (unsigned k = i; k-- > 0 && clip_v3_anchor((int)get16(base + CLIP_V3_EVENT * k) - CLIP_V3_BIAS) == anchor;) {
+            const uint8_t *o = base + CLIP_V3_EVENT * k;
+            if (!(o[3] & 0x80U) && (o[2] & 127U) == (e[2] & 127U)) { clip_v3_remove(p, i); --i; --count; break; }
+        }
+    }
+}
+/* v0.7 (tabby-v04.19): the clip's SCALE, the low four bits of header byte 14: what one step of the clip lasts. */
+static const uint8_t scale_ratio[CLIP_V3_SCALE_MAX + 1U][2] = { {1, 1}, {2, 1}, {1, 2}, {2, 3}, {4, 3} };   /* 1/16, 1/8, 1/32, 1/16T, 1/8T */
+unsigned clip_v3_scale(const uint8_t *p) { return p[14] & 15U; }
+unsigned clip_v3_scale_steps(unsigned steps, unsigned scale)
+{
+    if (scale > CLIP_V3_SCALE_MAX) return 0;
+    unsigned n = steps * scale_ratio[scale][0], d = scale_ratio[scale][1];
+    return n % d || n / d < 1U || n / d > CLIP_V3_STEPS_MAX ? 0U : n / d;
+}
+int clip_v3_scale_back(int played, unsigned scale)
+{
+    if (scale > CLIP_V3_SCALE_MAX) return played;
+    return played * (int)scale_ratio[scale][1] / (int)scale_ratio[scale][0];
+}
+int clip_v3_scale_set(uint8_t *p, unsigned scale)
+{
+    if (!clip_v3_scale_steps(p[0], scale)) return CLIP_V3_BAD_HEADER;
+    p[14] = (uint8_t)((p[14] & 0xf0U) | scale);
+    return CLIP_V3_OK;
+}
+unsigned clip_v3_scale_apply(uint8_t *p)
+{
+    unsigned scale = p[14] & 15U, steps = clip_v3_scale_steps(p[0], scale), count = clip_v3_count(p);
+    p[14] &= 0xf0U;
+    if (!scale || !steps) return 0;
+    int num = scale_ratio[scale][0], den = scale_ratio[scale][1], loop = (int)steps * CLIP_V3_UNITS_PER_STEP;
+    uint8_t seen[CLIP_V3_STEPS_MAX / 8] = {0};
+    p[0] = (uint8_t)steps;
+    for (unsigned i = 0; i < count; ++i) {
+        uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * i;
+        int t = (int)get16(e) - CLIP_V3_BIAS;
+        if ((e[3] & 0x80U) && e[2] == CLIP_V3_STEPMOD) {
+            /* a step's probability goes to the step where that step now begins; the first of two on one step stays */
+            unsigned s = clip_v3_anchor((int)e[5] * CLIP_V3_UNITS_PER_STEP * num / den);
+            if (s >= steps || (seen[s >> 3] & (1U << (s & 7U)))) { clip_v3_remove(p, i); --i; --count; continue; }
+            seen[s >> 3] |= (uint8_t)(1U << (s & 7U));
+            e[5] = (uint8_t)s; put16(e, s * CLIP_V3_UNITS_PER_STEP);   /* stored = step * 480 - 240 + the bias of 240 */
+            continue;
+        }
+        t = t >= 0 ? (t * num + den / 2) / den : -((-t * num + den / 2) / den);
+        if (t > loop - CLIP_V3_BIAS) t -= loop;      /* the last 240 units of a clip are "just before its start" */
+        if (t < -CLIP_V3_BIAS) t += loop;
+        put16(e, (unsigned)(t + CLIP_V3_BIAS));
+        if (!(e[3] & 0x80U)) {
+            unsigned len = (get16(e + 4) * (unsigned)num + (unsigned)den / 2U) / (unsigned)den;
+            put16(e + 4, len < 1U ? 1U : len > 65535U ? 65535U : len);
+        }
+    }
+    reorder(p);
+    return scale;
+}
 unsigned clip_v3_quantize(const uint8_t *p) { return p[15]; }
 int clip_v3_quantize_set(uint8_t *p, unsigned value)
 {
@@ -384,20 +457,7 @@ void clip_v3_quantize_apply(uint8_t *p)
         if (v > max_time) v = 0;                     /* the clip's end is its start: the note opens the next pass */
         put16(e, (unsigned)(v + CLIP_V3_BIAS));
     }
-    for (unsigned i = 1; i < count; ++i) {           /* back in time order; events at one time keep their order */
-        uint8_t x[CLIP_V3_EVENT]; unsigned k = i;
-        memcpy(x, base + CLIP_V3_EVENT * i, sizeof x);
-        for (; k && get16(base + CLIP_V3_EVENT * (k - 1U)) > get16(x); --k) memcpy(base + CLIP_V3_EVENT * k, base + CLIP_V3_EVENT * (k - 1U), sizeof x);
-        memcpy(base + CLIP_V3_EVENT * k, x, sizeof x);
-    }
-    for (unsigned i = 1; i < count; ++i) {           /* two notes of one pitch on one step: the first stays */
-        const uint8_t *e = base + CLIP_V3_EVENT * i;
-        if (e[3] & 0x80U) continue;
-        for (unsigned k = i; k-- > 0 && get16(base + CLIP_V3_EVENT * k) == get16(e);) {
-            const uint8_t *o = base + CLIP_V3_EVENT * k;
-            if (!(o[3] & 0x80U) && (o[2] & 127U) == (e[2] & 127U)) { clip_v3_remove(p, i); --i; --count; break; }
-        }
-    }
+    reorder(p);
 }
 void clip_v3_transpose_apply(uint8_t *p)
 {

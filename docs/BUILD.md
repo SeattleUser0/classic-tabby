@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.91
+Version: 0.92
 Revision log:
+- v0.92, 2026-11-17: 54.3, 54.4 (tabby-v04.18: candidate 1 held back by a tool limit, candidate 2 released), section 55 (tabby-v04.19: STEP SIZE per clip).
 - v0.91, 2026-11-17: 53.1 (tabby-v04.17 released as candidate 1), section 54 (tabby-v04.18: the printed button names; the photograph; the stickers redesigned).
 - v0.90, 2026-11-17: 52.3 (tabby-v04.16 released as candidate 1), section 53 (tabby-v04.17: SHUFFLE and PLAY QUANTIZE per clip, three pages).
 - v0.89, 2026-11-17: section 52 (tabby-v04.16: a scene deleted and moved, a stop takes an armed take off, the printable manual, stickers in inch fractions; the photograph that was not there).
@@ -5948,3 +5949,26 @@ install step wrote nothing); every step passed; promoted.
 | full backup, restore, verify | Verify PASS, 41 items, twice |
 
 Flash margin 34269 bytes, free RAM 143020 bytes.
+
+## 55. tabby-v04.19: STEP SIZE per clip (2026-11-17)
+
+Parity list item 3, the MC-707's SCALE (SPEC 19.22). The clip library part was written and tested in a copy outside
+the worktree while earlier candidates were on the device.
+
+| Part | Change |
+| --- | --- |
+| app/clip_v3.c, .h v0.7 | header byte 14: `clip_v3_scale`, `_scale_steps`, `_scale_set`, `_scale_apply`, `_scale_back`; `reorder` shared with the quantize |
+| app/song.c | `decode_track` applies the step size before the quantize and the transpose; `trackbuf.scale`; `rec_clip_time`, a recorded note's length and `play_step` in the clip's own steps; `song_edit_scale` |
+| app/screen.c | the line STEP SIZE (23 lines); op 17 replies 37 bytes |
+| web | clip-v3.js v0.7, song-format.js v0.12 keep byte 14 |
+| tests | clip_v3_test.c (10 checks; random clips valid before and after); smoke.c v0.28 (14 checks: at 1/8 the note two steps in comes after 172 blocks and the clip loops after 1378; at 1/32 43 and 344; 12 steps at 1/16T 57 and 344; the play cursor on the clip's step 3 at 4.2 sixteenths; a key played at the 9th sixteenth for two sixteenths is recorded on the clip's step 5, one step long); setup-sim.mjs v0.6 (101 checks) |
+| tools/linux/hw/run-setup.py v0.11 | STEP SIZE 1/8 heard on MIDI out: the second note of the copy 328.1 ms after the first (164.1 at 1/16) |
+
+A mistake in my first version of the smoke test, not in the engine: it assumed the test clip was 16 steps long; an
+earlier part of the same test section had left it at 32. Found by printing what the test heard; the test now sets
+the length itself.
+
+Before the candidate, on the device with tabby-v04.18: run-setup.py v0.11 passed 34 of 34 (the new section is
+skipped on firmware that reports no step size).
+
+Measured: app image 486404 bytes (+1216), margin 33053, heap 143020 (unchanged). Build `60dd42e69b99e957`.

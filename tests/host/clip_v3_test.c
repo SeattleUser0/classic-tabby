@@ -175,7 +175,38 @@ int main(int argc, char **argv)
         t[0] = 0; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 0"); t[0] = 129; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 129"); t[0] = 64;
         t[1] = 4; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved flag bit"); t[1] = 0;
         t[2] = 5; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "program without its flag"); t[2] = 0;
-        t[14] = 1; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved header byte"); t[14] = 0;
+        t[14] = 5; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "step size above 4"); t[14] = 0x11; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "the high bits of byte 14 are reserved"); t[14] = 0;
+        /* v0.7 (tabby-v04.19): the step size in byte 14 */
+        { static uint8_t c[CLIP_V3_BYTES_MAX]; struct clip_v3_event e = { 0, CLIP_V3_NOTE, 60, 100, 0, 240 }, g;
+          CHECK(clip_v3_scale_steps(16, 0) == 16 && clip_v3_scale_steps(16, 1) == 32 && clip_v3_scale_steps(16, 2) == 8 && clip_v3_scale_steps(16, 3) == 0 && clip_v3_scale_steps(12, 3) == 8 && clip_v3_scale_steps(12, 4) == 16
+                && clip_v3_scale_steps(65, 1) == 0 && clip_v3_scale_steps(64, 1) == 128 && clip_v3_scale_steps(15, 2) == 0 && clip_v3_scale_steps(16, 5) == 0, "step size: the played length must be whole 16ths, 1 to 128");
+          clip_v3_empty(c, 16); (void)clip_v3_insert(c, &e); e.time = 480; e.a = 61; e.length = 480; (void)clip_v3_insert(c, &e); e.time = -200; e.a = 62; e.length = 100; (void)clip_v3_insert(c, &e);
+          (void)clip_v3_step_mod_set(c, 3, 5);
+          CHECK(clip_v3_scale_set(c, 3) == CLIP_V3_BAD_HEADER && clip_v3_scale_set(c, 1) == CLIP_V3_OK && clip_v3_scale(c) == 1 && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK, "step size: a triplet size is refused for 16 steps; an 8th is set");
+          { uint8_t o2[2048]; CHECK(clip_v3_to_v2(c, clip_v3_bytes(c), o2, sizeof o2) == CLIP_V3_NOT_V2_SHAPED, "a clip with a step size is not a v2 block"); }
+          CHECK(clip_v3_scale_apply(c) == 1 && c[14] == 0 && c[0] == 32 && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK, "step size 1/8 applied: a valid clip of 32 steps");
+          clip_v3_event(c, 0, &g); { struct clip_v3_event g1, g3; clip_v3_event(c, 1, &g1); clip_v3_event(c, clip_v3_count(c) - 1U, &g3);
+            CHECK(g.a == 60 && g.time == 0 && g.length == 480 && g1.a == 61 && g1.time == 960 && g1.length == 960 && g3.a == 62 && g3.time == 32 * 480 - 400 && clip_v3_step_mod(c, 6) == 5 && clip_v3_step_mod(c, 3) == 0,
+                  "step size 1/8: times and lengths doubled, a note before the start now ends the clip, the probability of step 4 is on step 7"); }
+          clip_v3_empty(c, 12); e.length = 240; for (int s2 = 0; s2 < 12; ++s2) { e.time = s2 * 480; e.a = (uint8_t)(60 + s2); (void)clip_v3_insert(c, &e); }
+          (void)clip_v3_scale_set(c, 3);
+          CHECK(clip_v3_scale_apply(c) == 3 && c[0] == 8 && clip_v3_count(c) == 12 && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK, "step size 1/16T: 12 steps play in 8 sixteenths");
+          clip_v3_event(c, 1, &g); CHECK(g.time == 320 && g.length == 160 && clip_v3_scale_back(320, 3) == 480 && clip_v3_scale_back(960, 1) == 480, "step size 1/16T: the second note 320 units in; a played time goes back to the clip's own");
+          clip_v3_empty(c, 16); c[14] = 3; CHECK(clip_v3_scale_apply(c) == 0 && c[0] == 16 && c[14] == 0, "a step size that does not fit the length plays as 16ths");
+          unsigned bads = 0, applied = 0; srand(11);
+          for (unsigned r = 0; r < 6000; ++r) {
+              unsigned steps = 1U + (unsigned)rand() % 128U, k = (unsigned)rand() % 70U, sc = 1U + (unsigned)rand() % 4U; clip_v3_empty(c, steps);
+              for (unsigned i = 0; i < k; ++i) {
+                  if (rand() % 8 == 0) (void)clip_v3_step_mod_set(c, (unsigned)rand() % steps, 1U + (unsigned)rand() % 7U);
+                  else { e.time = rand() % (int)(steps * 480U) - 240; e.a = (uint8_t)(48 + rand() % 5); e.length = (uint16_t)(1 + rand() % 3000); (void)clip_v3_insert(c, &e); }
+              }
+              if (clip_v3_scale_set(c, sc)) { if (clip_v3_scale_steps(steps, sc)) ++bads; continue; }
+              (void)clip_v3_quantize_set(c, (unsigned)rand() % 4U);
+              if (clip_v3_validate(c, clip_v3_bytes(c)) || clip_v3_scale_apply(c) != sc) ++bads;
+              clip_v3_quantize_apply(c); ++applied;
+              if (clip_v3_validate(c, clip_v3_bytes(c))) ++bads;
+          }
+          CHECK(bads == 0 && applied > 1000, "step size: %u random clips are valid before and after (%u bad)", applied, bads); }
         /* v0.6 (tabby-v04.17): the shuffle in byte 13, the playback quantize in byte 15 */
         t[13] = 52; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "shuffle above 51"); t[13] = 51; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_OK && clip_v3_shuffle(t) == 51, "shuffle 51 (50 percent) is valid");
         { uint8_t o2[2048]; CHECK(clip_v3_to_v2(t, (unsigned)n, o2, sizeof o2) == CLIP_V3_NOT_V2_SHAPED, "a clip with a shuffle is not a v2 block"); } t[13] = 0;
@@ -315,7 +346,7 @@ int main(int argc, char **argv)
             if (delivered != count || cursor != count) ++bad;
             ++walked;
             int a = clip_v3_to_v2(f, bytes, out2, sizeof out2), b = clip_v3_to_cells(f, bytes, cells);
-            if (!f[8] && !f[12] && !f[13] && !f[15] && (a < 0) != (b != 0)) ++bad;   /* the two grid conversions agree on what a grid can hold (a chain or a transpose keeps a clip out of v2 only) */
+            if (!f[8] && !f[12] && !f[13] && !f[14] && !f[15] && (a < 0) != (b != 0)) ++bad;   /* the two grid conversions agree on what a grid can hold (a chain or a transpose keeps a clip out of v2 only) */
             if (a > 0) { int c = clip_v3_from_v2(out2, (unsigned)a, f, sizeof f, NULL); if (c <= 0) ++bad; }
         }
         CHECK(bad == 0, "fuzz: nothing the validator accepts breaks a rule (%u bad)", bad);

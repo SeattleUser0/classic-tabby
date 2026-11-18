@@ -123,6 +123,7 @@ int song_clip_copy(unsigned track, unsigned from, unsigned to);
 /* tabby-v04.15: the open clip's TRANSPOSE (-12 to 12 semitones; one undo level per run), and taking a clip out of the
  * song (stopped only; SONG_EDIT_SHARED when a scene uses it: song_clip_scene gives that scene, or -1). */
 int song_edit_transpose(int delta);
+int song_edit_scale(int delta);                      /* tabby-v04.19: 0 a 16th, 1 an 8th, 2 a 32nd, 3 a 16th triplet, 4 an 8th triplet; only what fits the length */
 int song_edit_feel(unsigned field, int delta);       /* tabby-v04.17: 0 SHUFFLE (0 the song's, 1..51 own 0..50 %), 1 PLAY QUANTIZE (0 off, 1..3) */
 int song_clip_delete(unsigned track, unsigned place);
 int song_clip_scene(unsigned track, unsigned place);

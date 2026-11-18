@@ -19,9 +19,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.10
+Version: 0.11
 
 Revision log
+    v0.11 2026-11-17  tabby-v04.19: STEP SIZE 1/8 heard on MIDI out.
     v0.10 2026-11-17  tabby-v04.17: SHUFFLE and PLAY QUANTIZE heard on MIDI out (a second note 150 units late on step 2);
                       DELETE CLIP is found from the number of lines, not by a fixed index.
     v0.9  2026-11-17  Two more tool errors, found in the tabby-v04.15-rc2 run: the takes of the click checks ran on clip 1,
@@ -206,11 +207,11 @@ def main():
                       "STEP page: a second note on step 2 of the copy, moved 150 units late", (s["place"], second))
                 l.pad(1); idle(0.2); l.press("EDIT"); idle(0.3)
 
-                def gap():
-                    """Launch the copy, play 4.5 s: the median time from the first note to the second, in ms."""
+                def gap(seconds=4.5):
+                    """Launch the copy, play: the median time from the first note to the second, in ms."""
                     l.pad(target % 16); idle(0.3)
                     mark = time.monotonic_ns()
-                    l.press("PLAY"); idle(4.5)
+                    l.press("PLAY"); idle(seconds)
                     ons = since(mark, lambda m: len(m) == 3 and m[0] == (0x90 | ch) and m[2] and m[1] in (pitch, second.get("pitch")))
                     l.press("PLAY"); idle(0.8)
                     d = [(tb - ta) / 1e6 for (ta, ma), (tb, mb) in zip(ons, ons[1:]) if ma[1] == pitch and mb[1] == second.get("pitch")]
@@ -238,6 +239,22 @@ def main():
                 check(u1["row"] == 10 and u1["shuffle"] == 51 and abs(g1 - 207.0) <= 3.0, "SHUFFLE 50 PERCENT: it comes 207 ms after the first", (u1["shuffle"], "%.2f ms" % g1))
                 check(u2["shuffle"] == 0 and u2["quantize"] == 1 and abs(g2 - 125.0) <= 3.0, "SHUFFLE SONG, PLAY QUANTIZE 1/16: it plays on its step, 125 ms after the first", (u2["quantize"], "%.2f ms" % g2))
                 check(u3["shuffle"] == 0 and u3["quantize"] == 0, "both back to SONG and OFF", (u3["shuffle"], u3["quantize"]))
+                # ---- tabby-v04.19: STEP SIZE 1/8: the 8-step copy plays 16 sixteenths; 630 units become 1260 (328.1 ms) ----
+                if l.setup_state().get("scale") is not None:
+                    def size(want):
+                        l.press("FX"); idle(0.4); l.knob(K5, 11 - l.setup_state()["row"]); idle(0.3)
+                        for _ in range(5):
+                            now = l.setup_state()["scale"]
+                            if now == want:
+                                break
+                            l.knob(K1, 1 if want > now else -1); idle(0.3)
+                        u = l.setup_state(); l.press("FX"); idle(0.3)
+                        return u
+                    u4 = size(1); g4 = gap(8.5)
+                    u5 = size(0)
+                    measured["step_size_gap_ms"] = round(g4, 2)
+                    check(u4["row"] == 11 and u4["scale"] == 1 and abs(g4 - 328.1) <= 3.0, "STEP SIZE 1/8: every step lasts an 8th: the second note 328 ms after the first", (u4["scale"], "%.2f ms" % g4))
+                    check(u5["scale"] == 0, "STEP SIZE back to 1/16", u5["scale"])
                 l.edit_save(); idle(0.6)
                 l.press("FX"); idle(0.4)
             D = l.setup_state()["rows"] - 11                                           # v0.10: DELETE CLIP is the last line before the song's ten

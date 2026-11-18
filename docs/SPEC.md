@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.56
+Version: 0.57
 Revision log:
+- v0.57, 2026-11-17: 19.22 tabby-v04.19 (STEP SIZE per clip).
 - v0.56, 2026-11-17: 17.4 rewritten: every control by its printed word (the user's rule; the photograph of the unit); 17.15 the photograph arrived; 19.21 tabby-v04.18.
 - v0.55, 2026-11-17: 19.20 tabby-v04.17 (SHUFFLE and PLAY QUANTIZE per clip; CLIP SETTING in three pages).
 - v0.54, 2026-11-17: 17.15 the flash reserve (15 KB) and the user's answers of 2026-11-17 evening; 19.19 tabby-v04.16 (a scene deleted and moved, a stop takes an armed take off, the printable manual).
@@ -1936,3 +1937,23 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - docs/STICKERS.md v0.3: the photograph showed that the band v0.1 and v0.2 used for stickers A, B and C carries the
   function strip. They are now 7/32 inch high and sit in the 11/32 gap between the transport symbols and the strip;
   nothing printed is covered; they carry functions, not names.
+
+### 19.22 tabby-v04.19 (2026-11-17): STEP SIZE per clip (the MC-707's SCALE)
+
+- Parity list item 3. Header byte 14, low four bits: 0 a 16th, 1 an 8th (x 2), 2 a 32nd (x 1/2), 3 a 16th triplet
+  (x 2/3), 4 an 8th triplet (x 4/3). Named STEP SIZE on the panel (17.4: SCALE is a button).
+- Like TRANSPOSE and PLAY QUANTIZE it changes the copy `decode_track` plays: `clip_v3_scale_apply` scales every time
+  and note length, sets the played length (steps x ratio), wraps what crosses the clip's end (the last 240 units of
+  a clip are "just before its start"), moves a step's probability to the step where it begins, puts the list back
+  in order and drops the later of two notes of one pitch that land on one step. The result is an ordinary clip of
+  16th steps, so the grid and the cursor, chains, the master cycle and the scenes work on it unchanged. The order
+  in decode: step size, then PLAY QUANTIZE (its grid is real 16ths), then TRANSPOSE; the shuffle works at play time.
+- Only sizes that give a whole number of 16ths from 1 to 128 (`clip_v3_scale_steps`): `song_edit_scale` passes the
+  others over, one size per call. A clip whose length was changed afterwards so that its size no longer fits plays
+  as 16ths and the page says NOT THIS LENGTH.
+- The clip's own steps stay what the editor and the recorder work in: `rec_clip_time` and a recorded note's length
+  go through `clip_v3_scale_back` (played units to clip units), and `song_edit_info.play_step` too. `b->scale`
+  holds what was applied to a buffer.
+- CLIP SETTING: 23 lines; STEP SIZE follows PLAY QUANTIZE on page 2/3. Remote: op 17 replies 37 bytes (36: byte 14).
+- Page: web/clip-v3/clip-v3.js v0.7, web/import/song-format.js v0.12 keep the byte. Firmware before tabby-v04.19
+  refuses a clip with it (17.14).

@@ -42,9 +42,10 @@
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.11
+ * Version: 0.12
  *
  * Revision log
+ *   v0.12 2026-11-17  tabby-v04.19: a clip's scale (header byte 14) is kept.
  *   v0.11 2026-11-17  tabby-v04.17: a clip's shuffle and playback quantize (header bytes 13, 15) are kept.
  *   v0.10 2026-11-17  tabby-v04.15: a clip's transpose (header byte 12) is kept (block.transpose).
  *   v0.9  2026-11-17  tabby-v04.14: a v3 clip read from a song keeps its own length and its chain when it is written
@@ -164,7 +165,7 @@
       /* v0.9 (tabby-v04.14): only a clip of 64 steps goes back to the v2 grid; any other length is the clip's own (a clip
        * made or shortened on the device) and stays a v3 clip. Before, a 32-step clip came back as 64 steps. */
       let v2 = null;
-      if (bytes[0] === LIMITS.steps && !(bytes[8] | bytes[9] | bytes[10] | bytes[11] | bytes[12] | bytes[13] | bytes[15])) try { v2 = V3().toV2(bytes); } catch (e) { if (e.code !== V3().codes.NOT_V2_SHAPED) fail('block ' + id + ' (v3 clip): ' + e.message); }
+      if (bytes[0] === LIMITS.steps && !(bytes[8] | bytes[9] | bytes[10] | bytes[11] | bytes[12] | bytes[13] | bytes[14] | bytes[15])) try { v2 = V3().toV2(bytes); } catch (e) { if (e.code !== V3().codes.NOT_V2_SHAPED) fail('block ' + id + ' (v3 clip): ' + e.message); }
       if (v2) return decodeBlock(v2, id, LIMITS.formatV2);
       return decodeClip(bytes, id);
     }
@@ -214,7 +215,7 @@
       if (!Number.isInteger(n.length) || n.length < LIMITS.lengthMin) fail(where + ': length ' + n.length + ' invalid');
     }
     try {
-      return V3().build({ steps, program: block.program, bankMsb: block.bankMsb, bankLsb: block.bankLsb, chain: block.chain, transpose: block.transpose, shuffle: block.shuffle, quantize: block.quantize,
+      return V3().build({ steps, program: block.program, bankMsb: block.bankMsb, bankLsb: block.bankLsb, chain: block.chain, transpose: block.transpose, shuffle: block.shuffle, quantize: block.quantize, scale: block.scale,
         notes: sortNotes(block.notes || []).map(n => ({ time: n.step * U + (n.offset | 0), pitch: n.pitch, velocity: n.velocity, length: n.length, retrigger: n.retrigger })),
         controls: (block.controls || []).slice().sort((a, b) => a.time - b.time),
         stepMods: Object.entries(block.stepFlags || {}).map(([s, f]) => ({ step: Number(s), probability: f.probability || 0, alt: !!f.alt })) });
@@ -232,6 +233,7 @@
     block.clip = true; block.steps = m.steps;          /* v0.9: read as a clip, written as a clip of the same length */
     if (m.shuffle) block.shuffle = m.shuffle;          /* v0.11: the clip's SHUFFLE and PLAY QUANTIZE (tabby-v04.17) */
     if (m.quantize) block.quantize = m.quantize;
+    if (m.scale) block.scale = m.scale;                /* v0.12: the clip's SCALE (tabby-v04.19) */
     if (m.transpose) block.transpose = m.transpose;    /* v0.10: the clip's TRANSPOSE (tabby-v04.15) */
     if (m.chain) block.chain = m.chain;                /* v0.9: NEXT CLIP, AFTER, TIMES (was dropped) */
     if ('program' in m) block.program = m.program;
@@ -555,7 +557,7 @@
   function quantize(song, mode, rule) { return song.blocks.reduce((n, b) => n + quantizeNotes(b.notes, mode, rule), 0); }
 
   const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, blockKeyOf, needsV3, payloadOf, structuralKey, encodeBlockRecord, validateEvents,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.11' };
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.12' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();

@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.27
+ * Version: 0.28
  *
  * Revision log
+ *   v0.28 2026-11-17  tabby-v04.19: section 26: STEP SIZE per clip (played, the cursor, a take).
  *   v0.27 2026-11-17  tabby-v04.17: section 26: SHUFFLE and PLAY QUANTIZE per clip, heard on MIDI out.
  *   v0.26 2026-11-17  tabby-v04.16: section 26: a scene moved and deleted (events and loop row follow; the grid-block
  *                     length rule), a stop takes an armed take off.
@@ -2689,6 +2690,47 @@ int main(void)
           CHECK(d71[3] == d71[0] && d72[3] == d72[0], "feel: SONG and OFF again: the clip plays as recorded, the stored notes were never changed (%u, %u)", d71[3], d72[3]);
           { struct clip_v3_event e; unsigned late = 0; for (unsigned i = 0; i < clip_v3_count(song_edit_clip()); ++i) { clip_v3_event(song_edit_clip(), i, &e); if (e.kind == CLIP_V3_NOTE && e.a == 72 && e.time == 4 * 480 + 200) late = 1; }
             CHECK(late, "feel: the open clip still holds the note 200 units late"); }
+          song_edit_discard(); }
+        /* ---- tabby-v04.19: STEP SIZE per clip: what a step lasts; the take and the play cursor are in the clip's own steps ---- */
+        { CHECK(sim_song_load(SONG) == 0 && song_edit_open(0, 0) == 0 && song_edit_length(16 - (int)clip_v3_steps(song_edit_clip())) >= 0 && clip_v3_steps(song_edit_clip()) == 16 && song_edit_note_toggle(2, 71, 100, 240) == 1,
+                "step size: clip 1 open and set to 16 steps (60 on step 1), 71 on step 3");
+          unsigned d71[4] = {0}, loop[4] = {0}, cursor = 255, rec_ok = 0; unsigned ch = groove_midi_input_channel(0);
+          for (unsigned run = 0; run < 4; ++run) {
+              /* run 0: 1/16; 1: 1/8 (with a take); 2: 1/32; 3: 12 steps at 1/16T */
+              if (run == 1) CHECK(song_edit_scale(1) == 0 && clip_v3_scale(song_edit_clip()) == 1, "step size: K1 right: 1/8");
+              if (run == 2) CHECK(song_edit_scale(1) == 0 && clip_v3_scale(song_edit_clip()) == 2 && song_edit_scale(1) == 0 && clip_v3_scale(song_edit_clip()) == 2, "step size: 1/32; the triplet sizes do not fit 16 steps and are passed over");
+              if (run == 3) CHECK(song_edit_length(-4) >= 0 && song_edit_scale(1) == 0 && clip_v3_scale(song_edit_clip()) == 3, "step size: with 12 steps 1/16T can be chosen");
+              { struct message m[64]; (void)drain(m, 64); }
+              CHECK(song_clip_launch(0, 0) == 0, "step size: the clip reserved (run %u)", run);
+              if (run == 1) (void)song_record_start();
+              (void)sim_song_play();
+              unsigned b60 = 0, got = 0, on = 0, off = 0;
+              for (unsigned blocks = 0; blocks < 2300 && got < 3; ++blocks) {   /* run 1 begins with the count-in of the take */
+                  (void)sim_render();
+                  struct message m[64]; unsigned n = drain(m, 64);
+                  for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && m[k].data[0] == 0x94 && m[k].data[2]) {
+                      if (m[k].data[1] == 60 && !got) { b60 = blocks; got = 1; }
+                      else if (m[k].data[1] == 60 && got && !loop[run]) { loop[run] = blocks - b60; ++got; }
+                      if (m[k].data[1] == 71 && got && !d71[run]) { d71[run] = blocks - b60; ++got; }
+                  }
+                  if (run == 1 && got) {
+                      struct song_edit_info ei; song_edit_info(&ei);
+                      if (blocks == b60 + 180) cursor = ei.play_step;                       /* 4.2 played steps in: the clip's step 3 (index 2) */
+                      if (blocks == b60 + 344 && !on) { song_record_in(1, 0x90 | ch, 80, 100); on = 1; }   /* 8 played steps = the clip's step 5 */
+                      if (blocks == b60 + 430 && !off) { song_record_in(1, 0x80 | ch, 80, 0); off = 1; }  /* 2 played steps later: one step of the clip */
+                  }
+              }
+              if (run == 1) { for (unsigned i = 0; i < 20; ++i) (void)sim_render(); song_record_stop();
+                  struct clip_v3_event e; for (unsigned i = 0; i < clip_v3_count(song_edit_clip()); ++i) { clip_v3_event(song_edit_clip(), i, &e); if (e.kind == CLIP_V3_NOTE && e.a == 80 && e.time == 4 * 480 && e.length >= 440 && e.length <= 520) rec_ok = 1; } }
+              sim_song_stop(); settle(); settle();
+          }
+          /* a 16th is 43.07 blocks: 71 two steps after 60, the clip 16 steps long */
+          CHECK(d71[0] >= 85 && d71[0] <= 87 && loop[0] >= 688 && loop[0] <= 690, "step size 1/16: 71 after 2 sixteenths, the clip loops after 16 (%u, %u blocks; 86, 689)", d71[0], loop[0]);
+          CHECK(d71[1] >= 171 && d71[1] <= 173 && loop[1] >= 1377 && loop[1] <= 1379, "step size 1/8: 71 after 4 sixteenths, the clip loops after 32 (%u, %u blocks; 172, 1378)", d71[1], loop[1]);
+          CHECK(cursor == 2, "step size 1/8: the play cursor counts the clip's own steps (step %u at 4.2 sixteenths)", cursor + 1U);
+          CHECK(rec_ok, "step size 1/8: a key played at the 9th sixteenth for two sixteenths is recorded on the clip's step 5, one step long");
+          CHECK(d71[2] >= 42 && d71[2] <= 44 && loop[2] >= 343 && loop[2] <= 346, "step size 1/32: 71 after 1 sixteenth, the clip loops after 8 (%u, %u blocks; 43, 344.5)", d71[2], loop[2]);
+          CHECK(d71[3] >= 56 && d71[3] <= 59 && loop[3] >= 343 && loop[3] <= 346, "step size 1/16T, 12 steps: 71 after two triplet steps (%u blocks; 57.4), the clip loops after 8 sixteenths (%u)", d71[3], loop[3]);
           song_edit_discard(); }
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }

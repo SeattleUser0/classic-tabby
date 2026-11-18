@@ -241,7 +241,7 @@ static uint8_t rec_lamp;   /* the recorder's state as the control pass last read
 /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the CLIP SETTING page: a list; K5 chooses the row, K1 changes its value (K2 in
  * steps of 16), the 4th left button does a row that is an action (COPY) and saves on the others. The scene pad that is
  * being held on the SCENES page (a long press on an empty pad stores what plays as a new scene). */
-enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_PROGRAM, SET_BANK_MSB, SET_BANK_LSB, SET_COPY, SET_TRANSPOSE, SET_SHUFFLE, SET_QUANTIZE /* tabby-v04.17; the second page starts at SET_TRANSPOSE */, SET_DELETE /* tabby-v04.15 */, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE,
+enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_PROGRAM, SET_BANK_MSB, SET_BANK_LSB, SET_COPY, SET_TRANSPOSE, SET_SHUFFLE, SET_QUANTIZE, SET_SCALE /* tabby-v04.19 */ /* tabby-v04.17; the second page starts at SET_TRANSPOSE */, SET_DELETE /* tabby-v04.15 */, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE,
        SET_CLICK_LEVEL, SET_KNOB1, SET_KNOB2, SET_KNOB3, SET_KNOB4 /* tabby-v04.14: the song's page starts at SET_COUNT_IN */, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
 static uint8_t setup_row, setup_to, scene_hold_pad = 255;
 static uint32_t scene_hold_ms;
@@ -547,6 +547,10 @@ static const char *setup_edit(int d)
         if (!ei.active) return "SELECT A CLIP FIRST";
         return song_edit_feel(setup_row - SET_SHUFFLE, d) == SONG_BUSY ? "NOT DURING A TAKE" : NULL;
     }
+    if (setup_row == SET_SCALE) {
+        if (!ei.active) return "SELECT A CLIP FIRST";
+        return song_edit_scale(d) == SONG_BUSY ? "NOT DURING A TAKE" : NULL;
+    }
     if (setup_row == SET_DELETE) return NULL;
     (void)song_setting_edit(setup_row - SET_COUNT_IN, d);
     return NULL;
@@ -573,7 +577,8 @@ unsigned ct_screen_setup_read(uint8_t *out)
       out[26] = rec && er < rec->rows ? rec->row[er].steps : 0; out[27] = mdl ? mdl->cycle : 16; }
     out[33] = clip ? clip[12] : 0;   /* tabby-v04.15: the open clip's transpose, a signed byte */
     out[34] = clip ? clip[13] : 0; out[35] = clip ? clip[15] : 0;   /* tabby-v04.17: the open clip's shuffle (0 the song's, 1..51 its own 0..50) and playback quantize (0..3) */
-    return 36;
+    out[36] = clip ? clip[14] : 0;   /* tabby-v04.19: the open clip's scale (0 a 16th, 1 an 8th, 2 a 32nd, 3 a 16th triplet, 4 an 8th triplet) */
+    return 37;
 }
 int ct_screen_setup_do(void)
 {
@@ -1208,7 +1213,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
     } else if (visible == CLIP_SETUP) {
         /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the settings of the open clip and of the song, one per line */
         struct song_edit_info ei; song_edit_info(&ei);
-        static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "PROGRAM", "BANK MSB", "BANK LSB", "COPY TO PAD", "TRANSPOSE", "SHUFFLE", "PLAY QUANTIZE", "DELETE CLIP", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE",
+        static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "PROGRAM", "BANK MSB", "BANK LSB", "COPY TO PAD", "TRANSPOSE", "SHUFFLE", "PLAY QUANTIZE", "STEP SIZE", "DELETE CLIP", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE",
                                                        "CLICK LEVEL", "K1 CONTROLLER", "K2 CONTROLLER", "K3 CONTROLLER", "K4 CONTROLLER"};
         const uint8_t *sclip = song_edit_clip();
         static const char *const modes[] = {"OFF", "WHEN RECORDING", "ALWAYS"}, *const outs[] = {"INTERNAL", "MIDI NOTE", "BOTH"}, *const counts[] = {"OFF", "1 CYCLE", "2 CYCLES", "", "4 CYCLES"},
@@ -1246,6 +1251,10 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
                                          if (!sh) color_text(130, y, "SONG", TEXT); else { small_number(130, y, sh - 1U, 2, TEXT); dim_text(148, y, "PERCENT"); } }
             else if (i == SET_QUANTIZE) { static const char *const grids[] = {"OFF", "1/16", "1/8", "1/4"};
                                           color_text(130, y, grids[(sclip ? clip_v3_quantize(sclip) : 0U) & 3U], TEXT); }
+            else if (i == SET_SCALE) { static const char *const scales[] = {"1/16", "1/8", "1/32", "1/16T", "1/8T"};
+                                       unsigned sc = sclip ? clip_v3_scale(sclip) : 0U, ps = sclip ? clip_v3_scale_steps(clip_v3_steps(sclip), sc) : 0U;
+                                       color_text(130, y, scales[sc <= CLIP_V3_SCALE_MAX ? sc : 0U], TEXT);
+                                       if (sc && ps) { dim_text(166, y, "="); small_number(176, y, ps, 3, TEXT); dim_text(198, y, "16THS"); } else if (sc) dim_text(166, y, "NOT THIS LENGTH"); }
             else if (i == SET_DELETE) dim_text(130, y, "> TWICE");
             else if (i == SET_COUNT_IN) color_text(130, y, counts[song_setting(SONG_SET_COUNT_IN)], TEXT);
             else if (i == SET_CLICK) color_text(130, y, modes[song_setting(SONG_SET_CLICK)], TEXT);

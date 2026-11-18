@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.41
+Version: 0.42
 Revision log:
+- v0.42, 2026-11-17: section 42: tabby-v04.19 measured, 486404 bytes, margin 33053.
 - v0.41, 2026-11-17: section 41: tabby-v04.18 measured, 485188 bytes, margin 34269 (text only).
 - v0.40, 2026-11-17: section 40: tabby-v04.17 measured, 485188 bytes, margin 34269.
 - v0.39, 2026-11-17: section 39: tabby-v04.16 measured, 484324 bytes, margin 35133; the 15 KB reserve.
@@ -1316,3 +1317,12 @@ RAM (runtime heap): 143020 bytes, unchanged. Above the 15360-byte reserve: 18909
 
 The 61 changed strings are 17 bytes shorter in sum; the image stays the same size after alignment. RAM (runtime heap):
 143020 bytes, unchanged. Above the 15360-byte reserve: 18909 bytes.
+
+## 42. tabby-v04.19 (measured, 2026-11-17)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.18 | 485188 | | 34269 |
+| tabby-v04.19: STEP SIZE per clip | 486404 | +1216 | **33053** |
+
+RAM (runtime heap): 143020 bytes, unchanged. Above the 15360-byte reserve: 17693 bytes.

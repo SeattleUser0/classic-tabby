@@ -121,6 +121,7 @@ struct trackbuf {
     uint8_t event_count;
     uint16_t lead;                     /* the slice's gaps in blocks */
     uint8_t row, steps, swing, has_block, purpose;
+    uint8_t scale;                       /* tabby-v04.19: the clip's SCALE that was applied to this buffer (0: none); steps is the played length */
     /* Audio only. look_from: the look-ahead's coverage of this buffer's step 0, as the
      * smallest next-frame due time already scanned (LOOK_NONE: no look-ahead yet; a note
      * due before look_from was not fired and is late at the entry); look_row guards against
@@ -1164,7 +1165,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
     unsigned place_row = row >= SONG_ROWS;
     const struct song_row *r = &record.row[place_row ? 0 : row];
     b->row = (uint8_t)row; b->steps = place_row ? SONG_BLOCK_STEPS : r->steps ? r->steps : SONG_BLOCK_STEPS; b->purpose = (uint8_t)purpose;
-    b->swing = (uint8_t)swing_song; b->has_block = 0; b->v3 = 0; b->block = 0;
+    b->swing = (uint8_t)swing_song; b->has_block = 0; b->v3 = 0; b->block = 0; b->scale = 0;
     b->chain_next = 0; b->chain_times = 1; b->chain_after = 0; b->chain_row = 0; b->prog = 0;
     memset(b->cell, 0, sizeof b->cell);
     unsigned id = place_row ? model.clip[t][(row - SONG_ROWS) % SONG_CLIPS] : r->block[t], bytes, format = SONG_FORMAT_V2;
@@ -1183,6 +1184,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
             if (format != SONG_FORMAT_V3 && (place_row || (r->flags & SONG_ROW_FLAG_OWN))) b->steps = (uint8_t)v2_steps(t, id);
             if (format == SONG_FORMAT_V3) {
                 unsigned next = clip_v3_next(payload);
+                b->scale = (uint8_t)clip_v3_scale_apply(payload);   /* tabby-v04.19: the clip's SCALE: the copy that plays becomes a clip of 16th steps of the played length */
                 b->steps = (uint8_t)clip_v3_steps(payload);
                 /* tabby-v04.17: the clip's own SHUFFLE instead of the song's swing; PLAY QUANTIZE moves the notes of the copy that plays */
                 if (clip_v3_shuffle(payload)) b->swing = (uint8_t)(clip_v3_shuffle(payload) - 1U);
@@ -1752,7 +1754,7 @@ void song_edit_info(struct song_edit_info *out)
         const struct trackbuf *b = &tbuf[edit.track][k->cur];
         uint32_t m = master, s0 = k->start;
         if (b->ready && b->has_block && b->block == edit.block && m >= s0 && !(k->state == 0 && song_over))
-            out->play_step = (uint8_t)(((m - s0) / UNITS) % (b->steps ? b->steps : 1U));
+            out->play_step = (uint8_t)((unsigned)clip_v3_scale_back((int)((m - s0) % ((b->steps ? b->steps : 1U) * (uint32_t)UNITS)), b->scale) / UNITS);   /* tabby-v04.19: in the clip's own steps */
     }
 }
 const uint8_t *song_edit_clip(void) { return edit.active ? edit.clip : NULL; }
@@ -1899,6 +1901,21 @@ int song_edit_feel(unsigned field, int delta)
     if (edit.gesture != gesture) edit_push();
     edit.clip[at] = (uint8_t)v;
     edit.gesture = gesture; edit_changed();
+    return 0;
+}
+/* tabby-v04.19: the open clip's SCALE, one choice per call in the direction of `delta`; a choice that does not give a
+ * whole number of 16th steps from 1 to 128 for the clip's length is passed over. */
+int song_edit_scale(int delta)
+{
+    if (!edit.active || !delta) return SONG_INVALID;
+    if (rec.state == REC_ON) return SONG_BUSY;
+    int now = (int)clip_v3_scale(edit.clip), v = now, by = delta > 0 ? 1 : -1;
+    for (int i = now + by; i >= 0 && i <= CLIP_V3_SCALE_MAX; i += by)
+        if (clip_v3_scale_steps(clip_v3_steps(edit.clip), (unsigned)i)) { v = i; break; }
+    if (v == now) return 0;
+    if (edit.gesture != 0x40000033U) edit_push();
+    (void)clip_v3_scale_set(edit.clip, (unsigned)v);
+    edit.gesture = 0x40000033U; edit_changed();
     return 0;
 }
 /* tabby-v04.15: take the track's clip in `place` out of the song. Only while the song is stopped, and only a clip no
@@ -2063,11 +2080,20 @@ static unsigned rec_track_plays(void)
 }
 /* A master time as a time in the clip (units from its start; the last 240 units count as "just before the start"
  * when the editor shows the whole clip, so that every time is one the format can hold). */
+/* tabby-v04.19: the open clip's SCALE as it plays (0 when it has none, or one that does not fit its length). */
+static unsigned edit_scale(void)
+{
+    unsigned sc = clip_v3_scale(edit.clip);
+    return clip_v3_scale_steps(clip_v3_steps(edit.clip), sc) ? sc : 0U;
+}
 static int32_t rec_clip_time(uint32_t units, unsigned quantize)
 {
     const struct track *k = &tr[edit.track];
-    int32_t len = (int32_t)clip_v3_steps(edit.clip) * UNITS, p = (int32_t)(units - k->start) % len;
-    if (p < 0) p += len;
+    unsigned sc = edit_scale();
+    int32_t len = (int32_t)clip_v3_steps(edit.clip) * UNITS, loop = (int32_t)clip_v3_scale_steps(clip_v3_steps(edit.clip), sc) * UNITS, p = (int32_t)(units - k->start) % loop;
+    if (p < 0) p += loop;
+    p = clip_v3_scale_back(p, sc);                                   /* what was played, in the clip's own steps */
+    if (p >= len) p = len - 1;
     if (quantize) { p = (p + UNITS / 2) / UNITS * UNITS; if (p >= len) p = 0; }
     if (p > len - HALF) p -= len;
     return p;
@@ -2089,6 +2115,7 @@ static int rec_write(const struct clip_v3_event *v)
 static void rec_note_off(unsigned i, uint32_t units)
 {
     uint32_t length = units - rec.held[i].at;
+    if ((int32_t)length >= 1 && length < 0x00800000U) length = (uint32_t)clip_v3_scale_back((int)length, edit_scale());
     if ((int32_t)length < 1) length = 1;
     if (length > 65535U) length = 65535U;
     struct clip_v3_event v = { rec.held[i].time, CLIP_V3_NOTE, rec.held[i].pitch, rec.held[i].velocity, 1, (uint16_t)length };

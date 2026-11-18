@@ -12,9 +12,11 @@
  *   then `count` 6-byte events sorted by time. A note: {time u16 (biased by 240), pitch | retrigger << 7,
  *   velocity (bit 7 = 0), length u16}; other: {time u16, type, 0x80, a, b}. See the document for the types.
  *
- * Version: 0.6
+ * Version: 0.7
  *
  * Revision log
+ *   v0.7  2026-11-17  tabby-v04.19: the clip's SCALE in the low four bits of header byte 14 (clip_v3_scale, _steps, _set,
+ *                     _apply, _back).
  *   v0.6  2026-11-17  tabby-v04.17: the clip's shuffle (header byte 13) and playback quantize (byte 15).
  *   v0.5  2026-11-17  tabby-v04.15: the clip's transpose in header byte 12 (clip_v3_transpose, _set, _apply).
  *   v0.4  2026-11-16  The clip chain in the header (bytes 8..11: next, after, times; docs/CLIP-V3.md 2.1) and
@@ -127,4 +129,19 @@ int clip_v3_shuffle_set(uint8_t *p, unsigned value);
 unsigned clip_v3_quantize(const uint8_t *p);
 int clip_v3_quantize_set(uint8_t *p, unsigned value);
 void clip_v3_quantize_apply(uint8_t *p);
+/* v0.7 (tabby-v04.19): the clip's SCALE, the low four bits of header byte 14: what one step of the clip lasts: 0 a 16th
+ * (as every clip before), 1 an 8th, 2 a 32nd, 3 a 16th triplet (two thirds of a 16th), 4 an 8th triplet (four thirds).
+ * clip_v3_scale_steps: how many 16th steps a clip of `steps` steps then plays, 0 when that is not a whole number from
+ * 1 to 128 (the scale does not fit the length). clip_v3_scale_set refuses a scale that does not fit. A clip whose scale
+ * does not fit its length (the length was changed afterwards) plays as 16ths. clip_v3_scale_apply turns the copy that
+ * plays into an ordinary clip of the played length (times and note lengths scaled, a step's probability moved to the
+ * step where it now begins), clears the scale and returns it (0: nothing was changed). */
+#define CLIP_V3_SCALE_MAX 4
+unsigned clip_v3_scale(const uint8_t *p);
+unsigned clip_v3_scale_steps(unsigned steps, unsigned scale);
+int clip_v3_scale_set(uint8_t *p, unsigned scale);
+unsigned clip_v3_scale_apply(uint8_t *p);
+/* A time or a length as it was played (16th steps of 480 units) in the clip's own units: the recorder and the STEP
+ * page's play cursor use it. */
+int clip_v3_scale_back(int played, unsigned scale);
 #endif
