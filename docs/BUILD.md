@@ -2,7 +2,7 @@
 
 Version: 0.96
 Revision log:
-- v0.96, 2026-11-18: 58.1 (tabby-v04.22 released as candidate 1), section 59 (tabby-v04.23: the step loop).
+- v0.96, 2026-11-18: 58.1 (tabby-v04.22 released as candidate 1), 59.1 (tabby-v04.23-rc1 not promoted: the NUC's clock, and one check of mine), section 59 (tabby-v04.23: the step loop).
 - v0.95, 2026-11-18: 57.5 (tabby-v04.21 released as candidate 2), section 58 (tabby-v04.22: NOTE REPEAT).
 - v0.94, 2026-11-18: 56.1 (tabby-v04.20 released as candidate 1), 57.4 (tabby-v04.21-rc1 not promoted: a test tool error), section 57 (tabby-v04.21: clear notes in a take, NEW SONG, shift a clip; the pad rows; stickers v0.4).
 - v0.93, 2026-11-18: 55.1 (tabby-v04.19 released as candidate 1), section 56 (tabby-v04.20: DIRECTION per clip).
@@ -6181,3 +6181,41 @@ Before the candidate, on the device with tabby-v04.22: run-repeat.py v0.2 passed
 checks; the 7 step loop checks failed as they must without the loop (the pads launched and stopped clips).
 
 Measured: app image 490436 bytes (+640), margin 29021, heap 142412 (-288). Build `c7b2ff04e81b3226`.
+
+### 59.1 tabby-v04.23-rc1: not promoted; the NUC's clock was being corrected, and one check could not be aimed (2026-11-18)
+
+The first start of the flow ended in the suite: the reference compile under Wine died ("wine client error:0: recvmsg:
+Connection reset by peer"); nothing was tagged. Started again: suite green on 4708be1; builds/tabby-v04.23-rc1/ (build
+`c7b2ff04e81b3226`), installed in 11 s. 17 of 21 steps passed. Failed:
+
+| Step | Failure |
+| --- | --- |
+| repeat | 18 of 19: "NOTE REPEAT + pad 9 just after a beat: the last 1 step repeat": one note, then silence |
+| setup | 37 of 38: the click band 4.07 ms over 15 clicks |
+| steps | 17 of 18: a note entered while the clip loops came 3.26 and 4.39 ms early |
+| clips | the timing song: all 960 notes there, worst 9.87 ms on DIN and 9.89 ms on USB, std 2.66 ms, tempo ratio 0.99956 |
+
+The same run: run-15 one line DIN 1.79, 1.76, 1.75 ms, USB 1.70, 1.66, 1.74 ms; record 25 of 25; launch 40 of 40
+twice; no underrun, no DMA overrun; backup, restore, verify PASS.
+
+Not device faults (hard limit 6; each confirmed with a second run or tool before saying so):
+
+- **repeat:** my check. From a note heard on the DIN out to the pad arriving on the device takes 125 to 250 ms by
+  remote, more than one step: the pad came in the step after the beat, which is empty, and the loop repeated that
+  empty step, as it should. The two-step loop of the same run passed (250.05 ms, 249.94 expected) and both times the
+  song was back on its beats (within 1.5 ms). run-repeat.py v0.3 accepts the empty step for one step and adds an
+  eight-step loop on the bass note, which a late pad cannot miss. On the candidate as installed: 20 of 20 (36 every
+  999.6 ms, 999.7 expected; 38 does not come).
+- **setup, steps, clips:** the measuring. DIN and USB show the same error to 0.02 ms and a tempo ratio of 0.99956
+  where every other run of this device reads 0.99958 to 0.99961: both captures are stamped with the NUC's monotonic
+  clock, and that clock is slewed when the time service corrects it. systemd-timesyncd reported a jitter of 142 ms
+  and a delay of 134 ms to its server on this day (a correction of a few milliseconds is slewed in over seconds: a
+  bend in the time axis in the middle of a two-minute song). The device's own counters saw nothing. run-clips.py on
+  the same candidate, twice, straight afterwards (once directly after the repeat test): worst 1.22 and 1.15 ms, std
+  0.35 and 0.36 ms, tempo ratio 0.99961. The NUC was also under load from another project's suites (load average 8);
+  the rerun under the same load passed, so the load alone was not it.
+
+Not proven beyond that: I did not catch the correction itself in a log. If candidate 2 shows the same pattern the
+measuring tools must move to a clock that is not slewed (CLOCK_MONOTONIC_RAW) before another release.
+
+The page builds/tabby-v04.23-rc1/ gets a note line; the same build goes out as candidate 2.

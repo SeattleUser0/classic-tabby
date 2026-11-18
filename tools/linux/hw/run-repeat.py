@@ -22,9 +22,14 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-repeat.py --song N --out DIR
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-18  The one-step loop cannot be aimed by remote: from a note heard on the DIN out to the pad on the
+                      device takes 125 to 250 ms here, more than a step (candidate 1 of tabby-v04.23: one check failed
+                      for this; docs/BUILD.md 59.1). One step now passes when the step repeats its note or, if the
+                      pad came a step late, plays nothing but that step's silence; new: pad 12 (8 steps) on track 2's
+                      bass note, which a late pad cannot miss.
     v0.2  2026-11-18  tabby-v04.23: the step loop (NOTE REPEAT + pad 9 or 10 on CLIPS while the song plays): the loop's
                       period on the MIDI out, nothing launched meanwhile, the song back on its beats afterwards.
     v0.1  2026-11-18  First version.
@@ -180,7 +185,8 @@ def main():
             g = gaps60(t5 + 60_000_000, t6); m = median(g)
             worst = max((abs(x - m) for x in g), default=99.0)
             expect = beat / 4.0 * steps
-            check(ref is not None and len(g) >= (6 if steps == 1 else 3) and abs(m - expect) <= 3.0 and worst <= a.even,
+            quiet = steps == 1 and not [1 for t, p_ in ons(t5 + 300_000_000, t6) if p_ == 60]   # v0.3: the pad came after the beat's step: that step is empty
+            check(ref is not None and (quiet or (len(g) >= (6 if steps == 1 else 3) and abs(m - expect) <= 3.0 and worst <= a.even)),
                   "NOTE REPEAT + pad %d just after a beat: the last %d step%s repeat: 60 every %.1f ms (%.1f expected)" % (pad + 1, steps, "" if steps == 1 else "s", m, expect), "%d notes, worst %.2f ms" % (len(g) + 1, worst))
             if pad == 8:
                 check(lit[8]["rgb"] and lit[11]["rgb"] and not lit[12]["rgb"] and not lit[15]["rgb"], "while NOTE REPEAT is down pads 9 to 12 are lit and 13 to 16 dark")
@@ -193,6 +199,21 @@ def main():
             off = [(((t - (ref or beats[0])) / 1e6 + beat / 2) % beat) - beat / 2 for t in back]
             check(len(back) >= 3 and all(abs(x) <= 8.0 for x in off), "the pad let go: 60 is back on the beats the song had before the loop", ["%+.1f" % x for x in off[:4]])
             loops[steps] = {"gap_ms": round(m, 2), "worst_ms": round(worst, 2), "expected_ms": round(expect, 2)}
+        # v0.3: eight steps on track 2 (36 on beat 1, 38 on beat 3 of each bar): after a 36 the last eight steps hold 36 and not 38
+        l.key(0, NOTE_REPEAT, 1); idle(0.3)
+        seen = len(din.messages); t_end = time.monotonic() + 4.0; got = None
+        while time.monotonic() < t_end and got is None:
+            l.messages(2)
+            hit = [t for t, m in list(din.messages)[seen:] if len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[1] == 36 and m[2]]
+            got = hit[0] if hit else None
+        l.key(3, 11, 100)
+        t8 = time.monotonic_ns(); idle(4.3); t9 = time.monotonic_ns()
+        n36 = [t for t, p_ in ons(t8 + 100_000_000, t9) if p_ == 36]; n38 = [t for t, p_ in ons(t8 + 100_000_000, t9) if p_ == 38]
+        g36 = [(b - c_) / 1e6 for c_, b in zip(n36, n36[1:])]
+        check(got is not None and len(n36) >= 3 and not n38 and all(abs(x - 2 * beat) <= 3.0 for x in g36),
+              "NOTE REPEAT + pad 12 after the bass note of beat 1: the last 8 steps repeat: 36 every %.1f ms (%.1f expected), 38 does not come" % (median(g36), 2 * beat), "%d and %d notes" % (len(n36), len(n38)))
+        l.key(3, 11, 0); idle(0.1); l.key(0, NOTE_REPEAT, 0); idle(2.6)
+        loops[8] = {"gap_ms": round(median(g36), 2), "expected_ms": round(2 * beat, 2)}
         measured["step_loop"] = loops; measured["beat_ms"] = round(beat, 2)
         l.press("PLAY"); idle(0.8)
         l.show_page("overview")
