@@ -20,9 +20,14 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-launch.py --song N --out DIR
 
-Version: 0.5
+Version: 0.6
 
 Revision log
+    v0.6  2026-11-17  The launched clip's first note is judged against where it is expected: one audio block (2.90 ms)
+                      after the cycle counted from MIDI Start, within 2.0 ms either way. v0.5 allowed 0 to 4.0 ms after
+                      the cycle: 70 measurements on five builds lie between 2.31 and 4.21 ms (a spread of 1.90 ms, the
+                      one-line band), so the upper limit sat 1.1 ms above the mean and the lower 2.9 ms below it; the
+                      4.21 ms held tabby-v04.18-rc1 back.
     v0.5  2026-11-16  The cycle length comes from the device's MIDI clock on the DIN input, not from a fixed clock ratio.
     v0.4  2026-11-16  tabby-v04.7.1: a pad pressed while stopped reserves; a reserved clip starts with PLAY.
     v0.3  2026-11-14  Presses whose queued state is checked are not made in the last 700 ms before a cycle.
@@ -56,6 +61,8 @@ def main():
     p.add_argument("--launches", type=int, default=5)
     p.add_argument("--din", default="H4MIDI-WC Port 1")
     p.add_argument("--tolerance", type=float, default=4.0)
+    p.add_argument("--lead", type=float, default=2.90, help="ms from the cycle (counted from MIDI Start) to a note on it: one audio block")
+    p.add_argument("--launch-tolerance", type=float, default=2.0, help="ms a launched clip's first note may lie from cycle + lead")
     p.add_argument("--out", required=True)
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
@@ -155,7 +162,7 @@ def main():
                 check(False, "launch %d: the clip's first note" % (i + 1), "no note 72 after the press"); continue
             err, k = on_cycle(notes[0]), cycle_of(notes[0])
             s = l.clips_state()
-            check(queued and abs(err) <= a.tolerance and (k == first or (k == first + 1 and first * CYCLE_MS - cmd_ms < 60.0)) and s["pads"][1]["code"] == (2 | 8) and s["pads"][1]["rgb"] == 0x103c10,
+            check(queued and abs(err - a.lead) <= a.launch_tolerance and (k == first or (k == first + 1 and first * CYCLE_MS - cmd_ms < 60.0)) and s["pads"][1]["code"] == (2 | 8) and s["pads"][1]["rgb"] == 0x103c10,
                   "launch %d: queued at the press, the clip's first note on the next master cycle, pad bright green" % (i + 1),
                   "press %.0f ms, note %.1f ms, cycle %d (first after the press %d), error %+.2f ms, pad %d %06x" % (cmd_ms, (notes[0] - t0) / 1e6, k, first, err, s["pads"][1]["code"], s["pads"][1]["rgb"]))
             if i == 0:

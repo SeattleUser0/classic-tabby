@@ -5908,3 +5908,27 @@ The firmware's code, the remote protocol and the device tools keep their names, 
 | `EDIT BACK` | `PARA BACK` |
 
 Measured: app image 485188 bytes (unchanged), margin 34269, heap 143020. Build `1046c8ec5c0c7c0a`.
+
+### 54.3 tabby-v04.18-rc1: not promoted; one timing check 0.21 ms over a limit of the test tool (2026-11-17)
+
+Suite green on e0c4a18; builds/tabby-v04.18-rc1/ (build `1046c8ec5c0c7c0a`), installed in 11 s. 19 of 20 steps
+passed. The first run of run-launch.py failed one check of 40: "launch 2: ... the clip's first note on the next
+master cycle": the note came on the right cycle (10), 4.21 ms after it; the tool allowed 4.0. The second run of
+the same tool passed 40 of 40 (2.74 ms and its neighbours).
+
+Is it the device or the tool? Looked at before changing anything:
+
+- The same check in every candidate log so far (tabby-v04.14 to v04.18, seven candidate runs, 70 launches): 2.31 to 4.21 ms after the
+  cycle, mean 2.95. The cycle is counted from the MIDI Start message, and a note leaves one audio block (2.90 ms)
+  after its time by design (the F + G timing of tabby-v04.4). So the expected value is 2.90 ms and the measurements
+  lie from 0.59 ms before it to 1.31 ms after it: a spread of 1.90 ms, which is the one-line band the timing runs
+  measure (1.65 to 2.05 ms in the releases since tabby-v04.13; DIN 1.94, 1.85, 1.81 ms in this candidate).
+- A second, independent reading of this candidate's timing: run-clips (960 notes against the file's times): worst
+  1.06 ms on DIN and 1.09 on USB; run-15, three runs: 1.94 ms at most. Nothing is late beyond the band.
+- The firmware of tabby-v04.18 differs from tabby-v04.17 in text only (the image has the same size).
+
+So this is not a device fault: the tool judged the note against "0 to 4.0 ms after the cycle", a window that is
+not centred on the expected 2.90 ms; its upper edge was 1.1 ms above the mean and the band reaches 1.3 ms. One
+failure in 70 was to be expected. run-launch.py v0.6 judges the note against cycle + 2.90 ms within 2.0 ms either
+way (0.90 to 4.90 ms): tighter than before on the early side, 0.9 ms wider on the late side. All 70 measurements
+pass it. The candidate's page stays with its note; the same build goes out as candidate 2.
