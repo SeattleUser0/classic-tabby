@@ -28,15 +28,17 @@
 //       verify    --file IN.json                     Verify against file
 //       diag      [--reset]                          Diagnostics: Read (or Reset) counters
 //       song      --mid FILE.mid --slot N [--options JSON]  import a MIDI file and write it to song slot N
+//                 --song-json FILE --slot N                 v0.7: write a song converted by tools/linux/hw/rig-song.mjs (a rig profile applied)
 //       settings  --patch JSON                       change bytes of transfer kind 8 (diag builds)
 //       workspace --steps16 TRACK                    the workspace with 16 steps on one track (L.6)
 //       info                                         capability and identity readout
 //       replies                                      Task 17: do the update replies arrive by themselves (read only)
 //   Every command prints one JSON line ({ok, ...}) and appends the page's messages to --log.
 //
-// Version: 0.6
+// Version: 0.7
 //
 // Revision log
+//   v0.7  2026-11-18  song --song-json FILE (tabby-v1.0: the Wrong Room song of the soak).
 //   v0.6  2026-11-14  Task 17: song takes --options JSON (the importer's options) and reports the v3 blocks.
 //   v0.5  2026-11-13  Task 17: install logs every change of the page's status line (trace); the replies command runs the
 //                     update protocol's queries one at a time in the page (does each get its own reply; nothing is armed).
@@ -255,6 +257,7 @@ async function run() {
     } else {
       /* In-page work with the page's own Library and importer modules. */
       const args = { mid: opt('mid') ? Array.from(readFileSync(opt('mid'))) : null, name: opt('mid') ? basename(opt('mid')) : '',
+        songJson: opt('song-json') ? JSON.parse(readFileSync(opt('song-json'), 'utf8')) : null,   /* v0.7: a song converted outside the page (tools/linux/hw/rig-song.mjs) */
         slot: Number(opt('slot')), options: opt('options') ? JSON.parse(opt('options')) : null, patch: opt('patch') ? JSON.parse(opt('patch')) : null, track: Number(opt('steps16') ?? 0), command };
       result = await page.evaluate(async a => {
         const lib = new FM1Web.Library(await navigator.requestMIDIAccess({ sysex: true }));
@@ -262,8 +265,7 @@ async function run() {
         try {
           if (a.command === 'info') return { userBytes: lib.userBytes, region: lib.songRegion, diag: lib.diagCounters, kind8: lib.settingsTransfer, identity: await lib.firmwareIdentity(), info: Array.from(await lib.query(0)) };
           if (a.command === 'song') {
-            const analysis = TabbyMidiSong.analyze(TabbyMidi.parse(Uint8Array.from(a.mid)));
-            const conv = TabbyMidiSong.convert(analysis, { fileName: a.name, ...(a.options || {}) });   /* v0.6: --options JSON (importer options: controllers, rowSteps, clipFormat...) */
+            const conv = a.songJson ? { song: a.songJson } : TabbyMidiSong.convert(TabbyMidiSong.analyze(TabbyMidi.parse(Uint8Array.from(a.mid))), { fileName: a.name, ...(a.options || {}) });   /* v0.6: --options JSON (importer options: controllers, rowSteps, clipFormat...) */
             const plan = await TabbySongTransfer.createStub().plan(conv.song, a.slot);
             const done = await lib.songWrite(a.slot, plan.record.image, new Map(plan.blocks.map(b => [b.id, b.payload])));
             return { slot: a.slot, v3Blocks: plan.blocks.filter(b => b.format === 2).length, blocks: plan.blocks.length, rows: conv.song.rows.length, replaced: done.replaced, outChannels: conv.song.outChannels };

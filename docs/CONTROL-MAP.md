@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.18 (2026-11-18). Applies from tabby-v04.23 (3.2: the step loop). v0.17 was for tabby-v04.22 (3.1: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT). v0.16 was for tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.19 (2026-11-18). Applies from tabby-v1.0 (1.2: the pad rows confirmed on the device; where a KNOB BANK shortcut's message is shown). v0.18 was for tabby-v04.23 (3.2: the step loop). v0.17 was for tabby-v04.22 (3.1: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT). v0.16 was for tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -51,16 +51,17 @@ The pads carry no numbers. Under the lower pad row the panel prints transport sy
 fast forward, <, >, UNDO) and above the keys a strip of M-VAVE's own key functions (ARP, CHN 1 to 16, PRE 1 to 8,
 rates, RESET): Classic Tabby uses neither (docs/STICKERS.md 2 goes through the strip function by function).
 
-### 1.2 The pad rows (an assumption)
+### 1.2 The pad rows (confirmed on the device)
 
-Pads 1 to 8 are taken to be the upper row (next to the knobs), left to right, and pads 9 to 16 the lower row, pad
-n + 8 under pad n. The columns and the left-to-right order are certain: the pads' LED chain in the firmware
-(app/board/panel.c, `rgb_map`) runs along one row and back along the other in exactly that way. That the upper row
-is 1 to 8 rests on M-VAVE's own panel model in the Open V01 kit (the workbench's drawing of the SMK-37), which puts
-pads 1 to 8 on top; the pads carry no numbers, M-VAVE's manual does not number them, and it has not been checked on
-the unit. **It is an assumption** (docs/STICKERS.md 5.1 has the sources). Everything in this map that says "pad 1
-to 8" or "pad 9 to 16" (KNOB BANK + pad: select and mute; the mixer; scenes and clips 1 to 16) depends on it only
-for which row is meant.
+Pads 1 to 8 are the upper row (next to the knobs), left to right, and pads 9 to 16 the lower row, pad n + 8 under
+pad n. Confirmed on the user's unit on 2026-11-18: KNOB BANK held and the upper left pad pressed selects track 1.
+The firmware agrees: the pads' LED chain (app/board/panel.c, `rgb_map`) runs along one row and back along the
+other in that order, and M-VAVE's own panel model in the Open V01 kit puts pads 1 to 8 on top.
+
+What the screen shows for KNOB BANK + a pad: on the overview the selected track's number gets a blue box in the list
+of eight tracks; on CLIPS the top line names the track. The message (TRACK SELECTED; TRACK MUTED: SOUND AND MIDI;
+TRACK UNMUTED; MIDI TRACK MUTED / UNMUTED) is written in the first line of the KNOB BANK list for 1.2 seconds from
+tabby-v1.0. Before, it was written on the line the list covers and was seen only if KNOB BANK was let go at once.
 
 ## 2. Getting there (any page)
 

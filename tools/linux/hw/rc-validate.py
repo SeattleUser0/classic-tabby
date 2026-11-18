@@ -26,9 +26,13 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.6
+Version: 0.7
 
 Revision log
+    v0.7  2026-11-18  tabby-v1.0: --soak-minutes N adds the step `soak` before the last backup: the Wrong Room song
+                      (tests/midi-import/fixtures/wrong-room-all.mid with the rig profile, looping; tools/linux/hw/rig-song.mjs)
+                      is written to song slot 6 if that slot is empty, played for N minutes in segments on six pages
+                      (tools/linux/hw/run-soak.py) and deleted again.
     v0.6  2026-11-18  tabby-v04.23: run-repeat.py v0.2 has the step loop (the same step `repeat`).
     v0.5  2026-11-18  tabby-v04.22: the step `repeat` (run-repeat.py: NOTE REPEAT repeats a held key; the focus switch).
     v0.4  2026-11-18  tabby-v04.21: the step `takeedit` (run-takeedit.py: a clip shifted, notes cleared during a take, a new song made and deleted again).
@@ -75,6 +79,7 @@ def main():
     p.add_argument("--out", required=True, help="directory for the logs and results")
     p.add_argument("--backup-url", default=PAGES, help="the page of the firmware now on the device (default: the main page)")
     p.add_argument("--backups", default=str(ROOT.parent / "overnight/backups"))
+    p.add_argument("--soak-minutes", type=float, default=0.0, help="v0.7: the Wrong Room soak, in minutes (0: no soak)")
     p.add_argument("--expected", default=str(ROOT.parent / "overnight/g6/exp-v046-s13-timing-1x16.json"))
     a = p.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -181,6 +186,25 @@ def main():
         good = len(din) == 3 and len(usb) == 3 and all(n == 960 and b <= BAND_LIMIT_MS for n, b, _ in din + usb) and not any(runs)
         step("timing", good, "one line, 960 notes, three runs: DIN %s ms; USB %s ms; clock ratio %s" % (
             ", ".join("%.2f" % b for _, b, _ in din), ", ".join("%.2f" % b for _, b, _ in usb), ", ".join(sorted({r for _, _, r in din}))))
+        song()
+
+    # v0.7: the soak with the Wrong Room song (slot 6 on the screen, index 5; only if that slot is empty)
+    if a.soak_minutes > 0:
+        link = "import sys; sys.path.insert(0, %r); import tabby_link as T, time; l = T.Link(); time.sleep(0.3)\n" % str(HW)
+        c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
+        songfile = str(out / "wrong-room-song.json")
+        c1 = 1
+        if "EMPTY" in o0:
+            r = subprocess.run(["node", str(HW / "rig-song.mjs"), str(ROOT / "tests/midi-import/fixtures/wrong-room-all.mid"), "--loop"], cwd=str(ROOT), capture_output=True, text=True)
+            Path(songfile).write_text(r.stdout)
+            c1, o1 = sh(W + ["song", "--url", url, "--song-json", songfile, "--slot", "5", "--log", wb_log], 600, log)
+        if c1 == 0:
+            c2, o2 = sh([py, str(HW / "run-soak.py"), "--minutes", str(a.soak_minutes), "--songs", "6:8", "--seconds", "125", "--events", "--din-band-limit", "20", "--tag", rc_tag + "-wrongroom", "--out", str(out)], int(a.soak_minutes * 60 + 900), log)
+            tail = [l for l in o2.splitlines() if l.startswith(rc_tag + "-wrongroom:") or "lines," in l or l.startswith("BAD")]
+            sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
+            step("soak", c2 == 0, " | ".join(tail[:4]) or o2[-300:])
+        else:
+            step("soak", False, "song slot 6 is not empty, or the Wrong Room song could not be written: %s" % (o0.strip()[-80:]))
         song()
 
     # backup, restore, verify through the release candidate's page

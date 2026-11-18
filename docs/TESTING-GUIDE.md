@@ -1,11 +1,11 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 4.1, 2026-11-18. For tabby-v04.23 on the M-VAVE SMK-37 Pro.
+Version 5.0, 2026-11-18. For tabby-v1.0 on the M-VAVE SMK-37 Pro.
 The user manual and the test checklist in one, for the person who plays and tests the device. No programming needed.
 Sections 3 to 5 are the manual: setting up, every page of the device in the order you use it, and the workbench. Section 6 is the checklist.
 
-This guide is for tabby-v04.23. If an older firmware is on your SMK-37, install tabby-v04.23 (section 3.2); section 2.2 lists what each release added. The guide is also one printable file: https://seattleuser0.github.io/classic-tabby/guide/classic-tabby-manual.pdf. New in tabby-v04.23: the step loop: on CLIPS, NOTE REPEAT held with pad 9, 10, 11 or 12 repeats the last 1, 2, 4 or 8 steps of everything that plays, for as long as the pad is down (section 4.8). New in tabby-v04.22: NOTE REPEAT repeats a held key or pad, and the switch between keys and pads is now KNOB BANK and NOTE REPEAT together (section 4.1). New in tabby-v04.21: FX with a key clears notes during a take (4.10), KNOB BANK with OCTAVE- or OCTAVE+ shifts a clip by a step (4.9), and NEW SONG in ACTIONS starts an empty song on the panel (4.11). New in tabby-v04.20: DIRECTION for each clip (section 4.11). New in tabby-v04.19: STEP SIZE for each clip (section 4.11). New in tabby-v04.18: the screen and this guide call every button by the word printed on it (see How to read this guide); nothing else changed. New in tabby-v04.17: SHUFFLE and PLAY QUANTIZE for each clip, and CLIP SETTING in three pages (section 4.11). New in tabby-v04.16: a scene can be deleted and moved on the SCENES page (section 4.11), and stopping the song takes an armed take off (4.10). New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
+This guide is for tabby-v1.0. If an older firmware is on your SMK-37, install tabby-v1.0 (section 3.2); section 2.2 lists what each release added. The guide is also one printable file: https://seattleuser0.github.io/classic-tabby/guide/classic-tabby-manual.pdf. New in tabby-v1.0: no new function; the stage checklist (section 9), and KNOB BANK with a pad now shows its message (TRACK SELECTED, TRACK MUTED) at the top of the KNOB BANK list. New in tabby-v04.23: the step loop: on CLIPS, NOTE REPEAT held with pad 9, 10, 11 or 12 repeats the last 1, 2, 4 or 8 steps of everything that plays, for as long as the pad is down (section 4.8). New in tabby-v04.22: NOTE REPEAT repeats a held key or pad, and the switch between keys and pads is now KNOB BANK and NOTE REPEAT together (section 4.1). New in tabby-v04.21: FX with a key clears notes during a take (4.10), KNOB BANK with OCTAVE- or OCTAVE+ shifts a clip by a step (4.9), and NEW SONG in ACTIONS starts an empty song on the panel (4.11). New in tabby-v04.20: DIRECTION for each clip (section 4.11). New in tabby-v04.19: STEP SIZE for each clip (section 4.11). New in tabby-v04.18: the screen and this guide call every button by the word printed on it (see How to read this guide); nothing else changed. New in tabby-v04.17: SHUFFLE and PLAY QUANTIZE for each clip, and CLIP SETTING in three pages (section 4.11). New in tabby-v04.16: a scene can be deleted and moved on the SCENES page (section 4.11), and stopping the song takes an armed take off (4.10). New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
 
 Where to find what: playing a song from the pads is 4.7 and 4.8. Building and changing a song on the panel is 4.9 to 4.14. Projects, sounds and housekeeping are 4.1 to 4.6 and 4.15 to 4.18. The workbench is section 5.
 
@@ -113,6 +113,7 @@ Oldest first. The last line is the release this guide is for.
 - tabby-v04.21: during a take, FX held with a key clears that key's notes as the clip passes them. On the STEP page KNOB BANK with OCTAVE+ or OCTAVE- shifts the whole clip one step later or earlier. NEW SONG in ACTIONS makes an empty song in an empty slot.
 - tabby-v04.22: NOTE REPEAT does what is printed on it: held, a key or pad you hold repeats at the ARP rate. The switch between keys and pads, which was a tap on NOTE REPEAT, is now KNOB BANK and NOTE REPEAT together.
 - tabby-v04.23: the step loop. On CLIPS, hold NOTE REPEAT and hold pad 9, 10, 11 or 12: every track that plays repeats its last 1, 2, 4 or 8 steps until you let the pad go; the song then goes on where it would have been.
+- tabby-v1.0: the release for the stage. No new function. What KNOB BANK with a pad says (TRACK SELECTED, TRACK MUTED: SOUND AND MIDI, TRACK UNMUTED) is now written at the top of the KNOB BANK list, where you can see it while you hold the button. The stage checklist is section 9. Tested with a one-hour and a two-hour soak (the release notes have the figures).
 
 
 3. SETUP
@@ -136,7 +137,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. Install tabby-v04.23 to get everything in this guide. With older firmware the screen still shows the old button names (the list is in How to read this guide). Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. Install tabby-v1.0 to get everything in this guide. With older firmware the screen still shows the old button names (the list is in How to read this guide). Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -183,7 +184,7 @@ At start, the keys play track 1 on MIDI channel 1. The pads play track 8 on chan
 3. Press pad 1. You hear the 808 kick on track 8. MIDI goes out on channel 10, note 36.
 4. Press OCTAVE+ to move the keys up one octave each press. Press OCTAVE- to move down.
 5. Hold KNOB BANK and tap NOTE REPEAT to move the playing focus to the pads (tabby-v04.22; before that a tap on NOTE REPEAT alone). The top shows PAD DRUM and the bottom says PAD READY - PARA / FX. Do it again to go back to the keys.
-6. Hold KNOB BANK. The screen lists the shortcuts. Pads 1 to 8 select a track. Pads 9 to 16 mute or unmute a track.
+6. Hold KNOB BANK. The screen lists the shortcuts. Pads 1 to 8 (the upper row, left to right) select a track: on the overview its number in the list of eight tracks gets a blue box, and the first line of the shortcut list says TRACK SELECTED for a second (from tabby-v1.0). Pads 9 to 16 (the lower row) mute or unmute a track; that line then says TRACK MUTED: SOUND AND MIDI or TRACK UNMUTED.
 
 On the KNOB BANK list, the line NOTE REPEAT KEY-PAD is this switch.
 
@@ -284,7 +285,7 @@ With CLOCK on MIDI (tabby-v04.3.1 and later) SEQ PLAY arms the song and the mast
 Clip launching lets one track loop one of its clips while the others follow the song. A clip is one pattern of one track. Each track has its own clips, numbered from 1. The pads show 16 of them at a time.
 
 1. Press BT. The CLIPS page opens, from any page. BT again goes back where you were. (On the SONG page SCALE opens it too.)
-2. Hold KNOB BANK and press a pad from 1 to 8 to choose a track, or turn K5. The screen says TRACK SELECTED.
+2. Hold KNOB BANK and press a pad from 1 to 8 (the upper row) to choose a track, or turn K5. The page shows the track in its top line (CLIPS T1). From tabby-v1.0 the first line of the KNOB BANK list says TRACK SELECTED for a second; older firmware wrote that under the list, where it could not be seen while KNOB BANK was held.
 3. Look at the pads. Off: no clip. Dim white: a clip. Green: the clip that plays.
 4. Press SEQ PLAY if the song is not running. (Or press a pad first: it blinks, the screen says RESERVED - SEQ PLAY STARTS IT, and SEQ PLAY starts the song with that clip on the track.) Then press a white pad. It blinks green and the screen says LAUNCH AT NEXT CYCLE. On the next bar line the clip starts and the pad is green. The column for the track shows CLIP.
 5. To stop the track: press the green pad. It blinks red and the screen says STOP AT NEXT CYCLE. On the next bar line the track is silent. The column shows STOP.
@@ -813,7 +814,7 @@ Set up: T29 playing, a song where track 1 has at least two clips (the pads on th
 1. Press BT. Hold KNOB BANK and press pad 1. Release KNOB BANK.
 2. Press a white pad.
 3. Wait for the next bar.
-You should see: CLIPS T1, TRACK SELECTED, then LAUNCH AT NEXT CYCLE and the pad blinking green. After the bar line the pad is green and the column says CLIP. The other tracks go on with the song.
+You should see: CLIPS T1 (and TRACK SELECTED at the top of the KNOB BANK list while you hold KNOB BANK), then LAUNCH AT NEXT CYCLE and the pad blinking green. After the bar line the pad is green and the column says CLIP. The other tracks go on with the song.
 Result: PASS / FAIL   Notes: ________________________________
 
 T34. Stop and bring a track back
@@ -1273,7 +1274,7 @@ Result: PASS / FAIL   Notes: ________________________________
 
 Do not spend time testing these. They are known.
 
-- MIDI timing (tabby-v04.4 and later): one line stays within about 2 ms and eight lines within about 3 ms of their times, on DIN and USB. On DIN eight notes at the same step still take 9 ms to pass the cable one after the other.
+- MIDI timing (tabby-v04.4 and later): one line stays within about 2 ms and eight lines within about 3 ms of their times, on DIN and USB. On DIN eight notes at the same step still take 9 ms to pass the cable one after the other, and a scene's program changes and controllers pass ahead of its first notes at about 0.8 ms each: measured with the Wrong Room song on one DIN cable, the first notes after the song's loop point came 14 ms late behind 17 such messages, while the same notes on USB were within 1.1 ms. With the H4MIDI on USB each synth's cable carries only its own messages.
 - A new song made on the panel (4.11, tabby-v04.21) is always called NEW SONG; its name is changed in the workbench. Note repeat (4.1) is the track's arpeggiator: one held note repeats, a held chord is played as an arpeggio, not as a repeated chord. The step loop (4.8) takes the last 1, 2, 4 or 8 steps; it cannot loop steps you choose, and it loops every playing track, not one. The click and count-in settings are stored in each song, not once for the device.
 - One clip can be unsaved at a time, and a clip two tracks share cannot be edited on the device.
 - External clock in song mode (tabby-v04.3.1): the clock must come over USB or Bluetooth; the TRS jack cannot receive it. Song Position Pointer moves the song through its rows and repeats; a position past the end of a song that does not loop goes to its last step. The song sends no clock of its own while it follows.
@@ -1289,7 +1290,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the KNOB BANK list now say SEQ+PARA: ACTIONS and NOTE REPEAT KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.23.
+- The page badge and the boot screen show tabby-v1.0.
 
 
 8. HOW TO REPORT A PROBLEM
@@ -1304,3 +1305,43 @@ Send these five lines.
 5. The version: from the boot screen, and the page version in the workbench.
 
 If a write or an install failed, also say which page you used and what the page said. Do not try the install a second time before you report.
+
+9. STAGE CHECKLIST
+==================
+
+One page for the show. It is also docs/STAGE-CHECKLIST.md in the source, to print on its own.
+
+Before the show day
+- Never install firmware on a show day. Install days before, play the whole set once on that firmware, and take a Full backup (5.5) afterwards. Keep the backup file on the laptop you bring.
+- Stop the song and press the > button after the last change to a song. Unsaved changes are lost at power-off.
+
+Power-up order
+1. The synths, pedals and the H4MIDI first. Wait until each one has finished starting.
+2. Then the SMK-37. If it gets its power from the H4MIDI's USB host port, it starts with the H4MIDI: wait for its screen.
+3. Audio last: mixer or interface up when everything is on.
+
+What to check on the screen
+1. The boot screen shows SMK37, OFFICIAL OPEN and the version you rehearsed with.
+2. No line that says OLD DATA IN SONG STORAGE or SONG STORAGE ERROR. If one shows, do not erase anything at the venue: the songs may not load; use the backup plan you rehearsed.
+3. Press SEQ: CLOCK says INT (K1), SEQ OUT says ON (K4). Press PATCH.
+4. Press BT, then SCALE: the SCENES page shows your song's number. Turn K5 if it is another song.
+5. Press SEQ and PARA together, choose SEND SETUP, press the > button: SETUP SENT - ROW 1 EVENTS. Every synth is now on its first sound.
+6. Play one key on each track (KNOB BANK and pad 1 to 8 choose the track): every synth answers.
+
+If a synth does not respond
+1. Hold KNOB BANK and look at the lower pad row: an orange pad is a muted track. Press it to unmute.
+2. Hold KNOB BANK and press SEQ: the track's OUT CH (K2) is the synth's channel, SEQ (K3) is BOTH or MIDI, OUT PORT (K4) is ALL.
+3. Press SEQ: SEQ OUT is ON. KEY OUT (K7) is ON if the keys should reach it.
+4. The cable, and the H4MIDI's route for that channel (MIDI guide, section 14). Swap the cable before anything else.
+5. Wrong sound but it plays: SEND SETUP again (song stopped).
+6. A note hangs: PATCH and SEQ PLAY together stop all sound.
+
+If the timing feels off
+1. Press SEQ: CLOCK must say INT, unless you mean to follow another clock. With CLOCK on MIDI the SMK-37 waits for that clock.
+2. Use cables. Bluetooth MIDI adds delay.
+3. The SCENES page shows LATE when a scene's program changes did not finish before its bar. Give that scene fewer changes, or a pre-roll (5.2).
+4. Many notes on one step leave a DIN cable one after the other, about 1 ms each. The H4MIDI on USB, one DIN output per synth, keeps them apart.
+5. Still off: switch the SMK-37 off and on. That puts every run-time switch back (A2 FAST MIDI is ON after power-up). Then SEND SETUP.
+
+After the show
+- If something went wrong, write down what the screen said before you switch off (section 8).

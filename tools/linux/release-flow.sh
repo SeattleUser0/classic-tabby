@@ -45,7 +45,7 @@ git tag -a "$T-rc$RC" -m "$T release candidate $RC" || exit 1
 git push -q origin "$BRANCH" "$BRANCH:classic-tabby/linux-build" "$T-rc$RC" || exit 1
 make rc TAG="$T" RC="$RC" DISPLAY_VERSION="$T" > "$O/rc-$T-rc$RC.log" 2>&1 || { echo "make rc FAILED"; tail -8 "$O/rc-$T-rc$RC.log"; exit 1; }
 tail -1 "$O/rc-$T-rc$RC.log"
-"$PY" tools/linux/hw/rc-validate.py --tag "$T" --rc "$RC" --out "$O" ${BK:+--backup-url "$BK"} || { echo "release-flow: $T-rc$RC did NOT pass on the device; nothing promoted"; exit 1; }
+"$PY" tools/linux/hw/rc-validate.py --tag "$T" --rc "$RC" --out "$O" ${BK:+--backup-url "$BK"} ${TABBY_RC_ARGS:-} || { echo "release-flow: $T-rc$RC did NOT pass on the device; nothing promoted"; exit 1; }
 python3 -I tools/linux/device-gate.py check --tag "$T" || exit 1
 git fetch -q origin gh-pages || exit 1
 git tag -a "$T" -m "$T" || exit 1

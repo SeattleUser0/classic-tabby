@@ -24,9 +24,10 @@ Purpose
 Usage (from the repository root)
     python3 -I tools/linux/stickers.py [--out docs/stickers] [--table] [--no-pdf]
 
-Version: 0.6
+Version: 0.7
 
 Revision log
+    v0.7  2026-11-18  tabby-v1.0: the pad rows are confirmed on the device; the note about the assumption left page 1.
     v0.6  2026-11-18  tabby-v04.23: sticker E names the step loop (in place of PATCH + SEQ PLAY).
     v0.5  2026-11-18  tabby-v04.22: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT (sticker C).
     v0.4  2026-11-18  The user's rule: no type below 6 point. Nothing printed in the function strip does anything in Classic
@@ -85,8 +86,7 @@ KNOBS = [("K1", "CTRL 74*", "TIMES", "NOTE SELECT", "VALUE"), ("K2", "CTRL 71*",
 # v0.4: two lines a column (6 point)
 KNOB_LINE = [("K1 CLIPS: CTRL 74*", "SCENES: TIMES"), ("K2 CLIPS: CTRL 71*", "SCENES: THEN"), ("K3 CLIPS: CTRL 1*", "SCENES: HOLD"), ("K4 CLIPS: CTRL 11*", "SCENES: JUMP"),
              ("K5 CLIPS: TRACK", "SCENES: SONG"), ("K6 CLIPS: BANK", "STEP: BAR"), ("K7 SCENES: SONG", "STEP: PROBABILITY"), ("K8 MASTER", "VOLUME")]
-# Which pad row is pads 1 to 8: the upper one. An assumption (docs/STICKERS.md 5.1): M-VAVE's own panel model in the kit
-# draws it so and the LED chain confirms the columns; nobody has pressed a pad to see.
+# Which pad row is pads 1 to 8: the upper one. Confirmed on the user's unit on 2026-11-18 (docs/STICKERS.md 5.1).
 PAD_ROW_LINES = ("KNOB BANK + PAD:", "UPPER: TRACK %d", "LOWER: MUTE %d")
 EXTRA = ("CLASSIC TABBY", "SEQ + PARA: ACTIONS", "NOTE REPEAT + PAD 9-12: LOOP", "KB = KNOB BANK HELD")
 FADERS = ["LEVEL T1 / T5", "LEVEL T2 / T6", "LEVEL T3 / T7", "LEVEL T4 / T8"]
@@ -370,7 +370,7 @@ def build_html():
             p.append(text(x, y - 0.07, 'Sticker %s  -  %s  -  %s x %s' % (key, STICKERS[key][0], frac(w), frac(h)), 7.5, "700", "start"))
             p.append(s)
     p.append(text(0.5, 7.85, "Black on white, no type below 6 point. A, B and C are 11/16\" high and cover the strip of key functions printed above the keys on purpose (none of them works in Classic Tabby); E is optional and covers the rest of it.", 7.5, "400", "start"))
-    p.append(text(0.5, 8.05, "KB = with KNOB BANK held. * = the controller numbers of the song (CLIP SETTING). Upper / lower pad row: an assumption, see docs/STICKERS.md 5.1. docs/STICKERS.md has every text and position.", 7.5, "400", "start"))
+    p.append(text(0.5, 8.05, "KB = with KNOB BANK held. * = the controller numbers of the song (CLIP SETTING). docs/STICKERS.md has every text and position.", 7.5, "400", "start"))
     p.append("</svg>")
     pages.append("\n".join(p))
     # page 2: where they go, half size, dimensioned

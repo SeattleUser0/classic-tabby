@@ -24,9 +24,11 @@ Usage (browser closed)
     node tools/linux/hw/expected-events.mjs FILE.mid [--options JSON] > expected.json
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-clips.py --song N --expected expected.json --out DIR --tag NAME
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-18  Every note's error is kept in the result file (errors: time in the song, error); the result names what
+                      this computer's steered clock did during the run (tabby_link v0.23 puts the stamps on the raw clock).
     v0.3  2026-11-14  A row controller event in the expected list names its channel (expected-events v0.2).
     v0.2  2026-11-14  The DIN tolerance allows for the cable's serial time of notes due together.
     v0.1  2026-11-14  Task 17: first version.
@@ -97,6 +99,7 @@ def compare(expected, events, t_start):
             for k, v in sorted(cwant.items()) if cgot.get(k, []) != v]
     return {"expected_notes": len(expected["notes"]), "matched": len(xs), "missing": missing, "extra": extra,
             "tempo_ratio": b, "offset_ms": a, "worst_ms": max((abs(r) for r in res), default=0.0), "std_ms": sd,
+            "errors": [[round(x, 1), round(r, 3)] for x, r in sorted(zip(xs, res))],   # every note: its time in the song (ms), its error (ms)
             "expected_controls": len(expected["controls"]), "controls_wrong": cbad,
             "stuck": sorted("ch%d note %d" % (c + 1, n) for (c, n), v in held.items() if v > 0),
             "program_changes": [(round(ms, 1), ch + 1, d1) for ms, ch, kind, d1, d2 in ctl if kind == 0xC0]}
@@ -162,6 +165,7 @@ def main():
                 j += 1
             group = max(group, i - j + 1)
         r["together"] = group
+        r["clock"] = T.clock_report(starts[0], max(t for t, _ in events))   # what this computer's steered clock did meanwhile (the stamps are on the raw clock)
         r["tolerance_ms"] = a.tolerance + (0.96 * (group - 1) if name == "din" else 0.0)
         r["pass"] = (r["matched"] == r["expected_notes"] and not r["missing"] and not r["extra"] and not r["controls_wrong"]
                      and not r["stuck"] and r["worst_ms"] <= r["tolerance_ms"])
@@ -179,6 +183,9 @@ def main():
         print("%s %s %s: %d of %d note-ons matched; timing worst %.2f ms, std %.2f ms, tempo x %.5f; %d clip controller events %s; missing %s; extra %s; stuck %s"
               % ("PASS" if r["pass"] else "FAIL", a.tag, name, r["matched"], r["expected_notes"], r["worst_ms"], r["std_ms"], r["tempo_ratio"], r["expected_controls"],
                  "in order" if not r["controls_wrong"] else "WRONG " + "; ".join(r["controls_wrong"]), r["missing"] or "none", r["extra"] or "none", r["stuck"] or "none"))
+    c = (result.get("din") or {}).get("clock")
+    if c:
+        print("%s clock: this computer's steered clock ran %+.1f ppm against its raw clock (%+.2f ms over the run, bend %.2f ms); the times above are on the raw clock" % (a.tag, c["steer_ppm"], c["parted_ms"], c["bend_ms"]))
     print("%s %s: blocks v2 %d / v3 %d; song ended by itself: %s; underruns +%d, DMA overruns +%d, render peak %.2f ms, CPU GUARD +%d"
           % ("PASS" if ok else "FAIL", a.tag, expected["v2Blocks"], expected["v3Blocks"], result["song_ended_by_itself"], result["audio"]["underruns"],
              result["audio"]["dma_overruns"], result["audio"]["render_peak_ms"], result["audio"]["cpu_guard"]))

@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.61
+Version: 0.62
 Revision log:
+- v0.62, 2026-11-18: 17.17 the user's answers of 2026-11-18 (evening): pad rows confirmed, the timing question first, tabby-v1.0 without new features; 19.27 tabby-v1.0.
 - v0.61, 2026-11-18: 19.26 tabby-v04.23 (the step loop while held).
 - v0.60, 2026-11-18: 19.25 tabby-v04.22 (NOTE REPEAT repeats; the focus switch on KNOB BANK + NOTE REPEAT).
 - v0.59, 2026-11-18: 17.16 the user's answers of 2026-11-18 (pad rows, stickers of 6 point that cover the dead strip, the order of the rest, NOTE REPEAT); 19.24 tabby-v04.21.
@@ -1458,7 +1459,7 @@ backup then names the song and stops (19.17).
 
 ### 17.16 The user's answers of 2026-11-18
 
-- **Pad rows:** to be worked out from the upstream firmware and M-VAVE's manual, not asked. Result: the columns and
+- **Pad rows** (confirmed on the device the same evening, 17.17)**:** to be worked out from the upstream firmware and M-VAVE's manual, not asked. Result: the columns and
   the left-to-right order are certain (the LED chain, `rgb_map`); that the upper row is pads 1 to 8 rests on M-VAVE's
   panel model in the kit alone and is an **assumption**, marked so in docs/STICKERS.md 5.1 and docs/CONTROL-MAP.md 1.2.
 - **Stickers:** no type below 6 point. A printed function of the strip above the keys that is dead in Classic Tabby
@@ -1470,6 +1471,22 @@ backup then names the song and stops (19.17).
 - **NOTE REPEAT** gets its printed meaning (note repeat). The keys / pads focus switch moves to KNOB BANK + NOTE
   REPEAT, and every text that names the old gesture is changed with it.
 - Unchanged: candidate page, the full device run, then the promotion (17.13); 15 KB of flash stay free (17.15).
+
+### 17.17 The user's answers of 2026-11-18 (evening), and tabby-v1.0
+
+- **Pad rows confirmed on the device:** KNOB BANK and the upper left pad select track 1. The assumption marks are gone
+  (docs/STICKERS.md 5.1, docs/CONTROL-MAP.md 1.2).
+- **TRACK SELECTED was never seen:** the firmware meant to show it, and wrote it on a line the KNOB BANK list covers
+  while the button is held. Fixed in tabby-v1.0 (19.27); the texts describe what the screen shows.
+- No chord note repeat, no scene program change, no step-events edit for now.
+- **Timing first:** nothing is released until the 9.9 ms run of tabby-v04.23-rc1 is answered. Answered in
+  docs/BUILD.md 60: the measuring computer's clock; every device tool now times against the raw clock
+  (tools/linux/hw/tabby_link.py v0.23) and the timing tests keep every note's error.
+- **tabby-v1.0:** no new features; the full regression on the device with a two-hour soak of a multi-track song with
+  the Wrong Room rig profile; only what the regression finds is fixed; a one-page stage checklist
+  (docs/STAGE-CHECKLIST.md, section 9 of the manual); released through the candidate flow.
+- A rule that follows from BUILD 60: a timing figure counts only when it was taken on a clock the measuring computer
+  does not correct, and a failed timing check is judged from the per-note errors and the clock record of the run.
 
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
@@ -2060,3 +2077,17 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - Control: `song_step_loop(steps)` (SONG_INVALID stopped, SONG_BUSY during a take, 0 ends it), ended by `song_stop`.
   The screen keeps the pad that holds the loop (`loop_pad`) and ends the loop on any page when that pad is up.
 - Not done: a loop of chosen steps (the pads are clips on CLIPS); a loop per track; a loop length other than 1, 2, 4, 8.
+
+### 19.27 tabby-v1.0 (2026-11-18): the release for the stage
+
+- No new function. One fix, found by the user on the unit: a KNOB BANK shortcut's notice (TRACK SELECTED, TRACK MUTED:
+  SOUND AND MIDI, TRACK UNMUTED, MIDI TRACK MUTED / UNMUTED) is drawn in the first line of the KNOB BANK list while
+  it lasts (`draw_page`: the list's cache key carries the notice). Before, `smk37_screen_shortcut` set the notice
+  and the list, drawn over y 195 to 240, covered the line every page writes its notice on.
+- The version name has no leading zero from here on: tabby-v1.0. The builds index orders by date, then name.
+- The candidate validation has the step `soak` (tools/linux/hw/rc-validate.py --soak-minutes; release-flow.sh passes
+  TABBY_RC_ARGS): the Wrong Room song (tests/midi-import/fixtures/wrong-room-all.mid with web/rig/profiles/wrong-room.json,
+  looping: 8 parts on channels 1 to 6, 10 and 9, 16 program changes, a bank select and 5 controllers in its two
+  scenes) in song slot 6, played in segments of 125 s on six pages, every note measured on USB and on one DIN cable.
+- Known and documented, not changed: on one DIN cable a scene's row events pass ahead of its first notes (14 ms for
+  the 17 messages at this song's loop point); USB carries them at once.

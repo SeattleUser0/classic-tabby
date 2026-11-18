@@ -1567,10 +1567,14 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
 static void draw_page(const struct fm1_ble_status *ble)
 {
     draw_page_body(ble);
-    if (shift_visible && !boot_active && (paint_rendering || cache->shortcut_cache != track)) {
-        cache->shortcut_cache = track;
+    /* tabby-v1.0: the list covers the line a notice is written on, so what a KNOB BANK shortcut says (TRACK SELECTED,
+     * TRACK MUTED ...) was never seen while the button was down (found on the user's unit). The list's first line
+     * shows the notice while it lasts. */
+    uint32_t shortcut_sig = track + (notice && shift_visible ? signature(1, notice, (unsigned)strlen(notice)) << 4 : 0U);
+    if (shift_visible && !boot_active && (paint_rendering || cache->shortcut_cache != shortcut_sig)) {
+        cache->shortcut_cache = shortcut_sig;
         paint_fill(0, 195, 240, 45, PANEL);
-        text(8, 198, "KNOB BANK SHORTCUTS", 1, ACCENT, PANEL);
+        text(8, 198, notice ? notice : "KNOB BANK SHORTCUTS", 1, ACCENT, PANEL);
         text(8, 209, "PADS 1-8 TRACK   PADS 9-16 MUTE", 1, TEXT, PANEL);
         text(8, 220, "PATCH SOURCE  SEQ MIDI", 1, TEXT, PANEL);
         text(8, 231, "NOTE REPEAT KEY-PAD  RELEASE: RETURN", 1, DIM, PANEL);   /* tabby-v04.22: true as written now (it is a KNOB BANK shortcut) */

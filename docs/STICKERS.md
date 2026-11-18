@@ -1,6 +1,7 @@
 # Classic Tabby stickers for the SMK-37 Pro
 
-Version 0.6 (2026-11-18). For tabby-v04.23 and docs/CONTROL-MAP.md v0.18.
+Version 0.7 (2026-11-18). For tabby-v1.0 and docs/CONTROL-MAP.md v0.19.
+v0.7: the pad rows are confirmed on the device (5.1); no sticker changed.
 v0.6: sticker E names the step loop.
 v0.5: NOTE REPEAT on sticker C says what it does from tabby-v04.22.
 v0.4: no type below 6 point (the user's rule: 3.3 to 4.4 point cannot be read on a dark stage). To make room, stickers
@@ -155,7 +156,7 @@ focus switch; the sticker says so. With older firmware the button alone is the f
 ### Sticker B (eight columns, one under each pad column)
 
 Three lines for the pads of column n: KNOB BANK + PAD: / UPPER: TRACK n / LOWER: MUTE n (KNOB BANK held, the upper
-pad of the column selects track n, the lower one mutes it; which row is which is an assumption, section 5.1). Two
+pad of the column selects track n, the lower one mutes it; confirmed on the device, section 5.1). Two
 lines for the knob above that column:
 
 - K1 CLIPS: CTRL 74* / SCENES: TIMES
@@ -247,9 +248,10 @@ Expected accuracy: 1/32 for the sticker sizes and for the band they sit in (meas
 
 ## 5. What still could not be measured or read
 
-### 5.1 Which pad row is pads 1 to 8: the upper row, as an assumption
+### 5.1 Which pad row is pads 1 to 8: the upper row (confirmed on the device)
 
-Worked out from the sources, not seen on the unit (the pads carry no numbers and nobody has pressed one to look):
+Confirmed on the user's unit on 2026-11-18: KNOB BANK held and the upper left pad pressed selects track 1. Sticker B
+(UPPER: TRACK n, LOWER: MUTE n) is right as printed. What the sources had said before the check:
 
 | Source | What it says | What it settles |
 | --- | --- | --- |
@@ -257,11 +259,6 @@ Worked out from the sources, not seen on the unit (the pads carry no numbers and
 | The pads' LED chain (app/board/panel.c, `rgb_map` = 0, 15, 14 ... 9, 1, 2 ... 8; unchanged from upstream) | The chain runs pad 1, then pads 9 to 16, then pads 8 down to 2. A chain laid along one row and back along the other fits only if pads 1 to 8 are one row, 9 to 16 the other, both numbered left to right, with pad n and pad n + 8 in one column. | The columns and the left-to-right order: certain. Which row is the upper one: not. |
 | The pad scan (app/board/scan.c, `padmap`) | ADC channels 0 to 7 are pads 1 to 8 and 8 to 15 are pads 9 to 16, in groups of four. | Two rows of two groups. Not which is upper. |
 | M-VAVE's user manual | Does not number the pads; "Pad Bank ... pads 9-16" is a second bank. Its drawing shows the transport symbols under the lower row. | Nothing. |
-
-So: the columns are certain, and "upper row = pads 1 to 8" rests on M-VAVE's panel model alone. It is used as an
-**assumption** here and in docs/CONTROL-MAP.md 1.2, as you said. Sticker B prints UPPER: TRACK n and LOWER: MUTE n
-on that assumption. If on the unit KNOB BANK with an upper pad mutes instead of selecting, the rows are the other
-way round: tell me and UPPER and LOWER are swapped on the sheet (one table in tools/linux/stickers.py).
 
 ### 5.2 The rest
 

@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.46
+Version: 0.47
 Revision log:
+- v0.47, 2026-11-18: section 47: tabby-v1.0 measured, 490468 bytes, margin 28989.
 - v0.46, 2026-11-18: section 46: tabby-v04.23 measured, 490436 bytes, margin 29021.
 - v0.45, 2026-11-18: section 45: tabby-v04.22 measured, 489796 bytes, margin 29661.
 - v0.44, 2026-11-18: section 44: tabby-v04.21 measured, 489188 bytes, margin 30269.
@@ -1366,3 +1367,12 @@ RAM (runtime heap): 142700 bytes (unchanged). Above the 15360-byte reserve: 1430
 | tabby-v04.23: the step loop while held | 490436 | +640 | **29021** |
 
 RAM (runtime heap): 142412 bytes (-288: the loop's window per track, with the heap's rounding). Above the 15360-byte reserve: 13661 bytes.
+
+## 47. tabby-v1.0 (measured, 2026-11-18)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.23 | 490436 | | 29021 |
+| tabby-v1.0: the KNOB BANK list shows a shortcut's notice | 490468 | +32 | **28989** |
+
+RAM (runtime heap): 142412 bytes (unchanged). Above the 15360-byte reserve: 13629 bytes.

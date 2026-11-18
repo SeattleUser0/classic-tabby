@@ -6,7 +6,7 @@
 //   docs/TESTING-GUIDE.md is the musician's guide and checklist; the site shows it at guide/
 //   (tools/linux/guide-html.py). This test keeps the promises the user asked for:
 //     1. plain text only: ASCII, no tab, no HTML, no code fence;
-//     2. the eight sections exist, in order;
+//     2. the nine sections exist, in order (tabby-v1.0: the ninth is the stage checklist);
 //     3. the checklist is numbered T1..Tn without gaps, and every test has "Set up:", at least
 //        one numbered step, a "You should" line and a "Result: PASS / FAIL" line;
 //     4. control names follow SPEC 17.4: no "SAVE button", no bare "press SAVE", and "hold SEQ"
@@ -44,7 +44,7 @@ check(!/[^\x00-\x7f]/.test(md), 'plain ASCII text');
 check(!/\t|```|<[a-z/][^>]*>/.test(md), 'no tab, code fence or HTML');
 
 const sections = [...md.matchAll(/^(\d)\. ([A-Z][A-Z ,]+)\n=+$/gm)].map(m => Number(m[1]));
-check(sections.join() === '1,2,3,4,5,6,7,8', 'sections 1 to 8 in order', sections.join());
+check(sections.join() === '1,2,3,4,5,6,7,8,9', 'sections 1 to 9 in order (tabby-v1.0: 9 is the stage checklist)', sections.join());
 
 // ---- the checklist
 const starts = [];
@@ -79,7 +79,7 @@ check(r.status === 0, 'guide-html.py renders the page', (r.stderr || '').trim())
 if (r.status === 0) {
   const html = readFileSync('build/guide-test/index.html', 'utf8');
   check((html.match(/<h4 id="t\d+"/g) || []).length === starts.length, 'the page has every test');
-  check((html.match(/<h2 id="s\d"/g) || []).length === 8, 'the page has the eight sections');
+  check((html.match(/<h2 id="s\d"/g) || []).length === 9, 'the page has the nine sections');
   check(!/<script/i.test(html), 'the page has no script');
   check((html.match(/class="tag"/g) || []).length === marked, 'the page tags every marked step', `${(html.match(/class="tag"/g) || []).length}`);
 }
@@ -88,8 +88,20 @@ if (r.status === 0) {
 const help = readFileSync('sdk/Update.html.in', 'utf8');
 const links = (help.match(/https:\/\/seattleuser0\.github\.io\/classic-tabby\/guide\//g) || []).length;
 check(links >= 2, 'Help links to the guide from the Help heading and from chapter 00', `${links} links`);
-check(/manual-guide-link/.test(help) && /The page you are on is tabby-v04\.23\./.test(help), 'chapter 00 names the page version');
+check(/manual-guide-link/.test(help) && /The page you are on is tabby-v1\.0\./.test(help), 'chapter 00 names the page version');
 
+// ---- tabby-v1.0: the stage checklist is one text in two places (docs/STAGE-CHECKLIST.md and section 9 of the guide)
+{
+  const text = readFileSync('docs/TESTING-GUIDE.md', 'utf8');
+  const page = readFileSync('docs/STAGE-CHECKLIST.md', 'utf8').split('\n').filter(l => l.trim()).map(l => l.replace(/^## /, ''));
+  const first = page.indexOf('Before the show day');
+  const body = first < 0 ? [] : page.slice(first);
+  const at = text.indexOf('9. STAGE CHECKLIST');
+  const lines = at < 0 ? [] : text.slice(at).split('\n').filter(l => l.trim());
+  const section = lines.slice(lines.indexOf('Before the show day'));
+  check(at > 0 && body.length > 25 && body.every(l => section.includes(l)) && section.every(l => body.includes(l)), 'the stage checklist of the guide (section 9) and docs/STAGE-CHECKLIST.md are the same text (' + body.length + ' lines)',
+    body.filter(l => !section.includes(l)).concat(section.filter(l => !body.includes(l))).slice(0, 3).join(' | '));
+}
 // ---- the printable manual belongs to this guide text (tools/linux/manual-pdf.py; make manual)
 { const { createHash } = await import('node:crypto');
   let meta = null; try { meta = JSON.parse(readFileSync('docs/manual/manual.json', 'utf8')); } catch (e) { meta = null; }

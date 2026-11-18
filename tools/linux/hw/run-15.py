@@ -41,9 +41,12 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.14
+Version: 0.15
 
 Revision log
+    v0.15 2026-11-18  The clock mapping moved into tabby_link v0.23 (every tool has it now); the summary names the bend of
+                      the steered clock over the run (what an unmapped fit would have shown) and keeps every note's
+                      error per line (errors_ms); --page clips, scenes, mixer.
     v0.14 2026-11-16  Receive times are mapped from CLOCK_MONOTONIC (which the kernel stamps with, and which the time
                       service steers: -25 ppm against CLOCK_MONOTONIC_RAW when it was looked at, the rate changing
                       after each NTP exchange) to CLOCK_MONOTONIC_RAW before the fit. A sampler reads both clocks four
@@ -116,6 +119,8 @@ def save(out, name, text):
 
 
 BPM = 120.0   # v0.13: --bpm, the song's tempo, for the clock ratio
+RESIDUALS = [] # v0.15: per fit, every note's distance from its line in ms (the last fit of a line is the one kept)
+BENDS = []     # v0.15: the bend of the steered clock over each analysed span (tabby_link.clock_report)
 CLOCKMAP = []  # v0.14: (CLOCK_MONOTONIC ns, CLOCK_MONOTONIC_RAW ns), sampled during the run
 
 
@@ -128,7 +133,10 @@ def clock_sampler():
 
 
 def to_raw(t):
-    """A CLOCK_MONOTONIC time in ns as CLOCK_MONOTONIC_RAW ns, by the samples around it."""
+    """A CLOCK_MONOTONIC time in ns as CLOCK_MONOTONIC_RAW ns, by the samples around it. v0.15: tabby_link v0.23 hands
+    out receive times that are on the unsteered clock already: nothing to do then."""
+    if getattr(T, "STEADY", False):
+        return t
     m = CLOCKMAP
     if len(m) < 2:
         return t
@@ -141,6 +149,11 @@ def to_raw(t):
 def clock_parted(events):
     """How far the two clocks parted over the span of `events`, in ms and ppm."""
     ts = [t for t, _ in events]
+    if len(ts) >= 2 and getattr(T, "STEADY", False):
+        r = T.clock_report(min(ts), max(ts))
+        if r:
+            BENDS.append(r["bend_ms"])
+            return r["parted_ms"], r["steer_ppm"]
     if len(ts) < 2 or len(CLOCKMAP) < 2:
         return None
     a, b = min(ts), max(ts)
@@ -168,6 +181,7 @@ def fit(times):
     a = my - b * mx
     res = [y - (a + b * x) for x, y in zip(idx, times)]
     std = math.sqrt(sum(r * r for r in res) / n)
+    RESIDUALS.append([round(r * 1000.0, 3) for r in res])          # v0.15: every note's error, ms
     return (max(res) - min(res)) * 1000.0, std * 1000.0, b, a
 
 
@@ -200,10 +214,12 @@ def analyze(events):
         f = fit(ts)
         if f:
             lines[ch + 1] = {"notes": len(ts), "band_ms": f[0], "std_ms": f[1], "step_ms": f[2] * 1000.0,
-                             "stretches": len(parts), "left_out": sum(len(q) for q in parts) - len(ts)}
+                             "stretches": len(parts), "left_out": sum(len(q) for q in parts) - len(ts),
+                             "errors_ms": RESIDUALS[-1]}   # v0.15: every note's error is kept
         last_on[ch] = ts[-1]
     parted = clock_parted(events)
     out = {"lines": lines, "notes": sum(len(v) for v in ons.values()), **({"clock_parted_ms": parted[0], "clock_steer_ppm": parted[1]} if parted else {}),
+           **({"clock_bend_ms": BENDS[-1]} if BENDS else {}),
            "stuck": sorted("ch%d note %d" % (c + 1, n) for (c, n), v in held.items()
                            if v > 0 and end - held_at[(c, n)] > 0.3)}
     if lines:
@@ -424,7 +440,7 @@ def port_line(name, p):
     if "clock_ratio" in p:
         s += "; clock ratio %.6f (note spacing %.4f ms)" % (p["clock_ratio"], p["step_ms"])
     if "clock_steer_ppm" in p:
-        s += "; this computer's steered clock ran %+.1f ppm against its raw clock (%+.2f ms over the run; taken out)" % (p["clock_steer_ppm"], p["clock_parted_ms"])
+        s += "; this computer's steered clock ran %+.1f ppm against its raw clock (%+.2f ms over the run, bend %.2f ms; taken out)" % (p["clock_steer_ppm"], p["clock_parted_ms"], p.get("clock_bend_ms", 0.0))
     return s + ("; STUCK: " + ", ".join(p["stuck"]) if p["stuck"] else "; no note left on")
 
 
@@ -527,7 +543,7 @@ def main():
     p.add_argument("--play", type=int, default=0, help="v0.9: start this song (1 to 16, as on the screen) by remote command 29, and stop it at the end")
     p.add_argument("--audio", default="", help="AUDIO4c input channels to record, e.g. 0,1")
     p.add_argument("--bpm", type=float, default=120.0, help="v0.13: the song's tempo, for the clock ratio in the log")
-    p.add_argument("--page", choices=["overview", "steps", "actions"], default="", help="v0.12: show this page (remote panel keys) before PLAY; the band depended on the page painted (BUILD 35.4)")
+    p.add_argument("--page", choices=["overview", "steps", "actions", "clips", "scenes", "mixer"], default="", help="v0.12: show this page (remote panel keys) before PLAY; the band depended on the page painted (BUILD 35.4)")
     p.add_argument("--din", default="H4MIDI-WC Port 1")
     p.add_argument("--tag", default="run")
     p.add_argument("--off", help="table: the A2-off run's tag"); p.add_argument("--on", help="table: the A2-on run's tag")

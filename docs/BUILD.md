@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.96
+Version: 0.97
 Revision log:
+- v0.97, 2026-11-18: 59.2 (tabby-v04.23 released as candidate 2), section 60 (the 9.9 ms run answered: the NUC's clock; the tools on the raw clock; a 70-minute soak), section 61 (tabby-v1.0).
 - v0.96, 2026-11-18: 58.1 (tabby-v04.22 released as candidate 1), 59.1 (tabby-v04.23-rc1 not promoted: the NUC's clock, and one check of mine), section 59 (tabby-v04.23: the step loop).
 - v0.95, 2026-11-18: 57.5 (tabby-v04.21 released as candidate 2), section 58 (tabby-v04.22: NOTE REPEAT).
 - v0.94, 2026-11-18: 56.1 (tabby-v04.20 released as candidate 1), 57.4 (tabby-v04.21-rc1 not promoted: a test tool error), section 57 (tabby-v04.21: clear notes in a take, NEW SONG, shift a clip; the pad rows; stickers v0.4).
@@ -6243,3 +6244,98 @@ agreed to 0.02 ms in the failed run; the device's counters saw nothing; the same
 That makes the NUC's clock the likeliest cause. It is not proven, and a fault of the device that shows once in four
 runs is not excluded by three good runs. The next step is to stamp the captures with a clock that is not slewed and
 to keep every note's error in the result file, so that a failed run shows whether the time axis bent or notes came late.
+
+## 60. The 9.9 ms run of tabby-v04.23-rc1, answered (2026-11-18)
+
+The user's priority 1: time against a clock the computer does not correct, keep every note's error, soak for an hour
+with one line and eight lines, A2 on, on several pages; nothing is released before this is answered.
+
+### 60.1 What the clock data says about candidate 1's run
+
+In 59.1 and 59.2 I wrote that I could not prove the NUC's clock was the cause. The record was there and I had not
+looked: run-15.py has mapped its times to CLOCK_MONOTONIC_RAW since v0.14 (2026-11-16) and logs what the steered
+clock did in every run. Its lines for the three releases of this day:
+
+| Time | Run | The NUC's steered clock against its raw clock |
+| --- | --- | --- |
+| 09:32 to 09:36 | tabby-v04.21-rc1, three runs | -14.8, -15.8, -16.6 ppm |
+| 10:00 to 10:04 | tabby-v04.21-rc2 | +37.8, +30.0, +23.8 ppm |
+| 10:37, 10:39 | tabby-v04.22-rc1 | +2.3, +2.2 ppm |
+| 10:42 | tabby-v04.22-rc1, third run | **-252.1 ppm (-31.7 ms in the run)** |
+| 11:17 | tabby-v04.23-rc1, first run, two minutes after the failed timing song | **-364.7 ppm (-45.8 ms in the run)** |
+| 11:19, 11:21 | tabby-v04.23-rc1 | -151.7, -72.5 ppm |
+| 11:52 to 11:56 | tabby-v04.23-rc2 | +11.3, +5.6, +1.2 ppm |
+
+So at 11:17 the time service was in the middle of a correction that decays by about half every two minutes; counted
+back, it began between 11:13 and 11:15, while run-clips.py measured the timing song (11:13 to 11:15) on the steered
+clock. A clock whose rate changes by several hundred ppm in the middle of a 120-second song bends the time axis by
+several milliseconds against a straight line: a change of 500 ppm at the middle of the song is 7.5 ms at its ends.
+That is the 9.9 ms, the same on DIN and USB (both stamped by the same clock), with all 960 notes present and nothing
+on the device's counters. The three runs of run-15.py in that same candidate run, mapped to the raw clock, read 1.75
+to 1.79 ms on DIN. The tools that failed (run-clips, run-setup, run-steps) were the ones that did not map.
+(The step of 10:42 did no harm because it fell into a run-15 run.)
+
+### 60.2 The tools
+
+| Tool | Change |
+| --- | --- |
+| tools/linux/hw/tabby_link.py v0.23 | `steady()`: every receive time, from the device's USB port and from the DIN monitor, is mapped to CLOCK_MONOTONIC_RAW (a table of both clocks, sampled ten times a second) plus the offset the clocks had when the tool started; `clock_report()`: the steered clock's rate, how far it parted and its bend over a span. Every device tool uses the link, so every one of them is on the raw clock now. `show_page()`: clips, scenes, mixer |
+| run-15.py v0.15 | uses the link's mapping; keeps every note's error per line in the summary (`errors_ms`); names the clock's bend |
+| run-clips.py | keeps every note's error (`errors`: time in the song, error) and the clock record in its result file |
+| run-soak.py v0.2 (new) | a soak in segments: song after song, page after page; per segment the band of every line, the largest single error, the clock record, the device's counters, stuck notes, the event counts on both ports |
+
+Check of the mapping: run-clips.py on the raw clock reads a tempo ratio of 0.99958, the figure run-15.py has always
+given (0.999583); on the steered clock it had read 0.99954 to 0.99961 from run to run.
+
+### 60.3 The soak on tabby-v04.23 (build `c7b2ff04e81b3226`)
+
+70 minutes, 33 segments of 125 s, A2 on, song 16 (one line, 960 notes) and song 15 (eight lines) in turn, on the
+pages overview, CLIPS, SCENES, SYNC / MIDI, mixer and ACTIONS in turn (../overnight/g11/soak-v0423-*).
+
+| | Segments | DIN band | DIN largest single error | USB band | USB largest single error |
+| --- | ---: | --- | ---: | --- | ---: |
+| one line | 17 | 1.60 to 1.93 ms | 1.32 ms | 1.62 to 1.87 ms | 1.30 ms |
+| eight lines | 16 | 2.26 to 3.14 ms | 2.24 ms | 2.15 to 2.67 ms | 1.69 ms |
+
+No bad segment; no underrun, no DMA overrun, no stuck note; DIN and USB carried the same notes. No page stands out.
+
+During the soak the time service corrected the NUC's clock once, at minute 47: the steered clock went from +23 ppm
+to -90 ppm inside segment 23 and bent 3.73 ms against a straight line within that segment. The device, on the raw
+clock, read a band of 1.83 ms in that segment. An unmapped tool would have had up to 3.7 ms of the clock's own in its figure there. This is the
+candidate 1 event again, caught with both clocks recorded.
+
+### 60.4 The answer, and how sure it is
+
+The 9.9 ms was the measuring computer's clock, not the SMK-37. I am confident of it: the clock record shows a
+correction of -365 ppm at the minute of the failure; the mapped tool in the same run read 1.8 ms; the same build has
+since read 1.1 to 1.3 ms in four runs of the failed test and passed a 70-minute soak of 33 segments; and the soak
+reproduced the event, a 3.7 ms bend of the steered clock with 1.8 ms on the device. What I do not have is the
+per-note record of the failed run itself (that tool kept none; it does now), so the size 9.9 is explained by the
+clock's rate, not reconstructed note by note. A device fault of that size hiding behind it would have had to appear
+exactly while the clock was being corrected and never in the 4000 seconds of the soak; I do not believe that.
+
+## 61. tabby-v1.0 (2026-11-18)
+
+The user's order: no new features; the full regression on the device with a two-hour soak of a multi-track song with
+the Wrong Room rig profile; fix only what the regression finds, with the TRACK SELECTED text; a stage checklist;
+release through the candidate flow.
+
+| Part | Change |
+| --- | --- |
+| app/screen.c | the KNOB BANK list's first line shows a shortcut's notice while it lasts (SPEC 19.27); 32 bytes |
+| docs | STAGE-CHECKLIST.md (new) and section 9 of the guide, one text (guide.mjs checks it); pad rows confirmed (STICKERS.md v0.7 5.1, CONTROL-MAP.md v0.19 1.2); the guide v5.0, Help, SPEC v0.62 (17.17, 19.27) say what the screen shows for KNOB BANK + a pad; known limits: row events ahead of notes on one DIN cable |
+| tools/linux/hw | rig-song.mjs (new: a MIDI file with a rig profile as a song), workbench.mjs v0.7 (song --song-json), rc-validate.py v0.7 (the step `soak`), run-soak.py v0.2, release-flow.sh passes TABBY_RC_ARGS; the timing tools of section 60 |
+
+Why TRACK SELECTED was never seen (the user's item 1): `smk37_screen_shortcut` sets the notice, and every page writes
+its notice at y 198 or 213; the KNOB BANK list is painted over y 195 to 240 for as long as KNOB BANK is down. The
+notice lasts 1.2 s, so it showed only when the button was let go at once. Checked in the simulator before and after
+(the list's first line reads TRACK SELECTED, then KNOB BANK SHORTCUTS again; TRACK MUTED: SOUND AND MIDI likewise).
+
+The Wrong Room song on the device, a trial before the candidate (tabby-v04.23, three segments): USB band 1.66 to
+1.73 ms on all eight lines; on the one DIN cable 14.9 to 15.4 ms, all of it in the first note of each line after the
+song's loop point (every 32nd note of a line: 13.8 ms late), where the first scene's 17 row events pass the cable
+ahead of the notes. Program changes 113 and controllers 42 in a segment, the same on both ports. This is the cable,
+not a regression: documented in the guide's known limits and in the stage checklist, nothing changed. The soak
+judges USB by the 3.5 ms limit and DIN by a limit of 20 ms.
+
+Measured: app image 490468 bytes (+32), margin 28989, heap 142412. Build `3b6cde4c259dd43a`.

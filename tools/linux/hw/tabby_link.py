@@ -25,9 +25,16 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.22
+Version: 0.23
 
 Revision log
+    v0.23 2026-11-18  Every receive time (the device's USB port and the DIN monitor) is put on a clock this computer does
+                      not correct: the kernel stamps with CLOCK_MONOTONIC, which the time service slews (up to -365 ppm
+                      on 2026-11-18, 46 ms in two minutes: the 9.9 ms of tabby-v04.23-rc1, docs/BUILD.md 60); steady()
+                      maps a stamp to CLOCK_MONOTONIC_RAW through a sampled table and adds the offset the two clocks
+                      had when the tool started, so times still compare with time.monotonic_ns() to within what the
+                      clock was moved since. clock_report() says what the steered clock did over a span. show_page()
+                      knows "clips", "scenes" and "mixer".
     v0.22 2026-11-17  tabby-v04.20: setup_state() reports the open clip's direction.
     v0.21 2026-11-17  tabby-v04.19: setup_state() reports the open clip's scale.
     v0.20 2026-11-17  tabby-v04.17: setup_state() reports the open clip's shuffle and playback quantize.
@@ -85,6 +92,72 @@ import importlib.util
 _spec = importlib.util.spec_from_file_location("midi_monitor", os.path.join(os.path.dirname(HERE), "midi-monitor.py"))
 monitor = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(monitor)
+
+# ---- v0.23: a clock the time service does not move -------------------------------------------------------------
+STEADY = True
+CLOCKMAP = []                  # (CLOCK_MONOTONIC ns, CLOCK_MONOTONIC_RAW ns), ten times a second while the tool runs
+_CLOCK_LOCK = threading.Lock()
+
+
+def _clock_pair():
+    for _ in range(8):
+        a = time.clock_gettime_ns(time.CLOCK_MONOTONIC); r = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW); b = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+        if b - a < 100000:
+            break
+    return (a + b) // 2, r
+
+
+_FIRST = _clock_pair()
+CLOCK_OFFSET = _FIRST[0] - _FIRST[1]       # what the two clocks differed by when this tool started
+CLOCKMAP.append(_FIRST)
+
+
+def _clock_sampler():
+    while True:
+        time.sleep(0.1)
+        pair = _clock_pair()
+        with _CLOCK_LOCK:
+            CLOCKMAP.append(pair)
+            if len(CLOCKMAP) > 400000:
+                del CLOCKMAP[:100000]
+
+
+threading.Thread(target=_clock_sampler, daemon=True).start()
+
+
+def steady(t):
+    """A CLOCK_MONOTONIC time (ns), as the kernel stamps MIDI with, on the unsteered clock: CLOCK_MONOTONIC_RAW plus the
+    offset at the tool's start. Intervals of steady times are intervals of the raw clock."""
+    import bisect
+    with _CLOCK_LOCK:
+        m = CLOCKMAP
+        if len(m) < 2:
+            a0, r0 = m[0]
+            return r0 + (t - a0) + CLOCK_OFFSET
+        i = min(max(bisect.bisect_left(m, (t, 0)), 1), len(m) - 1)
+        (a0, r0), (a1, r1) = m[i - 1], m[i]
+    return int(r0 + (t - a0) * (r1 - r0) / (a1 - a0)) + CLOCK_OFFSET
+
+
+def now_ns():
+    """Now, on the steady clock."""
+    return time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) + CLOCK_OFFSET
+
+
+def clock_report(t0, t1):
+    """What this computer's steered clock did against its raw clock between two times (ns, either clock): the mean
+    rate in ppm, how far the two parted in ms, and the bend: the largest distance in ms of their difference from a
+    straight line over the span, which is the error a fit over the span would have shown had the stamps not been
+    mapped. None when there are not enough samples."""
+    with _CLOCK_LOCK:
+        d = [(a, a - r) for a, r in CLOCKMAP if t0 - 2_000_000_000 <= a <= t1 + 2_000_000_000]
+    if len(d) < 3 or d[-1][0] == d[0][0]:
+        return None
+    (a0, d0), (a1, d1) = d[0], d[-1]
+    slope = (d1 - d0) / (a1 - a0)
+    bend = max(abs(x - (d0 + slope * (a - a0))) for a, x in d)
+    return {"steer_ppm": round(slope * 1e6, 2), "parted_ms": round((d1 - d0) / 1e6, 3), "bend_ms": round(bend / 1e6, 3), "seconds": round((a1 - a0) / 1e9, 1)}
+
 
 LIB = ctypes.CDLL(ctypes.util.find_library("asound") or "libasound.so.2")
 LIB.snd_strerror.restype = ctypes.c_char_p
@@ -208,11 +281,11 @@ class Link:
                 for i in range(0, len(raw) - 31, 32):
                     _, length, nsec, sec = struct.unpack_from("<BB2xIQ", raw, i)
                     if 0 < length <= 16:
-                        out.extend(self.parser.feed(sec * 1000000000 + nsec or time.monotonic_ns(), raw[i + 16:i + 16 + length]))
+                        out.extend(self.parser.feed(steady(sec * 1000000000 + nsec or time.monotonic_ns()), raw[i + 16:i + 16 + length]))
                 if not self.poll.poll(0):
                     break
             return out
-        n = LIB.snd_rawmidi_read(self.inp, self.buf, 4096); t = time.monotonic_ns()
+        n = LIB.snd_rawmidi_read(self.inp, self.buf, 4096); t = now_ns()
         if n <= 0:
             return []
         return self.parser.feed(t, self.buf.raw[:n])
@@ -420,8 +493,9 @@ class Link:
 
     def show_page(self, name):
         """v0.10: bring the device to a page by remote panel keys: "overview", "steps" (SYNC / MIDI, SEQ) or
-        "actions" (SEQ + EDIT). Returns the status; raises if the page did not come."""
-        want = {"overview": "OVERVIEW", "steps": "STEPS", "actions": "ACTIONS"}[name]
+        "actions" (SEQ + EDIT); v0.23: "clips" (BT), "scenes" (BT, SCALE), "mixer" (GLOBE). Returns the status; raises if
+        the page did not come."""
+        want = {"overview": "OVERVIEW", "steps": "STEPS", "actions": "ACTIONS", "clips": "CLIPS", "scenes": "SONG", "mixer": "MIX"}[name]
         for _ in range(4):                                  # HOME from the overview opens the project list: press until it is the overview
             s = self.remote_status()
             if s["page_name"] == "OVERVIEW":
@@ -431,6 +505,12 @@ class Link:
             self.press("SEQ"); time.sleep(0.4)
         elif name == "actions":
             self.hold(["SEQ", "EDIT"], 0.15); time.sleep(0.4)
+        elif name in ("clips", "scenes"):
+            self.press("BLUETOOTH"); time.sleep(0.4)
+            if name == "scenes":
+                self.press("SCL"); time.sleep(0.4)
+        elif name == "mixer":
+            self.press("GLO"); time.sleep(0.4)
         s = self.remote_status()
         if s["page_name"] != want:
             raise RuntimeError("page %s wanted, the device shows %s" % (want, s["page_name"]))
@@ -660,7 +740,7 @@ class Monitor(threading.Thread):
         while self.running:
             t, chunk = self.port.read(100)
             if chunk:
-                self.messages.extend(self.parser.feed(t, chunk))
+                self.messages.extend(self.parser.feed(steady(t), chunk))   # v0.23
 
     def finish(self):
         self.running = False; self.join(2); self.port.close()

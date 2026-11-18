@@ -25,11 +25,11 @@ now, with the files involved. Roland's limits are conventions; the "Tabby target
 where this plan exceeds them. Nothing here is a commitment; the roadmap is in the assessment,
 section K.
 
-## 0. Where it stands, and what comes next (tabby-v04.23, 2026-11-18)
+## 0. Where it stands, and what comes next (tabby-v1.0, 2026-11-18)
 
-Flash margin after tabby-v04.23: 29021 bytes (app image 490436 of 519457). Free RAM 142412 bytes. At least 15360
+Flash margin after tabby-v1.0: 28989 bytes (app image 490468 of 519457). Free RAM 142412 bytes. At least 15360
 bytes stay free for fixes (the user's rule, SPEC 17.15): features are added while the margin after them stays above
-that, so 13661 bytes can still be spent.
+that, so 13629 bytes can still be spent.
 
 ### 0.1 Done since the matrix was written
 
@@ -73,8 +73,9 @@ a line on the page costs 0.4 to 1 KB; an engine change 1 to 3 KB).
 | 10 | Edit all events of a step together | Editing comfort | 0.5 KB | the shift is done (v04.21) |
 | 11 | Scene program change on a control channel; Tx switches per track | Only if asked | 1 KB | |
 
-The user's order of 2026-11-18 is built. Items 10 and 11 wait for a word from the user (11 was offered "only if you
-use it"). About 13.6 KB can be spent above the 15 KB reserve. Each release measures. Not planned: chord pads, the motion designer, a random clip direction,
+The user's order of 2026-11-18 is built. The user's word of the same evening: no chord note repeat, no scene program
+change (11), no step-events edit (10) for now. tabby-v1.0 adds no feature. About 13.6 KB can be spent above the 15 KB
+reserve. Each release measures. Not planned: chord pads, the motion designer, a random clip direction,
 multitrack note mode, a user pad palette, and everything in section 1.
 
 ## 1. Excluded once
