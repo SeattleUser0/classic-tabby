@@ -14,9 +14,10 @@
  *   importer's blocks. Loading: classic script (globalThis.TabbyClipV3) and CommonJS. Needs TabbyTimedNote (loaded
  *   first, or required) for the 6-byte note of v2.
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-17  tabby-v04.17: the clip's shuffle and playback quantize (header bytes 13, 15; model.shuffle, model.quantize).
  *   v0.5  2026-11-17  tabby-v04.15: the clip's transpose (header byte 12; model.transpose).
  *   v0.4  2026-11-17  tabby-v04.14: model() and build() carry the clip chain (model.chain = { next, after, times }).
  *   v0.3  2026-11-16  tabby-v04.11: validate() takes the chain in header bytes 8 to 11.
@@ -58,7 +59,8 @@
     if (p[8] > 65 || (p[9] | p[10] << 8) > 512 || p[11] > 64) return BAD_HEADER;
     /* v0.5: byte 12 is the transpose, a signed byte, -12..12; the last three bytes stay 0 */
     if ((p[12] << 24 >> 24) < -12 || (p[12] << 24 >> 24) > 12) return BAD_HEADER;
-    for (let i = 13; i < HEADER; i++) if (p[i]) return BAD_HEADER;
+    /* v0.6: byte 13 is the shuffle (0 the song's, 1..51 the clip's own 0..50), byte 15 the playback quantize (0..3); byte 14 stays 0 */
+    if (p[13] > 51 || p[14] || p[15] > 3) return BAD_HEADER;
     let last = -BIAS - 1, groupAnchor = -1, groupStart = 0;
     const maxTime = steps * UNITS - BIAS;
     for (let i = 0; i < count; i++) {
@@ -129,7 +131,7 @@
     const r = validate(p);
     if (r) fail(r, 'invalid v3 clip');
     const steps = p[0], list = events(p);
-    if (steps > 64 || p[1] || p[8] || p[12]) fail(NOT_V2_SHAPED, 'a v2 block holds at most 64 steps and no header program, bank, chain or transpose');
+    if (steps > 64 || p[1] || p[8] || p[12] || p[13] || p[15]) fail(NOT_V2_SHAPED, 'a v2 block holds at most 64 steps and no header program, bank, chain, transpose, shuffle or quantize');
     const perStep = new Array(64).fill(0), head = new Array(64).fill(0);
     for (const e of list) {
       if (e.kind === NOTE) { const a = anchor(e.time); if (a >= 64 || perStep[a] >= 4) fail(NOT_V2_SHAPED, 'more than four notes in a step'); perStep[a]++; }
@@ -164,6 +166,8 @@
     if (Number.isInteger(model.bankMsb) || Number.isInteger(model.bankLsb)) { out[1] |= 2; out[3] = model.bankMsb | 0; out[4] = model.bankLsb | 0; }
     if (model.chain) { out[8] = model.chain.next | 0; put16(out, 9, model.chain.after | 0); out[11] = model.chain.times | 0; }   /* v0.4 */
     if (model.transpose) out[12] = model.transpose & 255;   /* v0.5 */
+    if (model.shuffle) out[13] = model.shuffle & 255;       /* v0.6 */
+    if (model.quantize) out[15] = model.quantize & 255;     /* v0.6 */
     list.forEach((x, i) => {
       const o = HEADER + EVENT * i;
       if (!Number.isInteger(x.time) || x.time < -BIAS || x.time + BIAS > 65535) fail(BAD_EVENT, 'event time ' + x.time + ' outside the clip');
@@ -184,6 +188,8 @@
     if (p[1] & 2) { m.bankMsb = p[3]; m.bankLsb = p[4]; }
     if (p[8] || p[9] || p[10] || p[11]) m.chain = { next: p[8], after: get16(p, 9), times: p[11] };   /* v0.4: the clip chain (was dropped: the workbench lost it on a rewrite) */
     if (p[12]) m.transpose = p[12] << 24 >> 24;   /* v0.5: the clip's transpose in semitones */
+    if (p[13]) m.shuffle = p[13];                 /* v0.6: the clip's shuffle byte (1..51: its own 0..50 percent) */
+    if (p[15]) m.quantize = p[15];                /* v0.6: the clip's playback quantize (1 a 16th, 2 an 8th, 3 a quarter) */
     for (const e of events(p)) {
       if (e.kind === NOTE) m.notes.push({ time: e.time, pitch: e.a, velocity: e.b, length: e.length, retrigger: !!e.retrigger });
       else if (e.kind === STEPMOD) m.stepMods.push({ step: e.b, probability: e.a & 7, alt: !!(e.a & 8) });
@@ -194,7 +200,7 @@
 
   const TabbyClipV3 = { HEADER, EVENT, EVENTS_MAX, STEPS_MAX, BIAS, NOTE, CC, PC, BEND, PRESSURE, STEPMOD,
     codes: { OK, BAD_SIZE, NOT_V2_SHAPED, BAD_HEADER, BAD_EVENT, BAD_ORDER, DUPLICATE, NO_ROOM, BAD_SOURCE },
-    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.5' };
+    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.6' };
   globalThis.TabbyClipV3 = TabbyClipV3;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyClipV3;
 })();

@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.26
+ * Version: 0.27
  *
  * Revision log
+ *   v0.27 2026-11-17  tabby-v04.17: section 26: SHUFFLE and PLAY QUANTIZE per clip, heard on MIDI out.
  *   v0.26 2026-11-17  tabby-v04.16: section 26: a scene moved and deleted (events and loop row follow; the grid-block
  *                     length rule), a stop takes an armed take off.
  *   v0.25 2026-11-16  tabby-v04.10: section 26: every clip loops at its own length, a new clip made on the device, the
@@ -2655,6 +2656,40 @@ int main(void)
           song_edit_info(&ei);
           CHECK(r == 1 && ei.recording == 1, "disarm: a take armed while stopped stays armed for PLAY (%u)", ei.recording);
           song_record_stop(); song_edit_discard(); }
+        /* ---- tabby-v04.17: SHUFFLE and PLAY QUANTIZE per clip: the copy that plays is changed, the stored clip is not ---- */
+        { CHECK(sim_song_load(SONG) == 0 && song_edit_open(0, 0) == 0, "feel: clip 1 open (16 steps, 60 on step 1)");
+          int a1 = song_edit_note_toggle(1, 71, 100, 240), a2 = song_edit_note_toggle(4, 72, 100, 240), a3 = song_edit_note_adjust(4, 0, 1, 200);
+          CHECK(a1 == 1 && a2 == 1 && a3 == 0, "feel: 71 on step 2, 72 on step 5 moved 200 units late (%d %d %d)", a1, a2, a3);
+          unsigned d71[4] = {0}, d72[4] = {0};
+          for (unsigned run = 0; run < 4; ++run) {
+              /* run 0: as it is; 1: SHUFFLE 50; 2: SHUFFLE 0 of its own with PLAY QUANTIZE 1/16; 3: both back to SONG and OFF */
+              if (run == 1) CHECK(song_edit_feel(0, 60) == 0 && song_edit_clip()[13] == 51, "feel: SHUFFLE stops at 50 percent (byte 13 = 51)");
+              if (run == 2) CHECK(song_edit_feel(0, -50) == 0 && song_edit_feel(1, 1) == 0 && song_edit_clip()[13] == 1 && song_edit_clip()[15] == 1, "feel: SHUFFLE 0 of its own, PLAY QUANTIZE 1/16");
+              if (run == 3) CHECK(song_edit_feel(0, -5) == 0 && song_edit_feel(1, -5) == 0 && song_edit_clip()[13] == 0 && song_edit_clip()[15] == 0 && song_edit_feel(2, 1) == SONG_INVALID, "feel: back to SONG and OFF");
+              { struct message m[64]; (void)drain(m, 64); }
+              CHECK(song_clip_launch(0, 0) == 0, "feel: the clip reserved (run %u)", run);
+              (void)sim_song_play();
+              unsigned b60 = 0, got = 0;
+              for (unsigned blocks = 0; blocks < 500 && got < 3; ++blocks) {
+                  (void)sim_render();
+                  struct message m[64]; unsigned n = drain(m, 64);
+                  for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && m[k].data[0] == 0x94 && m[k].data[2]) {
+                      if (m[k].data[1] == 60 && !got) { b60 = blocks; got = 1; }
+                      if (m[k].data[1] == 71 && got && !d71[run]) { d71[run] = blocks - b60; ++got; }
+                      if (m[k].data[1] == 72 && got && !d72[run]) { d72[run] = blocks - b60; ++got; }
+                  }
+              }
+              sim_song_stop(); settle(); settle();
+          }
+          /* a step is 43.07 blocks. Straight: 71 after 1 step (43), 72 after 4 steps + 200 units (190). SHUFFLE 50: the second
+           * step of a pair half a step late (65), the 200 units in a first step stretched to 300 (199). Quantized: 72 on its step (172). */
+          CHECK(d71[0] >= 42 && d71[0] <= 44 && d72[0] >= 189 && d72[0] <= 191, "feel: as recorded: 71 one step after 60, 72 late (%u, %u blocks)", d71[0], d72[0]);
+          CHECK(d71[1] >= 64 && d71[1] <= 66 && d72[1] >= 198 && d72[1] <= 200, "feel: SHUFFLE 50: the off-beat step comes half a step late (%u, %u blocks; 65, 199)", d71[1], d72[1]);
+          CHECK(d71[2] >= 42 && d71[2] <= 44 && d72[2] >= 171 && d72[2] <= 173, "feel: PLAY QUANTIZE 1/16: the late note plays on its step (%u, %u blocks; 43, 172)", d71[2], d72[2]);
+          CHECK(d71[3] == d71[0] && d72[3] == d72[0], "feel: SONG and OFF again: the clip plays as recorded, the stored notes were never changed (%u, %u)", d71[3], d72[3]);
+          { struct clip_v3_event e; unsigned late = 0; for (unsigned i = 0; i < clip_v3_count(song_edit_clip()); ++i) { clip_v3_event(song_edit_clip(), i, &e); if (e.kind == CLIP_V3_NOTE && e.a == 72 && e.time == 4 * 480 + 200) late = 1; }
+            CHECK(late, "feel: the open clip still holds the note 200 units late"); }
+          song_edit_discard(); }
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

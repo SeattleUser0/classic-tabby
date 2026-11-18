@@ -238,8 +238,8 @@ static uint8_t rec_lamp;   /* the recorder's state as the control pass last read
 /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the CLIP SETTING page: a list; K5 chooses the row, K1 changes its value (K2 in
  * steps of 16), the 4th left button does a row that is an action (COPY) and saves on the others. The scene pad that is
  * being held on the SCENES page (a long press on an empty pad stores what plays as a new scene). */
-enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_PROGRAM, SET_BANK_MSB, SET_BANK_LSB, SET_COPY, SET_TRANSPOSE, SET_DELETE /* tabby-v04.15 */, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE,
-       SET_CLICK_LEVEL, SET_KNOB1, SET_KNOB2, SET_KNOB3, SET_KNOB4 /* tabby-v04.14: the second page starts at SET_COUNT_IN */, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
+enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_PROGRAM, SET_BANK_MSB, SET_BANK_LSB, SET_COPY, SET_TRANSPOSE, SET_SHUFFLE, SET_QUANTIZE /* tabby-v04.17; the second page starts at SET_TRANSPOSE */, SET_DELETE /* tabby-v04.15 */, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE,
+       SET_CLICK_LEVEL, SET_KNOB1, SET_KNOB2, SET_KNOB3, SET_KNOB4 /* tabby-v04.14: the song's page starts at SET_COUNT_IN */, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
 static uint8_t setup_row, setup_to, scene_hold_pad = 255;
 static uint32_t scene_hold_ms;
 static uint8_t rec_full_seen;
@@ -540,6 +540,10 @@ static const char *setup_edit(int d)
         if (!ei.active) return "SELECT A CLIP FIRST";
         return song_edit_transpose(d) == SONG_BUSY ? "NOT DURING A TAKE" : NULL;
     }
+    if (setup_row == SET_SHUFFLE || setup_row == SET_QUANTIZE) {
+        if (!ei.active) return "SELECT A CLIP FIRST";
+        return song_edit_feel(setup_row - SET_SHUFFLE, d) == SONG_BUSY ? "NOT DURING A TAKE" : NULL;
+    }
     if (setup_row == SET_DELETE) return NULL;
     (void)song_setting_edit(setup_row - SET_COUNT_IN, d);
     return NULL;
@@ -565,7 +569,8 @@ unsigned ct_screen_setup_read(uint8_t *out)
       out[23] = (uint8_t)er; out[24] = rec && er < rec->rows ? rec->row[er].repeat : 0; out[25] = rec && er < rec->rows ? rec->row[er].flags : 0;
       out[26] = rec && er < rec->rows ? rec->row[er].steps : 0; out[27] = mdl ? mdl->cycle : 16; }
     out[33] = clip ? clip[12] : 0;   /* tabby-v04.15: the open clip's transpose, a signed byte */
-    return 34;
+    out[34] = clip ? clip[13] : 0; out[35] = clip ? clip[15] : 0;   /* tabby-v04.17: the open clip's shuffle (0 the song's, 1..51 its own 0..50) and playback quantize (0..3) */
+    return 36;
 }
 int ct_screen_setup_do(void)
 {
@@ -1200,20 +1205,22 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
     } else if (visible == CLIP_SETUP) {
         /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the settings of the open clip and of the song, one per line */
         struct song_edit_info ei; song_edit_info(&ei);
-        static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "PROGRAM", "BANK MSB", "BANK LSB", "COPY TO PAD", "TRANSPOSE", "DELETE CLIP", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE",
+        static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "PROGRAM", "BANK MSB", "BANK LSB", "COPY TO PAD", "TRANSPOSE", "SHUFFLE", "PLAY QUANTIZE", "DELETE CLIP", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE",
                                                        "CLICK LEVEL", "K1 CONTROLLER", "K2 CONTROLLER", "K3 CONTROLLER", "K4 CONTROLLER"};
         const uint8_t *sclip = song_edit_clip();
         static const char *const modes[] = {"OFF", "WHEN RECORDING", "ALWAYS"}, *const outs[] = {"INTERNAL", "MIDI NOTE", "BOTH"}, *const counts[] = {"OFF", "1 CYCLE", "2 CYCLES", "", "4 CYCLES"},
                           *const levels[] = {"LOW", "MID", "HIGH"};
         /* tabby-v04.14: two pages, the clip's lines (1/2) and the song's lines (2/2); K5 walks through both */
-        unsigned second = setup_row >= SET_COUNT_IN, from = second ? SET_COUNT_IN : 0, to = second ? SETUP_ROWS : SET_COUNT_IN;
+        /* tabby-v04.17: three pages: the clip (1/3), more of the clip from TRANSPOSE (2/3), the song (3/3) */
+        unsigned second = setup_row >= SET_COUNT_IN, pg = second ? 2U : setup_row >= SET_TRANSPOSE ? 1U : 0U;
+        unsigned from = second ? SET_COUNT_IN : pg ? SET_TRANSPOSE : 0, to = second ? SETUP_ROWS : pg ? SET_COUNT_IN : SET_TRANSPOSE;
         text(8, 40, "SETTING", 2, ACCENT, BACK);
         if (second) { dim_text(104, 44, "THE SONG"); }
         else if (ei.active) { text(104, 40, "T", 2, colors[ei.track & 7U], BACK); number(118, 40, ei.track + 1, 1, 2, colors[ei.track & 7U], BACK);
                          dim_text(140, 40, "CLIP"); small_number(168, 40, ei.place + 1U, 2, TEXT); }
         else dim_text(104, 44, "NO CLIP");
         if (song_unsaved()) color_text(190, 40, "UNSAVED", AMBER);
-        dim_text(204, 52, second ? "2/2" : "1/2");
+        dim_text(204, 52, pg == 2 ? "3/3" : pg ? "2/3" : "1/3");
         for (unsigned i = from; i < to; ++i) {
             unsigned y = 64 + (i - from) * 12, sel = i == setup_row, clip_row = i < SET_COUNT_IN;
             color_text(8, y, sel ? ">" : " ", ACCENT);
@@ -1232,6 +1239,10 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
                                       small_number(130, y, setup_to + 1U, 2, TEXT); dim_text(150, y, mdl && mdl->clip[ei.track][setup_to] ? "(HOLDS A CLIP)" : "(EMPTY)"); }
             else if (i == SET_TRANSPOSE) { int tr = sclip ? clip_v3_transpose(sclip) : 0;
                                            color_text(130, y, tr < 0 ? "-" : tr > 0 ? "+" : " ", TEXT); small_number(138, y, tr < 0 ? -tr : tr, 2, TEXT); dim_text(158, y, "SEMITONES"); }
+            else if (i == SET_SHUFFLE) { unsigned sh = sclip ? clip_v3_shuffle(sclip) : 0;
+                                         if (!sh) color_text(130, y, "SONG", TEXT); else { small_number(130, y, sh - 1U, 2, TEXT); dim_text(148, y, "PERCENT"); } }
+            else if (i == SET_QUANTIZE) { static const char *const grids[] = {"OFF", "1/16", "1/8", "1/4"};
+                                          color_text(130, y, grids[(sclip ? clip_v3_quantize(sclip) : 0U) & 3U], TEXT); }
             else if (i == SET_DELETE) dim_text(130, y, "4TH LEFT BTN TWICE");
             else if (i == SET_COUNT_IN) color_text(130, y, counts[song_setting(SONG_SET_COUNT_IN)], TEXT);
             else if (i == SET_CLICK) color_text(130, y, modes[song_setting(SONG_SET_CLICK)], TEXT);

@@ -101,7 +101,7 @@ mutes it). Below it, the knob above that column and what it does on each page:
 | K7 | - | SONG | PROBABILITY | - |
 | K8 | MASTER VOLUME on every page | | | |
 
-\* The controller numbers are the song's (CLIP SETTING, page 2/2); 74, 71, 1 and 11 are what a song uses until
+\* The controller numbers are the song's (CLIP SETTING, the song's page); 74, 71, 1 and 11 are what a song uses until
 you change them.
 
 ### Sticker D (faders)

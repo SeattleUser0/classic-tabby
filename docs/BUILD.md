@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.89
+Version: 0.90
 Revision log:
+- v0.90, 2026-11-17: 52.3 (tabby-v04.16 released as candidate 1), section 53 (tabby-v04.17: SHUFFLE and PLAY QUANTIZE per clip, three pages).
 - v0.89, 2026-11-17: section 52 (tabby-v04.16: a scene deleted and moved, a stop takes an armed take off, the printable manual, stickers in inch fractions; the photograph that was not there).
 - v0.88, 2026-11-17: section 51 (tabby-v04.15: TRANSPOSE, DELETE CLIP; the parity list v0.2).
 - v0.87, 2026-11-17: 50.3 (tabby-v04.14 on the device, the first release through the flow), 50.4 (stickers, the manual).
@@ -5779,3 +5780,24 @@ the first attempt; promoted.
 | full backup, restore, verify | Verify PASS, 41 items, twice |
 
 Flash margin 35133 bytes, free RAM 143020 bytes.
+
+## 53. tabby-v04.17: SHUFFLE and PLAY QUANTIZE per clip; CLIP SETTING in three pages (2026-11-17)
+
+Parity list items 2 and 6 (SPEC 19.20). Built while tabby-v04.16's candidate was on the device: the quantize code
+was written and tested in a copy outside the worktree (the flow needs a clean tree) and brought in afterwards.
+
+| Part | Change |
+| --- | --- |
+| app/clip_v3.c, .h v0.6 | header byte 13 (shuffle) and 15 (play quantize): validate, `clip_v3_shuffle`, `clip_v3_quantize`, `_set`, `clip_v3_quantize_apply` |
+| app/song.c | `decode_track`: the clip's own shuffle replaces the song's swing for its buffer; the quantize is applied to the copy that plays; `song_edit_feel` |
+| app/screen.c | lines SHUFFLE and PLAY QUANTIZE after TRANSPOSE; three pages; op 17 replies 36 bytes |
+| web/clip-v3/clip-v3.js v0.6, web/import/song-format.js v0.11 | both readers keep bytes 13 and 15 |
+| tests | clip_v3_test.c (9 checks, 4000 random clips valid before and after the quantize); smoke.c v0.27 (15 checks: 71 on the off-beat step 43 blocks after 60 as recorded, 64 with SHUFFLE 50; the late note 190, 199, and 172 blocks with PLAY QUANTIZE 1/16); setup-sim.mjs v0.5 (95 checks) |
+| tools/linux/hw/run-setup.py v0.10 | SHUFFLE and PLAY QUANTIZE heard on MIDI out: a second note 150 units late on step 2 of the copy; expected 164.1 ms after the first as recorded, 207.0 ms with SHUFFLE 50, 125.0 ms with PLAY QUANTIZE 1/16. DELETE CLIP and the song's lines are found from the number of lines |
+
+Before the candidate, on the device with tabby-v04.16: run-setup.py v0.10 passed 29 of 29 (the new section is
+skipped on firmware that does not report a shuffle), and a scratch copy with the section forced measured the
+second note 164.13 ms after the first, three times within 0.3 ms: the measuring works; the two checks of the new
+behaviour failed there, as they must.
+
+Measured: app image 485188 bytes (+864), margin 34269, heap 143020 (unchanged). Build `748004a45cce48bd`.

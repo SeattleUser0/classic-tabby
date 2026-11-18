@@ -25,9 +25,10 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.19
+Version: 0.20
 
 Revision log
+    v0.20 2026-11-17  tabby-v04.17: setup_state() reports the open clip's shuffle and playback quantize.
     v0.19 2026-11-17  tabby-v04.15: setup_state() reports the open clip's transpose.
     v0.18 2026-11-17  tabby-v04.14: setup_state() reports the click level and the controller numbers of K1 to K4.
     v0.17 2026-11-16  tabby-v04.12: setup_state() reports the scene chain's scene.
@@ -387,7 +388,9 @@ class Link:
                 # v0.18 (tabby-v04.14): the click level (0 LOW, 1 MID, 2 HIGH) and the controller numbers of K1 to K4
                 "click_level": d[28] if len(d) > 32 else None, "knobs": list(d[29:33]) if len(d) > 32 else None,
                 # v0.19 (tabby-v04.15): the open clip's transpose in semitones
-                "transpose": (d[33] - 256 if d[33] > 127 else d[33]) if len(d) > 33 else None}
+                "transpose": (d[33] - 256 if d[33] > 127 else d[33]) if len(d) > 33 else None,
+                # v0.20 (tabby-v04.17): the open clip's shuffle byte (0 the song's, 1..51 its own 0..50 percent) and playback quantize (0..3)
+                "shuffle": d[34] if len(d) > 35 else None, "quantize": d[35] if len(d) > 35 else None}
 
     def setup_do(self):
         """v0.16: remote op 16 {16, 4}: what the 4th left button does on the CLIP SETTING page (COPY on its row, else save)."""

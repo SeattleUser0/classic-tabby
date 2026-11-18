@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.54
+Version: 0.55
 Revision log:
+- v0.55, 2026-11-17: 19.20 tabby-v04.17 (SHUFFLE and PLAY QUANTIZE per clip; CLIP SETTING in three pages).
 - v0.54, 2026-11-17: 17.15 the flash reserve (15 KB) and the user's answers of 2026-11-17 evening; 19.19 tabby-v04.16 (a scene deleted and moved, a stop takes an armed take off, the printable manual).
 - v0.53, 2026-11-17: 19.18 tabby-v04.15 (TRANSPOSE per clip, DELETE CLIP); docs/MC707-PARITY.md v0.2 is the worked list.
 - v0.52, 2026-11-17: 17.4 the words printed on the buttons, from the manufacturer's drawing; docs/STICKERS.md.
@@ -1890,3 +1891,22 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   publish-pages.py v0.8 puts it at guide/classic-tabby-manual.pdf and refuses a PDF not made from the guide text;
   tests/workbench/guide.mjs checks the same in the suite.
 - Device test: tools/linux/hw/run-sceneedit.py (step `sceneedit` of rc-validate.py v0.3).
+
+### 19.20 tabby-v04.17 (2026-11-17): SHUFFLE and PLAY QUANTIZE per clip; CLIP SETTING in three pages
+
+- Parity list items 2 and 6. Both are settings in the v3 clip header that change the copy `decode_track` plays and
+  never the stored events, like TRANSPOSE.
+- SHUFFLE: header byte 13. 0 = the clip follows the song's swing (what every clip did; old clips are unchanged);
+  1 to 51 = the clip's own shuffle of 0 to 50 percent, which replaces the song's swing for this clip (`b->swing`).
+  The engine's warp delays the second step of each pair; negative values (the MC-707's -50 to -1) are not built.
+- PLAY QUANTIZE: header byte 15. 0 off, 1 a 16th, 2 an 8th, 3 a quarter. `clip_v3_quantize_apply`: each note to the
+  nearest grid line (halfway to the earlier line, as the anchor rule), a note that lands on the clip's end at the
+  start, the list back in time order, the later of two notes of one pitch on one step dropped; controllers and step
+  modifiers stay. Full strength only. The quantize runs before the shuffle, so a quantized clip still swings.
+- `song_edit_feel(field, delta)`, one undo level per run. Byte 14 stays 0 (reserved for SCALE and direction).
+- A clip with byte 13 or 15 set is refused by firmware before tabby-v04.17 (17.14 applies) and is not v2-shaped.
+- CLIP SETTING: 22 lines on three pages: 1/3 LENGTH to COPY TO PAD (8 lines, as before), 2/3 TRANSPOSE, SHUFFLE,
+  PLAY QUANTIZE, DELETE CLIP, 3/3 the song's ten lines. New clip lines go on page 2/3 before DELETE CLIP, so the
+  first eight keep their places; the device tests find DELETE CLIP and the song's lines from the number of lines.
+- Remote: op 17's reply grows to 36 bytes (34 the open clip's shuffle byte, 35 its play quantize).
+- Page: web/clip-v3/clip-v3.js v0.6 and web/import/song-format.js v0.11 keep both bytes.

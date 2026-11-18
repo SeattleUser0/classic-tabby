@@ -175,7 +175,38 @@ int main(int argc, char **argv)
         t[0] = 0; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 0"); t[0] = 129; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 129"); t[0] = 64;
         t[1] = 4; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved flag bit"); t[1] = 0;
         t[2] = 5; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "program without its flag"); t[2] = 0;
-        t[13] = 1; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved header byte"); t[13] = 0;
+        t[14] = 1; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved header byte"); t[14] = 0;
+        /* v0.6 (tabby-v04.17): the shuffle in byte 13, the playback quantize in byte 15 */
+        t[13] = 52; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "shuffle above 51"); t[13] = 51; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_OK && clip_v3_shuffle(t) == 51, "shuffle 51 (50 percent) is valid");
+        { uint8_t o2[2048]; CHECK(clip_v3_to_v2(t, (unsigned)n, o2, sizeof o2) == CLIP_V3_NOT_V2_SHAPED, "a clip with a shuffle is not a v2 block"); } t[13] = 0;
+        t[15] = 4; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "quantize above 3"); t[15] = 0;
+        { static uint8_t c[CLIP_V3_BYTES_MAX]; struct clip_v3_event e = { 0, CLIP_V3_NOTE, 0, 100, 0, 240 }, g;
+          static const int in_t[] = { -240, 100, 240, 241, 700, 7300, 7440 };
+          clip_v3_empty(c, 16);
+          for (unsigned i = 0; i < 7; ++i) { e.time = in_t[i]; e.a = (uint8_t)(60 + i); (void)clip_v3_insert(c, &e); }
+          { struct clip_v3_event cc = { 300, CLIP_V3_CC, 74, 10, 0, 0 }; (void)clip_v3_insert(c, &cc); }
+          CHECK(clip_v3_quantize_set(c, 4) == CLIP_V3_BAD_HEADER && clip_v3_quantize_set(c, 1) == CLIP_V3_OK && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK && clip_v3_quantize(c) == 1, "quantize: set to a 16th");
+          clip_v3_quantize_apply(c);
+          static const int out_t[] = { 0, 0, 0, 300, 480, 480, 7200, 7200 }; unsigned okq = clip_v3_count(c) == 8 && c[15] == 0 && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK;
+          for (unsigned i = 0; okq && i < 8; ++i) { clip_v3_event(c, i, &g); if (g.time != out_t[i] || (i == 3) != (g.kind == CLIP_V3_CC)) okq = 0; }
+          CHECK(okq, "quantize to a 16th: notes on the nearest step (halfway goes to the earlier one), the controller stays, the list is valid");
+          clip_v3_empty(c, 16); e.a = 60; e.time = 900; (void)clip_v3_insert(c, &e); e.time = 1000; (void)clip_v3_insert(c, &e); e.a = 61; (void)clip_v3_insert(c, &e);
+          (void)clip_v3_quantize_set(c, 1); clip_v3_quantize_apply(c); clip_v3_event(c, 0, &g);
+          CHECK(clip_v3_count(c) == 2 && g.time == 960 && g.a == 60 && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK, "quantize: two notes of one pitch on one step: the first stays");
+          clip_v3_empty(c, 16); e.a = 60; e.time = 960; (void)clip_v3_insert(c, &e); e.a = 61; e.time = 961; (void)clip_v3_insert(c, &e); e.a = 62; e.time = 6800; (void)clip_v3_insert(c, &e);
+          (void)clip_v3_quantize_set(c, 3); clip_v3_quantize_apply(c);
+          { struct clip_v3_event g1, g2; clip_v3_event(c, 0, &g); clip_v3_event(c, 1, &g1); clip_v3_event(c, 2, &g2);
+            CHECK(g.a == 60 && g.time == 0 && g1.a == 62 && g1.time == 0 && g2.a == 61 && g2.time == 1920 && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK, "quantize to a quarter: a note nearest the clip's end opens the clip; the list is in time order"); }
+          unsigned badq = 0; srand(7);
+          for (unsigned r = 0; r < 4000; ++r) {
+              unsigned steps = 1U + (unsigned)rand() % 128U, k = (unsigned)rand() % 60U; clip_v3_empty(c, steps);
+              for (unsigned i = 0; i < k; ++i) { e.time = rand() % (int)(steps * 480U) - 240; e.a = (uint8_t)(48 + rand() % 6); (void)clip_v3_insert(c, &e); }
+              (void)clip_v3_shuffle_set(c, (unsigned)rand() % 52U); (void)clip_v3_quantize_set(c, 1U + (unsigned)rand() % 3U);
+              if (clip_v3_validate(c, clip_v3_bytes(c))) ++badq;
+              clip_v3_quantize_apply(c);
+              if (clip_v3_validate(c, clip_v3_bytes(c))) ++badq;
+          }
+          CHECK(badq == 0, "quantize: 4000 random clips are valid before and after (%u bad)", badq); }
         t[12] = 13; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "transpose above 12"); t[12] = (uint8_t)-13; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "transpose below -12");
         t[12] = (uint8_t)-12; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_OK && clip_v3_transpose(t) == -12, "transpose -12 is valid"); t[12] = 0;
         { uint8_t c2[CLIP_V3_HEADER + CLIP_V3_EVENT * 2]; clip_v3_empty(c2, 16); c2[6] = 2;
@@ -284,7 +315,7 @@ int main(int argc, char **argv)
             if (delivered != count || cursor != count) ++bad;
             ++walked;
             int a = clip_v3_to_v2(f, bytes, out2, sizeof out2), b = clip_v3_to_cells(f, bytes, cells);
-            if (!f[8] && !f[12] && (a < 0) != (b != 0)) ++bad;   /* the two grid conversions agree on what a grid can hold (a chain or a transpose keeps a clip out of v2 only) */
+            if (!f[8] && !f[12] && !f[13] && !f[15] && (a < 0) != (b != 0)) ++bad;   /* the two grid conversions agree on what a grid can hold (a chain or a transpose keeps a clip out of v2 only) */
             if (a > 0) { int c = clip_v3_from_v2(out2, (unsigned)a, f, sizeof f, NULL); if (c <= 0) ++bad; }
         }
         CHECK(bad == 0, "fuzz: nothing the validator accepts breaks a rule (%u bad)", bad);

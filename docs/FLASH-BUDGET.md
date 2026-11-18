@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.39
+Version: 0.40
 Revision log:
+- v0.40, 2026-11-17: section 40: tabby-v04.17 measured, 485188 bytes, margin 34269.
 - v0.39, 2026-11-17: section 39: tabby-v04.16 measured, 484324 bytes, margin 35133; the 15 KB reserve.
 - v0.38, 2026-11-17: section 38: tabby-v04.15 measured, 482532 bytes, margin 36925.
 - v0.37, 2026-11-17: section 37: tabby-v04.14 measured, 481572 bytes, margin 37885.
@@ -1295,3 +1296,12 @@ RAM (runtime heap): 143020 bytes (-32). docs/MC707-PARITY.md 0.2 estimates the n
 
 RAM (runtime heap): 143020 bytes, unchanged. The reserve (SPEC 17.15): 15360 bytes stay free for fixes, so 19773
 bytes can still go to features.
+
+## 40. tabby-v04.17 (measured, 2026-11-17)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.16 | 484324 | | 35133 |
+| tabby-v04.17: SHUFFLE and PLAY QUANTIZE per clip, CLIP SETTING in three pages | 485188 | +864 | **34269** |
+
+RAM (runtime heap): 143020 bytes, unchanged. Above the 15360-byte reserve: 18909 bytes.

@@ -1,11 +1,11 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 3.4, 2026-11-17. For tabby-v04.16 on the M-VAVE SMK-37 Pro.
+Version 3.5, 2026-11-17. For tabby-v04.17 on the M-VAVE SMK-37 Pro.
 The user manual and the test checklist in one, for the person who plays and tests the device. No programming needed.
 Sections 3 to 5 are the manual: setting up, every page of the device in the order you use it, and the workbench. Section 6 is the checklist.
 
-This guide is for tabby-v04.16. If an older firmware is on your SMK-37, install tabby-v04.16 (section 3.2); section 2.2 lists what each release added. The guide is also one printable file: https://seattleuser0.github.io/classic-tabby/guide/classic-tabby-manual.pdf. New in tabby-v04.16: a scene can be deleted and moved on the SCENES page (section 4.11), and stopping the song takes an armed take off (4.10). New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
+This guide is for tabby-v04.17. If an older firmware is on your SMK-37, install tabby-v04.17 (section 3.2); section 2.2 lists what each release added. The guide is also one printable file: https://seattleuser0.github.io/classic-tabby/guide/classic-tabby-manual.pdf. New in tabby-v04.17: SHUFFLE and PLAY QUANTIZE for each clip, and CLIP SETTING in three pages (section 4.11). New in tabby-v04.16: a scene can be deleted and moved on the SCENES page (section 4.11), and stopping the song takes an armed take off (4.10). New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
 
 Where to find what: playing a song from the pads is 4.7 and 4.8. Building and changing a song on the panel is 4.9 to 4.14. Projects, sounds and housekeeping are 4.1 to 4.6 and 4.15 to 4.18. The workbench is section 5.
 
@@ -104,6 +104,7 @@ Oldest first. The last line is the release this guide is for.
 - tabby-v04.14: CLICK LEVEL (LOW, MID, HIGH) for the internal click; K1 CONTROLLER to K4 CONTROLLER choose what the four knobs on CLIPS send, per song; CLIP SETTING is two pages. The Full backup names a song the page cannot read and stops. The workbench importer keeps a clip's own length and its chain when it rewrites a song (before, it dropped them).
 - tabby-v04.15: TRANSPOSE on CLIP SETTING moves a clip's notes by up to 12 semitones either way when it plays. DELETE CLIP takes a clip out of the song (two presses, stopped, never a clip a scene uses).
 - tabby-v04.16: on SCENES, with the song stopped, FX twice deletes the selected scene and EDIT held with K1 moves it earlier or later. Stopping the song takes an armed take off (SONG STOPPED - REC OFF). The guide as one printable PDF.
+- tabby-v04.17: SHUFFLE (the clip's own swing, 0 to 50 percent, or the song's) and PLAY QUANTIZE (OFF, 1/16, 1/8, 1/4) on CLIP SETTING; they change how the clip plays, not the notes in it. CLIP SETTING has three pages.
 
 
 3. SETUP
@@ -127,7 +128,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. Install tabby-v04.16 to get everything in this guide. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. Install tabby-v04.17 to get everything in this guide. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -334,13 +335,15 @@ A new clip
 3. The CLIPS page shows UNSAVED. Stop the song and press the 4th button in the left group, or wait ten seconds: SAVED. The new clip is now part of the song.
 
 CLIP SETTING
-1. On CLIPS select a clip (hold its pad) and press FX. The SETTING page has two pages. Page 1/2 is the clip: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB, COPY TO PAD, TRANSPOSE and DELETE CLIP. Page 2/2 is the song: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL and K1 CONTROLLER to K4 CONTROLLER. K5 walks through all the lines; the page changes by itself.
+1. On CLIPS select a clip (hold its pad) and press FX. The SETTING page has three pages (tabby-v04.17). Page 1/3 is the clip: LENGTH, NEXT CLIP, AFTER, TIMES, PROGRAM, BANK MSB, BANK LSB and COPY TO PAD. Page 2/3 is more of the clip: TRANSPOSE, SHUFFLE, PLAY QUANTIZE and DELETE CLIP. Page 3/3 is the song: COUNT-IN, CLICK, CLICK OUT, CLICK CHANNEL, CLICK NOTE, CLICK LEVEL and K1 CONTROLLER to K4 CONTROLLER. K5 walks through all the lines; the page changes by itself.
 2. Turn K5 to choose a line. Turn K1 to change it; K2 changes it by 16.
 3. LENGTH is the clip's length, 1 to 128 steps. Making it shorter removes the notes past the new end; FX on the STEP page brings them back.
 4. COPY TO PAD: turn K1 to an empty pad and press the 4th button in the left group. The copy is open and UNSAVED. A clip you changed must be saved before you copy it.
 5. TRANSPOSE (tabby-v04.15): K1 moves the clip's notes up or down, 12 semitones at most. The clip itself is not changed: 0 plays it as it was. You hear it from the clip's next loop.
-6. DELETE CLIP (tabby-v04.15): stop the song, turn K5 to DELETE CLIP and press the 4th button in the left group. The screen says PRESS AGAIN TO DELETE THE CLIP. Press it again within two seconds: CLIP DELETED - SAVE THE SONG. A clip that a scene uses is not deleted; the screen names the scene.
-7. FX goes back to CLIPS.
+6. SHUFFLE (tabby-v04.17): SONG means the clip swings as the song does (the SWING of the SYNC / MIDI page, when the song follows it). Turn K1 right for the clip's own shuffle, 0 to 50 PERCENT: every second 16th step comes that much of a step late. 0 PERCENT plays this clip straight even in a song that swings. You hear it from the clip's next loop.
+7. PLAY QUANTIZE (tabby-v04.17): OFF, 1/16, 1/8 or 1/4. When the clip plays, every note starts on the nearest line of that grid. The notes in the clip are not moved: OFF plays your own timing again. Controllers are not moved. Use it to tighten a loose take without losing it.
+8. DELETE CLIP (tabby-v04.15): stop the song, turn K5 to DELETE CLIP and press the 4th button in the left group. The screen says PRESS AGAIN TO DELETE THE CLIP. Press it again within two seconds: CLIP DELETED - SAVE THE SONG. A clip that a scene uses is not deleted; the screen names the scene.
+9. FX goes back to CLIPS.
 Every clip loops at its own length: a 1-bar clip in a 4-bar scene plays four times. Songs you imported play as before.
 
 Click and count-in
@@ -391,7 +394,7 @@ Deleting and moving a scene (tabby-v04.16)
 3. When the track enters the clip (its pad, a chain, a scene), the bank select and the program change go out on the track's channel, just before the clip's first notes. They go to MIDI out only.
 4. On the CLIPS page turn K1 to K4: they send controllers 74, 71, 1 and 11 for the selected track. The screen shows the value.
 5. Press REC and turn a knob: the movement is recorded into the clip and plays back in the loop.
-6. To send other controllers (tabby-v04.14): press FX, turn K5 to K1 CONTROLLER (page 2/2) and choose a number from 0 to 127 with K1 (K2 moves by 16). The same for K2, K3 and K4 CONTROLLER. Save. The numbers belong to the song.
+6. To send other controllers (tabby-v04.14): press FX, turn K5 to K1 CONTROLLER (page 3/3) and choose a number from 0 to 127 with K1 (K2 moves by 16). The same for K2, K3 and K4 CONTROLLER. Save. The numbers belong to the song.
 
 
 4.15 Saving a project, and the STOP TO SAVE rule
@@ -1106,7 +1109,7 @@ Result: PASS / FAIL   Notes: ________________________________
 
 T80. The click level (tabby-v04.14)
 Set up: headphones or speakers on the SMK-37's audio output. A song loaded, stopped. CLICK on ALWAYS and CLICK OUT on INTERNAL (4.11).
-1. Press FX on CLIPS. Turn K5 to CLICK LEVEL on page 2/2. It says MID.
+1. Press FX on CLIPS. Turn K5 to CLICK LEVEL on page 3/3. It says MID.
 2. Press PLAY. Turn K1 left to LOW, then right to HIGH.
 You should hear: the click gets clearly quieter on LOW and louder on HIGH, without a crackle. HIGH is about as loud as a note you play. [not checked in simulator]
 Result: PASS / FAIL   Notes: ________________________________
@@ -1154,6 +1157,21 @@ Set up: a song playing, track 1 following the scenes. On CLIPS select a clip of 
 You should see: REC WHEN THE CLIP LOOPS and the REC lamp; after the stop SONG STOPPED - REC OFF and the lamp out. Stopped: REC ARMED - PLAY STARTS IT, and the lamp stays lit until the second press. [checked in simulator]
 Result: PASS / FAIL   Notes: ________________________________
 
+T87. Shuffle a clip (tabby-v04.17)
+Set up: a clip with notes on every 16th step (a hi-hat line is best), launched and looping. A synth on MIDI out, or the track's own sound.
+1. Press FX on CLIPS. Turn K5 to SHUFFLE (page 2/3). It says SONG.
+2. Turn K1 right to 50 PERCENT. Listen for two loops. Turn K1 left to 0 PERCENT, then one more click to SONG.
+You should hear: at 50 PERCENT every second 16th comes late, a triplet feel; at 0 PERCENT and at SONG (in a song without swing) the line is even again. UNSAVED shows until you save. [checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
+T88. Play quantize (tabby-v04.17)
+Set up: a clip you recorded with input quantize off (SHIFT and REC before the take), played a little loose, launched and looping.
+1. Press FX on CLIPS. Turn K5 to PLAY QUANTIZE (page 2/3). It says OFF.
+2. Turn K1 to 1/16. Listen for two loops. Turn K1 back to OFF.
+3. Press EDIT on CLIPS and look at a note's START on the STEP page (K3).
+You should hear and see: at 1/16 every note is on its step; at OFF your own timing is back. The START values on the STEP page never changed. [checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
 
 7. KNOWN LIMITS AND WHAT IS NOT BUILT YET
 =========================================
@@ -1176,7 +1194,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.16.
+- The page badge and the boot screen show tabby-v04.17.
 
 
 8. HOW TO REPORT A PROBLEM

@@ -12,9 +12,10 @@
  *   then `count` 6-byte events sorted by time. A note: {time u16 (biased by 240), pitch | retrigger << 7,
  *   velocity (bit 7 = 0), length u16}; other: {time u16, type, 0x80, a, b}. See the document for the types.
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-17  tabby-v04.17: the clip's shuffle (header byte 13) and playback quantize (byte 15).
  *   v0.5  2026-11-17  tabby-v04.15: the clip's transpose in header byte 12 (clip_v3_transpose, _set, _apply).
  *   v0.4  2026-11-16  The clip chain in the header (bytes 8..11: next, after, times; docs/CLIP-V3.md 2.1) and
  *                     clip_v3_steps_set, clip_v3_chain_set, clip_v3_program_set (the CLIP SETTING page).
@@ -112,4 +113,18 @@ int clip_v3_transpose(const uint8_t *p);
 int clip_v3_transpose_set(uint8_t *p, int semitones);
 /* The notes of the clip moved by its transpose, the header's transpose cleared: what the player plays. */
 void clip_v3_transpose_apply(uint8_t *p);
+/* v0.6 (tabby-v04.17): the clip's shuffle, header byte 13: 0 = the clip follows the song's swing (as every clip did
+ * before), 1..51 = its own shuffle of 0..50 percent (the value minus one; 1 plays it straight whatever the song does). */
+#define CLIP_V3_SHUFFLE_MAX 51
+unsigned clip_v3_shuffle(const uint8_t *p);
+int clip_v3_shuffle_set(uint8_t *p, unsigned value);
+/* v0.6: the playback quantize, header byte 15: 0 = off, 1 = to the step (a 16th), 2 = to two steps (an 8th), 3 = to
+ * four (a quarter). clip_v3_quantize_apply moves the notes of the copy that plays to the nearest grid line (halfway
+ * goes to the earlier one, as the anchor rule does; a note that lands on the clip's end opens the clip), clears the
+ * byte, keeps the list in time order and drops a note that then shares its step with an earlier note of its pitch.
+ * Controllers and step modifiers stay. The stored clip is not changed. */
+#define CLIP_V3_QUANTIZE_MAX 3
+unsigned clip_v3_quantize(const uint8_t *p);
+int clip_v3_quantize_set(uint8_t *p, unsigned value);
+void clip_v3_quantize_apply(uint8_t *p);
 #endif

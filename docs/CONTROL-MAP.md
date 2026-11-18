@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.11 (2026-11-17). Applies from tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.12 (2026-11-17). Applies from tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -208,7 +208,7 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-A new song from nothing, shuffle per clip, and SCALE (step sizes other than a
+A new song from nothing and SCALE (step sizes other than a
 16th): next on the list in docs/MC707-PARITY.md section 0. New songs still come from the web workbench (the MIDI importer or the song editor).
 
 ## 11. Differences from the MC-707
@@ -280,6 +280,8 @@ Deliberate differences:
 | Transpose | Per clip, -12 to +12 (RM p. 50). | TRANSPOSE per clip, -12 to +12; applied when the clip plays, the stored notes stay. | Same. Applied at play time so that 0 always restores the clip. |
 | Deleting a clip | Delete in the clip operations (RM pp. 14 to 16). | DELETE CLIP on CLIP SETTING, the 4th left button twice within two seconds; only while stopped; never a clip a scene uses. | Stage safety: one wrong press must not take a clip out of a running set, and a scene must not lose its clip. |
 | Unsaved clips | Any number. | One at a time. A copy or a new clip counts. | Memory. |
+| Shuffle | Per clip, -50 to +50 (RM p. 50, as the parity matrix records it). | SHUFFLE per clip: SONG or 0 to 50 percent. | No negative values: the engine's swing delays the off-beat step and cannot bring it early. SONG keeps old songs as they were. |
+| Quantize at playback | Per clip and for the whole machine; the larger grid wins (RM p. 33). | PLAY QUANTIZE per clip only: OFF, 1/16, 1/8, 1/4. | No machine-wide setting: a clip keeps the feel it was given. |
 | Deleting and ordering scenes | Storing and recalling are described (RM p. 36); the parity matrix of 2026-11-07 found no delete or reorder. | FX twice deletes the selected scene, EDIT + K1 moves it; both only while stopped. | Our scenes are a chain that plays in order, so their order matters; stopped only, because every track's position is counted in scenes while the song plays. |
 | An armed take when the sequencer stops | Not described. | A take armed while the song played is taken off by the stop; a take armed while stopped waits for PLAY. | A lit REC lamp after a stop is easy to miss, and the next PLAY would record. The user's decision of 2026-11-17. |
 | A scene pad while stopped | Reserves the scene; START plays it (RM p. 35 with p. 12). | The same from tabby-v04.12; the pad again takes the reservation back. | Same; taking back as for clips. |
@@ -433,8 +435,9 @@ when ENV sends the track back to the scenes.
 ## 14. CLIP SETTING page
 
 FX on the CLIPS page opens it on the track's selected clip (or the clip the track plays). The screen lists one
-setting per line, on two pages: page 1/2 holds the clip's ten lines (LENGTH to DELETE CLIP), page 2/2 the song's ten
-lines (COUNT-IN to K4 CONTROLLER). K5 walks through all twenty; the screen changes page when it passes line 10.
+setting per line, on three pages (tabby-v04.17): page 1/3 holds the clip's first eight lines (LENGTH to COPY TO PAD),
+page 2/3 four more of the clip (TRANSPOSE, SHUFFLE, PLAY QUANTIZE, DELETE CLIP), page 3/3 the song's ten lines
+(COUNT-IN to K4 CONTROLLER). K5 walks through all twenty-two; the screen changes page by itself.
 Without a selected clip the clip's lines show a dash and the song's lines still work.
 
 | Control | Result |
@@ -454,6 +457,8 @@ Without a selected clip the clip's lines show a dash and the song's lines still 
 | LENGTH | 1 to 128 steps | The clip's length. It loops at this length wherever it plays. Shorter: the notes past the new end are removed (NOTES PAST THE END REMOVED; FX on the STEP page undoes). Longer: empty steps are added. Heard from the clip's next loop. Not during a take. |
 | COPY TO PAD | a pad of the same track, 1 to 64 | The 4th left button copies the clip to that pad if it is empty (the page offers the first empty one and says EMPTY or HOLDS A CLIP). The copy becomes the open clip, UNSAVED. A clip with unsaved changes must be saved first. |
 | TRANSPOSE | -12 to +12 semitones | Moves every note of the clip when it plays; the notes stored in the clip are not changed, so 0 brings the clip back as it was. Heard from the clip's next loop. A note that would leave the MIDI range stays at its edge. Saved with the clip; FX on the STEP page undoes. Not during a take. For a drum clip leave it at 0. |
+| SHUFFLE | SONG, 0 to 50 PERCENT | SONG: the clip follows the song's swing, as every clip did before. A number: the clip's own shuffle; every second 16th step comes that much of a step late (50: a triplet feel), whatever the song does. Heard from the clip's next loop. One undo level per run of turns. (tabby-v04.17) |
+| PLAY QUANTIZE | OFF, 1/16, 1/8, 1/4 | When the clip plays, every note starts on the nearest line of that grid; a note exactly halfway goes to the earlier line, a note nearest the clip's end starts the clip. The stored notes keep their timing (the STEP page shows it), controllers are not moved, and of two notes of one pitch that land on one step the first plays. (tabby-v04.17) |
 | DELETE CLIP | | Press the 4th left button: PRESS AGAIN TO DELETE THE CLIP. Press it again within two seconds: CLIP DELETED - SAVE THE SONG, and the pad is empty. Only while the song is stopped (STOP TO DELETE). A clip that a scene uses is not deleted: USED BY SCENE n - NOT DELETED. Chains that led to the clip do nothing afterwards. The song is UNSAVED until you save it; loading the song again before saving brings the clip back. |
 | COUNT-IN | OFF, 1 CYCLE, 2 CYCLES, 4 CYCLES | Section 15. |
 | CLICK | OFF, WHEN RECORDING, ALWAYS | Section 15. |
@@ -574,6 +579,6 @@ set on the SCENES page for the scene that plays; while the song is stopped, for 
 - Each track keeps its four values while the power is on.
 - During a take the movements are recorded into the clip like controllers from outside gear (section 13.2: once per
   1/32 note while moving, and the last value), and the clip plays them back on the song's channel for the track.
-- The four controller numbers belong to the song (from tabby-v04.14): K1 CONTROLLER to K4 CONTROLLER on page 2/2 of
+- The four controller numbers belong to the song (from tabby-v04.14): K1 CONTROLLER to K4 CONTROLLER on page 3/3 of
   CLIP SETTING, 0 to 127 each, saved with the song. A song that was never set uses 74, 71, 1 and 11. The values the
   knobs start at stay as in the table whatever the number.

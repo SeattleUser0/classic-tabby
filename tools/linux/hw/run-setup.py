@@ -19,9 +19,11 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.9
+Version: 0.10
 
 Revision log
+    v0.10 2026-11-17  tabby-v04.17: SHUFFLE and PLAY QUANTIZE heard on MIDI out (a second note 150 units late on step 2);
+                      DELETE CLIP is found from the number of lines, not by a fixed index.
     v0.9  2026-11-17  Two more tool errors, found in the tabby-v04.15-rc2 run: the takes of the click checks ran on clip 1,
                       which the scenes leave after two bars (the take ends by design; the tool's next REC armed one), and
                       the K1 check assumed the knob's value of a fresh start. The internal-click check reports what the
@@ -193,14 +195,60 @@ def main():
             l.press("FX"); idle(0.4); l.knob(K5, 8 - l.setup_state()["row"]); idle(0.3); l.knob(K1, -3); idle(0.3)
             check(l.setup_state()["row"] == 8 and l.setup_state()["transpose"] == 0, "TRANSPOSE back to 0")
             l.edit_save(); idle(0.6)
-            l.knob(K5, 1); idle(0.3)                                                   # DELETE CLIP
+            # ---- tabby-v04.17: SHUFFLE and PLAY QUANTIZE on the copy, heard: a second note on step 2, 150 units late ----
+            if l.setup_state().get("shuffle") is not None:
+                l.press("FX"); idle(0.3); l.press("EDIT"); idle(0.4); s = l.steps_state()
+                if s["toggle"]:
+                    l.press("SCL"); idle(0.2)
+                l.pad(1); idle(0.2); l.play_key(14, 0.1); idle(0.3); l.knob(2, 15); idle(0.3); s = l.steps_state()
+                second = s["notes"][0] if s["notes"] else {}
+                check(s["page_name"] == "STEP" and s["place"] == target and second.get("start") == 150 and second.get("pitch") not in (None, pitch),
+                      "STEP page: a second note on step 2 of the copy, moved 150 units late", (s["place"], second))
+                l.pad(1); idle(0.2); l.press("EDIT"); idle(0.3)
+
+                def gap():
+                    """Launch the copy, play 4.5 s: the median time from the first note to the second, in ms."""
+                    l.pad(target % 16); idle(0.3)
+                    mark = time.monotonic_ns()
+                    l.press("PLAY"); idle(4.5)
+                    ons = since(mark, lambda m: len(m) == 3 and m[0] == (0x90 | ch) and m[2] and m[1] in (pitch, second.get("pitch")))
+                    l.press("PLAY"); idle(0.8)
+                    d = [(tb - ta) / 1e6 for (ta, ma), (tb, mb) in zip(ons, ons[1:]) if ma[1] == pitch and mb[1] == second.get("pitch")]
+                    return sorted(d)[len(d) // 2] if len(d) >= 3 else -1.0
+
+                def feel(shuffle, quantize):
+                    l.press("FX"); idle(0.4); l.knob(K5, 9 - l.setup_state()["row"]); idle(0.3)
+                    d = shuffle - l.setup_state()["shuffle"]
+                    if d:
+                        l.knob(K1, d); idle(0.3)
+                    l.knob(K5, 1); idle(0.3)
+                    d = quantize - l.setup_state()["quantize"]
+                    if d:
+                        l.knob(K1, d); idle(0.3)
+                    u = l.setup_state(); l.press("FX"); idle(0.3)
+                    return u
+
+                g0 = gap()
+                u1 = feel(51, 0); g1 = gap()
+                u2 = feel(0, 1); g2 = gap()
+                u3 = feel(0, 0)
+                measured["feel_gap_ms"] = [round(g0, 2), round(g1, 2), round(g2, 2)]
+                # 120 BPM: a step is 125 ms. As recorded 630 units (164.1 ms); SHUFFLE 50: 795 units (207.0 ms); PLAY QUANTIZE 1/16: 480 units (125.0 ms)
+                check(abs(g0 - 164.1) <= 3.0, "as recorded the second note comes 164 ms after the first", "%.2f ms" % g0)
+                check(u1["row"] == 10 and u1["shuffle"] == 51 and abs(g1 - 207.0) <= 3.0, "SHUFFLE 50 PERCENT: it comes 207 ms after the first", (u1["shuffle"], "%.2f ms" % g1))
+                check(u2["shuffle"] == 0 and u2["quantize"] == 1 and abs(g2 - 125.0) <= 3.0, "SHUFFLE SONG, PLAY QUANTIZE 1/16: it plays on its step, 125 ms after the first", (u2["quantize"], "%.2f ms" % g2))
+                check(u3["shuffle"] == 0 and u3["quantize"] == 0, "both back to SONG and OFF", (u3["shuffle"], u3["quantize"]))
+                l.edit_save(); idle(0.6)
+                l.press("FX"); idle(0.4)
+            D = l.setup_state()["rows"] - 11                                           # v0.10: DELETE CLIP is the last line before the song's ten
+            l.knob(K5, D - l.setup_state()["row"]); idle(0.3)                          # DELETE CLIP
             l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c1 = l.clips_state()
-            l.press("FX"); idle(0.4); l.knob(K5, 9 - l.setup_state()["row"]); idle(2.4)   # more than two seconds after the first press
+            l.press("FX"); idle(0.4); l.knob(K5, D - l.setup_state()["row"]); idle(2.4)   # more than two seconds after the first press
             l.setup_do(); idle(0.3); l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c2 = l.clips_state()
             check((c1["pads"][target % 16]["code"] & 7) != 0 and (c2["pads"][target % 16]["code"] & 7) == 0 and l.setup_state()["unsaved"],
                   "DELETE CLIP: one press only asks, two presses delete the copy; the song is unsaved", (c1["pads"][target % 16]["code"], c2["pads"][target % 16]["code"]))
             l.pad(0); idle(0.2); l.pad(0); idle(0.2)                                     # clip 1 is used by scene 1
-            l.press("FX"); idle(0.4); l.knob(K5, 9 - l.setup_state()["row"]); idle(0.3)
+            l.press("FX"); idle(0.4); l.knob(K5, D - l.setup_state()["row"]); idle(0.3)
             l.setup_do(); idle(0.3); l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c3 = l.clips_state()
             check((c3["pads"][0]["code"] & 7) != 0, "a clip a scene uses is not deleted", c3["pads"][0]["code"])
             l.edit_save(); idle(0.6)

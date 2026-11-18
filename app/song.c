@@ -1184,6 +1184,9 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
             if (format == SONG_FORMAT_V3) {
                 unsigned next = clip_v3_next(payload);
                 b->steps = (uint8_t)clip_v3_steps(payload);
+                /* tabby-v04.17: the clip's own SHUFFLE instead of the song's swing; PLAY QUANTIZE moves the notes of the copy that plays */
+                if (clip_v3_shuffle(payload)) b->swing = (uint8_t)(clip_v3_shuffle(payload) - 1U);
+                clip_v3_quantize_apply(payload); bytes = clip_v3_bytes(payload);
                 clip_v3_transpose_apply(payload);        /* the clip's TRANSPOSE: the copy that plays is moved, the stored clip is not */
                 b->prog = (uint32_t)(payload[1] & 3U) | (uint32_t)payload[2] << 8 | (uint32_t)payload[3] << 16 | (uint32_t)payload[4] << 24;
                 if (next >= CLIP_V3_NEXT_CLIP && !model.clip[t][next - CLIP_V3_NEXT_CLIP]) next = CLIP_V3_NEXT_STAY;   /* no clip there: no chain */
@@ -1881,6 +1884,21 @@ int song_edit_transpose(int delta)
     if (edit.gesture != 0x40000030U) edit_push();
     (void)clip_v3_transpose_set(edit.clip, v);
     edit.gesture = 0x40000030U; edit_changed();
+    return 0;
+}
+/* tabby-v04.17: the open clip's feel: field 0 SHUFFLE (0 = the song's swing, 1..51 = its own, 0 to 50 percent), field 1
+ * PLAY QUANTIZE (0 off, 1 a 16th, 2 an 8th, 3 a quarter). One undo level per run. */
+int song_edit_feel(unsigned field, int delta)
+{
+    if (!edit.active || !delta || field > 1) return SONG_INVALID;
+    if (rec.state == REC_ON) return SONG_BUSY;
+    unsigned at = field ? 15U : 13U; uint32_t gesture = 0x40000031U + field;
+    int max = field ? CLIP_V3_QUANTIZE_MAX : CLIP_V3_SHUFFLE_MAX, now = edit.clip[at], v = now + delta;
+    v = v < 0 ? 0 : v > max ? max : v;
+    if (v == now) return 0;
+    if (edit.gesture != gesture) edit_push();
+    edit.clip[at] = (uint8_t)v;
+    edit.gesture = gesture; edit_changed();
     return 0;
 }
 /* tabby-v04.15: take the track's clip in `place` out of the song. Only while the song is stopped, and only a clip no
