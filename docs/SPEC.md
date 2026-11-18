@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.55
+Version: 0.56
 Revision log:
+- v0.56, 2026-11-17: 17.4 rewritten: every control by its printed word (the user's rule; the photograph of the unit); 17.15 the photograph arrived; 19.21 tabby-v04.18.
 - v0.55, 2026-11-17: 19.20 tabby-v04.17 (SHUFFLE and PLAY QUANTIZE per clip; CLIP SETTING in three pages).
 - v0.54, 2026-11-17: 17.15 the flash reserve (15 KB) and the user's answers of 2026-11-17 evening; 19.19 tabby-v04.16 (a scene deleted and moved, a stop takes an armed take off, the printable manual).
 - v0.53, 2026-11-17: 19.18 tabby-v04.15 (TRANSPOSE per clip, DELETE CLIP); docs/MC707-PARITY.md v0.2 is the worked list.
@@ -1234,58 +1235,73 @@ force for the normal build until the diag build tabby-v04.2-diagA2 has been meas
 - Consequence: notes leave at the next control pass (10 ms timer) or at an in-pass flush (after each
   LCD band, 17.1). The 4 ms target needs an SDK change; option A stays unbuilt.
 
-### 17.4 Control names: firmware name -> printed name or position (Task 13 Step 4; sticker map starts here)
+### 17.4 Control names: every control by the word printed on it (the user's rule of 2026-11-17; tabby-v04.18)
 
-Rules (the user's, 2026-11-10): knobs by their printed numbers K1-K8 from the left; a button whose
-printed label is not confirmed is described by its position, never by a guessed name. All screen
-text, Help (the workbench manual and its translations), the panel shortcut texts, the READMEs and
-the install-file template (docs/releases/INSTALL.template.txt) follow this table. On the LCD the
-4th left button is "4TH LEFT BTN" (the full phrase does not fit a 38-character line).
+Rule: all screen text, Help, the guide, docs/CONTROL-MAP.md, docs/STICKERS.md, the READMEs and the workbench's panel
+drawing call a control by the word printed on the SMK-37. The printed words were read from the user's photograph of
+the unit (2026-11-17, ~/Documents/Classic Tabby/panel.jpg) and agree with the user's own reading and with the drawing
+in M-VAVE's manual. The firmware's source, the remote protocol and the test tools keep the firmware's names; this
+table is the bridge. Earlier rule (2026-11-10, replaced): a button whose printed label was not confirmed was described
+by its position ("the 4th button in the left group").
 
-Knobs (`fm1_controls.encoders[]` index; physical id from app/smk37_controls.c `encoder_map`):
+Sections of this document and of docs/BUILD.md written before 2026-11-17 use the firmware's names; they are history
+and are not rewritten.
 
-| Firmware name | Index | Physical id | Printed / to use | Status |
-| --- | ---: | ---: | --- | --- |
-| K1 | 2 | 0 | K1 | confirmed by the user |
-| K2 | 3 | 1 | K2 | confirmed by the user |
-| K3 | 4 | 2 | K3 | confirmed by the user |
-| K4 | 5 | 3 | K4 | confirmed by the user |
-| SELECT | 0 | 4 | K5 | confirmed by the user (used for the song on 2026-11-09) |
-| PAGE | 1 | 5 | K6 | confirmed by the user |
-| PRESETS | 6 | 6 | K7 | confirmed by the user |
-| MASTER | (ADC) | 7 | K8 | confirmed by the user |
+Knobs (`fm1_controls.encoders[]` index; physical id from app/smk37_controls.c `encoder_map`); printed K1 to K8:
 
-Buttons (physical id = position in sdk/Simulator.js's panel map; left group = ids 0-5, right group =
-ids 6-17; firmware name = the FM1 button app/screen.c tests, through `button_map`):
+| Firmware name | Index | Physical id | Printed, and used everywhere |
+| --- | ---: | ---: | --- |
+| K1 | 2 | 0 | K1 |
+| K2 | 3 | 1 | K2 |
+| K3 | 4 | 2 | K3 |
+| K4 | 5 | 3 | K4 |
+| SELECT | 0 | 4 | K5 |
+| PAGE | 1 | 5 | K6 |
+| PRESETS | 6 | 6 | K7 |
+| MASTER | (ADC) | 7 | K8 |
 
-| Physical id | Firmware name | Printed / to use | Status |
-| ---: | --- | --- | --- |
-| 0 | (SHIFT, panel code) | SHIFT | confirmed by the user |
-| 1 | (FADER BANK, panel code) | FADER BANK | confirmed by the user |
-| 2 | HOME | HOME | confirmed by the user |
-| 3 | SAVE | **the 4th button in the left group (after SHIFT, FADER BANK, HOME)**; LCD "4TH LEFT BTN"; workbench panel "BTN 4" | not SAVE (user, 2026-11-09); printed label unknown |
-| 4 | OCT_DOWN | OCT - | from the workbench panel map, not confirmed |
-| 5 | OCT_UP | OCT + | from the workbench panel map, not confirmed |
-| 6 | ARP | ARP | from the workbench panel map, not confirmed |
-| 7 | (PAD / STEP, panel code) | PAD / STEP | from the workbench panel map, not confirmed |
-| 8 | SCL | SCL | from the workbench panel map, not confirmed |
-| 9 | ENV | ENV / LFO (text says ENV) | from the workbench panel map, not confirmed |
-| 10 | GLO | MIX | from the workbench panel map, not confirmed |
-| 11 | (BT, panel code) | BT | from the workbench panel map, not confirmed |
-| 12 | HOME (SHIFT: source page) | HOME / SRC | from the workbench panel map, not confirmed |
-| 13 | EDIT | EDIT | from the workbench panel map, not confirmed |
-| 14 | FX | FX | from the workbench panel map, not confirmed |
-| 15 | SEQ | SEQ | confirmed by use (the user opened ACTIONS with it) |
-| 16 | PLAY | PLAY | confirmed by use |
-| 17 | REC | REC | from the workbench panel map, not confirmed |
+Buttons (physical id = position in sdk/Simulator.js's panel map; left group = ids 0-5 under the screen, headed PAD
+BANK on the panel; right group = ids 6-17, two rows of six; firmware name = the FM1 button app/screen.c tests, through
+`button_map`; tool name = tools/linux/hw/tabby_link.py PANEL):
 
-The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37.
+| Physical id | Firmware name | Tool name | Names used before tabby-v04.18 | Printed, and used everywhere |
+| ---: | --- | --- | --- | --- |
+| 0 | (SHIFT, panel code) | SHIFT | SHIFT | **KNOB BANK** |
+| 1 | (FADER BANK, panel code) | FADER_BANK | FADER BANK | **FADER BANK** |
+| 2 | HOME | HOME | HOME | **<** |
+| 3 | SAVE | (refused by the device on purpose) | the 4th button in the left group, the 4th left button, 4TH LEFT BTN, BTN 4 | **>** |
+| 4 | OCT_DOWN | OCT_DOWN | OCT - | **OCTAVE-** |
+| 5 | OCT_UP | OCT_UP | OCT + | **OCTAVE+** |
+| 6 | ARP | ARP | ARP | **ARP** |
+| 7 | (PAD / STEP, panel code) | PAD_STEP | PAD / STEP | **NOTE REPEAT** |
+| 8 | SCL | SCL | SCL | **SCALE** |
+| 9 | ENV | ENV | ENV, ENV / LFO | **CHORD** |
+| 10 | GLO | GLO | MIX | **GLOBE** |
+| 11 | (BT, panel code) | BLUETOOTH | BT | **BT** |
+| 12 | HOME (with the shift button: the source page) | SRC | HOME / SRC | **PATCH** |
+| 13 | EDIT | EDIT | EDIT | **PARA** |
+| 14 | FX | FX | FX | **FX** |
+| 15 | SEQ | SEQ | SEQ | **SEQ** |
+| 16 | PLAY | PLAY | PLAY | **SEQ PLAY** |
+| 17 | REC | REC | REC | **SEQ REC** |
 
-Printed words, from the top-view drawing in M-VAVE's SMK-37 PRO manual (2026-11-17; not checked against the unit):
-left group KNOB BANK (= SHIFT), FADER BANK, < (= HOME), > (= the 4th left button), OCTAVE-, OCTAVE+; right group ARP,
-NOTE REPEAT (= PAD / STEP), SCALE (= SCL), CHORD (= ENV), GLOBE (= MIX), BT, PATCH (= HOME / SRC), PARA (= EDIT), FX,
-SEQ, SEQ PLAY (= PLAY), SEQ REC (= REC). The names in the tables above stay the ones every text uses; docs/STICKERS.md
-is the sticker sheet that puts them on the panel.
+- `<` and PATCH are both the firmware's HOME. Texts say PATCH; `<` does the same when pressed alone, but only PATCH
+  opens the sound source page with KNOB BANK.
+- The firmware's LFO button (FM1 id 5) has no physical button on the SMK-37 (KNOB BANK + CHORD reaches its action on
+  the song pages).
+- On the LCD `>` and `<` are the characters themselves ("> SAVES (STOPPED)"). In HTML they are written &gt; and &lt;.
+- Words that are not button names keep their meaning and spelling: the pages (OVERVIEW, SONG, CLIPS, STEP, SETTING,
+  the mixer), the states REC ARMED, RECORDING, REC STOPPED, REC OFF, PLAYING, the mode names KEY PLAY and PAD PLAY,
+  the clip line PLAY QUANTIZE, and SAVE as what `>` does (SAVE PROJECT, STOP TO SAVE, SAVED).
+- The printed word SCALE is the button that switches CLIPS and SCENES. The MC-707's clip setting of that name (the
+  step size of a clip) is therefore called STEP SIZE here when it is built (docs/MC707-PARITY.md 0.2, item 3).
+- Faders are printed FADER1 to FADER4, the wheels PITCH and MOD. The pads carry no numbers: which row is pads 1 to 8
+  is not confirmed (the workbench drawing puts them in the upper row).
+- Also printed, and not used by Classic Tabby: under the lower pad row the transport symbols (play, pause, record,
+  rewind, fast forward, <, >, UNDO); above the keys a strip of M-VAVE's key functions (ARP: UP, DOWN, INCL, EXCL,
+  RAND, ORDER, REPEAT, OCT+, LATCH, GATE+, GATE-, TAP, SWING+, SWING-, TEMPO+, TEMPO-, SYNC; GLOB: CHN 1 to 16, PRE 1
+  to 8; RATE 1/4 to 1/32T with note names; RESET). No sticker covers them (docs/STICKERS.md).
+- The screen messages that changed are listed old to new in docs/BUILD.md 54.
 
 ### 17.5 The Help and panel text is held to the removed-features list (Task 14, 2026-11-10)
 
@@ -1431,9 +1447,8 @@ backup then names the song and stops (19.17).
 - The manual is published as one printable PDF with each release (tools/linux/manual-pdf.py, guide/classic-tabby-manual.pdf).
 - Stopping the song takes an armed take off (19.19).
 - Stickers stay black on white, under the controls.
-- The printed button names (17.4) wait for the user's photo of the panel: ~/Documents/Classic Tabby/panel.jpg was
-  named but was not on the NUC on 2026-11-17 (no file of that name; no new image anywhere under the home directory).
-  Until it is read, "4th left button" stays, and docs/STICKERS.md stays measured from the manufacturer's drawing.
+- The photograph of the panel arrived later on 2026-11-17: the printed names are confirmed and used everywhere (17.4),
+  and the stickers were checked against it and redesigned (docs/STICKERS.md v0.3).
 
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
@@ -1910,3 +1925,14 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   first eight keep their places; the device tests find DELETE CLIP and the song's lines from the number of lines.
 - Remote: op 17's reply grows to 36 bytes (34 the open clip's shuffle byte, 35 its play quantize).
 - Page: web/clip-v3/clip-v3.js v0.6 and web/import/song-format.js v0.11 keep both bytes.
+
+### 19.21 tabby-v04.18 (2026-11-17): the printed names on the screen and in every text; the stickers checked
+
+- 17.4 is the rule and the table. app/screen.c: 61 string literals changed (docs/BUILD.md 54 lists them); nothing but
+  text. No line is longer than 38 characters. Some hints were reworded to fit ("PADS: SCENE  OCTAVE-/+: BANK  K5: SONG").
+- Help, the guide (v3.6, with its PDF), docs/CONTROL-MAP.md (v0.13, section 1.1: the name table), the README, the MIDI
+  guide and the workbench's panel drawing and tips follow. The conversion was scripted (rules for each word, a map of
+  the screen messages applied first so that quoted messages match the screen) and the name tables were written by hand.
+- docs/STICKERS.md v0.3: the photograph showed that the band v0.1 and v0.2 used for stickers A, B and C carries the
+  function strip. They are now 7/32 inch high and sit in the 11/32 gap between the transport symbols and the strip;
+  nothing printed is covered; they carry functions, not names.

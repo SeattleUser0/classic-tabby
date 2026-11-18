@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
-/* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. */
+/* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, SEQ REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. */
 /* Classic Tabby, Task 03 a: sample bank and DX7 user library removed from the simulator. */
-/* Classic Tabby Task 13 Step 4 (2026-11-10): panel wording: knobs K1-K8 by their printed numbers (firmware SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8); the firmware's SAVE button named by position (the 4th button in the left group, after SHIFT, FADER BANK, HOME); SPEC 17.4 has the table. The panel button the firmware calls SAVE is labelled BTN 4 here. */
+/* Classic Tabby Task 13 Step 4 (2026-11-10): panel wording: knobs K1-K8 by their printed numbers (firmware SELECT = K5, PAGE = K6, PRESETS = K7, MASTER = K8); from tabby-v04.18 every button by the word printed on it (SPEC 17.4 has the table). */
 (() => {
   'use strict';
   // One portable C instance owns the panel, project and sound state. Before
@@ -354,7 +354,7 @@
     const editingPads=padNoteMask&~message.padNotes;
     if(editingPads)for(let i=0;i<16;++i)if(editingPads&(1<<i))wakingKeys.delete('13:'+i);
     padNoteMask=message.padNotes;
-    // A gesture made before REC changes must not become a recorded note (or
+    // A gesture made before SEQ REC changes must not become a recorded note (or
     // escape a stopped take) when audio starts. Octave changes cancel it too.
     if(before&&before[4]!==state[4])wakingKeys.clear();
     else if(before&&oldInstrument!==undefined&&instrumentState!==undefined){
@@ -372,17 +372,17 @@
       if(instrumentState===undefined)wakingKeys.clear();
       else for(const key of wakingKeys.keys())if(typeof key==='number')wakingKeys.delete(key);
       const pageTips={
-        0:'HOME: K5 chooses a track, K1 sets level and K4 tempo; K7 changes projects; K6 / K2 changes engines.',
-        1:'SYNC / MIDI: K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, K7 KEY OUT; SHIFT + SEQ opens MIDI TRACK, SEQ + EDIT opens ACTIONS.',
+        0:'PATCH: K5 chooses a track, K1 sets level and K4 tempo; K7 changes projects; K6 / K2 changes engines.',
+        1:'SYNC / MIDI: K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, K7 KEY OUT; KNOB BANK + SEQ opens MIDI TRACK, SEQ + PARA opens ACTIONS.',
         6:'Mixer: pads 1–8 mute, 9–16 solo; mute / solo are exclusive per track. K5 chooses a track; K1–K4 adjust the four-track group.',
-        8:'Save project: K5 / K7 chooses a USER slot; the 4th button in the left group (after SHIFT, FADER BANK, HOME) writes it. Replacing another occupied slot requires confirmation. The panel returns after saving.',
+        8:'Save project: K5 / K7 chooses a USER slot; the > button writes it. Replacing another occupied slot requires confirmation. The panel returns after saving.',
         10:'Effects: K6 switches TRACK / SHARED / DELAY, K5 chooses a track, and K1–K4 edit the displayed parameters. Tap SEQ or TAP on DELAY; K7 also changes pages.',
-        11:'Sound source: choose with Pads 1–6 or K1, the 4th button in the left group (after SHIFT, FADER BANK, HOME) to apply, HOME to return. K2 TRACK immediately selects PROJECT (follow projects), LIVE (keep sound across project changes), or OFF (disable the instrument).',
-        12:'ACTIONS: K1 or K5 chooses the entry, the 4th button in the left group (after SHIFT, FADER BANK, HOME) runs it, HOME cancels; SONG MODE opens the SONG page.',
-        15:'FM quick parameters: K7 chooses voice 1-128, K6 switches bank A-D; K1 algorithm, K2 feedback, K3 transpose, K4 level. EDIT returns; use the web workbench for full voice editing.',
-        19:'Song mode: K5 / K7 select the song, PLAY starts and stops, pads 1-16 queue a jump to that row, OCT pages the pads, K4 sets where jumps land. Songs are written from the web workbench.',
+        11:'Sound source: choose with Pads 1–6 or K1, the > button to apply, PATCH to return. K2 TRACK immediately selects PROJECT (follow projects), LIVE (keep sound across project changes), or OFF (disable the instrument).',
+        12:'ACTIONS: K1 or K5 chooses the entry, the > button runs it, PATCH cancels; SONG MODE opens the SONG page.',
+        15:'FM quick parameters: K7 chooses voice 1-128, K6 switches bank A-D; K1 algorithm, K2 feedback, K3 transpose, K4 level. PARA returns; use the web workbench for full voice editing.',
+        19:'Song mode: K5 / K7 select the song, SEQ PLAY starts and stops, pads 1-16 queue a jump to that row, OCTAVE pages the pads, K4 sets where jumps land. Songs are written from the web workbench.',
         17:'ARP: tap to toggle, hold for settings. K6 changes pages: rate / direction / range / gate, then Swing / Hold. K5 chooses a track. Enable and settings are saved with the project; held notes are not.',
-        16:'Preset list: K7 / K5 loads immediately, PLAY loads and plays, the 4th button in the left group (after SHIFT, FADER BANK, HOME) opens project saving. K1 chooses USER / FACTORY. Preset changes are immediate, with no save prompt.'
+        16:'Preset list: K7 / K5 loads immediately, SEQ PLAY loads and plays, the > button opens project saving. K1 chooses USER / FACTORY. Preset changes are immediate, with no save prompt.'
       };
       if(pageTips[state[1]])say(pageTips[state[1]]);
     }
@@ -486,7 +486,7 @@
     }
     const routeText='KEY T'+((instrument&7)+1)+' · CH '+((instrument>>>6&15)+1)+
       '  |  PAD T'+((instrument>>>3&7)+1)+' · CH '+padChannel+'  |  AT '+(instrument>>>21&127)+
-      '  |  '+(stepPads?'STEP':padFocus?'PAD EDIT':'KEY EDIT');
+      '  |  '+(stepPads?'STEP':padFocus?'PAD PARA':'KEY PARA');
     if($('sim-instruments').textContent!==routeText)$('sim-instruments').textContent=routeText;
     if(message.hardware!==undefined&&message.hardware!==hardwareState){
       hardwareState=message.hardware;
@@ -691,7 +691,7 @@
 
   function control(kind,index,value){
     if(kind===10&&index===12)sourceShortcut=!!value&&held.has('10:0');
-    // A HOME press must complete a held PLAY chord even while audio is waking.
+    // A PATCH press must complete a held SEQ PLAY chord even while audio is waking.
     const homePress=value&&(kind===0&&index===8||kind===10&&(index===2||index===12&&!sourceShortcut));
     if(homePress&&(wakingPlay?.down||held.has('0:12')||held.has('10:16'))){wakingKeys.clear();resetWheels();}
     if(homePress&&wakingPlay?.down){
@@ -705,8 +705,8 @@
         if(value&&home)wakingPlay=undefined;
         else{if(wakingPlay.kind===kind)wakingPlay.down=!!value;return;}
       }
-      // Physical PLAY and keyboard PLAY share startup/cancellation semantics.
-      // Stop, muted editing and HOME+PLAY do not need an audio device.
+      // Physical SEQ PLAY and keyboard SEQ PLAY share startup/cancellation semantics.
+      // Stop, muted editing and PATCH+SEQ PLAY do not need an audio device.
       if(value&&!muted&&!audioOn&&!state?.[14]&&!home){
         const play={kind,type:kind===10?'smk37':'control',message:{kind:0,index,value:1},down:true,page:state?.[1],track:state?.[0]};wakingPlay=play;
         start(true).then(()=>{
@@ -786,10 +786,10 @@
   function resetWheels(){ui.wheels.forEach((input,i)=>{input.value=i?0:64;});}
   function feedback(kind,index,element){
     if(kind===10&&index===7){
-      say('PAD / STEP: tap to enter or leave the independent Pad instrument. KEY and PAD retain their own tracks, channels and octaves.');return;
+      say('NOTE REPEAT: tap to enter or leave the independent Pad instrument. KEY and PAD retain their own tracks, channels and octaves.');return;
     }
     if(kind===0){
-    const tips={2:'FX: K5 chooses a track; K1 reverb, K2 delay, 0 disables sends. K7 switches to detailed settings.',3:'SCL: switches between the SONG and TRACK LAUNCH pages; on other pages it says voice editing moved to the workbench.',10:'ARP: tap to toggle, hold for settings. K6 changes pages: rate / direction / range / gate, then Swing / Hold. K5 chooses a track. Enable and settings are saved with the project; held notes are not.',11:'SEQ: tap to open SYNC / MIDI, SHIFT + SEQ opens MIDI TRACK, SEQ + EDIT together open ACTIONS; HOME + SEQ taps the tempo.'};if(tips[index])say(tips[index]);}}
+    const tips={2:'FX: K5 chooses a track; K1 reverb, K2 delay, 0 disables sends. K7 switches to detailed settings.',3:'SCALE: switches between the SONG and TRACK LAUNCH pages; on other pages it says voice editing moved to the workbench.',10:'ARP: tap to toggle, hold for settings. K6 changes pages: rate / direction / range / gate, then Swing / Hold. K5 chooses a track. Enable and settings are saved with the project; held notes are not.',11:'SEQ: tap to open SYNC / MIDI, KNOB BANK + SEQ opens MIDI TRACK, SEQ + PARA together open ACTIONS; PATCH + SEQ taps the tempo.'};if(tips[index])say(tips[index]);}}
   function latch(item){latched.has(item)?latched.delete(item):latched.add(item);syncHolds();}
   function pulse(kind,index) {
     const owner='click:'+kind+':'+index;clearTimeout(pulseTimers.get(owner));
@@ -866,7 +866,7 @@
       dial.addEventListener('keydown',event=>{if(['ArrowUp','ArrowRight','ArrowDown','ArrowLeft'].includes(event.code)){event.preventDefault();event.stopPropagation();turn(event.code==='ArrowUp'||event.code==='ArrowRight'?1:-1);}});
       $('sim-encoders').append(box);
     }
-    const labels=['SHIFT','FADER BANK','HOME','BTN 4','OCT -','OCT +','ARP','PAD / STEP','SCL','ENV / LFO','MIX','BT','HOME / SRC','EDIT','FX','SEQ','PLAY','REC'];
+    const labels=['KNOB BANK','FADER BANK','<','>','OCTAVE-','OCTAVE+','ARP','NOTE REPEAT','SCALE','CHORD','GLOBE','BT','PATCH','PARA','FX','SEQ','SEQ PLAY','SEQ REC'];
     for(let id=0;id<18;++id){
       const button=document.createElement('button');button.textContent=labels[id];button.className='panel-button';button.dataset.sim='';button.dataset.button=id;button.disabled=true;
       const led=[255,255,8,9,0,1,10,255,3,4,7,255,8,6,2,11,12,13][id];
@@ -910,7 +910,7 @@
       if(wakingPlay!==play)return;wakingPlay=undefined;
       if(!audioOn||state?.[1]!==play.page||state?.[0]!==play.track)return;
     }
-    // PLAY on the preset browser loads its selection. The toolbar controls
+    // SEQ PLAY on the preset browser loads its selection. The toolbar controls
     // transport only; other editors keep their page and cursor while playing.
     if(state?.[1]===16)send('open',{page:0});
     tap(12);
@@ -921,7 +921,7 @@
   for(const button of document.querySelectorAll('[data-sim-page]'))button.onclick=()=>action(async()=>{
     await request('open',{page:Number(button.dataset.simPage)});
     $('sim-device').scrollIntoView({behavior:'smooth',block:'center'});
-    say('Opened '+button.textContent+'; adjust with the panel knobs. HOME returns.');
+    say('Opened '+button.textContent+'; adjust with the panel knobs. PATCH returns.');
   });
   $('sim-volume').oninput=()=>setVolume(Number($('sim-volume').value));
   $('sim-track').onchange=()=>action(()=>select(Number($('sim-track').value),6));
@@ -957,7 +957,7 @@
   $('sim-file-apply').onclick=()=>action(async()=>{
     if(!selectedFile)return;if(!confirm(FM1I18n.t('Replace the browser workspace '+(selectedFile.patch?'current DX7 patch':selectedFile.timbre?'current track sound':'project')+' and continue?')))return;
     const timbre=!!(selectedFile.patch||selectedFile.timbre),data=selectedFile.patch?voices[Number($('sim-voice').value)]:selectedFile.data;
-    await request('import',{patch:!!selectedFile.patch,timbre:!!selectedFile.timbre,data});say(timbre?'Sound imported. Save the project for PROJECT tracks. For LIVE tracks, export a timbre file, or save DX7 voices to the independent library.':'Imported into the browser workspace. Press the browser panel\'s 4th button in the left group (after SHIFT, FADER BANK, HOME) to store it in a browser slot.');
+    await request('import',{patch:!!selectedFile.patch,timbre:!!selectedFile.timbre,data});say(timbre?'Sound imported. Save the project for PROJECT tracks. For LIVE tracks, export a timbre file, or save DX7 voices to the independent library.':'Imported into the browser workspace. Press the browser panel\'s > button to store it in a browser slot.');
   });
   $('sim-read-device').onclick=()=>action(async()=>{
     if(!ready)throw Error('Start the simulator first');

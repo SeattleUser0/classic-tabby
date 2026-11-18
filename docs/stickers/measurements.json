@@ -1,4 +1,64 @@
 {
+ "photo": {
+  "px_per_inch": 105.4,
+  "tape_px_per_inch": 99.3,
+  "pad_left_edges": [
+   4.54,
+   5.65,
+   6.75,
+   7.84,
+   8.91,
+   9.98,
+   11.06,
+   12.14
+  ],
+  "pad_size": [
+   0.85,
+   0.68
+  ],
+  "pad_row_tops": [
+   1.32,
+   2.16
+  ],
+  "left_field": [
+   2.5,
+   2.03,
+   1.28,
+   0.99
+  ],
+  "right_field": [
+   13.5,
+   2.36,
+   4.11,
+   0.69
+  ],
+  "fader_centres": [
+   13.89,
+   15.01,
+   16.11,
+   17.21
+  ],
+  "fader_slot_bottom": 2.02,
+  "knob_centres": [
+   4.97,
+   6.08,
+   7.16,
+   8.24,
+   9.32,
+   10.4,
+   11.48,
+   12.56
+  ],
+  "transport_symbols": [
+   2.94,
+   3.05
+  ],
+  "function_strip": [
+   3.4,
+   3.74
+  ],
+  "keys_begin": 3.82
+ },
  "source": "M-VAVE SMK-37 PRO user manual, top-view line drawing (2962 x 1732 px); scale from the published case width",
  "case_width_mm": 458.0,
  "inch_per_pixel": 0.006160401798084088,
@@ -14,38 +74,38 @@
   "A": {
    "title": "left buttons",
    "left_in": 2.538,
-   "top_in": 3.111,
+   "top_in": 3.125,
    "width_in": 1.3,
-   "height_in": 0.591,
+   "height_in": 0.219,
    "width_mm": 33.0,
-   "height_mm": 15.0
+   "height_mm": 5.6
   },
   "B": {
    "title": "pads and knobs",
    "left_in": 4.54,
-   "top_in": 3.111,
+   "top_in": 3.125,
    "width_in": 8.44,
-   "height_in": 0.591,
+   "height_in": 0.219,
    "width_mm": 214.4,
-   "height_mm": 15.0
+   "height_mm": 5.6
   },
   "C": {
    "title": "right buttons",
    "left_in": 13.424,
-   "top_in": 3.111,
+   "top_in": 3.125,
    "width_in": 4.14,
-   "height_in": 0.591,
+   "height_in": 0.219,
    "width_mm": 105.2,
-   "height_mm": 15.0
+   "height_mm": 5.6
   },
   "D": {
    "title": "faders",
    "left_in": 13.467,
    "top_in": 2.125,
    "width_in": 4.054,
-   "height_in": 0.16,
+   "height_in": 0.156,
    "width_mm": 103.0,
-   "height_mm": 4.1
+   "height_mm": 4.0
   }
  },
  "controls": {

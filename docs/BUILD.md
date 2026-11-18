@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.90
+Version: 0.91
 Revision log:
+- v0.91, 2026-11-17: 53.1 (tabby-v04.17 released as candidate 1), section 54 (tabby-v04.18: the printed button names; the photograph; the stickers redesigned).
 - v0.90, 2026-11-17: 52.3 (tabby-v04.16 released as candidate 1), section 53 (tabby-v04.17: SHUFFLE and PLAY QUANTIZE per clip, three pages).
 - v0.89, 2026-11-17: section 52 (tabby-v04.16: a scene deleted and moved, a stop takes an armed take off, the printable manual, stickers in inch fractions; the photograph that was not there).
 - v0.88, 2026-11-17: section 51 (tabby-v04.15: TRANSPOSE, DELETE CLIP; the parity list v0.2).
@@ -5817,3 +5818,93 @@ the first attempt; promoted.
 | full backup, restore, verify | Verify PASS, 41 items, twice |
 
 Flash margin 34269 bytes, free RAM 143020 bytes.
+
+## 54. tabby-v04.18: every button by its printed word; the photograph of the unit; the stickers (2026-11-17)
+
+The user's photograph (~/Documents/Classic Tabby/panel.jpg, 2016 x 1512) arrived while tabby-v04.17's candidate was
+on the device. The work was done on copies outside the worktree and brought in after the flow had ended.
+
+### 54.1 What the photograph says
+
+- The printed words: as the user read them and as M-VAVE's drawing shows (SPEC 17.4). The pads carry no numbers.
+- Measuring (ffmpeg to raw pixels, numpy / scipy): case 56..1957 px wide at the panel = 105.4 px per inch with the
+  published 458 mm; the tape (on the desk, further from the camera) 99.3 px per inch, 6 % fewer; depth 740 px = 7.02
+  inch against 7.13 published. Pad rims found as bright regions: left edges 4.54 to 12.14 inch, 0.85 x 0.68 inch.
+  Left to right the drawing was right within 1/16 inch.
+- What the drawing did not show: the transport symbols under the lower pads (2.94 to 3.05 inch from the back edge)
+  and the function strip above the keys (3.40 to 3.74). My stickers A, B and C of docs/STICKERS.md v0.1 and v0.2
+  (3 1/8 to 3 23/32) lay across the whole strip. That was an error of the first sheet: I had called the band free
+  from a line drawing. v0.3: 7/32 high in the 11/32 gap between symbols and strip.
+
+### 54.2 The rename
+
+Scripted, on the files as they were at 235e148: a map of the screen messages (below) applied first to every
+document, then rules per word (SHIFT, the phrases for the 4th left button, HOME / SRC, PAD / STEP, OCT, SCL, ENV,
+EDIT, MIX, PLAY, REC, HOME, with the exceptions SPEC 17.4 lists), then the name tables and the "how to read"
+texts by hand. Changed: app/screen.c (61 string literals), sdk/Update.html.in (142 lines), docs/TESTING-GUIDE.md
+(205), docs/CONTROL-MAP.md (125), sdk/Simulator.js (the panel's button labels and tips), README.md,
+docs/MIDI-GUIDE.template.md. After it no old name is left in those files outside the tables that explain them.
+The firmware's code, the remote protocol and the device tools keep their names, so no test tool changed.
+
+| Screen text before | From tabby-v04.18 |
+| --- | --- |
+| `SET ON HOME K4` | `SET ON OVERVIEW K4` |
+| `SHIFT+SEQ: MIDI TRACK` | `KNOB BANK+SEQ: MIDI TRACK` |
+| `4TH LEFT BTN: WRITE PROJECT` | `>: WRITE PROJECT` |
+| `4TH LEFT BTN CONFIRM  HOME CANCEL` | `> CONFIRM  PATCH CANCEL` |
+| `HOME CANCEL  EDIT SOUND` | `PATCH CANCEL  PARA SOUND` |
+| `PLAY LOAD+RUN  4TH LEFT BTN SAVE` | `SEQ PLAY LOAD+RUN  > SAVE` |
+| `HOME BACK  HOME+4TH LEFT BTN UNDO` | `PATCH BACK  PATCH+> UNDO` |
+| `K2 ENABLE TRACK   HOME BACK` | `K2 ENABLE TRACK   PATCH BACK` |
+| `4TH LEFT BTN APPLY  HOME BACK` | `> APPLY  PATCH BACK` |
+| `K1/K5 ACTION  4TH LEFT BTN DOES IT` | `K1/K5 ACTION  > DOES IT` |
+| `STOPPED - PLAY STARTS THE SONG` | `STOPPED - SEQ PLAY STARTS THE SONG` |
+| `STOPPED - PLAY STARTS` | `STOPPED - SEQ PLAY STARTS` |
+| `PADS RECALL SCENE  OCT BANK  K5 SONG` | `PADS: SCENE  OCTAVE-/+: BANK  K5: SONG` |
+| `SCL CLIPS  ENV TRACK TO SCENES` | `SCALE CLIPS  CHORD TRACK TO SCENES` |
+| `FX X2 DELETE  EDIT+K1 MOVE` | `FX X2 DELETE  PARA+K1 MOVE` |
+| `OCT BANK` | `OCTAVE-/+ BANK` |
+| `EMPTY: REC OR EDIT` | `EMPTY: SEQ REC OR PARA` |
+| `ENV TRACK TO SCENES  SHIFT+ENV ALL` | `CHORD: TO SCENES  KNOB BANK+CHORD: ALL` |
+| `SCL SCENES  K5 TRACK  K1-K4 CC` | `SCALE SCENES  K5 TRACK  K1-K4 CC` |
+| `4TH LEFT BTN TWICE DELETES` | `> TWICE DELETES` |
+| `4TH LEFT BTN TWICE` | `> TWICE` |
+| `4TH LEFT BTN COPIES THE CLIP` | `> COPIES THE CLIP` |
+| `4TH LEFT BTN SAVES (STOPPED)` | `> SAVES (STOPPED)` |
+| `FX BACK TO CLIPS  PLAY START/STOP` | `FX BACK TO CLIPS  SEQ PLAY START/STOP` |
+| `ENV CLEAR STEP  FX UNDO  SCL PAD MODE` | `CHORD CLEAR  FX UNDO  SCALE PAD MODE` |
+| `4TH LEFT BTN SAVE  EDIT BACK  OCT BAR` | `> SAVE  PARA BACK  OCTAVE-/+ BAR` |
+| `ARP BOTH - SHIFT+SEQ: OUT PORT` | `ARP BOTH - KNOB BANK+SEQ: OUT PORT` |
+| `TRACK OFF - SHIFT+HOME K2 TO ENABLE` | `TRACK OFF - KNOB BANK+PATCH, K2 ON` |
+| `TRACK MUTED - MIX / PAD TO UNMUTE` | `TRACK MUTED - GLOBE / PAD TO UNMUTE` |
+| `OTHER TRACK SOLO - MIX TO CHECK` | `OTHER TRACK SOLO - GLOBE TO CHECK` |
+| `TRACK LEVEL 0 - USE MIX / FADER` | `TRACK LEVEL 0 - USE GLOBE / FADER` |
+| `KEY/PAD SAME CH - SHIFT+SEQ TO SET` | `KEY/PAD SAME CH - KNOB BANK+SEQ SETS` |
+| `EDIT BACK  K5 TRACK` | `PARA BACK  K5 TRACK` |
+| `ARP ON/OFF   HOME BACK` | `ARP ON/OFF   PATCH BACK` |
+| `SEQ+EDIT: ACTIONS` | `SEQ+PARA: ACTIONS` |
+| `K7 SOURCE  EDIT PARAMETERS` | `K7 SOURCE  PARA: PARAMETERS` |
+| `K7 KEY OUT  SHIFT+SEQ MIDI TRACK` | `K7 KEY OUT  KNOB BANK+SEQ MIDI TRACK` |
+| `SEQ: SYNC / MIDI  HOME BACK` | `SEQ: SYNC / MIDI  PATCH BACK` |
+| `PADS MUTE/SOLO  MIX / HOME BACK` | `PADS MUTE/SOLO  GLOBE / PATCH BACK` |
+| `K5 TRACK  HOME TRACKS` | `K5 TRACK  PATCH TRACKS` |
+| `SHIFT SHORTCUTS` | `KNOB BANK SHORTCUTS` |
+| `HOME/SRC SOURCE  SEQ MIDI` | `PATCH SOURCE  SEQ MIDI` |
+| `PAD/STEP KEY-PAD  RELEASE TO RETURN` | `NOTE REPEAT KEY-PAD  RELEASE: RETURN` |
+| `PRESET LOADED - PLAY TO START` | `PRESET LOADED - SEQ PLAY TO START` |
+| `TAP AGAIN / HOME+SEQ` | `TAP AGAIN / PATCH+SEQ` |
+| `HOLD EDIT, TURN K1: MOVE THE SCENE` | `HOLD PARA, TURN K1: MOVE THE SCENE` |
+| `REC ARMED - PLAY STARTS IT` | `REC ARMED - SEQ PLAY STARTS IT` |
+| `REC: ON THE CLIPS OR STEP PAGE` | `SEQ REC: ON THE CLIPS OR STEP PAGE` |
+| `TAKEN BACK - PLAY STARTS AT SCENE 1` | `TAKEN BACK - SEQ PLAY STARTS: SCENE 1` |
+| `RESERVED - PLAY STARTS AT THIS SCENE` | `RESERVED - SEQ PLAY STARTS HERE` |
+| `PLAY FIRST` | `SEQ PLAY FIRST` |
+| `EMPTY PAD - REC OR EDIT MAKES A CLIP` | `EMPTY PAD - SEQ REC OR PARA: NEW CLIP` |
+| `RESERVED - PLAY STARTS IT` | `RESERVED - SEQ PLAY STARTS IT` |
+| `PAD STEPS - SHIFT+PAD TO PLAY` | `PAD STEPS - KNOB BANK+PAD TO PLAY` |
+| `PAD PLAY - SHIFT+PAD TO EDIT STEPS` | `PAD PLAY - KNOB BANK+PAD: EDIT STEPS` |
+| `PAD READY - EDIT / FX` | `PAD READY - PARA / FX` |
+| `KEY READY - EDIT / FX` | `KEY READY - PARA / FX` |
+| `EDIT BACK` | `PARA BACK` |
+
+Measured: app image 485188 bytes (unchanged), margin 34269, heap 143020. Build `1046c8ec5c0c7c0a`.

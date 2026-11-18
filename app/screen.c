@@ -4,10 +4,13 @@
  *
  * Classic Tabby revision log (the upstream file had no header; earlier Classic Tabby changes are
  * marked "Task NN" where they are)
+ *   v0.11 2026-11-17  tabby-v04.18: every text on the LCD names a button by the word printed on it (SPEC 17.4: KNOB BANK,
+ *                     <, >, OCTAVE-/+, NOTE REPEAT, SCALE, CHORD, GLOBE, PATCH, PARA, SEQ PLAY, SEQ REC). The code keeps
+ *                     the firmware's names (SHIFT, HOME, SAVE, SCL, ENV, GLO, EDIT, PLAY, REC).
  *   v0.10 2026-11-12  Task 16 Goal 3: the SONG page shows the follow state (ARMED: START?, WAIT PULSE, FOLLOWING, HOLD: NO
  *                     CLOCK, LOST - CONTINUE, STOP BY MASTER) when CLOCK = MIDI; PLAY arms instead of refusing.
  *   v0.9  2026-11-11  Task 16 Goal 4: stale screen texts: "K2 CLK IN AUTO USB BLE" (DIN receives nothing), "ERASE OLD DATA"
- *                     (was ERASE OLD SAMPLE DATA), "SEQ+EDIT: ACTIONS" (was HOLD SEQ: ACTIONS), the SHIFT
+ *                     (was ERASE OLD SAMPLE DATA), "SEQ+PARA: ACTIONS" (was HOLD SEQ: ACTIONS), the SHIFT
  *                     list's "PAD/STEP KEY-PAD", the unused STEP knob label. No behaviour changes.
  *   v0.8  2026-11-11  Task 16 Goal 1: ct_screen_page / ct_screen_action / ct_screen_song_select (the remote
  *                     status and the remote song select); the A2 switch is ON at boot, so the ACTIONS
@@ -788,8 +791,8 @@ static __attribute__((noinline)) void sync_draw(const struct groove_view *v)
     dim_text(8, 135, "BPM:");
     if (v->clock_mode && !v->tempo) color_text(40, 135, v->clock_state == GROOVE_CLOCK_LOST ? "LOST" : "WAIT", AMBER);
     else small_number(40, 135, v->tempo, 3, TEXT);
-    dim_text(72, 135, v->clock_mode ? "FROM MIDI CLOCK" : "SET ON HOME K4");
-    dim_text(8, 153, "SHIFT+SEQ: MIDI TRACK");
+    dim_text(72, 135, v->clock_mode ? "FROM MIDI CLOCK" : "SET ON OVERVIEW K4");
+    dim_text(8, 153, "KNOB BANK+SEQ: MIDI TRACK");
 }
 static __attribute__((noinline)) void mix_draw(const struct groove_view v[8])
 {
@@ -846,14 +849,14 @@ static __attribute__((noinline)) void project_draw(void)
     if (cache->row_cache[0] != sig) {
         cache->row_cache[0] = sig;
         erase(8, 126, 224, 26);
-        plain_text(8, 126, project_reload ? "OVERWRITE SELECTED SLOT?" : "4TH LEFT BTN: WRITE PROJECT");
-        dim_text(8, 145, project_reload ? "4TH LEFT BTN CONFIRM  HOME CANCEL" : "K1 CURSOR  K2 LETTER");
+        plain_text(8, 126, project_reload ? "OVERWRITE SELECTED SLOT?" : ">: WRITE PROJECT");
+        dim_text(8, 145, project_reload ? "> CONFIRM  PATCH CANCEL" : "K1 CURSOR  K2 LETTER");
     }
     if (cache->hint_cache != 1U) {
         cache->hint_cache = 1U;
         dim_text(8, 59, "WORKING NAME");
         dim_text(8, 105, "K5 / K7 CHOOSE SLOT");
-        dim_text(8, 224, "HOME CANCEL  EDIT SOUND");
+        dim_text(8, 224, "PATCH CANCEL  PARA SOUND");
     }
     sig = (unsigned)(project_result + 16) | (project_operation << 16);
     if (cache->row_cache[1] == sig) return;
@@ -884,10 +887,10 @@ static __attribute__((noinline)) void preset_draw(void)
     text(38, 65, "/16", 2, DIM, BACK);
     text(8, 97, project_stored_result < 0 ? "READ ERROR" : project_stored, 2, TEXT, BACK);
     plain_text(8, 127, "K5 / K7 LOAD");
-    plain_text(8, 148, "PLAY LOAD+RUN  4TH LEFT BTN SAVE");
+    plain_text(8, 148, "SEQ PLAY LOAD+RUN  > SAVE");
     dim_text(8, 170, "PADS 1-16 LOAD DIRECTLY");
     color_text(8, 213, project_result == GROOVE_PROJECT_EMPTY ? "EMPTY SLOT - CHOOSE ANOTHER" :
-         project_result ? "LOAD FAILED - CURRENT KEPT" : "HOME BACK  HOME+4TH LEFT BTN UNDO", project_result ? AMBER : DIM);
+         project_result ? "LOAD FAILED - CURRENT KEPT" : "PATCH BACK  PATCH+> UNDO", project_result ? AMBER : DIM);
 }
 static __attribute__((noinline)) void effects_draw(void)
 {
@@ -1043,7 +1046,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         static const char *const hints[] = {"PROJECT: FOLLOWS PROJECT", "LIVE: KEEP SOUND ON PROJECT LOAD", "OFF: TURN K2 LEFT TO ENABLE"};
         dim_text(8, 198, source_preview == groove_source_type(track) ? hints[role] : "DRUM / PITCH CHANGE CLEARS STEPS");
         color_text(8, 216, source_result ? "NOT ENOUGH MEMORY - RETRY" : "K1 / PADS 1-6 CHOOSE", source_result ? AMBER : TEXT);
-        dim_text(8, 231, role == GROOVE_TRACK_OFF ? "K2 ENABLE TRACK   HOME BACK" : "4TH LEFT BTN APPLY  HOME BACK");
+        dim_text(8, 231, role == GROOVE_TRACK_OFF ? "K2 ENABLE TRACK   PATCH BACK" : "> APPLY  PATCH BACK");
     } else if (visible == ACTIONS) {
         /* Task 11 (diagnostic and probe builds): the USER size the SDK validated and the song
          * storage state replace the clipboard line; free / reclaimable storage replaces the
@@ -1069,7 +1072,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             text(10, y + 5, label, 1, at == action ? ACCENT : DIM, bg);
         }
         plain_text(8, 213, notice ? notice : diag_song);
-        dim_text(8, 231, action_confirm ? "4TH LEFT BTN CONFIRM  HOME CANCEL" : "K1/K5 ACTION  4TH LEFT BTN DOES IT");
+        dim_text(8, 231, action_confirm ? "> CONFIRM  PATCH CANCEL" : "K1/K5 ACTION  > DOES IT");
     } else if (visible == SONG) {
         /* Task 03 d: song mode. Row = song record row, pads queue jumps. */
         struct song_status st; song_status_read(&st);
@@ -1100,7 +1103,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
                 static const char *const fol[] = {"", "ARMED: START?", "PREPARING", "WAIT PULSE", "FOLLOWING", "HOLD: NO CLOCK", "LOST - CONTINUE", "STOP BY MASTER"};
                 color_text(8, 88, fol[st.follow < 8 ? st.follow : 0], st.follow == 4 ? GREEN : st.follow == 5 || st.follow == 6 ? AMBER : DIM);
             } else
-            color_text(8, 88, st.playing == 2 ? "STOPPING" : st.playing ? "PLAYING" : "STOPPED - PLAY STARTS", st.playing ? GREEN : DIM);
+            color_text(8, 88, st.playing == 2 ? "STOPPING" : st.playing ? "PLAYING" : "STOPPED - SEQ PLAY STARTS", st.playing ? GREEN : DIM);
             if (!st.playing && song_scene_reserved()) { dim_text(140, 88, "AT SCENE"); small_number(194, 88, song_scene_reserved() + 1U, 3, AMBER); }
             if (st.queued != SONG_NONE) { dim_text(104, 88, "TO SCENE"); small_number(158, 88, st.queued + 1U, 3, AMBER); }
             else if (st.playing && st.next_row != SONG_NONE) { dim_text(104, 88, "NEXT"); small_number(134, 88, st.next_row + 1U, 3, TEXT); }
@@ -1135,9 +1138,9 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             dim_text(8, 70, st.error == (unsigned)(SONG_FULL & 255) ? "TOO MANY BLOCKS IN SONG" : "NO SONG HERE - UPLOAD FROM");
             dim_text(8, 88, "THE WEB WORKBENCH");
         }
-        plain_text(8, 198, notice ? notice : "PADS RECALL SCENE  OCT BANK  K5 SONG");
+        plain_text(8, 198, notice ? notice : "PADS: SCENE  OCTAVE-/+: BANK  K5: SONG");
         dim_text(8, 213, "K1 TIMES K2 THEN K3 HOLD K4 JUMP");
-        dim_text(8, 231, st.playing ? "SCL CLIPS  ENV TRACK TO SCENES" : "FX X2 DELETE  EDIT+K1 MOVE    ");   /* tabby-v04.16 */
+        dim_text(8, 231, st.playing ? "SCALE CLIPS  CHORD TRACK TO SCENES" : "FX X2 DELETE  PARA+K1 MOVE        ");   /* tabby-v04.16 */
     } else if (visible == TRACK_LAUNCH) {
         /* Task 17 Goal 4 (docs/CONTROL-MAP.md 4): every track's state and clip, the selected track's clips of the pad
          * bank (pads launch / stop), the selected clip, the master clock. */
@@ -1170,7 +1173,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
          * plays, amber when queued, framed when selected. */
         dim_text(8, 112, "PADS"); small_number(38, 112, clip_bank * 16U + 1U, 2, TEXT);
         dim_text(54, 112, "-"); small_number(62, 112, clip_bank * 16U + 16U, 2, TEXT);
-        dim_text(130, 112, "OCT BANK");
+        dim_text(130, 112, "OCTAVE-/+ BANK");
         unsigned playing_place = song_row_place(track, st.track_row[track]), queue = (st.track_state[track] >> 2) & 3U;
         unsigned queued_place = queue == SONG_QUEUE_LAUNCH ? song_row_place(track, st.track_queued[track]) : SONG_NONE;
         for (unsigned i = 0; i < 16; ++i) {
@@ -1191,17 +1194,17 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             else dim_text(86, 150, "IN NO SCENE");
             dim_text(160, 150, "BLK"); small_number(184, 150, mdl->clip[track][place], 5, TEXT);
         } else if (have && clip_select[track] < SONG_CLIPS) {
-            dim_text(8, 150, "SELECTED"); small_number(62, 150, clip_select[track] + 1U, 2, TEXT); dim_text(86, 150, "EMPTY: REC OR EDIT");
+            dim_text(8, 150, "SELECTED"); small_number(62, 150, clip_select[track] + 1U, 2, TEXT); dim_text(86, 150, "EMPTY: SEQ REC OR PARA");
         } else if (!have) dim_text(8, 150, "NO SONG HERE");
         if (st.count_in) { color_text(8, 168, "COUNT-IN", AMBER); small_number(64, 168, st.count_in, 2, AMBER); }
         else if (st.playing) {
             dim_text(8, 168, "SCENE"); small_number(44, 168, st.row + 1U, 3, ACCENT);
             dim_text(70, 168, st.song_over ? "SONG OVER" : "");
             if (st.late) { color_text(142, 168, "LATE", AMBER); small_number(172, 168, st.late, 3, AMBER); }
-        } else dim_text(8, 168, "STOPPED - PLAY STARTS THE SONG");
+        } else dim_text(8, 168, "STOPPED - SEQ PLAY STARTS THE SONG");
         plain_text(8, 198, notice ? notice : "PADS LAUNCH/STOP  HOLD: SELECT ONLY");
-        dim_text(8, 213, "ENV TRACK TO SCENES  SHIFT+ENV ALL");
-        dim_text(8, 231, "SCL SCENES  K5 TRACK  K1-K4 CC");
+        dim_text(8, 213, "CHORD: TO SCENES  KNOB BANK+CHORD: ALL");
+        dim_text(8, 231, "SCALE SCENES  K5 TRACK  K1-K4 CC");
     } else if (visible == CLIP_SETUP) {
         /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the settings of the open clip and of the song, one per line */
         struct song_edit_info ei; song_edit_info(&ei);
@@ -1243,7 +1246,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
                                          if (!sh) color_text(130, y, "SONG", TEXT); else { small_number(130, y, sh - 1U, 2, TEXT); dim_text(148, y, "PERCENT"); } }
             else if (i == SET_QUANTIZE) { static const char *const grids[] = {"OFF", "1/16", "1/8", "1/4"};
                                           color_text(130, y, grids[(sclip ? clip_v3_quantize(sclip) : 0U) & 3U], TEXT); }
-            else if (i == SET_DELETE) dim_text(130, y, "4TH LEFT BTN TWICE");
+            else if (i == SET_DELETE) dim_text(130, y, "> TWICE");
             else if (i == SET_COUNT_IN) color_text(130, y, counts[song_setting(SONG_SET_COUNT_IN)], TEXT);
             else if (i == SET_CLICK) color_text(130, y, modes[song_setting(SONG_SET_CLICK)], TEXT);
             else if (i == SET_CLICK_OUT) color_text(130, y, outs[song_setting(SONG_SET_CLICK_OUT)], TEXT);
@@ -1253,8 +1256,8 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             else small_number(130, y, song_setting(SONG_SET_KNOB1 + i - SET_KNOB1), 3, TEXT);
         }
         plain_text(8, 198, notice ? notice : "K5 ROW  K1 VALUE  K2 VALUE X16");
-        dim_text(8, 213, setup_row == SET_COPY ? "4TH LEFT BTN COPIES THE CLIP" : setup_row == SET_DELETE ? "4TH LEFT BTN TWICE DELETES  " : "4TH LEFT BTN SAVES (STOPPED)");
-        dim_text(8, 231, "FX BACK TO CLIPS  PLAY START/STOP");
+        dim_text(8, 213, setup_row == SET_COPY ? "> COPIES THE CLIP" : setup_row == SET_DELETE ? "> TWICE DELETES  " : "> SAVES (STOPPED)");
+        dim_text(8, 231, "FX BACK TO CLIPS  SEQ PLAY START/STOP");
     } else if (visible == CLIP_STEPS) {
         /* Goal 6 (docs/CONTROL-MAP.md 12): the clip being edited: its bar of 16 steps, the selected step's notes. */
         struct song_edit_info ei; song_edit_info(&ei);
@@ -1299,8 +1302,8 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             if (!n) dim_text(8, 134, "EMPTY - PLAY A KEY TO ENTER A NOTE");
         } else dim_text(8, 120, step_pads_toggle ? "A PAD PUTS THE NOTE ON ITS STEP" : "PRESS A PAD, THEN PLAY KEYS");
         plain_text(8, 198, notice ? notice : "K1 NOTE K2 VEL K3 START K4 LENGTH");
-        dim_text(8, 213, "ENV CLEAR STEP  FX UNDO  SCL PAD MODE");
-        dim_text(8, 231, "4TH LEFT BTN SAVE  EDIT BACK  OCT BAR");
+        dim_text(8, 213, "CHORD CLEAR  FX UNDO  SCALE PAD MODE");
+        dim_text(8, 231, "> SAVE  PARA BACK  OCTAVE-/+ BAR");
     } else if (visible == ARP_EDIT) {
         text(8, 40, "ARPEGGIATOR", 2, ACCENT, BACK);
         text(184, 40, "T", 2, colors[track], BACK);
@@ -1309,7 +1312,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         dim_text(8, 96, "K5 TRACK  K1-K4 ADJUST");
         dim_text(8, 118, "RATE FOLLOWS BPM / MIDI CLOCK");
         dim_text(8, 140, arp_page ? "RELEASE ALL KEYS FOR A NEW CHORD" : groove_pad_count(track) ? "DRUMS: RANGE / GATE UNAVAILABLE" : "UP / DOWN / UP-DOWN / RANDOM");
-        dim_text(8, 162, "ARP BOTH - SHIFT+SEQ: OUT PORT");
+        dim_text(8, 162, "ARP BOTH - KNOB BANK+SEQ: OUT PORT");
         accent_text(8, 180, arp_page ? "2/2 HOLD / MIDI  K6 TURN" : "1/2 NOTES  K6 TURN");
         static const char *const rates[] = {"1/4", "1/8", "1/16", "1/32"};
         static const char *const modes[] = {"UP", "DOWN", "UP-DN", "RANDOM"};
@@ -1338,7 +1341,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         text(72, 72, name, 2, TEXT, BACK);
         plain_text(8, 102, "K7 VOICE  K6 BANK");
         dim_text(8, 126, "VOICE EDIT: WEB WORKBENCH");
-        dim_text(8, 148, "EDIT BACK");
+        dim_text(8, 148, "PARA BACK");
         dim_text(8, 170, "KEYS PLAY  K5 TRACK");
         static const char *const labels[] = {"ALGORITHM", "FEEDBACK", "TRANSPOSE", "LEVEL"};
         int values[] = {frame_patch[134] + 1, frame_patch[135], (int)frame_patch[144] - 24, frame_views[track].volume};
@@ -1375,15 +1378,15 @@ static __attribute__((noinline)) const char *performance_hint(unsigned visible, 
     const struct groove_view *v = &views[track];
     unsigned role = groove_track_role(track);
     if (visible == STEPS && seq_page == SEQ_MIDI_TRACK) return "K1 IN: RECEIVE  K2 OUT: SEND";
-    if (role == GROOVE_TRACK_OFF) return "TRACK OFF - SHIFT+HOME K2 TO ENABLE";
+    if (role == GROOVE_TRACK_OFF) return "TRACK OFF - KNOB BANK+PATCH, K2 ON";
     if (!fm1_engine_output_level()) return "MASTER MUTED - TURN K8 UP";
-    if (v->muted) return "TRACK MUTED - MIX / PAD TO UNMUTE";
+    if (v->muted) return "TRACK MUTED - GLOBE / PAD TO UNMUTE";
     /* The engine already resolves the independent NORMAL / PLAY solo groups. */
-    if (!v->audible) return "OTHER TRACK SOLO - MIX TO CHECK";
-    if (!v->volume) return "TRACK LEVEL 0 - USE MIX / FADER";
+    if (!v->audible) return "OTHER TRACK SOLO - GLOBE TO CHECK";
+    if (!v->volume) return "TRACK LEVEL 0 - USE GLOBE / FADER";
     if (groove_midi_input_channel(smk37_performance_track(0))==
         groove_midi_input_channel(smk37_performance_track(1)))
-        return "KEY/PAD SAME CH - SHIFT+SEQ TO SET";
+        return "KEY/PAD SAME CH - KNOB BANK+SEQ SETS";
     return NULL;
 }
 static void hint_draw(const char *hint)
@@ -1423,7 +1426,7 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
         edit_page_draw(visible);
         if (visible == FM_QUICK || visible == ARP_EDIT)
             hint_draw(state_hint ? state_hint : visible == FM_QUICK
-                ? "EDIT BACK  K5 TRACK" : "ARP ON/OFF   HOME BACK");
+                ? "PARA BACK  K5 TRACK" : "ARP ON/OFF   PATCH BACK");
         return;
     }
     if (visible == EFFECTS) {
@@ -1448,7 +1451,7 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
             cache->seq_cache = strip;
             erase(0, 184, 240, 11);
             accent_text(8, 186, seq_pages[seq_page]);
-            dim_text(150, 186, seq_page == SEQ_SYNC ? "SEQ+EDIT: ACTIONS" : "K5: TRACK");
+            dim_text(150, 186, seq_page == SEQ_SYNC ? "SEQ+PARA: ACTIONS" : "K5: TRACK");
         }
     }
     for (unsigned col = 0; col < 4; ++col) {
@@ -1522,11 +1525,11 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
                        : v->clock_mode && v->clock_state != GROOVE_CLOCK_LOCKED
                            ? "WAIT MIDI CLOCK - SEQ SYNC: INT/MIDI"
                        : visible == OVERVIEW && (previous_buttons & BUTTON(HOME))
-                           ? "K7 SOURCE  EDIT PARAMETERS"
+                           ? "K7 SOURCE  PARA: PARAMETERS"
                        : visible == OVERVIEW ? routing
-                       : visible == STEPS    ? seq_page == SEQ_SYNC ? "K7 KEY OUT  SHIFT+SEQ MIDI TRACK" : "SEQ: SYNC / MIDI  HOME BACK"
-                       : visible == MIX      ? "PADS MUTE/SOLO  MIX / HOME BACK"
-                       : "K5 TRACK  HOME TRACKS";
+                       : visible == STEPS    ? seq_page == SEQ_SYNC ? "K7 KEY OUT  KNOB BANK+SEQ MIDI TRACK" : "SEQ: SYNC / MIDI  PATCH BACK"
+                       : visible == MIX      ? "PADS MUTE/SOLO  GLOBE / PATCH BACK"
+                       : "K5 TRACK  PATCH TRACKS";
     hint_draw(hint);
 }
 static void draw_page(const struct fm1_ble_status *ble)
@@ -1535,10 +1538,10 @@ static void draw_page(const struct fm1_ble_status *ble)
     if (shift_visible && !boot_active && (paint_rendering || cache->shortcut_cache != track)) {
         cache->shortcut_cache = track;
         paint_fill(0, 195, 240, 45, PANEL);
-        text(8, 198, "SHIFT SHORTCUTS", 1, ACCENT, PANEL);
+        text(8, 198, "KNOB BANK SHORTCUTS", 1, ACCENT, PANEL);
         text(8, 209, "PADS 1-8 TRACK   PADS 9-16 MUTE", 1, TEXT, PANEL);
-        text(8, 220, "HOME/SRC SOURCE  SEQ MIDI", 1, TEXT, PANEL);
-        text(8, 231, "PAD/STEP KEY-PAD  RELEASE TO RETURN", 1, DIM, PANEL);
+        text(8, 220, "PATCH SOURCE  SEQ MIDI", 1, TEXT, PANEL);
+        text(8, 231, "NOTE REPEAT KEY-PAD  RELEASE: RETURN", 1, DIM, PANEL);
     }
     if (boot_active || (paint_rendering && paint_top >= 30)) return;
     uint32_t since = 0;
@@ -1712,7 +1715,7 @@ static int preset_load(unsigned start, uint32_t now)
     memset(drum_parts, 0, sizeof drum_parts);
     selected_note = groove_pad_count(track) ? groove_pad_note(track, 0) : 60;
     page = music_page = OVERVIEW;
-    announce(start ? "PRESET LOADED - PLAYING" : "PRESET LOADED - PLAY TO START", now + 2000U);
+    announce(start ? "PRESET LOADED - PLAYING" : "PRESET LOADED - SEQ PLAY TO START", now + 2000U);
     if (start) {
         struct groove_view view; groove_get_view(track, cursor, &view);
         /* A live Play session keeps its transport during project replacement.
@@ -1805,7 +1808,7 @@ static void select_track(int delta)
 void groove_screen_tap(uint32_t now)
 {
     int bpm = groove_tempo_tap(now);
-    announce(bpm < 0 ? "TAP: EXTERNAL MIDI CLOCK" : bpm ? "TAP TEMPO APPLIED" : "TAP AGAIN / HOME+SEQ", now + 1500U);
+    announce(bpm < 0 ? "TAP: EXTERNAL MIDI CLOCK" : bpm ? "TAP TEMPO APPLIED" : "TAP AGAIN / PATCH+SEQ", now + 1500U);
 }
 /* Keep modal editors out of the common key/transport control frame. */
 static int apply_controls(const struct fm1_controls *controls, uint32_t now,
@@ -1921,7 +1924,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         unsigned row = song_scene_reserved();
         if (st.song != song_select) announce("NO SONG", now + 1500U);
         else if (st.playing) announce("STOP TO DELETE OR MOVE A SCENE", now + 2000U);
-        else if (pressed & BUTTON(EDIT)) announce("HOLD EDIT, TURN K1: MOVE THE SCENE", now + 2000U);
+        else if (pressed & BUTTON(EDIT)) announce("HOLD PARA, TURN K1: MOVE THE SCENE", now + 2000U);
         else if (!asked || asked_row != row || now - asked_at > 2000U) {
             static char ask[] = "FX AGAIN DELETES SCENE 000";
             asked = 1; asked_row = (uint8_t)row; asked_at = now;
@@ -1981,7 +1984,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (pressed & BUTTON(REC)) {   /* docs/CONTROL-MAP.md 13: a take into this clip; SHIFT + REC: input quantize */
             if (smk37_shift()) { song_record_quantize(!ei.quantize); announce(ei.quantize ? "INPUT QUANTIZE OFF" : "INPUT QUANTIZE ON", now + 1500U); }
             else if (ei.recording) { song_record_stop(); announce("REC STOPPED", now + 1500U); }
-            else { int r = song_record_start(); announce(r == REC_ON_NOW || r == REC_ARMED_NOW ? (song_playing() ? "REC WHEN THE CLIP LOOPS" : "REC ARMED - PLAY STARTS IT") : "CANNOT RECORD HERE", now + 2000U); }
+            else { int r = song_record_start(); announce(r == REC_ON_NOW || r == REC_ARMED_NOW ? (song_playing() ? "REC WHEN THE CLIP LOOPS" : "REC ARMED - SEQ PLAY STARTS IT") : "CANNOT RECORD HERE", now + 2000U); }
             cache->middle_cache = ~0U;
         }
         if (pressed & BUTTON(SCL)) { step_pads_toggle = !step_pads_toggle; announce(step_pads_toggle ? "PADS TOGGLE THE NOTE" : "PADS SELECT A STEP", now + 1500U); }
@@ -2077,7 +2080,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
          * Elsewhere REC says where it works. */
         glo_down = 0;
         struct song_edit_info ei; song_edit_info(&ei);
-        if (page != TRACK_LAUNCH && page != CLIP_STEPS) announce("REC: ON THE CLIPS OR STEP PAGE", now + 2000U);
+        if (page != TRACK_LAUNCH && page != CLIP_STEPS) announce("SEQ REC: ON THE CLIPS OR STEP PAGE", now + 2000U);
         else if (smk37_shift()) { song_record_quantize(!ei.quantize); announce(ei.quantize ? "INPUT QUANTIZE OFF" : "INPUT QUANTIZE ON", now + 1500U); }
         else if (ei.recording) { song_record_stop(); announce("REC STOPPED", now + 1500U); }
         else {
@@ -2090,7 +2093,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 if (r == SONG_EMPTY && place < SONG_CLIPS && st.song == song_select) r = song_clip_new(track, place);
             }
             if (!r) r = song_record_start();
-            announce(r == REC_ON_NOW ? "RECORDING" : r == REC_ARMED_NOW ? (song_playing() ? "REC WHEN THE CLIP LOOPS" : "REC ARMED - PLAY STARTS IT")
+            announce(r == REC_ON_NOW ? "RECORDING" : r == REC_ARMED_NOW ? (song_playing() ? "REC WHEN THE CLIP LOOPS" : "REC ARMED - SEQ PLAY STARTS IT")
                      : r == SONG_BUSY ? "ANOTHER CLIP IS UNSAVED" : r == SONG_EDIT_SHARED ? "CLIP SHARED BY ANOTHER TRACK" : r == SONG_EMPTY ? "HOLD A PAD TO SELECT A CLIP FIRST" : "CANNOT RECORD HERE", now + 2000U);
         }
         cache->middle_cache = ~0U;
@@ -2201,7 +2204,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                     scene_hold_pad = (uint8_t)i; scene_hold_ms = now; announce("HOLD TO STORE WHAT PLAYS AS A SCENE", now + 1500U); continue;
                 }
                 { int jr = song_queue_jump(song_row_page * 16U + i);
-                  if (!st.playing && jr >= 0) announce(jr ? "TAKEN BACK - PLAY STARTS AT SCENE 1" : "RESERVED - PLAY STARTS AT THIS SCENE", now + 1500U);
+                  if (!st.playing && jr >= 0) announce(jr ? "TAKEN BACK - SEQ PLAY STARTS: SCENE 1" : "RESERVED - SEQ PLAY STARTS HERE", now + 1500U);
                   else if (jr) announce("NO SUCH SCENE / NOT PLAYING", now + 1500U); }
             }
         if (scene_hold_pad != 255) {
@@ -2209,7 +2212,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             else if (now - scene_hold_ms >= 500U) {
                 int r = song_scene_store();
                 scene_hold_pad = 255;
-                announce(r >= 0 ? "STORED AS A NEW SCENE" : r == SONG_FULL ? "128 SCENES: NO ROOM" : "PLAY FIRST", now + 2000U);
+                announce(r >= 0 ? "STORED AS A NEW SCENE" : r == SONG_FULL ? "128 SCENES: NO ROOM" : "SEQ PLAY FIRST", now + 2000U);
                 if (r >= 0) song_row_page = (unsigned)r / 16U;
             }
         }
@@ -2261,7 +2264,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 if (st.song != song_select || !mdl) { announce("NO SONG HERE", now + 1500U); continue; }
                 if (!mdl->clip[track][place]) {   /* tabby-v04.10: an empty pad is selected: REC or EDIT makes a clip there */
                     clip_select[track] = (uint8_t)place; cache->middle_cache = ~0U;
-                    announce("EMPTY PAD - REC OR EDIT MAKES A CLIP", now + 2000U); continue;
+                    announce("EMPTY PAD - SEQ REC OR PARA: NEW CLIP", now + 2000U); continue;
                 }
                 clip_select[track] = (uint8_t)place; cache->middle_cache = ~0U;
                 clip_hold_pad = (uint8_t)i; clip_hold_ms = now; clip_hold_queued = 0; clip_hold_track = (uint8_t)track;
@@ -2269,7 +2272,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                     if (!song_track_unqueue(track)) announce("TAKEN BACK", now + 1500U);
                 } else if (playing_place == place) {
                     if (!song_track_stop(track)) { clip_hold_queued = 1; announce("STOP AT NEXT CYCLE", now + 1500U); }
-                } else if (!song_clip_launch(track, place)) { clip_hold_queued = 1; announce(st.playing ? "LAUNCH AT NEXT CYCLE" : "RESERVED - PLAY STARTS IT", now + 1500U); }
+                } else if (!song_clip_launch(track, place)) { clip_hold_queued = 1; announce(st.playing ? "LAUNCH AT NEXT CYCLE" : "RESERVED - SEQ PLAY STARTS IT", now + 1500U); }
                 else announce("BLOCK READ ERROR", now + 1500U);
             }
         if (clip_hold_pad != 255) {
@@ -2611,7 +2614,7 @@ static void groove_screen_control_body(void)
     unsigned modes = smk37_fader_bank() | (smk37_pad_steps() << 1);
     if (modes != panel_modes_seen) {
         announce((modes ^ panel_modes_seen) & 2U
-            ? modes & 2U ? "PAD STEPS - SHIFT+PAD TO PLAY" : "PAD PLAY - SHIFT+PAD TO EDIT STEPS"
+            ? modes & 2U ? "PAD STEPS - KNOB BANK+PAD TO PLAY" : "PAD PLAY - KNOB BANK+PAD: EDIT STEPS"
             : modes & 1U ? "FADERS 5-8 - MOVE TO MATCH LEVEL" : "FADERS 1-4 - MOVE TO MATCH LEVEL", now + 1800U); panel_modes_seen = modes;
     }
     uint32_t feedback = smk37_fader_feedback();
@@ -2932,7 +2935,7 @@ __attribute__((noinline, cold, minsize)) void smk37_screen_pad_mode(unsigned ste
     action_confirm=project_reload=0;
     (void)steps;   /* Task 12 A2: always 0 (no pad-step mode) */
     page=music_page=OVERVIEW;
-    notice=pad_focus?"PAD READY - EDIT / FX":"KEY READY - EDIT / FX";
+    notice=pad_focus?"PAD READY - PARA / FX":"KEY READY - PARA / FX";
     notice_until=fm1_millis()+2000U;
     boot_active=0;cache->shown_page=~0U;
 }

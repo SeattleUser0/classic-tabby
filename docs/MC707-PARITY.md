@@ -58,7 +58,7 @@ a line on the page costs 0.4 to 1 KB; an engine change 1 to 3 KB).
 
 | # | Feature (MC-707) | Why it ranks here | Flash | Notes |
 | ---: | --- | --- | ---: | --- |
-| 3 | SCALE per clip (1/8, 1/16, 1/32, triplets) | Half-time and double-time clips against the same master cycle | 3 KB | the clip's time base in the player and on the STEP page |
+| 3 | SCALE per clip (1/8, 1/16, 1/32, triplets); called STEP SIZE here, because SCALE is a button's printed name | Half-time and double-time clips against the same master cycle | 3 KB | the clip's time base in the player and on the STEP page |
 | 4 | Temporary step loop while held (UM p. 20) | A performance gesture: stutter the last beat of a clip | 2 KB | pads on CLIPS with a modifier; needs the cursor to loop a window |
 | 5 | Direction REV and RND | Variation without new clips | 2 KB | the cursor walks backwards; RND per loop |
 | 7 | Note repeat on the pads | Drum rolls | 2 KB | the arpeggiator's clock |

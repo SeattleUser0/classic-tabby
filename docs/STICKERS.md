@@ -1,42 +1,53 @@
 # Classic Tabby stickers for the SMK-37 Pro
 
-Version 0.2 (2026-11-17). Labels as in docs/CONTROL-MAP.md v0.9 (tabby-v04.14); they are the same in v0.11 (tabby-v04.16).
-v0.2: every dimension in inches as fractions to 1/32; the photograph the check was to use was not found (3.1).
+Version 0.3 (2026-11-17). For tabby-v04.18 and docs/CONTROL-MAP.md v0.13.
+v0.3: checked against a photograph of the unit; stickers A, B and C redesigned because the place v0.2 gave them
+carries printing; the stickers now say what a control does, since every document and the screen use the printed
+names. v0.2: dimensions in inches as fractions to 1/32.
 
-The words printed on the SMK-37 are M-VAVE's (KNOB BANK, NOTE REPEAT, CHORD, PARA ...). Classic Tabby uses the
-buttons for other things and calls them by other names (SHIFT, PAD / STEP, ENV, EDIT ...). These four stickers put
-the Classic Tabby name under every button, say what each knob does on each clip page, and name the faders.
+Classic Tabby calls every button by the word M-VAVE printed on it (KNOB BANK, CHORD, PARA ...). Those words say
+little about what the buttons do here. These four stickers put the function under each button, name the tracks
+under the pads with what the knob above does, and name the faders.
 
 Files:
 
 | File | What it is |
 | --- | --- |
-| docs/stickers/classic-tabby-stickers.pdf | Print-ready, US Letter landscape, four pages. Page 1: the stickers at actual size, twice (one spare set), with a 5-inch check bar. Page 2: where they go, dimensioned. Pages 3 and 4: the panel at actual size in two halves, with the stickers in place (a template to lay on the device). |
+| docs/stickers/classic-tabby-stickers.pdf | Print-ready, US Letter landscape, four pages. Page 1: the stickers at actual size, twice (one spare set), with a 5-inch check bar. Page 2: where they go, dimensioned. Pages 3 and 4: the panel at actual size in two halves, with the stickers in place and the printing they must not cover in blue: a paper template to lay on the panel. |
 | docs/stickers/classic-tabby-stickers.html | The same pages as HTML with SVG (the PDF is printed from it). |
-| docs/stickers/measurements.json | Every number below, unrounded. |
-| tools/linux/stickers.py | Makes all three. The measurements and the label texts are tables at its top. |
+| docs/stickers/measurements.json | Every number below, unrounded, and what was read from the photograph. |
+| tools/linux/stickers.py | Makes all three. The measurements and the texts are tables at its top. |
 
 Print at 100 % ("actual size", no "fit to page"). The bar on page 1 must measure exactly 5 inches.
 
 ## 1. The four stickers
 
-Every dimension is in inches, as a fraction to the nearest 1/32 (what a ruler shows). The unrounded decimals are in
-docs/stickers/measurements.json. Positions are measured from the back left corner of the case, looking down at the
-panel with the keys towards you: "left" is the distance from the case's left edge to the sticker's left edge,
-"top" the distance from the case's back edge to the sticker's top edge.
+Every dimension is in inches, as a fraction to the nearest 1/32. Positions are from the back left corner of the
+case, looking down at the panel with the keys towards you: "left" is from the case's left edge to the sticker's
+left edge, "top" from the case's back edge to the sticker's top edge.
 
 | Sticker | Under | Width x height | Left | Top |
 | --- | --- | --- | --- | --- |
-| A | the six left buttons | 1 5/16 x 19/32 | 2 17/32 | 3 1/8 |
-| B | the pads (and, above them, the knobs) | 8 7/16 x 19/32 | 4 17/32 | 3 1/8 |
-| C | the twelve right buttons | 4 1/8 x 19/32 | 13 7/16 | 3 1/8 |
-| D | the four faders, between the slots and the right buttons | 4 1/16 x 5/32 | 13 15/32 | 2 1/8 |
+| A | the six left buttons | 1 5/16 x 7/32 | 2 17/32 | 3 1/8 |
+| B | the pads | 8 7/16 x 7/32 | 4 17/32 | 3 1/8 |
+| C | the twelve right buttons | 4 1/8 x 7/32 | 13 7/16 | 3 1/8 |
+| D | the four faders, between the slots' ends and the right buttons | 4 1/16 x 5/32 | 13 15/32 | 2 1/8 |
 
-A, B and C lie in the free band between the button fields / pads and the keys. The band runs from 3 1/16 to 3 25/32
-from the back edge (23/32 high); the stickers use 3 1/8 to 3 23/32 and leave the transport symbols printed under the
-lower pads visible. Each sticker is exactly as wide as the group above it and its columns sit under that group's
-columns. The quick way to place them: line up A with the left edge of the left button field, B with the left edge
-of pad 1 (the upper left pad), C with the left edge of the right button field.
+Where A, B and C go. Under the button fields and under the lower pad row the panel is printed: first the transport
+symbols under the pads (play, pause, record, rewind, fast forward, <, >, UNDO), then, just above the keys, a strip
+with two lines of M-VAVE's key functions (ARP: UP, DOWN, INCL ...; GLOB: CHN 1 to 16, PRE 1 to 8; RATE 1/4 to
+1/32T; RESET). Between the two there is a clear gap, 11/32 high, from 3 1/16 to 3 13/32 from the back edge.
+A, B and C are 7/32 high and sit in the middle of that gap, about 1/16 clear of the printing above and below.
+**No sticker covers any printing.** Version 0.2 of this sheet put 19/32-high stickers there, which would have
+covered the whole function strip; that was wrong and came from measuring a drawing that does not show the printing.
+
+The quick way to place them: centre each one in the gap by eye; line up A with the left edge of the left button
+field, B with the left edge of the upper left pad, C with the left edge of the right button field. D goes in the
+clear space between the lower ends of the fader slots and the right button field.
+
+If you would rather have large, readable labels: the function strip is the only large area near the controls, and
+Classic Tabby uses none of the functions printed on it. Covering it would be a deliberate replacement of that
+text. This sheet does not do that; say so and I will make that version.
 
 Columns inside the stickers, from each sticker's own left edge to the column's centre:
 
@@ -47,48 +58,58 @@ Columns inside the stickers, from each sticker's own left edge to the column's c
 | C (6 columns) | 7/16, 1 3/32, 1 3/4, 2 13/32, 3 1/32, 3 11/16 |
 | D (4 faders) | 3/8, 1 15/32, 2 19/32, 3 11/16 |
 
-For a label maker: A, B and C fit 3/4 inch (18 mm) tape trimmed to 19/32 inch, D fits 1/4 inch (6 mm) tape trimmed
-to 5/32 inch. Black on white is drawn (the user's choice of 2026-11-17). Type sizes are in points, the printer's
-unit (1 point = 1/72 inch): the large words are 5.8 to 8 point, the small ones 2.8 to 4.6 point; sharp print
-(600 dpi or a laser printer) is needed for the small ones.
+For a label maker: all four fit 1/4 inch (6 mm) tape, A, B and C trimmed to 7/32, D to 5/32. Black on white. The
+type is small because the gap is: 3.3 to 4.4 point on A, B and C (1 point = 1/72 inch), 5.6 point on D. That needs
+sharp print (600 dpi or a laser printer) and is read from close up, not from playing distance.
 
 ## 2. What each sticker says
 
 ### Sticker A (left buttons; two columns, three rows, as the buttons lie)
 
-| Printed on the device | Sticker | Small line |
-| --- | --- | --- |
-| KNOB BANK | SHIFT | PADS: TRACKS, MUTES |
-| FADER BANK | FADER BANK | FADERS T1-4 / T5-8 |
-| < | HOME | +PLAY: STOP ALL |
-| > | SAVE | SAVES (STOPPED) |
-| OCTAVE- | OCT - | PREV 16 / BAR |
-| OCTAVE+ | OCT + | NEXT 16 / BAR |
+| Printed on the button | Sticker |
+| --- | --- |
+| KNOB BANK | SHIFT: 2ND FUNCTION |
+| FADER BANK | FADERS T1-4 / T5-8 |
+| < | AS PATCH |
+| > | SAVE / CONFIRM |
+| OCTAVE- | PREV BANK / BAR |
+| OCTAVE+ | NEXT BANK / BAR |
 
-SAVE is the button the documents call "the 4th button in the left group" and the screen calls 4TH LEFT BTN: on
-CLIPS, SCENES and CLIP SETTING it saves the song, on the STEP page the clip, on the overview it opens SAVE PROJECT.
+### Sticker C (right buttons; six columns, two rows, as the buttons lie)
 
-### Sticker C (right buttons; six columns, two rows)
+| Printed on the button | Sticker |
+| --- | --- |
+| ARP | ARPEGGIATOR |
+| NOTE REPEAT | KEYS / PADS |
+| SCALE | CLIPS <> SCENES |
+| CHORD | TO SCENES |
+| GLOBE | MIXER |
+| BT | CLIPS PAGE |
+| PATCH | OVERVIEW |
+| PARA | STEP PAGE |
+| FX | SETTING / UNDO |
+| SEQ | SYNC / MIDI |
+| SEQ PLAY | START / STOP |
+| SEQ REC | TAKE |
 
-| Printed on the device | Sticker | Small line |
-| --- | --- | --- |
-| ARP | ARP | ARPEGGIATOR |
-| NOTE REPEAT | PAD / STEP | KEYS / PADS FOCUS |
-| SCALE | SCL | CLIPS <> SCENES |
-| CHORD | ENV | TO SCENES (SHIFT: ALL) |
-| GLOBE | MIX | MIXER |
-| BT | BT | CLIPS PAGE |
-| PATCH | HOME / SRC | SHIFT: SOURCE |
-| PARA | EDIT | STEP PAGE |
-| FX | FX | SETTING / UNDO |
-| SEQ | SEQ | SYNC  +EDIT: ACTIONS |
-| SEQ PLAY | PLAY | START / STOP |
-| SEQ REC | REC | TAKE (SHIFT: QUANT) |
+### Sticker B (eight columns, one under each pad column)
 
-### Sticker B (eight columns, one under each pad column and knob)
+Upper line of column n: KNOB BANK: TRACK n / MUTE n (KNOB BANK held, one pad of the column selects track n and
+the other mutes it; see 4.2 for which is which). Lower line: the knob above that column on the two pages a song is
+played from:
 
-Top line of column n: SHIFT+PAD: TRACK n / MUTE n (SHIFT with the upper pad selects track n, with the lower pad
-mutes it). Below it, the knob above that column and what it does on each page:
+- K1 CLIPS CTRL 74*  SCENES TIMES
+- K2 CLIPS CTRL 71*  SCENES THEN
+- K3 CLIPS CTRL 1*  SCENES HOLD
+- K4 CLIPS CTRL 11*  SCENES JUMP
+- K5 CLIPS TRACK  SCENES SONG
+- K6 CLIPS CLIP BANK
+- K7 SCENES SONG
+- K8 MASTER VOLUME
+
+\* The controller numbers are the song's (CLIP SETTING, the song's page); 74, 71, 1 and 11 until you change them.
+
+The knobs on every clip page (not on a sticker; there is no room):
 
 | Knob | CLIPS | SCENES | STEP | SETTING |
 | --- | --- | --- | --- | --- |
@@ -101,81 +122,76 @@ mutes it). Below it, the knob above that column and what it does on each page:
 | K7 | - | SONG | PROBABILITY | - |
 | K8 | MASTER VOLUME on every page | | | |
 
-\* The controller numbers are the song's (CLIP SETTING, the song's page); 74, 71, 1 and 11 are what a song uses until
-you change them.
-
 ### Sticker D (faders)
 
 LEVEL T1 / T5, LEVEL T2 / T6, LEVEL T3 / T7, LEVEL T4 / T8, each centred under its fader (FADER BANK switches
-between tracks 1 to 4 and 5 to 8).
+between tracks 1 to 4 and 5 to 8). The panel prints FADER1 to FADER4 above the slots; D does not cover that.
 
 ## 3. How the panel was measured
 
-There are no photographs of the device on this computer, so nothing was measured from a photograph. The source is
-better than a photograph: the top-view line drawing on the first page of M-VAVE's SMK-37 PRO user manual (an
-orthographic drawing without perspective, 2962 x 1732 pixels in the PDF), which also shows the words printed on
-every button.
+Two sources.
 
-1. Scale: the case outline in the drawing is 2927 pixels wide. The published case size is 458 x 181 x 50 mm (several
-   listings; one gives 457 x 180 x 48). 458 mm / 2927 px = 0.1565 mm per pixel (0.006160 inch).
-2. Check: with that scale the outline's depth, 1157 pixels, is 181.0 mm. The published depth is 181 mm. The drawing's
-   proportions are therefore right to within about 0.5 %.
-3. Every control was located as a closed region of the line art (pads, button caps, fader slots, the display
-   window, the wheels) or by the edges of its outline along a row and a column (knobs, button fields, the keys),
-   with numpy and scipy. The pixel coordinates are in tools/linux/stickers.py (PANEL tables at the top).
-4. The workbench's panel drawing (the Play & edit tab) was used for the order of the controls only: it gives the
-   button numbering (left group: SHIFT, FADER BANK, HOME, BTN 4, OCT -, OCT +; right group: ARP to REC) and shows
-   pads 1 to 8 in the upper row. It is not to scale (its panel is 1000 : 624; the device is 1000 : 395).
+1. **The top-view line drawing** in M-VAVE's SMK-37 PRO user manual (2962 x 1732 pixels, no perspective), scaled
+   by the published case width of 458 mm (18 1/32 inch): 0.006160 inch per pixel. The case depth then comes out at
+   181.0 mm against a published 181 mm. Every control position comes from it (tools/linux/stickers.py, the tables
+   at the top).
+2. **The photograph of the unit** (2026-11-17, 2016 x 1512 pixels, taken from above with a tape measure along the
+   front edge). It was used to read the printing and to check the drawing.
 
-Measured, in inches to the nearest 1/32 (from the case's back left corner where a position is given):
+What the photograph gave:
 
-| Item | Value |
-| --- | --- |
-| Case, top view | 18 1/32 x 7 1/8 |
-| Knobs K1 to K8 | centres 25/32 from the back; from the left: 4 31/32, 6 1/16, 7 1/8, 8 7/32, 9 9/32, 10 3/8, 11 15/32, 12 17/32; diameter 21/32 |
-| Pads | 7/8 x 11/16 each; left edges 4 17/32, 5 5/8, 6 11/16, 7 25/32, 8 7/8, 9 15/16, 11 1/32, 12 1/8; row tops 1 11/32 and 2 1/8 |
-| Left button field | 1 5/16 x 1 1/32, at 2 17/32 from the left, 2 1/32 from the back |
-| Right button field | 4 1/8 x 3/4, at 13 7/16 from the left, 2 5/16 from the back; six buttons across, 21/32 from one to the next |
-| Button caps | 19/32 x 9/32 |
-| Fader slots | centres at 13 27/32, 14 15/16, 16 1/32, 17 5/32 from the left; from 17/32 to 2 3/32 from the back; cap 5/8 wide |
-| Display window | 1 1/2 x 1 15/32, at 2 7/16 from the left, 3/8 from the back |
-| Free band under the buttons and pads | 3 1/16 to 3 25/32 from the back, the whole width |
-| White keys | 25/32 wide, 22 of them |
+- Scale. The case is 1901 pixels wide at the panel: 105.4 pixels per inch with the published width. The tape reads
+  99.3 pixels per inch, 6 % fewer, because it lies on the desk, further from the camera than the
+  panel. So the tape confirms the size to within that perspective effect, not better; it cannot replace the
+  published width as the scale. Front to back the case measures 7 1/32 in the photograph against the published
+  7 1/8 (its front edge is rounded and lower), so front-to-back figures from the photograph are good to about 1.5 %.
+- Left to right, the photograph agrees with the drawing within 1/16 everywhere checked:
 
-Each position is rounded by itself. Do not add up a spacing (for example 21/32 six times): use the listed
-positions, or the unrounded numbers in measurements.json.
+| Item, inches from the case's left edge | Drawing | Photograph |
+| --- | --- | --- |
+| Left edges of the eight pad columns | 4 17/32, 5 5/8, 6 11/16, 7 25/32, 8 7/8, 9 15/16, 11 1/32, 12 1/8 | 4 17/32, 5 21/32, 6 3/4, 7 27/32, 8 29/32, 9 31/32, 11 1/16, 12 1/8 |
+| Knob centres K1 to K8 | 4 31/32, 6 1/16, 7 1/8, 8 7/32, 9 9/32, 10 3/8, 11 15/32, 12 17/32 | 4 31/32, 6 3/32, 7 5/32, 8 1/4, 9 5/16, 10 13/32, 11 15/32, 12 9/16 |
+| Left button field: left edge, width | 2 17/32, 1 5/16 | 2 1/2, 1 9/32 |
+| Right button field: left edge, width | 13 7/16, 4 1/8 | 13 1/2, 4 1/8 |
+| Fader centres | 13 27/32, 14 15/16, 16 1/32, 17 5/32 | 13 7/8, 15, 16 1/8, 17 7/32 |
+| Pad size | 7/8 x 11/16 | 27/32 x 11/16 |
 
-Expected accuracy: about 1/32 inch for positions next to each other, about 1/16 inch across the whole width,
-because the scale rests on a published width given to the millimetre (458 mm, 18 1/32 inch) and each number is
-rounded to 1/32.
+- Front to back (inches from the case's back edge), where the drawing was wrong or silent:
 
-### 3.1 The photograph of 2026-11-17: not found
+| Item | Drawing | Photograph |
+| --- | --- | --- |
+| Pad rows, top edges | 1 11/32, 2 1/8 | 1 5/16, 2 5/32 |
+| Lower ends of the fader slots | 2 3/32 | 2 1/32 |
+| Right button field, top edge | 2 5/16 | 2 3/8 |
+| Transport symbols under the lower pads | not shown as printing | 2 15/16 to 3 1/16 |
+| Function strip above the keys | not shown | 3 13/32 to 3 3/4 |
+| The keys begin | 3 25/32 | 3 13/16 |
 
-The user named a photograph of the unit taken from straight above with a tape measure along the front edge,
-~/Documents/Classic Tabby/panel.jpg, to check these numbers and to read the printed labels and the pad rows. On
-2026-11-17 no such file was on this computer: no panel.jpg in that folder and no image newer than a day anywhere
-under the home directory except files of another project. So nothing in this document has been checked against
-the unit yet. When the photograph is there: the tape gives the scale along the front edge; every position in the
-table above is compared with it and corrected; sections 4.1 to 4.3 are closed.
+- The printing, read from the photograph: the left group is headed PAD BANK and its buttons are KNOB BANK, FADER
+  BANK, <, >, OCTAVE-, OCTAVE+; the right group is ARP, NOTE REPEAT, SCALE, CHORD, GLOBE, BT above PATCH, PARA, FX,
+  SEQ, SEQ PLAY, SEQ REC; the knobs are K1 to K8, the faders FADER1 to FADER4, the wheels PITCH and MOD. This is
+  what M-VAVE's drawing shows and what the user read. Two buttons were lit and partly washed out in the picture
+  (OCTAVE- and PATCH); their words agree with the drawing and the user's reading.
 
-## 4. What could not be measured
+The sticker widths and left edges are kept from the drawing (the photograph confirms them within 1/16 and is the
+less exact of the two left to right). The sticker tops come from the photograph.
 
-1. **The device itself.** Every number comes from the manufacturer's drawing and the published case size. Before
-   printing a batch, print page 3 and 4 on plain paper, lay them on the panel and check that the knobs, pads and
-   buttons sit under their outlines.
-2. **Whether the unit's printing matches the drawing.** The drawing shows KNOB BANK, <, >, CHORD, GLOBE, PATCH, PARA
-   and so on. SPEC.md 17.4 lists most button labels as "not confirmed", and the 4th left button's label as unknown;
-   by the drawing it is ">". Not checked against the unit.
-3. **Pad numbering.** That SHIFT + the upper row selects tracks and the lower row mutes them follows the workbench
-   drawing (pads 1 to 8 above). The firmware only knows pad numbers. If pads 1 to 8 are the lower row on the unit,
-   read the top line of sticker B the other way round.
-4. **The surface of the free band.** The drawing shows nothing between the buttons / pads and the keys, but a line
-   drawing does not show a slope, a step, a seam or texture there. The side view suggests a flat top.
-5. **Heights.** Knob, fader-cap and button heights, and so how much a fader cap hides of sticker D when the fader
-   is fully down (the cap is 5/8 wide and its travel ends 1/32 above the sticker).
-6. **The gap sticker D sits in.** It is 7/32 high in the drawing (slot ends at 2 3/32, the button field begins at
-   2 5/16). The sticker is 5/32. If the gap is tighter on the unit, D can instead cover the printed FADER1 to FADER4
-   above the slots (the same width, 5/16 from the back).
-7. **Corner radii, the case's bevel and the colour of the panel** (which decides black on white or white on black).
-8. **The wheels, the display and the back panel** get no sticker: CONTROL-MAP.md gives them no Classic Tabby name
-   that differs from what is printed.
+Expected accuracy: 1/32 for the sticker sizes and for the gap they sit in (measured over a short distance); about
+1/16 for positions across the panel.
+
+## 4. What still could not be measured or read
+
+1. **Which pad row is pads 1 to 8.** The pads carry no numbers, so the photograph cannot say. The workbench drawing
+   (M-VAVE's own) puts pads 1 to 8 in the upper row; sticker B says TRACK n / MUTE n without naming the row. To
+   settle it: hold KNOB BANK and press the upper left pad; the screen says TRACK SELECTED if the upper row is
+   pads 1 to 8.
+2. **Heights and overhang.** A view from above shows no heights: how far a fader cap overhangs the lower end of its
+   slot when the fader is fully down (it may hide part of sticker D, which starts 3/32 below the slot ends), and
+   whether the knob skirts shade the K1 to K8 printing.
+3. **The gap for A, B and C to better than 1/32.** It is 11/32 in the photograph (37 pixels). If the stickers look
+   tight on the unit, trim them to 3/16.
+4. **Absolute size from the tape.** The tape is in a different plane from the panel (section 3); a tape laid on the
+   panel itself, across the knobs' printing, would give the scale directly.
+5. **Surface.** Whether the gap is flat and smooth enough for a sticker to hold (the photograph shows a matt, flat
+   surface; no seam is visible).
+6. **Corner radii and the bevel of the case.** Not needed for these stickers.
