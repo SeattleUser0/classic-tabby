@@ -27,4 +27,12 @@ DIRECTION for each clip on CLIP SETTING: forwards, backwards, or forwards then b
 
 ## Validation
 
-Filled in after the candidate ran on the device.
+Candidate 1 (builds/tabby-v04.20-rc1/) on the device, unattended, before the promotion; it passed at the first attempt:
+
+- CLIP SETTING 38 of 38. Measured on MIDI out with a two-note test clip: in REVERSE the time from the first note to
+  the second is 913.7 ms (914.1 calculated; 164.0 forwards); STEP SIZE 1/8 327.6 ms, SHUFFLE 50 PERCENT 207.0 ms,
+  PLAY QUANTIZE 1/16 126.0 ms as before.
+- Program and knobs 10 of 10, clip chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16, recording 25 of 25,
+  STEP page 18 of 18, CLIPS page 40 of 40 twice, the timing song 960 of 960 notes on DIN and USB.
+- One line, 960 notes, three runs: DIN 1.68, 1.79, 1.85 ms; USB 1.68, 1.75, 1.82 ms.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.

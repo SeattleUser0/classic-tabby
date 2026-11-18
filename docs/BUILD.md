@@ -6009,3 +6009,19 @@ Before the candidate, on the device with tabby-v04.19: run-setup.py v0.12 passed
 skipped on firmware that reports no direction).
 
 Measured: app image 487588 bytes (+1184), margin 31869, heap 142764 (-256). Build `693c8946957ae272`.
+
+### 56.1 tabby-v04.20 released: candidate 1 (2026-11-18)
+
+Suite green on e1dab17; builds/tabby-v04.20-rc1/ (build `693c8946957ae272`), installed in 11 s; every step passed at
+the first attempt; promoted.
+
+| Step | Result |
+| --- | --- |
+| run-setup v0.12 | 38 of 38; REVERSE: 913.65 ms from the first note to the second (calculated 914.1); forwards 164.01; STEP SIZE 1/8 327.56; SHUFFLE 50 207.01; PLAY QUANTIZE 1/16 125.95 |
+| run-program / run-chain / run-scenechain / run-sceneedit | 10 of 10 / 11 of 11 / 13 of 13 / 16 of 16 |
+| run-record / run-steps / run-launch v0.6 twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.13 ms on DIN |
+| run-15, one line, three runs | DIN 1.68, 1.79, 1.85 ms; USB 1.68, 1.75, 1.82 ms; clock ratio 0.999583 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+Flash margin 31869 bytes, free RAM 142764 bytes. The one-line band is back at 1.68 to 1.85 ms (55.1 watched it).
