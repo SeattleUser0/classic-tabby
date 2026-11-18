@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.93
+Version: 0.94
 Revision log:
+- v0.94, 2026-11-18: 56.1 (tabby-v04.20 released as candidate 1), section 57 (tabby-v04.21: clear notes in a take, NEW SONG, shift a clip; the pad rows; stickers v0.4).
 - v0.93, 2026-11-18: 55.1 (tabby-v04.19 released as candidate 1), section 56 (tabby-v04.20: DIRECTION per clip).
 - v0.92, 2026-11-17: 54.3, 54.4 (tabby-v04.18: candidate 1 held back by a tool limit, candidate 2 released), section 55 (tabby-v04.19: STEP SIZE per clip).
 - v0.91, 2026-11-17: 53.1 (tabby-v04.17 released as candidate 1), section 54 (tabby-v04.18: the printed button names; the photograph; the stickers redesigned).
@@ -6025,3 +6026,55 @@ the first attempt; promoted.
 | full backup, restore, verify | Verify PASS, 41 items, twice |
 
 Flash margin 31869 bytes, free RAM 142764 bytes. The one-line band is back at 1.68 to 1.85 ms (55.1 watched it).
+
+## 57. tabby-v04.21: clear notes in a take, NEW SONG, shift a clip; the pad rows; stickers v0.4 (2026-11-18)
+
+The user's answers of 2026-11-18 (SPEC 17.16): work the pad rows out from the sources; stickers with no type below
+6 point, covering dead printing on purpose; the three small parity items first; NOTE REPEAT gets its printed meaning
+(the next release).
+
+### 57.1 The pad rows
+
+Read: app/board/scan.c (`padmap`: ADC channel to pad id, groups of four), app/board/panel.c (`rgb_map`: pad id to its
+place in the LED chain: 0, 15, 14 ... 9, 1 ... 8), both unchanged from the upstream kit (official-release/sources/kit);
+the kit's sdk/Simulator.js (the pads are made in id order into an eight-column grid: 1 to 8 on top); M-VAVE's manual
+(no pad numbers). The LED chain proves the columns and the order left to right; only the panel model says which row
+is the upper one. Written down as an assumption (STICKERS.md 5.1, CONTROL-MAP.md 1.2).
+
+### 57.2 Stickers v0.4
+
+- The strip was measured label by label in the photograph (ffmpeg to grey, the bright runs of rows 768 to 783 and
+  789 to 803, 105.4 pixels per inch): 37 labels, `STRIP_LABELS` in tools/linux/stickers.py.
+- None of its functions works here: `smk37_control_event` sends every key as a note; app/screen.c reads key bits
+  only as pad presses. So A, B, C (and the optional E) cover it: 11/16 high, 3 3/32 to 3 25/32 from the back edge;
+  side edges in gaps of the printing (2 7/32 | 2 1/4, 4 3/32 | 4 5/32, 13 1/32 | 13 3/32, 17 9/16).
+- tools/linux/stickers.py v0.4 asserts 6 point as the smallest size and reports any sideways squeeze (none).
+  A first set of texts needed a squeeze to 72 %; the right-button texts were shortened to three short lines instead.
+- My first table of column centres in STICKERS.md was written from memory and was wrong in three places; replaced by
+  the generator's values before the commit.
+
+### 57.3 The firmware
+
+| Part | Change |
+| --- | --- |
+| app/song.c | `rec_clip_pos` (split from `rec_clip_time`); `rec.erase`, `rec.erasing`, `rec_erase`, `song_record_erase`; `song_edit_shift`; `song_new` |
+| app/clip_v3.c, .h v0.9 | `clip_v3_shift` |
+| app/screen.c | FX during a take; KNOB BANK + OCTAVE-/+ on STEP; ACTIONS entry NEW SONG with its question (nine entries, 17 lines apart); `ct_screen_action_do` |
+| app/transfer.c | command 29 {16, 5}; {1, slot} selects an empty slot too |
+| tests | clip_v3_test.c (5 checks; 300 random clips shifted and shifted back byte for byte); smoke.c (22 checks); record-sim.mjs v0.3 (70 checks, 26 new) |
+| tools/linux/hw | run-takeedit.py v0.1 (new), rc-validate.py v0.4 (the step `takeedit`) |
+
+Found on the way:
+- `song_new` first took the project slot as it came; a simulator without a stored project reports a slot above 15
+  and the record was refused as invalid. The slot is now limited to 0..15, and "the slot holds a song" has its own
+  code (`SONG_NEW_EXISTS`) instead of sharing SONG_INVALID with a failed write.
+- A stored time of exactly the clip's length (the tie to the last step) did not survive a shift and back byte for
+  byte; `clip_v3_shift` keeps stored times in 1..loop.
+- Release builds carry the A2 FAST MIDI entry (A2 is on unless A2=0), so ACTIONS has nine entries, not eight: my first
+  guide text said the ninth was only in test builds. The device said otherwise (the entry index); corrected, and the
+  page now spaces nine entries 17 lines apart.
+- Before the candidate, on the device with tabby-v04.20: run-takeedit.py ran as far as the firmware allows: its
+  set-up, take, undo and closing checks passed, the checks of the new behaviour failed, and the first {16, 5} was
+  refused with code 71 as expected.
+
+Measured: app image 489188 bytes (+1600), margin 30269, heap 142700 (-64). Build `0bb7c4fb25bc175a`.

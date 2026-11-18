@@ -16,9 +16,11 @@
 //
 //   Run:  /usr/bin/node tests/workbench/record-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.2
+// Version: 0.3
 //
 // Revision log
+//   v0.3  2026-11-18  tabby-v04.21: shift a clip by a step (KNOB BANK + OCTAVE-/+ on STEP), FX + a key clears notes during a
+//                     take, ACTIONS: NEW SONG.
 //   v0.2  2026-11-17  tabby-v04.16: a stop takes an armed take off; armed while stopped it stays.
 //   v0.1  2026-11-16  Initial version.
 
@@ -228,6 +230,73 @@ check(r.recording === 0 && !(c.sim_song_status(0) >>> 8 & 255), 'PLAY stops the 
 press(REC); const a1 = rstate().recording; step(1800); const a2 = rstate().recording;
 check(a1 === 1 && a2 === 1, 'REC while stopped arms a take; it stays armed for PLAY (' + a1 + ', ' + a2 + ' after five seconds)');
 press(REC); check(rstate().recording === 0, 'REC again takes it off');
+
+/* ---- tabby-v04.21: KNOB BANK + OCTAVE-/+ on the STEP page shifts the clip by a step ---- */
+const OCT_DOWN = 4, OCT_UP = 5, SEQ = 15;
+const shifted = id => { c.sim_smk37(BUTTON, SHIFT, 1); step(4); press(id); c.sim_smk37(BUTTON, SHIFT, 0); step(4); };
+const noted = () => sstate().pads.map((v, i) => (v & 1 ? i + 1 : 0)).filter(Boolean).join(' ');
+check(c.sim_edit(3, 0, 1) === 0, 'the STEP page opened on track 1 clip 2'); step(10);
+const undo0 = rstate().undo;
+check(noted() === '1 9' && rstate().events === 2, 'the clip has notes on steps 1 and 9 (' + noted() + ')');
+shifted(OCT_UP);
+check(noted() === '2 10' && rstate().dirty === 1 && sstate().bar === 0, 'KNOB BANK + OCTAVE+: every note one step later; the bar shown stays (' + noted() + ')');
+shifted(OCT_DOWN); shifted(OCT_DOWN);
+check(noted() === '8 16' && rstate().events === 2, 'KNOB BANK + OCTAVE- twice: one step earlier than at first, the first note round the end to step 16 (' + noted() + ')');
+check(rstate().undo === undo0 + 1, 'a run of shifts is one undo level');
+press(FX);
+check(noted() === '1 9', 'FX undoes the run (' + noted() + ')');
+
+/* ---- tabby-v04.21: during a take FX held with a key clears that key's notes as the clip passes them ---- */
+press(REC); r = rstate();
+check(r.recording === 1, 'REC while stopped: armed');
+origin = -1; press(PLAY);
+while (origin < 0 && block < 900000) step();
+step(30); r = rstate();
+check(r.recording === 2 && r.events === 2, 'PLAY: the take runs on the clip (2 notes)');
+press(FX); r = rstate();
+check(r.recording === 2 && r.events === 2 && r.page === 21, 'FX alone during a take changes nothing (HOLD FX + A KEY: CLEARS ITS NOTES)');
+c.sim_smk37(BUTTON, FX, 1); step(6);
+midiIn([0x90, 44, 100]); step(380);                              /* a little more than half the 16 steps: step 9 was passed, step 1 not yet */
+const half = rstate().events;
+step(380); midiIn([0x80, 44, 0]); step(6);
+c.sim_smk37(BUTTON, FX, 0); step(6); r = rstate();
+check(half === 1 && r.events === 0 && r.recording === 2, 'FX + the key 44, held for one pass: its two notes go as the clip passes them (' + half + ' left half way), the key is not recorded, the take goes on (' + r.events + ' events)');
+{ const from = block; step(1400);
+  check(onsIn(from, block, 9).filter(m => m[1] === 44).length === 0, 'the clip no longer plays 44'); }
+key(12); step(20);
+check(rstate().events === 1 && note(60), 'with FX up a key is recorded again');
+press(PLAY); step(60); r = rstate();
+check(r.recording === 0, 'PLAY stops the song and the take');
+press(FX);
+check(noted() === '1 9' && rstate().events === 2, 'FX undoes the take: both notes are back (' + noted() + ')');
+c.sim_edit(2, 0, 0); step(20);
+
+/* ---- tabby-v04.21: ACTIONS, NEW SONG ---- */
+const actions = () => { c.sim_smk37(BUTTON, SEQ, 1); step(4); press(EDIT); c.sim_smk37(BUTTON, SEQ, 0); step(4); knob(0, -12); knob(0, 7); };   /* SEQ + EDIT, K1 to the eighth entry (a simulator built with CT_A2 has a ninth) */
+const songNow = () => c.sim_song_status(0) & 255;
+actions();
+check(state().page === 12, 'SEQ + PARA: the ACTIONS page; K1 to NEW SONG');
+press(SAVE); press(SAVE); step(10);
+check(songNow() === 0 && state().page === 12, 'NEW SONG on slot 1, which holds a song: refused (SLOT HOLDS A SONG), the song stays loaded');
+press(2); press(BT); press(SCL); knob(4, 3); step(10);            /* PATCH, CLIPS, SCENES; K5 to slot 4 */
+check(state().page === 19 && songNow() === 255, 'SCENES: K5 selects slot 4, which is empty (NO SONG)');
+actions();
+press(SAVE); step(4);
+check(songNow() === 255 && state().page === 12, 'the > button once asks (NEW SONG IN SLOT 04?): nothing is made yet');
+press(SAVE); step(20);
+check(songNow() === 3 && state().page === 20, 'the > button again: a new song is loaded in slot 4 and the CLIPS page is shown');
+{ check(c.sim_song_record_read(3) === 0, 'its record reads back');
+  const d = mem().subarray(c.sim_file(), c.sim_file() + 4096);
+  check(d[20] === 3 && d[40] === 1 && String.fromCharCode(...d.subarray(24, 36)) === 'NEW SONG    ' && d[1088 + 8] === 1 && d[1088 + 10] === 16 && d.subarray(64, 1088).every(v => v === 0),
+    'one scene of 16 steps, no clips, named NEW SONG'); }
+check(state().pads.every(p2 => (p2.code & 7) === 0), 'every clip pad is empty');
+pad(0, 200); press(REC); r = rstate();
+check(r.recording === 1, 'a long press selects pad 1, SEQ REC makes a new clip and arms the take');
+press(PLAY); step(120); key(12); step(40); press(PLAY); step(60); r = rstate();
+check(r.recording === 0 && r.events === 1 && note(60), 'a key played into the take is in the new clip');
+press(SAVE); step(10);
+check(rstate().dirty === 0 && c.sim_song_load(0) === 0 && c.sim_song_load(3) === 0 && (state().pads[0].code & 7) === 1, 'saved; loaded again from storage the pad holds the clip');
+check(c.sim_song_record_delete(3) === 0 && c.sim_song_load(0) === 0, 'the new song deleted again; the test song loaded');
 
 c.sim_midi_capture(0); c.sim_midi_drain(0);
 console.log(`\nrecord-sim: ${passed} passed, ${failed} failed`);

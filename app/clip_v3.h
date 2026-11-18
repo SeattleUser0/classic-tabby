@@ -12,9 +12,10 @@
  *   then `count` 6-byte events sorted by time. A note: {time u16 (biased by 240), pitch | retrigger << 7,
  *   velocity (bit 7 = 0), length u16}; other: {time u16, type, 0x80, a, b}. See the document for the types.
  *
- * Version: 0.8
+ * Version: 0.9
  *
  * Revision log
+ *   v0.9  2026-11-18  tabby-v04.21: clip_v3_shift (the STEP page's shift by a step).
  *   v0.8  2026-11-17  tabby-v04.20: the clip's DIRECTION in the high four bits of header byte 14 (clip_v3_direction, _set,
  *                     _apply, clip_v3_reverse_time).
  *   v0.7  2026-11-17  tabby-v04.19: the clip's SCALE in the low four bits of header byte 14 (clip_v3_scale, _steps, _set,
@@ -156,4 +157,7 @@ unsigned clip_v3_direction(const uint8_t *p);
 int clip_v3_direction_set(uint8_t *p, unsigned direction);
 int clip_v3_reverse_time(int time, unsigned steps);
 unsigned clip_v3_direction_apply(uint8_t *p);
+/* v0.9 (tabby-v04.21): every event `by` steps later (earlier when negative), round the clip's end: an edit of the stored
+ * clip. An event in the last 240 units before the end (stored against the next pass) counts as the start. */
+void clip_v3_shift(uint8_t *p, int by);
 #endif

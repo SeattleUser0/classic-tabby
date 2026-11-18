@@ -213,6 +213,7 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
     if (op == 1 && n == 2 && data[1] < SONG_SONGS) {
         if (song_playing()) return GROOVE_PROJECT_PLAYING;
         r = song_load(data[1]);
+        if (r == SONG_EMPTY) ct_screen_song_select(data[1]);   /* tabby-v04.21: an empty slot is selected too (NEW SONG works on it); the reply is still the error */
         if (r) return r < 0 ? r : GROOVE_PROJECT_EMPTY;
         ct_screen_song_select(data[1]);
     } else if (op == 2 && (n == 1 || (n == 2 && data[1] < SONG_SONGS))) {
@@ -268,6 +269,8 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
     /* tabby-v04.10: {16, 4} does what the 4th left button does on the CLIP SETTING page (that button cannot be
      * injected); {17} reads the page (ct_screen_setup_read). */
     else if (op == 16 && n == 2 && data[1] == 4) { if (ct_screen_setup_do()) return GROOVE_PROJECT_INVALID; }
+    /* tabby-v04.21: {16, 5} does what the > button does on the ACTIONS page while NEW SONG is selected. */
+    else if (op == 16 && n == 2 && data[1] == 5) { if (ct_screen_action_do()) return GROOVE_PROJECT_INVALID; }
     else if (op == 17 && n == 1) { out[0] = 4; *count = 1 + ct_screen_setup_read(out + 1); return 0; }
     else return GROOVE_PROJECT_INVALID;
     remote_status(out, count);

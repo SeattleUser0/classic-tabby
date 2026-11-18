@@ -24,9 +24,13 @@ Purpose
 Usage (from the repository root)
     python3 -I tools/linux/stickers.py [--out docs/stickers] [--table] [--no-pdf]
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-18  The user's rule: no type below 6 point. Nothing printed in the function strip does anything in Classic
+                      Tabby (STRIP_ITEMS), so A, B and C now cover it on purpose: 11/16" high, from under the transport
+                      symbols to the keys, their side edges in gaps of the printing (STRIP_LABELS, measured in the
+                      photograph); E (optional) covers what is left of it. D is 7/32" high. Texts for tabby-v04.21.
     v0.3  2026-11-17  Checked against the user's photograph of the unit (PHOTO): the band under the buttons and pads is not
                       free: it carries the transport symbols and the strip of key functions. Stickers A, B and C are
                       7/32" high and sit in the gap between them; D moved; the stickers say what a button does (the
@@ -62,21 +66,27 @@ KEYS = (109, 2856, 22)                     # first and last white-key edge, numb
 
 # ---- the labels (docs/CONTROL-MAP.md v0.9; names as in SPEC.md 17.4) ---------------------------------------------
 # Left group, as the buttons lie: (printed on the device = the name, what it does)
-LEFT = [[("KNOB BANK", "SHIFT: 2ND FUNCTION"), ("FADER BANK", "FADERS T1-4 / T5-8")],
-        [("<", "AS PATCH"), (">", "SAVE / CONFIRM")],
-        [("OCTAVE-", "PREV BANK / BAR"), ("OCTAVE+", "NEXT BANK / BAR")]]
-RIGHT = [[("ARP", "ARPEGGIATOR"), ("NOTE REPEAT", "KEYS / PADS"), ("SCALE", "CLIPS <> SCENES"),
-          ("CHORD", "TO SCENES"), ("GLOBE", "MIXER"), ("BT", "CLIPS PAGE")],
-         [("PATCH", "OVERVIEW"), ("PARA", "STEP PAGE"), ("FX", "SETTING / UNDO"),
-          ("SEQ", "SYNC / MIDI"), ("SEQ PLAY", "START / STOP"), ("SEQ REC", "TAKE")]]
+# v0.4: two lines a button (6 point): what it does, and its second use ("KB" = with KNOB BANK held)
+LEFT = [[("KNOB BANK", ("SHIFT: HOLD FOR", "2ND FUNCTIONS")), ("FADER BANK", ("FADERS ON", "T1-4 / T5-8"))],
+        [("<", ("AS PATCH:", "OVERVIEW")), (">", ("SAVE /", "CONFIRM"))],
+        [("OCTAVE-", ("BANK / BAR -", "KB: SHIFT CLIP")), ("OCTAVE+", ("BANK / BAR +", "KB: SHIFT CLIP"))]]
+RIGHT = [[("ARP", ("ARP ON/OFF", "HOLD: SETUP")), ("NOTE REPEAT", ("KEYS/PADS", "FOCUS")), ("SCALE", ("CLIPS OR", "SCENES", "STEP: PADS")),
+          ("CHORD", ("TRACK TO", "SCENES", "STEP: CLEAR")), ("GLOBE", ("MIXER", "MUTE / SOLO")), ("BT", ("CLIPS PAGE", "AGAIN: BACK"))],
+         [("PATCH", ("OVERVIEW", "KB: SOURCE")), ("PARA", ("STEP PAGE", "EDIT A CLIP")), ("FX", ("SETTING", "STEP: UNDO", "TAKE: CLEAR")),
+          ("SEQ", ("SYNC / MIDI", "+ PARA:", "ACTIONS")), ("SEQ PLAY", ("PLAY / STOP", "THE SONG")), ("SEQ REC", ("TAKE", "KB: INPUT", "QUANTIZE"))]]
 # Knobs: (name, CLIPS, SCENES, STEP, SETTING)
 KNOBS = [("K1", "CTRL 74*", "TIMES", "NOTE SELECT", "VALUE"), ("K2", "CTRL 71*", "THEN", "VELOCITY", "VALUE x16"),
          ("K3", "CTRL 1*", "CHAIN HOLD", "START", "-"), ("K4", "CTRL 11*", "JUMP MODE", "LENGTH", "-"),
          ("K5", "TRACK", "SONG", "NOTE", "LINE"), ("K6", "CLIP BANK", "-", "BAR", "-"),
          ("K7", "-", "SONG", "PROBABILITY", "-"), ("K8", "MASTER VOLUME", "MASTER VOLUME", "MASTER VOLUME", "MASTER VOLUME")]
 # Sticker B, second line: the knob above the column on the two pages a song is played from (30 characters at most)
-KNOB_LINE = ["K1 CLIPS CTRL 74*  SCENES TIMES", "K2 CLIPS CTRL 71*  SCENES THEN", "K3 CLIPS CTRL 1*  SCENES HOLD", "K4 CLIPS CTRL 11*  SCENES JUMP",
-             "K5 CLIPS TRACK  SCENES SONG", "K6 CLIPS CLIP BANK", "K7 SCENES SONG", "K8 MASTER VOLUME"]
+# v0.4: two lines a column (6 point)
+KNOB_LINE = [("K1 CLIPS: CTRL 74*", "SCENES: TIMES"), ("K2 CLIPS: CTRL 71*", "SCENES: THEN"), ("K3 CLIPS: CTRL 1*", "SCENES: HOLD"), ("K4 CLIPS: CTRL 11*", "SCENES: JUMP"),
+             ("K5 CLIPS: TRACK", "SCENES: SONG"), ("K6 CLIPS: BANK", "STEP: BAR"), ("K7 SCENES: SONG", "STEP: PROBABILITY"), ("K8 MASTER", "VOLUME")]
+# Which pad row is pads 1 to 8: the upper one. An assumption (docs/STICKERS.md 5.1): M-VAVE's own panel model in the kit
+# draws it so and the LED chain confirms the columns; nobody has pressed a pad to see.
+PAD_ROW_LINES = ("KNOB BANK + PAD:", "UPPER: TRACK %d", "LOWER: MUTE %d")
+EXTRA = ("CLASSIC TABBY", "SEQ + PARA: ACTIONS", "PATCH + SEQ PLAY: STOP ALL", "KB = KNOB BANK HELD")
 FADERS = ["LEVEL T1 / T5", "LEVEL T2 / T6", "LEVEL T3 / T7", "LEVEL T4 / T8"]
 
 # ---- the photograph of the unit (2026-11-17; ~/Documents/Classic Tabby/panel.jpg, 2016 x 1512, straight above) -------
@@ -105,12 +115,73 @@ STRIP = (y_px(PHOTO["function_strip"][0]), y_px(PHOTO["function_strip"][1]))
 BAND = (y_px(3.0 + 4 / 32), y_px(3.0 + 11 / 32))
 # D: between the fader slots' ends (2.02") and the right button field (2.36"): 5/32" high, in the middle.
 D_BAND = (y_px(2.0 + 4 / 32), y_px(2.0 + 9 / 32))
+# v0.4: A, B and C run from 3 3/32" (1/32" under the transport symbols) to 3 25/32" (1/32" past the function strip, 1/32" short
+# of the keys): 11/16" high. They cover the strip on purpose. D: 2 3/32" to 2 5/16" (7/32").
+def x_px(inches):
+    return CASE[0] + inches / IN_PER_PX
+BAND = (y_px(3.0 + 3 / 32), y_px(3.0 + 25 / 32))
+D_BAND = (y_px(2.0 + 3 / 32), y_px(2.0 + 10 / 32))
+# The printing of the function strip, read and measured in the photograph (inches from the case's left edge, to 0.03"):
+# (left, right, upper line, lower line). Upper line: held ARP + key; lower: held GLOBE + key (CHN, PRE), SCALE + key (the
+# root), and RESET. One label a key, from the lowest key up.
+STRIP_LABELS = [
+    (0.20, 0.76, "ARP | UP", "GLOB | CHN 1"), (1.00, 1.28, "DOWN", "CHN 2"), (1.40, 1.67, "INCL", "CHN 3"), (1.91, 2.16, "EXCL", "CHN 4"),
+    (2.32, 2.59, "RAND", "CHN 5"), (2.86, 3.19, "ORDER", "CHN 6"), (3.33, 3.69, "REPEAT", "CHN 7"), (3.76, 4.01, "OCT+", "CHN 8"),
+    (4.25, 4.56, "LATCH", "CHN 9"), (4.63, 4.93, "GATE+", "CHN 10"), (5.14, 5.45, "GATE-", "CHN 11"), (5.52, 5.82, "TAP", "CHN 12"),
+    (6.01, 6.38, "SWING+", "CHN 13"), (6.49, 6.82, "SWING-", "CHN 14"), (6.91, 7.28, "TEMPO+", "CHN 15"), (7.39, 7.75, "TEMPO-", "CHN 16"),
+    (7.83, 8.16, "SYNC", "PRE 1"), (8.32, 8.56, "", "PRE 2"), (8.79, 9.02, "", "PRE 3"), (9.19, 9.42, "", "PRE 4"), (9.64, 9.88, "", "PRE 5"),
+    (10.05, 10.28, "", "PRE 6"), (10.50, 10.73, "", "PRE 7"), (10.91, 11.14, "", "PRE 8"), (11.10, 11.52, "RATE | 1/4", "SC | C"),
+    (11.88, 12.06, "1/4T", "C#"), (12.31, 12.43, "1/8", "D"), (12.78, 12.96, "1/8T", "D#"), (13.20, 13.38, "1/16", "E"),
+    (13.73, 13.97, "1/16T", "F"), (14.19, 14.36, "1/32", "F#"), (14.61, 14.85, "1/32T", "G"), (15.08, 15.19, "", "G#"),
+    (15.48, 15.55, "", "A"), (15.94, 16.05, "", "A#"), (16.37, 16.42, "", "B"), (17.05, 17.32, "", "RESET")]
+# What each printed function is in M-VAVE's firmware and what Classic Tabby does with the same gesture: nothing of the
+# strip works (the keys only play notes: app/smk37_controls.c sends every key as a note, whatever button is held).
+STRIP_ITEMS = [
+    ("ARP: UP, DOWN, INCL, EXCL, RAND, ORDER, REPEAT, OCT+, LATCH, GATE+, GATE-, TAP, SWING+, SWING-, TEMPO+, TEMPO-, SYNC", "hold ARP, press the key (M-VAVE's manual)",
+     "dead: holding ARP opens the ARP settings page; the knobs set rate, direction, range, gate, swing, hold. The key plays its note."),
+    ("RATE: 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T", "a held button and the key (the manual does not say which)", "dead: the arpeggiator's rate is K1 on the ARP page."),
+    ("GLOB: CHN 1 to CHN 16", "hold GLOBE, press the key (by the label; not in the manual)", "dead: holding GLOBE shows the mixer (pads mute and solo). Channels are on the MIDI TRACK page (KNOB BANK + SEQ)."),
+    ("PRE 1 to PRE 8", "as CHN", "dead: projects are chosen with K7 on the overview."),
+    ("SC: C, C#, D ... B", "a held button and the key (by the label: SCALE)", "dead: SCALE switches CLIPS and SCENES; there is no scale lock. The letters are also the names of those twelve keys."),
+    ("RESET", "a held button and the highest key", "dead: no key resets anything. Recovery is in the workbench.")]
+# Sticker edges: in gaps of that printing, so that no printed word is cut in half:
+#   2 7/32" | 2 1/4" between EXCL / CHN 4 (ends 2.16) and RAND / CHN 5 (begins 2.32);
+#   4 3/32" | 4 5/32" between OCT+ / CHN 8 (4.01) and LATCH / CHN 9 (4.25);
+#   13 1/32" | 13 3/32" between 1/8T / D# (12.96) and 1/16 / E (13.20);  17 9/16" right of RESET (17.32).
+EDGE = {"E0": 5 / 32, "E1": 2 + 7 / 32, "A0": 2 + 8 / 32, "A1": 4 + 3 / 32, "B0": 4 + 5 / 32, "B1": 13 + 1 / 32, "C0": 13 + 3 / 32, "C1": 17 + 18 / 32}
 STICKERS = {
-    "A": ("left buttons", LEFT_PANEL[0], BAND[0], LEFT_PANEL[2], BAND[1]),
-    "B": ("pads and knobs", PAD_X[0][0], BAND[0], PAD_X[7][1], BAND[1]),
-    "C": ("right buttons", RIGHT_PANEL[0], BAND[0], RIGHT_PANEL[2], BAND[1]),
-    "D": ("faders", 2206, D_BAND[0], 2864, D_BAND[1]),
+    "A": ("left buttons", x_px(EDGE["A0"]), BAND[0], x_px(EDGE["A1"]), BAND[1]),
+    "B": ("pads and knobs", x_px(EDGE["B0"]), BAND[0], x_px(EDGE["B1"]), BAND[1]),
+    "C": ("right buttons", x_px(EDGE["C0"]), BAND[0], x_px(EDGE["C1"]), BAND[1]),
+    "D": ("faders", 2186, D_BAND[0], 2884, D_BAND[1]),
+    "E": ("optional: left end of the strip", x_px(EDGE["E0"]), BAND[0], x_px(EDGE["E1"]), BAND[1]),
 }
+MIN_POINT = 6.0
+SQUEEZE = {"most": 1.0}      # the strongest horizontal squeeze any line needed (1.0 = none)
+
+
+def covered(key):
+    """The strip labels a sticker covers (wholly), as (upper, lower) texts."""
+    x0, x1 = inch(STICKERS[key][1] - CASE[0]), inch(STICKERS[key][3] - CASE[0])
+    return [(u, l) for a, b, u, l in STRIP_LABELS if a >= x0 - 0.02 and b <= x1 + 0.02]
+
+
+def est_width(s, size):
+    """Width in inches of bold Helvetica capitals at `size` points (an estimate, a little on the wide side)."""
+    w = 0.0
+    for ch in s:
+        w += 0.28 if ch == " " else 0.30 if ch in ".,:;'|!/()-*" else 0.58 if ch.isdigit() or ch in "+<>=" else 0.72
+    return w * size / 72.0
+
+
+def fit(x, y, s, size, avail, weight="700"):
+    """A line of at least MIN_POINT type centred at x; squeezed sideways (never made smaller) when it is too wide."""
+    assert size >= MIN_POINT, (s, size)
+    w = est_width(s, size)
+    if w <= avail:
+        return text(x, y, s, size, weight)
+    SQUEEZE["most"] = min(SQUEEZE["most"], avail / w)
+    return text(x, y, s, size, weight, extra='textLength="%.4f" lengthAdjust="spacingAndGlyphs"' % avail)
 
 
 def inch(px):
@@ -151,39 +222,46 @@ def sticker_svg(key, ox, oy, outline=True):
     out = ['<g transform="translate(%.4f %.4f)">' % (ox, oy)]
     out.append('<rect x="0" y="0" width="%.4f" height="%.4f" rx="0.03" fill="#fff" stroke="%s" stroke-width="0.006"/>' % (w, h, "#000" if outline else "#888"))
     lx = lambda px: inch(px - x0)
+    PT = 1 / 72.0
     if key == "A":
         rh = h / 3
+        mid = lx((LEFT_COLS[0][1] + LEFT_COLS[1][0]) / 2)
         for r, row in enumerate(LEFT):
-            for c, (_, what) in enumerate(row):
-                cx = lx((LEFT_COLS[c][0] + LEFT_COLS[c][1]) / 2)
-                out.append(text(cx, r * rh + rh * 0.76, what, 3.5, "700"))
+            for c, (_, lines) in enumerate(row):
+                x0c, x1c = (0.0, mid) if c == 0 else (mid, w)
+                for n, line in enumerate(lines):
+                    out.append(fit((x0c + x1c) / 2, r * rh + (6.6 + 7.0 * n) * PT, line, 6.0, x1c - x0c - 0.06))
             if r:
                 out.append('<line x1="0.03" y1="%.4f" x2="%.4f" y2="%.4f" stroke="#000" stroke-width="0.003"/>' % (r * rh, w - 0.03, r * rh))
-        out.append('<line x1="%.4f" y1="0.02" x2="%.4f" y2="%.4f" stroke="#000" stroke-width="0.003"/>' % (w / 2, w / 2, h - 0.02))
+        out.append('<line x1="%.4f" y1="0.02" x2="%.4f" y2="%.4f" stroke="#000" stroke-width="0.003"/>' % (mid, mid, h - 0.02))
     elif key == "C":
         rh = h / 2
+        edges = [0.0] + [lx((RIGHT_COLS[c - 1][1] + RIGHT_COLS[c][0]) / 2) for c in range(1, 6)] + [w]
         for r, row in enumerate(RIGHT):
-            for c, (_, what) in enumerate(row):
-                cx = lx((RIGHT_COLS[c][0] + RIGHT_COLS[c][1]) / 2)
-                out.append(text(cx, r * rh + rh * 0.72, what, 4.4, "700"))
+            for c, (_, lines) in enumerate(row):
+                top = (rh / PT - (4.4 + 7.4 * (len(lines) - 1))) / 2 + 4.4          # the block of lines centred in its cell (capitals are 4.4 pt high)
+                for n, line in enumerate(lines):
+                    out.append(fit((edges[c] + edges[c + 1]) / 2, r * rh + (top + 7.4 * n) * PT, line, 6.0, edges[c + 1] - edges[c] - 0.06))
         out.append('<line x1="0.03" y1="%.4f" x2="%.4f" y2="%.4f" stroke="#000" stroke-width="0.003"/>' % (rh, w - 0.03, rh))
-        for c in range(1, 6):
-            x = lx((RIGHT_COLS[c - 1][1] + RIGHT_COLS[c][0]) / 2)
+        for x in edges[1:-1]:
             out.append('<line x1="%.4f" y1="0.02" x2="%.4f" y2="%.4f" stroke="#000" stroke-width="0.003"/>' % (x, x, h - 0.02))
     elif key == "B":
-        rh = h / 2
-        for k, (name, clips, scenes, _step, _setting) in enumerate(KNOBS):
-            cx = lx((PAD_X[k][0] + PAD_X[k][1]) / 2)
-            out.append(text(cx, rh * 0.74, "KNOB BANK: TRACK %d / MUTE %d" % (k + 1, k + 1), 3.3, "700"))
-            out.append(text(cx, rh + rh * 0.72, KNOB_LINE[k], 3.3, "700"))
+        edges = [0.0] + [lx((PAD_X[k - 1][1] + PAD_X[k][0]) / 2) for k in range(1, 8)] + [w]
+        for k in range(8):
+            cx, avail = (edges[k] + edges[k + 1]) / 2, edges[k + 1] - edges[k] - 0.06
+            lines = [PAD_ROW_LINES[0], PAD_ROW_LINES[1] % (k + 1), PAD_ROW_LINES[2] % (k + 1), KNOB_LINE[k][0], KNOB_LINE[k][1]]
+            for n, line in enumerate(lines):
+                out.append(fit(cx, (8.0 + 8.2 * n + (3.0 if n >= 3 else 0.0)) * PT, line, 6.0, avail, "700" if n else "400"))
             if k:
-                x = lx((PAD_X[k - 1][1] + PAD_X[k][0]) / 2)
-                out.append('<line x1="%.4f" y1="0.02" x2="%.4f" y2="%.4f" stroke="#000" stroke-width="0.003"/>' % (x, x, h - 0.02))
-        out.append('<line x1="0.03" y1="%.4f" x2="%.4f" y2="%.4f" stroke="#000" stroke-width="0.003"/>' % (rh, w - 0.03, rh))
-
+                out.append('<line x1="%.4f" y1="0.02" x2="%.4f" y2="%.4f" stroke="#000" stroke-width="0.003"/>' % (edges[k], edges[k], h - 0.02))
+        out.append('<line x1="0.03" y1="%.4f" x2="%.4f" y2="%.4f" stroke="#000" stroke-width="0.003"/>' % (28.2 * PT, w - 0.03, 28.2 * PT))
     elif key == "D":
-        for k, s in enumerate(FADERS):
-            out.append(text(lx(FADER_X[k]), h * 0.72, s, 5.6))
+        for k, t in enumerate(FADERS):
+            out.append(fit(lx(FADER_X[k]), h * 0.70, t, 7.0, 0.95))
+    elif key == "E":
+        out.append(fit(w / 2, 13.0 * PT, EXTRA[0], 10.0, w - 0.1))
+        for n, line in enumerate(EXTRA[1:]):
+            out.append(fit(w / 2, (24.0 + 8.5 * n) * PT, line, 6.0, w - 0.1))
     out.append("</g>")
     return "\n".join(out), w, h
 
@@ -225,9 +303,16 @@ def panel_svg(scale, x_from=None, x_to=None, with_stickers=True, dims=False):
         R(x - 12, FADER_SLOT[0], x + 12, FADER_SLOT[1], rx=0.02)
     # the printing the stickers must not cover (from the photograph): the transport symbols and the function strip
     R(PAD_X[0][0], SYMBOLS[0], PAD_X[7][1], SYMBOLS[1], extra='fill="#cfe3ff" stroke="#369" stroke-width="0.004"')
-    R(CASE[0] + 40, STRIP[0], CASE[2] - 40, STRIP[1], extra='fill="#cfe3ff" stroke="#369" stroke-width="0.004"')
+    R(x_px(0.15), STRIP[0], x_px(17.4), STRIP[1], extra='fill="#cfe3ff" stroke="#369" stroke-width="0.004"')
+    if scale >= 1:
+        for a_, b_, up, low in STRIP_LABELS:
+            cx = (a_ + b_) / 2
+            if up:
+                o.append(text(cx, pos(0, STRIP[0])[1] + 0.10, up, 4.0, '400', 'middle', '#135'))
+            o.append(text(cx, pos(0, STRIP[1])[1] - 0.04, low, 4.0, '400', 'middle', '#135'))
     o.append(text(pos((PAD_X[0][0] + PAD_X[7][1]) / 2, 0)[0], pos(0, (SYMBOLS[0] + SYMBOLS[1]) / 2)[1] + 0.025, 'printed: transport symbols', 4.5 if scale >= 1 else 7, '400', 'middle', '#135'))
-    o.append(text(pos((CASE[0] + CASE[2]) / 2, 0)[0], pos(0, (STRIP[0] + STRIP[1]) / 2)[1] + 0.04, 'printed: the strip of key functions (ARP, CHN 1-16, PRE 1-8, RATE, RESET) - not covered', 7 if scale >= 1 else 10, '400', 'middle', '#135'))
+    if scale < 1:
+        o.append(text(pos(x_px(1.2), 0)[0], pos(0, (STRIP[0] + STRIP[1]) / 2)[1] + 0.05, 'strip', 10, '400', 'middle', '#135'))
     if with_stickers:
         for key in STICKERS:
             _, x0, y0, x1, y1 = STICKERS[key]
@@ -251,9 +336,9 @@ def panel_svg(scale, x_from=None, x_to=None, with_stickers=True, dims=False):
             for y in (ay, by):
                 o.append('<line x1="%.4f" y1="%.4f" x2="%.4f" y2="%.4f" stroke="#c00" stroke-width="0.006"/>' % (ax - 0.06, y, ax + 0.06, y))
             o.append(text(ax + (0.06 if right else -0.06), (ay + by) / 2 + 0.05, frac(by - ay), 11, "700", "start" if right else "end", "#c00"))
-        for n, key in enumerate(("A", "B", "C")):
+        for n, key in enumerate(("E", "A", "B", "C")):
             _, x0, y0, x1, y1 = STICKERS[key]
-            dim_h(CASE[0], x0, KEYBED_Y + 120 + 110 * n, False)
+            dim_h(CASE[0], x0, KEYBED_Y + 100 + 100 * n, False)
         dim_v(CASE[0] + 250, CASE[1], BAND[0], False)
         dim_v(CASE[0] + 330, BAND[0], BAND[1], True)
         _, x0, y0, x1, y1 = STICKERS["D"]
@@ -275,27 +360,28 @@ def build_html():
     for i in range(6):
         p.append('<line x1="%.3f" y1="0.95" x2="%.3f" y2="1.12" stroke="#000" stroke-width="0.008"/>' % (0.5 + i, 0.5 + i))
         p.append(text(0.5 + i, 1.24, '%d"' % i, 7, "400"))
-    for n, (dy, label) in enumerate(((1.75, True), (5.45, False))):
+    for n, (dy, label) in enumerate(((1.75, True), (5.0, False))):
         if not label:
-            p.append(text(0.5, dy - 0.25, "Spare set (the same four stickers)", 9, "700", "start"))
-        for key, (x, y) in (("B", (0.5, dy)), ("C", (0.5, dy + 1.05)), ("A", (5.3, dy + 1.05)), ("D", (0.5, dy + 2.1))):
+            p.append(text(0.5, dy - 0.25, "Spare set (the same five stickers)", 9, "700", "start"))
+        for key, (x, y) in (("B", (0.5, dy)), ("C", (0.5, dy + 1.0)), ("A", (5.2, dy + 1.0)), ("E", (7.35, dy + 1.0)), ("D", (0.5, dy + 2.0))):
             s, w, h = sticker_svg(key, x, y)
             p.append(text(x, y - 0.07, 'Sticker %s  -  %s  -  %s x %s' % (key, STICKERS[key][0], frac(w), frac(h)), 7.5, "700", "start"))
             p.append(s)
-    p.append(text(0.5, 8.2, "Sizes fit sticker paper cut by hand, or label tape: A, B, C on 6 mm (1/4\") tape trimmed to 7/32\"; D on 6 mm (1/4\") tape trimmed to 5/32\". docs/STICKERS.md has every text and position.", 7.5, "400", "start"))
+    p.append(text(0.5, 7.85, "Black on white, no type below 6 point. A, B and C are 11/16\" high and cover the strip of key functions printed above the keys on purpose (none of them works in Classic Tabby); E is optional and covers the rest of it.", 7.5, "400", "start"))
+    p.append(text(0.5, 8.05, "KB = with KNOB BANK held. * = the controller numbers of the song (CLIP SETTING). Upper / lower pad row: an assumption, see docs/STICKERS.md 5.1. docs/STICKERS.md has every text and position.", 7.5, "400", "start"))
     p.append("</svg>")
     pages.append("\n".join(p))
     # page 2: where they go, half size, dimensioned
     p = ['<svg xmlns="http://www.w3.org/2000/svg" width="11in" height="8.5in" viewBox="0 0 11 8.5">']
     p.append(text(0.5, 0.55, "Page 2 of 4: where the stickers go  -  the panel at half size; dimensions in inches at full size, from the case's back left corner", 12, "700", "start"))
-    p.append(text(0.5, 0.78, "Grey: the button fields with the words printed on the device. Blue: printing that stays visible. Yellow: stickers A to D. A, B and C sit in the gap between the transport symbols and the function strip.", 8.5, "400", "start"))
+    p.append(text(0.5, 0.78, "Grey: the button fields with the words printed on the device. Blue: the printing (the transport symbols stay visible; the strip of key functions is covered on purpose). Yellow: stickers A to E.", 8.5, "400", "start"))
     p.append('<g transform="translate(0.75 1.6) scale(0.5)">' + panel_svg(0.5, dims=True) + "</g>")
-    p.append(text(0.5, 6.6, "Sticker tops: A, B, C  %s from the back edge (the free gap is %s to %s; the function strip begins there).  D  %s from the back edge." % tuple(frac(v) for v in (
-        pos(0, BAND[0])[1], PHOTO["transport_symbols"][1], PHOTO["function_strip"][0], pos(0, STICKERS["D"][2])[1])), 9, "400", "start"))
-    p.append(text(0.5, 6.85, "Left edges from the case's left edge: A %s   B %s   C %s   D %s.   Each sticker is as wide as the group above it, so its columns line up with the buttons, pads and knobs." % tuple(frac(v) for v in (
-        pos(STICKERS["A"][1], 0)[0], pos(STICKERS["B"][1], 0)[0], pos(STICKERS["C"][1], 0)[0], pos(STICKERS["D"][1], 0)[0])), 9, "400", "start"))
-    p.append(text(0.5, 7.1, "Easier than measuring: centre each sticker in its gap by eye; line up the left edge of A with the left button field, B with pad 1 (upper left),", 9, "400", "start"))
-    p.append(text(0.5, 7.35, "C and D with the left edge of the right button field (D starts 1/32\" further right). Pages 3 and 4 show the same at actual size.", 9, "400", "start"))
+    p.append(text(0.5, 6.6, "Sticker tops: A, B, C, E  %s from the back edge (the transport symbols end at %s; the function strip, %s to %s, is covered; the keys begin at %s).  D  %s from the back edge." % tuple(frac(v) for v in (
+        pos(0, BAND[0])[1], PHOTO["transport_symbols"][1], PHOTO["function_strip"][0], PHOTO["function_strip"][1], PHOTO["keys_begin"], pos(0, STICKERS["D"][2])[1])), 9, "400", "start"))
+    p.append(text(0.5, 6.85, "Left edges from the case's left edge: E %s   A %s   B %s   C %s   D %s.   The columns inside A, B and C line up with the buttons, pads and knobs above them." % tuple(frac(v) for v in (
+        pos(STICKERS["E"][1], 0)[0], pos(STICKERS["A"][1], 0)[0], pos(STICKERS["B"][1], 0)[0], pos(STICKERS["C"][1], 0)[0], pos(STICKERS["D"][1], 0)[0])), 9, "400", "start"))
+    p.append(text(0.5, 7.1, "Easier than measuring: go by the printing. Top edges just under the transport symbols. A: left edge just left of the printed RAND / CHN 5. B: just left of LATCH / CHN 9, touching A.", 9, "400", "start"))
+    p.append(text(0.5, 7.35, "C: just left of 1/16 / E, touching B. E: its right edge touching A. D: under the fader slots, left edge with the right button field. Pages 3 and 4 show the same at actual size.", 9, "400", "start"))
     p.append("</svg>")
     pages.append("\n".join(p))
     # pages 3 and 4: the panel at 1:1, two halves with an overlap
@@ -320,11 +406,12 @@ def measurements():
     m = {"photo": PHOTO, "source": "M-VAVE SMK-37 PRO user manual, top-view line drawing (2962 x 1732 px); scale from the published case width",
          "case_width_mm": CASE_WIDTH_MM, "inch_per_pixel": IN_PER_PX,
          "case_in": [inch(CASE[2] - CASE[0]), inch(CASE[3] - CASE[1])], "case_mm": [inch(CASE[2] - CASE[0]) * 25.4, inch(CASE[3] - CASE[1]) * 25.4],
-         "stickers": {}, "controls": {}}
+         "stickers": {}, "controls": {}, "strip_labels": STRIP_LABELS, "strip_items": STRIP_ITEMS, "edges_in": EDGE, "min_point": MIN_POINT}
     for key, (title, x0, y0, x1, y1) in STICKERS.items():
         x, y = pos(x0, y0)
         m["stickers"][key] = {"title": title, "left_in": round(x, 3), "top_in": round(y, 3), "width_in": round(inch(x1 - x0), 3), "height_in": round(inch(y1 - y0), 3),
-                              "width_mm": round(inch(x1 - x0) * 25.4, 1), "height_mm": round(inch(y1 - y0) * 25.4, 1)}
+                              "width_mm": round(inch(x1 - x0) * 25.4, 1), "height_mm": round(inch(y1 - y0) * 25.4, 1),
+                              "covers": [] if key == "D" else covered(key)}
     c = m["controls"]
     c["knob_centres_in"] = [[round(v, 3) for v in pos(x, KNOB_Y)] for x in KNOB_X]
     c["knob_diameter_in"] = round(inch(2 * KNOB_R), 3)
@@ -368,7 +455,9 @@ def main():
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     page = out / "classic-tabby-stickers.html"
     page.write_text(build_html(), encoding="utf-8")
-    (out / "measurements.json").write_text(json.dumps(measurements(), indent=1) + "\n")
+    m = measurements(); m["strongest_squeeze"] = round(SQUEEZE["most"], 3)
+    (out / "measurements.json").write_text(json.dumps(m, indent=1) + "\n")
+    print("no type below %.1f point; the strongest sideways squeeze of a line: to %.0f %% of its width" % (MIN_POINT, 100 * SQUEEZE["most"]))
     print("wrote %s and measurements.json" % page)
     if not a.no_pdf:
         pdf = out / "classic-tabby-stickers.pdf"

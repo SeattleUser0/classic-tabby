@@ -2774,6 +2774,68 @@ int main(void)
           CHECK(n60[2] >= 3 && n71[2] >= 3 && NEAR(t71[2][0] - t60[2][0], 86U) && NEAR(t71[2][1] - t71[2][0], 1163U) && NEAR(t60[2][1] - t71[2][1], 86U) && NEAR(t60[2][2] - t60[2][1], 43U),
                 "direction FWD THEN REV: 60, 71, then 27 sixteenths later 71, 60, and 60 again at once: 32 sixteenths in all (%u, %u, %u, %u blocks; 86, 1163, 86, 43)", t71[2][0] - t60[2][0], t71[2][1] - t71[2][0], t60[2][1] - t71[2][1], t60[2][2] - t60[2][1]);
           song_edit_discard(); }
+        /* ---- tabby-v04.21: shift a clip by a step; FX + key clears notes during a take; a new empty song ---- */
+        { CHECK(sim_song_load(SONG) == 0 && song_edit_open(0, 0) == 0 && song_edit_length(16 - (int)clip_v3_steps(song_edit_clip())) >= 0 && song_edit_note_toggle(2, 71, 100, 240) == 1 && song_edit_note_toggle(15, 72, 100, 240) == 1,
+                "shift: clip 1 open, 16 steps, 60 on step 1, 71 on step 3, 72 on step 16");
+          struct song_edit_info ei; song_edit_info(&ei); unsigned undo0 = ei.undo, events0 = ei.events;
+          CHECK(song_edit_shift(1) == 0 && clip_v3_note_find(song_edit_clip(), 1, 60) >= 0 && clip_v3_note_find(song_edit_clip(), 3, 71) >= 0 && clip_v3_note_find(song_edit_clip(), 0, 72) >= 0 && clip_v3_note_find(song_edit_clip(), 0, 60) < 0,
+                "shift: one step later: 60 on step 2, 71 on step 4, 72 from step 16 round to step 1");
+          CHECK(song_edit_shift(1) == 0 && clip_v3_note_find(song_edit_clip(), 2, 60) >= 0 && clip_v3_note_find(song_edit_clip(), 1, 72) >= 0 && clip_v3_validate(song_edit_clip(), clip_v3_bytes(song_edit_clip())) == 0, "shift: once more; the clip is valid");
+          song_edit_info(&ei);
+          CHECK(ei.undo == undo0 + 1U && ei.events == events0, "shift: one run of shifts is one undo level, no event lost (%u levels, %u events)", ei.undo, ei.events);
+          CHECK(song_edit_undo() == 0 && clip_v3_note_find(song_edit_clip(), 0, 60) >= 0 && clip_v3_note_find(song_edit_clip(), 15, 72) >= 0, "shift: undo gives the clip before the run");
+          CHECK(song_edit_shift(-1) == 0 && clip_v3_note_find(song_edit_clip(), 15, 60) >= 0 && clip_v3_note_find(song_edit_clip(), 1, 71) >= 0 && clip_v3_note_find(song_edit_clip(), 14, 72) >= 0, "shift: one step earlier: 60 from step 1 round to step 16");
+          CHECK(song_edit_undo() == 0, "shift: undo");
+          /* FX + key in a take: 71 held with FX while the clip passes step 3 */
+          unsigned ch = groove_midi_input_channel(0), b60 = 0, got = 0, phase = 0, n60_after = 0, n71_after = 0, rec_at = 0, hint = 0;
+          { struct message m[64]; (void)drain(m, 64); }
+          CHECK(song_clip_launch(0, 0) == 0 && song_record_start() == 1, "clear: the clip reserved, a take armed");
+          (void)sim_song_play();
+          for (unsigned blocks = 0; blocks < 4200 && phase < 5; ++blocks) {
+              (void)sim_render();
+              struct message m[64]; unsigned n = drain(m, 64);
+              song_edit_info(&ei);
+              for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && m[k].data[0] == 0x94 && m[k].data[2]) {
+                  if (m[k].data[1] == 60 && ei.recording == 2 && !got) { b60 = blocks; got = 1; }
+                  if (got && phase >= 2 && blocks > rec_at + 700) { if (m[k].data[1] == 71) ++n71_after; if (m[k].data[1] == 60) ++n60_after; }
+              }
+              if (!got) continue;
+              if (phase == 0 && blocks == b60 + 20) { (void)sim_smk37(SMK37_BUTTON, 14, 1); phase = 1; }                    /* FX down */
+              if (phase == 1 && blocks == b60 + 30) { hint = clip_v3_note_find(song_edit_clip(), 2, 71) >= 0; song_record_in(1, 0x90 | ch, 71, 100); phase = 2; rec_at = blocks; }
+              if (phase == 2 && blocks == b60 + 200) { song_record_in(1, 0x80 | ch, 71, 0); phase = 3; }                    /* step 3 was passed at 86 blocks */
+              if (phase == 3 && blocks == b60 + 210) { (void)sim_smk37(SMK37_BUTTON, 14, 0); phase = 4; }
+              if (phase == 4 && blocks == b60 + 1500) phase = 5;                                                             /* two more passes of the clip */
+          }
+          song_edit_info(&ei);
+          CHECK(phase == 5 && ei.recording == 2 && hint, "clear: the take runs; 71 was on step 3 when FX and the key went down");
+          CHECK(clip_v3_note_find(song_edit_clip(), 2, 71) < 0 && clip_v3_note_find(song_edit_clip(), 0, 60) >= 0 && clip_v3_note_find(song_edit_clip(), 15, 72) >= 0 && ei.events == events0 - 1U,
+                "clear: FX + the key 71 over step 3: that note is out of the clip, 60 and 72 stay, the key was not recorded (%u events)", ei.events);
+          CHECK(n60_after >= 1 && n71_after == 0, "clear: in the passes that follow 60 comes out of the clip (%u) and 71 no longer (%u)", n60_after, n71_after);
+          song_record_in(1, 0x90 | ch, 75, 100); for (unsigned i = 0; i < 20; ++i) (void)sim_render(); song_record_in(1, 0x80 | ch, 75, 0); for (unsigned i = 0; i < 20; ++i) (void)sim_render();
+          song_record_stop(); song_edit_info(&ei);
+          CHECK(ei.events == events0 && ei.undo >= 1, "clear: with FX up a key is recorded again (%u events)", ei.events);
+          sim_song_stop(); settle(); settle();
+          CHECK(song_edit_undo() == 0 && clip_v3_note_find(song_edit_clip(), 2, 71) >= 0, "clear: undo gives the clip before the take, 71 back on step 3");
+          song_edit_discard();
+          /* a new empty song */
+          const unsigned NEW = 12;
+          (void)sim_song_record_delete(NEW);
+          CHECK(song_new(SONG) == SONG_NEW_EXISTS && song_loaded() == SONG, "new song: a slot that holds a song is refused (the song stays loaded)");
+          CHECK(song_new(NEW) == 0 && song_loaded() == NEW && song_current() && song_current()->rows == 1 && !memcmp(song_current()->name, "NEW SONG    ", 12) && song_model_current()->cycle == 16,
+                "new song: slot %u was empty: a song of one scene, cycle 16, named NEW SONG, is loaded", NEW + 1U);
+          CHECK(song_clip_new(0, 0) == 0 && song_edit_note_toggle(0, 64, 100, 240) == 1 && song_edit_note_toggle(4, 67, 100, 240) == 1 && song_clip_scene(0, 0) < 0, "new song: a new clip on track 1 with two notes (scene 1 stays empty)");
+          CHECK(song_edit_save() == 0 && !song_unsaved(), "new song: saved");
+          CHECK(sim_song_load(SONG) == 0 && sim_song_load(NEW) == 0 && song_edit_open(0, 0) == 0 && clip_v3_note_find(song_edit_clip(), 0, 64) >= 0 && clip_v3_note_find(song_edit_clip(), 4, 67) >= 0, "new song: loaded again from storage: the clip and its notes are there");
+          { struct message m[64]; (void)drain(m, 64); }
+          unsigned n64 = 0, n67 = 0;
+          CHECK(song_clip_launch(0, 0) == 0, "new song: the clip reserved");
+          (void)sim_song_play();
+          for (unsigned blocks = 0; blocks < 1500; ++blocks) { (void)sim_render(); struct message m[64]; unsigned n = drain(m, 64);
+              for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && (m[k].data[0] & 0xf0) == 0x90 && m[k].data[2]) { if (m[k].data[1] == 64) ++n64; if (m[k].data[1] == 67) ++n67; } }
+          sim_song_stop(); settle(); settle();
+          CHECK(n64 >= 2 && n67 >= 2, "new song: SEQ PLAY starts the song and the reserved clip, which loops (%u, %u notes)", n64, n67);
+          CHECK(song_new(NEW) == SONG_NEW_EXISTS, "new song: the slot is taken now");
+          song_edit_discard(); (void)sim_song_record_delete(NEW); }
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

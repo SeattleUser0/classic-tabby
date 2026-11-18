@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.15 (2026-11-18). Applies from tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.16 (2026-11-18). Applies from tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -32,7 +32,7 @@ test tools keep their own names; this table is the bridge.
 | FADER BANK | left, row 1 | FADER BANK | Faders on tracks 1 to 4 or 5 to 8 |
 | < | left, row 2 | HOME | As PATCH pressed alone |
 | > | left, row 2 | SAVE; "the 4th left button", 4TH LEFT BTN, BTN 4 | Saves (the song, the clip, the project) and confirms |
-| OCTAVE-, OCTAVE+ | left, row 3 | OCT_DOWN, OCT_UP; OCT -, OCT + | Octave of the keys; pad bank on CLIPS and SCENES; bar on STEP; line on CLIP SETTING |
+| OCTAVE-, OCTAVE+ | left, row 3 | OCT_DOWN, OCT_UP; OCT -, OCT + | Octave of the keys; pad bank on CLIPS and SCENES; bar on STEP (with KNOB BANK: shift the clip a step); line on CLIP SETTING |
 | ARP | right, upper | ARP | Arpeggiator on / off; held: its settings |
 | NOTE REPEAT | right, upper | PAD / STEP | Playing focus: keys or pads |
 | SCALE | right, upper | SCL | CLIPS <> SCENES; pad mode on STEP |
@@ -41,7 +41,7 @@ test tools keep their own names; this table is the bridge.
 | BT | right, upper | BT | To the CLIPS page |
 | PATCH | right, lower | HOME; HOME / SRC | The overview and the preset list; with KNOB BANK the sound source page |
 | PARA | right, lower | EDIT | The STEP page of the selected clip; on SCENES held with K1: move a scene |
-| FX | right, lower | FX | CLIP SETTING; undo on STEP; twice on SCENES: delete a scene |
+| FX | right, lower | FX | CLIP SETTING; undo on STEP; twice on SCENES: delete a scene; held with a key during a take: clear that key's notes |
 | SEQ | right, lower | SEQ | SYNC / MIDI; with PARA the ACTIONS menu; with KNOB BANK the MIDI TRACK page |
 | SEQ PLAY | right, lower | PLAY | Starts and stops the song |
 | SEQ REC | right, lower | REC | Starts and stops a take |
@@ -49,7 +49,18 @@ test tools keep their own names; this table is the bridge.
 Knobs are printed K1 to K8 and faders FADER1 to FADER4; the firmware calls K5 SELECT, K6 PAGE, K7 PRESETS and K8 MASTER.
 The pads carry no numbers. Under the lower pad row the panel prints transport symbols (play, pause, record, rewind,
 fast forward, <, >, UNDO) and above the keys a strip of M-VAVE's own key functions (ARP, CHN 1 to 16, PRE 1 to 8,
-rates, RESET): Classic Tabby uses neither.
+rates, RESET): Classic Tabby uses neither (docs/STICKERS.md 2 goes through the strip function by function).
+
+### 1.2 The pad rows (an assumption)
+
+Pads 1 to 8 are taken to be the upper row (next to the knobs), left to right, and pads 9 to 16 the lower row, pad
+n + 8 under pad n. The columns and the left-to-right order are certain: the pads' LED chain in the firmware
+(app/board/panel.c, `rgb_map`) runs along one row and back along the other in exactly that way. That the upper row
+is 1 to 8 rests on M-VAVE's own panel model in the Open V01 kit (the workbench's drawing of the SMK-37), which puts
+pads 1 to 8 on top; the pads carry no numbers, M-VAVE's manual does not number them, and it has not been checked on
+the unit. **It is an assumption** (docs/STICKERS.md 5.1 has the sources). Everything in this map that says "pad 1
+to 8" or "pad 9 to 16" (KNOB BANK + pad: select and mute; the mixer; scenes and clips 1 to 16) depends on it only
+for which row is meant.
 
 ## 2. Getting there (any page)
 
@@ -61,6 +72,18 @@ rates, RESET): Classic Tabby uses neither.
 | SEQ + PARA, then SONG MODE | The older way into SCENES (the SONG page); still works. |
 
 The Bluetooth notice that BT used to show is gone; Bluetooth is set in the web workbench.
+
+### 2.1 ACTIONS: NEW SONG (tabby-v04.21)
+
+| Step | Press | Result |
+| --- | --- | --- |
+| 1 | On SCENES, song stopped: K5 to an empty slot | NO SONG. |
+| 2 | SEQ + PARA, K1 to NEW SONG, the > button | NEW SONG IN SLOT nn? (PATCH cancels). |
+| 3 | The > button again | The song is made and stored: named NEW SONG, the loaded project, its tempo, looping, master cycle 16 steps, one empty scene of 16 steps, no clips. CLIPS opens: NEW SONG - HOLD A PAD, SEQ REC. |
+
+A slot that holds a song is never replaced: SLOT HOLDS A SONG - K5 ON SCENES. While the song plays: STOP THE SONG
+FIRST. Unsaved changes of the song being left are saved first, as when another song is chosen. The first scene stays
+empty until it is deleted (section 5; FX twice) after a scene of your own is stored.
 
 ## 3. Stage actions
 
@@ -239,7 +262,7 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-A new song from nothing, a step loop while held and note repeat on the pads: next on the list in docs/MC707-PARITY.md section 0. New songs still come from the web workbench (the MIDI importer or the song editor).
+A step loop while held and note repeat on the pads: next on the list in docs/MC707-PARITY.md section 0. A song made on the panel (2.1) gets its name in the web workbench.
 
 ## 11. Differences from the MC-707
 
@@ -302,7 +325,10 @@ Deliberate differences:
 | Knob movements (motion) | The knobs' own parameters (filter, mod, effect), up to four per clip, as steps. | K1 to K4 on CLIPS send four controllers to the track (74, 71, 1 and 11, or the numbers set in the song); a take records them as events, thinned (one value per 1/32 note and the last value of a move), with pitch bend and channel pressure. | The sound is mostly outside gear here, so the knobs speak MIDI; clips hold timed events, not per-step lanes; thinning keeps a sweep from filling the clip. |
 | A clip's sound | The clip holds its tone. | The clip holds a program change and a bank select, sent on the track's channel when the track enters the clip. | The tone lives in the outside gear; the SMK-37's own sounds belong to the project. |
 | Outside controllers | CC 1, 2 and 4 can be recorded as motion (UM, Ver. 1.80). | Every controller below 120, pitch bend and channel pressure on the track's channel. | Outside gear is the main use here. |
-| Undo of a take | UNDO takes the recording back; no undo while recording (UM, Ver. 1.80). | The same: a take is one undo level; FX does nothing during a take. | Same. |
+| Undo of a take | UNDO takes the recording back; no undo while recording (UM, Ver. 1.80). | The same: a take is one undo level; no undo during a take. | Same. |
+| Erasing during a take | Hold [ERASE] and a pad or key: that note is erased while held (RM p. 35). | FX held with a key (tabby-v04.21): that key's notes go as the clip passes them. | No ERASE button; FX is free during a take because undo is not allowed then. The key sounds. |
+| A new project / song | A new project from the menu. | ACTIONS, NEW SONG, in an empty slot (tabby-v04.21). | The song is the unit here; the project holds the SMK-37's own sounds. |
+| Shifting a clip | Clip edit: shift the steps left or right. | KNOB BANK + OCTAVE- / OCTAVE+ on the STEP page, one step at a time (tabby-v04.21). | No edit menu on a small screen. |
 | When the clip is full | Not described. | The take stops: CLIP FULL - 512 EVENTS - REC STOPPED, the SEQ REC lamp goes out, the clip's pad shows red once; nothing is lost and undo still holds the clip before the take. | SPEC 14.2. |
 | Count-in | Count-In Step, OFF or 1 to 128 steps; MIDI Start goes out after it (UM, Ver. 1.20 and its fixes). | COUNT-IN, OFF or 1, 2 or 4 master cycles; MIDI Start after it. Only before a take that starts the song (SEQ REC, then SEQ PLAY). | Whole cycles keep the take's first bar on the grid. With the song already running there is nothing to count in. |
 | Metronome | ON or OFF with the master clock; type and level; sounds on the audio outputs (UM, Ver. 1.10 and 1.50). | CLICK: OFF, WHEN RECORDING or ALWAYS; output INTERNAL, MIDI NOTE (a channel and note you choose) or BOTH; CLICK LEVEL LOW, MID or HIGH for the internal click; one click sound. | The SMK-37's audio may feed the house mix, so the click for the stage is a MIDI note (SPEC 14.1, decision 7). |
@@ -375,7 +401,7 @@ pads in Note mode, here the 16 pads and the 37 keys.
 
 | Button | Press | With KNOB BANK |
 | --- | --- | --- |
-| OCTAVE- / OCTAVE+ | Previous / next bar of 16 steps. | same |
+| OCTAVE- / OCTAVE+ | Previous / next bar of 16 steps. | tabby-v04.21: shifts the clip one step earlier / later. Every event moves (notes, controllers, step probabilities); what leaves one end comes in at the other; a note keeps its place inside its step. A run of shifts is one undo level. Not during a take. |
 | CHORD | Clears the selected step. | Discards every unsaved change of the clip and returns to CLIPS. |
 | FX | Undo, four levels. | Redo. |
 | > button | Saves the clip into the song (only while the song is stopped; otherwise STOP TO SAVE). | same |
@@ -417,6 +443,7 @@ pads in Note mode, here the 16 pads and the 37 keys.
 | STOP TO SAVE / CLIP SAVED / NOTHING TO SAVE / SONG STORAGE FULL | the > button. |
 | EDITS DISCARDED | KNOB BANK + CHORD. |
 | PAST THE CLIP'S END | A pad beyond the clip's last step. |
+| CLIP SHIFTED ONE STEP LATER / EARLIER / NO NOTES TO SHIFT / NOT DURING A TAKE | KNOB BANK + OCTAVE+ / OCTAVE- (tabby-v04.21). |
 
 ## 13. Recording
 
@@ -445,7 +472,8 @@ when CHORD sends the track back to the scenes.
 | Channel | Only messages on the track's input channel (SYNC / MIDI page, K1 IN CH) are recorded from MIDI in. |
 | Controllers | A moving controller is recorded once per 1/32 note (240 units); when it stops moving for a 16th, its last value is recorded too. A value it already has is not recorded again. Up to eight controllers can move at once. |
 | Not recorded | Polyphonic aftertouch, channel mode messages (controllers 120 to 127), program changes, more than 16 keys held at once. |
-| Undo | A whole take is one undo level (FX on the STEP page). FX does nothing during a take. A take in which nothing was played leaves no undo level. |
+| Undo | A whole take is one undo level (FX on the STEP page, after the take). There is no undo during a take. A take in which nothing was played or cleared leaves no undo level. |
+| Clearing notes (tabby-v04.21) | While a take runs FX is the clear button on every page. FX held and a key held (or a note held at MIDI in on the track's channel): each note of that pitch is taken out of the clip as the clip passes its start. One pass clears them all; a shorter hold clears only what was passed. The key sounds and is not recorded. Several keys at once. Works with any STEP SIZE and DIRECTION: what is cleared is what you hear go by. FX alone: HOLD FX + A KEY: CLEARS ITS NOTES. Cleared notes come back with the undo of the take. |
 | Full | A clip holds 512 events. Held keys have their places reserved. When the clip is full the take stops by itself: CLIP FULL - 512 EVENTS - REC STOPPED for two seconds, the SEQ REC lamp goes out, the clip's pad on CLIPS shows red once. Nothing already recorded is lost. |
 | The song stops (tabby-v04.16) | A take that was armed while the song played and has not started (REC WHEN THE CLIP LOOPS) is taken off: SONG STOPPED - REC OFF, the SEQ REC lamp goes out. A take armed while the song is stopped waits for SEQ PLAY as before. A running take ends with the song, as it always did. |
 | One clip | The take goes into the one open clip. With another clip unsaved, SEQ REC says ANOTHER CLIP IS UNSAVED. |
@@ -460,6 +488,7 @@ when CHORD sends the track back to the scenes.
 | REC WHEN THE CLIP LOOPS | SEQ REC was pressed while the clip was not looping on its track; it has been launched. |
 | REC ARMED - SEQ PLAY STARTS IT | SEQ REC was pressed while the song is stopped. |
 | INPUT QUANTIZE ON / OFF | KNOB BANK + SEQ REC. |
+| HOLD FX + A KEY: CLEARS ITS NOTES | FX pressed during a take (tabby-v04.21). |
 | CLIP FULL - 512 EVENTS - REC STOPPED | The event cap. |
 | SEQ REC: ON THE CLIPS OR STEP PAGE | SEQ REC on another page. |
 | ANOTHER CLIP IS UNSAVED / CLIP SHARED BY ANOTHER TRACK / HOLD A PAD TO SELECT A CLIP FIRST | As for PARA (12.6). |

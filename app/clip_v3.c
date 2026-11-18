@@ -499,6 +499,21 @@ unsigned clip_v3_direction_apply(uint8_t *p)
     reorder(p);
     return dir;
 }
+/* v0.9 (tabby-v04.21): every event `by` steps later (earlier when negative), round the clip's end. */
+void clip_v3_shift(uint8_t *p, int by)
+{
+    int steps = p[0], loop = steps * CLIP_V3_UNITS_PER_STEP;
+    if (!steps) return;
+    by %= steps; if (by < 0) by += steps;
+    for (unsigned i = 0, n = clip_v3_count(p); i < n; ++i) {
+        uint8_t *e = p + CLIP_V3_HEADER + CLIP_V3_EVENT * i;
+        if ((e[3] & 0x80U) && e[2] == CLIP_V3_STEPMOD) { e[5] = (uint8_t)((e[5] + by) % steps); put16(e, (unsigned)e[5] * CLIP_V3_UNITS_PER_STEP); continue; }
+        /* a stored time 1..loop belongs to its anchor step (the last unit of a step is the tie to it): kept in that range */
+        unsigned v = get16(e);
+        put16(e, v ? (v - 1U + (unsigned)(by * CLIP_V3_UNITS_PER_STEP)) % (unsigned)loop + 1U : (unsigned)(by * CLIP_V3_UNITS_PER_STEP));
+    }
+    reorder(p);
+}
 void clip_v3_transpose_apply(uint8_t *p)
 {
     int by = (int8_t)p[12];

@@ -125,6 +125,10 @@ int song_clip_copy(unsigned track, unsigned from, unsigned to);
 int song_edit_transpose(int delta);
 int song_edit_scale(int delta);                      /* tabby-v04.19: 0 a 16th, 1 an 8th, 2 a 32nd, 3 a 16th triplet, 4 an 8th triplet; only what fits the length */
 int song_edit_direction(int delta);                  /* tabby-v04.20: 0 forwards, 1 backwards, 2 forwards then backwards */
+int song_edit_shift(int delta);                      /* tabby-v04.21: every event one step later (> 0) or earlier, round the end */
+enum { SONG_NEW_EXISTS = 2 };
+int song_new(unsigned song);                         /* tabby-v04.21: an empty song in an empty slot; SONG_NEW_EXISTS: the slot holds a song */
+unsigned song_record_erase(unsigned held);           /* tabby-v04.21: FX held in a take: played keys clear their notes; 1 while a take runs */
 int song_edit_feel(unsigned field, int delta);       /* tabby-v04.17: 0 SHUFFLE (0 the song's, 1..51 own 0..50 %), 1 PLAY QUANTIZE (0 off, 1..3) */
 int song_clip_delete(unsigned track, unsigned place);
 int song_clip_scene(unsigned track, unsigned place);

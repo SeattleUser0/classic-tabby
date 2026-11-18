@@ -427,6 +427,42 @@ int main(int argc, char **argv)
         CHECK(bad == 0 && inserted > 5000 && refused > 1000 && removed > 5000, "edit: 40000 random edits, the clip valid after each (%u inserted, %u refused, %u removed, %u bad)", inserted, refused, removed, bad);
         #undef RND
     }
+    {   /* v0.9 (tabby-v04.21): shift by a step */
+        static uint8_t c[CLIP_V3_BYTES_MAX], keep[CLIP_V3_BYTES_MAX]; struct clip_v3_event n = { 0, CLIP_V3_NOTE, 60, 100, 0, 240 }, e;
+        clip_v3_empty(c, 16);
+        (void)clip_v3_insert(c, &n); n.time = 2 * 480 + 100; n.a = 62; (void)clip_v3_insert(c, &n); n.time = 15 * 480 - 50; n.a = 64; (void)clip_v3_insert(c, &n);
+        n.kind = CLIP_V3_CC; n.time = 15 * 480 + 10; n.a = 74; n.b = 99; (void)clip_v3_insert(c, &n);
+        (void)clip_v3_step_mod_set(c, 15, 5);
+        memcpy(keep, c, sizeof keep);
+        clip_v3_shift(c, 1);
+        clip_v3_event(c, 0, &e); int first_mod = e.kind == CLIP_V3_STEPMOD && e.b == 0;
+        CHECK(clip_v3_validate(c, clip_v3_bytes(c)) == 0 && clip_v3_count(c) == 5 && first_mod && clip_v3_step_mod(c, 0) == 5 && clip_v3_step_mod(c, 15) == 0, "shift +1: valid; the modifier of step 16 leads the clip on step 1");
+        clip_v3_event(c, 1, &e); int a_ok = e.kind == CLIP_V3_NOTE && e.a == 64 && e.time == -50;
+        clip_v3_event(c, 2, &e); int b_ok = e.kind == CLIP_V3_CC && e.a == 74 && e.time == 10;
+        clip_v3_event(c, 3, &e); int c_ok = e.a == 60 && e.time == 480;
+        clip_v3_event(c, 4, &e); int d_ok = e.a == 62 && e.time == 3 * 480 + 100;
+        CHECK(a_ok && b_ok && c_ok && d_ok, "shift +1: every event one step later, its place inside the step kept; the last step comes round to the first (%d %d %d %d)", a_ok, b_ok, c_ok, d_ok);
+        clip_v3_shift(c, -1);
+        CHECK(!memcmp(c, keep, clip_v3_bytes(keep)), "shift -1 after +1: the clip as it was, byte for byte");
+        clip_v3_shift(c, 16); clip_v3_shift(c, -32);
+        CHECK(!memcmp(c, keep, clip_v3_bytes(keep)), "shift by the clip's length: no change");
+        uint32_t seed = 0x1234567U; unsigned bad = 0;
+        #define RND() (seed = seed * 1664525U + 1013904223U, seed >> 8)
+        for (unsigned round = 0; round < 300; ++round) {
+            unsigned steps = 1 + RND() % 128;
+            clip_v3_empty(c, steps);
+            for (unsigned k = 0; k < 200; ++k) { struct clip_v3_event v = { (int32_t)(RND() % (steps * 480U)) - 239, (uint8_t)(RND() % 9 == 0 ? CLIP_V3_CC : CLIP_V3_NOTE), (uint8_t)(RND() % 128), (uint8_t)(1 + RND() % 127), 0, (uint16_t)(1 + RND() % 2000) }; (void)clip_v3_insert(c, &v); }
+            for (unsigned k = 0; k < 5; ++k) (void)clip_v3_step_mod_set(c, RND() % steps, 1 + RND() % 15);
+            memcpy(keep, c, sizeof keep);
+            int by = (int)(RND() % 300) - 150; unsigned count = clip_v3_count(c);
+            clip_v3_shift(c, by);
+            if (clip_v3_validate(c, clip_v3_bytes(c)) != 0 || clip_v3_count(c) != count) ++bad;
+            clip_v3_shift(c, -by);
+            if (memcmp(c, keep, clip_v3_bytes(keep))) ++bad;
+        }
+        #undef RND
+        CHECK(bad == 0, "shift: 300 random clips shifted and shifted back: valid, no event lost, byte for byte the same (%u bad)", bad);
+    }
     printf(failures ? "%d of %d checks FAILED\n" : "all %d checks passed\n", failures ? failures : checks, checks);
     return failures != 0;
 }

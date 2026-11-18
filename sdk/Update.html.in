@@ -344,7 +344,7 @@ main{max-width:1440px}
 <div id="manual-body" class="manual-body">
 <p id="manual-empty" class="manual-empty" hidden>No matching chapters. Try “LAUNCH”, “save” or “MIDI”, or click “Show all chapters”.</p>
 <article id="manual-tabby-changes" class="manual-chapter" tabindex="-1" data-removed-ok><h3>00 · What changed in tabby-v04</h3>
-<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.20. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
+<p>This chapter lists what tabby-v04.0, tabby-v04.1, tabby-v04.2, tabby-v04.3.1, tabby-v04.4, tabby-v04.5, tabby-v04.6, tabby-v04.7 (with tabby-v04.7.1), tabby-v04.8 and tabby-v04.9 (with tabby-v04.9.1, tabby-v04.9.2 and tabby-v04.9.3) changed compared with tabby-v03.x. The chapters after it have the details. The page you are on is tabby-v04.21. The <a href="https://seattleuser0.github.io/classic-tabby/guide/" target="_blank" rel="noopener">testing and user guide</a> has set-up, the device steps in order and a numbered test checklist.</p>
 <ul>
 <li><strong>The storage move. </strong>User storage went from 536576 to 471040 bytes: 16 project slots plus 97 song-region sectors (80 of them block sectors). Installing tabby-v04.0 over v03.x once clears the project slots, the device settings and the songs, so restore them from a Full backup; Bluetooth pairings are lost too. Later updates, tabby-v04.1 included, do not move storage again. See chapter 11.</li>
 <li><strong>The old pattern editing and recording are gone. </strong>(From tabby-v04.8 the clips of a song are edited on the new STEP page, and from tabby-v04.9 SEQ REC records into a clip; both in chapter 05.) The STEP DETAILS, LOCKS and RHYTHM/SEQ REC pages, SEQ REC recording, the count-in, the metronome, pad-step mode and the copy, paste, clear, repeat and undo menu entries are gone. Patterns already in a project still load, save and play. The metronome and count-in are planned for a later version.</li>
@@ -369,6 +369,7 @@ main{max-width:1440px}
 <li><strong>Click level, controller numbers, a clearer backup (tabby-v04.14). </strong>CLICK LEVEL sets the internal click to LOW, MID or HIGH. K1 CONTROLLER to K4 CONTROLLER choose, per song, what the four knobs on CLIPS send. CLIP SETTING is two pages: the clip's lines and the song's lines. The Full backup names a song this page cannot read and stops. The MIDI importer keeps a clip's own length and its chain when it rewrites a song. Chapter 05 has the details.</li>
 <li><strong>Delete and move a scene; a stop ends an armed take (tabby-v04.16). </strong>On SCENES, with the song stopped, <kbd>FX</kbd> twice deletes the selected scene and <kbd>PARA</kbd> held with K1 moves it earlier or later. A take that was armed while the song played is taken off when the song stops. The guide is also one printable PDF. Chapter 05 has the details.</li>
 <li><strong>Shuffle and play quantize for each clip (tabby-v04.17). </strong>CLIP SETTING has SHUFFLE (the song's swing, or the clip's own from 0 to 50 percent) and PLAY QUANTIZE (OFF, 1/16, 1/8, 1/4: the notes start on the grid when the clip plays; the clip itself is not changed). The page now has three pages. Chapter 05 has the details.</li>
+<li><strong>Clearing notes in a take, shifting a clip, a new song (tabby-v04.21). </strong>During a take, <kbd>FX</kbd> held with a key clears that key's notes as the clip passes them. On the STEP page <kbd>KNOB BANK</kbd>+<kbd>OCTAVE+</kbd> or <kbd>OCTAVE-</kbd> shifts the whole clip by a step. ACTIONS has NEW SONG: an empty song in an empty slot. Chapter 05 has the details.</li>
 <li><strong>Direction for each clip (tabby-v04.20). </strong>CLIP SETTING has DIRECTION: FORWARD, REVERSE, or FWD THEN REV (forwards, then backwards, twice as long). The clip itself is not changed. Chapter 05 has the details.</li>
 <li><strong>Step size for each clip (tabby-v04.19). </strong>CLIP SETTING has STEP SIZE: what one step of the clip lasts: 1/16, 1/8 (half speed), 1/32 (double speed) or the triplet sizes 1/16T and 1/8T. The MC-707 calls it SCALE. Chapter 05 has the details.</li>
 <li><strong>The printed button names (tabby-v04.18). </strong>The screen, this Help and the guide call every button by the word printed on it. No function changed; firmware before tabby-v04.18 shows the earlier names on its screen (the item Control names lists them).</li>
@@ -565,6 +566,7 @@ main{max-width:1440px}
 <li>A clip holds 512 events; one more is refused with CLIP FULL. A clip that two tracks share cannot be edited on the device (CLIP SHARED BY ANOTHER TRACK).</li>
 <li>A saved clip is stored as a v3 clip and plays the same. A song edited on the device needs tabby-v04.5 or later to play, and the workbench of tabby-v04.5.1 or later to back up.</li>
 </ul>
+<p>Shifting a clip (tabby-v04.21): on the STEP page <kbd>KNOB BANK</kbd>+<kbd>OCTAVE+</kbd> moves every note, controller and step probability of the clip one step later (CLIP SHIFTED ONE STEP LATER), <kbd>KNOB BANK</kbd>+<kbd>OCTAVE-</kbd> one step earlier. What leaves one end of the clip comes in at the other. A note keeps its place inside its step. A run of shifts is one undo level. Not during a take.</p>
 <h4>Recording into a clip (tabby-v04.9)</h4>
 <p><kbd>SEQ REC</kbd> on the CLIPS page or the STEP page starts a take into the track's clip: the one open on the STEP page, else the selected one, else the one the track plays. What is in the clip stays; you add to it (overdub). The clip must loop on its track while you record, and SEQ REC sees to that.</p>
 <ol>
@@ -576,12 +578,15 @@ main{max-width:1440px}
 <ul>
 <li>Input quantize is on at power-up: a note is recorded on the nearest step, with the length you played. <kbd>KNOB BANK</kbd>+<kbd>SEQ REC</kbd> switches it off and on (INPUT QUANTIZE OFF / ON); off, a note keeps the time you played it. The STEP page shows Q ON or Q OFF.</li>
 <li>Controllers below 120, pitch bend and channel pressure are recorded too, thinned: a moving controller once per 1/32 note, and its last value when it stops. A sweep does not fill the clip.</li>
-<li>A take is one undo level: <kbd>FX</kbd> on the STEP page takes the whole take back. <kbd>FX</kbd> does nothing during a take.</li>
+<li>A take is one undo level: after the take, <kbd>FX</kbd> on the STEP page takes the whole take back. There is no undo during a take.</li>
+<li>Clearing notes (tabby-v04.21): while a take runs, hold <kbd>FX</kbd> and hold a key. Each note of that key is taken out of the clip as the clip passes it; one pass of the clip clears them all. The key sounds but is not recorded; several keys can be held. During a take <kbd>FX</kbd> does nothing else (alone it says HOLD FX + A KEY: CLEARS ITS NOTES). Cleared notes come back with the undo of the take.</li>
 <li>A clip holds 512 events. When it is full the take stops by itself: CLIP FULL - 512 EVENTS - REC STOPPED, the SEQ REC lamp goes out, and the clip's pad on CLIPS shows red once. Nothing already recorded is lost.</li>
 <li>The take also stops when the song stops, when another clip is launched on the track, at a scene recall, and when <kbd>CHORD</kbd> sends the track back to the scenes.</li>
 <li>Not recorded: polyphonic aftertouch, program changes, controllers 120 to 127.</li>
 <li>From tabby-v04.10 a take is placed one audio block (3 ms) earlier than before, where you heard it; a take without input quantize now plays back where you played it.</li>
 </ul>
+<h4>A new song on the panel (tabby-v04.21)</h4>
+<p>On SCENES, with the song stopped, turn <kbd>K5</kbd> to a slot that shows NO SONG. Press <kbd>SEQ</kbd>+<kbd>PARA</kbd> for ACTIONS, choose NEW SONG and press <kbd>&gt;</kbd>: NEW SONG IN SLOT nn? Press <kbd>&gt;</kbd> again (<kbd>PATCH</kbd> cancels). The new song is stored at once and CLIPS opens: NEW SONG - HOLD A PAD, SEQ REC. It is named NEW SONG, uses the loaded project and its tempo, loops, and has one empty scene of 16 steps and a master cycle of 16 steps. Make clips on its empty pads, launch them and store scenes as below; delete the empty first scene when you have one of your own. A slot that holds a song is refused (SLOT HOLDS A SONG - K5 ON SCENES). The name is changed in the workbench's song editor.</p>
 <h4>New clips, length and copies (tabby-v04.10)</h4>
 <ul>
 <li><strong>A new clip.</strong> Press an empty pad on CLIPS: it is selected (dim cyan) and nothing is queued. <kbd>SEQ REC</kbd> then records a new clip there, and <kbd>PARA</kbd> opens a new empty clip on the STEP page. A new clip is one master cycle long.</li>
@@ -773,7 +778,7 @@ main{max-width:1440px}
 </article>
 <article id="manual-tabby-quickref" class="manual-chapter manual-quickref" tabindex="-1"><h3>12 · Quick reference</h3>
 <div class="manual-table"><table><thead><tr><th scope="col">Page</th><th scope="col">Control</th><th scope="col">Action</th></tr></thead><tbody>
-<tr><td>Any page</td><td><kbd>SEQ</kbd>+<kbd>PARA</kbd> together</td><td>Open ACTIONS (COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE, COMPACT SONG STORAGE, SEND SETUP).</td></tr>
+<tr><td>Any page</td><td><kbd>SEQ</kbd>+<kbd>PARA</kbd> together</td><td>Open ACTIONS (COPY TIMBRE, PASTE TIMBRE, STOP ALL / REWIND, ERASE OLD DATA, SONG MODE, COMPACT SONG STORAGE, SEND SETUP, NEW SONG).</td></tr>
 <tr><td>Any page</td><td><kbd>SEQ</kbd></td><td>SYNC / MIDI: K1 CLOCK (INT, MIDI), K2 CLK IN (AUTO, USB, BLE; DIN receives nothing on the Pro and Elite), K3 SWING, K4 SEQ OUT (OFF, ON, CLOCK), <kbd>K7</kbd> KEY OUT. A song plays on INT or follows a clock from USB or BLE.</td></tr>
 <tr><td>Any page</td><td><kbd>PATCH</kbd>+<kbd>SEQ</kbd></td><td>Tap the tempo.</td></tr>
 <tr><td>PATCH</td><td><kbd>K4</kbd></td><td>BPM (the only tempo control; read only with MIDI clock).</td></tr>

@@ -88,7 +88,7 @@ if (r.status === 0) {
 const help = readFileSync('sdk/Update.html.in', 'utf8');
 const links = (help.match(/https:\/\/seattleuser0\.github\.io\/classic-tabby\/guide\//g) || []).length;
 check(links >= 2, 'Help links to the guide from the Help heading and from chapter 00', `${links} links`);
-check(/manual-guide-link/.test(help) && /The page you are on is tabby-v04\.20\./.test(help), 'chapter 00 names the page version');
+check(/manual-guide-link/.test(help) && /The page you are on is tabby-v04\.21\./.test(help), 'chapter 00 names the page version');
 
 // ---- the printable manual belongs to this guide text (tools/linux/manual-pdf.py; make manual)
 { const { createHash } = await import('node:crypto');

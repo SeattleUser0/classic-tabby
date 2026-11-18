@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.43
+Version: 0.44
 Revision log:
+- v0.44, 2026-11-18: section 44: tabby-v04.21 measured, 489188 bytes, margin 30269.
 - v0.43, 2026-11-18: section 43: tabby-v04.20 measured, 487588 bytes, margin 31869.
 - v0.42, 2026-11-17: section 42: tabby-v04.19 measured, 486404 bytes, margin 33053.
 - v0.41, 2026-11-17: section 41: tabby-v04.18 measured, 485188 bytes, margin 34269 (text only).
@@ -1336,3 +1337,12 @@ RAM (runtime heap): 143020 bytes, unchanged. Above the 15360-byte reserve: 17693
 | tabby-v04.20: DIRECTION per clip | 487588 | +1184 | **31869** |
 
 RAM (runtime heap): 142764 bytes (-256: one more byte in each of the 16 track buffers, with its alignment). Above the 15360-byte reserve: 16509 bytes.
+
+## 44. tabby-v04.21 (measured, 2026-11-18)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.20 | 487588 | | 31869 |
+| tabby-v04.21: clear notes in a take, NEW SONG, shift a clip | 489188 | +1600 | **30269** |
+
+RAM (runtime heap): 142700 bytes (-64: the recorder's clear state). Above the 15360-byte reserve: 14909 bytes.

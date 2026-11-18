@@ -212,6 +212,9 @@ static struct {
     uint8_t state, quantize, full;     /* full: the cap stopped the take (the screen reads and clears it) */
     uint8_t taken;                     /* something was written in this take */
     uint8_t armed_playing, disarmed;   /* tabby-v04.16: armed while the song played; a stop took the armed take off (read once) */
+    uint8_t erase;                     /* tabby-v04.21: FX is held during the take: a key clears its note as the clip passes */
+    uint32_t erasing[4];               /* the pitches held with FX */
+    int32_t erase_pos;                 /* where the clip was when the pitches were looked at last (units in the clip) */
     struct { uint8_t used, pitch, velocity; int32_t time; uint32_t at; } held[REC_HELD];
     /* Controller thinning (SPEC 14.2): per controller the last written value and time, one pending value. */
     struct { uint8_t used, kind, number, has_pending, has_last; uint16_t last, pending; int32_t pending_time; uint32_t last_at, seen_at; } ctl[REC_CONTROLLERS];   /* a bend's value is lsb | msb << 7 */
@@ -1432,6 +1435,23 @@ int song_load(unsigned song)
     jump_mode = (record.flags & SONG_FLAG_JUMP_ROW) ? 1U : 0U;
     return 0;
 }
+/* tabby-v04.21: an empty song in an empty slot: one scene of 16 steps, no clips, the project that is loaded, its tempo,
+ * the song loops. Then it is the loaded song. SONG_NEW_EXISTS: the slot holds a song (it is loaded now). */
+int song_new(unsigned song)
+{
+    if (state || ct_transport_running()) return SONG_BUSY;
+    int r = song_load(song);                                         /* what is unsaved in the song being left is saved */
+    if (!r) return SONG_NEW_EXISTS;
+    if (r != SONG_EMPTY) return r;
+    memset(&record, 0, SONG_RECORD_BODY_END);
+    memset(record.tail, 0xff, sizeof record.tail); memset(record.tail, 0, 8); record.tail[2] = 1;   /* an empty event table */
+    record.version = 2; memcpy(record.name, "NEW SONG    ", 12);
+    record.project = (uint8_t)(groove_project_slot() < GROOVE_PROJECT_SLOTS ? groove_project_slot() : 0U); record.flags = SONG_FLAG_LOOP; record.rows = 1;
+    record.row[0].repeat = 1; record.row[0].steps = 16;
+    memset(&model, 0, sizeof model); model.cycle = SONG_CYCLE_DEFAULT;
+    r = song_record_write_model(song, &record, &model);
+    return r ? r : song_load(song);
+}
 unsigned song_loaded(void) { return loaded; }
 const struct song_record *song_current(void) { return loaded == SONG_NONE ? NULL : &record; }
 const struct song_model *song_model_current(void) { return loaded == SONG_NONE ? NULL : &model; }
@@ -1907,6 +1927,17 @@ int song_edit_transpose(int delta)
     edit.gesture = 0x40000030U; edit_changed();
     return 0;
 }
+/* tabby-v04.21: the open clip's events one step later (delta > 0) or earlier, round the clip's end. One undo level per run. */
+int song_edit_shift(int delta)
+{
+    if (!edit.active || !delta) return SONG_INVALID;
+    if (rec.state == REC_ON) return SONG_BUSY;
+    if (!clip_v3_count(edit.clip)) return SONG_EMPTY;
+    if (edit.gesture != 0x40000031U) edit_push();
+    clip_v3_shift(edit.clip, delta);
+    edit.gesture = 0x40000031U; edit_changed();
+    return 0;
+}
 /* tabby-v04.17: the open clip's feel: field 0 SHUFFLE (0 = the song's swing, 1..51 = its own, 0 to 50 percent), field 1
  * PLAY QUANTIZE (0 off, 1 a 16th, 2 an 8th, 3 a quarter). One undo level per run. */
 int song_edit_feel(unsigned field, int delta)
@@ -2112,14 +2143,18 @@ static unsigned rec_track_plays(void)
 }
 /* A master time as a time in the clip (units from its start; the last 240 units count as "just before the start"
  * when the editor shows the whole clip, so that every time is one the format can hold). */
-static int32_t rec_clip_time(uint32_t units, unsigned quantize)
+static int32_t rec_clip_pos(uint32_t units)
 {
     const struct track *k = &tr[edit.track];
     const struct trackbuf *b = &tbuf[edit.track][k->cur];            /* a take runs only while this buffer plays the open clip */
     int32_t len = (int32_t)clip_v3_steps(edit.clip) * UNITS, loop = (int32_t)(b->steps ? b->steps : 1U) * UNITS, p = (int32_t)(units - k->start) % loop;
     if (p < 0) p += loop;
     p = played_to_clip(b, p);                                        /* what was played, in the clip's own steps */
-    if (p >= len) p = len - 1;
+    return p >= len ? len - 1 : p;
+}
+static int32_t rec_clip_time(uint32_t units, unsigned quantize)
+{
+    int32_t len = (int32_t)clip_v3_steps(edit.clip) * UNITS, p = rec_clip_pos(units);
     if (quantize) { p = (p + UNITS / 2) / UNITS * UNITS; if (p >= len) p = 0; }
     if (p > len - HALF) p -= len;
     return p;
@@ -2164,6 +2199,15 @@ static void rec_event(const struct rec_event *e, uint32_t units)
 {
     unsigned type = e->status & 0xf0U;
     if ((e->status & 15U) != groove_midi_input_channel(edit.track)) return;
+    if (type == 0x90 && e->b && rec.erase) {                         /* tabby-v04.21: FX + key clears, it does not record */
+        if (!(rec.erasing[0] | rec.erasing[1] | rec.erasing[2] | rec.erasing[3])) rec.erase_pos = rec_clip_pos(units);
+        rec.erasing[(e->a & 127U) >> 5] |= 1U << (e->a & 31U);
+        return;
+    }
+    if ((type == 0x80 || type == 0x90) && (rec.erasing[(e->a & 127U) >> 5] & (1U << (e->a & 31U)))) {
+        rec.erasing[(e->a & 127U) >> 5] &= ~(1U << (e->a & 31U));
+        return;
+    }
     if (type == 0x90 && e->b) {
         for (unsigned i = 0; i < REC_HELD; ++i) if (rec.held[i].used && rec.held[i].pitch == e->a) rec_note_off(i, units);   /* the same key again */
         /* SPEC 14.2: a new event is accepted only while the clip's events plus the held notes are below the cap */
@@ -2203,6 +2247,31 @@ static void rec_flush(unsigned c, uint32_t units)
 {
     if (!rec.ctl[c].used || !rec.ctl[c].has_pending) return;
     rec_controller_write(c, rec.ctl[c].pending_time, rec.ctl[c].pending, units);
+}
+/* tabby-v04.21 (the MC-707's ERASE during a take): the notes of the pitches held with FX whose starts the clip passed
+ * since the last look go out of the clip. */
+static void rec_erase(uint32_t units)
+{
+    if (!(rec.erasing[0] | rec.erasing[1] | rec.erasing[2] | rec.erasing[3])) return;
+    int32_t len = (int32_t)clip_v3_steps(edit.clip) * UNITS, p = rec_clip_pos(units);
+    int32_t lo = p < rec.erase_pos ? p : rec.erase_pos, hi = p < rec.erase_pos ? rec.erase_pos : p;
+    unsigned inside = hi - lo <= len / 2, gone = 0;                  /* else the clip went round its end between the two */
+    rec.erase_pos = p;
+    for (unsigned i = clip_v3_count(edit.clip); i-- > 0;) {
+        struct clip_v3_event v; clip_v3_event(edit.clip, i, &v);
+        if (v.kind != CLIP_V3_NOTE || !(rec.erasing[v.a >> 5] & (1U << (v.a & 31U)))) continue;
+        int32_t t = v.time < 0 ? v.time + len : v.time;
+        if (inside ? (t >= lo && t <= hi) : (t <= lo || t >= hi)) { clip_v3_remove(edit.clip, i); gone = 1; }
+    }
+    if (gone) { rec.taken = 1; edit_changed(); }
+}
+/* The screen, every pass: FX is held. Returns 1 while a take runs (FX then is the clear button). */
+unsigned song_record_erase(unsigned held)
+{
+    if (rec.state != REC_ON) held = 0;
+    if (!held) memset(rec.erasing, 0, sizeof rec.erasing);
+    rec.erase = (uint8_t)held;
+    return rec.state == REC_ON;
 }
 static void rec_end(uint32_t units)
 {
@@ -2262,6 +2331,7 @@ void song_record_poll(void)
         for (unsigned i = 0; i < REC_HELD; ++i) if (rec.held[i].used) rec_note_off(i, now);
         return;
     }
+    rec_erase(now);
     /* a gesture ends when its controller has been still for one step (480 units) */
     for (unsigned c = 0; c < REC_CONTROLLERS; ++c)
         if (rec.ctl[c].used && rec.ctl[c].has_pending && now - rec.ctl[c].seen_at >= (uint32_t)UNITS) rec_flush(c, now);

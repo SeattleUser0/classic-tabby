@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.58
+Version: 0.59
 Revision log:
+- v0.59, 2026-11-18: 17.16 the user's answers of 2026-11-18 (pad rows, stickers of 6 point that cover the dead strip, the order of the rest, NOTE REPEAT); 19.24 tabby-v04.21.
 - v0.58, 2026-11-18: 19.23 tabby-v04.20 (DIRECTION per clip).
 - v0.57, 2026-11-17: 19.22 tabby-v04.19 (STEP SIZE per clip).
 - v0.56, 2026-11-17: 17.4 rewritten: every control by its printed word (the user's rule; the photograph of the unit); 17.15 the photograph arrived; 19.21 tabby-v04.18.
@@ -1302,7 +1303,8 @@ BANK on the panel; right group = ids 6-17, two rows of six; firmware name = the 
 - Also printed, and not used by Classic Tabby: under the lower pad row the transport symbols (play, pause, record,
   rewind, fast forward, <, >, UNDO); above the keys a strip of M-VAVE's key functions (ARP: UP, DOWN, INCL, EXCL,
   RAND, ORDER, REPEAT, OCT+, LATCH, GATE+, GATE-, TAP, SWING+, SWING-, TEMPO+, TEMPO-, SYNC; GLOB: CHN 1 to 16, PRE 1
-  to 8; RATE 1/4 to 1/32T with note names; RESET). No sticker covers them (docs/STICKERS.md).
+  to 8; RATE 1/4 to 1/32T with note names; RESET). From docs/STICKERS.md v0.4 the stickers cover the strip on purpose
+  (17.16); the transport symbols stay visible.
 - The screen messages that changed are listed old to new in docs/BUILD.md 54.
 
 ### 17.5 The Help and panel text is held to the removed-features list (Task 14, 2026-11-10)
@@ -1451,6 +1453,21 @@ backup then names the song and stops (19.17).
 - Stickers stay black on white, under the controls.
 - The photograph of the panel arrived later on 2026-11-17: the printed names are confirmed and used everywhere (17.4),
   and the stickers were checked against it and redesigned (docs/STICKERS.md v0.3).
+
+### 17.16 The user's answers of 2026-11-18
+
+- **Pad rows:** to be worked out from the upstream firmware and M-VAVE's manual, not asked. Result: the columns and
+  the left-to-right order are certain (the LED chain, `rgb_map`); that the upper row is pads 1 to 8 rests on M-VAVE's
+  panel model in the kit alone and is an **assumption**, marked so in docs/STICKERS.md 5.1 and docs/CONTROL-MAP.md 1.2.
+- **Stickers:** no type below 6 point. A printed function of the strip above the keys that is dead in Classic Tabby
+  may be covered on purpose; one that still works stays visible or goes onto the sticker. Result: every function of
+  the strip is dead (a key only ever plays its note); stickers A, B, C and the optional E cover it; STICKERS.md 2
+  lists what each covers and why.
+- **Order of the remaining parity work:** clear notes during a take (FX + key), NEW SONG in ACTIONS, shift a clip
+  (KNOB BANK + OCTAVE-/+) (all three: tabby-v04.21, 19.24); then the rest; the step loop last.
+- **NOTE REPEAT** gets its printed meaning (note repeat). The keys / pads focus switch moves to KNOB BANK + NOTE
+  REPEAT, and every text that names the old gesture is changed with it.
+- Unchanged: candidate page, the full device run, then the promotion (17.13); 15 KB of flash stay free (17.15).
 
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
@@ -1977,3 +1994,28 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - CLIP SETTING: 24 lines; DIRECTION follows STEP SIZE on page 2/3. Remote: op 17 replies 38 bytes (36: byte 14 with
   both fields; 37: 20, the reply's revision).
 - Page: clip-v3.js v0.8, song-format.js v0.13. Firmware before tabby-v04.20 refuses a clip with a direction (17.14).
+
+
+### 19.24 tabby-v04.21 (2026-11-18): clear notes in a take, NEW SONG, shift a clip
+
+- **Clear notes in a take** (the MC-707's ERASE). While a take runs (`REC_ON`) FX is the clear button on every page:
+  the screen calls `song_record_erase(held)` every pass; a press of FX during a take does nothing else (HOLD FX + A KEY:
+  CLEARS ITS NOTES). With FX held, a note-on on the track's input channel (keys, pads, MIDI in) is not recorded: its
+  pitch joins a set (`rec.erasing`, 128 bits) until its note-off. Every control pass `rec_erase` removes the notes of
+  those pitches whose start lies between the clip position of the last pass and this one (`rec_clip_pos`, the same
+  mapping as the recorder: what is heard, through step size and direction); a window wider than half the clip means
+  the clip went round its end. Letting FX go empties the set. A take that only cleared counts as a take (one undo level).
+- **NEW SONG** (ACTIONS, eighth entry; asks once more). `song_new(slot)`: refused while a transport runs; `song_load`
+  of the slot first (which saves what is unsaved in the song being left); a slot that holds a song is refused
+  (`SONG_NEW_EXISTS`); else a version-3 record is written: the name NEW SONG, the loaded project, tempo 0 (the
+  project's), loop, master cycle 16, one scene of 16 steps without clips, an empty event table; then loaded. The
+  screen shows CLIPS. The slot is the one selected on SCENES (K5). Blocks left in storage by a song deleted from that
+  slot are not part of the new song (its clip table is empty); new clips take ids from 1.
+- **Shift a clip** (STEP page, KNOB BANK + OCTAVE- / OCTAVE+). `clip_v3_shift(p, by)`: every event `by` steps later,
+  round the end; a stored time 1..loop stays in that range (the anchor step moves by `by`), a step modifier moves
+  with its step; then the list is put back in order. `song_edit_shift`: one undo level per run; not during a take;
+  SONG_EMPTY for a clip without events. An edit of the stored clip (unlike TRANSPOSE, STEP SIZE, DIRECTION).
+- Remote: command 29 {16, 5} does what the > button does on ACTIONS while NEW SONG is selected (the button cannot
+  be injected); {1, slot} now selects an empty slot too (the reply is still the error). Device test:
+  tools/linux/hw/run-takeedit.py (the step `takeedit` of rc-validate.py v0.4).
+- Measured: +1600 bytes, margin 30269; heap 142700 (-64).

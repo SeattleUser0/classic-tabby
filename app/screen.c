@@ -200,20 +200,23 @@ enum { SOURCE_CHOICES = GROOVE_SAMPLE };
  * CLOCK" left with their pages; the clock source is on SYNC / MIDI, Bluetooth in the workbench.) */
 static const char *const actions[] = {"COPY TIMBRE", "PASTE TIMBRE", "STOP ALL / REWIND",
     "ERASE OLD DATA", /* Task 12 A1: was ERASE OLD SAMPLE/DX7 */
-    "SONG MODE", "COMPACT SONG STORAGE", "SEND SETUP"
+    "SONG MODE", "COMPACT SONG STORAGE", "SEND SETUP", "NEW SONG" /* tabby-v04.21 */
 #ifdef CT_A2
     /* Task 15 Step 4 (CT_A2 diag builds only): the run-time switch of option A2, the control
      * pass on demand (app/midi_router.c). Off at boot; the entry's text shows the state. */
     , "A2 FAST MIDI: ON"
 #endif
     };
-enum { ACT_COPY_TIMBRE, ACT_PASTE_TIMBRE, ACT_STOP_ALL, ACT_ERASE_OLD, ACT_SONG_MODE, ACT_COMPACT, ACT_SEND_SETUP, ACT_A2 };
+enum { ACT_COPY_TIMBRE, ACT_PASTE_TIMBRE, ACT_STOP_ALL, ACT_ERASE_OLD, ACT_SONG_MODE, ACT_COMPACT, ACT_SEND_SETUP, ACT_NEW_SONG, ACT_A2 };
 enum { ACTION_COUNT = sizeof actions / sizeof actions[0] };
 static unsigned source_preview, action, action_confirm, tone_clip_ready;
 /* Task 12 A1: the question the ACTIONS page asks before a destructive entry runs. */
+static unsigned song_select;   /* defined with the SONG page's state below */
 static const char *confirm_prompt(void)
 {
-    return action == ACT_ERASE_OLD ? "ERASE OLD DATA?" : action == ACT_COMPACT ? "COMPACT SONG STORAGE?" : "REPLACE TIMBRE?";
+    static char ask[] = "NEW SONG IN SLOT 00?";
+    ask[17] = (char)('0' + (song_select + 1U) / 10); ask[18] = (char)('0' + (song_select + 1U) % 10);
+    return action == ACT_ERASE_OLD ? "ERASE OLD DATA?" : action == ACT_COMPACT ? "COMPACT SONG STORAGE?" : action == ACT_NEW_SONG ? ask : "REPLACE TIMBRE?";
 }
 static struct groove_preset tone_clip;
 static uint32_t midi_seen[8], midi_until[8];
@@ -584,6 +587,15 @@ unsigned ct_screen_setup_read(uint8_t *out)
     out[36] = clip ? clip[14] : 0;   /* tabby-v04.19: the open clip's scale (0 a 16th, 1 an 8th, 2 a 32nd, 3 a 16th triplet, 4 an 8th triplet) */
     out[37] = 20;   /* tabby-v04.20: the reply's revision: byte 36 carries the direction in its high four bits */
     return 38;
+}
+/* tabby-v04.21: command 29 op 16 {16, 5}: what the > button does on the ACTIONS page while NEW SONG is the selected
+ * entry (that button cannot be injected): the next control pass takes it as a press. */
+static uint8_t remote_action_do;
+int ct_screen_action_do(void)
+{
+    if (page != ACTIONS || action != ACT_NEW_SONG) return SONG_INVALID;
+    remote_action_do = 1;
+    return 0;
 }
 int ct_screen_setup_do(void)
 {
@@ -1070,9 +1082,9 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             dim_text(8, 38, "T"); small_number(16, 38, track + 1, 1, TEXT);
             dim_text(36, 38, tone_clip_ready ? "TIMBRE COPIED" : "NO TIMBRE COPIED");
         }
-        unsigned first = 0;   /* Task 12 A2: the seven entries fit on one screen */
+        unsigned first = 0;   /* Task 12 A2: the entries fit on one screen (tabby-v04.21: nine with A2 FAST MIDI, as every release has it: 17 lines apart) */
         for (unsigned i = 0; i < ACTION_COUNT; ++i) {
-            unsigned at = first + i, y = 57 + i * 19;
+            unsigned at = first + i, y = 57 + i * (ACTION_COUNT > 8 ? 17 : 19);
             uint16_t bg = at == action ? PANEL : BACK;
             paint_fill(6, y, 228, 17, bg);
             const char *label = actions[at];
@@ -1935,6 +1947,13 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         else { page = CLIP_STEPS; step_bar = 0; step_sel = 255; step_cursor = 0; step_pads_toggle = groove_pad_count(track) != 0; cache->shown_page = ~0U; }
         goto controls_done;
     }
+    if (remote_action_do) { remote_action_do = 0; if (page == ACTIONS && action == ACT_NEW_SONG) pressed |= BUTTON(SAVE); }
+    /* tabby-v04.21 (docs/CONTROL-MAP.md 13): while a take runs FX is the clear button: held, a key that is played takes
+     * its notes out of the clip as the clip passes them (the MC-707's ERASE). FX does nothing else during a take. */
+    if (song_record_erase((controls->buttons >> FX) & 1U) && (pressed & BUTTON(FX))) {
+        announce("HOLD FX + A KEY: CLEARS ITS NOTES", now + 2000U);
+        pressed &= ~BUTTON(FX);
+    }
     /* tabby-v04.16 (docs/CONTROL-MAP.md 5): on SCENES, stopped: FX twice within two seconds takes the selected scene
      * (the reserved one, else scene 1) out of the song; EDIT held with K1 moves it (below). */
     if (page == SONG && (pressed & (BUTTON(FX) | BUTTON(EDIT)))) {
@@ -1995,6 +2014,11 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (!ei.active) { page = TRACK_LAUNCH; goto controls_done; }
         unsigned bars = (ei.steps + 15U) / 16U;
         int paging = !!(pressed & BUTTON(OCT_UP)) - !!(pressed & BUTTON(OCT_DOWN)) + controls->encoders[1];
+        if (paging && smk37_shift() && !controls->encoders[1]) {   /* tabby-v04.21: KNOB BANK + OCTAVE-/+ shifts the clip by a step */
+            int r = song_edit_shift(paging);
+            announce(r == SONG_BUSY ? "NOT DURING A TAKE" : r ? "NO NOTES TO SHIFT" : paging > 0 ? "CLIP SHIFTED ONE STEP LATER" : "CLIP SHIFTED ONE STEP EARLIER", now + 1500U);
+            paging = 0; step_cursor = 0; cache->middle_cache = ~0U;
+        }
         if (paging) { unsigned was = step_bar; step_bar = (uint8_t)clamp((int)step_bar + paging, 0, (int)bars - 1); if (was != step_bar) step_sel = 255; }
         if (pressed & BUTTON(EDIT)) { page = TRACK_LAUNCH; goto controls_done; }
         /* tabby-v04.9.1: HOME leaves to the overview, as the control map says; the clip stays open (v04.8 and v04.9 took no
@@ -2346,7 +2370,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         if (pressed & BUTTON(SAVE)) {
             int r = 0;
             /* Task 12 A1: ERASE OLD DATA asks first, as COMPACT does; PASTE TIMBRE too. */
-            unsigned destructive = action == ACT_PASTE_TIMBRE || action == ACT_ERASE_OLD || action == ACT_COMPACT;
+            unsigned destructive = action == ACT_PASTE_TIMBRE || action == ACT_ERASE_OLD || action == ACT_COMPACT || action == ACT_NEW_SONG;
             if (destructive && !action_confirm) { action_confirm = 1; goto controls_done; }
             action_confirm = 0;
             /* Task 12 A3: no flash write while the transport runs. */
@@ -2367,6 +2391,13 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             } else if (action == ACT_COMPACT) {
                 /* Task 03 d: full compaction pass, one block sector per poll (9.6). */
                 r = song_storage_compact();
+            } else if (action == ACT_NEW_SONG) {
+                /* tabby-v04.21: an empty song in the slot selected on SCENES, if it is empty; then the CLIPS page */
+                int e = song_new(song_select);
+                announce(e == SONG_BUSY ? "STOP THE SONG FIRST" : e == SONG_NEW_EXISTS ? "SLOT HOLDS A SONG - K5 ON SCENES" : e ? "SONG STORAGE NOT READY" : "NEW SONG - HOLD A PAD, SEQ REC", now + 3000U);
+                if (!e) { memset(clip_select, SONG_NONE, sizeof clip_select); clip_bank = 0; page = TRACK_LAUNCH; }
+                cache->middle_cache = ~0U; cache->shown_page = ~0U;
+                goto controls_done;
             } else if (action == ACT_SEND_SETUP) {
                 /* Task 04 (9.11): send row 1's events now, for a set or after power-up. */
                 int e = song_send_setup();
