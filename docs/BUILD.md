@@ -5972,3 +5972,21 @@ Before the candidate, on the device with tabby-v04.18: run-setup.py v0.11 passed
 skipped on firmware that reports no step size).
 
 Measured: app image 486404 bytes (+1216), margin 33053, heap 143020 (unchanged). Build `60dd42e69b99e957`.
+
+### 55.1 tabby-v04.19 released: candidate 1 (2026-11-17)
+
+Suite green on 6dbba88; builds/tabby-v04.19-rc1/ (build `60dd42e69b99e957`), installed in 11 s; every step passed at
+the first attempt; promoted.
+
+| Step | Result |
+| --- | --- |
+| run-setup v0.11 | 36 of 36; the second note 164.00 ms after the first at 1/16, 328.04 ms at STEP SIZE 1/8 (calculated 164.1, 328.1); SHUFFLE 50: 207.02 ms; PLAY QUANTIZE 1/16: 125.92 ms |
+| run-program / run-chain / run-scenechain / run-sceneedit | 10 of 10 / 11 of 11 / 13 of 13 / 16 of 16 |
+| run-record / run-steps / run-launch v0.6 twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.24 ms on DIN |
+| run-15, one line, three runs | DIN 1.96, 1.83, 1.81 ms; USB 1.97, 1.76, 1.83 ms; clock ratio 0.999583 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+Flash margin 33053 bytes, free RAM 143020 bytes. The one-line band of 1.96 and 1.97 ms is the highest since
+tabby-v04.13 (2.05); the runs of one candidate differ by up to 0.2 ms, and tabby-v04.18's second candidate measured
+1.68 to 1.79 ms with the same engine code, so this is not read as a trend; it is watched.
