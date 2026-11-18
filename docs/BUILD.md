@@ -6097,3 +6097,19 @@ The shift and NEW SONG checks passed in both runs. The page builds/tabby-v04.21-
 
 Lesson: a device test takes nothing about the panel's state for granted that it can read (the octave here); the
 same rule as the starting state of 54.3.
+
+### 57.5 tabby-v04.21 released: candidate 2 (2026-11-18)
+
+Suite green on acf9be3; builds/tabby-v04.21-rc2/ (build `0bb7c4fb25bc175a`, on the device already: nothing written);
+every step passed; promoted.
+
+| Step | Result |
+| --- | --- |
+| run-takeedit v0.2 | 26 of 26 |
+| run-program / run-chain / run-scenechain / run-sceneedit / run-setup | 10 of 10 / 11 of 11 / 13 of 13 / 16 of 16 / 38 of 38 |
+| run-record / run-steps / run-launch twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.32 ms on DIN |
+| run-15, one line, three runs | DIN 1.91, 1.72, 1.81 ms; USB 1.59, 1.67, 1.74 ms; clock ratio 0.999583 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+Flash margin 30269 bytes, free RAM 142700 bytes.

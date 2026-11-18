@@ -35,4 +35,16 @@ Three things on the panel: FX with a key clears notes during a take, KNOB BANK w
 
 ## Validation
 
-Filled in after the candidate has passed on the device.
+Candidate 2 (builds/tabby-v04.21-rc2/) on the device, unattended, before the promotion:
+
+- Take edit 26 of 26: the clip shifted later, earlier and round its end; FX + the key cleared the clip's four notes
+  in one pass (2 left after 0.9 s) and recorded nothing; NEW SONG refused on a slot that holds a song, made in an
+  empty slot, a first clip recorded into it, saved, read again, and the song deleted again.
+- Program and knobs 10 of 10, clip chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16, CLIP SETTING 38 of 38,
+  recording 25 of 25, STEP page 18 of 18, CLIPS page 40 of 40 twice, the timing song 960 of 960 notes on DIN and USB.
+- One line, 960 notes, three runs: DIN 1.91, 1.72, 1.81 ms; USB 1.59, 1.67, 1.74 ms.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.
+
+Candidate 1 was the same firmware build. It was not promoted because one check group of the new device test failed:
+the test pressed the wrong key (it assumed the keys' octave). The corrected test passed on candidate 1 as installed,
+and candidate 2 passed every step (docs/BUILD.md 57.4).
