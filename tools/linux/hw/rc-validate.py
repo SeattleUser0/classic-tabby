@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.5
+Version: 0.6
 
 Revision log
+    v0.6  2026-11-18  tabby-v04.23: run-repeat.py v0.2 has the step loop (the same step `repeat`).
     v0.5  2026-11-18  tabby-v04.22: the step `repeat` (run-repeat.py: NOTE REPEAT repeats a held key; the focus switch).
     v0.4  2026-11-18  tabby-v04.21: the step `takeedit` (run-takeedit.py: a clip shifted, notes cleared during a take, a new song made and deleted again).
     v0.3  2026-11-17  tabby-v04.16: the step `sceneedit` (run-sceneedit.py: a scene moved and deleted, a stop takes an armed take off).

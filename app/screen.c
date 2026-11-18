@@ -234,6 +234,7 @@ static unsigned launch_phase(void);         /* Task 06 (c): the TRACK LAUNCH pag
 static unsigned clip_bank, clips_return;
 static uint8_t clip_select[8] = {SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE, SONG_NONE};
 static uint8_t clip_hold_pad = 255, clip_hold_queued, clip_hold_track;
+static uint8_t loop_pad = 255;   /* tabby-v04.23: the pad that holds the step loop (255: none) */
 static uint32_t clip_hold_ms;
 /* Goal 6 (docs/CONTROL-MAP.md 12): the STEP page: the bar of 16 steps on the pads, the selected step (255: none), the
  * note the knobs work on, the note the pads toggle (the last key played), what a pad press does (0 selects the step,
@@ -1947,6 +1948,11 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         else { page = CLIP_STEPS; step_bar = 0; step_sel = 255; step_cursor = 0; step_pads_toggle = groove_pad_count(track) != 0; cache->shown_page = ~0U; }
         goto controls_done;
     }
+    /* tabby-v04.23 (docs/CONTROL-MAP.md 3.2): the step loop lasts as long as its pad is down, on whatever page. */
+    if (loop_pad != 255 && (!(controls->keys & (1U << white_keys[loop_pad])) || !song_step_looping())) {
+        (void)song_step_loop(0); loop_pad = 255;
+        announce("STEP LOOP OFF", now + 1000U);
+    }
     /* tabby-v04.22 (docs/CONTROL-MAP.md 3.1): NOTE REPEAT held and K1 turned: the repeat's rate (the ARP rate of the
      * repeating tracks). Nothing else reads the knobs in that pass. */
     if (smk37_note_repeat() && controls->encoders[2]) {
@@ -2308,6 +2314,21 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             }
         unsigned queue = (st.track_state[track] >> 2) & 3U, playing_place = song_row_place(track, st.track_row[track]);
         unsigned queued_place = queue == SONG_QUEUE_LAUNCH ? song_row_place(track, st.track_queued[track]) : SONG_NONE;
+        /* tabby-v04.23 (docs/CONTROL-MAP.md 3.2): NOTE REPEAT held: pads 9 to 12 loop the last 1, 2, 4 or 8 steps of every
+         * track that plays, for as long as the pad is down; no pad launches anything meanwhile. */
+        if (smk37_note_repeat_down() && (key_down & ~blocked_keys)) {
+            for (unsigned i = 8; i < 12; ++i)
+                if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
+                    static char say[] = "STEP LOOP: LAST 0 STEPS";
+                    int r = song_step_loop(1U << (i - 8U));
+                    say[16] = (char)('0' + (1U << (i - 8U)));
+                    if (!r) loop_pad = (uint8_t)i;
+                    announce(r == SONG_BUSY ? "NOT DURING A TAKE" : r ? "STEP LOOP: THE SONG MUST PLAY" : say, now + 60000U);
+                }
+            if (loop_pad == 255 && !notice) announce("NOTE REPEAT + PAD 9-12: STEP LOOP", now + 1500U);
+            blocked_keys |= controls->keys;
+            goto controls_done;
+        }
         for (unsigned i = 0; i < 16; ++i)
             if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
                 unsigned place = clip_bank * 16U + i;
@@ -2907,6 +2928,10 @@ int smk37_screen_launch_color(unsigned pad, uint32_t *rgb)
         unsigned level = queue ? (phase ? 2U : 0U) : on ? 2U : 1U;
         if (pad == track && level) ++level;
         *rgb = level ? ((c >> 11) & 31U) << (15 + level) | ((c >> 5) & 63U) << (6 + level) | (c & 31U) << level : 0;
+        return 1;
+    }
+    if (page == TRACK_LAUNCH && pad >= 8 && (smk37_note_repeat_down() || loop_pad != 255)) {   /* tabby-v04.23: the lower row shows the step loop's four pads */
+        *rgb = pad == loop_pad ? 0x383838 : pad < 12 ? 0x181008 : 0;
         return 1;
     }
     unsigned code = clips_pad_state(&st, pad), kind = code & 7U, selected = code & 8U, muted = code & 16U, internal = code & 32U;

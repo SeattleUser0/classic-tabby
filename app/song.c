@@ -797,6 +797,32 @@ static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
 }
 /* One block: the window [m0, m1) of the master clock, every track's frame, the switches
  * inside the window and the look-ahead into the frames that follow. */
+/* tabby-v04.23 (the MC-707's step loop, UM p. 20): while loop_steps is not 0 every track that plays repeats a window of
+ * that many 16ths of what it plays. The clip clocks run on underneath (frames, chains, scenes, the master cycle), so
+ * letting go continues where the song would be. Only the note scan is turned back into the window: scan() is
+ * stateless, so nothing else in the tick knows. The window ends with the step the track is in when the loop is first
+ * seen (the last n steps); it is not longer than the track's frame. */
+static volatile uint8_t loop_steps;                /* control -> audio: 0 off, else the window in 16ths */
+static uint8_t loop_now, loop_fresh;               /* audio: the value in force; bit t: track t has its window yet to take */
+static int32_t loop_from[SONG_TRACKS];             /* audio: where each track's window begins (frame units) */
+static FM1_AUDIO_CODE void loop_scan(unsigned t, int32_t p0, int32_t n)
+{
+    const struct track *k = &tr[t];
+    int32_t w = (int32_t)loop_now * UNITS, base = 0;
+    if (k->len && (uint32_t)w > k->len) w = (int32_t)k->len;
+    if (loop_fresh & (1U << t)) {
+        loop_fresh &= (uint8_t)~(1U << t);
+        int32_t stop = (p0 < 0 ? 0 : p0) / UNITS * UNITS + UNITS;
+        loop_from[t] = stop > w ? stop - w : 0;
+    }
+    int32_t q = (p0 - loop_from[t]) % w;
+    if (q < 0) q += w;
+    while (n > 0) {
+        int32_t take = w - q < n ? w - q : n;
+        scan(t, k->cur, loop_from[t] + q, loop_from[t] + q + take, base, 0, k->pass);
+        base += take; n -= take; q = 0;
+    }
+}
 static FM1_AUDIO_CODE void tick(unsigned tempo)
 {
     unsigned adv;
@@ -809,6 +835,7 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
     prefire(tempo, m0, sbd, snext);
     if (click_live || click_held) { click_window(m0, adv, click_live, 0); groove_midi_at(0, 0); }   /* tabby-v04.10 */
     action_count = 0;
+    { unsigned ls = loop_steps; if (ls != loop_now) { loop_now = (uint8_t)ls; loop_fresh = 0xff; } }   /* tabby-v04.23 */
     /* Late adoption: a frame that began without its buffer, or a following track whose
      * buffer is not the song's row (a row change on the bar it rejoined the song), takes
      * the right buffer as soon as it is ready, in phase, and counts late. */
@@ -880,10 +907,11 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         unsigned crossing = tb && tb < m1;
         if (active) {
             int32_t p0 = (int32_t)(m0 - k->start), end = (int32_t)((crossing ? tb : m1) - k->start);
-            scan(t, k->cur, p0, end, 0, 0, k->pass);
+            if (loop_now) loop_scan(t, p0, (int32_t)adv);   /* tabby-v04.23: the whole block from the window, whatever boundary lies in it */
+            else scan(t, k->cur, p0, end, 0, 0, k->pass);
         }
         if (crossing && plan[t].what != SW_SONG) add_action(tb - m0, 1, 0, t, plan[t].what, qk, 0);
-        if (tb && plan[t].nb != SONG_NONE && !(plan[t].what == SW_QUEUE && qk == Q_STOP)) {
+        if (!loop_now && tb && plan[t].nb != SONG_NONE && !(plan[t].what == SW_QUEUE && qk == Q_STOP)) {
             unsigned nb = plan[t].nb;
             int32_t origin = plan[t].origin;   /* back to song joins mid-clip */
             if (crossing) scan(t, nb, origin, origin + (int32_t)(m1 - tb), (int32_t)(tb - m0), 0, k->pass + 1U);
@@ -1516,8 +1544,20 @@ int song_play(void)
     start_request = 1;
     return 0;
 }
+/* tabby-v04.23: the step loop: every playing track repeats the last `steps` 16ths (1 to 16) until song_step_loop(0).
+ * SONG_INVALID: the song does not play; SONG_BUSY: a take runs (it would be written where the clip really is). */
+int song_step_loop(unsigned steps)
+{
+    if (!steps) { loop_steps = 0; return 0; }
+    if (state != 1 || !playing) return SONG_INVALID;
+    if (rec.state == REC_ON) return SONG_BUSY;
+    loop_steps = (uint8_t)(steps > 16 ? 16 : steps);
+    return 0;
+}
+unsigned song_step_looping(void) { return loop_steps; }
 void song_stop(void)
 {
+    loop_steps = 0;
     if (state != 1) return;
     state = 2;
     user_stop = 1;

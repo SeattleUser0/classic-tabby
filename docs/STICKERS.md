@@ -1,6 +1,7 @@
 # Classic Tabby stickers for the SMK-37 Pro
 
-Version 0.5 (2026-11-18). For tabby-v04.22 and docs/CONTROL-MAP.md v0.17.
+Version 0.6 (2026-11-18). For tabby-v04.23 and docs/CONTROL-MAP.md v0.18.
+v0.6: sticker E names the step loop.
 v0.5: NOTE REPEAT on sticker C says what it does from tabby-v04.22.
 v0.4: no type below 6 point (the user's rule: 3.3 to 4.4 point cannot be read on a dark stage). To make room, stickers
 A, B and C now cover the strip of key functions printed above the keys, on purpose: section 2 lists every function
@@ -188,7 +189,7 @@ between tracks 1 to 4 and 5 to 8). 7 point. The panel prints FADER1 to FADER4 ab
 
 ### Sticker E (optional)
 
-CLASSIC TABBY (10 point) / SEQ + PARA: ACTIONS / PATCH + SEQ PLAY: STOP ALL / KB = KNOB BANK HELD.
+CLASSIC TABBY (10 point) / SEQ + PARA: ACTIONS / NOTE REPEAT + PAD 9-12: LOOP / KB = KNOB BANK HELD.
 
 ## 4. How the panel was measured
 

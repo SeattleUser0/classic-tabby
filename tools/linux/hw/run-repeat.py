@@ -8,18 +8,25 @@ Purpose
     panel's playing state read with command 29 op 18; the notes heard on the DIN MIDI out).
 
     Checked: NOTE REPEAT held switches the key track and the pad track to repeating and does not change the focus
-    or the page; a held key then comes out again and again, evenly (the arpeggiator starts notes on audio blocks of
-    2.9 ms, so two intervals can differ by one block: the limit is 4.5 ms from the median); K1 while NOTE REPEAT is held changes the rate
+    or the page; a held key then comes out again and again, evenly; K1 while NOTE REPEAT is held changes the rate
     (one click faster halves the time between notes); letting NOTE REPEAT go ends the repeats and leaves every
     track's ARP switch as it was; a track whose ARP is on is not touched; KNOB BANK + NOTE REPEAT switches the
     focus between keys and pads and back. The test sets the rate back and leaves the focus as it found it.
 
+    The step loop (tabby-v04.23; the song of tools/linux/hw/clips-song.mjs, whose track 1 clip 1 plays pitch 60 on
+    every beat): stopped, NOTE REPEAT + pad 9 does nothing; playing, with clip 1 launched, NOTE REPEAT + pad 9
+    pressed just after a beat repeats that step (a note every 16th), pad 10 the last two steps (a note every 8th);
+    no pad launches a clip while NOTE REPEAT is down; after the pad is let go the notes fall on the beats the song
+    had before the loop.
+
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-repeat.py --song N --out DIR
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-18  tabby-v04.23: the step loop (NOTE REPEAT + pad 9 or 10 on CLIPS while the song plays): the loop's
+                      period on the MIDI out, nothing launched meanwhile, the song back on its beats afterwards.
     v0.1  2026-11-18  First version.
 """
 import argparse
@@ -133,6 +140,62 @@ def main():
         check(s["focus"] == 1 - s0["focus"] and s["repeat"] == 0 and st["page_name"] == "OVERVIEW", "KNOB BANK + NOTE REPEAT: the focus goes from %s to %s; nothing repeats" % (("keys", "pads")[s0["focus"]], ("keys", "pads")[1 - s0["focus"]]), (s, st["page_name"]))
         l.hold([SHIFT, NOTE_REPEAT], 0.15); idle(0.4); s = panel()
         check(s["focus"] == s0["focus"], "and back", s["focus"])
+        # ---- the step loop (tabby-v04.23) ----
+        l.press("BLUETOOTH"); idle(0.4)
+        if l.clips_state()["page_name"] != "CLIPS":
+            l.press("BLUETOOTH"); idle(0.4)
+        l.shift_pad(0); idle(0.3)
+        c = l.clips_state()
+        l.key(0, NOTE_REPEAT, 1); idle(0.2); l.pad(8, hold=0.3); idle(0.2); l.key(0, NOTE_REPEAT, 0); idle(0.3)
+        st = l.remote_status(); c2 = l.clips_state()
+        check(c["page_name"] == "CLIPS" and st["song_state"] == 0 and [p_["code"] for p_ in c2["pads"]] == [p_["code"] for p_ in c["pads"]],
+              "the song stopped: NOTE REPEAT + pad 9 loops nothing and queues nothing", st["song_state"])
+        l.clip_launch(0, 0); idle(0.2)
+        l.press("PLAY"); idle(4.2)                                  # two bars: clip 1 loops on track 1 (60 on every beat)
+        beats = [t for t, p_ in ons(time.monotonic_ns() - 3_000_000_000) if p_ == 60]
+        beat = (beats[-1] - beats[0]) / 1e6 / (len(beats) - 1) if len(beats) > 1 else 0.0   # the mean over the bars heard
+        check(len(beats) >= 4 and 400.0 < beat < 600.0, "the song plays; track 1 plays 60 on every beat, %.1f ms apart" % beat, len(beats))
+
+        def after_beat():
+            """Wait for the next 60 of track 1 on the MIDI out; its time, or None."""
+            seen = len(din.messages); t_end = time.monotonic() + 3.0
+            while time.monotonic() < t_end:
+                l.messages(2)
+                new = [t for t, m in list(din.messages)[seen:] if len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[1] == 60 and m[2]]
+                if new:
+                    return new[0]
+            return None
+
+        def gaps60(since, until):
+            t = [x for x, p_ in ons(since, until) if p_ == 60]
+            return [(b - c_) / 1e6 for c_, b in zip(t, t[1:])]
+
+        loops = {}
+        for pad, steps in ((8, 1), (9, 2)):
+            l.key(0, NOTE_REPEAT, 1); idle(0.3)
+            lit = l.clips_state()["pads"]
+            ref = after_beat()
+            l.key(3, pad, 100)
+            t5 = time.monotonic_ns(); idle(1.6); t6 = time.monotonic_ns()
+            g = gaps60(t5 + 60_000_000, t6); m = median(g)
+            worst = max((abs(x - m) for x in g), default=99.0)
+            expect = beat / 4.0 * steps
+            check(ref is not None and len(g) >= (6 if steps == 1 else 3) and abs(m - expect) <= 3.0 and worst <= a.even,
+                  "NOTE REPEAT + pad %d just after a beat: the last %d step%s repeat: 60 every %.1f ms (%.1f expected)" % (pad + 1, steps, "" if steps == 1 else "s", m, expect), "%d notes, worst %.2f ms" % (len(g) + 1, worst))
+            if pad == 8:
+                check(lit[8]["rgb"] and lit[11]["rgb"] and not lit[12]["rgb"] and not lit[15]["rgb"], "while NOTE REPEAT is down pads 9 to 12 are lit and 13 to 16 dark")
+                q = [p_["code"] for p_ in l.clips_state()["pads"][:8]]
+                l.pad(1, hold=0.1); idle(0.2)
+                check([p_["code"] for p_ in l.clips_state()["pads"][:8]] == q, "another pad pressed meanwhile launches nothing")
+            l.key(3, pad, 0); idle(0.1); l.key(0, NOTE_REPEAT, 0)
+            t7 = time.monotonic_ns(); idle(2.6)
+            back = [t for t, p_ in ons(t7 + 300_000_000) if p_ == 60]
+            off = [(((t - (ref or beats[0])) / 1e6 + beat / 2) % beat) - beat / 2 for t in back]
+            check(len(back) >= 3 and all(abs(x) <= 8.0 for x in off), "the pad let go: 60 is back on the beats the song had before the loop", ["%+.1f" % x for x in off[:4]])
+            loops[steps] = {"gap_ms": round(m, 2), "worst_ms": round(worst, 2), "expected_ms": round(expect, 2)}
+        measured["step_loop"] = loops; measured["beat_ms"] = round(beat, 2)
+        l.press("PLAY"); idle(0.8)
+        l.show_page("overview")
         if rate0 != base:
             l.key(0, NOTE_REPEAT, 1); idle(0.2); l.knob(K1, rate0 - base); idle(0.3); l.key(0, NOTE_REPEAT, 0); idle(0.3)
         if s0["arp"] & (1 << s0["key_track"]):

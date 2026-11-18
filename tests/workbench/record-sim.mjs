@@ -16,9 +16,10 @@
 //
 //   Run:  /usr/bin/node tests/workbench/record-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.4
+// Version: 0.5
 //
 // Revision log
+//   v0.5  2026-11-18  tabby-v04.23: the step loop (NOTE REPEAT + pad 9 to 12 on CLIPS).
 //   v0.4  2026-11-18  tabby-v04.22: NOTE REPEAT held repeats a held key, KNOB BANK + NOTE REPEAT is the focus switch.
 //   v0.3  2026-11-18  tabby-v04.21: shift a clip by a step (KNOB BANK + OCTAVE-/+ on STEP), FX + a key clears notes during a
 //                     take, ACTIONS: NEW SONG.
@@ -319,6 +320,35 @@ press(2); step(10);                                              /* PATCH: the o
   c.sim_smk37(BUTTON, SHIFT, 1); step(4); press(NR); c.sim_smk37(BUTTON, SHIFT, 0); step(8);
   const f2 = (c.sim_smk37_instruments() >>> 20) & 1;
   check(f1 === 1 && f2 === 0, 'KNOB BANK + NOTE REPEAT switches the focus to the pads and back (' + f1 + ', ' + f2 + ')'); }
+
+/* ---- tabby-v04.23: the step loop: NOTE REPEAT + pad 9 to 12 on CLIPS ---- */
+press(BT); step(10); press(SCL); knob(4, -3); step(10); press(SCL); step(10); shiftPad(0);   /* CLIPS, SCENES: K5 back to song 1, CLIPS, track 1 */
+check(state().page === 20 && (c.sim_song_status(0) & 255) === 0, 'the CLIPS page on song 1');
+c.sim_smk37(BUTTON, NR, 1); step(6); pad(10, 20); c.sim_smk37(BUTTON, NR, 0); step(8);
+check((trackStatus(0) >> 2 & 3) === 0 && !(c.sim_song_status(0) >>> 8 & 255), 'stopped: NOTE REPEAT + a pad queues nothing and loops nothing (STEP LOOP: THE SONG MUST PLAY)');
+origin = -1; press(PLAY);
+while (origin < 0 && block < 2000000) step();
+toBar(2, 0);
+const before = [pitches(1, 9), firstOn(1, 9)];                    /* bar 2, played without a loop */
+c.sim_smk37(BUTTON, NR, 1); step(4);
+{ const pads = state().pads;
+  check(pads[8].rgb !== 0 && pads[11].rgb !== 0 && pads[12].rgb === 0 && pads[15].rgb === 0, 'NOTE REPEAT held on CLIPS: pads 9 to 12 are lit, 13 to 16 dark'); }
+const q0 = trackStatus(0);
+{ const seen = log.length; while (!log.slice(seen).some(m => (m[0] & 0xf0) === 0x90 && m[2] && (m[0] & 15) === 9) && block < 3000000) step(); }
+const hit = log.filter(m => (m[0] & 0xf0) === 0x90 && m[2] && (m[0] & 15) === 9).pop();
+step(5); c.sim_smk37(PAD, 8, 100); step(2);                      /* pad 9, just after a note of track 1: the step that holds it loops */
+const loopFrom = block; step(6 * 43);
+{ const n = onsIn(loopFrom, block, 9), gaps = n.slice(1).map((m, i) => m[3] - n[i][3]);
+  check(n.length >= 5 && n.every(m => m[1] === hit[1]) && gaps.every(g => g >= 42 && g <= 44), 'pad 9 held just after a note: that step repeats: the note comes every 16th (' + n.length + ' notes of pitch ' + hit[1] + ', ' + gaps.join(' ') + ' blocks apart)');
+  check(state().pads[8].rgb === 0x383838, 'the held pad is white (' + hex(state().pads[8].rgb) + ')'); }
+c.sim_smk37(PAD, 0, 100); step(8); c.sim_smk37(PAD, 0, 0); step(4);
+check(trackStatus(0) === q0, 'another pad pressed while NOTE REPEAT is down launches nothing');
+c.sim_smk37(PAD, 8, 0); step(4); c.sim_smk37(BUTTON, NR, 0); step(4);
+const bn = bar(); toBar(bn + 4, 0);
+{ const odd = (bn + 1) % 2 === 1 ? bn + 1 : bn + 2;               /* a whole bar after the loop that plays the same scene as bar 2 */
+  check(pitches(odd, 9) === before[0] && firstOn(odd, 9) === before[1], 'the pad let go: the song is where it would have been: bar ' + (odd + 1) + ' plays as bar 2 did, on the same blocks (' + pitches(odd, 9) + ' / ' + before[0] + ')'); }
+check(((c.sim_song_status(2) >>> 16) & 0xffff) === 0, 'nothing came late');
+press(PLAY); step(60);
 
 c.sim_midi_capture(0); c.sim_midi_drain(0);
 console.log(`\nrecord-sim: ${passed} passed, ${failed} failed`);

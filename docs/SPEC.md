@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.60
+Version: 0.61
 Revision log:
+- v0.61, 2026-11-18: 19.26 tabby-v04.23 (the step loop while held).
 - v0.60, 2026-11-18: 19.25 tabby-v04.22 (NOTE REPEAT repeats; the focus switch on KNOB BANK + NOTE REPEAT).
 - v0.59, 2026-11-18: 17.16 the user's answers of 2026-11-18 (pad rows, stickers of 6 point that cover the dead strip, the order of the rest, NOTE REPEAT); 19.24 tabby-v04.21.
 - v0.58, 2026-11-18: 19.23 tabby-v04.20 (DIRECTION per clip).
@@ -2042,3 +2043,20 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   track, the key track's ARP rate), 9 bytes with the type byte 5. The status reply stays 14 bytes.
 - Texts changed with the gesture: the guide (4.1, T7), Help (the quick start, chapter 06), the workbench panel's
   hint, the README, CONTROL-MAP 1.1, 3.1 and 4.3, the stickers (C: NOTE REPEAT).
+
+### 19.26 tabby-v04.23 (2026-11-18): the step loop while held
+
+- Parity list item 4, the last of the user's order. Gesture: on CLIPS, NOTE REPEAT held and pad 9, 10, 11 or 12 held:
+  the last 1, 2, 4 or 8 steps (the report of 2026-11-18, question d, as answered).
+- Audio thread (app/song.c `tick`): one change. `loop_steps` (control to audio, one byte) is taken at the start of a
+  tick. While it is not 0 the note scan of every active track goes through `loop_scan`: the block's window
+  [p0, p0 + adv) is turned back into the track's window [`loop_from[t]`, + n steps) (modulo), in up to two pieces, and
+  the scans of the next frame (the crossing scan and the look-ahead) are left out. `scan` is stateless (binary search
+  by time), so nothing else in the tick changes: frames, chains, queues, scene switches, the master position, the
+  click and the recorder's stamps run on as before, which is what makes the song continue where it would have been.
+  The window is taken per track in the first tick that sees the loop: it ends with the step the track is in, and is
+  not longer than the track's frame.
+- Cost in the audio thread while not looping: one byte compare per tick and one test per track.
+- Control: `song_step_loop(steps)` (SONG_INVALID stopped, SONG_BUSY during a take, 0 ends it), ended by `song_stop`.
+  The screen keeps the pad that holds the loop (`loop_pad`) and ends the loop on any page when that pad is up.
+- Not done: a loop of chosen steps (the pads are clips on CLIPS); a loop per track; a loop length other than 1, 2, 4, 8.

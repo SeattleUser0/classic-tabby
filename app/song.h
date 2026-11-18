@@ -127,6 +127,8 @@ int song_edit_scale(int delta);                      /* tabby-v04.19: 0 a 16th, 
 int song_edit_direction(int delta);                  /* tabby-v04.20: 0 forwards, 1 backwards, 2 forwards then backwards */
 int song_edit_shift(int delta);                      /* tabby-v04.21: every event one step later (> 0) or earlier, round the end */
 enum { SONG_NEW_EXISTS = 2 };
+int song_step_loop(unsigned steps);                  /* tabby-v04.23: every playing track repeats the last `steps` 16ths; 0 ends it */
+unsigned song_step_looping(void);
 int song_new(unsigned song);                         /* tabby-v04.21: an empty song in an empty slot; SONG_NEW_EXISTS: the slot holds a song */
 unsigned song_record_erase(unsigned held);           /* tabby-v04.21: FX held in a take: played keys clear their notes; 1 while a take runs */
 int song_edit_feel(unsigned field, int delta);       /* tabby-v04.17: 0 SHUFFLE (0 the song's, 1..51 own 0..50 %), 1 PLAY QUANTIZE (0 off, 1..3) */

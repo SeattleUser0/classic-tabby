@@ -24,9 +24,10 @@ Purpose
 Usage (from the repository root)
     python3 -I tools/linux/stickers.py [--out docs/stickers] [--table] [--no-pdf]
 
-Version: 0.5
+Version: 0.6
 
 Revision log
+    v0.6  2026-11-18  tabby-v04.23: sticker E names the step loop (in place of PATCH + SEQ PLAY).
     v0.5  2026-11-18  tabby-v04.22: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT (sticker C).
     v0.4  2026-11-18  The user's rule: no type below 6 point. Nothing printed in the function strip does anything in Classic
                       Tabby (STRIP_ITEMS), so A, B and C now cover it on purpose: 11/16" high, from under the transport
@@ -87,7 +88,7 @@ KNOB_LINE = [("K1 CLIPS: CTRL 74*", "SCENES: TIMES"), ("K2 CLIPS: CTRL 71*", "SC
 # Which pad row is pads 1 to 8: the upper one. An assumption (docs/STICKERS.md 5.1): M-VAVE's own panel model in the kit
 # draws it so and the LED chain confirms the columns; nobody has pressed a pad to see.
 PAD_ROW_LINES = ("KNOB BANK + PAD:", "UPPER: TRACK %d", "LOWER: MUTE %d")
-EXTRA = ("CLASSIC TABBY", "SEQ + PARA: ACTIONS", "PATCH + SEQ PLAY: STOP ALL", "KB = KNOB BANK HELD")
+EXTRA = ("CLASSIC TABBY", "SEQ + PARA: ACTIONS", "NOTE REPEAT + PAD 9-12: LOOP", "KB = KNOB BANK HELD")
 FADERS = ["LEVEL T1 / T5", "LEVEL T2 / T6", "LEVEL T3 / T7", "LEVEL T4 / T8"]
 
 # ---- the photograph of the unit (2026-11-17; ~/Documents/Classic Tabby/panel.jpg, 2016 x 1512, straight above) -------

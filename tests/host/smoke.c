@@ -2874,6 +2874,35 @@ int main(void)
           CHECK(smk37_pad_focus() != focus0 && !smk37_note_repeat(), "focus: KNOB BANK + NOTE REPEAT switches keys / pads (%u -> %u); nothing repeats", focus0, smk37_pad_focus());
           (void)sim_smk37(SMK37_BUTTON, 0, 1); settle(); (void)sim_smk37(SMK37_BUTTON, 7, 1); settle(); (void)sim_smk37(SMK37_BUTTON, 7, 0); settle(); (void)sim_smk37(SMK37_BUTTON, 0, 0); settle();
           CHECK(smk37_pad_focus() == focus0, "focus: and back"); }
+        /* ---- tabby-v04.23: the step loop: every playing track repeats the last n 16ths while it is held; the clip's clock runs on ---- */
+        { CHECK(sim_song_load(SONG) == 0 && song_edit_open(0, 0) == 0 && song_edit_length(16 - (int)clip_v3_steps(song_edit_clip())) >= 0 && song_edit_note_toggle(2, 71, 100, 240) == 1 && song_edit_note_toggle(6, 64, 100, 240) == 1,
+                "step loop: clip 1 open, 16 steps: 60 on step 1, 71 on step 3, 64 on step 7");
+          CHECK(song_step_loop(2) == SONG_INVALID, "step loop: refused while the song is stopped");
+          { struct message m[64]; (void)drain(m, 64); }
+          CHECK(song_clip_launch(0, 0) == 0, "step loop: the clip reserved");
+          (void)sim_song_play();
+          unsigned t60[8], n60 = 0, t64[12], n64 = 0, other = 0, on_at = 0, off_at = 0, phase = 0;
+          for (unsigned blocks = 0; blocks < 4000 && phase < 3; ++blocks) {
+              (void)sim_render();
+              struct message m[64]; unsigned n = drain(m, 64);
+              for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && m[k].data[0] == 0x94 && m[k].data[2]) {
+                  if (m[k].data[1] == 60 && n60 < 8) t60[n60++] = blocks;
+                  if (m[k].data[1] == 64 && n64 < 12) t64[n64++] = blocks;
+                  if (phase == 1 && blocks > on_at + 2 && m[k].data[1] != 64) ++other;
+              }
+              if (phase == 0 && n64 == 1 && blocks == t64[0] + 10) { CHECK(song_step_loop(2) == 0, "step loop: two steps, engaged while step 7 plays"); on_at = blocks; phase = 1; }
+              if (phase == 1 && n64 == 6) { (void)song_step_loop(0); off_at = blocks; phase = 2; }
+              if (phase == 2 && blocks == off_at + 1500) phase = 3;
+          }
+          #define NEAR(a_, b_) ((a_) + 2U >= (b_) && (a_) <= (b_) + 2U)
+          CHECK(n64 >= 6 && NEAR(t64[1] - t64[0], 86U) && NEAR(t64[2] - t64[1], 86U) && NEAR(t64[4] - t64[3], 86U) && other == 0,
+                "step loop: the window is steps 6 and 7: 64 comes every two 16ths (%u, %u, %u blocks; 86), nothing else sounds (%u)", n64 > 1 ? t64[1] - t64[0] : 0, n64 > 2 ? t64[2] - t64[1] : 0, n64 > 4 ? t64[4] - t64[3] : 0, other);
+          unsigned grid = 1; for (unsigned i = 1; i < n60; ++i) { unsigned d = (t60[i] - t60[0]) % 689U; if (!(d <= 3 || d >= 686)) grid = 0; }
+          CHECK(n60 >= 3 && grid && t60[n60 - 1] > off_at, "step loop: let go, the clip is where it would have been: 60 falls on the 16-step grid it began on (%u notes)", n60);
+          sim_song_stop(); settle(); settle();
+          CHECK(song_step_loop(0) == 0 && song_step_looping() == 0, "step loop: off");
+          #undef NEAR
+          song_edit_discard(); }
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

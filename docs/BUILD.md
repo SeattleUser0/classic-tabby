@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.95
+Version: 0.96
 Revision log:
+- v0.96, 2026-11-18: 58.1 (tabby-v04.22 released as candidate 1), section 59 (tabby-v04.23: the step loop).
 - v0.95, 2026-11-18: 57.5 (tabby-v04.21 released as candidate 2), section 58 (tabby-v04.22: NOTE REPEAT).
 - v0.94, 2026-11-18: 56.1 (tabby-v04.20 released as candidate 1), 57.4 (tabby-v04.21-rc1 not promoted: a test tool error), section 57 (tabby-v04.21: clear notes in a take, NEW SONG, shift a clip; the pad rows; stickers v0.4).
 - v0.93, 2026-11-18: 55.1 (tabby-v04.19 released as candidate 1), section 56 (tabby-v04.20: DIRECTION per clip).
@@ -6155,3 +6156,28 @@ the first attempt; promoted.
 | full backup, restore, verify | Verify PASS, 41 items, twice |
 
 Flash margin 29661 bytes, free RAM 142700 bytes.
+
+## 59. tabby-v04.23: the step loop while held (2026-11-18)
+
+Parity list item 4, the last of the user's order (SPEC 19.26).
+
+| Part | Change |
+| --- | --- |
+| app/song.c | `loop_steps`, `loop_scan` (the block's scan window turned back into each track's loop window), two lines in `tick`; `song_step_loop`, `song_step_looping`; `song_stop` ends a loop |
+| app/smk37_controls.c | `smk37_note_repeat_down` |
+| app/screen.c | CLIPS: NOTE REPEAT + pad 9 to 12 engages (1, 2, 4, 8 steps), no pad launches while NOTE REPEAT is down; the loop ends on any page when its pad is up; the lower pad row's colours while NOTE REPEAT is down |
+| tests | smoke.c (7 checks: the window of two steps repeats every 86 blocks, nothing else sounds, afterwards the clip is on its 16-step grid); record-sim.mjs v0.5 (7 checks through the panel) |
+| tools/linux/hw | run-repeat.py v0.2 (the step loop on the MIDI out), rc-validate.py v0.6 |
+
+This is the first change to the audio thread's tick since tabby-v04.10. It is small because `scan` is stateless: the
+loop only changes which window of the clip one block scans. Not looping, a tick costs one byte compare and one test
+per track more. The one-line timing of the candidate run is the check that this costs nothing that matters.
+
+Found on the way: my first simulator check looped nothing, because an earlier part of the same test had left the
+screen on a deleted song slot (the song did not play); and it compared the pad colour through the wrong conversion.
+Both were errors of the check.
+
+Before the candidate, on the device with tabby-v04.22: run-repeat.py v0.2 passed its 12 note repeat and focus
+checks; the 7 step loop checks failed as they must without the loop (the pads launched and stopped clips).
+
+Measured: app image 490436 bytes (+640), margin 29021, heap 142412 (-288). Build `c7b2ff04e81b3226`.

@@ -1,10 +1,11 @@
 # MC-707 parity matrix for Classic Tabby
 
-Version 0.8, 2026-11-18 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
+Version 0.9, 2026-11-18 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
 Section 0 is the list that is worked from: what is done, and what is left in the order it will be built. Sections 1 to 8
 are the matrix of 2026-11-07; its "Today" and "Status" columns describe that day, and section 0 says what changed since.
 
 Revision log
+- v0.9 2026-11-18: tabby-v04.23: item 4 done (the step loop while held). The user's order is complete; items 10 and 11 are open questions.
 - v0.8 2026-11-18: tabby-v04.22: item 7 done (NOTE REPEAT, as the track's arpeggiator while held).
 - v0.7 2026-11-18: tabby-v04.21: items 8, 9 and half of 10 done (clear notes in a take, NEW SONG, shift a clip); the user's order for the rest: note repeat (NOTE REPEAT gets its printed meaning), scene program change, the step loop last.
 - v0.6 2026-11-18: tabby-v04.20: item 5 done (DIRECTION per clip, without RND).
@@ -24,11 +25,11 @@ now, with the files involved. Roland's limits are conventions; the "Tabby target
 where this plan exceeds them. Nothing here is a commitment; the roadmap is in the assessment,
 section K.
 
-## 0. Where it stands, and what comes next (tabby-v04.22, 2026-11-18)
+## 0. Where it stands, and what comes next (tabby-v04.23, 2026-11-18)
 
-Flash margin after tabby-v04.22: 29661 bytes (app image 489796 of 519457). Free RAM 142700 bytes. At least 15360
+Flash margin after tabby-v04.23: 29021 bytes (app image 490436 of 519457). Free RAM 142412 bytes. At least 15360
 bytes stay free for fixes (the user's rule, SPEC 17.15): features are added while the margin after them stays above
-that, so 14301 bytes can still be spent.
+that, so 13661 bytes can still be spent.
 
 ### 0.1 Done since the matrix was written
 
@@ -59,6 +60,7 @@ that, so 14301 bytes can still be spent.
 | Clear notes while REC | **v04.21** | FX held with a key during a take: that key's notes go as the clip passes them |
 | A new empty song on the panel | **v04.21** | ACTIONS, NEW SONG, in the empty slot selected on SCENES; named NEW SONG |
 | Note repeat | **v04.22** | NOTE REPEAT held: the arpeggiator of the key track and the pad track while the button is down; K1 the rate. One note repeats; a chord is arpeggiated (a generator of our own would be about 2 KB in the audio thread: not built) |
+| Temporary step loop while held | **v04.23** | NOTE REPEAT + pad 9 to 12 on CLIPS: every playing track repeats its last 1, 2, 4 or 8 steps; the clocks run on underneath |
 | Shift a clip by a step | **v04.21** | KNOB BANK + OCTAVE- / OCTAVE+ on the STEP page. The three together: 1600 bytes (the estimates were 3.5 KB) |
 
 ### 0.2 What is left, in the order it will be built
@@ -68,12 +70,11 @@ a line on the page costs 0.4 to 1 KB; an engine change 1 to 3 KB).
 
 | # | Feature (MC-707) | Why it ranks here | Flash | Notes |
 | ---: | --- | --- | ---: | --- |
-| 4 | Temporary step loop while held (UM p. 20) | A performance gesture: stutter the last beat of a clip | 2 KB | pads on CLIPS with a modifier; needs the cursor to loop a window |
 | 10 | Edit all events of a step together | Editing comfort | 0.5 KB | the shift is done (v04.21) |
 | 11 | Scene program change on a control channel; Tx switches per track | Only if asked | 1 KB | |
 
-The user's order (2026-11-18): item 4, the step loop, is the last and comes next (tabby-v04.23). Items 10 and 11 wait
-for a word from the user (11 was offered "only if you use it"). About 14.3 KB can be spent above the 15 KB reserve. Each release measures. Not planned: chord pads, the motion designer, a random clip direction,
+The user's order of 2026-11-18 is built. Items 10 and 11 wait for a word from the user (11 was offered "only if you
+use it"). About 13.6 KB can be spent above the 15 KB reserve. Each release measures. Not planned: chord pads, the motion designer, a random clip direction,
 multitrack note mode, a user pad palette, and everything in section 1.
 
 ## 1. Excluded once
