@@ -1,0 +1,55 @@
+{
+  "build": "1046c8ec5c0c7c0a971e622d638c6876f1a1042dab2f48bb5439ffea5e0627b9",
+  "release": "V01",
+  "version": "tabby-v04.18",
+  "entryBytes": 378546,
+  "initialBytes": 1425267,
+  "standaloneBytes": 3185387,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/d7d03e434dffe0d274e77068e90bfb8149bacbd4998f6cc0aa605d1f73b68863.bin",
+      "bytes": 524852,
+      "sha256": "d7d03e434dffe0d274e77068e90bfb8149bacbd4998f6cc0aa605d1f73b68863"
+    },
+    {
+      "name": "assets/smk37/a627043750b92c3c3033e1e4d5bfbccc48a3d50ad0b31a4673397571c6f41c42.wasm",
+      "bytes": 363110,
+      "sha256": "a627043750b92c3c3033e1e4d5bfbccc48a3d50ad0b31a4673397571c6f41c42"
+    },
+    {
+      "name": "assets/smk37/8181419d43b9f6e6021e67382d51eac6c50816e04cf845fddd55ca19dadc03a7.js",
+      "bytes": 611286,
+      "sha256": "8181419d43b9f6e6021e67382d51eac6c50816e04cf845fddd55ca19dadc03a7"
+    },
+    {
+      "name": "assets/smk37/ef2f58b1b2b10cac0d2f7af98288203e1c2885a16bba3b784631e7e854623b15.js",
+      "bytes": 71818,
+      "sha256": "ef2f58b1b2b10cac0d2f7af98288203e1c2885a16bba3b784631e7e854623b15"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 378767,
+      "sha256": "ba5eba1a74f04b776ce28c084339f4e8f8ba404ca9f5939ad1559bef46c05573"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 378767,
+      "sha256": "ba5eba1a74f04b776ce28c084339f4e8f8ba404ca9f5939ad1559bef46c05573"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3185387,
+      "sha256": "ba505403f7714883a6baa984d41dba0c4721dde81b18de9887a1fbc6f2039e67"
+    }
+  ]
+}
