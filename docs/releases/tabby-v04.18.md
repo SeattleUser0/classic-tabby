@@ -43,4 +43,14 @@ clear gap between the transport symbols and that strip, cover no printing, and s
 
 ## Validation
 
-Filled in after the candidate ran on the device.
+Candidate 2 (builds/tabby-v04.18-rc2/, the same firmware build as candidate 1) on the device, unattended, before the promotion:
+
+- Device tests: program and knobs 10 of 10, clip chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16, CLIP
+  SETTING 34 of 34, recording 25 of 25, STEP page 18 of 18, CLIPS page 40 of 40 twice, the timing song 960 of 960
+  notes on DIN and USB.
+- One line, 960 notes, three runs: DIN 1.73, 1.71, 1.79 ms; USB 1.68, 1.71, 1.74 ms.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.
+- Candidate 1 was held back: one timing check of the CLIPS page test read 4.21 ms against a limit of 4.0 ms. The
+  limit was set too tight in the test tool (the expected value is 2.90 ms and the device's band reaches 1.3 ms above
+  it); two other timing tests of the same candidate showed nothing late. docs/BUILD.md 54.3 has the figures. Its
+  page stays, with a note.

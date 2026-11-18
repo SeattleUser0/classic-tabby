@@ -5932,3 +5932,19 @@ not centred on the expected 2.90 ms; its upper edge was 1.1 ms above the mean an
 failure in 70 was to be expected. run-launch.py v0.6 judges the note against cycle + 2.90 ms within 2.0 ms either
 way (0.90 to 4.90 ms): tighter than before on the early side, 0.9 ms wider on the late side. All 70 measurements
 pass it. The candidate's page stays with its note; the same build goes out as candidate 2.
+
+### 54.4 tabby-v04.18 released: candidate 2 (2026-11-17)
+
+Suite green on 0d288c3; builds/tabby-v04.18-rc2/ (build `1046c8ec5c0c7c0a`, on the device since candidate 1: the
+install step wrote nothing); every step passed; promoted.
+
+| Step | Result |
+| --- | --- |
+| run-launch v0.6, twice | 40 of 40 and 40 of 40; the ten launches 2.60 to 3.48 ms after the cycle |
+| run-program / run-chain / run-scenechain / run-sceneedit / run-setup | 10 of 10 / 11 of 11 / 13 of 13 / 16 of 16 / 34 of 34 |
+| run-record / run-steps | 25 of 25 / 18 of 18 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.16 ms on DIN |
+| run-15, one line, three runs | DIN 1.73, 1.71, 1.79 ms; USB 1.68, 1.71, 1.74 ms; clock ratio 0.999583 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+Flash margin 34269 bytes, free RAM 143020 bytes.
