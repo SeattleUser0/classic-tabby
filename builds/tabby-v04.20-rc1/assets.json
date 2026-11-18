@@ -1,0 +1,55 @@
+{
+  "build": "693c8946957ae272c60824958fd7f6f3c8db1479b2d84fa251bd1c058b62812e",
+  "release": "V01",
+  "version": "tabby-v04.20",
+  "entryBytes": 380329,
+  "initialBytes": 1431649,
+  "standaloneBytes": 3198376,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/5be2b2bf9d94ec4e43998598255c681f8ec19368aa4241fb131a06bd12ffb45d.bin",
+      "bytes": 528948,
+      "sha256": "5be2b2bf9d94ec4e43998598255c681f8ec19368aa4241fb131a06bd12ffb45d"
+    },
+    {
+      "name": "assets/smk37/ca1ede674239a21b81b850f295e281e2ada710ba160c521f976d75e82e53446c.wasm",
+      "bytes": 366555,
+      "sha256": "ca1ede674239a21b81b850f295e281e2ada710ba160c521f976d75e82e53446c"
+    },
+    {
+      "name": "assets/smk37/d21f96040fd65b1a237a254213bebd13a8224e409a357f317b332acc399aad66.js",
+      "bytes": 612440,
+      "sha256": "d21f96040fd65b1a237a254213bebd13a8224e409a357f317b332acc399aad66"
+    },
+    {
+      "name": "assets/smk37/ef2f58b1b2b10cac0d2f7af98288203e1c2885a16bba3b784631e7e854623b15.js",
+      "bytes": 71818,
+      "sha256": "ef2f58b1b2b10cac0d2f7af98288203e1c2885a16bba3b784631e7e854623b15"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 380550,
+      "sha256": "3542be0ead8206bef5d4aa6958fafbce370cbe09c280d270c89b6eade55e1bac"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 380550,
+      "sha256": "3542be0ead8206bef5d4aa6958fafbce370cbe09c280d270c89b6eade55e1bac"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3198376,
+      "sha256": "4a822e03a8abf18deb405474822a76a9696e820d91c31afc70fc04d25d7173d9"
+    }
+  ]
+}
