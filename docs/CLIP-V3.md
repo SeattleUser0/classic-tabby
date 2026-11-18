@@ -1,6 +1,6 @@
 # The v3 clip: an event list
 
-Version 0.6 (2026-11-17: header byte 14; v0.5: header bytes 13 and 15; v0.4 2026-11-16; v0.3 2026-11-14; first version 2026-11-12, Task 16 Goal 5, MC-707 workflow Phase 2). The block payload that replaces the
+Version 0.7 (2026-11-18: the direction in header byte 14; v0.6: header byte 14; v0.5: header bytes 13 and 15; v0.4 2026-11-16; v0.3 2026-11-14; first version 2026-11-12, Task 16 Goal 5, MC-707 workflow Phase 2). The block payload that replaces the
 v2 step grid (docs/TIMED-NOTE.md, TASK-03 9.12) when a clip needs more than 64 steps, more than four
 notes in a step, or controller events. It is built and tested on the host and in the simulator on the
 branch classic-tabby/mc707-phase2; released in tabby-v04.5 (Task 17 Goal 2; the user's decisions on docs/CLIP-V3-REVIEW.md: the 240 bias, the length clamp, option B
@@ -49,7 +49,7 @@ All fields little-endian. A payload is `16 + 6 x count` bytes.
 | 11 | `times` | how many times `after` (or the clip) plays before the chain is due, 2..64; 0 = once |
 | 12 | transpose | a signed byte, -12 to 12 semitones, 0 = none (tabby-v04.15). Added to every note when the clip is decoded for playing; the event list is not changed. A clip with a transpose is not v2-shaped |
 | 13 | shuffle | 0 = the clip follows the song's swing; 1..51 = its own shuffle of 0..50 percent (the value minus one) (tabby-v04.17). Not v2-shaped when set |
-| 14 | step size | low four bits: 0 = a 16th, 1 = an 8th, 2 = a 32nd, 3 = a 16th triplet, 4 = an 8th triplet (tabby-v04.19); the high four bits are 0. `clip_v3_scale_apply` turns the copy that plays into a clip of 16th steps of the played length (times and lengths scaled); it applies only when steps x ratio is a whole number from 1 to 128, else the clip plays as 16ths. Not v2-shaped when set |
+| 14 | step size | low four bits: 0 = a 16th, 1 = an 8th, 2 = a 32nd, 3 = a 16th triplet, 4 = an 8th triplet (tabby-v04.19); high four bits: the direction, 0 = forwards, 1 = backwards, 2 = forwards then backwards (tabby-v04.20; `clip_v3_direction_apply`, after the step size; 2 doubles the played length and plays forwards when that would pass 128 steps or 512 events). `clip_v3_scale_apply` turns the copy that plays into a clip of 16th steps of the played length (times and lengths scaled); it applies only when steps x ratio is a whole number from 1 to 128, else the clip plays as 16ths. Not v2-shaped when set |
 | 15 | play quantize | 0 = off, 1 = a 16th, 2 = an 8th, 3 = a quarter (tabby-v04.17): the notes of the copy that plays are moved to the nearest grid line (`clip_v3_quantize_apply`); the event list is not changed. Not v2-shaped when set |
 
 **Event, 6 bytes.** Sorted by `time` (ascending; events at the same time keep their list order, which the

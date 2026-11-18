@@ -12,9 +12,11 @@
  *   then `count` 6-byte events sorted by time. A note: {time u16 (biased by 240), pitch | retrigger << 7,
  *   velocity (bit 7 = 0), length u16}; other: {time u16, type, 0x80, a, b}. See the document for the types.
  *
- * Version: 0.7
+ * Version: 0.8
  *
  * Revision log
+ *   v0.8  2026-11-17  tabby-v04.20: the clip's DIRECTION in the high four bits of header byte 14 (clip_v3_direction, _set,
+ *                     _apply, clip_v3_reverse_time).
  *   v0.7  2026-11-17  tabby-v04.19: the clip's SCALE in the low four bits of header byte 14 (clip_v3_scale, _steps, _set,
  *                     _apply, _back).
  *   v0.6  2026-11-17  tabby-v04.17: the clip's shuffle (header byte 13) and playback quantize (byte 15).
@@ -144,4 +146,14 @@ unsigned clip_v3_scale_apply(uint8_t *p);
 /* A time or a length as it was played (16th steps of 480 units) in the clip's own units: the recorder and the STEP
  * page's play cursor use it. */
 int clip_v3_scale_back(int played, unsigned scale);
+/* v0.8 (tabby-v04.20): the clip's DIRECTION, the high four bits of header byte 14: 0 forwards, 1 backwards (the steps
+ * in reverse order; a note keeps its place inside its step and its length), 2 forwards then backwards (a clip twice
+ * as long; when that would be more than 128 steps or 512 events it plays forwards). clip_v3_direction_apply changes
+ * the copy that plays (after the step size, so it works on the played steps), clears the field and returns what it
+ * applied. clip_v3_reverse_time maps a time of a clip of `steps` steps to the backward clip and back. */
+enum { CLIP_V3_DIRECTION_FORWARD = 0, CLIP_V3_DIRECTION_REVERSE = 1, CLIP_V3_DIRECTION_BOTH = 2, CLIP_V3_DIRECTION_MAX = 2 };
+unsigned clip_v3_direction(const uint8_t *p);
+int clip_v3_direction_set(uint8_t *p, unsigned direction);
+int clip_v3_reverse_time(int time, unsigned steps);
+unsigned clip_v3_direction_apply(uint8_t *p);
 #endif

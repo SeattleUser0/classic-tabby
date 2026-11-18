@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.57
+Version: 0.58
 Revision log:
+- v0.58, 2026-11-18: 19.23 tabby-v04.20 (DIRECTION per clip).
 - v0.57, 2026-11-17: 19.22 tabby-v04.19 (STEP SIZE per clip).
 - v0.56, 2026-11-17: 17.4 rewritten: every control by its printed word (the user's rule; the photograph of the unit); 17.15 the photograph arrived; 19.21 tabby-v04.18.
 - v0.55, 2026-11-17: 19.20 tabby-v04.17 (SHUFFLE and PLAY QUANTIZE per clip; CLIP SETTING in three pages).
@@ -1957,3 +1958,22 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - CLIP SETTING: 23 lines; STEP SIZE follows PLAY QUANTIZE on page 2/3. Remote: op 17 replies 37 bytes (36: byte 14).
 - Page: web/clip-v3/clip-v3.js v0.7, web/import/song-format.js v0.12 keep the byte. Firmware before tabby-v04.19
   refuses a clip with it (17.14).
+
+### 19.23 tabby-v04.20 (2026-11-18): DIRECTION per clip
+
+- Parity list item 5, without the random order. Header byte 14, high four bits: 0 forwards, 1 backwards, 2 forwards
+  then backwards.
+- `clip_v3_direction_apply` changes the copy `decode_track` plays, after the step size: backwards, an event of step s
+  goes to step (steps - 1 - s) and keeps its offset inside the step (`clip_v3_reverse_time`); note lengths stay; a
+  step's probability goes with its step. Forwards then backwards appends the backward copy: twice the steps and
+  events; when that would pass 128 steps or 512 events the clip plays forwards (the page shows LONG).
+- The order in decode: step size, direction, PLAY QUANTIZE, TRANSPOSE. The shuffle works at play time on the result.
+- `played_to_clip(b, p)` (app/song.c) is the one mapping from a position in what a buffer plays to the clip's own
+  steps: direction back, then step size. The play cursor (`song_edit_info.play_step`) and the recorder
+  (`rec_clip_time`) use it with the buffer that plays (`b->dir`, `b->scale`, `b->steps`), not with the header of the
+  clip being edited, so a take is placed by what was heard.
+- Random order per pass is not built: the clip is prepared when the track enters it (control task); a new order for
+  each pass would have to be made in the audio thread.
+- CLIP SETTING: 24 lines; DIRECTION follows STEP SIZE on page 2/3. Remote: op 17 replies 38 bytes (36: byte 14 with
+  both fields; 37: 20, the reply's revision).
+- Page: clip-v3.js v0.8, song-format.js v0.13. Firmware before tabby-v04.20 refuses a clip with a direction (17.14).

@@ -6,7 +6,7 @@
  *   Everything the device and the tests do with a v3 payload. Pure C on <stdint.h> and timed_note.h. The device
  *   links what it calls (validate, to_v2, window; LTO drops from_v2, which only the host tools use).
  *
- * Version: 0.7
+ * Version: 0.8
  *
  * Revision log
  *   v0.3  2026-11-16  Goal 6: editing in place (insert, remove, the notes of a step, step modifiers) for the step editor.
@@ -53,7 +53,7 @@ int clip_v3_validate(const uint8_t *p, unsigned bytes)
     /* v0.5: byte 12 is the transpose (-12..12 as a signed byte); the last three bytes stay 0 */
     if ((int8_t)p[12] < -CLIP_V3_TRANSPOSE_MAX || (int8_t)p[12] > CLIP_V3_TRANSPOSE_MAX) return CLIP_V3_BAD_HEADER;
     /* v0.6: byte 13 is the shuffle, byte 15 the playback quantize; byte 14 stays 0 */
-    if (p[13] > CLIP_V3_SHUFFLE_MAX || p[14] > CLIP_V3_SCALE_MAX || p[15] > CLIP_V3_QUANTIZE_MAX) return CLIP_V3_BAD_HEADER;   /* v0.7: byte 14: the scale (its high four bits stay 0) */
+    if (p[13] > CLIP_V3_SHUFFLE_MAX || (p[14] & 15U) > CLIP_V3_SCALE_MAX || (p[14] >> 4) > CLIP_V3_DIRECTION_MAX || p[15] > CLIP_V3_QUANTIZE_MAX) return CLIP_V3_BAD_HEADER;   /* v0.7: byte 14: the scale (its high four bits stay 0) */
     int last = -CLIP_V3_BIAS - 1, max_time = (int)steps * CLIP_V3_UNITS_PER_STEP - CLIP_V3_BIAS;
     unsigned group_anchor = 0xffffffffU, group_start = 0;
     for (unsigned i = 0; i < count; ++i) {
@@ -458,6 +458,46 @@ void clip_v3_quantize_apply(uint8_t *p)
         put16(e, (unsigned)(v + CLIP_V3_BIAS));
     }
     reorder(p);
+}
+/* v0.8 (tabby-v04.20): the clip's DIRECTION, the high four bits of header byte 14. */
+unsigned clip_v3_direction(const uint8_t *p) { return p[14] >> 4; }
+int clip_v3_direction_set(uint8_t *p, unsigned direction)
+{
+    if (direction > CLIP_V3_DIRECTION_MAX) return CLIP_V3_BAD_HEADER;
+    p[14] = (uint8_t)((p[14] & 15U) | direction << 4);
+    return CLIP_V3_OK;
+}
+/* A time of a clip of `steps` steps played backwards: the step it belongs to counted from the end, its place inside
+ * the step kept. The same call takes a played time back to the clip's. */
+int clip_v3_reverse_time(int time, unsigned steps)
+{
+    int s = (int)clip_v3_anchor(time);
+    return ((int)steps - 1 - s) * CLIP_V3_UNITS_PER_STEP + (time - s * CLIP_V3_UNITS_PER_STEP);
+}
+unsigned clip_v3_direction_apply(uint8_t *p)
+{
+    unsigned dir = p[14] >> 4, steps = p[0], count = clip_v3_count(p);
+    p[14] &= 15U;
+    if (!dir || dir > CLIP_V3_DIRECTION_MAX) return 0;
+    if (dir == CLIP_V3_DIRECTION_BOTH && (steps * 2U > CLIP_V3_STEPS_MAX || count * 2U > CLIP_V3_EVENTS_MAX)) return 0;   /* no room: forwards */
+    uint8_t *base = p + CLIP_V3_HEADER;
+    int loop = (int)steps * CLIP_V3_UNITS_PER_STEP;
+    for (unsigned i = 0; i < count; ++i) {
+        uint8_t *e = base + CLIP_V3_EVENT * i, *o = e;
+        int t = (int)get16(e) - CLIP_V3_BIAS;
+        if (dir == CLIP_V3_DIRECTION_BOTH) { o = base + CLIP_V3_EVENT * (count + i); memcpy(o, e, CLIP_V3_EVENT); }   /* the copy is the backward half */
+        if ((o[3] & 0x80U) && o[2] == CLIP_V3_STEPMOD) {
+            unsigned s = steps - 1U - o[5] + (dir == CLIP_V3_DIRECTION_BOTH ? steps : 0U);
+            o[5] = (uint8_t)s; put16(o, s * CLIP_V3_UNITS_PER_STEP);
+            continue;
+        }
+        t = clip_v3_reverse_time(t, steps);
+        if (dir == CLIP_V3_DIRECTION_BOTH) t += loop;
+        put16(o, (unsigned)(t + CLIP_V3_BIAS));
+    }
+    if (dir == CLIP_V3_DIRECTION_BOTH) { put16(p + 6, count * 2U); p[0] = (uint8_t)(steps * 2U); }
+    reorder(p);
+    return dir;
 }
 void clip_v3_transpose_apply(uint8_t *p)
 {

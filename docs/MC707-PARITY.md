@@ -1,10 +1,11 @@
 # MC-707 parity matrix for Classic Tabby
 
-Version 0.5, 2026-11-17 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
+Version 0.6, 2026-11-18 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
 Section 0 is the list that is worked from: what is done, and what is left in the order it will be built. Sections 1 to 8
 are the matrix of 2026-11-07; its "Today" and "Status" columns describe that day, and section 0 says what changed since.
 
 Revision log
+- v0.6 2026-11-18: tabby-v04.20: item 5 done (DIRECTION per clip, without RND).
 - v0.5 2026-11-17: tabby-v04.19: item 3 done (STEP SIZE per clip).
 - v0.4 2026-11-17: tabby-v04.17: items 2 and 6 done (shuffle and playback quantize per clip).
 - v0.3 2026-11-17: tabby-v04.16: item 1 done (delete and move a scene); the 15 KB flash reserve.
@@ -21,11 +22,11 @@ now, with the files involved. Roland's limits are conventions; the "Tabby target
 where this plan exceeds them. Nothing here is a commitment; the roadmap is in the assessment,
 section K.
 
-## 0. Where it stands, and what comes next (tabby-v04.19, 2026-11-17)
+## 0. Where it stands, and what comes next (tabby-v04.20, 2026-11-18)
 
-Flash margin after tabby-v04.19: 33053 bytes (app image 486404 of 519457). Free RAM 143020 bytes. At least 15360
+Flash margin after tabby-v04.20: 31869 bytes (app image 487588 of 519457). Free RAM 142764 bytes. At least 15360
 bytes stay free for fixes (the user's rule, SPEC 17.15): features are added while the margin after them stays above
-that, so 17693 bytes can still be spent.
+that, so 16509 bytes can still be spent.
 
 ### 0.1 Done since the matrix was written
 
@@ -52,6 +53,7 @@ that, so 17693 bytes can still be spent.
 | Shuffle per clip | **v04.17** | SHUFFLE on CLIP SETTING: SONG, or the clip's own 0 to 50 percent (no negative values) |
 | Playback quantize per clip | **v04.17** | PLAY QUANTIZE: OFF, 1/16, 1/8, 1/4, full strength; the stored notes keep their timing |
 | SCALE per clip | **v04.19** | STEP SIZE on CLIP SETTING: 1/16, 1/8, 1/32, 1/16T, 1/8T; only sizes that give whole 16ths for the clip's length. 1216 bytes (the estimate was 3 KB) |
+| Direction | **v04.20** | DIRECTION on CLIP SETTING: FORWARD, REVERSE, FWD THEN REV; no RND (it would need the audio thread). 1184 bytes |
 
 ### 0.2 What is left, in the order it will be built
 
@@ -61,15 +63,14 @@ a line on the page costs 0.4 to 1 KB; an engine change 1 to 3 KB).
 | # | Feature (MC-707) | Why it ranks here | Flash | Notes |
 | ---: | --- | --- | ---: | --- |
 | 4 | Temporary step loop while held (UM p. 20) | A performance gesture: stutter the last beat of a clip | 2 KB | pads on CLIPS with a modifier; needs the cursor to loop a window |
-| 5 | Direction REV and RND | Variation without new clips | 2 KB | the cursor walks backwards; RND per loop |
 | 7 | Note repeat on the pads | Drum rolls | 2 KB | the arpeggiator's clock |
 | 8 | Clear notes while REC (hold a pad or key) | Fix a take without stopping | 1 KB | |
 | 9 | A new empty song on the panel | The last step that still needs the workbench | 1.5 KB | name from the slot number |
 | 10 | Edit all events of a step together; shift a clip by a step | Editing comfort | 1 KB | |
 | 11 | Scene program change on a control channel; Tx switches per track | Only if asked | 1 KB | |
 
-Items 4 and 5 together are about 4 KB, items 7 to 11 about 6.5 KB more: about 10.5 KB against 17.7 KB that can be
-spent above the 15 KB reserve. Each release measures. Not planned: chord pads, the motion designer,
+Item 4 is about 2 KB, items 7 to 11 about 6.5 KB more: about 8.5 KB against 16.5 KB that can be spent above the
+15 KB reserve. Each release measures. Not planned: chord pads, the motion designer, a random clip direction,
 multitrack note mode, a user pad palette, and everything in section 1.
 
 ## 1. Excluded once

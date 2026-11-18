@@ -19,9 +19,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.11
+Version: 0.12
 
 Revision log
+    v0.12 2026-11-18  tabby-v04.20: DIRECTION REVERSE heard on MIDI out.
     v0.11 2026-11-17  tabby-v04.19: STEP SIZE 1/8 heard on MIDI out.
     v0.10 2026-11-17  tabby-v04.17: SHUFFLE and PLAY QUANTIZE heard on MIDI out (a second note 150 units late on step 2);
                       DELETE CLIP is found from the number of lines, not by a fixed index.
@@ -255,6 +256,21 @@ def main():
                     measured["step_size_gap_ms"] = round(g4, 2)
                     check(u4["row"] == 11 and u4["scale"] == 1 and abs(g4 - 328.1) <= 3.0, "STEP SIZE 1/8: every step lasts an 8th: the second note 328 ms after the first", (u4["scale"], "%.2f ms" % g4))
                     check(u5["scale"] == 0, "STEP SIZE back to 1/16", u5["scale"])
+                # ---- tabby-v04.20: DIRECTION REVERSE: the 8-step copy backwards: the second note (step 2, 150 units late) now
+                # comes before the first (step 1); from the first to the next second note it is 3510 units (914.1 ms) ----
+                if l.setup_state().get("direction") is not None:
+                    def direction(want):
+                        l.press("FX"); idle(0.4); l.knob(K5, 12 - l.setup_state()["row"]); idle(0.3)
+                        d = want - l.setup_state()["direction"]
+                        if d:
+                            l.knob(K1, d); idle(0.3)
+                        u = l.setup_state(); l.press("FX"); idle(0.3)
+                        return u
+                    u6 = direction(1); g6 = gap(6.5)
+                    u7 = direction(0)
+                    measured["reverse_gap_ms"] = round(g6, 2)
+                    check(u6["row"] == 12 and u6["direction"] == 1 and abs(g6 - 914.1) <= 3.0, "DIRECTION REVERSE: the clip plays backwards: from the first note to the second 914 ms (164 forwards)", (u6["direction"], "%.2f ms" % g6))
+                    check(u7["direction"] == 0, "DIRECTION back to FORWARD", u7["direction"])
                 l.edit_save(); idle(0.6)
                 l.press("FX"); idle(0.4)
             D = l.setup_state()["rows"] - 11                                           # v0.10: DELETE CLIP is the last line before the song's ten

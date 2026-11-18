@@ -44,9 +44,10 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.28
+ * Version: 0.29
  *
  * Revision log
+ *   v0.29 2026-11-17  tabby-v04.20: section 26: DIRECTION per clip (played, the cursor, a take).
  *   v0.28 2026-11-17  tabby-v04.19: section 26: STEP SIZE per clip (played, the cursor, a take).
  *   v0.27 2026-11-17  tabby-v04.17: section 26: SHUFFLE and PLAY QUANTIZE per clip, heard on MIDI out.
  *   v0.26 2026-11-17  tabby-v04.16: section 26: a scene moved and deleted (events and loop row follow; the grid-block
@@ -2731,6 +2732,47 @@ int main(void)
           CHECK(rec_ok, "step size 1/8: a key played at the 9th sixteenth for two sixteenths is recorded on the clip's step 5, one step long");
           CHECK(d71[2] >= 42 && d71[2] <= 44 && loop[2] >= 343 && loop[2] <= 346, "step size 1/32: 71 after 1 sixteenth, the clip loops after 8 (%u, %u blocks; 43, 344.5)", d71[2], loop[2]);
           CHECK(d71[3] >= 56 && d71[3] <= 59 && loop[3] >= 343 && loop[3] <= 346, "step size 1/16T, 12 steps: 71 after two triplet steps (%u blocks; 57.4), the clip loops after 8 sixteenths (%u)", d71[3], loop[3]);
+          song_edit_discard(); }
+        /* ---- tabby-v04.20: DIRECTION per clip; the play cursor and a take stay in the clip's own steps ---- */
+        { CHECK(sim_song_load(SONG) == 0 && song_edit_open(0, 0) == 0 && song_edit_length(16 - (int)clip_v3_steps(song_edit_clip())) >= 0 && song_edit_note_toggle(2, 71, 100, 240) == 1,
+                "direction: clip 1 open, 16 steps, 60 on step 1 and 71 on step 3");
+          unsigned ch = groove_midi_input_channel(0), rec_ok = 0, cursor = 255;
+          unsigned t60[3][4], t71[3][4], n60[3] = {0}, n71[3] = {0};
+          for (unsigned run = 0; run < 3; ++run) {
+              /* run 0: FORWARD; 1: REVERSE (with a take); 2: FWD THEN REV */
+              if (run) CHECK(song_edit_direction(1) == 0 && clip_v3_direction(song_edit_clip()) == run, "direction: K1 right: %s", run == 1 ? "REVERSE" : "FWD THEN REV");
+              if (run == 2) CHECK(song_edit_direction(5) == 0 && clip_v3_direction(song_edit_clip()) == 2, "direction: it stops at FWD THEN REV");
+              { struct message m[64]; (void)drain(m, 64); }
+              CHECK(song_clip_launch(0, 0) == 0, "direction: the clip reserved (run %u)", run);
+              if (run == 1) (void)song_record_start();
+              (void)sim_song_play();
+              unsigned on = 0, off = 0, mark = 0;
+              for (unsigned blocks = 0; blocks < 3600 && (n60[run] < 4 || n71[run] < 4); ++blocks) {
+                  (void)sim_render();
+                  struct message m[64]; unsigned n = drain(m, 64);
+                  for (unsigned k = 0; k < n && k < 64; ++k) if (m[k].port == 0 && m[k].data[0] == 0x94 && m[k].data[2]) {
+                      if (m[k].data[1] == 60 && n60[run] < 4) t60[run][n60[run]++] = blocks;
+                      if (m[k].data[1] == 71 && n71[run] < 4) { t71[run][n71[run]++] = blocks; if (run == 1 && !mark) mark = blocks; }
+                  }
+                  if (run == 1 && mark) {
+                      struct song_edit_info ei; song_edit_info(&ei);
+                      if (blocks == mark + 10) cursor = ei.play_step;                             /* 71 sounds: the clip's step 3 (index 2) */
+                      if (blocks == mark + 43 && !on) { song_record_in(1, 0x90 | ch, 81, 100); on = 1; }    /* one sixteenth later the clip is on its step 2 */
+                      if (blocks == mark + 60 && !off) { song_record_in(1, 0x80 | ch, 81, 0); off = 1; }
+                  }
+              }
+              if (run == 1) { for (unsigned i = 0; i < 20; ++i) (void)sim_render(); song_record_stop();
+                  struct clip_v3_event e; for (unsigned i = 0; i < clip_v3_count(song_edit_clip()); ++i) { clip_v3_event(song_edit_clip(), i, &e); if (e.kind == CLIP_V3_NOTE && e.a == 81 && e.time == 1 * 480) rec_ok = 1; } }
+              sim_song_stop(); settle(); settle();
+          }
+          #define NEAR(a_, b_) ((a_) + 2U >= (b_) && (a_) <= (b_) + 2U)
+          /* a 16th is 43.07 blocks; the clip is 16 steps = 689 blocks */
+          CHECK(n60[0] >= 2 && n71[0] >= 2 && NEAR(t71[0][0] - t60[0][0], 86U) && NEAR(t60[0][1] - t60[0][0], 689U), "direction FORWARD: 71 two sixteenths after 60, every 16 (%u, %u blocks)", t71[0][0] - t60[0][0], t60[0][1] - t60[0][0]);
+          CHECK(n60[1] >= 2 && n71[1] >= 2 && NEAR(t60[1][0] - t71[1][0], 86U) && NEAR(t71[1][1] - t71[1][0], 689U), "direction REVERSE: 60 two sixteenths after 71 (steps 14 and 16 of the pass), every 16 (%u, %u blocks)", t60[1][0] - t71[1][0], t71[1][1] - t71[1][0]);
+          CHECK(cursor == 2, "direction REVERSE: the play cursor is on the clip's step 3 while its note sounds (step %u)", cursor + 1U);
+          CHECK(rec_ok, "direction REVERSE: a key played one sixteenth after that note is recorded on the clip's step 2");
+          CHECK(n60[2] >= 3 && n71[2] >= 3 && NEAR(t71[2][0] - t60[2][0], 86U) && NEAR(t71[2][1] - t71[2][0], 1163U) && NEAR(t60[2][1] - t71[2][1], 86U) && NEAR(t60[2][2] - t60[2][1], 43U),
+                "direction FWD THEN REV: 60, 71, then 27 sixteenths later 71, 60, and 60 again at once: 32 sixteenths in all (%u, %u, %u, %u blocks; 86, 1163, 86, 43)", t71[2][0] - t60[2][0], t71[2][1] - t71[2][0], t60[2][1] - t71[2][1], t60[2][2] - t60[2][1]);
           song_edit_discard(); }
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }

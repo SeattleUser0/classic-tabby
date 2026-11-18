@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.92
+Version: 0.93
 Revision log:
+- v0.93, 2026-11-18: 55.1 (tabby-v04.19 released as candidate 1), section 56 (tabby-v04.20: DIRECTION per clip).
 - v0.92, 2026-11-17: 54.3, 54.4 (tabby-v04.18: candidate 1 held back by a tool limit, candidate 2 released), section 55 (tabby-v04.19: STEP SIZE per clip).
 - v0.91, 2026-11-17: 53.1 (tabby-v04.17 released as candidate 1), section 54 (tabby-v04.18: the printed button names; the photograph; the stickers redesigned).
 - v0.90, 2026-11-17: 52.3 (tabby-v04.16 released as candidate 1), section 53 (tabby-v04.17: SHUFFLE and PLAY QUANTIZE per clip, three pages).
@@ -5990,3 +5991,21 @@ the first attempt; promoted.
 Flash margin 33053 bytes, free RAM 143020 bytes. The one-line band of 1.96 and 1.97 ms is the highest since
 tabby-v04.13 (2.05); the runs of one candidate differ by up to 0.2 ms, and tabby-v04.18's second candidate measured
 1.68 to 1.79 ms with the same engine code, so this is not read as a trend; it is watched.
+
+## 56. tabby-v04.20: DIRECTION per clip (2026-11-18)
+
+Parity list item 5 without the random order (SPEC 19.23).
+
+| Part | Change |
+| --- | --- |
+| app/clip_v3.c, .h v0.8 | header byte 14, high four bits: `clip_v3_direction`, `_set`, `_apply`, `clip_v3_reverse_time` |
+| app/song.c | `decode_track` applies the direction after the step size; `trackbuf.dir`; `played_to_clip` replaces the two separate mappings of tabby-v04.19 (the play cursor, the recorder), now taken from the buffer that plays; `song_edit_direction` |
+| app/screen.c | the line DIRECTION (24 lines); op 17 replies 38 bytes |
+| web | clip-v3.js v0.8, song-format.js v0.13 keep both fields of byte 14 |
+| tests | clip_v3_test.c (9 checks; random clips with a step size, a direction and a quantize valid before and after); smoke.c v0.29 (12 checks: REVERSE: 60 two sixteenths after 71; the play cursor on the clip's step 3 while its note sounds; a key played one sixteenth later recorded on the clip's step 2; FWD THEN REV: 86, 1163, 86, 43 blocks between the four notes); setup-sim.mjs v0.7 (105 checks) |
+| tools/linux/hw/run-setup.py v0.12 | DIRECTION REVERSE heard on MIDI out: from the first note of the copy to the second 914.1 ms (164.1 forwards) |
+
+Before the candidate, on the device with tabby-v04.19: run-setup.py v0.12 passed 36 of 36 (the new section is
+skipped on firmware that reports no direction).
+
+Measured: app image 487588 bytes (+1184), margin 31869, heap 142764 (-256). Build `693c8946957ae272`.

@@ -175,7 +175,37 @@ int main(int argc, char **argv)
         t[0] = 0; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 0"); t[0] = 129; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "steps 129"); t[0] = 64;
         t[1] = 4; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "reserved flag bit"); t[1] = 0;
         t[2] = 5; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "program without its flag"); t[2] = 0;
-        t[14] = 5; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "step size above 4"); t[14] = 0x11; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "the high bits of byte 14 are reserved"); t[14] = 0;
+        t[14] = 5; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "step size above 4"); t[14] = 0x31; CHECK(clip_v3_validate(t, (unsigned)n) == CLIP_V3_BAD_HEADER, "direction above 2"); t[14] = 0;
+        /* v0.8 (tabby-v04.20): the direction in the high four bits of byte 14 */
+        { static uint8_t c[CLIP_V3_BYTES_MAX]; struct clip_v3_event e = { 0, CLIP_V3_NOTE, 60, 100, 0, 240 }, g, g1, g2, g3;
+          clip_v3_empty(c, 4); (void)clip_v3_insert(c, &e); e.time = 580; e.a = 61; (void)clip_v3_insert(c, &e); e.time = 3 * 480 - 50; e.a = 62; (void)clip_v3_insert(c, &e); (void)clip_v3_step_mod_set(c, 1, 5);
+          CHECK(clip_v3_direction_set(c, 3) == CLIP_V3_BAD_HEADER && clip_v3_direction_set(c, 1) == CLIP_V3_OK && clip_v3_direction(c) == 1 && clip_v3_scale(c) == 0 && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK, "direction: REVERSE set; the step size beside it untouched");
+          { uint8_t o2[2048]; CHECK(clip_v3_to_v2(c, clip_v3_bytes(c), o2, sizeof o2) == CLIP_V3_NOT_V2_SHAPED, "a clip with a direction is not a v2 block"); }
+          CHECK(clip_v3_direction_apply(c) == 1 && c[14] == 0 && c[0] == 4 && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK, "direction REVERSE applied: a valid clip");
+          clip_v3_event(c, 0, &g); clip_v3_event(c, 2, &g1); clip_v3_event(c, 3, &g2);
+          CHECK(g.a == 62 && g.time == -50 && g1.a == 61 && g1.time == 2 * 480 + 100 && g2.a == 60 && g2.time == 3 * 480 && clip_v3_step_mod(c, 2) == 5 && clip_v3_step_mod(c, 1) == 0,
+                "direction REVERSE: the steps in reverse order, a note keeps its place inside its step, the probability of step 2 is on step 3");
+          CHECK(clip_v3_reverse_time(clip_v3_reverse_time(1060, 4), 4) == 1060 && clip_v3_reverse_time(0, 4) == 1440, "direction: reversing a time twice gives it back");
+          clip_v3_empty(c, 4); e.time = 0; e.a = 60; (void)clip_v3_insert(c, &e); e.time = 480; e.a = 61; (void)clip_v3_insert(c, &e); (void)clip_v3_direction_set(c, 2);
+          CHECK(clip_v3_direction_apply(c) == 2 && c[0] == 8 && clip_v3_count(c) == 4 && clip_v3_validate(c, clip_v3_bytes(c)) == CLIP_V3_OK, "direction FWD THEN REV: twice the steps and events");
+          clip_v3_event(c, 0, &g); clip_v3_event(c, 1, &g1); clip_v3_event(c, 2, &g2); clip_v3_event(c, 3, &g3);
+          CHECK(g.a == 60 && g.time == 0 && g1.a == 61 && g1.time == 480 && g2.a == 61 && g2.time == 6 * 480 && g3.a == 60 && g3.time == 7 * 480, "direction FWD THEN REV: the second half is the first one backwards");
+          clip_v3_empty(c, 65); e.time = 0; (void)clip_v3_insert(c, &e); (void)clip_v3_direction_set(c, 2); CHECK(clip_v3_direction_apply(c) == 0 && c[0] == 65 && c[14] == 0, "direction FWD THEN REV without room for twice the length plays forwards");
+          unsigned badd = 0, done = 0; srand(5);
+          for (unsigned r = 0; r < 6000; ++r) {
+              unsigned steps = 1U + (unsigned)rand() % 128U, k = (unsigned)rand() % 70U, sc = (unsigned)rand() % 5U, dir = 1U + (unsigned)rand() % 2U; clip_v3_empty(c, steps);
+              for (unsigned i = 0; i < k; ++i) {
+                  if (rand() % 8 == 0) (void)clip_v3_step_mod_set(c, (unsigned)rand() % steps, 1U + (unsigned)rand() % 7U);
+                  else { e.time = rand() % (int)(steps * 480U) - 240; e.a = (uint8_t)(48 + rand() % 5); e.length = (uint16_t)(1 + rand() % 3000); (void)clip_v3_insert(c, &e); }
+              }
+              if (clip_v3_scale_set(c, sc)) sc = 0;
+              (void)clip_v3_direction_set(c, dir); (void)clip_v3_quantize_set(c, (unsigned)rand() % 4U);
+              if (clip_v3_validate(c, clip_v3_bytes(c)) || clip_v3_scale_apply(c) != sc) ++badd;
+              if (clip_v3_direction_apply(c)) ++done;
+              clip_v3_quantize_apply(c);
+              if (clip_v3_validate(c, clip_v3_bytes(c)) || c[14]) ++badd;
+          }
+          CHECK(badd == 0 && done > 2000, "direction: random clips with a step size, a direction and a quantize are valid before and after (%u applied, %u bad)", done, badd); }
         /* v0.7 (tabby-v04.19): the step size in byte 14 */
         { static uint8_t c[CLIP_V3_BYTES_MAX]; struct clip_v3_event e = { 0, CLIP_V3_NOTE, 60, 100, 0, 240 }, g;
           CHECK(clip_v3_scale_steps(16, 0) == 16 && clip_v3_scale_steps(16, 1) == 32 && clip_v3_scale_steps(16, 2) == 8 && clip_v3_scale_steps(16, 3) == 0 && clip_v3_scale_steps(12, 3) == 8 && clip_v3_scale_steps(12, 4) == 16

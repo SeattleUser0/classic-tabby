@@ -14,9 +14,10 @@
  *   importer's blocks. Loading: classic script (globalThis.TabbyClipV3) and CommonJS. Needs TabbyTimedNote (loaded
  *   first, or required) for the 6-byte note of v2.
  *
- * Version: 0.7
+ * Version: 0.8
  *
  * Revision log
+ *   v0.8  2026-11-17  tabby-v04.20: the clip's direction (header byte 14, high four bits; model.direction).
  *   v0.7  2026-11-17  tabby-v04.19: the clip's scale (header byte 14; model.scale).
  *   v0.6  2026-11-17  tabby-v04.17: the clip's shuffle and playback quantize (header bytes 13, 15; model.shuffle, model.quantize).
  *   v0.5  2026-11-17  tabby-v04.15: the clip's transpose (header byte 12; model.transpose).
@@ -61,7 +62,7 @@
     /* v0.5: byte 12 is the transpose, a signed byte, -12..12; the last three bytes stay 0 */
     if ((p[12] << 24 >> 24) < -12 || (p[12] << 24 >> 24) > 12) return BAD_HEADER;
     /* v0.6: byte 13 is the shuffle (0 the song's, 1..51 the clip's own 0..50), byte 15 the playback quantize (0..3); byte 14 stays 0 */
-    if (p[13] > 51 || p[14] > 4 || p[15] > 3) return BAD_HEADER;   /* v0.7: byte 14 is the scale (0..4) */
+    if (p[13] > 51 || (p[14] & 15) > 4 || (p[14] >> 4) > 2 || p[15] > 3) return BAD_HEADER;   /* v0.7: byte 14 low four bits the step size (0..4); v0.8: high four bits the direction (0..2) */
     let last = -BIAS - 1, groupAnchor = -1, groupStart = 0;
     const maxTime = steps * UNITS - BIAS;
     for (let i = 0; i < count; i++) {
@@ -169,7 +170,7 @@
     if (model.transpose) out[12] = model.transpose & 255;   /* v0.5 */
     if (model.shuffle) out[13] = model.shuffle & 255;       /* v0.6 */
     if (model.quantize) out[15] = model.quantize & 255;     /* v0.6 */
-    if (model.scale) out[14] = model.scale & 15;            /* v0.7 */
+    if (model.scale || model.direction) out[14] = ((model.scale || 0) & 15) | ((model.direction || 0) & 15) << 4;   /* v0.7, v0.8 */
     list.forEach((x, i) => {
       const o = HEADER + EVENT * i;
       if (!Number.isInteger(x.time) || x.time < -BIAS || x.time + BIAS > 65535) fail(BAD_EVENT, 'event time ' + x.time + ' outside the clip');
@@ -191,7 +192,8 @@
     if (p[8] || p[9] || p[10] || p[11]) m.chain = { next: p[8], after: get16(p, 9), times: p[11] };   /* v0.4: the clip chain (was dropped: the workbench lost it on a rewrite) */
     if (p[12]) m.transpose = p[12] << 24 >> 24;   /* v0.5: the clip's transpose in semitones */
     if (p[13]) m.shuffle = p[13];                 /* v0.6: the clip's shuffle byte (1..51: its own 0..50 percent) */
-    if (p[14]) m.scale = p[14];                   /* v0.7: the clip's scale (1 an 8th, 2 a 32nd, 3 a 16th triplet, 4 an 8th triplet) */
+    if (p[14] >> 4) m.direction = p[14] >> 4;     /* v0.8: 1 backwards, 2 forwards then backwards */
+    if (p[14] & 15) m.scale = p[14] & 15;                   /* v0.7: the clip's scale (1 an 8th, 2 a 32nd, 3 a 16th triplet, 4 an 8th triplet) */
     if (p[15]) m.quantize = p[15];                /* v0.6: the clip's playback quantize (1 a 16th, 2 an 8th, 3 a quarter) */
     for (const e of events(p)) {
       if (e.kind === NOTE) m.notes.push({ time: e.time, pitch: e.a, velocity: e.b, length: e.length, retrigger: !!e.retrigger });
@@ -203,7 +205,7 @@
 
   const TabbyClipV3 = { HEADER, EVENT, EVENTS_MAX, STEPS_MAX, BIAS, NOTE, CC, PC, BEND, PRESSURE, STEPMOD,
     codes: { OK, BAD_SIZE, NOT_V2_SHAPED, BAD_HEADER, BAD_EVENT, BAD_ORDER, DUPLICATE, NO_ROOM, BAD_SOURCE },
-    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.7' };
+    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.8' };
   globalThis.TabbyClipV3 = TabbyClipV3;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyClipV3;
 })();
