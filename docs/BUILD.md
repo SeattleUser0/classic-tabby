@@ -5801,3 +5801,19 @@ second note 164.13 ms after the first, three times within 0.3 ms: the measuring 
 behaviour failed there, as they must.
 
 Measured: app image 485188 bytes (+864), margin 34269, heap 143020 (unchanged). Build `748004a45cce48bd`.
+
+### 53.1 tabby-v04.17 released: candidate 1 (2026-11-17)
+
+Suite green on a337868; builds/tabby-v04.17-rc1/ (build `748004a45cce48bd`), installed in 9 s; every step passed at
+the first attempt; promoted.
+
+| Step | Result |
+| --- | --- |
+| run-setup v0.10 | 34 of 34; the second note 163.93 ms after the first as recorded, 206.70 ms with SHUFFLE 50, 125.96 ms with PLAY QUANTIZE 1/16 (calculated 164.1, 207.0, 125.0) |
+| run-program / run-chain / run-scenechain / run-sceneedit | 10 of 10 / 11 of 11 / 13 of 13 / 16 of 16 |
+| run-record / run-steps / run-launch twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.18 and 1.09 ms |
+| run-15, one line, three runs | DIN 1.75, 1.81, 1.82 ms; USB 1.72, 1.72, 1.87 ms; clock ratio 0.999583 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+Flash margin 34269 bytes, free RAM 143020 bytes.

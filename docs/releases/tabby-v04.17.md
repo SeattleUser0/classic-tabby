@@ -27,4 +27,12 @@ SHUFFLE and PLAY QUANTIZE for each clip, on CLIP SETTING (now three pages). Rein
 
 ## Validation
 
-Filled in after the candidate ran on the device.
+Candidate 1 (builds/tabby-v04.17-rc1/) on the device, unattended, before the promotion; it passed at the first attempt:
+
+- CLIP SETTING 34 of 34. With a second note 150 units late on step 2 of a clip, measured on MIDI out: 163.9 ms
+  after the first note as recorded (164.1 calculated), 206.7 ms with SHUFFLE 50 PERCENT (207.0), 126.0 ms with PLAY
+  QUANTIZE 1/16 (125.0).
+- Program and knobs 10 of 10, clip chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16, recording 25 of 25,
+  STEP page 18 of 18, CLIPS page 40 of 40 twice, the timing song 960 of 960 notes on DIN and USB.
+- One line, 960 notes, three runs: DIN 1.75, 1.81, 1.82 ms; USB 1.72, 1.72, 1.87 ms.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.
