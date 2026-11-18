@@ -6139,3 +6139,19 @@ reply to 16 bytes; eleven host checks pin its 14 bytes, so the new state got its
 run-repeat.py could not be proven on tabby-v04.21 first (it needs op 18).
 
 Measured: app image 489796 bytes (+608), margin 29661, heap 142700. Build `1726ba6b317b1bb5`.
+
+### 58.1 tabby-v04.22 released: candidate 1 (2026-11-18)
+
+Suite green on 140a13c; builds/tabby-v04.22-rc1/ (build `1726ba6b317b1bb5`), installed in 12 s; every step passed at
+the first attempt; promoted.
+
+| Step | Result |
+| --- | --- |
+| run-repeat v0.1 | 11 of 11; 18 notes in 2.2 s, 124.85 ms apart (worst 2.75 ms from the median); at 1/32 62.74 ms (worst 3.00 ms): the arpeggiator's notes start on audio blocks (2.9 ms) |
+| run-takeedit / run-program / run-chain / run-scenechain / run-sceneedit / run-setup | 26 of 26 / 10 of 10 / 11 of 11 / 13 of 13 / 16 of 16 / 38 of 38 |
+| run-record / run-steps / run-launch twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.28 ms on DIN |
+| run-15, one line, three runs | DIN 1.71, 1.73, 1.79 ms; USB 1.60, 1.68, 1.70 ms; clock ratio 0.999583 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+Flash margin 29661 bytes, free RAM 142700 bytes.

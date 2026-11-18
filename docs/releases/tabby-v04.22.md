@@ -34,4 +34,14 @@ NOTE REPEAT now does what is printed on it: hold it and a held key or pad repeat
 
 ## Validation
 
-Filled in after the candidate has passed on the device.
+Candidate 1 (builds/tabby-v04.22-rc1/) on the device, unattended, before the promotion; it passed at the first attempt:
+
+- Note repeat 11 of 11. Heard on the MIDI out: a held key 18 times in 2.2 s, 124.8 ms apart at 1/16; one click of
+  K1 faster, 62.7 ms apart (1/32). No interval was more than 3.0 ms from the middle one: the arpeggiator starts its
+  notes on audio blocks of 2.9 ms, so the repeats are even to one block, not to the 2 ms of the song's notes.
+  NOTE REPEAT let go: nothing repeats and the ARP switch is off again. KNOB BANK + NOTE REPEAT: keys to pads and back.
+- Take edit 26 of 26, program and knobs 10 of 10, clip chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16,
+  CLIP SETTING 38 of 38, recording 25 of 25, STEP page 18 of 18, CLIPS page 40 of 40 twice, the timing song 960 of
+  960 notes on DIN and USB.
+- One line, 960 notes, three runs: DIN 1.71, 1.73, 1.79 ms; USB 1.60, 1.68, 1.70 ms.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.
