@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-18T06:52:43Z",
+  "updated": "2026-11-18T07:12:23Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -443,6 +443,16 @@
       "note": "Release candidate; it passed the device tests and was released as tabby-v04.17."
     },
     {
+      "tag": "tabby-v04.18",
+      "build": "1046c8ec5c0c7c0a971e622d638c6876f1a1042dab2f48bb5439ffea5e0627b9",
+      "loader": "ota-SMK371046c8ec5c0c7c0a",
+      "version": "tabby-v04.18",
+      "page": "builds/tabby-v04.18/",
+      "published": "2026-11-18",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.18.zip",
+      "note": ""
+    },
+    {
       "tag": "tabby-v04.18-rc1",
       "build": "1046c8ec5c0c7c0a971e622d638c6876f1a1042dab2f48bb5439ffea5e0627b9",
       "loader": "ota-SMK371046c8ec5c0c7c0a",
@@ -460,7 +470,7 @@
       "page": "builds/tabby-v04.18-rc2/",
       "published": "2026-11-18",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v04.18-rc2.zip",
-      "note": "Release candidate of tabby-v04.18: not a release. Use the main page unless you were asked to test this build."
+      "note": "Release candidate; it passed the device tests and was released as tabby-v04.18."
     }
   ]
 }
