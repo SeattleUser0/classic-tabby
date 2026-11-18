@@ -24,9 +24,10 @@ Purpose
 Usage (from the repository root)
     python3 -I tools/linux/stickers.py [--out docs/stickers] [--table] [--no-pdf]
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-17  Every dimension is printed as inches in fractions to 1/32 (frac); the decimals stay in measurements.json.
     v0.1  2026-11-17  First version (labels of CONTROL-MAP.md v0.9, tabby-v04.14).
 """
 import argparse, html, json, shutil, subprocess, sys
@@ -83,6 +84,16 @@ STICKERS = {
 
 def inch(px):
     return px * IN_PER_PX
+
+
+def frac(v):
+    """Inches as a fraction to the nearest 1/32, the way a ruler reads: 2 17/32"."""
+    from fractions import Fraction
+    f = Fraction(round(v * 32), 32)
+    whole, rest = divmod(f, 1)
+    if not rest:
+        return '%d"' % whole
+    return ('%d %d/%d"' % (whole, rest.numerator, rest.denominator)) if whole else '%d/%d"' % (rest.numerator, rest.denominator)
 
 
 def pos(x, y):
@@ -210,13 +221,13 @@ def panel_svg(scale, x_from=None, x_to=None, with_stickers=True, dims=False):
             o.append('<line x1="%.4f" y1="%.4f" x2="%.4f" y2="%.4f" stroke="#c00" stroke-width="0.006"/>' % (ax, ay, bx, ay))
             for x in (ax, bx):
                 o.append('<line x1="%.4f" y1="%.4f" x2="%.4f" y2="%.4f" stroke="#c00" stroke-width="0.006"/>' % (x, ay - 0.06, x, ay + 0.06))
-            o.append(text((ax + bx) / 2, ay - 0.05 if label_above else ay + 0.2, '%.2f"' % (bx - ax), 11, "700", "middle", "#c00"))
+            o.append(text((ax + bx) / 2, ay - 0.05 if label_above else ay + 0.2, frac(bx - ax), 11, "700", "middle", "#c00"))
         def dim_v(x, ya, yb, right=True):
             (ax, ay), (_, by) = pos(x, ya), pos(x, yb)
             o.append('<line x1="%.4f" y1="%.4f" x2="%.4f" y2="%.4f" stroke="#c00" stroke-width="0.006"/>' % (ax, ay, ax, by))
             for y in (ay, by):
                 o.append('<line x1="%.4f" y1="%.4f" x2="%.4f" y2="%.4f" stroke="#c00" stroke-width="0.006"/>' % (ax - 0.06, y, ax + 0.06, y))
-            o.append(text(ax + (0.06 if right else -0.06), (ay + by) / 2 + 0.05, '%.2f"' % (by - ay), 11, "700", "start" if right else "end", "#c00"))
+            o.append(text(ax + (0.06 if right else -0.06), (ay + by) / 2 + 0.05, frac(by - ay), 11, "700", "start" if right else "end", "#c00"))
         for n, key in enumerate(("A", "B", "C")):
             _, x0, y0, x1, y1 = STICKERS[key]
             dim_h(CASE[0], x0, KEYBED_Y + 120 + 110 * n, False)
@@ -246,9 +257,9 @@ def build_html():
             p.append(text(0.5, dy - 0.25, "Spare set (the same four stickers)", 9, "700", "start"))
         for key, (x, y) in (("B", (0.5, dy)), ("C", (0.5, dy + 1.05)), ("A", (5.3, dy + 1.05)), ("D", (0.5, dy + 2.1))):
             s, w, h = sticker_svg(key, x, y)
-            p.append(text(x, y - 0.07, 'Sticker %s  -  %s  -  %.2f" x %.2f"  (%.1f x %.1f mm)' % (key, STICKERS[key][0], w, h, w * 25.4, h * 25.4), 7.5, "700", "start"))
+            p.append(text(x, y - 0.07, 'Sticker %s  -  %s  -  %s x %s' % (key, STICKERS[key][0], frac(w), frac(h)), 7.5, "700", "start"))
             p.append(s)
-    p.append(text(0.5, 8.2, "Sizes fit sticker paper cut by hand, or label tape: A, B, C on 18 mm (3/4\") tape trimmed to 0.59\"; D on 6 mm (1/4\") tape trimmed to 0.16\". docs/STICKERS.md has every text and position.", 7.5, "400", "start"))
+    p.append(text(0.5, 8.2, "Sizes fit sticker paper cut by hand, or label tape: A, B, C on 18 mm (3/4\") tape trimmed to 19/32\"; D on 6 mm (1/4\") tape trimmed to 5/32\". docs/STICKERS.md has every text and position.", 7.5, "400", "start"))
     p.append("</svg>")
     pages.append("\n".join(p))
     # page 2: where they go, half size, dimensioned
@@ -256,12 +267,12 @@ def build_html():
     p.append(text(0.5, 0.55, "Page 2 of 4: where the stickers go  -  the panel at half size; dimensions in inches at full size, from the case's back left corner", 12, "700", "start"))
     p.append(text(0.5, 0.78, "Grey: the button fields with the words printed on the device. Yellow: stickers A to D. Stickers A, B and C sit in the free band between the buttons / pads and the keys.", 8.5, "400", "start"))
     p.append('<g transform="translate(0.75 1.6) scale(0.5)">' + panel_svg(0.5, dims=True) + "</g>")
-    p.append(text(0.5, 6.6, "Sticker tops: A, B, C  %.2f\" from the back edge (the band is %.2f\" to %.2f\"; the keys begin at %.2f\").  D  %.2f\" from the back edge." % (
-        pos(0, BAND[0])[1], pos(0, LEFT_PANEL[3])[1], pos(0, KEYBED_Y)[1], pos(0, KEYBED_Y)[1], pos(0, STICKERS["D"][2])[1]), 9, "400", "start"))
-    p.append(text(0.5, 6.85, "Left edges from the case's left edge: A %.2f\"   B %.2f\"   C %.2f\"   D %.2f\".   Each sticker is as wide as the group above it, so its columns line up with the buttons, pads and knobs." % (
-        pos(STICKERS["A"][1], 0)[0], pos(STICKERS["B"][1], 0)[0], pos(STICKERS["C"][1], 0)[0], pos(STICKERS["D"][1], 0)[0]), 9, "400", "start"))
+    p.append(text(0.5, 6.6, "Sticker tops: A, B, C  %s from the back edge (the band is %s to %s; the keys begin at %s).  D  %s from the back edge." % tuple(frac(v) for v in (
+        pos(0, BAND[0])[1], pos(0, LEFT_PANEL[3])[1], pos(0, KEYBED_Y)[1], pos(0, KEYBED_Y)[1], pos(0, STICKERS["D"][2])[1])), 9, "400", "start"))
+    p.append(text(0.5, 6.85, "Left edges from the case's left edge: A %s   B %s   C %s   D %s.   Each sticker is as wide as the group above it, so its columns line up with the buttons, pads and knobs." % tuple(frac(v) for v in (
+        pos(STICKERS["A"][1], 0)[0], pos(STICKERS["B"][1], 0)[0], pos(STICKERS["C"][1], 0)[0], pos(STICKERS["D"][1], 0)[0])), 9, "400", "start"))
     p.append(text(0.5, 7.1, "Easier than measuring: line up the left edge of A with the left edge of the left button field, B with the left edge of pad 1,", 9, "400", "start"))
-    p.append(text(0.5, 7.35, "C and D with the left edge of the right button field (D starts 0.04\" further right). Pages 3 and 4 show the same at actual size.", 9, "400", "start"))
+    p.append(text(0.5, 7.35, "C and D with the left edge of the right button field (D starts 1/32\" further right). Pages 3 and 4 show the same at actual size.", 9, "400", "start"))
     p.append("</svg>")
     pages.append("\n".join(p))
     # pages 3 and 4: the panel at 1:1, two halves with an overlap
@@ -316,7 +327,7 @@ def table():
     print("| Sticker | Goes | Width x height | Left edge from the case's left edge | Top edge from the case's back edge |")
     print("| --- | --- | --- | --- | --- |")
     for key, s in m["stickers"].items():
-        print('| %s | %s | %.2f" x %.2f" (%.1f x %.1f mm) | %.2f" | %.2f" |' % (key, s["title"], s["width_in"], s["height_in"], s["width_mm"], s["height_mm"], s["left_in"], s["top_in"]))
+        print('| %s | %s | %s x %s | %s | %s |' % (key, s["title"], frac(s["width_in"]), frac(s["height_in"]), frac(s["left_in"]), frac(s["top_in"])))
     print()
     print(json.dumps(m["controls"], indent=1))
 

@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.88
+Version: 0.89
 Revision log:
+- v0.89, 2026-11-17: section 52 (tabby-v04.16: a scene deleted and moved, a stop takes an armed take off, the printable manual, stickers in inch fractions; the photograph that was not there).
 - v0.88, 2026-11-17: section 51 (tabby-v04.15: TRANSPOSE, DELETE CLIP; the parity list v0.2).
 - v0.87, 2026-11-17: 50.3 (tabby-v04.14 on the device, the first release through the flow), 50.4 (stickers, the manual).
 - v0.86, 2026-11-17: section 50 (tabby-v04.14: the page fixes, CLICK LEVEL, the controller numbers; the release flow of SPEC 17.13 and its tools).
@@ -5726,3 +5727,39 @@ install step wrote nothing); every step passed; promoted.
 Flash margin 36925 bytes, free RAM 143020 bytes. The candidates' pages: rc1 and rc2 carry their notes, rc3 says it
 was released.
 
+## 52. tabby-v04.16: a scene deleted and moved; a stop takes an armed take off; the manual as a PDF (2026-11-17)
+
+The user's answers of the evening of 2026-11-17 (SPEC 17.15): the parity order stands, 15 KB of flash stay free,
+no TRANSPOSE lockout on drum tracks, the manual as one PDF with the next release, a stop takes an armed take off,
+the stickers as they are. Answers 1 and 2 pointed to a photograph of the panel.
+
+### 52.1 The photograph was not there
+
+`~/Documents/Classic Tabby/panel.jpg` did not exist on the NUC (2026-11-17, evening). Searched: that folder, the
+home directory for any file named panel*, and for any image changed in the last ten hours. The only hits were
+`docs/panel.jpg` in worktrees of the other project (the FM-1's panel; looked at, not an SMK-37). So: the printed
+labels and the pad rows are still unconfirmed, "4th left button" is not renamed, and the sticker positions are not
+checked against a unit. docs/STICKERS.md v0.2 gives every dimension in inches as fractions to 1/32 (the part of
+the request that needed no photograph) and says in 3.1 what waits for it.
+
+### 52.2 What changed
+
+| Part | Change |
+| --- | --- |
+| app/song.c | `song_scene_delete`, `song_scene_move` (stopped only; row events and the loop row follow; the grid-block length rule, SPEC 19.19); `rec.armed_playing`, `song_record_disarmed`: a take armed while the song played is taken off when the song stops |
+| app/screen.c | SCENES: FX twice deletes the selected scene, EDIT held + K1 moves it; the bottom line while stopped; SONG STOPPED - REC OFF |
+| tests | tests/host/smoke.c v0.26 (19 checks: move, delete, events, loop row, the last scene, save and load, the grid rule, the disarm); setup-sim.mjs v0.4 (11 checks through the panel); record-sim.mjs v0.2 (4 checks through the panel) |
+| tools/linux/hw/run-sceneedit.py | the device test (16 checks); step `sceneedit` of rc-validate.py v0.3. Run once against tabby-v04.15 before the release to prove its mechanics: the checks of the new behaviour failed there as they must (FX opened EFFECTS; the armed take stayed armed after the stop: 1), the others passed |
+| tools/linux/manual-pdf.py, guide-html.py v1.1, publish-pages.py v0.8, guide.mjs | the printable manual: docs/manual/classic-tabby-manual.pdf (46 pages, US Letter), published at guide/classic-tabby-manual.pdf; a PDF that was not made from the guide text fails the suite and is refused by the publish script |
+| tools/linux/stickers.py v0.2, docs/STICKERS.md v0.2 | inches as fractions to 1/32 everywhere; column centres inside each sticker |
+| docs | SPEC v0.54 (17.15, 19.19), CONTROL-MAP v0.11 (5, 10, 11, 13.2), TESTING-GUIDE v3.4 (4.10, 4.11, T85, T86), Help chapters 00 and 05, MC707-PARITY v0.3, FLASH-BUDGET v0.39 |
+
+A mistake of mine on the way, with no effect on the repository: I wrote the new device test over the existing
+tools/linux/hw/run-scenes.py (the master-cycle test of Task 17 Goal 3). Seen in `git status` before any commit; the
+file was restored from HEAD and the new test is run-sceneedit.py.
+
+Deleting a scene has no undo: a song change is saved by the 4th left button, ten seconds after the change while
+stopped, and when another song is chosen (song_load saves the song being left). The guide, Help and the control
+map say so; the delete asks twice.
+
+Measured: app image 484324 bytes (+1792), margin 35133, heap 143020 (unchanged). Build `ed9182d3a3d67ec9`.

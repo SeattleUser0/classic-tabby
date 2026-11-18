@@ -39,9 +39,11 @@ Usage (from the repository root)
         --source-url https://github.com/<owner>/<repo>/archive/refs/tags/tabby-v01.0.zip \
         --commit --push                                                   # + gh-pages
 
-Version: 0.7
+Version: 0.8
 
 Revision log
+    v0.8  2026-11-17  guide/classic-tabby-manual.pdf: the printable manual (docs/manual/, tools/linux/manual-pdf.py);
+                      a PDF that was not made from the guide text is refused.
     v0.7  2026-11-17  The release flow of SPEC 17.13: --rc N publishes only builds/<tag>-rc<N>/ (the tag on HEAD is
                       <tag>-rc<N>; the main page and builds/<tag>/ are not touched). Every other --commit / --push
                       with a tag is refused unless that firmware build passed on the device as a release candidate
@@ -147,6 +149,12 @@ def build_site(html, staging, node, source_url, log):
     if guide.returncode != 0 or not (staging / "guide" / "index.html").is_file():
         raise PublishError("guide-html.py failed:\n%s" % guide.stdout)
     log(guide.stdout.strip())
+    # v0.8: the printable manual beside the guide; it must have been made from this guide text
+    manual = subprocess.run([sys.executable, "-I", str(HERE / "manual-pdf.py"), "--check"], cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    if manual.returncode != 0:
+        raise PublishError("The printable manual is not current:\n%s" % manual.stdout)
+    shutil.copyfile(ROOT / "docs/manual/classic-tabby-manual.pdf", staging / "guide" / "classic-tabby-manual.pdf")
+    log(manual.stdout.strip())
     log("Site: build %s, release %s, version %s, %d assets, entry %d bytes, standalone %d bytes"
         % (report.get("build"), report.get("release"), report.get("version"), len(report.get("assets", [])),
            report.get("entryBytes", 0), report.get("standaloneBytes", 0)))

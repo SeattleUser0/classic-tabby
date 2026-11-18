@@ -11,7 +11,7 @@ Purpose
       install        ONE install attempt from the release candidate's page (the normal update path, identity checked)
       identity       the device then reports the build id of build/
       song           the two-clip test song is imported (slot 7)
-      program, chain, scenechain, setup, record, steps, launch, launch-again, clips, timing
+      program, chain, scenechain, sceneedit, setup, record, steps, launch, launch-again, clips, timing
                      the device tests (run-*.py), the test song written anew between them
       backup         a full backup through the release candidate's page
       restore        that backup restored to the device (the page verifies after the restore)
@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-17  tabby-v04.16: the step `sceneedit` (run-sceneedit.py: a scene moved and deleted, a stop takes an armed take off).
     v0.2  2026-11-17  The install step accepts "already installed" (the build is on the device from an earlier candidate).
     v0.1  2026-11-17  First version (the user's release-flow rule).
 """
@@ -152,6 +153,7 @@ def main():
         test("program", "run-program.py")
         test("chain", "run-chain.py")
         test("scenechain", "run-scenechain.py")
+        test("sceneedit", "run-sceneedit.py")
         test("setup", "run-setup.py")
         test("record", "run-record.py")
         test("steps", "run-steps.py")

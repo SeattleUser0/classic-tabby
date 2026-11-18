@@ -11,9 +11,10 @@
 //
 //   Run:  /usr/bin/node tests/workbench/setup-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.3
+// Version: 0.4
 //
 // Revision log
+//   v0.4  2026-11-17  tabby-v04.16: a scene moved (EDIT + K1) and deleted (FX twice) on SCENES.
 //   v0.3  2026-11-17  tabby-v04.15: TRANSPOSE and DELETE CLIP.
 //   v0.2  2026-11-17  tabby-v04.14: CLICK LEVEL and the controller numbers of K1 to K4 (the second page); every record and
 //                     clip the device wrote goes through both of the page's readers and back unchanged; the clip chain
@@ -334,6 +335,35 @@ check(c.sim_song_load(0) === 0 && more().level === 2 && more().knobs[0] === 7, '
   lib.songRead = async slot => { if (slot === 2) throw Object.assign(new Error('The device does not respond'), { code: 'NO_REPLY' }); return null; };
   said = ''; try { await lib.fullRead(); } catch (e) { said = e.message; }
   check(said === 'The device does not respond', 'a lost link is reported as it is, not as an unreadable song'); }
+
+/* ---- tabby-v04.16: on SCENES, stopped: EDIT held + K1 moves the selected scene, FX twice deletes it ---- */
+{ if (c.sim_song_status(0) >>> 8 & 255) { press(PLAY); step(200); }
+  s = state(); if (s.page !== 20 && s.page !== 19) press(BT);
+  s = state(); if (s.page !== 19) press(SCL);
+  s = state(); let n0 = setup().scenes;
+  if (scene().row !== 1) pad(1);
+  let q = scene(); const t1 = q.times;
+  knob(K1, 2); q = scene();
+  check(s.page === 19 && n0 >= 2 && q.row === 1 && q.times === t1 + 2, 'SCENES, stopped, scene 2 selected of ' + n0 + '; its TIMES set to ' + (t1 + 2));
+  const editKnob = d => { c.sim_smk37(BUTTON, EDIT, 1); step(8); knob(K1, d); c.sim_smk37(BUTTON, EDIT, 0); step(4); };
+  editKnob(-1); q = scene();
+  check(q.row === 0 && q.times === t1 + 2 && q.unsaved === 1 && setup().scenes === n0, 'EDIT held + K1 left: the scene is now scene 1 and still the selected one (scene ' + (q.row + 1) + ', times ' + q.times + ')');
+  editKnob(-1); q = scene();
+  check(q.row === 0 && q.times === t1 + 2, 'the first scene moves no earlier');
+  editKnob(1); q = scene();
+  check(q.row === 1 && q.times === t1 + 2, 'EDIT held + K1 right: back to scene 2');
+  press(FX); check(setup().scenes === n0, 'FX once asks (FX AGAIN DELETES SCENE 002): nothing is deleted');
+  step(900); press(FX); check(setup().scenes === n0, 'a second press more than two seconds later only asks again');
+  step(900); press(FX); press(FX); q = scene();
+  check(setup().scenes === n0 - 1 && q.row === 0 && q.times !== t1 + 2 && q.unsaved === 1, 'FX twice: the scene is deleted; ' + (n0 - 1) + ' left, scene 1 is selected, the song is unsaved');
+  s = state(); check(s.page === 19, 'still on SCENES (FX and EDIT open no other page here)');
+  press(PLAY); step(300); press(FX); press(FX); editKnob(1);
+  check(setup().scenes === n0 - 1, 'while the song plays nothing is deleted or moved (STOP TO DELETE OR MOVE A SCENE)');
+  press(PLAY); step(200);
+  press(SAVE); step(20);
+  const r = stored(); let why = '';
+  try { globalThis.FM1Web.songRecordParse(r); } catch (e) { why = e.message; }
+  check(r[40] === n0 - 1 && !why && c.sim_song_load(0) === 0 && setup().scenes === n0 - 1, 'saved: the record has ' + (n0 - 1) + ' scene(s), the page reads it, and it loads again ' + why); }
 
 c.sim_midi_capture(0); c.sim_midi_drain(0);
 { const held = new Map(); let bad = 0;

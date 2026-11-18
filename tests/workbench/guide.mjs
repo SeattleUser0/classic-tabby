@@ -88,7 +88,14 @@ if (r.status === 0) {
 const help = readFileSync('sdk/Update.html.in', 'utf8');
 const links = (help.match(/https:\/\/seattleuser0\.github\.io\/classic-tabby\/guide\//g) || []).length;
 check(links >= 2, 'Help links to the guide from the Help heading and from chapter 00', `${links} links`);
-check(/manual-guide-link/.test(help) && /The page you are on is tabby-v04\.15\./.test(help), 'chapter 00 names the page version');
+check(/manual-guide-link/.test(help) && /The page you are on is tabby-v04\.16\./.test(help), 'chapter 00 names the page version');
+
+// ---- the printable manual belongs to this guide text (tools/linux/manual-pdf.py; make manual)
+{ const { createHash } = await import('node:crypto');
+  let meta = null; try { meta = JSON.parse(readFileSync('docs/manual/manual.json', 'utf8')); } catch (e) { meta = null; }
+  const sum = createHash('sha256').update(readFileSync('docs/TESTING-GUIDE.md')).digest('hex');
+  let pdf = null; try { pdf = readFileSync('docs/manual/classic-tabby-manual.pdf'); } catch (e) { pdf = null; }
+  check(meta && pdf && meta.guide_sha256 === sum && pdf.length === meta.bytes && pdf.subarray(0, 5).toString() === '%PDF-', 'docs/manual/classic-tabby-manual.pdf was made from this guide text (make manual)', meta ? `${meta.pages} pages` : 'no manual.json'); }
 
 if (failures) { console.log('FAILED'); process.exit(1); }
 console.log('all checks passed');

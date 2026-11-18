@@ -1,11 +1,11 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 3.3, 2026-11-17. For tabby-v04.15 on the M-VAVE SMK-37 Pro.
+Version 3.4, 2026-11-17. For tabby-v04.16 on the M-VAVE SMK-37 Pro.
 The user manual and the test checklist in one, for the person who plays and tests the device. No programming needed.
 Sections 3 to 5 are the manual: setting up, every page of the device in the order you use it, and the workbench. Section 6 is the checklist.
 
-This guide is for tabby-v04.15. If an older firmware is on your SMK-37, install tabby-v04.15 (section 3.2); section 2.2 lists what each release added. New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
+This guide is for tabby-v04.16. If an older firmware is on your SMK-37, install tabby-v04.16 (section 3.2); section 2.2 lists what each release added. The guide is also one printable file: https://seattleuser0.github.io/classic-tabby/guide/classic-tabby-manual.pdf. New in tabby-v04.16: a scene can be deleted and moved on the SCENES page (section 4.11), and stopping the song takes an armed take off (4.10). New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
 
 Where to find what: playing a song from the pads is 4.7 and 4.8. Building and changing a song on the panel is 4.9 to 4.14. Projects, sounds and housekeeping are 4.1 to 4.6 and 4.15 to 4.18. The workbench is section 5.
 
@@ -103,6 +103,7 @@ Oldest first. The last line is the release this guide is for.
 - tabby-v04.13: CLIP SETTING has PROGRAM, BANK MSB and BANK LSB for each clip; on CLIPS K1 to K4 send controllers 74, 71, 1 and 11, and a take records them (4.14).
 - tabby-v04.14: CLICK LEVEL (LOW, MID, HIGH) for the internal click; K1 CONTROLLER to K4 CONTROLLER choose what the four knobs on CLIPS send, per song; CLIP SETTING is two pages. The Full backup names a song the page cannot read and stops. The workbench importer keeps a clip's own length and its chain when it rewrites a song (before, it dropped them).
 - tabby-v04.15: TRANSPOSE on CLIP SETTING moves a clip's notes by up to 12 semitones either way when it plays. DELETE CLIP takes a clip out of the song (two presses, stopped, never a clip a scene uses).
+- tabby-v04.16: on SCENES, with the song stopped, FX twice deletes the selected scene and EDIT held with K1 moves it earlier or later. Stopping the song takes an armed take off (SONG STOPPED - REC OFF). The guide as one printable PDF.
 
 
 3. SETUP
@@ -126,7 +127,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. Install tabby-v04.15 to get everything in this guide. Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. Install tabby-v04.16 to get everything in this guide. Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -316,6 +317,8 @@ REC records what you play into a clip while the clip loops. What is already in t
 
 A clip holds 512 events. If it fills up, recording stops by itself and the screen says CLIP FULL - 512 EVENTS - REC STOPPED. Nothing you recorded is lost.
 
+Stopping the song (tabby-v04.16): if you pressed REC while the song played and the take had not started yet (REC WHEN THE CLIP LOOPS), stopping the song takes it off. The screen says SONG STOPPED - REC OFF and the REC lamp goes out. A take you arm while the song is stopped still waits for PLAY.
+
 - ARP: tap to switch the arpeggiator on or off for the track. Hold about 0.6 seconds for its settings.
 - FX: reverb and delay sends for the selected track.
 - BT: opens the CLIPS page (4.8). BT again goes back.
@@ -352,6 +355,15 @@ Storing a scene
 2. Go to SCENES (SCL). Hold an empty pad for half a second. The screen says STORED AS A NEW SCENE. The new scene is added after the last one.
 3. Press its pad to recall it later. It repeats until you recall another scene.
 4. A pad that already holds a scene is never written over. Save the song when stopped (4th button in the left group).
+
+Deleting and moving a scene (tabby-v04.16)
+1. Stop the song. On SCENES press the pad of the scene: it blinks. That is the selected scene. With no pad blinking, scene 1 is selected.
+2. To delete it: press FX. The screen says FX AGAIN DELETES SCENE and its number. Press FX again within two seconds: SCENE DELETED - SAVE THE SONG. The scenes after it move one pad earlier. Its clips stay in the song.
+3. To move it: hold EDIT and turn K1. One click left moves the scene one pad earlier, one click right one pad later: SCENE MOVED - SAVE THE SONG. It stays selected, so you can keep turning.
+4. A scene you stored while playing sits after the last one. Stop, select it and move it to where it belongs in the song.
+5. The change is saved with the song: when you press the 4th button in the left group, by itself ten seconds after the last change while stopped, or when you choose another song. There is no undo for a deleted scene. Its clips are still in the song, so you can build it again: play, launch its clips, store them as a new scene and move it back.
+6. The song keeps at least one scene: THE LAST SCENE STAYS. While the song plays: STOP TO DELETE OR MOVE A SCENE.
+7. In a song imported from a MIDI file a clip can take its length from the first scene that uses it. If deleting or moving a scene would change that, the screen says NOT DELETED: SETS A CLIP'S LENGTH (or NOT MOVED). Open that clip's CLIP SETTING, turn LENGTH one step and back, and save: the clip then keeps its own length and the scene is free.
 
 
 4.12 Clip chains (tabby-v04.11)
@@ -1127,6 +1139,21 @@ Set up: the song stopped. Make a copy of a clip first (COPY TO PAD), so nothing 
 You should see: one press, and presses three seconds apart, only ask (PRESS AGAIN TO DELETE THE CLIP). Two quick presses: CLIP DELETED - SAVE THE SONG and the pad goes dark. The scene's clip stays: USED BY SCENE n - NOT DELETED. [checked in simulator]
 Result: PASS / FAIL   Notes: ________________________________
 
+T85. Delete and move a scene (tabby-v04.16)
+Set up: a song with three or more scenes, stopped. Use a copy of a song you need, or do not save at the end.
+1. On SCENES press pad 2. Hold EDIT and turn K1 one click left, then one click right.
+2. Press FX once. Wait three seconds. Press FX twice quickly.
+3. Press PLAY. Press FX twice. Press PLAY to stop.
+You should see: SCENE MOVED - SAVE THE SONG twice; pad 1 blinks after the first move and pad 2 after the second. One FX press only asks (FX AGAIN DELETES SCENE 002). Two quick presses: SCENE DELETED - SAVE THE SONG and the song has one scene less. While playing: STOP TO DELETE OR MOVE A SCENE and nothing changes. [checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
+T86. A stop takes an armed take off (tabby-v04.16)
+Set up: a song playing, track 1 following the scenes. On CLIPS select a clip of track 1 that is not playing now (hold its pad for half a second).
+1. Press REC. Before the next bar line press PLAY to stop the song.
+2. With the song stopped press REC. Wait five seconds. Press REC again.
+You should see: REC WHEN THE CLIP LOOPS and the REC lamp; after the stop SONG STOPPED - REC OFF and the lamp out. Stopped: REC ARMED - PLAY STARTS IT, and the lamp stays lit until the second press. [checked in simulator]
+Result: PASS / FAIL   Notes: ________________________________
+
 
 7. KNOWN LIMITS AND WHAT IS NOT BUILT YET
 =========================================
@@ -1149,7 +1176,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the SHIFT list now say SEQ+EDIT: ACTIONS and PAD/STEP KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v04.15.
+- The page badge and the boot screen show tabby-v04.16.
 
 
 8. HOW TO REPORT A PROBLEM

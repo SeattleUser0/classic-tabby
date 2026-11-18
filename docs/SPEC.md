@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.53
+Version: 0.54
 Revision log:
+- v0.54, 2026-11-17: 17.15 the flash reserve (15 KB) and the user's answers of 2026-11-17 evening; 19.19 tabby-v04.16 (a scene deleted and moved, a stop takes an armed take off, the printable manual).
 - v0.53, 2026-11-17: 19.18 tabby-v04.15 (TRANSPOSE per clip, DELETE CLIP); docs/MC707-PARITY.md v0.2 is the worked list.
 - v0.52, 2026-11-17: 17.4 the words printed on the buttons, from the manufacturer's drawing; docs/STICKERS.md.
 - v0.51, 2026-11-17: 17.12 one session releases; 17.13 the release flow (release candidate on the device, then
@@ -1419,6 +1420,20 @@ tabby-v04.10 after installing it. This is said in the release notes of tabby-v04
 testing guide and in Help. Pages: a page older than the firmware may refuse such a song; from tabby-v04.14 the Full
 backup then names the song and stops (19.17).
 
+### 17.15 The flash reserve, and the user's answers of 2026-11-17 (evening)
+
+- **Flash reserve (the user's rule):** at least 15 KB (15360 bytes) of flash stays free for fixes. No parity feature
+  is added when the margin after it would be below that; what is then left on the list is reported. The margin is
+  reported in every release (docs/FLASH-BUDGET.md).
+- The parity list is built in the order of docs/MC707-PARITY.md 0.2.
+- TRANSPOSE is not locked out on drum tracks.
+- The manual is published as one printable PDF with each release (tools/linux/manual-pdf.py, guide/classic-tabby-manual.pdf).
+- Stopping the song takes an armed take off (19.19).
+- Stickers stay black on white, under the controls.
+- The printed button names (17.4) wait for the user's photo of the panel: ~/Documents/Classic Tabby/panel.jpg was
+  named but was not on the NUC on 2026-11-17 (no file of that name; no new image anywhere under the home directory).
+  Until it is read, "4th left button" stays, and docs/STICKERS.md stays measured from the manufacturer's drawing.
+
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
 - **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
@@ -1849,3 +1864,29 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - Remote: op 17's reply grows to 34 bytes (33: the open clip's transpose).
 - Page: both song readers keep byte 12 (web/clip-v3/clip-v3.js v0.5, web/import/song-format.js v0.10; the page's own
   reader keeps a clip byte for byte).
+
+### 19.19 tabby-v04.16 (2026-11-17): a scene deleted and moved; a stop takes an armed take off; the printable manual
+
+- Parity list item 1. `song_scene_delete(row)` and `song_scene_move(row, delta)` (app/song.c), stopped only
+  (SONG_BUSY): the playing engine counts every track's position in scene indices (rowset, the queues, the buffers),
+  so the order does not change under it. Delete: the rows and `model.scene_clip` close up, the scene's row events
+  are removed and later events renumbered, the loop row follows, the last scene stays (SONG_EMPTY). Move: the scene
+  changes places with its neighbour; the two scenes' event runs change places in the table (three reversals), the
+  loop row follows; the moved scene stays the reserved (selected) one. Both drop reservations made while stopped.
+- "Insert a scene after the one that plays" is built as store (as before: after the last scene, while playing) plus
+  move (stopped). A true insert while playing would renumber scenes under the audio thread; not done.
+- The grid-block rule: a block without a length of its own (formats 0 and 1) plays as long as the first imported
+  scene that uses it (`v2_steps`). A delete or move that would change that value for a grid block is refused
+  (SONG_EDIT_SHARED); v3 clips carry their length and are never a reason to refuse.
+- Panel (docs/CONTROL-MAP.md 5): on SCENES, FX twice within two seconds deletes the selected scene; EDIT held + K1
+  moves it. FX and EDIT open no other page from SCENES any more (they opened the effects page and the DX7 quick
+  page of the track, neither of which belongs to song mode).
+- A stop takes an armed take off: `song_record_poll` notes that the take was armed while the song played
+  (`rec.armed_playing`); when the song is then stopped (by PLAY, the song's end, or the master's Stop) the take is
+  taken off and the screen says SONG STOPPED - REC OFF (`song_record_disarmed`). A take armed while stopped waits
+  for PLAY as before (count-in included).
+- No format change: records and clips are as in tabby-v04.15.
+- The manual: tools/linux/manual-pdf.py prints the guide page to docs/manual/classic-tabby-manual.pdf (US Letter);
+  publish-pages.py v0.8 puts it at guide/classic-tabby-manual.pdf and refuses a PDF not made from the guide text;
+  tests/workbench/guide.mjs checks the same in the suite.
+- Device test: tools/linux/hw/run-sceneedit.py (step `sceneedit` of rc-validate.py v0.3).

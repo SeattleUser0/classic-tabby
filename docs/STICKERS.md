@@ -1,6 +1,7 @@
 # Classic Tabby stickers for the SMK-37 Pro
 
-Version 0.1 (2026-11-17). Labels as in docs/CONTROL-MAP.md v0.9 (tabby-v04.14).
+Version 0.2 (2026-11-17). Labels as in docs/CONTROL-MAP.md v0.9 (tabby-v04.14); they are the same in v0.11 (tabby-v04.16).
+v0.2: every dimension in inches as fractions to 1/32; the photograph the check was to use was not found (3.1).
 
 The words printed on the SMK-37 are M-VAVE's (KNOB BANK, NOTE REPEAT, CHORD, PARA ...). Classic Tabby uses the
 buttons for other things and calls them by other names (SHIFT, PAD / STEP, ENV, EDIT ...). These four stickers put
@@ -19,26 +20,37 @@ Print at 100 % ("actual size", no "fit to page"). The bar on page 1 must measure
 
 ## 1. The four stickers
 
-All dimensions are inches; millimetres in brackets. Positions are measured from the back left corner of the case,
-looking down at the panel with the keys towards you: "left" is the distance from the case's left edge to the
-sticker's left edge, "top" the distance from the case's back edge to the sticker's top edge.
+Every dimension is in inches, as a fraction to the nearest 1/32 (what a ruler shows). The unrounded decimals are in
+docs/stickers/measurements.json. Positions are measured from the back left corner of the case, looking down at the
+panel with the keys towards you: "left" is the distance from the case's left edge to the sticker's left edge,
+"top" the distance from the case's back edge to the sticker's top edge.
 
 | Sticker | Under | Width x height | Left | Top |
 | --- | --- | --- | --- | --- |
-| A | the six left buttons | 1.30 x 0.59 (33.0 x 15.0) | 2.54 | 3.11 |
-| B | the pads (and, above them, the knobs) | 8.44 x 0.59 (214.4 x 15.0) | 4.54 | 3.11 |
-| C | the twelve right buttons | 4.14 x 0.59 (105.2 x 15.0) | 13.42 | 3.11 |
-| D | the four faders, between the slots and the right buttons | 4.05 x 0.16 (103.0 x 4.1) | 13.47 | 2.12 |
+| A | the six left buttons | 1 5/16 x 19/32 | 2 17/32 | 3 1/8 |
+| B | the pads (and, above them, the knobs) | 8 7/16 x 19/32 | 4 17/32 | 3 1/8 |
+| C | the twelve right buttons | 4 1/8 x 19/32 | 13 7/16 | 3 1/8 |
+| D | the four faders, between the slots and the right buttons | 4 1/16 x 5/32 | 13 15/32 | 2 1/8 |
 
-A, B and C lie in the free band between the button fields / pads and the keys. The band runs from 3.06 to 3.78
-from the back edge (0.72 high); the stickers use 3.11 to 3.70 and leave the transport symbols printed under the
+A, B and C lie in the free band between the button fields / pads and the keys. The band runs from 3 1/16 to 3 25/32
+from the back edge (23/32 high); the stickers use 3 1/8 to 3 23/32 and leave the transport symbols printed under the
 lower pads visible. Each sticker is exactly as wide as the group above it and its columns sit under that group's
 columns. The quick way to place them: line up A with the left edge of the left button field, B with the left edge
 of pad 1 (the upper left pad), C with the left edge of the right button field.
 
-For a label maker: A, B and C fit 18 mm (3/4 inch) tape trimmed to 0.59 inch, D fits 6 mm (1/4 inch) tape trimmed to
-0.16 inch. Black on white is drawn; white on black or clear works as well. The large words are 5.8 to 8 point, the
-small ones 2.8 to 4.6 point: sharp print (600 dpi or a laser printer) is needed for the small ones.
+Columns inside the stickers, from each sticker's own left edge to the column's centre:
+
+| Sticker | Column centres |
+| --- | --- |
+| A (2 columns) | 11/32, 15/16 |
+| B (8 columns, one per pad column) | 7/16, 1 1/2, 2 19/32, 3 11/16, 4 3/4, 5 27/32, 6 15/16, 8 |
+| C (6 columns) | 7/16, 1 3/32, 1 3/4, 2 13/32, 3 1/32, 3 11/16 |
+| D (4 faders) | 3/8, 1 15/32, 2 19/32, 3 11/16 |
+
+For a label maker: A, B and C fit 3/4 inch (18 mm) tape trimmed to 19/32 inch, D fits 1/4 inch (6 mm) tape trimmed
+to 5/32 inch. Black on white is drawn (the user's choice of 2026-11-17). Type sizes are in points, the printer's
+unit (1 point = 1/72 inch): the large words are 5.8 to 8 point, the small ones 2.8 to 4.6 point; sharp print
+(600 dpi or a laser printer) is needed for the small ones.
 
 ## 2. What each sticker says
 
@@ -115,23 +127,36 @@ every button.
    button numbering (left group: SHIFT, FADER BANK, HOME, BTN 4, OCT -, OCT +; right group: ARP to REC) and shows
    pads 1 to 8 in the upper row. It is not to scale (its panel is 1000 : 624; the device is 1000 : 395).
 
-Measured, in inches (from the case's back left corner where a position is given):
+Measured, in inches to the nearest 1/32 (from the case's back left corner where a position is given):
 
 | Item | Value |
 | --- | --- |
-| Case, top view | 18.03 x 7.13 |
-| Knobs K1 to K8 | centres 0.79 from the back; K1 at 4.97 from the left, then every 1.082; diameter 0.64 |
-| Pads | 0.86 x 0.69 each; left edges 4.54, 5.62, 6.70, 7.78, 8.87, 9.95, 11.03, 12.11; row tops 1.33 and 2.14 |
-| Left button field | 1.30 x 1.03, at 2.54 from the left, 2.03 from the back |
-| Right button field | 4.14 x 0.75, at 13.42 from the left, 2.30 from the back; button pitch 0.649 |
-| Button caps | 0.58 x 0.27 |
-| Fader slots | centres at 13.84, 14.94, 16.05, 17.15 from the left; from 0.53 to 2.10 from the back; cap 0.62 wide |
-| Display window | 1.50 x 1.47, at 2.44 from the left, 0.38 from the back |
-| Free band under the buttons and pads | 3.06 to 3.78 from the back, the whole width |
-| White keys | 0.769 wide (19.5 mm), 22 of them |
+| Case, top view | 18 1/32 x 7 1/8 |
+| Knobs K1 to K8 | centres 25/32 from the back; from the left: 4 31/32, 6 1/16, 7 1/8, 8 7/32, 9 9/32, 10 3/8, 11 15/32, 12 17/32; diameter 21/32 |
+| Pads | 7/8 x 11/16 each; left edges 4 17/32, 5 5/8, 6 11/16, 7 25/32, 8 7/8, 9 15/16, 11 1/32, 12 1/8; row tops 1 11/32 and 2 1/8 |
+| Left button field | 1 5/16 x 1 1/32, at 2 17/32 from the left, 2 1/32 from the back |
+| Right button field | 4 1/8 x 3/4, at 13 7/16 from the left, 2 5/16 from the back; six buttons across, 21/32 from one to the next |
+| Button caps | 19/32 x 9/32 |
+| Fader slots | centres at 13 27/32, 14 15/16, 16 1/32, 17 5/32 from the left; from 17/32 to 2 3/32 from the back; cap 5/8 wide |
+| Display window | 1 1/2 x 1 15/32, at 2 7/16 from the left, 3/8 from the back |
+| Free band under the buttons and pads | 3 1/16 to 3 25/32 from the back, the whole width |
+| White keys | 25/32 wide, 22 of them |
 
-Expected accuracy: about 0.02 inch (0.5 mm) for positions next to each other, about 0.05 inch (1.3 mm) across the
-whole width, because the scale rests on a published width given to the millimetre.
+Each position is rounded by itself. Do not add up a spacing (for example 21/32 six times): use the listed
+positions, or the unrounded numbers in measurements.json.
+
+Expected accuracy: about 1/32 inch for positions next to each other, about 1/16 inch across the whole width,
+because the scale rests on a published width given to the millimetre (458 mm, 18 1/32 inch) and each number is
+rounded to 1/32.
+
+### 3.1 The photograph of 2026-11-17: not found
+
+The user named a photograph of the unit taken from straight above with a tape measure along the front edge,
+~/Documents/Classic Tabby/panel.jpg, to check these numbers and to read the printed labels and the pad rows. On
+2026-11-17 no such file was on this computer: no panel.jpg in that folder and no image newer than a day anywhere
+under the home directory except files of another project. So nothing in this document has been checked against
+the unit yet. When the photograph is there: the tape gives the scale along the front edge; every position in the
+table above is compared with it and corrected; sections 4.1 to 4.3 are closed.
 
 ## 4. What could not be measured
 
@@ -147,10 +172,10 @@ whole width, because the scale rests on a published width given to the millimetr
 4. **The surface of the free band.** The drawing shows nothing between the buttons / pads and the keys, but a line
    drawing does not show a slope, a step, a seam or texture there. The side view suggests a flat top.
 5. **Heights.** Knob, fader-cap and button heights, and so how much a fader cap hides of sticker D when the fader
-   is fully down (the cap is 0.62 wide and its travel ends 0.02 above the sticker).
-6. **The gap sticker D sits in.** It is 0.20 high in the drawing (slot ends at 2.10, the button field begins at
-   2.30). The sticker is 0.16. If the gap is tighter on the unit, D can instead cover the printed FADER1 to FADER4
-   above the slots (the same width, 0.30 from the back).
+   is fully down (the cap is 5/8 wide and its travel ends 1/32 above the sticker).
+6. **The gap sticker D sits in.** It is 7/32 high in the drawing (slot ends at 2 3/32, the button field begins at
+   2 5/16). The sticker is 5/32. If the gap is tighter on the unit, D can instead cover the printed FADER1 to FADER4
+   above the slots (the same width, 5/16 from the back).
 7. **Corner radii, the case's bevel and the colour of the panel** (which decides black on white or white on black).
 8. **The wheels, the display and the back panel** get no sticker: CONTROL-MAP.md gives them no Classic Tabby name
    that differs from what is printed.

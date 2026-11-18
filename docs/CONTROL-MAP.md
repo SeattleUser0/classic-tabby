@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.10 (2026-11-17). Applies from tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.11 (2026-11-17). Applies from tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -129,6 +129,9 @@ each track plays in the scene.
 | An empty pad held half a second, while the song plays | Stores what plays now as a new scene after the last one (STORED AS A NEW SCENE): per track the clip it plays, nothing for a stopped track. The new scene repeats until another is recalled. A short press on an empty pad says HOLD TO STORE WHAT PLAYS AS A SCENE and stores nothing. A pad that holds a scene is never written over. |
 | 4th left button | Saves the song (stopped only). |
 | K1, K2, K3 | The scene chain (section 18): how many times the scene plays, what follows it, and the hold. |
+| FX, twice within two seconds, song stopped (tabby-v04.16) | Deletes the selected scene: the one reserved (its pad blinks), else scene 1. The first press asks: FX AGAIN DELETES SCENE nnn. Then SCENE DELETED - SAVE THE SONG; the later scenes move one pad earlier, the scene's row events go with it, its clips stay. The last scene of a song stays (THE LAST SCENE STAYS). There is no undo: the change is saved with the song (the 4th left button, ten seconds after the change, or on leaving the song). |
+| EDIT held + K1, song stopped (tabby-v04.16) | Moves the selected scene one pad earlier (left) or later (right): SCENE MOVED - SAVE THE SONG. Its row events and the song's loop scene move with it; it stays the selected scene. EDIT alone says HOLD EDIT, TURN K1: MOVE THE SCENE. |
+| FX or EDIT while the song plays | STOP TO DELETE OR MOVE A SCENE. Nothing changes. |
 | K4 | Jump mode: NEXT CYCLE (the next master cycle) or SCENE END (when the current scene has played out). |
 | Pad while the song is stopped | Reserves the scene: it blinks, the screen says RESERVED - PLAY STARTS AT THIS SCENE, and PLAY starts the song there. The same pad again takes it back (PLAY starts at scene 1). |
 | OCT - / OCT + | Previous / next bank of 16 scenes (8 banks). |
@@ -140,6 +143,12 @@ each track plays in the scene.
 
 Pad colours: off = no such scene, dim white = a scene, green = the scene that plays, blinking green = the
 scene that is queued.
+
+A clip that came from an imported song as a grid block has no length of its own: it plays as long as the first
+imported scene that uses it. A delete or a move that would change that length is refused (NOT DELETED: SETS A
+CLIP'S LENGTH, NOT MOVED: SETS A CLIP'S LENGTH). Changing the clip's LENGTH once on CLIP SETTING and saving stores
+the clip with its own length; the scene is then free. Deleting or moving scenes drops a clip or scene reserved
+while stopped. While stopped the bottom line of the page reads FX X2 DELETE  EDIT+K1 MOVE.
 
 ## 6. Faders
 
@@ -199,7 +208,7 @@ A message stays for one and a half seconds on the line above the key hints.
 
 ## 10. Not on the panel yet
 
-Deleting a scene, a new song from nothing, and SCALE (step sizes other than a
+A new song from nothing, shuffle per clip, and SCALE (step sizes other than a
 16th): next on the list in docs/MC707-PARITY.md section 0. New songs still come from the web workbench (the MIDI importer or the song editor).
 
 ## 11. Differences from the MC-707
@@ -271,6 +280,8 @@ Deliberate differences:
 | Transpose | Per clip, -12 to +12 (RM p. 50). | TRANSPOSE per clip, -12 to +12; applied when the clip plays, the stored notes stay. | Same. Applied at play time so that 0 always restores the clip. |
 | Deleting a clip | Delete in the clip operations (RM pp. 14 to 16). | DELETE CLIP on CLIP SETTING, the 4th left button twice within two seconds; only while stopped; never a clip a scene uses. | Stage safety: one wrong press must not take a clip out of a running set, and a scene must not lose its clip. |
 | Unsaved clips | Any number. | One at a time. A copy or a new clip counts. | Memory. |
+| Deleting and ordering scenes | Storing and recalling are described (RM p. 36); the parity matrix of 2026-11-07 found no delete or reorder. | FX twice deletes the selected scene, EDIT + K1 moves it; both only while stopped. | Our scenes are a chain that plays in order, so their order matters; stopped only, because every track's position is counted in scenes while the song plays. |
+| An armed take when the sequencer stops | Not described. | A take armed while the song played is taken off by the stop; a take armed while stopped waits for PLAY. | A lit REC lamp after a stop is easy to miss, and the next PLAY would record. The user's decision of 2026-11-17. |
 | A scene pad while stopped | Reserves the scene; START plays it (RM p. 35 with p. 12). | The same from tabby-v04.12; the pad again takes the reservation back. | Same; taking back as for clips. |
 | Scenes in order | None: a scene stays until you press another. | The scene chain: each scene plays TIMES times and the next one follows; THEN STAY makes a scene wait like an MC-707 scene; K3 holds the whole chain. | Imported songs play through by themselves; the hold and the pads are the manual override. |
 | Clip chain: what follows | NEXT CLIP: STAY, STOP or CLIP 1 to 16 (UM, Ver. 1.30). | NEXT CLIP: STAY, STOP or a clip of the same track, 1 to 64; K1 steps through the pads that hold a clip. | 64 clips per track. |
@@ -402,6 +413,7 @@ when ENV sends the track back to the scenes.
 | Not recorded | Polyphonic aftertouch, channel mode messages (controllers 120 to 127), program changes, more than 16 keys held at once. |
 | Undo | A whole take is one undo level (FX on the STEP page). FX does nothing during a take. A take in which nothing was played leaves no undo level. |
 | Full | A clip holds 512 events. Held keys have their places reserved. When the clip is full the take stops by itself: CLIP FULL - 512 EVENTS - REC STOPPED for two seconds, the REC lamp goes out, the clip's pad on CLIPS shows red once. Nothing already recorded is lost. |
+| The song stops (tabby-v04.16) | A take that was armed while the song played and has not started (REC WHEN THE CLIP LOOPS) is taken off: SONG STOPPED - REC OFF, the REC lamp goes out. A take armed while the song is stopped waits for PLAY as before. A running take ends with the song, as it always did. |
 | One clip | The take goes into the one open clip. With another clip unsaved, REC says ANOTHER CLIP IS UNSAVED. |
 | A new clip | REC on a selected empty pad makes a clip one master cycle long and records into it. It is UNSAVED, and part of the song once saved; SHIFT + ENV on the STEP page takes it out again before that. |
 | Where a note lands | Where you heard it: the take is placed one audio block (3 ms) earlier than the device's clock says, because what you hear is one block behind it. Before tabby-v04.10 a take without input quantize played back 3 ms late (measured); BUILD.md 46 has the figure measured after the change. |

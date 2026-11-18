@@ -1,10 +1,11 @@
 # MC-707 parity matrix for Classic Tabby
 
-Version 0.2, 2026-11-17 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
+Version 0.3, 2026-11-17 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
 Section 0 is the list that is worked from: what is done, and what is left in the order it will be built. Sections 1 to 8
 are the matrix of 2026-11-07; its "Today" and "Status" columns describe that day, and section 0 says what changed since.
 
 Revision log
+- v0.3 2026-11-17: tabby-v04.16: item 1 done (delete and move a scene); the 15 KB flash reserve.
 - v0.2 2026-11-17: section 0, the state at tabby-v04.15 and the ranked list of what is left (the user's instruction:
   highest value for live MIDI performance first, within the flash margin, the margin reported in every release).
 - v0.1 2026-11-07: first matrix, written against head 11bb153 and Roland's MC-707 Reference
@@ -18,9 +19,11 @@ now, with the files involved. Roland's limits are conventions; the "Tabby target
 where this plan exceeds them. Nothing here is a commitment; the roadmap is in the assessment,
 section K.
 
-## 0. Where it stands, and what comes next (tabby-v04.15, 2026-11-17)
+## 0. Where it stands, and what comes next (tabby-v04.16, 2026-11-17)
 
-Flash margin after tabby-v04.15: 36925 bytes (app image 482532 of 519457). Free RAM 143020 bytes.
+Flash margin after tabby-v04.16: 35133 bytes (app image 484324 of 519457). Free RAM 143020 bytes. At least 15360
+bytes stay free for fixes (the user's rule, SPEC 17.15): features are added while the margin after them stays above
+that, so about 19.7 KB can still be spent.
 
 ### 0.1 Done since the matrix was written
 
@@ -43,6 +46,7 @@ Flash margin after tabby-v04.15: 36925 bytes (app image 482532 of 519457). Free 
 | Copy a clip, new clip | v04.10 | COPY TO PAD; REC or EDIT on an empty pad |
 | Transpose per clip | **v04.15** | TRANSPOSE, -12 to +12, on CLIP SETTING; the stored notes are not changed |
 | Delete a clip | **v04.15** | DELETE CLIP on CLIP SETTING, two presses, stopped, never a clip a scene uses |
+| Delete a scene; put a scene in its place | **v04.16** | On SCENES, stopped: FX twice deletes the selected scene, EDIT + K1 moves it (a scene stored while playing is moved to its place afterwards). 1792 bytes with the disarm rule |
 
 ### 0.2 What is left, in the order it will be built
 
@@ -51,7 +55,6 @@ a line on the page costs 0.4 to 1 KB; an engine change 1 to 3 KB).
 
 | # | Feature (MC-707) | Why it ranks here | Flash | Notes |
 | ---: | --- | --- | ---: | --- |
-| 1 | Delete a scene; insert a scene after the one that plays | Songs are now built on stage: without it a wrong stored scene stays for ever | 1.5 KB | row events and the loop row must follow the scenes that move |
 | 2 | Shuffle per clip (-50 to +50) | Feel is the most audible clip setting after transpose; the swing engine exists per song | 0.8 KB | header byte 13; positive values first (the engine's swing), negative later |
 | 3 | SCALE per clip (1/8, 1/16, 1/32, triplets) | Half-time and double-time clips against the same master cycle | 3 KB | the clip's time base in the player and on the STEP page |
 | 4 | Temporary step loop while held (UM p. 20) | A performance gesture: stutter the last beat of a clip | 2 KB | pads on CLIPS with a modifier; needs the cursor to loop a window |
@@ -63,7 +66,8 @@ a line on the page costs 0.4 to 1 KB; an engine change 1 to 3 KB).
 | 10 | Edit all events of a step together; shift a clip by a step | Editing comfort | 1 KB | |
 | 11 | Scene program change on a control channel; Tx switches per track | Only if asked | 1 KB | |
 
-Items 1 to 6 together are about 10 KB: the margin would stay near 26 KB. Not planned: chord pads, the motion designer,
+Items 2 to 6 together are about 9 KB: the margin would stay near 26 KB, above the 15 KB reserve. Items 7 to 11 are
+about 6.5 KB more (near 19.5 KB left): they fit too, by these estimates; each release measures. Not planned: chord pads, the motion designer,
 multitrack note mode, a user pad palette, and everything in section 1.
 
 ## 1. Excluded once

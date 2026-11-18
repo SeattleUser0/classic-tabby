@@ -209,6 +209,7 @@ static volatile uint32_t rec_block_master, rec_block_ticks, rec_block_adv, rec_b
 static struct {
     uint8_t state, quantize, full;     /* full: the cap stopped the take (the screen reads and clears it) */
     uint8_t taken;                     /* something was written in this take */
+    uint8_t armed_playing, disarmed;   /* tabby-v04.16: armed while the song played; a stop took the armed take off (read once) */
     struct { uint8_t used, pitch, velocity; int32_t time; uint32_t at; } held[REC_HELD];
     /* Controller thinning (SPEC 14.2): per controller the last written value and time, one pending value. */
     struct { uint8_t used, kind, number, has_pending, has_last; uint16_t last, pending; int32_t pending_time; uint32_t last_at, seen_at; } ctl[REC_CONTROLLERS];   /* a bend's value is lsb | msb << 7 */
@@ -1583,6 +1584,83 @@ int song_scene_edit(unsigned row, unsigned field, int delta)
     song_changed();
     return 0;
 }
+/* tabby-v04.16: a scene taken out of the song, and a scene moved one place earlier or later (stopped only). The row
+ * events and the loop row follow the scenes; reservations made while stopped are dropped. A clip stored as a grid block
+ * (an imported song) has no length of its own: it plays as long as the first imported scene that uses it. A change
+ * that would give such a clip another length is refused (SONG_EDIT_SHARED); its clips are never touched. */
+static unsigned grid_block(unsigned id)
+{
+    unsigned bytes, format = SONG_FORMAT_V2;
+    return song_block_read(loaded, id, payload, &bytes, &format) || format != SONG_FORMAT_V3;
+}
+static uint8_t *event_at(unsigned i) { return record.tail + (SONG_EVENTS_START - SONG_RECORD_BODY_END) + SONG_EVENT_BYTES * i; }
+static void scenes_moved(void)
+{
+    reserve_scene = 0; memset(reserve_row, SONG_NONE, sizeof reserve_row);
+    song_changed();
+}
+int song_scene_delete(unsigned row)
+{
+    if (loaded == SONG_NONE || row >= record.rows) return SONG_INVALID;
+    if (state) return SONG_BUSY;
+    if (record.rows < 2) return SONG_EMPTY;                          /* a song keeps one scene */
+    struct song_row *w = &record.row[row];
+    for (unsigned t = 0; t < SONG_TRACKS && !(w->flags & SONG_ROW_FLAG_OWN); ++t) {
+        unsigned id = w->block[t], after = SONG_BLOCK_STEPS;
+        if (!id || v2_steps(t, id) != (w->steps ? w->steps : SONG_BLOCK_STEPS)) continue;
+        for (unsigned r = row + 1U; r < record.rows; ++r)
+            if (record.row[r].block[t] == id && !(record.row[r].flags & SONG_ROW_FLAG_OWN)) { after = record.row[r].steps ? record.row[r].steps : SONG_BLOCK_STEPS; break; }
+        for (unsigned r = 0; r < row; ++r)
+            if (record.row[r].block[t] == id && !(record.row[r].flags & SONG_ROW_FLAG_OWN)) after = v2_steps(t, id);
+        if (after != v2_steps(t, id) && grid_block(id)) return SONG_EDIT_SHARED;
+    }
+    unsigned n = record.rows - 1U, count = song_event_count(&record), kept = 0;
+    memmove(w, w + 1, (n - row) * sizeof *w);
+    memmove(model.scene_clip[row], model.scene_clip[row + 1U], (n - row) * sizeof model.scene_clip[0]);
+    memset(&record.row[n], 0, sizeof record.row[n]); memset(model.scene_clip[n], 0, sizeof model.scene_clip[n]);
+    record.rows = (uint8_t)n;
+    for (unsigned i = 0; i < count; ++i) {
+        uint8_t *e = event_at(i);
+        if (e[0] == row) continue;
+        if (e[0] > row) --e[0];
+        if (kept != i) memcpy(event_at(kept), e, SONG_EVENT_BYTES);
+        ++kept;
+    }
+    if (count) { memset(event_at(kept), 0xff, (count - kept) * SONG_EVENT_BYTES); record.tail[0] = (uint8_t)kept; record.tail[1] = (uint8_t)(kept >> 8); }
+    if (record.loop_row > row || record.loop_row >= n) --record.loop_row;
+    scenes_moved();
+    return 0;
+}
+static void event_reverse(unsigned from, unsigned to)   /* events from..to-1 in reverse order */
+{
+    for (; from + 1U < to; ++from, --to) {
+        uint8_t x[SONG_EVENT_BYTES]; memcpy(x, event_at(from), sizeof x);
+        memcpy(event_at(from), event_at(to - 1U), sizeof x); memcpy(event_at(to - 1U), x, sizeof x);
+    }
+}
+/* The scene changes places with the one before (delta < 0) or after it. Returns its new index. */
+int song_scene_move(unsigned row, int delta)
+{
+    if (loaded == SONG_NONE || row >= record.rows || !delta) return SONG_INVALID;
+    if (state) return SONG_BUSY;
+    unsigned a = delta < 0 ? row - 1U : row, b = a + 1U;             /* a and b = a + 1 change places */
+    if ((delta < 0 && !row) || b >= record.rows) return (int)row;
+    struct song_row *x = &record.row[a], *y = &record.row[b], keep = *x;
+    for (unsigned t = 0; t < SONG_TRACKS; ++t)
+        if (x->block[t] && x->block[t] == y->block[t] && !((x->flags | y->flags) & SONG_ROW_FLAG_OWN) && x->steps != y->steps
+            && v2_steps(t, x->block[t]) == (x->steps ? x->steps : SONG_BLOCK_STEPS) && grid_block(x->block[t])) return SONG_EDIT_SHARED;
+    *x = *y; *y = keep;
+    for (unsigned t = 0; t < SONG_TRACKS; ++t) { uint8_t c = model.scene_clip[a][t]; model.scene_clip[a][t] = model.scene_clip[b][t]; model.scene_clip[b][t] = c; }
+    unsigned count = song_event_count(&record), i0 = 0, i1, i2;
+    while (i0 < count && event_at(i0)[0] < a) ++i0;
+    for (i1 = i0; i1 < count && event_at(i1)[0] == a; ++i1) event_at(i1)[0] = (uint8_t)b;
+    for (i2 = i1; i2 < count && event_at(i2)[0] == b; ++i2) event_at(i2)[0] = (uint8_t)a;
+    event_reverse(i0, i1); event_reverse(i1, i2); event_reverse(i0, i2);
+    if (record.loop_row == a) record.loop_row = (uint8_t)b; else if (record.loop_row == b) record.loop_row = (uint8_t)a;
+    scenes_moved();
+    reserve_scene = (uint8_t)(row == a ? b : a);                     /* the moved scene stays the selected one */
+    return row == a ? (int)b : (int)a;
+}
 unsigned song_scene_reserved(void) { return reserve_scene; }
 unsigned song_scene_hold(void) { return scene_hold; }
 
@@ -2074,7 +2152,7 @@ int song_record_start(void)
         int r = song_clip_launch(edit.track, edit.place);
         if (r) return r < 0 ? r : SONG_INVALID;
     }
-    rec.state = REC_ARMED;
+    rec.state = REC_ARMED; rec.armed_playing = 0;
     return rec.state;
 }
 void song_record_stop(void)
@@ -2084,12 +2162,17 @@ void song_record_stop(void)
 }
 void song_record_quantize(unsigned on) { rec.quantize = on != 0; }
 unsigned song_record_full(void) { unsigned f = rec.full; rec.full = 0; return f; }
+unsigned song_record_disarmed(void) { unsigned f = rec.disarmed; rec.disarmed = 0; return f; }   /* tabby-v04.16: once after a stop took an armed take off */
 /* Control task, every pass. */
 void song_record_poll(void)
 {
     if (rec.state == REC_OFF) return;
     if (!edit.active) { rec.state = REC_OFF; return; }
     if (rec.state == REC_ARMED) {
+        /* tabby-v04.16: a take that was armed while the song played is taken off when the song stops (a take armed
+         * while stopped waits for PLAY, as before) */
+        if (state) rec.armed_playing = 1;
+        else if (rec.armed_playing) { rec.state = REC_OFF; rec.disarmed = 1; return; }
         if (!rec_track_plays()) return;
         edit_push(); edit.gesture = 0;                               /* the take is one undo level: undo gives the clip before it */
         rec_rd[0] = rec_wr[0]; rec_rd[1] = rec_wr[1];

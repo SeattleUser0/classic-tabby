@@ -16,9 +16,10 @@
 //
 //   Run:  /usr/bin/node tests/workbench/record-sim.mjs build/web/simulator.wasm   (make midi-import-sim)
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-17  tabby-v04.16: a stop takes an armed take off; armed while stopped it stays.
 //   v0.1  2026-11-16  Initial version.
 
 import { readFileSync } from 'node:fs';
@@ -215,6 +216,18 @@ press(SAVE); check(rstate().dirty === 0, 'stopped: the 4th left button on CLIPS 
   const n = c.sim_block_read(0, id), b = mem().subarray(c.sim_file(), c.sim_file() + n);
   check(n === 16 + 12 && b[0] === 16 && (b[6] | b[7] << 8) === 2, 'its block is stored: a v3 clip of 16 steps with 2 notes (' + n + ' bytes)'); }
 check(c.sim_song_load(0) === 0 && (state().pads[empty].code & 7) === 1, 'loaded again: the pad holds a clip');
+
+/* ---- tabby-v04.16: a take armed while the song plays is taken off when the song stops ---- */
+shiftPad(0);
+press(PLAY); step(30);
+pad(1, 200);                                                    /* a long press selects clip 2 without launching it; scene 1 plays clip 1 */
+press(REC); r = rstate();
+check(r.recording === 1, 'REC while the song plays, on a clip the track does not play: armed (REC WHEN THE CLIP LOOPS) (state ' + r.recording + ')');
+press(PLAY); step(60); r = rstate();
+check(r.recording === 0 && !(c.sim_song_status(0) >>> 8 & 255), 'PLAY stops the song before the clip looped: the armed take is off (SONG STOPPED - REC OFF) (state ' + r.recording + ')');
+press(REC); const a1 = rstate().recording; step(1800); const a2 = rstate().recording;
+check(a1 === 1 && a2 === 1, 'REC while stopped arms a take; it stays armed for PLAY (' + a1 + ', ' + a2 + ' after five seconds)');
+press(REC); check(rstate().recording === 0, 'REC again takes it off');
 
 c.sim_midi_capture(0); c.sim_midi_drain(0);
 console.log(`\nrecord-sim: ${passed} passed, ${failed} failed`);

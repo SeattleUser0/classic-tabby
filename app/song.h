@@ -128,6 +128,11 @@ int song_clip_scene(unsigned track, unsigned place);
 int song_edit_program(unsigned field, int delta);   /* tabby-v04.13: 0 program, 1 bank MSB, 2 bank LSB */
 int song_edit_chain(unsigned field, int delta);   /* tabby-v04.11: 0 next clip, 1 after (steps), 2 times */
 int song_scene_store(void);
+/* tabby-v04.16: a scene out of the song / one place earlier or later (stopped only: SONG_BUSY; SONG_EMPTY: the last
+ * scene stays; SONG_EDIT_SHARED: an imported clip would change its length). song_scene_move returns the new index. */
+int song_scene_delete(unsigned row);
+int song_scene_move(unsigned row, int delta);
+unsigned song_record_disarmed(void);
 /* The song's click and count-in settings (stored in the song record): the count-in in master cycles (0, 1, 2 or 4),
  * the click (0 off, 1 while a take is armed or runs, 2 always), its output (0 internal, 1 MIDI, 2 both), the MIDI
  * click's channel (0..15) and note. song_setting_edit steps a setting by `delta`. */

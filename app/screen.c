@@ -1132,7 +1132,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         }
         plain_text(8, 198, notice ? notice : "PADS RECALL SCENE  OCT BANK  K5 SONG");
         dim_text(8, 213, "K1 TIMES K2 THEN K3 HOLD K4 JUMP");
-        dim_text(8, 231, "SCL CLIPS  ENV TRACK TO SCENES");
+        dim_text(8, 231, st.playing ? "SCL CLIPS  ENV TRACK TO SCENES" : "FX X2 DELETE  EDIT+K1 MOVE    ");   /* tabby-v04.16 */
     } else if (visible == TRACK_LAUNCH) {
         /* Task 17 Goal 4 (docs/CONTROL-MAP.md 4): every track's state and clip, the selected track's clips of the pad
          * bank (pads launch / stop), the selected clip, the master clock. */
@@ -1902,6 +1902,28 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         else { page = CLIP_STEPS; step_bar = 0; step_sel = 255; step_cursor = 0; step_pads_toggle = groove_pad_count(track) != 0; cache->shown_page = ~0U; }
         goto controls_done;
     }
+    /* tabby-v04.16 (docs/CONTROL-MAP.md 5): on SCENES, stopped: FX twice within two seconds takes the selected scene
+     * (the reserved one, else scene 1) out of the song; EDIT held with K1 moves it (below). */
+    if (page == SONG && (pressed & (BUTTON(FX) | BUTTON(EDIT)))) {
+        static uint32_t asked_at; static uint8_t asked_row, asked;
+        struct song_status st; song_status_read(&st);
+        unsigned row = song_scene_reserved();
+        if (st.song != song_select) announce("NO SONG", now + 1500U);
+        else if (st.playing) announce("STOP TO DELETE OR MOVE A SCENE", now + 2000U);
+        else if (pressed & BUTTON(EDIT)) announce("HOLD EDIT, TURN K1: MOVE THE SCENE", now + 2000U);
+        else if (!asked || asked_row != row || now - asked_at > 2000U) {
+            static char ask[] = "FX AGAIN DELETES SCENE 000";
+            asked = 1; asked_row = (uint8_t)row; asked_at = now;
+            ask[23] = (char)('0' + (row + 1U) / 100); ask[24] = (char)('0' + (row + 1U) / 10 % 10); ask[25] = (char)('0' + (row + 1U) % 10);
+            announce(ask, now + 2000U);
+        } else {
+            asked = 0;
+            int r = song_scene_delete(row);
+            announce(r == SONG_EMPTY ? "THE LAST SCENE STAYS" : r == SONG_EDIT_SHARED ? "NOT DELETED: SETS A CLIP'S LENGTH" : r ? "NOT DELETED" : "SCENE DELETED - SAVE THE SONG", now + 2000U);
+        }
+        cache->shown_page = ~0U;
+        goto controls_done;
+    }
     /* tabby-v04.10 (docs/CONTROL-MAP.md 14): FX on the CLIPS page opens CLIP SETTING on the track's selected clip (or
      * the one it plays); without a clip the page shows the song's settings alone. */
     if (page == TRACK_LAUNCH && (pressed & BUTTON(FX))) {
@@ -2150,6 +2172,12 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         /* tabby-v04.12 (docs/CONTROL-MAP.md 18): the scene chain: K1 how many times the scene plays (its length), K2
          * what follows it, K3 holds the chain. They work on the scene that plays; stopped, on the reserved scene. */
         { unsigned er = st.playing ? st.row : song_scene_reserved();
+          if (controls->encoders[2] && st.song == song_select && (controls->buttons & BUTTON(EDIT))) {   /* tabby-v04.16: EDIT + K1 moves the scene */
+              int r = song_scene_move(er, controls->encoders[2]);
+              if (r >= 0) song_row_page = (unsigned)r / 16U;
+              announce(r == SONG_BUSY ? "STOP TO DELETE OR MOVE A SCENE" : r == SONG_EDIT_SHARED ? "NOT MOVED: SETS A CLIP'S LENGTH" : r < 0 ? "NOT MOVED" : "SCENE MOVED - SAVE THE SONG", now + 2000U);
+              cache->shown_page = ~0U;
+          } else
           if (controls->encoders[2] && st.song == song_select) (void)song_scene_edit(er, 0, controls->encoders[2]);
           if (controls->encoders[3] && st.song == song_select) (void)song_scene_edit(er, 1, controls->encoders[3]);
           if (controls->encoders[4]) { song_scene_hold_set(controls->encoders[4] > 0); announce(song_scene_hold() ? "CHAIN HELD: THIS SCENE REPEATS" : "CHAIN RUNS", now + 1500U); } }
@@ -2559,6 +2587,7 @@ static void groove_screen_control_body(void)
       if (rec_lamp == 1 && ei.recording == 2) announce("RECORDING", now + 1500U);
       else if (rec_lamp == 2 && !ei.recording && !song_record_full_seen()) announce("REC STOPPED", now + 1500U);
       rec_lamp = ei.recording;
+      if (song_record_disarmed()) announce("SONG STOPPED - REC OFF", now + 2000U);   /* tabby-v04.16 */
       /* SPEC 14.2: the cap stops the take: the message for 2 s, the REC lamp out, the clip's pad red once */
       if (song_record_full()) { announce("CLIP FULL - 512 EVENTS - REC STOPPED", now + 2000U); rec_full_until = now + 400U; rec_full_seen = 1; } }
     if (notice && (int32_t)(now - notice_until) >= 0) notice = NULL;

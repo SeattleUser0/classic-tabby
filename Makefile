@@ -80,9 +80,10 @@
 #   build/profile.txt by tools/linux/timed.sh ($(T)). Default outputs are unchanged (the gate in
 #   docs/DEV_CHECKS.md).
 #
-# Version: 0.30
+# Version: 0.31
 #
 # Revision log
+#   v0.31 2026-11-17  `make manual`: the printable manual (docs/manual/classic-tabby-manual.pdf) from the guide.
 #   v0.30 2026-11-17  SPEC 17.13: the release flow: `make rc` (a release candidate at builds/<TAG>-rc<RC>/ only) and
 #                     `make promote` (main page, builds/<TAG>/ and the GitHub release, only for the build that passed
 #                     on the device: tools/linux/device-gate.py); release-assets needs the device gate too;
@@ -227,7 +228,7 @@ WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain
 .PHONY: suite-begin suite-gate help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
         package hosted release-assets publish release rc promote device-gate clean midi-import-test midi-import-sim workbench-test timed-note-test clip-v3-test \
         check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide \
-        web-normal web-diag web-old536 backup-test
+        web-normal web-diag web-old536 backup-test manual
 
 # Host test build: the same source set and defines as the WASI simulator build in
 # tools/linux/build-web.py (Build-Web.ps1 L78-L83), compiled natively. gcc does not know
@@ -423,6 +424,10 @@ check:
 lint: check
 	$(T) env MODEL=$(MODEL) LINT_JOBS=$(JOBS) LINT_SRCS="$(HOST_SRCS)" \
 	    LINT_CFLAGS="$(filter-out $(HOST_WARN_OFF),$(HOST_FLAGS)) -Wno-attributes" $(NICE) tools/linux/lint.sh $(LINT)
+
+# The printable manual: docs/TESTING-GUIDE.md as one PDF (committed; published beside the guide).
+manual:
+	python3 -I tools/linux/manual-pdf.py
 
 profile:
 	@tools/linux/timed.sh --report

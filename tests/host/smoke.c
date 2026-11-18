@@ -44,9 +44,11 @@
  *        row's events; a jump queued too late counts as late; SEND SETUP streams row 0 while
  *        stopped; a version-1 record still loads; bad tables and a bad CRC are rejected.
  *
- * Version: 0.24
+ * Version: 0.26
  *
  * Revision log
+ *   v0.26 2026-11-17  tabby-v04.16: section 26: a scene moved and deleted (events and loop row follow; the grid-block
+ *                     length rule), a stop takes an armed take off.
  *   v0.25 2026-11-16  tabby-v04.10: section 26: every clip loops at its own length, a new clip made on the device, the
  *                     song saved as a version-3 record, clip chains, the scene hold. Sections 22 and 23 follow the
  *                     own-length rule (a v2 block has the steps of its first scene).
@@ -2608,6 +2610,51 @@ int main(void)
         song_scene_hold_set(0);
         sim_song_stop(); settle(); settle();
         CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_current()->row[2].repeat == 2 && !(song_current()->row[2].flags & SONG_ROW_FLAG_LOOP_HERE) && song_current()->row[3].repeat == 2, "scene chain: the settings are saved with the song");
+        /* ---- tabby-v04.16: a scene moved and deleted (stopped only); the row events and the loop row follow ---- */
+        { struct song_record *w = (struct song_record *)(uintptr_t)song_current(); const struct song_model *m = song_model_current();
+          static const uint8_t ev[15] = { 0, 0x02, 10, 0, 0,  1, 0x02, 11, 0, 0,  3, 0x02, 13, 0, 0 };   /* a program change in scenes 1, 2 and 4 */
+          uint8_t *tb = w->tail; tb[0] = 3; tb[1] = 0; memcpy(tb + 8, ev, sizeof ev); w->loop_row = 3;
+          (void)sim_song_play(); for (unsigned i = 0; i < 100; ++i) (void)sim_render();
+          CHECK(song_scene_delete(1) == SONG_BUSY && song_scene_move(1, 1) == SONG_BUSY && w->rows == 4, "scene edit: nothing is deleted or moved while the song plays");
+          sim_song_stop(); settle(); settle();
+          CHECK(song_scene_move(0, -1) == 0 && song_scene_move(3, 1) == 3 && w->row[3].block[0] == 2 && tb[8] == 0 && tb[18] == 3, "scene edit: the first scene does not move earlier, the last not later");
+          int mv = song_scene_move(3, -1);
+          CHECK(mv == 2 && (w->row[2].flags & SONG_ROW_FLAG_OWN) && w->row[2].block[0] == 2 && w->row[2].steps == 32 && w->row[3].block[0] == 1 && w->row[3].repeat == 2 && m->scene_clip[2][0] == 2 && m->scene_clip[3][0] == 1,
+                "scene edit: scene 4 moved earlier is scene 3, and scene 3 is scene 4 (%d)", mv);
+          CHECK(tb[0] == 3 && tb[8] == 0 && tb[13] == 1 && tb[18] == 2 && tb[20] == 13 && w->loop_row == 2 && song_scene_reserved() == 2, "scene edit: its row event and the loop row moved with it; it stays the selected scene");
+          CHECK(song_scene_move(1, 1) == 2 && tb[13] == 1 && tb[15] == 13 && tb[18] == 2 && tb[20] == 11 && w->row[1].steps == 32 && w->loop_row == 1, "scene edit: moved again, the events of the two scenes change places in the table");
+          int del = song_scene_delete(0);
+          CHECK(del == 0 && w->rows == 3 && w->row[0].steps == 32 && w->row[1].repeat == 3 && w->row[2].block[0] == 1 && m->scene_clip[0][0] == 2 && m->scene_clip[3][0] == 0 && w->row[3].repeat == 0,
+                "scene edit: scene 1 deleted: three scenes, the others one place earlier (%d)", del);
+          CHECK(tb[0] == 2 && tb[8] == 0 && tb[10] == 13 && tb[13] == 1 && tb[15] == 11 && tb[18] == 0xff && tb[22] == 0xff && w->loop_row == 0 && song_scene_reserved() == 0, "scene edit: its event is gone, the others follow their scenes, the loop row too");
+          CHECK(song_scene_delete(2) == 0 && song_scene_delete(1) == 0 && w->rows == 1 && tb[0] == 1 && song_scene_delete(0) == SONG_EMPTY && w->rows == 1, "scene edit: the last scene of a song stays");
+          CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_current()->rows == 1 && song_current()->row[0].steps == 32 && song_current()->tail[0] == 1 && song_current()->tail[10] == 13 && song_model_current()->clip[0][0] == 1,
+                "scene edit: saved and loaded again: one scene, its event, and every clip still in the song"); }
+        /* a clip stored as a grid block plays as long as its first imported scene: a change that would alter that is refused */
+        { const unsigned G = 9;
+          memset(f, 0, 64); CHECK(sim_block_write2(G, 1, 1, 64) == 0, "scene edit: a grid block stored");
+          memset(f, 0, 4096); memcpy(f, "FM1G", 4); f[20] = 3; memcpy(f + 24, "GRID        ", 12); f[40] = 3; f[48] = 5;
+          memset(f + 2624, 0xff, 4096 - 2624); memset(f + 2624, 0, 8); f[2626] = 1;
+          f[64] = 1;
+          f[1088] = 1; f[1088 + 8] = 1; f[1088 + 10] = 16; f[1100] = 1; f[1100 + 8] = 1; f[1100 + 10] = 32; f[1112] = 1; f[1112 + 8] = 1; f[1112 + 10] = 16;
+          CHECK(sim_song_record_write(G) == 0 && sim_song_load(G) == 0, "scene edit: a song of three scenes on one grid block (16, 32, 16 steps)");
+          CHECK(song_scene_delete(0) == SONG_EDIT_SHARED && song_scene_move(0, 1) == SONG_EDIT_SHARED && song_current()->rows == 3 && song_current()->row[0].steps == 16, "scene edit: refused: scene 1 gives the clip its 16 steps and scene 2 would give it 32");
+          CHECK(song_scene_move(2, -1) == 1 && song_current()->row[1].steps == 16 && song_current()->row[2].steps == 32, "scene edit: scenes 2 and 3 change places (the clip's first scene is still scene 1)");
+          CHECK(song_scene_delete(0) == 0 && song_current()->rows == 2 && song_scene_delete(0) == SONG_EDIT_SHARED && song_scene_delete(1) == 0 && song_current()->rows == 1, "scene edit: scene 1 goes when the next scene has the same steps, not when it has others; a later scene always goes"); }
+        /* ---- tabby-v04.16: a take armed while the song plays is taken off when the song stops; armed while stopped it waits ---- */
+        { struct song_edit_info ei;
+          CHECK(sim_song_load(SONG) == 0 && song_edit_open(0, 2) == 0, "disarm: the song loaded, clip 3 open (the scene plays clip 2)");
+          (void)sim_song_play(); for (unsigned i = 0; i < 100; ++i) (void)sim_render();
+          int r = song_record_start(); for (unsigned i = 0; i < 20; ++i) { (void)sim_render(); (void)song_edit_poll(); }
+          song_edit_info(&ei);
+          CHECK(r == 1 && ei.recording == 1, "disarm: REC while the song plays arms the take (the clip is queued) (%d %u)", r, ei.recording);
+          sim_song_stop(); settle(); settle(); (void)song_edit_poll();
+          song_edit_info(&ei);
+          CHECK(ei.recording == 0, "disarm: the song stopped: the take is off (the screen reads song_record_disarmed and says so) (%u)", ei.recording);
+          r = song_record_start(); settle(); (void)song_edit_poll(); (void)song_edit_poll();
+          song_edit_info(&ei);
+          CHECK(r == 1 && ei.recording == 1, "disarm: a take armed while stopped stays armed for PLAY (%u)", ei.recording);
+          song_record_stop(); song_edit_discard(); }
         sim_midi_drain(0); sim_test_request_passes(0); (void)sim_open(0);
     }
 

@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.38
+Version: 0.39
 Revision log:
+- v0.39, 2026-11-17: section 39: tabby-v04.16 measured, 484324 bytes, margin 35133; the 15 KB reserve.
 - v0.38, 2026-11-17: section 38: tabby-v04.15 measured, 482532 bytes, margin 36925.
 - v0.37, 2026-11-17: section 37: tabby-v04.14 measured, 481572 bytes, margin 37885.
 - v0.32, 2026-11-16: section 32: tabby-v04.9.3 measured, 471172 bytes, margin 48285.
@@ -1284,3 +1285,13 @@ chains in the importer) cost no flash: they are in the workbench.
 | tabby-v04.15: TRANSPOSE per clip, DELETE CLIP | 482532 | +960 | **36925** |
 
 RAM (runtime heap): 143020 bytes (-32). docs/MC707-PARITY.md 0.2 estimates the next six items at about 10 KB.
+
+## 39. tabby-v04.16 (measured, 2026-11-17)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v04.15 | 482532 | | 36925 |
+| tabby-v04.16: a scene deleted and moved, a stop takes an armed take off | 484324 | +1792 | **35133** |
+
+RAM (runtime heap): 143020 bytes, unchanged. The reserve (SPEC 17.15): 15360 bytes stay free for fixes, so 19773
+bytes can still go to features.
