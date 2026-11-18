@@ -1,0 +1,55 @@
+{
+  "build": "ed9182d3a3d67ec9edcbea471e26edb119abfae8c69340bb8526c3d357e895fc",
+  "release": "V01",
+  "version": "tabby-v04.16",
+  "entryBytes": 377439,
+  "initialBytes": 1422043,
+  "standaloneBytes": 3181686,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/b7f294b90415f1c8003ae1c806e7e91158cfd6202bdf68dd96e084efffe54b55.bin",
+      "bytes": 524852,
+      "sha256": "b7f294b90415f1c8003ae1c806e7e91158cfd6202bdf68dd96e084efffe54b55"
+    },
+    {
+      "name": "assets/smk37/10b8cdaf53b9c66feaa7b96abceae913383b44318aad5ee179bfb76467f7f76d.wasm",
+      "bytes": 361683,
+      "sha256": "10b8cdaf53b9c66feaa7b96abceae913383b44318aad5ee179bfb76467f7f76d"
+    },
+    {
+      "name": "assets/smk37/b8e08480ab39277885434d7b19d7111b5e02f291062fd55ac9e24077f7a526d6.js",
+      "bytes": 610280,
+      "sha256": "b8e08480ab39277885434d7b19d7111b5e02f291062fd55ac9e24077f7a526d6"
+    },
+    {
+      "name": "assets/smk37/5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70.js",
+      "bytes": 72134,
+      "sha256": "5a4f0209f59c158fc872f778c632699fe5c6f905a7c048ca6db8de5e85be2a70"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 377439,
+      "sha256": "6147d59d516d4cc3921730980b9f1db4be207c3971d29b20cfe1517146471e8c"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 377439,
+      "sha256": "6147d59d516d4cc3921730980b9f1db4be207c3971d29b20cfe1517146471e8c"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3181686,
+      "sha256": "fd31a324067bab7128c68ae5055fe9c895cbc2c4bde99450a4b09a6bf3d56e3f"
+    }
+  ]
+}
