@@ -6219,3 +6219,27 @@ Not proven beyond that: I did not catch the correction itself in a log. If candi
 measuring tools must move to a clock that is not slewed (CLOCK_MONOTONIC_RAW) before another release.
 
 The page builds/tabby-v04.23-rc1/ gets a note line; the same build goes out as candidate 2.
+
+### 59.2 tabby-v04.23 released: candidate 2 (2026-11-18); a correction to 59.1
+
+Suite green on 921f33b; builds/tabby-v04.23-rc2/ (build `c7b2ff04e81b3226`, on the device already: nothing written);
+every step passed; promoted.
+
+| Step | Result |
+| --- | --- |
+| run-repeat v0.3 | 20 of 20; note repeat 124.81 ms apart (worst 3.5 ms from the median; the limit is 4.5), 62.73 ms at 1/32; step loop: two steps 249.98 ms (249.92 expected), eight steps 999.43 ms (999.70 expected); one step: the pad came in an empty step |
+| run-takeedit / run-program / run-chain / run-scenechain / run-sceneedit / run-setup | 26 of 26 / 10 of 10 / 11 of 11 / 13 of 13 / 16 of 16 / 38 of 38 |
+| run-record / run-steps / run-launch twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.22 ms on DIN; tempo ratio 0.99956 |
+| run-15, one line, three runs | DIN 1.90, 1.76, 1.71 ms; USB 1.78, 1.79, 1.73 ms; clock ratio 0.999583 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+Flash margin 29021 bytes, free RAM 142412 bytes.
+
+Correction to 59.1: I gave the tempo ratio of 0.99956 in the failed run as a sign of the NUC's clock. This passing
+run reads 0.99956 too, so that figure shows nothing. What is left for "the measuring, not the device": DIN and USB
+agreed to 0.02 ms in the failed run; the device's counters saw nothing; the same build has now read 1.22, 1.15 and
+1.22 ms in three runs of the same test and passed setup and steps; the time service's jitter of 142 ms that day.
+That makes the NUC's clock the likeliest cause. It is not proven, and a fault of the device that shows once in four
+runs is not excluded by three good runs. The next step is to stamp the captures with a clock that is not slewed and
+to keep every note's error in the result file, so that a failed run shows whether the time axis bent or notes came late.

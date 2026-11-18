@@ -28,4 +28,20 @@ The step loop: on CLIPS, hold NOTE REPEAT and pad 9, 10, 11 or 12, and everythin
 
 ## Validation
 
-Filled in after the candidate has passed on the device.
+Candidate 2 (builds/tabby-v04.23-rc2/) on the device, unattended, before the promotion:
+
+- Note repeat and step loop 20 of 20. Heard on the MIDI out: with pad 10 held the last two steps repeat, the note
+  every 250.0 ms (249.9 expected); with pad 12 the last eight, the bass note every 999.4 ms (999.7 expected) and the
+  other bass note not at all; after the pad is let go the notes are back on the song's beats (within 1.5 ms); a pad
+  pressed while NOTE REPEAT is down launches nothing. A one-step loop cannot be aimed by remote and was only
+  checked to loop one step (the simulator checks its notes: every 16th).
+- One line, 960 notes, three runs: DIN 1.90, 1.76, 1.71 ms; USB 1.78, 1.79, 1.73 ms: the change in the audio thread
+  costs nothing that shows. The timing song: 960 of 960 notes, worst 1.22 ms.
+- Take edit 26 of 26, program and knobs 10 of 10, clip chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16,
+  CLIP SETTING 38 of 38, recording 25 of 25, STEP page 18 of 18, CLIPS page 40 of 40 twice.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.
+
+Candidate 1 was the same firmware build. It was not promoted: one new check of mine could not be aimed by remote,
+and three timing checks read up to 9.9 ms in that run, equally on DIN and USB. The same build read 1.2 ms in three
+later runs of that test; the likeliest cause is the test computer's clock being corrected during the run, which I
+could not prove (docs/BUILD.md 59.1 and 59.2).
