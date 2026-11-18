@@ -5763,3 +5763,19 @@ stopped, and when another song is chosen (song_load saves the song being left). 
 map say so; the delete asks twice.
 
 Measured: app image 484324 bytes (+1792), margin 35133, heap 143020 (unchanged). Build `ed9182d3a3d67ec9`.
+
+### 52.3 tabby-v04.16 released: candidate 1 (2026-11-17)
+
+Suite green on 5175ef0; builds/tabby-v04.16-rc1/ (build `ed9182d3a3d67ec9`), installed in 9 s; every step passed at
+the first attempt; promoted.
+
+| Step | Result |
+| --- | --- |
+| run-program / run-chain / run-scenechain | 10 of 10 / 11 of 11 / 13 of 13 |
+| run-sceneedit v0.1 | 16 of 16 |
+| run-setup / run-record / run-steps / run-launch twice | 29 of 29 / 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.41 and 1.29 ms |
+| run-15, one line, three runs | DIN 1.85, 1.90, 1.81 ms; USB 1.89, 1.81, 1.84 ms; clock ratio 0.99958 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+Flash margin 35133 bytes, free RAM 143020 bytes.

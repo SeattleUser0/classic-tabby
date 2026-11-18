@@ -33,4 +33,11 @@ Delete and move a scene on the SCENES page; stopping the song takes an armed tak
 
 ## Validation
 
-Filled in after the candidate ran on the device.
+Candidate 1 (builds/tabby-v04.16-rc1/) on the device, unattended, before the promotion; it passed at the first attempt:
+
+- Device tests: program and knobs 10 of 10, clip chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16 (a scene
+  moved and deleted, refused while playing, saved and read again; a take armed while playing is off after the stop,
+  one armed while stopped stays), CLIP SETTING 29 of 29, recording 25 of 25, STEP page 18 of 18, CLIPS page 40 of 40
+  twice, the timing song 960 of 960 notes on DIN and USB.
+- One line, 960 notes, three runs: DIN 1.85, 1.90, 1.81 ms; USB 1.89, 1.81, 1.84 ms.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.
