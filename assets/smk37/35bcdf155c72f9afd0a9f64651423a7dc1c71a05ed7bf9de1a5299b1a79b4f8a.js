@@ -33,7 +33,7 @@
   };
 })();
 
-const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.16","build_id":"ed9182d3a3d67ec9edcbea471e26edb119abfae8c69340bb8526c3d357e895fc","sha256":"b7f294b90415f1c8003ae1c806e7e91158cfd6202bdf68dd96e084efffe54b55","bytes":524852,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/b7f294b90415f1c8003ae1c806e7e91158cfd6202bdf68dd96e084efffe54b55.bin"};
+const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v04.17","build_id":"748004a45cce48bd1f1aaae06778d3d5da6f938402eab39030a60c7137b59409","sha256":"7fa6ee7e67df9c7b5956c4a4deb83211f68c79ecd6c431cf46d14a58a8a364b5","bytes":524852,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/7fa6ee7e67df9c7b5956c4a4deb83211f68c79ecd6c431cf46d14a58a8a364b5.bin"};
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. */
 /* SMK37 OPEN browser updater.
@@ -2530,9 +2530,10 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
  *   importer's blocks. Loading: classic script (globalThis.TabbyClipV3) and CommonJS. Needs TabbyTimedNote (loaded
  *   first, or required) for the 6-byte note of v2.
  *
- * Version: 0.5
+ * Version: 0.6
  *
  * Revision log
+ *   v0.6  2026-11-17  tabby-v04.17: the clip's shuffle and playback quantize (header bytes 13, 15; model.shuffle, model.quantize).
  *   v0.5  2026-11-17  tabby-v04.15: the clip's transpose (header byte 12; model.transpose).
  *   v0.4  2026-11-17  tabby-v04.14: model() and build() carry the clip chain (model.chain = { next, after, times }).
  *   v0.3  2026-11-16  tabby-v04.11: validate() takes the chain in header bytes 8 to 11.
@@ -2574,7 +2575,8 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     if (p[8] > 65 || (p[9] | p[10] << 8) > 512 || p[11] > 64) return BAD_HEADER;
     /* v0.5: byte 12 is the transpose, a signed byte, -12..12; the last three bytes stay 0 */
     if ((p[12] << 24 >> 24) < -12 || (p[12] << 24 >> 24) > 12) return BAD_HEADER;
-    for (let i = 13; i < HEADER; i++) if (p[i]) return BAD_HEADER;
+    /* v0.6: byte 13 is the shuffle (0 the song's, 1..51 the clip's own 0..50), byte 15 the playback quantize (0..3); byte 14 stays 0 */
+    if (p[13] > 51 || p[14] || p[15] > 3) return BAD_HEADER;
     let last = -BIAS - 1, groupAnchor = -1, groupStart = 0;
     const maxTime = steps * UNITS - BIAS;
     for (let i = 0; i < count; i++) {
@@ -2645,7 +2647,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     const r = validate(p);
     if (r) fail(r, 'invalid v3 clip');
     const steps = p[0], list = events(p);
-    if (steps > 64 || p[1] || p[8] || p[12]) fail(NOT_V2_SHAPED, 'a v2 block holds at most 64 steps and no header program, bank, chain or transpose');
+    if (steps > 64 || p[1] || p[8] || p[12] || p[13] || p[15]) fail(NOT_V2_SHAPED, 'a v2 block holds at most 64 steps and no header program, bank, chain, transpose, shuffle or quantize');
     const perStep = new Array(64).fill(0), head = new Array(64).fill(0);
     for (const e of list) {
       if (e.kind === NOTE) { const a = anchor(e.time); if (a >= 64 || perStep[a] >= 4) fail(NOT_V2_SHAPED, 'more than four notes in a step'); perStep[a]++; }
@@ -2680,6 +2682,8 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     if (Number.isInteger(model.bankMsb) || Number.isInteger(model.bankLsb)) { out[1] |= 2; out[3] = model.bankMsb | 0; out[4] = model.bankLsb | 0; }
     if (model.chain) { out[8] = model.chain.next | 0; put16(out, 9, model.chain.after | 0); out[11] = model.chain.times | 0; }   /* v0.4 */
     if (model.transpose) out[12] = model.transpose & 255;   /* v0.5 */
+    if (model.shuffle) out[13] = model.shuffle & 255;       /* v0.6 */
+    if (model.quantize) out[15] = model.quantize & 255;     /* v0.6 */
     list.forEach((x, i) => {
       const o = HEADER + EVENT * i;
       if (!Number.isInteger(x.time) || x.time < -BIAS || x.time + BIAS > 65535) fail(BAD_EVENT, 'event time ' + x.time + ' outside the clip');
@@ -2700,6 +2704,8 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     if (p[1] & 2) { m.bankMsb = p[3]; m.bankLsb = p[4]; }
     if (p[8] || p[9] || p[10] || p[11]) m.chain = { next: p[8], after: get16(p, 9), times: p[11] };   /* v0.4: the clip chain (was dropped: the workbench lost it on a rewrite) */
     if (p[12]) m.transpose = p[12] << 24 >> 24;   /* v0.5: the clip's transpose in semitones */
+    if (p[13]) m.shuffle = p[13];                 /* v0.6: the clip's shuffle byte (1..51: its own 0..50 percent) */
+    if (p[15]) m.quantize = p[15];                /* v0.6: the clip's playback quantize (1 a 16th, 2 an 8th, 3 a quarter) */
     for (const e of events(p)) {
       if (e.kind === NOTE) m.notes.push({ time: e.time, pitch: e.a, velocity: e.b, length: e.length, retrigger: !!e.retrigger });
       else if (e.kind === STEPMOD) m.stepMods.push({ step: e.b, probability: e.a & 7, alt: !!(e.a & 8) });
@@ -2710,7 +2716,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
 
   const TabbyClipV3 = { HEADER, EVENT, EVENTS_MAX, STEPS_MAX, BIAS, NOTE, CC, PC, BEND, PRESSURE, STEPMOD,
     codes: { OK, BAD_SIZE, NOT_V2_SHAPED, BAD_HEADER, BAD_EVENT, BAD_ORDER, DUPLICATE, NO_ROOM, BAD_SOURCE },
-    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.5' };
+    validate, fromV2, toV2, build, model, events, anchor, warp, version: '0.6' };
   globalThis.TabbyClipV3 = TabbyClipV3;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyClipV3;
 })();
@@ -3040,9 +3046,10 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.10
+ * Version: 0.11
  *
  * Revision log
+ *   v0.11 2026-11-17  tabby-v04.17: a clip's shuffle and playback quantize (header bytes 13, 15) are kept.
  *   v0.10 2026-11-17  tabby-v04.15: a clip's transpose (header byte 12) is kept (block.transpose).
  *   v0.9  2026-11-17  tabby-v04.14: a v3 clip read from a song keeps its own length and its chain when it is written
  *                     again (block.clip, block.steps, block.chain); the record keeps the click level (byte 44 bits 6-7)
@@ -3161,7 +3168,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
       /* v0.9 (tabby-v04.14): only a clip of 64 steps goes back to the v2 grid; any other length is the clip's own (a clip
        * made or shortened on the device) and stays a v3 clip. Before, a 32-step clip came back as 64 steps. */
       let v2 = null;
-      if (bytes[0] === LIMITS.steps && !(bytes[8] | bytes[9] | bytes[10] | bytes[11] | bytes[12])) try { v2 = V3().toV2(bytes); } catch (e) { if (e.code !== V3().codes.NOT_V2_SHAPED) fail('block ' + id + ' (v3 clip): ' + e.message); }
+      if (bytes[0] === LIMITS.steps && !(bytes[8] | bytes[9] | bytes[10] | bytes[11] | bytes[12] | bytes[13] | bytes[15])) try { v2 = V3().toV2(bytes); } catch (e) { if (e.code !== V3().codes.NOT_V2_SHAPED) fail('block ' + id + ' (v3 clip): ' + e.message); }
       if (v2) return decodeBlock(v2, id, LIMITS.formatV2);
       return decodeClip(bytes, id);
     }
@@ -3211,7 +3218,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
       if (!Number.isInteger(n.length) || n.length < LIMITS.lengthMin) fail(where + ': length ' + n.length + ' invalid');
     }
     try {
-      return V3().build({ steps, program: block.program, bankMsb: block.bankMsb, bankLsb: block.bankLsb, chain: block.chain, transpose: block.transpose,
+      return V3().build({ steps, program: block.program, bankMsb: block.bankMsb, bankLsb: block.bankLsb, chain: block.chain, transpose: block.transpose, shuffle: block.shuffle, quantize: block.quantize,
         notes: sortNotes(block.notes || []).map(n => ({ time: n.step * U + (n.offset | 0), pitch: n.pitch, velocity: n.velocity, length: n.length, retrigger: n.retrigger })),
         controls: (block.controls || []).slice().sort((a, b) => a.time - b.time),
         stepMods: Object.entries(block.stepFlags || {}).map(([s, f]) => ({ step: Number(s), probability: f.probability || 0, alt: !!f.alt })) });
@@ -3227,6 +3234,8 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     if (m.controls.length) block.controls = m.controls;
     if (m.stepMods.length) { block.stepFlags = {}; for (const s of m.stepMods) block.stepFlags[s.step] = { probability: s.probability, alt: s.alt }; }
     block.clip = true; block.steps = m.steps;          /* v0.9: read as a clip, written as a clip of the same length */
+    if (m.shuffle) block.shuffle = m.shuffle;          /* v0.11: the clip's SHUFFLE and PLAY QUANTIZE (tabby-v04.17) */
+    if (m.quantize) block.quantize = m.quantize;
     if (m.transpose) block.transpose = m.transpose;    /* v0.10: the clip's TRANSPOSE (tabby-v04.15) */
     if (m.chain) block.chain = m.chain;                /* v0.9: NEXT CLIP, AFTER, TIMES (was dropped) */
     if ('program' in m) block.program = m.program;
@@ -3550,7 +3559,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
   function quantize(song, mode, rule) { return song.blocks.reduce((n, b) => n + quantizeNotes(b.notes, mode, rule), 0); }
 
   const TabbySongFormat = { LIMITS, crc32, emptySong, padName, sortNotes, encodeBlock, decodeBlock, blockKey, blockKeyOf, needsV3, payloadOf, structuralKey, encodeBlockRecord, validateEvents,
-    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.10' };
+    encodeRecord, decodeRecord, encodeFile, decodeFile, validate, usage, toJSON, fromJSON, grid, quantize, quantizeNotes, clipTable, version: '0.11' };
   globalThis.TabbySongFormat = TabbySongFormat;
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbySongFormat;
 })();
@@ -4599,7 +4608,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();
 
-const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.16","sha256":"10b8cdaf53b9c66feaa7b96abceae913383b44318aad5ee179bfb76467f7f76d","source_sha256":"bb03004dc70e802959ce783fae0919b369890ab3f27820755b7fdb40a88acc47","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":361683,"url":"./assets/smk37/10b8cdaf53b9c66feaa7b96abceae913383b44318aad5ee179bfb76467f7f76d.wasm"};
+const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v04.17","sha256":"fee0503b2ab12eccdf748e3f9df73573d4a6d606ebe9d2d47df28a859e00da07","source_sha256":"5d9098b8f905e55082bbb6dc8e711544c53a347b86aee3c649deffd9dfdcb0ad","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":363142,"url":"./assets/smk37/fee0503b2ab12eccdf748e3f9df73573d4a6d606ebe9d2d47df28a859e00da07.wasm"};
 (() => {
   const $=id=>document.getElementById(id);
   // Task 08: the badge shows the Classic Tabby display version (the git tag); the Open label is the fallback.
