@@ -29,6 +29,10 @@
       "text": "Not promoted: device tests failed through errors in the test tools, not in the firmware (docs/BUILD.md 51.2). The same firmware passed as tabby-v04.15-rc3.",
       "link": "tabby-v04.15"
     },
+    "tabby-v04.21-rc1": {
+      "text": "Not promoted: one device test failed through an error in the test tool (it pressed the wrong key). The firmware is the same build as tabby-v04.21-rc2.",
+      "link": "tabby-v04.21-rc2"
+    },
     "tabby-v04.18-rc1": {
       "text": "Not promoted: one timing check of the device tests read 4.21 ms against a limit of 4.0 ms that the test tool had set too tight (docs/BUILD.md 54.3). The same firmware passed as tabby-v04.18-rc2.",
       "link": "tabby-v04.18"

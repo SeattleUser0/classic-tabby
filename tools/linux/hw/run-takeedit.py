@@ -20,9 +20,12 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-takeedit.py --song N --out DIR
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-18  v0.1 pressed key 12 and took it for pitch 60; that holds only while the keys' octave is 0. The key
+                      for pitch 60 is now found from the note the STEP page shows after a key press (candidate 1 of
+                      tabby-v04.21 failed three checks for this reason; docs/BUILD.md 57.4).
     v0.1  2026-11-18  First version.
 """
 import argparse
@@ -106,6 +109,12 @@ def main():
         l.edit_discard(); idle(0.3)
         # ---- clear notes during a take ----
         l.edit_open(0, 0); idle(0.4)
+        l.key(1, 12, 100); idle(0.15); l.key(1, 12, 0); idle(0.3)   # v0.2: which pitch key 12 plays (the keys' octave): the STEP page shows it
+        heard = l.steps_state()["note"]
+        k60 = 12 + 60 - heard                                       # the key that plays the clip's pitch, 60
+        other = k60 + 2 if k60 + 2 <= 36 else k60 - 2
+        if not check(0 <= k60 <= 36, "key 12 plays pitch %d: the key for pitch 60 is key %d" % (heard, k60)):
+            return 1
         l.press("REC"); idle(0.3)
         l.press("PLAY")
         t0 = time.monotonic(); s = l.steps_state()
@@ -115,14 +124,14 @@ def main():
         l.press("FX"); idle(0.4); s = l.steps_state()
         check(s["recording"] == 2 and s["events"] == 4 and s["page_name"] == "STEP", "FX alone during a take changes nothing (no undo, the page stays)", (s["recording"], s["events"], s["page_name"]))
         l.key(0, l.PANEL["FX"], 1); idle(0.15)
-        l.key(1, 12, 100); idle(0.9); mid = l.steps_state()["events"]
+        l.key(1, k60, 100); idle(0.9); mid = l.steps_state()["events"]
         idle(1.6)                                                  # the clip is 2 s long: the key is down for more than one pass
-        l.key(1, 12, 0); idle(0.15)
+        l.key(1, k60, 0); idle(0.15)
         l.key(0, l.PANEL["FX"], 0); idle(0.3)
         at, s = noted()
         check(0 < mid < 4, "FX + the key 60 held: its notes go as the clip passes them (%d left after 0.9 s)" % mid, mid)
         check(s["events"] == 0 and at == [] and s["recording"] == 2, "after one pass the clip's four notes are cleared; the held key was not recorded; the take goes on", (s["events"], at, s["recording"]))
-        l.key(1, 14, 100); idle(0.2); l.key(1, 14, 0); idle(0.5); s = l.steps_state()
+        l.key(1, other, 100); idle(0.2); l.key(1, other, 0); idle(0.5); s = l.steps_state()
         check(s["events"] == 1, "with FX up a key is recorded again", s["events"])
         l.press("PLAY"); idle(0.8); s = l.steps_state()
         check(s["recording"] == 0 and l.remote_status()["song_state"] == 0, "the song stopped; the take ended", s["recording"])

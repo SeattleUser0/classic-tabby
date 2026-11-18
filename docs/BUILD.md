@@ -2,7 +2,7 @@
 
 Version: 0.94
 Revision log:
-- v0.94, 2026-11-18: 56.1 (tabby-v04.20 released as candidate 1), section 57 (tabby-v04.21: clear notes in a take, NEW SONG, shift a clip; the pad rows; stickers v0.4).
+- v0.94, 2026-11-18: 56.1 (tabby-v04.20 released as candidate 1), 57.4 (tabby-v04.21-rc1 not promoted: a test tool error), section 57 (tabby-v04.21: clear notes in a take, NEW SONG, shift a clip; the pad rows; stickers v0.4).
 - v0.93, 2026-11-18: 55.1 (tabby-v04.19 released as candidate 1), section 56 (tabby-v04.20: DIRECTION per clip).
 - v0.92, 2026-11-17: 54.3, 54.4 (tabby-v04.18: candidate 1 held back by a tool limit, candidate 2 released), section 55 (tabby-v04.19: STEP SIZE per clip).
 - v0.91, 2026-11-17: 53.1 (tabby-v04.17 released as candidate 1), section 54 (tabby-v04.18: the printed button names; the photograph; the stickers redesigned).
@@ -6078,3 +6078,22 @@ Found on the way:
   refused with code 71 as expected.
 
 Measured: app image 489188 bytes (+1600), margin 30269, heap 142700 (-64). Build `0bb7c4fb25bc175a`.
+
+### 57.4 tabby-v04.21-rc1: not promoted; my device test pressed the wrong key (2026-11-18)
+
+Suite green on 1d5685d; builds/tabby-v04.21-rc1/ (build `0bb7c4fb25bc175a`), installed in 12 s. 20 of 21 steps passed
+(one line DIN 1.73, 1.76, 1.84 ms; USB 1.62, 1.66, 1.58 ms; backup, restore, verify PASS). The new step `takeedit`
+failed 3 checks of 25, all in "clear notes during a take": the clip's four notes were still there after FX + the key.
+
+Not a device fault (hard limit 6: confirmed with a second tool before anything was said about the firmware):
+run-takeedit.py v0.1 pressed key 12 and took it for pitch 60. That holds at octave 0; the keys of this unit stand at
+octave -1, so key 12 plays 48. The clip's notes are 60: nothing was held that could clear them, and the two later
+checks failed with it. run-takeedit.py v0.2 reads the pitch a key plays from the STEP page first and presses the key
+for 60 (key 24 here). On the same candidate, same install: 26 of 26, among them "FX + the key 60 held: its notes go
+as the clip passes them (2 left after 0.9 s)" and "after one pass the clip's four notes are cleared".
+
+The shift and NEW SONG checks passed in both runs. The page builds/tabby-v04.21-rc1/ gets a note line
+(tools/linux/builds-notes.json); the same build goes out as candidate 2.
+
+Lesson: a device test takes nothing about the panel's state for granted that it can read (the octave here); the
+same rule as the starting state of 54.3.
