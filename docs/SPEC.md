@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.62
+Version: 0.63
 Revision log:
+- v0.63, 2026-11-18: 19.28 tabby-v1.0.1 (row events at every entry of a scene in a two-scene loop).
 - v0.62, 2026-11-18: 17.17 the user's answers of 2026-11-18 (evening): pad rows confirmed, the timing question first, tabby-v1.0 without new features; 19.27 tabby-v1.0.
 - v0.61, 2026-11-18: 19.26 tabby-v04.23 (the step loop while held).
 - v0.60, 2026-11-18: 19.25 tabby-v04.22 (NOTE REPEAT repeats; the focus switch on KNOB BANK + NOTE REPEAT).
@@ -2091,3 +2092,18 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   scenes) in song slot 6, played in segments of 125 s on six pages, every note measured on USB and on one DIN cable.
 - Known and documented, not changed: on one DIN cable a scene's row events pass ahead of its first notes (14 ms for
   the 17 messages at this song's loop point); USB carries them at once.
+
+### 19.28 tabby-v1.0.1 (2026-11-18): row events at every entry of a scene in a two-scene loop
+
+- The fault (measured on tabby-v1.0 and tabby-v04.23; the code is older): the song playhead keeps two row buffers. A row's
+  events are streamed once per entry; "this buffer holds a row that was not streamed yet" was recognised by
+  `prefire` seeing the buffer not ready (`armed[idx] = 0`) or holding another row number. In a loop of two scenes the
+  same row comes back into the same buffer. When the control task had decoded it again before the next audio tick
+  looked, the tick saw a ready buffer with the old row number: armed and streamed stayed set, and the entry sent
+  nothing. How often depended on how soon the control pass ran, so on the page shown.
+- The fix (app/song.c, `song_switch`): the audio thread itself disarms the buffer it leaves (`armed[cur] = 0`) in the
+  tick that releases it. `prefire` then arms the buffer again when it is ready, whatever row it holds.
+- Not affected: three or more scenes in a row (the buffer gets another row number each time); a scene that repeats
+  (its events are sent once, when it is entered: unchanged); the first pass.
+- Tests: tests/workbench/wrong-room-loop-sim.mjs (six passes: 17 and 6 event messages at every entry; on the old
+  code "17 6 0 0 0 6 0 0 0 6 0 0"); the device soak requires every entry's burst (run-soak.py v0.3 --row-events).

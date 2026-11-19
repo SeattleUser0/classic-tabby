@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.7
+Version: 0.8
 
 Revision log
+    v0.8  2026-11-18  tabby-v1.0.1: the soak requires every scene entry's events (run-soak.py v0.3: --row-events 17,6).
     v0.7  2026-11-18  tabby-v1.0: --soak-minutes N adds the step `soak` before the last backup: the Wrong Room song
                       (tests/midi-import/fixtures/wrong-room-all.mid with the rig profile, looping; tools/linux/hw/rig-song.mjs)
                       is written to song slot 6 if that slot is empty, played for N minutes in segments on six pages
@@ -199,7 +200,7 @@ def main():
             Path(songfile).write_text(r.stdout)
             c1, o1 = sh(W + ["song", "--url", url, "--song-json", songfile, "--slot", "5", "--log", wb_log], 600, log)
         if c1 == 0:
-            c2, o2 = sh([py, str(HW / "run-soak.py"), "--minutes", str(a.soak_minutes), "--songs", "6:8", "--seconds", "125", "--events", "--din-band-limit", "20", "--tag", rc_tag + "-wrongroom", "--out", str(out)], int(a.soak_minutes * 60 + 900), log)
+            c2, o2 = sh([py, str(HW / "run-soak.py"), "--minutes", str(a.soak_minutes), "--songs", "6:8", "--seconds", "125", "--events", "--row-events", "17,6", "--row-seconds", "8", "--din-band-limit", "20", "--tag", rc_tag + "-wrongroom", "--out", str(out)], int(a.soak_minutes * 60 + 900), log)
             tail = [l for l in o2.splitlines() if l.startswith(rc_tag + "-wrongroom:") or "lines," in l or l.startswith("BAD")]
             sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
             step("soak", c2 == 0, " | ".join(tail[:4]) or o2[-300:])

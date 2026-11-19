@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.98
+Version: 0.99
 Revision log:
+- v0.99, 2026-11-18: section 62 (the soak's data showed missing row events; my soak check had not looked; tabby-v1.0.1).
 - v0.98, 2026-11-18: 61.1 (tabby-v1.0 released as candidate 1).
 - v0.97, 2026-11-18: 59.2 (tabby-v04.23 released as candidate 2), section 60 (the 9.9 ms run answered: the NUC's clock; the tools on the raw clock; a 70-minute soak), section 61 (tabby-v1.0).
 - v0.96, 2026-11-18: 58.1 (tabby-v04.22 released as candidate 1), 59.1 (tabby-v04.23-rc1 not promoted: the NUC's clock, and one check of mine), section 59 (tabby-v04.23: the step loop).
@@ -6360,3 +6361,44 @@ inside one segment; the figures above are on the raw clock. The regression found
 was deleted from slot 6 afterwards. Flash margin 28989 bytes, free RAM 142412 bytes.
 
 Not verified on hardware: the screen fix (the notice in the KNOB BANK list) was looked at in the simulator only.
+
+## 62. tabby-v1.0.1: row events were missing in a two-scene loop; my soak had passed it (2026-11-18)
+
+### 62.1 What happened
+
+tabby-v1.0 was promoted with "soak: 57 segments, 0 bad". Writing its notes I listed the program changes per segment
+and they were not the same number: 68 to 136 in 125 s, where the first trial had shown 113. The soak check (run-soak
+v0.2) compared DIN with USB and asked for "some" program changes; both ports lacked the same ones, so it passed.
+In the capture, whole bursts were missing: a scene was entered and none of its row events was sent.
+
+| Page shown | Program changes per segment (136 = none missing) |
+| --- | --- |
+| overview | 125 to 136 |
+| CLIPS | 97 to 136 |
+| SCENES | 113 to 130 |
+| SYNC / MIDI | 78 to 136 |
+| mixer | 68 to 130 |
+| ACTIONS | 80 to 114 |
+
+With the rule the soak has now (every entry's burst, of the right size) 47 of those 57 segments are bad. The notes
+were all there and on time; only row events were lost. So tabby-v1.0 went out with a fault that its own regression
+had recorded and my check had not looked for. That is my error: I wrote a check that could not fail on this.
+
+### 62.2 The cause and the fix
+
+SPEC 19.28. One line in the audio thread (`armed[cur] = 0` where the row buffer is released). The same code is in
+tabby-v04.23 (the trial of section 61 already had 113 of 136) and, by reading, in the versions before; three or more
+scenes in a row never showed it. In the simulator, six passes of the looping song: before "17 6 0 0 0 6 0 0 0 6 0 0"
+event messages per scene entry, after "17 6 17 6 17 6 17 6 17 6 17 6" (tests/workbench/wrong-room-loop-sim.mjs, in
+make midi-import-sim, so in the suite).
+
+### 62.3 What changed besides the line
+
+| Part | Change |
+| --- | --- |
+| tools/linux/hw/run-soak.py v0.3 | --row-events 17,6 --row-seconds 8: every scene entry in a segment must show its burst of that size on both ports |
+| tools/linux/hw/rc-validate.py v0.8 | the soak step passes that |
+| tools/linux/builds-notes.json | the page builds/tabby-v1.0/ gets a note line: use tabby-v1.0.1 |
+| the guide v5.1, Help, SPEC 19.28 | what was wrong, who was affected |
+
+Measured: app image 490468 bytes (unchanged), margin 28989, heap 142412. Build `b3ecdffbabe49bf0`.

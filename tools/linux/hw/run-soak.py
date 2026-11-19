@@ -20,9 +20,13 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-soak.py --minutes 65 --tag soak-v0423 --out DIR
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-18  --row-events 17,6 --row-seconds 8: the song's scenes send that many event messages at each entry,
+                      that far apart: every entry inside the segment must have its burst, of that size, on both
+                      ports. v0.2 only compared the ports with each other, and so passed a two-hour soak in which
+                      whole bursts were missing on both (tabby-v1.0; docs/BUILD.md 62).
     v0.2  2026-11-18  For a song with row events (the Wrong Room song): --din-band-limit (on one DIN cable a scene's program
                       changes and controllers pass ahead of its first notes, about 0.8 ms each: 17 events at the loop
                       point are 14 ms; USB carries them at once), and every segment's program changes, controllers,
@@ -49,6 +53,8 @@ def main():
     p.add_argument("--band-limit-many", type=float, default=3.5, help="ms, several lines (the goal is about 3; on DIN notes due together leave one after the other)")
     p.add_argument("--din-band-limit", type=float, default=0.0, help="ms; v0.2: its own limit for the DIN port (0: as the other limits)")
     p.add_argument("--events", action="store_true", help="v0.2: the song has row events: program changes and controllers must be seen in every segment")
+    p.add_argument("--row-events", default="", help="v0.3: event messages per scene entry, in the order of the scenes, e.g. 17,6")
+    p.add_argument("--row-seconds", type=float, default=8.0, help="v0.3: seconds from one scene entry to the next")
     p.add_argument("--tag", default="soak")
     p.add_argument("--out", required=True)
     a = p.parse_args()
@@ -81,10 +87,27 @@ def main():
             row["shown_page"] = s.get("page")
             bad = []
             import csv, collections
-            cnt = collections.Counter()
+            cnt = collections.Counter(); ev_t = {"din": [], "usb": []}
             with open(os.path.join(a.out, tag + "-din-usb.csv"), newline="") as f:
                 for q in csv.DictReader(f):
                     cnt[(q["port"], q["kind"])] += 1
+                    if q["kind"] in ("program", "cc"):
+                        ev_t[q["port"]].append(float(q["t_ms"]))
+            if a.row_events:
+                want = [int(x) for x in a.row_events.split(",")]
+                for port in ("din", "usb"):
+                    bursts = []
+                    for t in ev_t[port]:
+                        if bursts and t - bursts[-1][-1] < 300.0: bursts[-1].append(t)
+                        else: bursts.append([t])
+                    sizes = [len(b) for b in bursts]
+                    gaps = [(y[0] - x[0]) / 1000.0 for x, y in zip(bursts, bursts[1:])]
+                    row.setdefault("bursts", {})[port] = sizes
+                    wrong = [i for i, n_ in enumerate(sizes) if n_ != want[i % len(want)]]
+                    holes = [round(g, 1) for g in gaps if abs(g - a.row_seconds) > 0.5]
+                    if wrong: bad.append("%s: scene entry %d sent %d event messages, %d expected" % (port, wrong[0] + 1, sizes[wrong[0]], want[wrong[0] % len(want)]))
+                    if holes: bad.append("%s: %d scene entr%s without events (%.1f s between bursts)" % (port, len(holes), "y" if len(holes) == 1 else "ies", holes[0]))
+                    if len(sizes) < int(a.seconds / a.row_seconds) - 1: bad.append("%s: only %d bursts" % (port, len(sizes)))
             row["events"] = {k: [cnt[("din", k)], cnt[("usb", k)]] for k in ("note_on", "note_off", "program", "cc")}
             for k, (d_, u_) in row["events"].items():
                 if d_ != u_: bad.append("%s: %d on DIN, %d on USB" % (k, d_, u_))

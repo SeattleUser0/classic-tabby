@@ -707,6 +707,11 @@ static FM1_AUDIO_CODE int song_switch(unsigned next, uint32_t bd, unsigned at)
     } else if (next == NEXT_SAME) ++repeat;
     unsigned landed = 0;
     if (next == NEXT_ROW) {
+        /* tabby-v1.0.1: the row that is left is not armed any more. Without this a song of two scenes that loops lost
+         * its row events: the same scene comes back into the same buffer, and when the control task had decoded it
+         * again before the next tick looked (prefire saw `ready` and the old row number), the entry counted as
+         * streamed already. Found by the two-hour soak of tabby-v1.0 (docs/BUILD.md 62). */
+        armed[cur] = 0;
         rowset[cur].ready = 0;
         barrier();
         cur ^= 1U; repeat = 0;

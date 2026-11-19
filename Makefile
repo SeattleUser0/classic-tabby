@@ -447,6 +447,7 @@ midi-import-sim: web
 	$(T) $(NODE) tests/workbench/record-sim.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/setup-sim.mjs build/web/simulator.wasm
 	$(T) $(NODE) tests/workbench/wrong-room-sim.mjs build/web/simulator.wasm
+	$(T) $(NODE) tests/workbench/wrong-room-loop-sim.mjs build/web/simulator.wasm
 
 flash-budget:
 	@# The analysis symbol map (per-file attribution of LTO-merged code) is built once per
