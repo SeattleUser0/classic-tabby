@@ -28,7 +28,7 @@
 //   v0.2  2026-11-11  Chapter 00 names tabby-v04.2 (was tabby-v04.1.1).
 //   v0.1  2026-11-10  Initial version (testing guide, tabby-v04.1.1).
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 let failures = 0;
@@ -42,6 +42,12 @@ const lines = md.split('\n');
 
 check(!/[^\x00-\x7f]/.test(md), 'plain ASCII text');
 check(!/\t|```|<[a-z/][^>]*>/.test(md), 'no tab, code fence or HTML');
+
+// ---- tabby-v1.1: the pictures of the screen the guide names exist (docs/manual/screens/, tools/linux/screens.mjs)
+{ const names = lines.filter(l => l.startsWith('Pictures: ')).flatMap(l => l.slice(10).split(' | ')[0].split(' ').filter(Boolean));
+  const missing = [...new Set(names)].filter(n => !existsSync('docs/manual/screens/' + n + '.png'));
+  check(names.length >= 20 && missing.length === 0, 'the guide shows ' + names.length + ' pictures of the screen and every one exists', missing.join(' '));
+  check(lines.filter(l => l.startsWith('Pictures: ')).every(l => l.includes(' | ')), 'every picture line has a caption'); }
 
 const sections = [...md.matchAll(/^(\d)\. ([A-Z][A-Z ,]+)\n=+$/gm)].map(m => Number(m[1]));
 check(sections.join() === '1,2,3,4,5,6,7,8,9', 'sections 1 to 9 in order (tabby-v1.0: 9 is the stage checklist)', sections.join());
@@ -88,7 +94,7 @@ if (r.status === 0) {
 const help = readFileSync('sdk/Update.html.in', 'utf8');
 const links = (help.match(/https:\/\/seattleuser0\.github\.io\/classic-tabby\/guide\//g) || []).length;
 check(links >= 2, 'Help links to the guide from the Help heading and from chapter 00', `${links} links`);
-check(/manual-guide-link/.test(help) && /The page you are on is tabby-v1\.0\.2\./.test(help), 'chapter 00 names the page version');
+check(/manual-guide-link/.test(help) && /The page you are on is tabby-v1\.1\./.test(help), 'chapter 00 names the page version');
 
 // ---- tabby-v1.0: the stage checklist is one text in two places (docs/STAGE-CHECKLIST.md and section 9 of the guide)
 {

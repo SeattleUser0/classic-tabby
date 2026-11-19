@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.49
+Version: 0.50
 Revision log:
+- v0.50, 2026-11-19: section 50: tabby-v1.1 measured, 486724 bytes, margin 32733 (the readable screen: 4032 bytes smaller).
 - v0.49, 2026-11-18: section 49: tabby-v1.0.2 measured, 490756 bytes, margin 28701.
 - v0.48, 2026-11-18: section 48: tabby-v1.0.1 measured.
 - v0.47, 2026-11-18: section 47: tabby-v1.0 measured, 490468 bytes, margin 28989.
@@ -1396,3 +1397,18 @@ RAM (runtime heap): 142412 bytes (unchanged). Above the 15360-byte reserve: 1362
 | tabby-v1.0.2: EVENT LEAD (a song setting and its line) | 490756 | +288 | **28701** |
 
 RAM (runtime heap): 142412 bytes (unchanged). Above the 15360-byte reserve: 13341 bytes.
+
+## 50. tabby-v1.1 (measured, 2026-11-19)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v1.0.2 | 490756 | | 28701 |
+| tabby-v1.1: the readable screen (every page redrawn at scale 2 and 3) | 486724 | -4032 | **32733** |
+
+RAM (runtime heap): 143436 bytes (+1024: the step cells' cache of HOME went). Above the 15360-byte reserve: 17373 bytes.
+
+The font question (the user allowed a better-looking one if it fits): not taken. The 5x7 font enlarged costs
+nothing; an 8x16 font with lowercase is 95 glyphs of 16 bytes, about 1.5 KB with its drawing code, and would fit.
+It was left out for how it reads, not for its size: at 8 x 16 pixels its strokes are 1 pixel thick, thinner than
+the 2-pixel strokes of the 5x7 font at scale 2, on a screen that is read in the dark at arm's length; and at twice
+its size (16 x 32) only 15 characters fit on a line and seven lines on the screen.

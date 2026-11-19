@@ -248,20 +248,20 @@ void ct_diag_storage_lines(char user_line[40], char song_line[40])
 }
 static void storage_lines(char user_line[40], char song_line[40])
 {
-    static const char *const states[] = {"SCANNING", "READY", "OLD DATA", "ERASING", "ERROR", "COMPACTING"};
+    static const char *const states[] = {"SCAN", "READY", "OLD DATA", "ERASING", "ERROR", "COMPACT"};   /* tabby-v1.1: twenty characters a line at scale 2 */
     unsigned st = song_storage_state();
     uint32_t size = fm1_flash_size();
     char *p = word(user_line, "USER ");
-    p = size ? number(p, size) : word(p, "0 INVALID");
-    p = word(p, " SONG ");
+    p = size ? number(p, size) : word(p, "0 BAD");
+    p = word(p, " ");
     p = word(p, st < 6 ? states[st] : "?");
     *p = 0;
     uint32_t free_bytes = 0, reclaim = 0;
     p = song_line;
     if (st == SONG_STORAGE_READY && !song_storage_status(&free_bytes, &reclaim)) {
         p = word(p, "FREE "); p = number(p, free_bytes / 1024U);
-        p = word(p, "K  RECLAIM "); p = number(p, reclaim / 1024U); p = word(p, "K");
-    } else p = word(p, "SONG STORAGE NOT READY");
+        p = word(p, "K RECL "); p = number(p, reclaim / 1024U); p = word(p, "K");
+    } else p = word(p, "STORAGE NOT READY");
     *p = 0;
 }
 

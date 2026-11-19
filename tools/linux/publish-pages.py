@@ -42,6 +42,7 @@ Usage (from the repository root)
 Version: 0.8
 
 Revision log
+    v0.9  2026-11-19  guide/screens/: the pictures of the screen the guide shows (tabby-v1.1).
     v0.8  2026-11-17  guide/classic-tabby-manual.pdf: the printable manual (docs/manual/, tools/linux/manual-pdf.py);
                       a PDF that was not made from the guide text is refused.
     v0.7  2026-11-17  The release flow of SPEC 17.13: --rc N publishes only builds/<tag>-rc<N>/ (the tag on HEAD is
@@ -154,6 +155,17 @@ def build_site(html, staging, node, source_url, log):
     if manual.returncode != 0:
         raise PublishError("The printable manual is not current:\n%s" % manual.stdout)
     shutil.copyfile(ROOT / "docs/manual/classic-tabby-manual.pdf", staging / "guide" / "classic-tabby-manual.pdf")
+    # v0.9 (tabby-v1.1): the guide's pictures of the screen beside it (guide/screens/); manual-pdf --check above has
+    # already refused a guide that names a missing picture
+    names = []
+    for line in (ROOT / "docs/TESTING-GUIDE.md").read_text(encoding="utf-8").split("\n"):
+        if line.startswith("Pictures: "):
+            names += [n for n in line[len("Pictures: "):].partition(" | ")[0].split() if n not in names]
+    if names:
+        (staging / "guide" / "screens").mkdir(parents=True, exist_ok=True)
+        for n in names:
+            shutil.copyfile(ROOT / "docs/manual/screens" / (n + ".png"), staging / "guide" / "screens" / (n + ".png"))
+        log("guide: %d pictures of the screen" % len(names))
     log(manual.stdout.strip())
     log("Site: build %s, release %s, version %s, %d assets, entry %d bytes, standalone %d bytes"
         % (report.get("build"), report.get("release"), report.get("version"), len(report.get("assets", [])),

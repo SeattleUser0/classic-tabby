@@ -26,9 +26,11 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.10
+Version: 0.11
 
 Revision log
+    v0.11 2026-11-19  tabby-v1.1 (the readable screen): step timing-pages: one line on CLIPS, SCENES, SYNC / MIDI, ACTIONS
+                      and the mixer (under 2 ms each), eight lines on the overview, CLIPS and SCENES.
     v0.10 2026-11-18  The panel state (mutes, focus, ARP switches, CLOCK, A2) is read before the tests, after each one and at the
                       end (panel-state.py); a step that leaves it changed fails and the mutes are put back. After the
                       tabby-v1.0.1 run the device was found with track 1 muted and nothing had noticed.
@@ -54,6 +56,8 @@ ROOT = Path(__file__).resolve().parent.parent.parent.parent
 HW = ROOT / "tools/linux/hw"
 PAGES = "https://seattleuser0.github.io/classic-tabby/"
 SONGOPT = '{"record":"scenes","loop":true,"rowSteps":16}'
+PAGE_LIMIT_MS = 2.0      # v0.11: one line with any page on the screen: under 2 ms, or the step fails
+EIGHT_LIMIT_MS = 3.5     # v0.11: eight lines, the worst line (2.2 to 3.1 ms measured from tabby-v04.4 to tabby-v1.0)
 BAND_LIMIT_MS = 2.5      # one line: the goal is 2 ms; above this the run fails. The bands are reported either way.
 
 
@@ -210,6 +214,22 @@ def main():
         good = len(din) == 3 and len(usb) == 3 and all(n == 960 and b <= BAND_LIMIT_MS for n, b, _ in din + usb) and not any(runs)
         step("timing", good, "one line, 960 notes, three runs: DIN %s ms; USB %s ms; clock ratio %s" % (
             ", ".join("%.2f" % b for _, b, _ in din), ", ".join("%.2f" % b for _, b, _ in usb), ", ".join(sorted({r for _, _, r in din}))))
+        # v0.11 (tabby-v1.1, the readable screen): the same one-line song with each of the other pages on the screen, and
+        # the eight-line song (slot 15) on the three pages looked at while playing. One line must stay under 2 ms on every
+        # page (the user's limit); eight lines under EIGHT_LIMIT_MS for every line.
+        got, bad = [], 0
+        for lines_n, slot, page in [(1, "16", pg) for pg in ("clips", "scenes", "steps", "actions", "mixer")] + [(8, "15", pg) for pg in ("overview", "clips", "scenes")]:
+            code, o = sh([py, str(HW / "run-15.py"), "l2", "--a2", "keep", "--seconds", "125", "--play", slot, "--page", page, "--tag", "%s-%dx-%s" % (rc_tag, lines_n, page), "--out", str(out)], 500, log)
+            worst = {}
+            for port in ("DIN", "USB"):
+                m = re.search(r"^%s: (\d+) notes on %d line\(s\); band per line [\d.]+\.\.([\d.]+) ms" % (port, lines_n), o, re.M)
+                if m:
+                    worst[port] = float(m.group(2))
+            limit = PAGE_LIMIT_MS if lines_n == 1 else EIGHT_LIMIT_MS
+            ok = code == 0 and len(worst) == 2 and all(b < limit for b in worst.values())
+            bad += not ok
+            got.append("%s %s %s/%s" % ("1L" if lines_n == 1 else "8L", page, "%.2f" % worst["DIN"] if "DIN" in worst else "?", "%.2f" % worst["USB"] if "USB" in worst else "?"))
+        step("timing-pages", not bad, "worst line DIN/USB ms: " + "; ".join(got))
         song()
 
     # v0.7: the soak with the Wrong Room song (slot 6 on the screen, index 5; only if that slot is empty)

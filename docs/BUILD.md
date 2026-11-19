@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 1.00
+Version: 1.01
 Revision log:
+- v1.01, 2026-11-19: section 64 (tabby-v1.1: the readable screen; pictures in the manual; the timing-pages step).
 - v1.00, 2026-11-18: 62.4 (tabby-v1.0.1 released as candidate 1), section 63 (tabby-v1.0.2: EVENT LEAD; the device found with track 1 muted; the panel state guard).
 - v0.99, 2026-11-18: section 62 (the soak's data showed missing row events; my soak check had not looked; tabby-v1.0.1).
 - v0.98, 2026-11-18: 61.1 (tabby-v1.0 released as candidate 1).
@@ -6531,3 +6532,37 @@ firmware lets go of injected keys only after 5 s without any remote command) and
 between the last good check and the finding that presses pad 9 at all. A press on the panel itself would look the
 same, and my report after tabby-v1.0.1 had asked for exactly that press (KNOB BANK + a lower pad). Not explained;
 nothing to fix. The state check after every test stays in the release run for good (rc-validate.py v0.10).
+
+## 64. tabby-v1.1: the readable screen (2026-11-19)
+
+The user's order (SPEC 17.18): almost everything on the screen was the 5x7 font at scale 1; make it readable at
+arm's length on a dark stage. Order of work: the pages as they were (27 pictures from the simulator), the layouts
+into docs/CONTROL-MAP.md section 20 (commit 418ba30, before any screen code changed), then the build.
+
+| Part | Change |
+| --- | --- |
+| app/screen.c | every page redrawn (SPEC 19.30): the scale 1 styles are scale 2, `big_text` / `big_number` scale 3; `header`; `param_row`, `knob`, `strip`, `knob_note`; `banner_wrap`, `banner_text`; `text()` refuses scale 1 (traps in host builds). `performance_hint`, `hint_draw` and the step cells' cache are gone |
+| app/diag.c | the two storage lines fit 20 characters |
+| sdk/Simulator.js, sdk/Update.html.in | the simulator's click areas come from the firmware; Help chapters 00, 04, 05 and the tables describe the new screen (both files pinned again) |
+| tools/linux/screens.mjs v0.2 (new) | drives the simulator through 28 pages and writes docs/manual/screens/*.png and screens.json (SHA-256 of each frame); `--check` in make workbench-test fails when a picture is not what the simulator draws now |
+| tools/linux/notice-wrap.py v0.1 (new) | wraps every message as the firmware does; a fourth line or a word over 13 characters fails make workbench-test |
+| tools/linux/guide-html.py v1.2, manual-pdf.py v0.2, publish-pages.py v0.9 | "Pictures:" lines in the guide; the pictures in the PDF and beside the guide page (guide/screens/); manual.json holds their hash |
+| tools/linux/hw/rc-validate.py v0.11 | step timing-pages: one line on CLIPS, SCENES, SYNC / MIDI, ACTIONS and the mixer (each under 2 ms or the step fails), eight lines on the overview, CLIPS and SCENES (worst line under 3.5 ms) |
+| docs | CONTROL-MAP 0.22, TESTING-GUIDE 5.3 (Reading the screen, 28 pictures, T97), STAGE-CHECKLIST 1.2, SPEC 0.65, FLASH-BUDGET 0.50 |
+
+What went wrong on the way:
+
+- A splice script of mine matched the first `#ifdef FM1_HOST_TEST` of the file instead of the one before
+  `web_knobs` and removed 230 lines of app/screen.c. Seen at once from the line numbers it printed; the file was
+  restored from git and the edits applied again with the right anchor. Nothing of it was committed.
+- The design said MASTER MUTED would be a standing amber box. Not built that way: a rig that plays outside gear only
+  may keep K8 at zero, and a box over the lower third of every page would hide the pads' cells for the whole set.
+  It is `K8=0` in amber in the top line (scale 2), and turning K8 still says MASTER MUTED in the box for a moment.
+  This one warning is therefore smaller than scale 3 while it stands. A question for the user (report, section 5).
+- The design said KEY1 PAD8 beside the project name; with a 12-character name it does not fit at scale 2. K and P
+  stand in the rows instead.
+- 56 of 152 messages needed three or four lines of 13 characters. The 18 that are met while playing or that took
+  four lines were shortened; three lines is the limit the build checks.
+
+Measured before the device run: app image 486724 bytes (4032 smaller), margin 32733, heap 143436 (+1024).
+make test-fast green; lint: no finding in app/screen.c that was not there before.

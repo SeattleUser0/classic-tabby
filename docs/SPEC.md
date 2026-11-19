@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.64
+Version: 0.65
 Revision log:
+- v0.65, 2026-11-19: 17.18 the user's order of 2026-11-19 (the screen must be readable); 19.30 tabby-v1.1.
 - v0.64, 2026-11-18: 19.29 tabby-v1.0.2 (EVENT LEAD, a song setting; OFF by default).
 - v0.63, 2026-11-18: 19.28 tabby-v1.0.1 (row events at every entry of a scene in a two-scene loop).
 - v0.62, 2026-11-18: 17.17 the user's answers of 2026-11-18 (evening): pad rows confirmed, the timing question first, tabby-v1.0 without new features; 19.27 tabby-v1.0.
@@ -1490,6 +1491,25 @@ backup then names the song and stops (19.17).
 - A rule that follows from BUILD 60: a timing figure counts only when it was taken on a clock the measuring computer
   does not correct, and a failed timing check is judged from the per-note errors and the clock record of the run.
 
+### 17.18 The user's order of 2026-11-19: the screen must be readable
+
+In force from tabby-v1.1, for every page that exists and every page added later:
+
+- Nothing on any page smaller than scale 2 (10 x 14 pixels a character).
+- Stage-critical information at scale 3 or larger: the current scene and song, play / stop / record state, tempo,
+  the selected track, queued launches, and any warning (STOP TO SAVE, errors, OLD DATA).
+- Pages are designed for the large text: fewer items, paging, abbreviations; not content shrunk to fit. CLIPS,
+  SCENES and HOME come first.
+- A better font is allowed if it fits and keeps the 15 KB reserve; the cost is reported (docs/FLASH-BUDGET.md 50).
+- Timing must not suffer: drawing stays sliced so MIDI sends go first; one line stays under 2 ms, proven with the
+  one-line and eight-line runs on several pages (rc-validate.py step timing-pages, from v0.11 in every release run).
+- The layouts are written into docs/CONTROL-MAP.md (section 20) before a page is built or changed.
+- It is a fix, not a feature: it overrode "no new features until I have played a set".
+
+Enforced in the build: `text()` refuses a scale below 2 and traps in host and simulator builds (the simulator's
+tour of every page, tools/linux/screens.mjs --check, runs in make workbench-test); tools/linux/notice-wrap.py wraps
+every message as the firmware does and fails on a fourth line or a word over 13 characters.
+
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
 - **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
@@ -2135,3 +2155,28 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   its first note, the notes unmoved; a gap of 255 ms inside the stream: 88 blocks after its program change, the
   last message still 43 blocks before the note); setup-sim.mjs; on the device run-setup.py v0.13 and two soaks
   (rc-validate.py: `soak` with the lead OFF, `soak-lead` with 1/16).
+
+### 19.30 tabby-v1.1 (2026-11-19): the readable screen
+
+- The user's order (17.18). Only app/screen.c's drawing changed, and two status strings in app/diag.c. No setting,
+  no storage format, no remote command and nothing in the audio or MIDI path changed.
+- Sizes: scale 2 = 12 x 14 pixels a cell (20 characters a line), scale 3 = 18 x 21 (13 a line). The styles that
+  were scale 1 (`dim_text`, `plain_text`, `accent_text`, `color_text`, `small_number`) are scale 2; `big_text` and
+  `big_number` are scale 3. The 5x7 font stays (FLASH-BUDGET 50 says why).
+- The top line (`header`): tempo, state, selected track at scale 3; ARP / K8=0 and the unsaved mark at scale 2. The
+  state is the song's when a song plays or counts in or a take runs (`song_status`, `song_edit_info`), else the
+  pattern sequencer's. The hold bar moved to rows 30 and 31, the rule to row 32; page bodies start at row 34.
+- Messages (`banner_text`, `banner_wrap`, drawn last in `draw_page`): an amber box anchored at the bottom, one to
+  three lines of 13 characters at scale 3, greedy word wrap, " - " in the text forces a new line. A box that gets
+  shorter or leaves invalidates the page (one full repaint in bands). The edit pages' signature no longer holds the
+  notice. Standing texts: the question on ACTIONS, NOT ENOUGH MEMORY on SOURCE. The bottom hint line and
+  `performance_hint` are gone; a muted master shows as K8=0 in the top line.
+- Knobs: `knob()` draws one line per knob (`param_row`: bar, K-number, name at scale 2, value at scale 3 or 2) from
+  `knob_top`, 26 rows apart; `strip()` is the compact four-column line of SCENES, STEP and MIX. Both record the
+  name, the value and the rectangle for the simulator (`knob_note`); HOME records them without drawing. The
+  simulator page takes the rectangles from the firmware (action 0 targets) instead of a fixed strip.
+- Pages: docs/CONTROL-MAP.md section 20 is the specification of each layout. CLIP SETTING has four pages (the song's
+  lines split 8 + 3); `setup_row` and remote op 17 are unchanged.
+- 18 messages were shortened so that those met while playing take two lines (the list: CONTROL-MAP 20.3; Help and
+  the guide quote the new texts). `ct_diag_storage_lines` gives `USER n READY` and `FREE nK RECL nK`.
+- Repaint cost is unchanged in kind: bands of 16 rows, one per pass, deferred when a MIDI event is due.

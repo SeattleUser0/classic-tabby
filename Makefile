@@ -384,6 +384,8 @@ workbench-test:
 	$(T) $(NODE) tests/workbench/manual-structure.mjs
 	$(T) $(NODE) tests/workbench/help-banned.mjs
 	$(T) $(NODE) tests/workbench/guide.mjs
+	$(T) $(NODE) tools/linux/screens.mjs --check docs/manual/screens
+	$(T) $(PYTHON) -I tools/linux/notice-wrap.py
 	$(T) $(NODE) tests/workbench/rig-profile.mjs
 	$(T) $(NODE) tests/workbench/midi-guide.mjs
 	$(T) $(NODE) tests/workbench/update-ports.mjs

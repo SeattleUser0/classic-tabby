@@ -343,8 +343,8 @@ class Link:
         names = ["SCANNING", "READY", "OLD DATA", "ERASING", "ERROR", "COMPACTING"]
         return {"flash_size": size, "storage": names[s[4]] if s[4] < 6 else s[4], "playing": s[5], "loaded": s[6],
                 "free": free, "reclaim": recl,
-                "line1": "USER %s SONG %s" % (size if size else "0 INVALID", names[s[4]] if s[4] < 6 else "?"),
-                "line2": "FREE %dK  RECLAIM %dK" % (free // 1024, recl // 1024)}
+                "line1": "USER %s %s" % (size if size else "0 BAD", ["SCAN", "READY", "OLD DATA", "ERASING", "ERROR", "COMPACT"][s[4]] if s[4] < 6 else "?"),   # as tabby-v1.1 draws them
+                "line2": "FREE %dK RECL %dK" % (free // 1024, recl // 1024)}
 
     def play(self, song):
         """Start a song. v0.8: command 29 (tabby-v04.2 and later), else command 26 (diag builds)."""

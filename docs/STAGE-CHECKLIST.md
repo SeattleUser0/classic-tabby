@@ -1,6 +1,6 @@
 # Classic Tabby stage checklist
 
-Version 1.1 (2026-11-18). For tabby-v1.0.2 (v1.1: EVENT LEAD under "If the timing feels off"). One page: print it and keep it with the SMK-37. The same text is section 9 of
+Version 1.2 (2026-11-19). For tabby-v1.1 (v1.2: the words of the new screen; v1.1: EVENT LEAD under "If the timing feels off"). One page: print it and keep it with the SMK-37. The same text is section 9 of
 the manual (docs/TESTING-GUIDE.md, the manual PDF); tests/workbench/guide.mjs fails when the two differ. Section
 numbers in brackets are the manual's.
 
@@ -20,7 +20,7 @@ numbers in brackets are the manual's.
 ## What to check on the screen
 
 1. The boot screen shows SMK37, OFFICIAL OPEN and the version you rehearsed with.
-2. No line that says OLD DATA IN SONG STORAGE or SONG STORAGE ERROR. If one shows, do not erase anything at the venue: the songs may not load; use the backup plan you rehearsed.
+2. No OLD DATA or STORAGE ERROR in large amber letters on the SCENES or CLIPS page. If one shows, do not erase anything at the venue: the songs may not load; use the backup plan you rehearsed.
 3. Press SEQ: CLOCK says INT (K1), SEQ OUT says ON (K4). Press PATCH.
 4. Press BT, then SCALE: the SCENES page shows your song's number. Turn K5 if it is another song.
 5. Press SEQ and PARA together, choose SEND SETUP, press the > button: SETUP SENT - ROW 1 EVENTS. Every synth is now on its first sound.
@@ -41,7 +41,7 @@ numbers in brackets are the manual's.
 
 1. Press SEQ: CLOCK must say INT, unless you mean to follow another clock. With CLOCK on MIDI the SMK-37 waits for that clock.
 2. Use cables. Bluetooth MIDI adds delay.
-3. The SCENES page shows LATE when a scene's program changes did not finish before its bar. Give that scene fewer changes, or a pre-roll (5.2).
+3. The SCENES page shows LT and a number (LATE on CLIPS) when a scene's program changes did not finish before its bar. Give that scene fewer changes, or a pre-roll (5.2).
 4. On one DIN cable a scene's program changes pass ahead of its first notes. EVENT LEAD on CLIP SETTING (4.11) sends them before the downbeat; the sound then changes that much early. Decide this at rehearsal, not at the show.
 5. Many notes on one step leave a DIN cable one after the other, about 1 ms each. The H4MIDI on USB, one DIN output per synth, keeps them apart.
 6. Still off: switch the SMK-37 off and on. That puts every run-time switch back (A2 FAST MIDI is ON after power-up). Then SEND SETUP.

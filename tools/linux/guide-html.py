@@ -17,6 +17,7 @@ Purpose
       "T12. Title" line                 -> one test (h4, anchor t12)
       "- text" / "  - text"             -> bullets (one level of nesting)
       "N. text"                         -> numbered steps
+      "Pictures: name name | caption"   -> pictures of the screen, docs/manual/screens/<name>.png (v1.2)
       "Label: text" for Set up / You should see / You should hear / Result
                                         -> a labelled paragraph (Result gets a writing line)
       anything else                     -> a paragraph (consecutive lines join)
@@ -25,9 +26,11 @@ Purpose
     Run: python3 -I tools/linux/guide-html.py [--in docs/TESTING-GUIDE.md] --out <file>
     publish-pages.py calls it for every site it stages.
 
-Version: 1.1
+Version: 1.2
 
 Revision log
+    v1.2  2026-11-19  tabby-v1.1: "Pictures:" lines: the screen's pages as the firmware draws them
+                      (tools/linux/screens.mjs makes them from the simulator); --image-base.
     v1.1  2026-11-17  The top line links to the printable manual (classic-tabby-manual.pdf beside the page;
                       tools/linux/manual-pdf.py).
     v1.0  2026-11-10  Initial version (testing guide, tabby-v04.1.1).
@@ -66,9 +69,25 @@ nav.toc li{break-inside:avoid}
 .tag{display:inline-block;font-size:.75rem;line-height:1.3;padding:0 .45em;margin-left:.4em;border-radius:4px;color:var(--tag);background:var(--tagbg);white-space:nowrap}
 .result{margin:.5em 0 1em;padding-bottom:.2em;border-bottom:1px dashed var(--muted);min-height:2.4em}
 .meta{color:var(--muted);font-size:.92rem}
+figure.screens{margin:1em 0;break-inside:avoid}
+figure.screens img{image-rendering:pixelated;border:6px solid #111;border-radius:6px;margin:0 .5em .4em 0;max-width:30%;height:auto;vertical-align:top}
+figure.screens figcaption{color:var(--muted);font-size:.92rem}
 @media (max-width:560px){body{font-size:16px}nav.toc ol{columns:1}}
 @media print{body{background:#fff;color:#000;font-size:11pt}nav.top,nav.toc{display:none}h2{break-before:auto}h4{break-after:avoid}.result{break-inside:avoid}}
 """
+
+
+IMAGE_BASE = "screens/"
+
+
+def pictures(md):
+    """The picture names the guide text uses, in order, without repeats."""
+    out = []
+    for line in md.replace("\r\n", "\n").split("\n"):
+        if line.startswith("Pictures: "):
+            for n in line[len("Pictures: "):].partition(" | ")[0].split():
+                if n not in out: out.append(n)
+    return out
 
 
 def inline(text):
@@ -149,6 +168,16 @@ def render(md):
             body.append("<li>%s</li>" % inline(m.group(2)))
             i += 1
             continue
+        if line.startswith("Pictures: "):
+            # v1.2 (tabby-v1.1): "Pictures: home clips-playing | caption": pictures of the screen from
+            # docs/manual/screens/ (tools/linux/screens.mjs), side by side, with one caption.
+            para(buf); close_list()
+            names, _, caption = line[len("Pictures: "):].partition(" | ")
+            imgs = "".join('<img src="%s%s.png" width="216" height="216" alt="The screen: %s">' % (IMAGE_BASE, html.escape(n), html.escape(n.replace("-", " ")))
+                           for n in names.split())
+            body.append('<figure class="screens">%s<figcaption>%s</figcaption></figure>' % (imgs, inline(caption.strip())))
+            i += 1
+            continue
         lab = next((l for l in LABELS if line.startswith(l)), None)
         if lab:
             para(buf); close_list()
@@ -182,7 +211,10 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     parser.add_argument("--in", dest="src", default=str(ROOT / "docs/TESTING-GUIDE.md"))
     parser.add_argument("--out", required=True)
+    parser.add_argument("--image-base", default="screens/", help="where the page finds the pictures (the manual passes a file: address)")
     args = parser.parse_args(argv)
+    global IMAGE_BASE
+    IMAGE_BASE = args.image_base
     text = Path(args.src).read_text(encoding="utf-8")
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
