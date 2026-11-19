@@ -6402,3 +6402,25 @@ make midi-import-sim, so in the suite).
 | the guide v5.1, Help, SPEC 19.28 | what was wrong, who was affected |
 
 Measured: app image 490468 bytes (unchanged), margin 28989, heap 142412. Build `b3ecdffbabe49bf0`.
+
+### 62.4 tabby-v1.0.1 released: candidate 1 (2026-11-18)
+
+Suite green on cd7ebb4; builds/tabby-v1.0.1-rc1/ (build `b3ecdffbabe49bf0`), installed; every step passed at the first
+attempt (22 steps with the soak).
+
+| Step | Result |
+| --- | --- |
+| soak, the Wrong Room song, 120 minutes, 57 segments on six pages (run-soak v0.3) | 0 bad; in every segment sixteen scene entries with 17, 6, 17, 6 ... event messages on both ports, 136 program changes and 48 controllers; USB band 1.70 to 2.45 ms, largest single error 1.75 ms; DIN (one cable) 14.82 to 16.21 ms; no underrun, no stuck note |
+| run-takeedit / run-repeat / run-program / run-chain / run-scenechain / run-sceneedit / run-setup | 26 of 26 / 20 of 20 / 10 of 10 / 11 of 11 / 13 of 13 / 16 of 16 / 38 of 38 |
+| run-record / run-steps / run-launch twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.12 ms |
+| run-15, one line, three runs | DIN 1.87, 1.81, 1.77 ms; USB 1.90, 1.78, 1.98 ms; clock ratio 0.999580 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+The promotion stopped at its last push: "Could not resolve host: github.com" (the tag tabby-v1.0.1 was pushed, the
+pages commit 61f0131 was made but not sent). When the name resolved again: gh-pages fetched (nothing new there), that
+commit pushed with the tool's own command, `make release` run. Nothing was rebuilt. The NUC's steered clock ran
+between -50.2 and +59.1 ppm against its raw clock during the soak (bend up to 2.01 ms inside a segment).
+
+The release notes of tabby-v1.0 carry a correction of their soak claim and "use tabby-v1.0.1" at the top; its page
+has the note line.

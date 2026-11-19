@@ -36,4 +36,18 @@ On one DIN cable a scene's program changes pass ahead of its first notes (about 
 
 ## Validation
 
-Filled in after the candidate has passed on the device.
+Candidate 1 (builds/tabby-v1.0.1-rc1/) on the device, unattended, before the promotion; it passed at the first attempt.
+Every time below was taken against a clock the test computer does not correct.
+
+- **The two-hour soak**, the Wrong Room song looping, 120 minutes in 57 segments on six pages. **Every scene entry
+  sent its events:** 17 messages for scene 1 and 6 for scene 2, sixteen entries in every segment, on USB and on the DIN
+  cable; 136 program changes and 48 controllers in each of the 57 segments (tabby-v1.0: 68 to 136). Every note-on
+  and note-off arrived, no stuck note, no underrun. On USB each line's band was 1.70 to 2.45 ms, the largest single
+  error 1.75 ms. On the one DIN cable 14.8 to 16.2 ms, in the first notes after the loop point (behind the events).
+- Take edit 26 of 26, note repeat and step loop 20 of 20, program and knobs 10 of 10, clip chains 11 of 11, scene
+  chain 13 of 13, scene edit 16 of 16, CLIP SETTING 38 of 38, recording 25 of 25, STEP page 18 of 18, CLIPS page 40
+  of 40 twice, the timing song 960 of 960 notes on DIN and USB (worst 1.12 ms).
+- One line, 960 notes, three runs: DIN 1.87, 1.81, 1.77 ms; USB 1.90, 1.78, 1.98 ms.
+- Full backup, restore of that backup, verify: PASS (41 items), twice.
+- In the simulator, six passes of the song: 17 and 6 event messages at every entry (before the fix: 17 6 0 0 0 6 0 0 0 6 0 0).
+- Not checked by a machine: the screen fix of tabby-v1.0 (the KNOB BANK list) has been seen in the simulator only.

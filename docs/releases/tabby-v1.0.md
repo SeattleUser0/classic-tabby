@@ -1,3 +1,5 @@
+**Use tabby-v1.0.1.** Found after this release: in a song of two scenes that loops, this build skips most of the scenes' program changes after the first pass (tabby-v04.23 does too; older builds have the same code). The notes are not affected. tabby-v1.0.1 fixes it.
+
 The release for the stage: no new function, a full regression with a two-hour soak, one screen fix, and a one-page stage checklist. Reinstall to get it (Full backup first; storage does not move).
 
 # Classic Tabby tabby-v1.0
@@ -41,7 +43,9 @@ Every time below was taken against a clock the test computer does not correct.
 - **The two-hour soak:** the Wrong Room song (8 parts, 16 program changes, a bank select and 5 controllers in its two
   scenes, looping) for 121 minutes in 57 segments on six pages. No bad segment: every note-on, note-off, program
   change and controller arrived, the same on USB and on the DIN cable; no stuck note, no underrun. On USB each
-  line's band was 1.65 to 2.76 ms and the largest single error 2.13 ms. On the one DIN cable the band was 14.8 to
+  line's band was 1.65 to 2.76 ms and the largest single error 2.13 ms. **Correction:** "every ... program change
+  and controller arrived" was wrong. The check compared the two ports with each other; both lacked the same
+  messages. Between 68 and 136 of 136 program changes arrived in a segment (docs/BUILD.md 62). On the one DIN cable the band was 14.8 to
   15.8 ms, all of it in the first notes after the loop point (the limit described above).
 - **The one-hour soak** (on tabby-v04.23, the same code but for the screen fix): 70 minutes, 33 segments, one line
   and eight lines in turn on six pages, A2 on: one line 1.60 to 1.93 ms on DIN and 1.62 to 1.87 ms on USB; eight
