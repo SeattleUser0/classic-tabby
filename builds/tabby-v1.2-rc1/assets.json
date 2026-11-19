@@ -1,0 +1,55 @@
+{
+  "build": "965a711d666e271aa1981ff64615bc04b6602902903a0091f93342183b913615",
+  "release": "V01",
+  "version": "tabby-v1.2",
+  "entryBytes": 388535,
+  "initialBytes": 1445471,
+  "standaloneBytes": 3213835,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/cb1c5b195a48ef6d3eacd4f44af83be3609745c8920ddeae037681ef39ab70c4.bin",
+      "bytes": 528948,
+      "sha256": "cb1c5b195a48ef6d3eacd4f44af83be3609745c8920ddeae037681ef39ab70c4"
+    },
+    {
+      "name": "assets/smk37/2dcafc92c4d849842d2560ad6710bb671fa32492194bc49af0c9075386f26721.wasm",
+      "bytes": 371462,
+      "sha256": "2dcafc92c4d849842d2560ad6710bb671fa32492194bc49af0c9075386f26721"
+    },
+    {
+      "name": "assets/smk37/4a7d8f0e04e114d0c0ea511a0b6851b289619021b1b5e20a2c631759a949aa4c.js",
+      "bytes": 613055,
+      "sha256": "4a7d8f0e04e114d0c0ea511a0b6851b289619021b1b5e20a2c631759a949aa4c"
+    },
+    {
+      "name": "assets/smk37/4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b.js",
+      "bytes": 71912,
+      "sha256": "4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 388754,
+      "sha256": "115b46140817b15ea9ddb2f7771e08fa90b040da5e95aa7b3b36fd8c7d18c979"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 388754,
+      "sha256": "115b46140817b15ea9ddb2f7771e08fa90b040da5e95aa7b3b36fd8c7d18c979"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3213835,
+      "sha256": "3e0ee65eb03ace23e3cf07c42cd4f491f7e2ca6a1e852913409a95999ef01fea"
+    }
+  ]
+}
