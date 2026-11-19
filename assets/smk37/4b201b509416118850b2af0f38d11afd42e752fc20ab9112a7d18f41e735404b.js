@@ -557,11 +557,8 @@
     const changed=contextChanged||lcdScreen?.context!==screen.context;
     lcdScreen=screen;
     if(changed&&lcdDialog.open)closeLcd();
-    const items=screen.targets.slice();
-    for(let col=0;col<4;col++)if(screen.mask&(1<<col)){
-      const [label,value]=screen.knobs[col];
-      items.push({rect:[6+59*col,195,54,32],action:0,index:col,owner:state[0],label,value,knob:col});
-    }
+    // tabby-v1.1: the firmware says where each knob's line is (action 0 targets); no fixed strip any more
+    const items=screen.targets.map(item=>item.action===0&&(screen.mask&(1<<item.index))?{...item,knob:item.index}:item);
     lcdItems=new Map(items.map(item=>[lcdId(item),item]));
     if(lcdDialog.open){if(lcdItems.has(lcdEditing))lcdValue();else closeLcd();}
     const lengths=state[1]===0?state.subarray(209,217).join(','):state[209+state[0]];
@@ -578,7 +575,7 @@
       // Task 12 A2: the overview's step cells and page 1's step grid left with the step editor;
       // page 1 is SYNC / MIDI now. Only the track rows of the overview stay clickable.
       if(state[1]===0){
-        for(let t=0;t<8;t++)target(5,48+t*18,72,16,'Track '+(t+1),()=>select(t,6));
+        for(let t=0;t<8;t++)target(0,53+t*23,190,22,'Track '+(t+1),()=>select(t,6));
       }
       for(const item of items){
         const id=lcdId(item),button=target(...item.rect,item.label,()=>editLcd(id,button));
