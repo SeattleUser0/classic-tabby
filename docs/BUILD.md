@@ -6566,3 +6566,21 @@ What went wrong on the way:
 
 Measured before the device run: app image 486724 bytes (4032 smaller), margin 32733, heap 143436 (+1024).
 make test-fast green; lint: no finding in app/screen.c that was not there before.
+
+### 64.1 tabby-v1.1 released: candidate 1 (2026-11-19)
+
+Commit 4b8fc6c, build `f0bd5047ca742907`; suite green on that commit; one install from builds/tabby-v1.1-rc1/ after
+a full backup; every step of rc-validate.py v0.11 passed; promoted by the flow.
+
+| Timing, worst line, ms (DIN / USB) | one line | eight lines |
+| --- | --- | --- |
+| Overview | 1.85, 1.70, 1.74 / 1.72, 1.84, 1.76 | 2.38 / 2.43 |
+| CLIPS | 1.80 / 1.74 | 2.35 / 2.45 |
+| SCENES | 1.78 / 1.61 | 2.71 / 2.66 |
+| SYNC / MIDI | 1.81 / 1.69 | |
+| ACTIONS | 1.76 / 1.67 | |
+| Mixer | 1.75 / 1.61 | |
+
+Soaks, 40 minutes each, 19 segments, none bad: EVENT LEAD OFF: DIN band 14.83 to 15.65 ms, USB 1.68 to 1.96 ms;
+EVENT LEAD 1/16: DIN 1.83 to 2.78 ms, USB 1.66 to 2.52 ms. Backup, restore, verify PASS (41 items); the panel state
+as found. What no test here can say: whether the screen reads well on the unit (guide T97, for the user).

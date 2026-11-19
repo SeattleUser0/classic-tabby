@@ -47,4 +47,36 @@ Up to tabby-v1.0.2 almost all text was the 5x7 font at scale 1 (5 x 7 pixels a c
 
 ## Validation
 
-The device run's results are added here after the promotion.
+Candidate 1 (builds/tabby-v1.1-rc1/) on the device, unattended, before the promotion. Every time below was taken
+against a clock the test computer does not correct.
+
+| One-line song, 960 notes, worst line | DIN ms | USB ms |
+| --- | ---: | ---: |
+| Overview (three runs) | 1.85, 1.70, 1.74 | 1.72, 1.84, 1.76 |
+| CLIPS | 1.80 | 1.74 |
+| SCENES | 1.78 | 1.61 |
+| SYNC / MIDI | 1.81 | 1.69 |
+| ACTIONS | 1.76 | 1.67 |
+| Mixer | 1.75 | 1.61 |
+
+| Eight-line song, worst line | DIN ms | USB ms |
+| --- | ---: | ---: |
+| Overview | 2.38 | 2.43 |
+| CLIPS | 2.35 | 2.45 |
+| SCENES | 2.71 | 2.66 |
+
+- **One line stays under 2 ms on every page** (tabby-v1.0.2, overview: DIN 1.74 to 1.94, USB 1.70 to 1.78). Eight
+  lines are where they were (2.2 to 3.1 ms from tabby-v04.4 to tabby-v1.0).
+- **Soak with EVENT LEAD OFF**, the Wrong Room song looping, 40 minutes, 19 segments on six pages, none bad: every
+  scene entry sent its events; USB band 1.68 to 1.96 ms; on the one DIN cable 14.83 to 15.65 ms, the first notes
+  after the loop point behind the events, as on tabby-v1.0.1 and tabby-v1.0.2.
+- **Soak with EVENT LEAD 1/16**, 40 minutes, 19 segments, none bad: DIN band 1.83 to 2.78 ms, USB 1.66 to 2.52 ms;
+  left out of the band as before, the very first note at SEQ PLAY (14.39 ms on DIN).
+- CLIP SETTING 40 of 40, take edit 26 of 26, note repeat and step loop 20 of 20, program and knobs 10 of 10, clip
+  chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16, recording 25 of 25, STEP page 18 of 18, CLIPS page 40
+  of 40 twice, the timing song 960 of 960 notes (worst 1.19 ms on DIN, 1.08 ms on USB).
+- Full backup, restore of that backup, verify: PASS (41 items). The panel was left as it was found (mutes, focus,
+  ARP switches, CLOCK, A2: read after every test).
+- Not tested by a person: how the screen reads from arm's length in the dark. The device tests read the firmware's
+  state over the remote commands, not the pixels; the pixels were checked in the simulator, which runs the same
+  screen code (28 pages, pictures in the manual). Test T97 of the guide is the check on the unit.
