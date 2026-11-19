@@ -1151,6 +1151,7 @@ static unsigned natural_next(unsigned row)
     if (row + 1U < record.rows) return row + 1U;
     return (record.flags & SONG_FLAG_LOOP) ? record.loop_row : SONG_NONE;
 }
+static unsigned event_lead_blocks(void);   /* tabby-v1.0.2, below with the song's settings */
 /* A gap event in blocks, from milliseconds (9.11). */
 static unsigned gap_blocks(unsigned ms)
 { return (ms * FM1_SAMPLE_RATE + 1000U * FM1_BLOCK_FRAMES - 1U) / (1000U * FM1_BLOCK_FRAMES); }
@@ -1259,6 +1260,7 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
     }
     b->lead = 0;
     b->event_count = place_row ? 0 : (uint8_t)slice_events(row, groove_midi_song_track_channel(t), b->event, &b->lead);
+    if (b->event_count) b->lead = (uint16_t)(b->lead + event_lead_blocks());   /* tabby-v1.0.2 */
     barrier();
     b->ready = 1;
 }
@@ -1268,6 +1270,10 @@ static void decode_rowinfo(struct rowinfo *b, unsigned row)
     b->row = (uint8_t)row; b->steps = r->steps ? r->steps : SONG_BLOCK_STEPS;
     b->repeat = r->repeat; b->loop_here = (r->flags & SONG_ROW_FLAG_LOOP_HERE) != 0;
     b->event_count = (uint8_t)slice_events(row, 16, b->event, &b->lead);
+    /* tabby-v1.0.2: the stream starts the song's event lead earlier still, so that its last message has left that
+     * long before the downbeat and the row's first notes do not wait behind the events on a shared cable. The gaps
+     * are counted as before, from the message they follow. */
+    if (b->event_count) b->lead = (uint16_t)(b->lead + event_lead_blocks());
     barrier();
     b->ready = 1;
 }
@@ -1429,13 +1435,23 @@ unsigned song_setting(unsigned which)
         static const uint8_t first[4] = {74, 71, 1, 11};
         unsigned k = which - SONG_SET_KNOB1, s = loaded != SONG_NONE ? record.reserved2[k] : 0;
         return s >= 1 && s <= 128 ? s - 1U : first[k]; }
+    case SONG_SET_EVENT_LEAD: return loaded != SONG_NONE && r[4] <= 4 ? r[4] : 0U;
     default: return 0;
     }
+}
+/* tabby-v1.0.2: the song's event lead in audio blocks at the tempo the song plays at (control task, when a row or a
+ * track's slice is decoded): 0, a 32nd, a 16th, an 8th or a quarter note. */
+static unsigned event_lead_blocks(void)
+{
+    static const uint16_t units[5] = {0, UNITS / 2, UNITS, 2 * UNITS, 4 * UNITS};
+    unsigned tempo = tempo_override ? tempo_override : groove_tempo_current();
+    if (tempo < 30) tempo = 120;
+    return (unsigned)((uint32_t)units[song_setting(SONG_SET_EVENT_LEAD)] * ADV_DIV / (tempo * ADV_MUL));
 }
 int song_setting_edit(unsigned which, int delta)
 {
     if (loaded == SONG_NONE || which >= SONG_SETTINGS || !delta) return SONG_INVALID;
-    static const uint8_t max[SONG_SETTINGS] = {3, 2, 2, 15, 127, 2, 127, 127, 127, 127}, min[SONG_SETTINGS] = {0, 0, 0, 0, 1};
+    static const uint8_t max[SONG_SETTINGS] = {3, 2, 2, 15, 127, 2, 127, 127, 127, 127, 4}, min[SONG_SETTINGS] = {0, 0, 0, 0, 1};
     uint8_t *r = record.reserved;
     int now = (int)song_setting(which);
     if (which == SONG_SET_COUNT_IN && now == 4) now = 3;
@@ -1446,6 +1462,7 @@ int song_setting_edit(unsigned which, int delta)
     else if (which == SONG_SET_CLICK_OUT) r[1] = (uint8_t)((r[1] & ~0x0cU) | (unsigned)v << 2);
     else if (which == SONG_SET_CLICK_CH) r[2] = (uint8_t)(v + 1);
     else if (which == SONG_SET_CLICK_LEVEL) r[1] = (uint8_t)((r[1] & 0x3fU) | (v == 0 ? 0x40U : v == 2 ? 0x80U : 0U));
+    else if (which == SONG_SET_EVENT_LEAD) r[4] = (uint8_t)v;
     else if (which >= SONG_SET_KNOB1) record.reserved2[which - SONG_SET_KNOB1] = (uint8_t)(v + 1);
     else r[3] = (uint8_t)v;
     click_apply(); song_changed();

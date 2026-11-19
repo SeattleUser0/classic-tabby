@@ -1,0 +1,6 @@
+{
+ "comment": "tests/workbench/wrong-room-loop-sim.mjs --reference, on a simulator built from the tag tabby-v1.0.1: the SHA-256 over every message of port 0 in 6 passes of the looping Wrong Room song (block number as 3 bytes, length, bytes), and the number of messages without the clock bytes.",
+ "passes": 6,
+ "sha256": "f2651bb6dbf247c6ccc8309ec6dc23a27ae34f41816682169ed0ac5c40e685ea",
+ "messages": 3237
+}

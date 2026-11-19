@@ -19,9 +19,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.12
+Version: 0.13
 
 Revision log
+    v0.13 2026-11-18  tabby-v1.0.2: the line EVENT LEAD (skipped on firmware that does not report it).
     v0.12 2026-11-18  tabby-v04.20: DIRECTION REVERSE heard on MIDI out.
     v0.11 2026-11-17  tabby-v04.19: STEP SIZE 1/8 heard on MIDI out.
     v0.10 2026-11-17  tabby-v04.17: SHUFFLE and PLAY QUANTIZE heard on MIDI out (a second note 150 units late on step 2);
@@ -90,7 +91,7 @@ def main():
     def row(n):
         s = l.setup_state()
         if n >= 8:
-            n += s["rows"] - 18          # v0.7: the song's lines are the last ten; lines added to the clip's page move them
+            n += s["rows"] - 8 - s.get("song_lines", 10)   # v0.7: the song's lines are the last ten (eleven from tabby-v1.0.2); lines added to the clip's page move them
         if n != s["row"]:
             l.knob(K5, n - s["row"]); idle(0.2)
 
@@ -273,7 +274,7 @@ def main():
                     check(u7["direction"] == 0, "DIRECTION back to FORWARD", u7["direction"])
                 l.edit_save(); idle(0.6)
                 l.press("FX"); idle(0.4)
-            D = l.setup_state()["rows"] - 11                                           # v0.10: DELETE CLIP is the last line before the song's ten
+            _s = l.setup_state(); D = _s["rows"] - 1 - _s.get("song_lines", 10)        # v0.10: DELETE CLIP is the last line before the song's lines
             l.knob(K5, D - l.setup_state()["row"]); idle(0.3)                          # DELETE CLIP
             l.setup_do(); idle(0.4); l.press("FX"); idle(0.3); c1 = l.clips_state()
             l.press("FX"); idle(0.4); l.knob(K5, D - l.setup_state()["row"]); idle(2.4)   # more than two seconds after the first press
@@ -397,6 +398,15 @@ def main():
             l.knob(K1, 1 if v < 74 else -1) if abs(v - 74) < 16 else l.knob(K2, 1 if v < 74 else -1)
             idle(0.06)
         check(l.setup_state()["knobs"] == [74, 71, 1, 11], "the controllers are 74, 71, 1 and 11 again", l.setup_state()["knobs"])
+        # v0.13 (tabby-v1.0.2): EVENT LEAD, the last line of the song's page (row 18 as this tool counts the song's lines from 8)
+        u = l.setup_state()
+        if u.get("event_lead") is not None:
+            row(18); u = l.setup_state(); lead0 = u["event_lead"]
+            check(u["row"] == u["rows"] - 1 and lead0 == 0, "the last line is EVENT LEAD; the test song never set it: OFF", (u["row"], u["rows"], lead0))
+            l.knob(K1, 2); idle(0.3); two = l.setup_state()["event_lead"]
+            l.knob(K1, 9); idle(0.3); top = l.setup_state()["event_lead"]
+            l.knob(K1, -9); idle(0.3); back = l.setup_state()["event_lead"]
+            check(two == 2 and top == 4 and back == 0, "K1: OFF, 1/32, 1/16 (two clicks), up to 1/4 and no further, and back to OFF", (two, top, back))
         l.press("FX"); idle(0.3)
         # ---- everything off again, and saved ----
         l.press("FX"); idle(0.4)

@@ -1,8 +1,8 @@
 {
- "guide_sha256": "2ab32ccec21ddebb7dc7099d5471c88c7f8cbba25528838ce0a7c6c687bc8a82",
- "bytes": 898606,
+ "guide_sha256": "fc7e86ed5d907c0d23ce08d9ed2ece8a2be18565c250584373780773a237c4f2",
+ "bytes": 910302,
  "pages": 55,
  "paper": "US Letter",
- "for": "tabby-v1.0.1",
+ "for": "tabby-v1.0.2",
  "tool": "tools/linux/manual-pdf.py v0.1"
 }

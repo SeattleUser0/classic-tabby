@@ -20,9 +20,13 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-soak.py --minutes 65 --tag soak-v0423 --out DIR
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-18  tabby-v1.0.2 (EVENT LEAD): --events-ahead-ms N: on both ports every scene entry after the first must
+                      have sent its last event message at least N ms before the next note-on, with no note-on inside
+                      the burst; --skip-first-note: the first note of a line (at SEQ PLAY, where the first scene's
+                      events have no lead) is left out of the DIN band.
     v0.3  2026-11-18  --row-events 17,6 --row-seconds 8: the song's scenes send that many event messages at each entry,
                       that far apart: every entry inside the segment must have its burst, of that size, on both
                       ports. v0.2 only compared the ports with each other, and so passed a two-hour soak in which
@@ -54,6 +58,8 @@ def main():
     p.add_argument("--din-band-limit", type=float, default=0.0, help="ms; v0.2: its own limit for the DIN port (0: as the other limits)")
     p.add_argument("--events", action="store_true", help="v0.2: the song has row events: program changes and controllers must be seen in every segment")
     p.add_argument("--row-events", default="", help="v0.3: event messages per scene entry, in the order of the scenes, e.g. 17,6")
+    p.add_argument("--events-ahead-ms", type=float, default=0.0, help="v0.4: every scene entry's last event at least this long before the next note-on (0: not checked)")
+    p.add_argument("--skip-first-note", action="store_true", help="v0.4: leave each line's first note out of the DIN band")
     p.add_argument("--row-seconds", type=float, default=8.0, help="v0.3: seconds from one scene entry to the next")
     p.add_argument("--tag", default="soak")
     p.add_argument("--out", required=True)
@@ -76,6 +82,9 @@ def main():
             for port in ("din", "usb"):
                 q = s[port]
                 errs = [abs(e) for v in q["lines"].values() for e in v.get("errors_ms", [])]
+                if a.skip_first_note and port == "din":
+                    bands = [max(v["errors_ms"][1:]) - min(v["errors_ms"][1:]) for v in q["lines"].values() if len(v.get("errors_ms", [])) > 2]
+                    if bands: q["band_min_ms"], q["band_max_ms"] = min(bands), max(bands)
                 row[port] = {"notes": q["notes"], "lines": len(q["lines"]), "band_min_ms": round(q.get("band_min_ms", 0), 2), "band_max_ms": round(q.get("band_max_ms", 99), 2),
                              "all_lines_band_ms": round(q.get("all_lines_band_ms", q.get("band_max_ms", 99)), 2), "worst_error_ms": round(max(errs, default=99.0), 2),
                              "stuck": q["stuck"], "clock_ratio": q.get("clock_ratio")}
@@ -87,12 +96,14 @@ def main():
             row["shown_page"] = s.get("page")
             bad = []
             import csv, collections
-            cnt = collections.Counter(); ev_t = {"din": [], "usb": []}
+            cnt = collections.Counter(); ev_t = {"din": [], "usb": []}; on_t = {"din": [], "usb": []}
             with open(os.path.join(a.out, tag + "-din-usb.csv"), newline="") as f:
                 for q in csv.DictReader(f):
                     cnt[(q["port"], q["kind"])] += 1
                     if q["kind"] in ("program", "cc"):
                         ev_t[q["port"]].append(float(q["t_ms"]))
+                    elif q["kind"] == "note_on":
+                        on_t[q["port"]].append(float(q["t_ms"]))
             if a.row_events:
                 want = [int(x) for x in a.row_events.split(",")]
                 for port in ("din", "usb"):
@@ -108,6 +119,14 @@ def main():
                     if wrong: bad.append("%s: scene entry %d sent %d event messages, %d expected" % (port, wrong[0] + 1, sizes[wrong[0]], want[wrong[0] % len(want)]))
                     if holes: bad.append("%s: %d scene entr%s without events (%.1f s between bursts)" % (port, len(holes), "y" if len(holes) == 1 else "ies", holes[0]))
                     if len(sizes) < int(a.seconds / a.row_seconds) - 1: bad.append("%s: only %d bursts" % (port, len(sizes)))
+                    if a.events_ahead_ms:
+                        import bisect
+                        ahead = []
+                        for b_ in bursts[1:]:
+                            i_ = bisect.bisect_left(on_t[port], b_[0])
+                            if i_ < len(on_t[port]): ahead.append(on_t[port][i_] - b_[-1])
+                        row.setdefault("ahead_ms", {})[port] = [round(min(ahead), 1), round(max(ahead), 1)] if ahead else None
+                        if not ahead or min(ahead) < a.events_ahead_ms: bad.append("%s: a scene's events ended %.1f ms before its first note (%.0f wanted)" % (port, min(ahead) if ahead else -1, a.events_ahead_ms))
             row["events"] = {k: [cnt[("din", k)], cnt[("usb", k)]] for k in ("note_on", "note_off", "program", "cc")}
             for k, (d_, u_) in row["events"].items():
                 if d_ != u_: bad.append("%s: %d on DIN, %d on USB" % (k, d_, u_))

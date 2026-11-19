@@ -26,9 +26,15 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.8
+Version: 0.10
 
 Revision log
+    v0.10 2026-11-18  The panel state (mutes, focus, ARP switches, CLOCK, A2) is read before the tests, after each one and at the
+                      end (panel-state.py); a step that leaves it changed fails and the mutes are put back. After the
+                      tabby-v1.0.1 run the device was found with track 1 muted and nothing had noticed.
+    v0.9  2026-11-18  tabby-v1.0.2: --soak-lead-minutes: a second soak, the Wrong Room song with EVENT LEAD 1/16 (the step
+                      `soak-lead`): every scene entry's events at least 80 ms before its first note, the DIN band by the
+                      limit of the other lines (the first note at SEQ PLAY left out).
     v0.8  2026-11-18  tabby-v1.0.1: the soak requires every scene entry's events (run-soak.py v0.3: --row-events 17,6).
     v0.7  2026-11-18  tabby-v1.0: --soak-minutes N adds the step `soak` before the last backup: the Wrong Room song
                       (tests/midi-import/fixtures/wrong-room-all.mid with the rig profile, looping; tools/linux/hw/rig-song.mjs)
@@ -81,6 +87,7 @@ def main():
     p.add_argument("--backup-url", default=PAGES, help="the page of the firmware now on the device (default: the main page)")
     p.add_argument("--backups", default=str(ROOT.parent / "overnight/backups"))
     p.add_argument("--soak-minutes", type=float, default=0.0, help="v0.7: the Wrong Room soak, in minutes (0: no soak)")
+    p.add_argument("--soak-lead-minutes", type=float, default=0.0, help="v0.9: the Wrong Room soak with EVENT LEAD 1/16, in minutes")
     p.add_argument("--expected", default=str(ROOT.parent / "overnight/g6/exp-v046-s13-timing-1x16.json"))
     a = p.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -149,6 +156,21 @@ def main():
     ok, j = song()
     step("song", ok, "the test song is in slot 7 (%s blocks, %s rows)" % (j.get("blocks"), j.get("rows")))
 
+    # v0.10: the panel state a test must leave as it found it (tools/linux/hw/panel-state.py): read before the tests,
+    # after every test and at the end; the step that changed it fails, and the mutes are put back.
+    base = {}
+    def state(after):
+        code, o = sh([py, str(HW / "panel-state.py")] + (["--baseline", json.dumps(base), "--restore-mutes"] if base else []), 120, log)
+        now = last_json(o)
+        if not base:
+            base.update(now); return True
+        diff = {k: (base.get(k), now.get(k)) for k in ("mutes", "focus", "arp", "repeat", "clock", "a2") if base.get(k) != now.get(k) and not now.get("restored")}
+        if now.get("restored"):
+            diff["mutes"] = "tracks %s were left muted (unmuted again)" % now["restored"]
+        if diff:
+            step("state-after-" + after, False, "the panel was not left as it was found: %s" % json.dumps(diff))
+        return not diff
+    state("")
     def test(name, tool, extra=(), timeout=700, rewrite=True, pattern=r"^(PASS|FAIL) .*checks passed.*$"):
         code, o = sh([py, str(HW / tool), "--song", "7", "--out", str(out), *extra], timeout, log)
         m = re.findall(pattern, o, re.M)
@@ -156,6 +178,7 @@ def main():
         fails = [l for l in o.splitlines() if l.startswith("FAIL")]
         good = code == 0 and lines and not fails
         step(name, good, (lines[-1] if lines else "no summary line") + ("; " + " | ".join(fails[:3]) if fails else ""))
+        state(name)
         if rewrite:
             song()
     if ok:
@@ -190,22 +213,29 @@ def main():
         song()
 
     # v0.7: the soak with the Wrong Room song (slot 6 on the screen, index 5; only if that slot is empty)
-    if a.soak_minutes > 0:
+    # v0.9: twice: with EVENT LEAD OFF (as every song has it that never set it) and with EVENT LEAD 1/16
+    for name, minutes, lead, extra in (("soak", a.soak_minutes, 0, ["--din-band-limit", "20"]),
+                                       ("soak-lead", a.soak_lead_minutes, 2, ["--events-ahead-ms", "80", "--skip-first-note"])):
+        if minutes <= 0:
+            continue
         link = "import sys; sys.path.insert(0, %r); import tabby_link as T, time; l = T.Link(); time.sleep(0.3)\n" % str(HW)
         c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
-        songfile = str(out / "wrong-room-song.json")
+        songfile = str(out / ("wrong-room-song-lead%d.json" % lead))
         c1 = 1
         if "EMPTY" in o0:
-            r = subprocess.run(["node", str(HW / "rig-song.mjs"), str(ROOT / "tests/midi-import/fixtures/wrong-room-all.mid"), "--loop"], cwd=str(ROOT), capture_output=True, text=True)
+            r = subprocess.run(["node", str(HW / "rig-song.mjs"), str(ROOT / "tests/midi-import/fixtures/wrong-room-all.mid"), "--loop", "--event-lead", str(lead)], cwd=str(ROOT), capture_output=True, text=True)
             Path(songfile).write_text(r.stdout)
             c1, o1 = sh(W + ["song", "--url", url, "--song-json", songfile, "--slot", "5", "--log", wb_log], 600, log)
         if c1 == 0:
-            c2, o2 = sh([py, str(HW / "run-soak.py"), "--minutes", str(a.soak_minutes), "--songs", "6:8", "--seconds", "125", "--events", "--row-events", "17,6", "--row-seconds", "8", "--din-band-limit", "20", "--tag", rc_tag + "-wrongroom", "--out", str(out)], int(a.soak_minutes * 60 + 900), log)
-            tail = [l for l in o2.splitlines() if l.startswith(rc_tag + "-wrongroom:") or "lines," in l or l.startswith("BAD")]
+            tag = rc_tag + ("-wrongroom" if not lead else "-wrongroom-lead")
+            c2, o2 = sh([py, str(HW / "run-soak.py"), "--minutes", str(minutes), "--songs", "6:8", "--seconds", "125", "--events", "--row-events", "17,6", "--row-seconds", "8",
+                         *extra, "--tag", tag, "--out", str(out)], int(minutes * 60 + 900), log)
+            tail = [l for l in o2.splitlines() if l.startswith(tag + ":") or "lines," in l or l.startswith("BAD")]
             sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
-            step("soak", c2 == 0, " | ".join(tail[:4]) or o2[-300:])
+            step(name, c2 == 0, ("EVENT LEAD %s: " % ("1/16" if lead else "OFF")) + (" | ".join(tail[:4]) or o2[-300:]))
         else:
-            step("soak", False, "song slot 6 is not empty, or the Wrong Room song could not be written: %s" % (o0.strip()[-80:]))
+            step(name, False, "song slot 6 is not empty, or the Wrong Room song could not be written: %s" % (o0.strip()[-80:]))
+        state(name)
         song()
 
     # backup, restore, verify through the release candidate's page
@@ -221,6 +251,8 @@ def main():
     code, o = sh(W + ["verify", "--url", url, "--file", after, "--log", wb_log], 1200, log)
     j = last_json(o)
     step("verify", code == 0 and j.get("pass") is True, j.get("message") or j.get("error") or o[-200:])
+    if state("verify"):
+        step("state", True, "the panel is as it was before the tests: mutes %s, focus, ARP switches, CLOCK, A2" % ",".join(m[0] for m in base.get("mutes", [])))
 
     failed = [s["step"] for s in results["steps"] if not s["pass"]]
     results["finished"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())

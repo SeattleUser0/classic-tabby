@@ -42,9 +42,11 @@
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.13
+ * Version: 0.14
  *
  * Revision log
+ *   v0.14 2026-11-18  tabby-v1.0.2: the song's event lead (header byte 47, song.eventLead: 0 OFF, 1 a 32nd, 2 a 16th, 3 an
+ *                     8th, 4 a quarter note) is kept as read and written when set.
  *   v0.13 2026-11-17  tabby-v04.20: a clip's direction (header byte 14, high four bits) is kept.
  *   v0.12 2026-11-17  tabby-v04.19: a clip's scale (header byte 14) is kept.
  *   v0.11 2026-11-17  tabby-v04.17: a clip's shuffle and playback quantize (header bytes 13, 15) are kept.
@@ -292,6 +294,7 @@
     r[42] = song.loopRow;
     /* v0.3: per-track output channel bytes, 0 = device setting, 1..16 = MIDI channel. */
     for (let t = 0; t < 8; t++) r[LIMITS.channelsOffset + t] = song.outChannels[t] === null ? 0 : song.outChannels[t] + 1;
+    if (song.eventLead) r[47] = song.eventLead & 7;     /* v0.14: the event lead (tabby-v1.0.2); the firmware reads it in a record of any version */
     if (scenes) {
       /* Version 3: the clip table at 64 (8 tracks x 64 places, a block id each), the scenes at 1088 (12 bytes: a clip
        * place + 1 per track, repeat, flags, steps, 0), the master cycle in byte 43 (0 = 16 steps). */
@@ -343,6 +346,7 @@
     if (r[37] & ~7) fail('song record flags byte ' + r[37] + ' invalid');
     song.projectSlot = r[36]; song.loop = !!(r[37] & 1); song.jumpMode = r[37] & 2 ? 'row' : 'bar'; song.swing = !!(r[37] & 4);
     song.tempo = v.getUint16(38, true); song.loopRow = r[42];
+    if (r[47] >= 1 && r[47] <= 4) song.eventLead = r[47];   /* v0.14: the event lead (tabby-v1.0.2) */
     if (song.tempo && (song.tempo < LIMITS.tempoMin || song.tempo > LIMITS.tempoMax)) fail('song record tempo override ' + song.tempo + ' invalid (0 or 30..300)');   /* (f): as the device */
     song.outChannels = Array.from(r.subarray(LIMITS.channelsOffset, LIMITS.channelsOffset + 8), (c, t) => {
       if (c > 16) fail('song record track ' + (t + 1) + ' output channel byte ' + c + ' invalid (0..16)');
@@ -478,6 +482,7 @@
     for (const id of ids.keys()) if (!used.has(id)) warn('block ' + id + ' is stored but no row uses it');
     validateEvents(song.events || [], (song.rows || []).length).forEach(err);   /* 9.11 */
     if (song.recordVersion !== undefined && song.recordVersion !== 3) err('record version must be 3 (scenes) or left out');
+    if (song.eventLead !== undefined && !(Number.isInteger(song.eventLead) && song.eventLead >= 0 && song.eventLead <= 4)) err('the event lead must be 0..4');
     if (song.cycleSteps !== undefined && !(Number.isInteger(song.cycleSteps) && song.cycleSteps >= 2 && song.cycleSteps <= 128)) err('the master cycle must be 2..128 steps');
     if (song.recordVersion === 3 && !errors.length) { try { clipTable(song); } catch (e) { err(e.message); } }
     const u = errors.length ? null : usage(song);

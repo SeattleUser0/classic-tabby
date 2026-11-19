@@ -9,11 +9,12 @@
 //   OUT CH from the file, the rig's programs and gaps in the row events. It prints the song as JSON for
 //   tools/linux/hw/workbench.mjs song --song-json FILE, with a summary on stderr.
 //
-//   node tools/linux/hw/rig-song.mjs FILE.mid [--profile web/rig/profiles/wrong-room.json] [--loop] [--name NAME] > song.json
+//   node tools/linux/hw/rig-song.mjs FILE.mid [--profile web/rig/profiles/wrong-room.json] [--loop] [--name NAME] [--event-lead 0..4] > song.json
 //
-// Version: 0.1
+// Version: 0.2
 //
 // Revision log
+//   v0.2  2026-11-18  --event-lead (tabby-v1.0.2).
 //   v0.1  2026-11-18  First version (tabby-v1.0).
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -32,10 +33,11 @@ const [rig] = Rig.rigBuiltins([JSON.parse(readFileSync(opt('profile') || join(ro
 const analysis = Song.analyze(Midi.parse(new Uint8Array(readFileSync(file))));
 const result = Song.convert(analysis, { fileName: basename(file), rig, library, name: opt('name') || 'WRONG ROOM', projectSlot: 0, loop: argv.includes('--loop') });
 const song = { ...result.song, events: Rig.applyGaps(result.song.events, rig, library) };
+if (opt('event-lead')) song.eventLead = Number(opt('event-lead'));   /* v0.2: 0 OFF, 1 a 32nd, 2 a 16th, 3 an 8th, 4 a quarter (tabby-v1.0.2) */
 const v = Format.validate(song);
 if (!v.ok) { console.error('the song is not valid: ' + JSON.stringify(v)); process.exit(1); }
 const kinds = ['program change', 'bank + program', 'controller', 'gap'];
-console.error(JSON.stringify({ file: basename(file), rig: rig.name, rows: song.rows.length, rowSteps: song.rows.map(r => r.steps), blocks: song.blocks.length, loop: song.loop, tempo: song.tempo,
+console.error(JSON.stringify({ file: basename(file), rig: rig.name, rows: song.rows.length, rowSteps: song.rows.map(r => r.steps), blocks: song.blocks.length, loop: song.loop, tempo: song.tempo, eventLead: song.eventLead || 0,
   outChannels: song.outChannels.map(c => c + 1), notes: song.blocks.reduce((n, b) => n + b.notes.length, 0),
   events: song.events.length, eventKinds: Object.fromEntries(kinds.map((k, i) => [k, song.events.filter(e => e.type === i).length])), warnings: result.warnings.filter(w => w.severity === 'warn').map(w => w.text || w.message) }));
 console.log(JSON.stringify(song));

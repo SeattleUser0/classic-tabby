@@ -25,9 +25,10 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.23
+Version: 0.24
 
 Revision log
+    v0.24 2026-11-18  tabby-v1.0.2: setup_state() reports the song's event lead and how many lines the song's page has.
     v0.23 2026-11-18  Every receive time (the device's USB port and the DIN monitor) is put on a clock this computer does
                       not correct: the kernel stamps with CLOCK_MONOTONIC, which the time service slews (up to -365 ppm
                       on 2026-11-18, 46 ms in two minutes: the 9.9 ms of tabby-v04.23-rc1, docs/BUILD.md 60); steady()
@@ -469,7 +470,9 @@ class Link:
                 # v0.21 (tabby-v04.19): the open clip's scale (0 a 16th, 1 an 8th, 2 a 32nd, 3 a 16th triplet, 4 an 8th triplet)
                 "scale": d[36] & 15 if len(d) > 36 else None,
                 # v0.22 (tabby-v04.20): the open clip's direction (0 forwards, 1 backwards, 2 forwards then backwards); None before tabby-v04.20
-                "direction": d[36] >> 4 if len(d) > 37 else None}
+                "direction": d[36] >> 4 if len(d) > 37 else None,
+                # v0.24 (tabby-v1.0.2): the song's event lead (0 OFF, 1 a 32nd, 2 a 16th, 3 an 8th, 4 a quarter); the song's page has eleven lines then, ten before
+                "event_lead": d[38] if len(d) > 38 else None, "song_lines": 11 if len(d) > 38 else 10}
 
     def setup_do(self):
         """v0.16: remote op 16 {16, 4}: what the 4th left button does on the CLIP SETTING page (COPY on its row, else save)."""

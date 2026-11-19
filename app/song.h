@@ -148,7 +148,8 @@ unsigned song_record_disarmed(void);
 enum { SONG_SET_COUNT_IN = 0, SONG_SET_CLICK = 1, SONG_SET_CLICK_OUT = 2, SONG_SET_CLICK_CH = 3, SONG_SET_CLICK_NOTE = 4,
        SONG_SET_CLICK_LEVEL = 5,   /* tabby-v04.14: 0 LOW, 1 MID, 2 HIGH (header byte 44 bits 6-7: 0 MID, 1 LOW, 2 HIGH) */
        SONG_SET_KNOB1 = 6, SONG_SET_KNOB2 = 7, SONG_SET_KNOB3 = 8, SONG_SET_KNOB4 = 9,   /* tabby-v04.14: the controller numbers of K1 to K4 on CLIPS (header bytes 56 to 59: 0 = 74, 71, 1, 11; else number + 1) */
-       SONG_SETTINGS = 10 };
+       SONG_SET_EVENT_LEAD = 10,   /* tabby-v1.0.2: how long before a scene's downbeat its row events go out: 0 OFF, 1 a 32nd, 2 a 16th, 3 an 8th, 4 a quarter note (header byte 47 holds the value; 0, OFF, is what every song has that never set it: its events go out at the downbeat, as before) */
+       SONG_SETTINGS = 11 };
 unsigned song_setting(unsigned which);
 int song_setting_edit(unsigned which, int delta);
 FM1_AUDIO_CODE void song_click_mix(int32_t *output);   /* audio thread: the internal click into one block of the output */

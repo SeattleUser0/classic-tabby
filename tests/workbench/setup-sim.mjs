@@ -106,7 +106,7 @@ press(BT); shiftPad(0); pad(0); pad(0);                       /* CLIPS, track 1,
 let s = state();
 check(s.page === 20 && s.selected === 0, 'CLIPS: track 1, clip 1 selected');
 press(FX); let u = setup();
-check(u.page === 22 && u.track === 0 && u.place === 0 && u.steps === 16 && u.row === 0 && u.rows === 24, 'FX opens CLIP SETTING on the selected clip: 16 steps, the first row (page ' + u.page + ', ' + u.steps + ' steps)');
+check(u.page === 22 && u.track === 0 && u.place === 0 && u.steps === 16 && u.row === 0 && u.rows === 25, 'FX opens CLIP SETTING on the selected clip: 16 steps, the first row (page ' + u.page + ', ' + u.steps + ' steps)');
 /* LENGTH */
 knob(K1, 1); knob(K2, 1); u = setup();
 check(u.steps === 33 && u.unsaved === 1, 'K1 +1 and K2 +16: the clip is 33 steps long, unsaved (' + u.steps + ')');
@@ -256,9 +256,12 @@ if (c.sim_song_status(0) >>> 8 & 255) { press(PLAY); step(200); }
 check(!(c.sim_song_status(0) >>> 8 & 255), 'stopped');
 s = state(); if (s.page !== 20) { press(BT); s = state(); }
 pad(0); pad(0); press(FX); knob(K5, 30);
+{ const n = c.sim_setup_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n));
+  check(n === 39 && d[1] === 24 && d[38] === 0, 'tabby-v1.0.2: the last line is EVENT LEAD; a song never set: OFF (' + [n, d[1], d[38]] + ')'); }
+knob(K5, -1);
 const more = () => { const n = c.sim_setup_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n)); return { n, row: d[1], unsaved: d[11], level: d[28], knobs: d.slice(29, 33) }; };
 let w = more();
-check(w.n === 38 && w.row === 23 && w.level === 1 && w.knobs.join() === '74,71,1,11', 'K5 to the last line (K4 CONTROLLER); a song never set: CLICK LEVEL MID, controllers 74, 71, 1, 11 (' + [w.row, w.level, w.knobs] + ')');
+check(w.n === 39 && w.row === 23 && w.level === 1 && w.knobs.join() === '74,71,1,11', 'the line before it is K4 CONTROLLER; a song never set: CLICK LEVEL MID, controllers 74, 71, 1, 11 (' + [w.row, w.level, w.knobs] + ')');
 knob(K5, -3); knob(K2, -4); knob(K1, -3); knob(K5, -1); knob(K1, -5); w = more();
 check(w.row === 19 && w.knobs.join() === '7,71,1,11' && w.level === 0 && w.unsaved === 1, 'K1 CONTROLLER 7 (K2 moves by 16); CLICK LEVEL LOW, the lowest; unsaved (' + [w.level, w.knobs] + ')');
 knob(K1, 5); w = more();

@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.99
+Version: 1.00
 Revision log:
+- v1.00, 2026-11-18: 62.4 (tabby-v1.0.1 released as candidate 1), section 63 (tabby-v1.0.2: EVENT LEAD; the device found with track 1 muted; the panel state guard).
 - v0.99, 2026-11-18: section 62 (the soak's data showed missing row events; my soak check had not looked; tabby-v1.0.1).
 - v0.98, 2026-11-18: 61.1 (tabby-v1.0 released as candidate 1).
 - v0.97, 2026-11-18: 59.2 (tabby-v04.23 released as candidate 2), section 60 (the 9.9 ms run answered: the NUC's clock; the tools on the raw clock; a 70-minute soak), section 61 (tabby-v1.0).
@@ -6424,3 +6425,42 @@ between -50.2 and +59.1 ppm against its raw clock during the soak (bend up to 2.
 
 The release notes of tabby-v1.0 carry a correction of their soak claim and "use tabby-v1.0.1" at the top; its page
 has the note line.
+
+## 63. tabby-v1.0.2: EVENT LEAD (2026-11-18)
+
+The user's order (SPEC 19.29): send a scene's events before the downbeat by a lead that is a song setting; changed by
+the user while I was building it: the default is OFF, a song with it OFF must send byte for byte what tabby-v1.0.1
+sends, and the manual says next to the setting that an early program change lets the previous scene's last notes
+sound on the new patch. I had started with 1/16 as the stored default (the first message); the stored encoding was
+changed to 0 = OFF before anything was tested.
+
+| Part | Change |
+| --- | --- |
+| app/song.c, song.h | `SONG_SET_EVENT_LEAD` (header byte 47), `event_lead_blocks`; `decode_rowinfo` and `decode_track` add it to the row's lead. Nothing changed in the audio thread |
+| app/screen.c | the line EVENT LEAD (25 lines; the last of page 3/3); op 17 replies 39 bytes |
+| web/import/song-format.js v0.14 | keeps byte 47 (`song.eventLead`) in a record of any version |
+| tests | wrong-room-loop-sim.mjs v0.2 (16 checks); setup-sim.mjs (106); fixtures/wrong-room-loop-v1.0.1.json |
+| tools/linux/hw | run-soak.py v0.4 (--events-ahead-ms, --skip-first-note), rig-song.mjs v0.2 (--event-lead), rc-validate.py v0.10 (two soaks: `soak` lead OFF, `soak-lead` 1/16; the panel state guard), panel-state.py (new), run-setup.py v0.13, tabby_link.py v0.24 |
+
+The reference for "byte-identical": a simulator built from the tag tabby-v1.0.1 in a scratch clone played the looping
+Wrong Room song for six passes; the SHA-256 over every message of port 0 (the clock bytes too) with its audio block
+is f2651bb6dbf247c6...; 3237 messages without the clock. The tree's simulator with EVENT LEAD OFF gives the same hash.
+With 1/16: per scene entry "0 43 43 43 ..." blocks from the last event to the first note (43 blocks = a 16th at 120
+BPM; 0 at SEQ PLAY), 3080 note messages in the blocks they were in. With the H90's program change first in scene 2
+and its 255 ms gap behind it: "6:89:42" at every entry (six messages; the next message 89 blocks after the program
+change, 88 = 255 ms; the last message 42 blocks before the note).
+
+### 63.1 Found on the way: the device had been left with track 1 muted
+
+Proving run-setup.py v0.13 on the installed tabby-v1.0.1, the tool failed its first sound check three times: track 1
+was muted (KNOB BANK list: its mute pad orange). From a clean state (unmuted, the test song written anew) the same
+tool passed 38 of 38. So the tabby-v1.0.1 release run, or what I did on the device after it, left track 1 muted,
+and the user would have found track 1 silent. I could not find what did it: the project data in the backups before
+and after that run are identical; playing on each of the soak's six pages by remote did not mute anything; no test
+tool mutes track 1. It is not explained.
+
+What is done about it: tools/linux/hw/panel-state.py reads the mutes of all eight tracks, the focus, the ARP
+switches, CLOCK and A2; rc-validate.py v0.10 reads it before the tests, after every test and after the last step,
+fails the step after which it changed, and puts the mutes back. If it happens again the run names the step.
+
+Measured: app image 490756 bytes (+288), margin 28701, heap 142412. Build `9b00a12fd0346a65`.

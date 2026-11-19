@@ -27,9 +27,9 @@ section K.
 
 ## 0. Where it stands, and what comes next (tabby-v1.0, 2026-11-18)
 
-Flash margin after tabby-v1.0: 28989 bytes (app image 490468 of 519457). Free RAM 142412 bytes. At least 15360
+Flash margin after tabby-v1.0.2: 28701 bytes (app image 490756 of 519457). Free RAM 142412 bytes. At least 15360
 bytes stay free for fixes (the user's rule, SPEC 17.15): features are added while the margin after them stays above
-that, so 13629 bytes can still be spent.
+that, so 13341 bytes can still be spent.
 
 ### 0.1 Done since the matrix was written
 

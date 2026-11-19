@@ -246,7 +246,7 @@ static uint8_t rec_lamp;   /* the recorder's state as the control pass last read
  * steps of 16), the 4th left button does a row that is an action (COPY) and saves on the others. The scene pad that is
  * being held on the SCENES page (a long press on an empty pad stores what plays as a new scene). */
 enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_PROGRAM, SET_BANK_MSB, SET_BANK_LSB, SET_COPY, SET_TRANSPOSE, SET_SHUFFLE, SET_QUANTIZE, SET_SCALE /* tabby-v04.19 */, SET_DIRECTION /* tabby-v04.20 */ /* tabby-v04.17; the second page starts at SET_TRANSPOSE */, SET_DELETE /* tabby-v04.15 */, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE,
-       SET_CLICK_LEVEL, SET_KNOB1, SET_KNOB2, SET_KNOB3, SET_KNOB4 /* tabby-v04.14: the song's page starts at SET_COUNT_IN */, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
+       SET_CLICK_LEVEL, SET_KNOB1, SET_KNOB2, SET_KNOB3, SET_KNOB4 /* tabby-v04.14: the song's page starts at SET_COUNT_IN */, SET_EVENT_LEAD /* tabby-v1.0.2 */, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
 static uint8_t setup_row, setup_to, scene_hold_pad = 255;
 static uint32_t scene_hold_ms;
 static uint8_t rec_full_seen;
@@ -571,7 +571,7 @@ unsigned ct_screen_setup_read(uint8_t *out)
     out[0] = (uint8_t)page; out[1] = setup_row; out[2] = ei.active ? ei.track : 255; out[3] = ei.active ? ei.place : 255;
     out[4] = ei.active ? ei.steps : 0; out[5] = setup_to;
     for (unsigned i = 0; i < 5; ++i) out[6 + i] = (uint8_t)song_setting(i);
-    for (unsigned i = 5; i < SONG_SETTINGS; ++i) out[23 + i] = (uint8_t)song_setting(i);   /* tabby-v04.14: 28 the click level, 29..32 the controllers of K1 to K4 */
+    for (unsigned i = 5; i <= SONG_SET_KNOB4; ++i) out[23 + i] = (uint8_t)song_setting(i);   /* tabby-v04.14: 28 the click level, 29..32 the controllers of K1 to K4 */
     out[11] = (uint8_t)song_unsaved(); out[12] = SETUP_ROWS;
     out[13] = clip ? (uint8_t)clip_v3_next(clip) : 0; out[14] = clip ? (uint8_t)clip_v3_after(clip) : 0; out[15] = clip ? (uint8_t)(clip_v3_after(clip) >> 8) : 0;
     out[16] = clip ? (uint8_t)clip_v3_times(clip) : 1;
@@ -586,8 +586,9 @@ unsigned ct_screen_setup_read(uint8_t *out)
     out[33] = clip ? clip[12] : 0;   /* tabby-v04.15: the open clip's transpose, a signed byte */
     out[34] = clip ? clip[13] : 0; out[35] = clip ? clip[15] : 0;   /* tabby-v04.17: the open clip's shuffle (0 the song's, 1..51 its own 0..50) and playback quantize (0..3) */
     out[36] = clip ? clip[14] : 0;   /* tabby-v04.19: the open clip's scale (0 a 16th, 1 an 8th, 2 a 32nd, 3 a 16th triplet, 4 an 8th triplet) */
-    out[37] = 20;   /* tabby-v04.20: the reply's revision: byte 36 carries the direction in its high four bits */
-    return 38;
+    out[37] = 21;   /* the reply's revision: 20 (tabby-v04.20): byte 36 carries the direction in its high four bits; 21 (tabby-v1.0.2): byte 38 */
+    out[38] = (uint8_t)song_setting(SONG_SET_EVENT_LEAD);   /* tabby-v1.0.2: the song's event lead: 0 OFF, 1 a 32nd, 2 a 16th, 3 an 8th, 4 a quarter */
+    return 39;
 }
 /* tabby-v04.21: command 29 op 16 {16, 5}: what the > button does on the ACTIONS page while NEW SONG is the selected
  * entry (that button cannot be injected): the next control pass takes it as a press. */
@@ -1232,7 +1233,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the settings of the open clip and of the song, one per line */
         struct song_edit_info ei; song_edit_info(&ei);
         static const char *const labels[SETUP_ROWS] = {"LENGTH", "NEXT CLIP", "AFTER", "TIMES", "PROGRAM", "BANK MSB", "BANK LSB", "COPY TO PAD", "TRANSPOSE", "SHUFFLE", "PLAY QUANTIZE", "STEP SIZE", "DIRECTION", "DELETE CLIP", "COUNT-IN", "CLICK", "CLICK OUT", "CLICK CHANNEL", "CLICK NOTE",
-                                                       "CLICK LEVEL", "K1 CONTROLLER", "K2 CONTROLLER", "K3 CONTROLLER", "K4 CONTROLLER"};
+                                                       "CLICK LEVEL", "K1 CONTROLLER", "K2 CONTROLLER", "K3 CONTROLLER", "K4 CONTROLLER", "EVENT LEAD"};
         const uint8_t *sclip = song_edit_clip();
         static const char *const modes[] = {"OFF", "WHEN RECORDING", "ALWAYS"}, *const outs[] = {"INTERNAL", "MIDI NOTE", "BOTH"}, *const counts[] = {"OFF", "1 CYCLE", "2 CYCLES", "", "4 CYCLES"},
                           *const levels[] = {"LOW", "MID", "HIGH"};
@@ -1285,6 +1286,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             else if (i == SET_CLICK_CH) small_number(130, y, song_setting(SONG_SET_CLICK_CH) + 1U, 2, TEXT);
             else if (i == SET_CLICK_NOTE) { char nn[12]; note_name(song_setting(SONG_SET_CLICK_NOTE), nn); small_number(130, y, song_setting(SONG_SET_CLICK_NOTE), 3, TEXT); dim_text(156, y, nn); }
             else if (i == SET_CLICK_LEVEL) color_text(130, y, levels[song_setting(SONG_SET_CLICK_LEVEL)], TEXT);
+            else if (i == SET_EVENT_LEAD) { static const char *const leads[] = {"OFF", "1/32", "1/16", "1/8", "1/4"}; color_text(130, y, leads[song_setting(SONG_SET_EVENT_LEAD)], TEXT); }
             else small_number(130, y, song_setting(SONG_SET_KNOB1 + i - SET_KNOB1), 3, TEXT);
         }
         plain_text(8, 198, notice ? notice : "K5 ROW  K1 VALUE  K2 VALUE X16");

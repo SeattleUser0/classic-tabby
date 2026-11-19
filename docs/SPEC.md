@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.63
+Version: 0.64
 Revision log:
+- v0.64, 2026-11-18: 19.29 tabby-v1.0.2 (EVENT LEAD, a song setting; OFF by default).
 - v0.63, 2026-11-18: 19.28 tabby-v1.0.1 (row events at every entry of a scene in a two-scene loop).
 - v0.62, 2026-11-18: 17.17 the user's answers of 2026-11-18 (evening): pad rows confirmed, the timing question first, tabby-v1.0 without new features; 19.27 tabby-v1.0.
 - v0.61, 2026-11-18: 19.26 tabby-v04.23 (the step loop while held).
@@ -2107,3 +2108,30 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   (its events are sent once, when it is entered: unchanged); the first pass.
 - Tests: tests/workbench/wrong-room-loop-sim.mjs (six passes: 17 and 6 event messages at every entry; on the old
   code "17 6 0 0 0 6 0 0 0 6 0 0"); the device soak requires every entry's burst (run-soak.py v0.3 --row-events).
+
+### 19.29 tabby-v1.0.2 (2026-11-18): EVENT LEAD
+
+- The user's order of 2026-11-18 (night), as changed while it was being built: a scene's row events are sent before
+  the downbeat by a lead that is a song setting, 0 to a quarter note; **default 0 (OFF)**, so that every existing song
+  behaves exactly as on tabby-v1.0.1; a device's gap from the rig profile stays counted from when its program change
+  goes out. Reason for OFF as the default (the user's): a program change sent early switches the synth's sound
+  before the downbeat, and the tail of the previous scene's last notes plays on the new patch. The manual says so
+  next to the setting.
+- Song setting 10, `SONG_SET_EVENT_LEAD`: 0 OFF, 1 a 32nd, 2 a 16th, 3 an 8th, 4 a quarter note; header byte 47
+  (`reserved[4]`), read in a record of any version; a byte above 4 reads as OFF. web/import/song-format.js v0.14
+  keeps it (`song.eventLead`). Firmware before tabby-v1.0.2 ignores the byte.
+- Mechanism: none new in the audio thread. A row's stream already starts `lead + 1` ticks before the boundary, where
+  `lead` was the sum of the row's gap events in blocks (9.11, 9.13). `decode_rowinfo` and `decode_track` (control
+  task) now add `event_lead_blocks()`: the setting in units, in blocks at the tempo the song plays at. So the last
+  message of the stream leaves the setting before the downbeat, and each gap still follows its own message. With
+  the setting OFF the sum is what it was, and so is every byte sent (the test compares with tabby-v1.0.1).
+- Consequences: no lead at PLAY (row 0's events go with the start, as before); a jump or launch queued later than
+  the lead before its bar sends at once; a change of the setting acts when the next row is decoded (the scene
+  after the next); the tempo is read at decode time (a tempo change shifts the lead of one scene).
+- CLIP SETTING: 25 lines; EVENT LEAD is the last line of page 3/3. Remote: op 17 replies 39 bytes (38: the lead;
+  37: 21, the reply's revision).
+- Tests: tests/workbench/wrong-room-loop-sim.mjs v0.2 (OFF: the SHA-256 of every message with its block equals
+  tabby-v1.0.1's, tests/workbench/fixtures/wrong-room-loop-v1.0.1.json; 1/16: every entry's events 43 blocks before
+  its first note, the notes unmoved; a gap of 255 ms inside the stream: 88 blocks after its program change, the
+  last message still 43 blocks before the note); setup-sim.mjs; on the device run-setup.py v0.13 and two soaks
+  (rc-validate.py: `soak` with the lead OFF, `soak-lead` with 1/16).
