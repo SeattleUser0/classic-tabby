@@ -25,9 +25,14 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.24
+Version: 0.25
 
 Revision log
+    v0.25 2026-11-19  now_ns() is THE clock of the device tools: every tool takes its marks ("notes since now") from it and not
+                      from time.monotonic_ns(). Receive times have been on the raw clock since v0.23; a mark from the
+                      steered clock can lie tens of ms off them after a few minutes (the time service slews it by up
+                      to 365 ppm), and then a message that came right after the mark counted as before it: one check
+                      of run-setup.py failed that way in the tabby-v1.0.2-rc1 run (docs/BUILD.md 63.2).
     v0.24 2026-11-18  tabby-v1.0.2: setup_state() reports the song's event lead and how many lines the song's page has.
     v0.23 2026-11-18  Every receive time (the device's USB port and the DIN monitor) is put on a clock this computer does
                       not correct: the kernel stamps with CLOCK_MONOTONIC, which the time service slews (up to -365 ppm
@@ -257,8 +262,8 @@ class Link:
         self.inp = self.out = None
 
     def send(self, data):
-        """Write bytes now; returns time.monotonic_ns() taken just before the write call."""
-        t = time.monotonic_ns()
+        """Write bytes now; returns now_ns() (the steady clock, v0.25) taken just before the write call."""
+        t = now_ns()
         n = LIB.snd_rawmidi_write(self.out, bytes(data), len(data))
         if n != len(data):
             raise OSError("snd_rawmidi_write: %s" % (err(n) if n < 0 else "short"))

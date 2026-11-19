@@ -113,22 +113,22 @@ def main():
         l.key(0, NOTE_REPEAT, 1); idle(0.3); s = panel(); st = l.remote_status()
         check(s["repeat"] & (1 << s["key_track"]) and s["arp"] & (1 << s["key_track"]) and s["focus"] == s0["focus"] and st["page_name"] == page0,
               "NOTE REPEAT held: the key track repeats; the focus and the page stay", (s, st["page_name"]))
-        t0 = time.monotonic_ns()
+        t0 = T.now_ns()
         l.key(1, 12, 100); idle(2.2)
-        t1 = time.monotonic_ns()
+        t1 = T.now_ns()
         g1 = gaps(t0, t1); m1 = median(g1); n1 = len(g1) + 1
         worst1 = max((abs(x - m1) for x in g1), default=99.0)
         check(n1 >= 3 and worst1 <= a.even, "a held key repeats: %d notes in 2.2 s, %.1f ms apart, each within %.1f ms of that" % (n1, m1, a.even), "worst %.2f ms" % worst1)
         pitches = {p_ for _, p_ in ons(t0, t1)}
         check(len(pitches) == 1, "it is one pitch that repeats", sorted(pitches))
         l.knob(K1, 1); idle(0.4)
-        t2 = time.monotonic_ns(); idle(2.2); t3 = time.monotonic_ns()
+        t2 = T.now_ns(); idle(2.2); t3 = T.now_ns()
         g2 = gaps(t2, t3); m2 = median(g2); s = panel()
         worst2 = max((abs(x - m2) for x in g2), default=99.0)
         check(s["rate"] == base + 1 and g2 and 0.45 <= m2 / m1 <= 0.55 and worst2 <= a.even, "K1 one click right while NOTE REPEAT is held: twice as fast (%.1f ms apart)" % m2, "ratio %.3f, worst %.2f ms" % (m2 / m1 if m1 else 0, worst2))
         l.knob(K1, -1); idle(0.3)
         l.key(0, NOTE_REPEAT, 0); idle(0.3)
-        t4 = time.monotonic_ns(); idle(1.2)
+        t4 = T.now_ns(); idle(1.2)
         late = ons(t4 + 150_000_000)
         s = panel()
         check(not late and s["repeat"] == 0 and not s["arp"] & (1 << s["key_track"]) and s["rate"] == base, "NOTE REPEAT let go with the key still down: nothing repeats, the ARP switch is off again", (len(late), s))
@@ -157,7 +157,7 @@ def main():
               "the song stopped: NOTE REPEAT + pad 9 loops nothing and queues nothing", st["song_state"])
         l.clip_launch(0, 0); idle(0.2)
         l.press("PLAY"); idle(4.2)                                  # two bars: clip 1 loops on track 1 (60 on every beat)
-        beats = [t for t, p_ in ons(time.monotonic_ns() - 3_000_000_000) if p_ == 60]
+        beats = [t for t, p_ in ons(T.now_ns() - 3_000_000_000) if p_ == 60]
         beat = (beats[-1] - beats[0]) / 1e6 / (len(beats) - 1) if len(beats) > 1 else 0.0   # the mean over the bars heard
         check(len(beats) >= 4 and 400.0 < beat < 600.0, "the song plays; track 1 plays 60 on every beat, %.1f ms apart" % beat, len(beats))
 
@@ -181,7 +181,7 @@ def main():
             lit = l.clips_state()["pads"]
             ref = after_beat()
             l.key(3, pad, 100)
-            t5 = time.monotonic_ns(); idle(1.6); t6 = time.monotonic_ns()
+            t5 = T.now_ns(); idle(1.6); t6 = T.now_ns()
             g = gaps60(t5 + 60_000_000, t6); m = median(g)
             worst = max((abs(x - m) for x in g), default=99.0)
             expect = beat / 4.0 * steps
@@ -194,7 +194,7 @@ def main():
                 l.pad(1, hold=0.1); idle(0.2)
                 check([p_["code"] for p_ in l.clips_state()["pads"][:8]] == q, "another pad pressed meanwhile launches nothing")
             l.key(3, pad, 0); idle(0.1); l.key(0, NOTE_REPEAT, 0)
-            t7 = time.monotonic_ns(); idle(2.6)
+            t7 = T.now_ns(); idle(2.6)
             back = [t for t, p_ in ons(t7 + 300_000_000) if p_ == 60]
             off = [(((t - (ref or beats[0])) / 1e6 + beat / 2) % beat) - beat / 2 for t in back]
             check(len(back) >= 3 and all(abs(x) <= 8.0 for x in off), "the pad let go: 60 is back on the beats the song had before the loop", ["%+.1f" % x for x in off[:4]])
@@ -207,7 +207,7 @@ def main():
             hit = [t for t, m in list(din.messages)[seen:] if len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[1] == 36 and m[2]]
             got = hit[0] if hit else None
         l.key(3, 11, 100)
-        t8 = time.monotonic_ns(); idle(4.3); t9 = time.monotonic_ns()
+        t8 = T.now_ns(); idle(4.3); t9 = T.now_ns()
         n36 = [t for t, p_ in ons(t8 + 100_000_000, t9) if p_ == 36]; n38 = [t for t, p_ in ons(t8 + 100_000_000, t9) if p_ == 38]
         g36 = [(b - c_) / 1e6 for c_, b in zip(n36, n36[1:])]
         check(got is not None and len(n36) >= 3 and not n38 and all(abs(x - 2 * beat) <= 3.0 for x in g36),

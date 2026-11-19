@@ -96,7 +96,7 @@ def main():
         check((u["program"], u["bank_msb"], u["bank_lsb"]) == (5, 2, 7) and not u["unsaved"], "saved and read back from storage", (u["program"], u["bank_msb"], u["bank_lsb"]))
         # ---- the clip launched: bank and program before its first note ----
         l.edit_discard(); l.pad(0); idle(0.3)
-        mark = time.monotonic_ns()
+        mark = T.now_ns()
         l.press("PLAY"); idle(2.5)
         msgs = [(t, list(m)) for t, m in list(din.messages) if t > mark and len(m) >= 2 and m[0] < 0xF0]
         pcs = [(t, m) for t, m in msgs if (m[0] & 0xF0) == 0xC0 and m[1] == 5]
@@ -109,7 +109,7 @@ def main():
         # ---- K1 on CLIPS sends controller 74; a take records it ----
         # v0.2: the knob keeps its value while the power is on: to the bottom, then to 64, where a fresh start has it
         l.knob(K1, -64); idle(0.3); l.knob(K1, 32); idle(0.4)
-        t1 = time.monotonic_ns()
+        t1 = T.now_ns()
         l.knob(K1, 3); idle(0.4)
         cc = [m for t, m in list(din.messages) if t > t1 and len(m) == 3 and (m[0] & 0xF0) == 0xB0 and m[1] == 74]
         check(len(cc) == 1 and cc[0][2] == 70, "K1 on CLIPS, three clicks: one controller 74 message, value 64 + 6", [list(m) for m in cc])
@@ -121,7 +121,7 @@ def main():
         idle(1.5); s = l.steps_state(); grown = s["events"] - before
         check(1 <= grown <= 8, "twelve clicks of K1 in under a second are recorded as %d controller events (thinned)" % grown, grown)
         l.press("REC"); idle(0.3)
-        t2 = time.monotonic_ns(); idle(4.5)
+        t2 = T.now_ns(); idle(4.5)
         back = [list(m) for t, m in list(din.messages) if t > t2 and len(m) == 3 and (m[0] & 0xF0) == 0xB0 and m[1] == 74]
         check(len(back) >= grown and back and back[-1][2] == 94, "the clip plays the knob movement back in its following loops; its last value is the last one turned (94)", back[:8])
         l.press("PLAY"); idle(0.8)

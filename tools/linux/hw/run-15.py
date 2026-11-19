@@ -327,7 +327,7 @@ def capture(a, soak=False):
         if a.page:
             s = l.show_page(a.page)                 # v0.12: the page that is painted while the song plays
             print("page: %s" % s["page_name"], flush=True)
-        armed = time.monotonic_ns()
+        armed = T.now_ns()
         if a.play:
             # v0.9 (Task 16): remote PLAY (transfer command 29, tabby-v04.2 and later): nobody presses PLAY.
             r = l.play_song(a.play - 1)
@@ -518,7 +518,7 @@ def redo(a):
 def din_watch(a):
     """v0.8: the DIN input alone; the SMK-37's USB port is not opened."""
     din = T.Monitor(a.din); din.start()
-    t0 = time.monotonic_ns(); time.sleep(a.seconds); t1 = time.monotonic_ns()
+    t0 = T.now_ns(); time.sleep(a.seconds); t1 = T.now_ns()
     din.finish()
     ck = [t for t, m in din.messages if list(m) == [0xF8] and t0 <= t <= t1]
     gaps = [(x, (y - x) / 1e6) for x, y in zip(ck, ck[1:])]

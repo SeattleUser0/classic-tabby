@@ -89,7 +89,7 @@ def main():
         l.knob(K2, -1); idle(0.3); u = l.setup_state()
         check((u["scene_flags"] & 1) == 0, "K2 left: THEN NEXT")
         length_s = u["scene_steps"] * u["scene_times"] / 16.0 * 2.0 * 0.9996            # 120 BPM: a bar of 16 steps is 2 s
-        mark = time.monotonic_ns()
+        mark = T.now_ns()
         l.press("PLAY")
         ch = scene_changes(length_s + 3.0)
         start = [t for t, m in list(din.messages) if t > mark and list(m) == [0xFA]]

@@ -23,7 +23,7 @@ Purpose
                   kernel Rx counters of the AUDIO4c before and after.
 
     The clock is sent with a busy-wait to each pulse's due time (20.833 ms apart at 120 BPM);
-    every sent byte's time (time.monotonic_ns() just before the write) is logged, so the analysis
+    every sent byte's time (T.now_ns() just before the write) is logged, so the analysis
     compares the SMK-37's DIN output with the master on one clock (the monitor's timestamps are
     the kernel's, also CLOCK_MONOTONIC).
 
@@ -68,7 +68,7 @@ def wait_until(ns):
     """Sleep (or, with USB_IN, read the device's USB output) to 1 ms before ns, then busy-wait:
     sub-0.1 ms send timing from Python."""
     while True:
-        d = ns - time.monotonic_ns()
+        d = ns - T.now_ns()
         if d <= 0:
             return
         if d > 1_500_000:
@@ -101,7 +101,7 @@ def run_b(a):
     cap.start()
     rng = random.Random(7)
     l.diag(1)
-    start = time.monotonic_ns() + 500_000_000
+    start = T.now_ns() + 500_000_000
     sent = []
     n = 100
     for i in range(n):
@@ -157,7 +157,7 @@ def l6(a):
         mon = T.Monitor(); mon.start()
     period = int(60e9 / (a.bpm * 24))
     sent = []
-    t0 = time.monotonic_ns() + 300_000_000
+    t0 = T.now_ns() + 300_000_000
     k = 0
     def pulses(count, marker=None):
         nonlocal k
@@ -300,7 +300,7 @@ def clocked(a):
     the device's USB output read and logged: the MIDI side of the FM6 delay measurement."""
     global USB_IN
     l = T.Link(); USB_IN = l
-    period = int(60e9 / (a.bpm * 24)); t0 = time.monotonic_ns() + 300_000_000; k = 0; sent = []
+    period = int(60e9 / (a.bpm * 24)); t0 = T.now_ns() + 300_000_000; k = 0; sent = []
     def pulses(n):
         nonlocal k
         for _ in range(n):
@@ -327,13 +327,13 @@ def l3(a):
     t = l.send(bytes([0x90, 52, 100])); log.append((t, "hold_on", 1, 52, 100, "sent"))
     time.sleep(2.0)
     l.query(10, b"L3 HELD     ")          # v0.6: a changed name, so the save really writes (an unchanged project is not rewritten)
-    t = time.monotonic_ns(); l.save_slot(a.slot); log.append((t, "save_begin", "", "", "", "marker")); log.append((time.monotonic_ns(), "save_end", "", "", "", "marker"))
+    t = T.now_ns(); l.save_slot(a.slot); log.append((t, "save_begin", "", "", "", "marker")); log.append((T.now_ns(), "save_end", "", "", "", "marker"))
     time.sleep(2.0)
     t = l.send(bytes([0x80, 52, 0])); log.append((t, "hold_off", 1, 52, 0, "sent"))
     d1 = l.diag(0)
     time.sleep(1.0)
     l.diag(1)
-    period = int(60e9 / (a.bpm * 24)); t0 = time.monotonic_ns() + 300_000_000; k = 0
+    period = int(60e9 / (a.bpm * 24)); t0 = T.now_ns() + 300_000_000; k = 0
     def pulses(n):
         nonlocal k
         for _ in range(n):
@@ -345,9 +345,9 @@ def l3(a):
     # output measures the save only if the device keeps playing without clock; a clean comparison is
     # the counters and the audio (the FM6 also stops without clock). Report both.
     l.query(10, b"L3 PLAYING  ")          # v0.6: changed again before the save during play
-    tb = time.monotonic_ns(); l.save_slot(a.slot); te = time.monotonic_ns()
+    tb = T.now_ns(); l.save_slot(a.slot); te = T.now_ns()
     log.append((tb, "save_begin", "", "", "", "marker")); log.append((te, "save_end", "", "", "", "marker"))
-    k = int((time.monotonic_ns() - t0) / period) + 1
+    k = int((T.now_ns() - t0) / period) + 1
     pulses(6 * per_s); wait_until(t0 + k * period - period // 2); log.append((l.send(b"\xfc"), "stop", "", "", "", "sent"))
     for t, m in l.messages(100):
         l.other.append((t, m))
@@ -398,11 +398,11 @@ def l2(a):
     l = T.Link(); print("kernel timestamps on USB in:", l.kernel_time)
     rng = random.Random(7); got = []; sent = []
     l.diag(1); l.play(a.song)
-    start = time.monotonic_ns(); end = start + int(a.seconds * 1e9)
+    start = T.now_ns(); end = start + int(a.seconds * 1e9)
     plan = sorted(start + int((i + 0.5) * a.seconds * 1e9 / a.notes) + rng.randint(-200_000_000, 200_000_000) for i in range(a.notes)) if a.notes else []
     offs = []
-    while time.monotonic_ns() < end:
-        now = time.monotonic_ns()
+    while T.now_ns() < end:
+        now = T.now_ns()
         if plan and now >= plan[0]:
             plan.pop(0); note, vel = 72 + rng.randint(0, 12), rng.choice([20, 45, 70, 95, 120, 127])
             sent.append((l.send(bytes([0x90 | 15, note, vel])), "note_on", 16, note, vel, "sent")); offs.append((now + rng.randint(60, 300) * 1_000_000, note))
@@ -434,11 +434,11 @@ def l3song(a):
     COMPACT runs. Every action's send and reply time is logged; run `record` alongside."""
     l = T.Link(); got = []; log = []
     def mark(kind, t=None):
-        log.append((t or time.monotonic_ns(), kind, "", "", "", "marker"))
+        log.append((t or T.now_ns(), kind, "", "", "", "marker"))
     def pump(until):
-        while time.monotonic_ns() < until:
+        while T.now_ns() < until:
             got.extend(l.messages(2))
-    l.diag(1); start = time.monotonic_ns(); l.play(a.song); mark("play")
+    l.diag(1); start = T.now_ns(); l.play(a.song); mark("play")
     pump(start + 10_000_000_000)
     l.query(10, b"L3 SONGSAVE "); mark("save_begin"); l.save_slot(a.slot); mark("save_end"); got.extend(l.other); l.other.clear()
     pump(start + 25_000_000_000)
@@ -514,16 +514,16 @@ def trs_watch(a):
     l = T.Link(a.port)
     USB_IN = l
     sent = []
-    t_start = time.monotonic_ns()
+    t_start = T.now_ns()
     if a.passive:
         print("LISTENING %d s: play keys now" % a.seconds, flush=True)
-        end = time.monotonic_ns() + int(a.seconds * 1e9)
-        while time.monotonic_ns() < end:
+        end = T.now_ns() + int(a.seconds * 1e9)
+        while T.now_ns() < end:
             for t, m in l.messages(100):
                 l.other.append((t, m))
     else:
         period = int(60e9 / (a.bpm * 24)); per_s = int(a.bpm * 24 / 60)
-        t0 = time.monotonic_ns() + 300_000_000; k = 0
+        t0 = T.now_ns() + 300_000_000; k = 0
         def pulse():
             nonlocal k
             wait_until(t0 + k * period); sent.append((l.send(b"\xf8"), "clock")); k += 1

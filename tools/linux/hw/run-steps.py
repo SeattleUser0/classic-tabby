@@ -94,7 +94,7 @@ def main():
         check(u["notes"] and u["notes"][0]["length"] == 480 and u["redo"] == 1 and r["notes"] and r["notes"][0]["length"] == 600 and r["redo"] == 0, "FX undoes the last change, SHIFT + FX redoes it",
               (u["notes"], r["notes"]))
         # ---- the unsaved edit in the song ----
-        armed = time.monotonic_ns()
+        armed = T.now_ns()
         l.press("PLAY"); idle(2 * CYCLE_MS / 1000.0 + 0.9)
         starts = [t for t, m in list(din.messages) if t >= armed and list(m) == [0xFA]]
         if not check(bool(starts), "PLAY on the STEP page starts the song"):
@@ -106,10 +106,10 @@ def main():
         check(len(near) == 1, "the song plays the unsaved note on its step, 30 units late (%.1f ms after Start)" % want, ["%.1f" % g for g in got[:6]])
         # ---- a launched clip: a new note from the next loop ----
         l.clip_launch(0, 1); idle(CYCLE_MS / 1000.0 + 0.3)
-        while not 100.0 < ((time.monotonic_ns() - t0) / 1e6) % CYCLE_MS < 700.0:
+        while not 100.0 < ((T.now_ns() - t0) / 1e6) % CYCLE_MS < 700.0:
             idle(0.02)
         l.pad(12); idle(0.1)
-        tk = time.monotonic_ns()
+        tk = T.now_ns()
         l.play_key(17); idle(0.2); s = l.steps_state()
         p2 = s["note"]
         idle(3 * CYCLE_MS / 1000.0)
@@ -136,7 +136,7 @@ def main():
         check(not s["dirty"], "ten seconds after the change, stopped, the clip is saved by itself", s["dirty"])
         # the stored clip plays after a reload of the song
         l.edit_discard(); l.show_page("overview"); l.select_song(a.song - 1); idle(0.3)
-        armed = time.monotonic_ns()
+        armed = T.now_ns()
         l.play_song(a.song - 1); idle(2 * CYCLE_MS / 1000.0 + 0.9)
         starts = [t for t, m in list(din.messages) if t >= armed and list(m) == [0xFA]]
         t1 = starts[0] if starts else armed

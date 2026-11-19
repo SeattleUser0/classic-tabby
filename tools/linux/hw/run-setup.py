@@ -137,7 +137,7 @@ def main():
         l.knob(K1, -8); idle(0.3); u = l.setup_state()
         check(u["steps"] == 8, "K1: LENGTH 8 steps", u["steps"])
         l.press("FX"); idle(0.3); l.pad(empty); idle(0.3)
-        mark = time.monotonic_ns()
+        mark = T.now_ns()
         l.press("PLAY"); idle(6.5)
         ch = None
         hits = []
@@ -160,7 +160,7 @@ def main():
             check(u["scenes"] == before + 1 and u["unsaved"], "the pad held: what plays is stored as scene %d" % (before + 1), u["scenes"])
             l.pad(0); idle(cycle / 1000.0 + 0.3 if cycle else 2.5)          # scene 1: track 1 leaves the new clip
             l.pad(before % 16); idle((cycle or 2000.0) / 1000.0 * 2 + 0.3)
-            st = l.remote_status(); t1 = time.monotonic_ns(); idle((cycle or 2000.0) / 1000.0 * 2)
+            st = l.remote_status(); t1 = T.now_ns(); idle((cycle or 2000.0) / 1000.0 * 2)
             again = [t for t, m in since(t1, lambda m: len(m) == 3 and m[0] == (0x90 | (ch or 0)) and m[1] == pitch and m[2])]
             check(st["row"] == before and len(again) >= 3, "the new scene recalled: it plays, track 1 on the new clip", (st["row"], len(again)))
         refused = False
@@ -189,7 +189,7 @@ def main():
             l.press("FX"); idle(0.4); l.knob(K5, 8 - l.setup_state()["row"]); idle(0.3)   # line 9, TRANSPOSE, follows COPY TO PAD
             l.knob(K1, 3); idle(0.3); u = l.setup_state()
             l.press("FX"); idle(0.3); l.pad(target % 16); idle(0.3)
-            mark = time.monotonic_ns()
+            mark = T.now_ns()
             l.press("PLAY"); idle(4.5)
             ups = [m[1] for _, m in since(mark, lambda m: len(m) == 3 and (m[0] & 0xF0) == 0x90 and m[2] and (m[0] & 15) == ch)]
             l.press("PLAY"); idle(0.8)
@@ -212,7 +212,7 @@ def main():
                 def gap(seconds=4.5):
                     """Launch the copy, play: the median time from the first note to the second, in ms."""
                     l.pad(target % 16); idle(0.3)
-                    mark = time.monotonic_ns()
+                    mark = T.now_ns()
                     l.press("PLAY"); idle(seconds)
                     ons = since(mark, lambda m: len(m) == 3 and m[0] == (0x90 | ch) and m[2] and m[1] in (pitch, second.get("pitch")))
                     l.press("PLAY"); idle(0.8)
@@ -299,7 +299,7 @@ def main():
         check(ok and u["click_note"] == 37, "the song's settings: COUNT-IN 1 cycle, CLICK ALWAYS, MIDI NOTE, channel 16 (note 37)", (u["count_in"], u["click"], u["click_out"], u["click_ch"], u["click_note"]))
         l.press("FX"); idle(0.3)
         l.press("REC"); idle(0.4)
-        mark = time.monotonic_ns()
+        mark = T.now_ns()
         l.press("PLAY"); idle(1.0)
         counting = l.setup_state()["counting"]
         idle((cycle or 2000.0) / 1000.0 * 3)
@@ -329,7 +329,7 @@ def main():
                 wav = os.path.join(a.out, name)
                 rec = subprocess.Popen(["arecord", "-q", "-D", "hw:AUDIO4c", "-c", "8", "-f", "S32_LE", "-r", "48000", "-d", "6", wav])
                 idle(1.0)
-                m0 = time.monotonic_ns(); before = l.clips_state(); st0 = l.steps_state()
+                m0 = T.now_ns(); before = l.clips_state(); st0 = l.steps_state()
                 l.press("REC"); idle(0.3); st1 = l.steps_state(); l.press("PLAY"); idle(0.6); cnt = l.setup_state()["counting"]; idle((cycle or 2000.0) / 1000.0 + 0.4)
                 l.press("REC"); idle(0.2); l.press("PLAY"); idle(0.5)
                 rec.wait()
@@ -387,7 +387,7 @@ def main():
         u = l.setup_state()
         l.press("FX"); idle(0.3)
         l.knob(K1, -4); idle(0.4)                      # v0.9: the knob's value is kept while the power is on; leave the top first
-        mark = time.monotonic_ns(); l.knob(K1, 1); idle(0.4)
+        mark = T.now_ns(); l.knob(K1, 1); idle(0.4)
         cc = [m for _, m in since(mark, lambda m: len(m) == 3 and (m[0] & 0xF0) == 0xB0)]
         check(u["knobs"][0] == 7 and len(cc) == 1 and cc[0][1] == 7, "K1 CONTROLLER set to 7 on the second page: K1 on CLIPS sends controller 7", (u["knobs"], [list(m) for m in cc]))
         l.press("FX"); idle(0.4); row(14)

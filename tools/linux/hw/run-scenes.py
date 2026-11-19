@@ -61,7 +61,7 @@ def main():
             except Exception:
                 time.sleep(0.3)
         l.stop_song(); time.sleep(0.5); l.messages(50)
-        armed = time.monotonic_ns()
+        armed = T.now_ns()
         l.play_song(a.song - 1)
         end = time.monotonic() + 2.0
         while time.monotonic() < end:
@@ -74,7 +74,7 @@ def main():
             wait = time.monotonic() + random.uniform(0.3, 2.2)
             while time.monotonic() < wait:
                 l.messages(20)
-            tc = time.monotonic_ns()
+            tc = T.now_ns()
             l.launch(a.track - 1, a.row - 1)
             end = time.monotonic() + cycle_ms / 1000.0 * 2 + 1.0
             while time.monotonic() < end:

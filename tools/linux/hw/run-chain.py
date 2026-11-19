@@ -121,7 +121,7 @@ def main():
         l.edit_discard()
         c = l.clips_state()
         l.pad(0); idle(0.3)
-        mark = time.monotonic_ns()
+        mark = T.now_ns()
         l.press("PLAY"); idle(1.2)
         c1 = l.clips_state()
         idle(8.5)

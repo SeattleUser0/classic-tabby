@@ -127,7 +127,7 @@ def main():
                 time.sleep(0.3)
         l.stop_song(); time.sleep(0.5); l.messages(50)
         before = l.health()
-        armed = time.monotonic_ns()
+        armed = T.now_ns()
         st = l.play_song(a.song - 1)
         end = time.monotonic() + expected["lengthMs"] / 1000.0 * 1.02 + 6.0
         done_at = None; next_poll = time.monotonic() + 1.5

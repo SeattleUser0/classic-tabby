@@ -6464,3 +6464,28 @@ switches, CLOCK and A2; rc-validate.py v0.10 reads it before the tests, after ev
 fails the step after which it changed, and puts the mutes back. If it happens again the run names the step.
 
 Measured: app image 490756 bytes (+288), margin 28701, heap 142412. Build `9b00a12fd0346a65`.
+
+### 63.2 tabby-v1.0.2-rc1: not promoted; one check failed once (2026-11-19)
+
+Suite green on 2e8ca93; builds/tabby-v1.0.2-rc1/ (build `9b00a12fd0346a65`), installed in 11 s. 23 of 24 steps passed,
+both soaks among them (63.3 has their figures). Failed: run-setup.py, 39 of 40: "K1 CONTROLLER set to 7 on the
+second page: K1 on CLIPS sends controller 7": the setting read 7, and no controller message was counted after the
+knob click.
+
+On the same candidate afterwards, the test song written anew each time: run-setup.py 40 of 40, twice. So it is
+not a fault that shows every time, and the same check has passed in every release run before.
+
+The likely cause is mine, from section 60: since tabby_link v0.23 receive times are on the raw clock, but the tools
+still took their marks ("messages since now") from time.monotonic_ns(), the steered clock. The two drift apart
+while a tool runs: at +340 ppm, which the clock record of this very run shows during the second soak, that is 34 ms
+after 100 seconds. A message that arrives a few milliseconds after a mark then carries a stamp before the mark and
+is not counted. The check that failed counts one controller message after a mark, three to four minutes into the
+tool's run. Not proven: the clock's rate at the minute of that check was not recorded (run-setup.py keeps no clock
+record), and a knob click that really sent nothing is not excluded by two good repeats.
+
+Changed: every device tool takes its marks from tabby_link.now_ns() (v0.25), the same clock as the stamps. With
+that change run-record.py passed 25 of 25 on the candidate. (run-launch.py, run by hand straight after run-record
+without the state the release run gives it, failed its colour check on a pad the record test had left selected: an
+artefact of my order, not looked into further.)
+
+The page builds/tabby-v1.0.2-rc1/ gets a note line; the same build goes out as candidate 2.

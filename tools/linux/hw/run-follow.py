@@ -75,17 +75,17 @@ class Master(threading.Thread):
 
     def run(self):
         self.l_send = self.l.send_raw
-        nxt = time.monotonic_ns()
+        nxt = T.now_ns()
         while not self.quit:
             if self.paused:
                 time.sleep(0.002)
-                nxt = time.monotonic_ns()
+                nxt = T.now_ns()
                 continue
-            now = time.monotonic_ns()
+            now = T.now_ns()
             if now < nxt - 400_000:
                 time.sleep(max(0.0, (nxt - now - 400_000) / NS))
                 continue
-            while time.monotonic_ns() < nxt:
+            while T.now_ns() < nxt:
                 pass
             t = self.say(b"\xf8")
             self.pulse_ns.append(t)
@@ -216,7 +216,7 @@ def scenario_lock(r, seconds):
     m = r.m
     m.bpm = 120.0
     r.pump(0.2)
-    t_start = time.monotonic_ns()
+    t_start = T.now_ns()
     r.say("Start at 120 BPM")
     with r.lock:
         p0 = len(m.pulse_ns)                   # v0.3: the next pulse is song position 0
@@ -256,7 +256,7 @@ def scenario_tempo(r, seconds):
     res = {}
     for bpm in (90, 150, 120):
         m.bpm = float(bpm)
-        t0 = time.monotonic_ns()
+        t0 = T.now_ns()
         m.paused = False
         r.pump(seconds)
         din, usb = r.ev(t0)
@@ -275,13 +275,13 @@ def scenario_gap(r):
     m.paused = False
     r.pump(2.0)
     s = r.status(); out.append(("running", s["follow"]))
-    t0 = time.monotonic_ns()
+    t0 = T.now_ns()
     m.paused = True
     r.pump(0.3)
     s = r.status(); out.append(("0.3 s gap (HELD expected 5)", s["follow"]))
     din, usb = r.ev(t0)
     out.append(("note-offs during the hold (din, usb)", (len(note_offs(din)), len(note_offs(usb)))))
-    t1 = time.monotonic_ns()
+    t1 = T.now_ns()
     m.paused = False
     r.pump(0.6)
     s = r.status(); out.append(("pulses back inside 2 s (RUNNING expected 4)", s["follow"]))
@@ -306,7 +306,7 @@ def scenario_stop(r):
     out = []
     m.paused = False
     r.pump(1.5)
-    t0 = time.monotonic_ns()
+    t0 = T.now_ns()
     with r.lock:
         r.l.send_raw(b"\xfc")
     r.pump(0.5)

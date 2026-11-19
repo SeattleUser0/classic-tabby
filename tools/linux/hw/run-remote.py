@@ -73,7 +73,7 @@ def main():
         except T.DeviceError as e:
             check("select an empty song is refused", True, "code %d" % e.code)
         l.select_song(15)
-        t0 = time.monotonic_ns()
+        t0 = T.now_ns()
         s = l.play_song(); settle(l, 0.6)
         s = l.remote_status()
         check("PLAY: playing, transport running", s["song_state"] == 1 and s["transport"] == 1, s)
@@ -124,11 +124,11 @@ def main():
         l.key(0, 0, 1); s = l.remote_status(); check("SHIFT held (remote)", s["shift"] == 1)
         time.sleep(6.0); s = l.remote_status(); check("the 5 s watchdog releases SHIFT", s["shift"] == 0)
         # key and pad notes
-        t0 = time.monotonic_ns()
+        t0 = T.now_ns()
         l.key(1, 0, 100); settle(l, 0.15); l.key(1, 0, 0); settle(l, 0.3)
         ev = [x for x in din.messages if x[0] >= t0]
         check("key 1 press and release: a note-on on DIN", len(notes_on(ev)) >= 1, "%d" % len(notes_on(ev)))
-        t0 = time.monotonic_ns()
+        t0 = T.now_ns()
         l.key(3, 0, 100); settle(l, 0.15); l.key(3, 0, 0); settle(l, 0.3)
         ev = [x for x in din.messages if x[0] >= t0]
         check("pad 1 press and release: a note-on on DIN", len(notes_on(ev)) >= 1, "%d" % len(notes_on(ev)))

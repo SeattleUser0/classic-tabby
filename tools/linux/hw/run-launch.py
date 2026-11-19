@@ -113,7 +113,7 @@ def main():
         check(s["pads"][0]["code"] == 9 and s["pads"][0]["rgb"] == 0x303030 and s["pads"][1]["rgb"] == 0x080808,
               "pressed again: the reservation is taken back; selected bright white, the other clip dim white", "%d %06x %06x" % (s["pads"][0]["code"], s["pads"][0]["rgb"], s["pads"][1]["rgb"]))
         # ---- play ----
-        armed = time.monotonic_ns()
+        armed = T.now_ns()
         l.press("PLAY"); idle(1.0)
         starts = [t for t, m in list(din.messages) if t >= armed and list(m) == [0xFA]]
         if not check(bool(starts), "PLAY on the CLIPS page starts the song (MIDI Start on DIN)"):
@@ -135,7 +135,7 @@ def main():
         # v0.2: track 1 follows the scenes, which alternate its two clips, so "pad 2" is the playing clip in every other
         # cycle and a press there is a stop, not a launch (v0.1 pressed it blind and failed its own checks). Stop the
         # track first, early in a cycle, by pressing whichever pad is green; every launch below then starts from a stopped track.
-        while not 300.0 < ((time.monotonic_ns() - t0) / 1e6) % CYCLE_MS < 900.0:
+        while not 300.0 < ((T.now_ns() - t0) / 1e6) % CYCLE_MS < 900.0:
             idle(0.02)
         s = l.clips_state()
         green = [i for i, x in enumerate(s["pads"]) if x["code"] & 7 == 2]
@@ -147,9 +147,9 @@ def main():
             idle(random.uniform(0.3, 2.2))
             # v0.3: not inside the last 700 ms before a cycle: the queued state and its blink are read after the press, and
             # a press 22 ms before the cycle (v0.2, once) had landed before they could be seen. The device was right.
-            while ((time.monotonic_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0:
+            while ((T.now_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0:
                 idle(0.02)
-            tc = time.monotonic_ns()
+            tc = T.now_ns()
             l.pad(1, hold=0.04)
             s = l.clips_state()
             queued = s["pads"][1]["code"] & 7 == 3
@@ -172,16 +172,16 @@ def main():
             late = ons(0, notes[0] + int(CYCLE_MS * 1e6) - 20_000_000)
             check(late and all(pitch == 72 for _, pitch in late), "launch %d: the launched clip loops over the scene change" % (i + 1), [pitch for _, pitch in late][:6])
             idle(random.uniform(0.2, 1.5))
-            while ((time.monotonic_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0:
+            while ((T.now_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0:
                 idle(0.02)
-            tc = time.monotonic_ns()
+            tc = T.now_ns()
             l.pad(1, hold=0.04)
             s = l.clips_state()
             stop_code = s["pads"][1]["code"]; stop_queued = stop_code & 7 == 4
             ok_blink, seen = blink(1, 0x300808, 0.5) if i == 0 else (True, [])
             cmd_ms = (tc - t0) / 1e6
             boundary = t0 + int((int(cmd_ms // CYCLE_MS) + 1) * CYCLE_MS * 1e6)
-            idle(max(0.0, (boundary - time.monotonic_ns()) / 1e9) + CYCLE_MS / 1000.0 + 0.3)
+            idle(max(0.0, (boundary - T.now_ns()) / 1e9) + CYCLE_MS / 1000.0 + 0.3)
             after = ons(0, boundary + 60_000_000)
             s = l.clips_state()
             if not stop_queued:
@@ -197,17 +197,17 @@ def main():
         l.key(3, 1, 100); idle(0.2); q1 = l.clips_state()["pads"][1]["code"]
         idle(0.6); q2 = l.clips_state()["pads"][1]["code"]
         l.key(3, 1, 0)
-        tc = time.monotonic_ns(); idle(CYCLE_MS / 1000.0 + 0.3)
+        tc = T.now_ns(); idle(CYCLE_MS / 1000.0 + 0.3)
         check(q1 == (3 | 8) and q2 == (1 | 8) and not ons(0, tc), "a pad held half a second: queued at once, then selected only; nothing launched", "%d then %d" % (q1, q2))
         # ---- track 2: mute, back to the scenes ----
         l.shift_pad(1); idle(0.2); s = l.clips_state()
         check(s["track"] == 1 and s["pads"][0]["code"] & 7 == 2, "SHIFT + pad 2: track 2, its clip plays (following the scenes)", s["pads"][0]["code"])
         l.shift_pad(9); idle(0.3); s = l.clips_state()
-        tc = time.monotonic_ns()
+        tc = T.now_ns()
         check(s["pads"][0]["code"] & 16 and s["pads"][0]["rgb"] == 0x301808, "SHIFT + pad 10 mutes track 2: its playing pad is orange", "%d %06x" % (s["pads"][0]["code"], s["pads"][0]["rgb"]))
         idle(2 * CYCLE_MS / 1000.0)
         muted = ons(1, tc + 300_000_000)
-        l.shift_pad(9); idle(0.2); tc = time.monotonic_ns(); s = l.clips_state()
+        l.shift_pad(9); idle(0.2); tc = T.now_ns(); s = l.clips_state()
         idle(2 * CYCLE_MS / 1000.0)
         back = ons(1, tc)
         check(not muted and len(back) >= 3 and not (s["pads"][0]["code"] & 16) and all(abs(((t - t0) / 1e6) % (cyc() / 2) - (0 if ((t - t0) / 1e6) % (cyc() / 2) < cyc() / 4 else cyc() / 2)) <= a.tolerance for t, _ in back),
@@ -215,7 +215,7 @@ def main():
         # ---- track 1 is still stopped: ENV brings it back ----
         l.shift_pad(0); idle(0.2)
         l.press("ENV"); idle(0.1)
-        tc = time.monotonic_ns(); idle(CYCLE_MS / 1000.0 + 0.5)
+        tc = T.now_ns(); idle(CYCLE_MS / 1000.0 + 0.5)
         got = ons(0, tc)
         check(bool(got) and abs(on_cycle(got[0][0])) <= a.tolerance, "ENV: track 1 follows the scenes again from the next cycle", "first note %+.2f ms from the cycle" % (on_cycle(got[0][0]) if got else 0))
         # ---- SCENES ----
@@ -223,11 +223,11 @@ def main():
         codes = [x["code"] for x in s["pads"]]
         check(s["page_name"] == "SONG" and codes[4] == 0 and sorted(codes[:4]).count(2) == 1, "SCL: the SCENES page; four scene pads, one playing", codes[:6])
         want = [i for i in range(4) if codes[i] == 2][0]        # the scene that plays now: recalled, it plays again instead of its neighbour
-        tc = time.monotonic_ns()
+        tc = T.now_ns()
         l.pad(want); idle(0.1); q = l.clips_state()["pads"][want]["code"]
         cmd_ms = (tc - t0) / 1e6
         boundary = t0 + int((int(cmd_ms // CYCLE_MS) + 1) * CYCLE_MS * 1e6)
-        idle(max(0.0, (boundary - time.monotonic_ns()) / 1e9) + CYCLE_MS / 1000.0)      # v0.2: until the recalled scene's cycle has ended (v0.1 read it too early)
+        idle(max(0.0, (boundary - T.now_ns()) / 1e9) + CYCLE_MS / 1000.0)      # v0.2: until the recalled scene's cycle has ended (v0.1 read it too early)
         got = [pitch for t, pitch in ons(0, boundary - 20_000_000, boundary + int(CYCLE_MS * 1e6) - 40_000_000)]
         expect = [60, 60, 60, 60] if want % 2 == 0 else [72, 72]
         s = l.clips_state()
@@ -241,7 +241,7 @@ def main():
         # v0.4 (tabby-v04.7.1): a clip reserved while stopped starts with PLAY (MC-707 Reference Manual p. 12)
         l.press("BLUETOOTH"); idle(0.3); l.shift_pad(0); idle(0.2)
         l.pad(1); idle(0.2); r1 = l.clips_state()["pads"][1]["code"]
-        armed = time.monotonic_ns()
+        armed = T.now_ns()
         l.press("PLAY"); idle(2 * CYCLE_MS / 1000.0 + 0.3)
         starts = [t for t, m in list(din.messages) if t >= armed and list(m) == [0xFA]]
         t1 = starts[0] if starts else armed

@@ -89,7 +89,7 @@ def main():
         # killed by its timeout in the middle of a take). Idle until 80 ms before, then sleep the rest.
         target = step * STEP_MS
         while True:
-            d = (target - phase(time.monotonic_ns(), t0)) % CYCLE_MS
+            d = (target - phase(T.now_ns(), t0)) % CYCLE_MS
             if d <= 80.0:
                 time.sleep(max(0.0, d - 2.0) / 1000.0)
                 return
@@ -128,7 +128,7 @@ def main():
         check(s["page_name"] == "STEP" and s["events"] == 2 and s["quantize"] == 1, "the editor is open on track 1 clip 2; input quantize is on", (s["events"], s["quantize"]))
         l.press("REC"); idle(0.3); s = l.steps_state()
         check(s["recording"] == 1, "REC while stopped: armed", s["recording"])
-        armed = time.monotonic_ns()
+        armed = T.now_ns()
         l.press("PLAY"); idle(1.0)
         starts = [t for t, m in list(din.messages) if t >= armed and list(m) == [0xFA]]
         if not check(bool(starts), "PLAY starts the song"):
@@ -139,7 +139,7 @@ def main():
         check(s["recording"] == 2 and s["undo"] == 1, "the take runs; the clip before it is one undo level", (s["recording"], s["undo"]))
         # ---- a key, quantize on: played at step 5.6 (0-based 4.6), recorded on step 6 (0-based 5) ----
         wait_phase(t0, 4.6)
-        tk = time.monotonic_ns()
+        tk = T.now_ns()
         l.key(1, 14, 100); idle(0.3); l.key(1, 14, 0); idle(0.2)
         l.pad(5); idle(0.2); s = l.steps_state()
         p1 = s["note"]
@@ -154,7 +154,7 @@ def main():
         measured["quantized_error_ms"] = [round(d, 2) for _, d in oks]
         # ---- a note from MIDI in ----
         wait_phase(t0, 10.4)
-        tk = time.monotonic_ns()
+        tk = T.now_ns()
         l.send(bytes([0x90, 67, 90])); idle(0.2); l.send(bytes([0x80, 67, 0])); idle(2 * CYCLE_MS / 1000.0 + 0.2)
         refine(t0)
         later = [phase(t, t0) for t in ons(tk + 600_000_000, 67)]
@@ -166,7 +166,7 @@ def main():
         errors = []
         for k, (key, step) in enumerate(((17, 2.5), (19, 7.3), (21, 13.6))):
             wait_phase(t0, step)
-            tk = time.monotonic_ns()
+            tk = T.now_ns()
             l.key(1, key, 100); idle(0.15); l.key(1, key, 0); idle(0.1)
             pitch = l.steps_state()["note"]
             idle(CYCLE_MS / 1000.0 + 0.3)
@@ -181,10 +181,10 @@ def main():
         # ---- a controller sweep from MIDI in ----
         before = l.steps_state()["events"]
         wait_phase(t0, 1.0)
-        tk = time.monotonic_ns()
+        tk = T.now_ns()
         for v in range(61):
             l.send(bytes([0xB0, 74, v])); time.sleep(0.004)
-        sweep_ms = (time.monotonic_ns() - tk) / 1e6
+        sweep_ms = (T.now_ns() - tk) / 1e6
         idle(CYCLE_MS / 1000.0 + 0.5)
         after = l.steps_state()["events"]
         expect = int(sweep_ms / (240.0 / 480.0 * STEP_MS)) + 2
@@ -213,14 +213,14 @@ def main():
             l.press("REC"); idle(0.4); s = l.steps_state(); c = l.clips_state()
             check(s["recording"] == 1 and s["events"] == 0 and s["steps"] == 16 and s["place"] == empty and (c["pads"][empty]["code"] & 7) == 3,
                   "REC on the empty pad: a new clip of one master cycle (16 steps), reserved, armed", (s["recording"], s["events"], s["steps"], c["pads"][empty]["code"]))
-            armed = time.monotonic_ns()
+            armed = T.now_ns()
             l.press("PLAY"); idle(1.0)
             starts = [t for t, m in list(din.messages) if t >= armed and list(m) == [0xFA]]
             if check(bool(starts) and l.steps_state()["recording"] == 2, "PLAY starts the song and the take into the new clip"):
                 t0 = starts[0]
                 measure_cycle(t0)
                 wait_phase(t0, 7.6)
-                tk = time.monotonic_ns()
+                tk = T.now_ns()
                 l.key(1, 16, 100); idle(0.2); l.key(1, 16, 0); idle(0.2)
                 pitch = None
                 for t, m in list(din.messages):
