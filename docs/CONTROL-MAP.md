@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.20 (2026-11-18). Applies from tabby-v1.0.2 (section 14: EVENT LEAD). v0.19 was for tabby-v1.0 (1.2: the pad rows confirmed on the device; where a KNOB BANK shortcut's message is shown). v0.18 was for tabby-v04.23 (3.2: the step loop). v0.17 was for tabby-v04.22 (3.1: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT). v0.16 was for tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.21 (2026-11-19). Section 20: the screen layouts of tabby-v1.1 (written before the build). v0.20 applied from tabby-v1.0.2 (section 14: EVENT LEAD). v0.19 was for tabby-v1.0 (1.2: the pad rows confirmed on the device; where a KNOB BANK shortcut's message is shown). v0.18 was for tabby-v04.23 (3.2: the step loop). v0.17 was for tabby-v04.22 (3.1: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT). v0.16 was for tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -681,3 +681,211 @@ set on the SCENES page for the scene that plays; while the song is stopped, for 
 - The four controller numbers belong to the song (from tabby-v04.14): K1 CONTROLLER to K4 CONTROLLER on page 3/3 of
   CLIP SETTING, 0 to 127 each, saved with the song. A song that was never set uses 74, 71, 1 and 11. The values the
   knobs start at stay as in the table whatever the number.
+
+## 20. The screen: what every page shows, and at what size (tabby-v1.1)
+
+Written before the pages were rebuilt, as the design to review. The screen is 240 x 240 pixels. Up to tabby-v1.0.2
+almost everything was drawn with the 5x7 font at scale 1 (5 x 7 pixels a character). From tabby-v1.1 nothing is.
+
+### 20.1 Sizes and rules
+
+| Size | One character | Fits on a line | Used for |
+| --- | --- | --- | --- |
+| Scale 2 | 10 x 14 px, 12 px apart | 20 characters | The smallest text on any page: labels, lists, hints. |
+| Scale 3 | 15 x 21 px, 18 px apart | 13 characters | Stage information: song, scene, play / stop / record, tempo, the selected track, queued launches, every message and warning. |
+| Scale 4 | 20 x 28 px | 10 characters | The start screen's name. |
+
+- The font stays the 5x7 one, enlarged: at scale 2 and 3 its strokes are 2 and 3 pixels thick, which reads better at
+  arm's length in the dark than a finer 8x16 font with 1-pixel strokes, and it costs no flash. No lowercase.
+- Fewer things on a page. What went: the help lines at the bottom of every page (they are in Help and the guide),
+  the song's block numbers, the pattern step cells and the pad pressure figure on HOME, the EVENTS count on SCENES.
+- Numbers on small graphic cells (pads, steps, scenes) are scale 2 too; the cells are larger and stand in two rows
+  of eight, like the pads (upper row = pads 1 to 8).
+- Colours as before: a track's colour, green = plays, amber = queued / warning / muted altogether, blue = internal
+  sound muted, grey = idle.
+
+### 20.2 The top line (every page except PRESETS, SAVE PROJECT and the start screen)
+
+```
+120 PLAY T1  ARP
+             *SNG
+```
+
+| What | Size | Detail |
+| --- | --- | --- |
+| Tempo | 3 | `120`; `---` while an outside clock is awaited. |
+| State | 3 | `PLAY` green, `STOP` grey, `PAUS` amber, `REC` amber (a take runs), `ARMD` amber (record armed), `CNT4` amber (count-in, quarter notes left), `WAIT` / `LOST` amber (outside clock). It follows the song when a song plays, else the pattern sequencer. |
+| Selected track | 3 | `T1` to `T8` in the track's colour. |
+| ARP | 2 | Shown while the selected track's arpeggiator is on. |
+| Unsaved | 2 | Amber: `*SNG` a clip or the song waits for a save, `*PRJ` the project does, `*S+P` both. |
+
+Gone from here: the pattern's step counter and its four page marks, the word LIVE, the word BPM.
+
+### 20.3 Messages and warnings (every page)
+
+A message (STOP TO SAVE, TRACK MUTED, STOP THE SONG FIRST ...) is a box across the bottom of the screen: amber, black
+letters at scale 3, one to four lines of 13 characters, broken between words. It covers what is under it for as long
+as the message lasts (as before, about 1.5 seconds), then the page is drawn again. A question (NEW SONG IN SLOT 03?,
+ERASE OLD DATA?, OVERWRITE?) and MASTER MUTED (K8 at zero) are the same box and stay until answered or put right.
+
+The standing explanations the bottom line used to carry (TRACK MUTED - GLOBE / PAD TO UNMUTE, OTHER TRACK SOLO,
+TRACK LEVEL 0, TRACK OFF, KEY/PAD SAME CH) are gone: HOME shows each of these states in the track's own row.
+
+KNOB BANK held: a grey box over the lower third, five lines at scale 2:
+
+```
+KNOB BANK +
+PADS 1-8    TRACK
+PADS 9-16   MUTE
+PATCH SOURCE SEQ MIDI
+NOTE REPEAT KEY/PAD
+```
+
+A shortcut's message (TRACK SELECTED ...) appears as the amber box over it.
+
+### 20.4 HOME
+
+```
+120 STOP T1
+UNTITLED     KEY1 PAD8          scale 2: project name; the track the keys play, the track the pads play
+[1] PIANO 1   MUTE 100          eight rows, 23 px apart
+[2] 303 SAW        100
+...
+[8] 808 KIT   INT  100
+```
+
+| What | Size | Detail |
+| --- | --- | --- |
+| Track number | 3 | In a box; the selected track's box is filled with its colour. A green corner while MIDI arrives. |
+| Sound | 2 | 8 characters, the track's colour. |
+| State | 2 | `MUTE` amber (altogether), `INT` blue (internal sound only), `SOLO`, `OFF`, `LIVE`, `EDIT`. |
+| Level | 2 | 0 to 127, and a level meter under the sound's name. |
+
+No knob line: K1 changes the selected row's level, K4 the tempo in the top line; K2 (source) opens SOURCE as before.
+
+### 20.5 CLIPS
+
+```
+CLIPS      BAR 0003             title scale 3, bar scale 2
+S01 SCENE 002                   scale 3: song and scene (amber: NO SONG HERE, OLD DATA, STORAGE ERROR)
+1 02   2 01   3 --   4 01       scale 3: the clip each track plays (number scale 2 in its colour)
+  >05                 MUT       scale 3: what is queued or chained for it
+5 01   6 01   7 01   8 01
+              INT
+[01][02][  ][  ][  ][  ][  ][  ]   the selected track's 16 pads of the bank, scale 2 numbers
+[  ][  ][  ][  ][  ][  ][  ][  ]
+SONG OVER   LATE 003            scale 2, only when there is something to say
+```
+
+| What | Size | Detail |
+| --- | --- | --- |
+| Track cell (8, in two rows of four) | 2 + 3 | Track number: scale 2, its colour, in a filled box when selected. Clip: scale 3; white = from the scene, green = launched by hand, `--` grey = silent; amber / blue when muted. |
+| Second line of a cell | 3 | `>05` amber: queued launch. `>ST` amber: queued stop. `>SC` amber: goes back to the scenes. `+03` / `+ST` green: the clip's chain. Else `MUT` amber or `INT` blue for a muted track, else empty. |
+| Pad cells | 2 | The place's number (01 to 64) when it holds a clip. Green = plays, amber = queued or stopping, grey = holds a clip, dark = empty; a white frame = selected. |
+| Count-in, record | 3 | In the top line (CNT4, ARMD, REC). |
+
+Gone: the per-track words SCENE / CLIP / STOP (the colour says it), SELECTED / STEPS / BLK (LENGTH is on CLIP
+SETTING), the pad-range line (the cells carry their numbers).
+
+### 20.6 SCENES
+
+```
+SONG 01                         scale 3
+WRONG ROOM   BPM 120            scale 2: the song's name and its tempo
+SCENE 001/002                   scale 3 (amber: OLD DATA, STORAGE ERROR, NO SONG HERE)
+NEXT 002                        scale 3: NEXT nnn, TO nnn (amber, queued), AT nnn (amber, reserved while stopped),
+                                LOOPING, LAST SCENE; with an outside clock ARMED: START?, WAIT PULSE, FOLLOWING ...;
+                                amber: TOO MANY BLKS, BLOCK RD ERROR, DECODE LATE
+X01/01 BAR 1/4  LATE3           scale 2: pass / passes, bar / bars, the late count when not zero
+01 01 -- 01 01 01 01 01         scale 2: the scene's clip for tracks 1 to 8, each in its colour
+[01][02][  ][  ][  ][  ][  ][  ]   the 16 scenes of the pad bank, scale 2 numbers (last two digits)
+[  ][  ][  ][  ][  ][  ][  ][  ]   green = plays, amber = queued or reserved, grey = exists, dark = none
+TIME THEN HOLD JUMP             scale 2: K1 to K4
+01   NEXT RUN  CYC              scale 2: STAY / NEXT / LOOP / END; RUN / HELD; CYC (next cycle) / END (scene end)
+```
+
+Gone: the block numbers, the LEN line, EVENTS, the three help lines.
+
+### 20.7 STEP
+
+```
+STEP CLIP 02                    scale 3
+BAR 1/1 LEN 016 Q ON            scale 2
+EV 000/512 UN 0 RE 0            scale 2: events, undo and redo steps
+[1][ ][ ][ ][2][ ][ ][ ]        the bar's 16 steps, scale 2: how many notes; green = plays now, amber = holds the
+[1][ ][ ][ ][1][ ][ ][ ]        pad note, white = notes, a blue frame = selected
+STEP 001  PITCH C4              scale 2 (or PRESS A PAD / PADS TOGGLE C4)
+C4  E4  G4                      scale 2: the step's notes (up to 6), the chosen one white
+NOTES 3  PROB ALWAYS            scale 2
+NOTE VEL  STRT LEN              scale 2: K1 to K4 for the chosen note
+C4   100  +000 480
+```
+
+One line of note names replaces the six-line table; the chosen note's velocity, start and length are in the knob
+line. A length of 10000 units or more shows in steps (`21S`).
+
+### 20.8 CLIP SETTING
+
+```
+SETTING     C02 1/4             title scale 3; the clip (or SONG) and the page, scale 2
+ LENGTH      016                eight lines a page, scale 2, 17 px apart; the chosen line on a grey bar
+ NEXT CLIP   STAY
+ ...
+K5 LINE  K1/K2 VALUE            scale 2
+> SAVES (STOPPED)
+```
+
+Four pages instead of three: 1/4 LENGTH to COPY TO PAD, 2/4 TRANSPOSE to DELETE CLIP, 3/4 COUNT-IN to K2 CC,
+4/4 K3 CC to EVENT LEAD. Shortened: PLAY QUANT, CLICK CH, K1 CC to K4 CC; values: 016 (no word STEPS), 016 ST,
+03 EMPTY / 03 USED, REC ONLY, MIDI, FWD+REV, `8T=024` (step size and its length in 16ths; amber with `!` when the
+length does not allow it).
+
+### 20.9 Pages with four knobs: SYNC / MIDI, MIDI TRACK, PARA (DX7 QUICK EDIT), FX, ARP
+
+One line per knob instead of the small strip: the knob and its full name at scale 2, the value at scale 3 on the
+right (scale 2 when it has more than four characters), 26 px apart, a bar in the knob's colour on the left.
+
+```
+SYNC / MIDI                     scale 3
+K1 CLOCK        INT
+K2 CLK IN      AUTO
+K3 SWING         0%
+K4 SEQ OUT       ON
+K7 KEY OUT       ON
+KNOB BANK+SEQ: TRACK            scale 2
+SEQ+PARA: ACTIONS
+```
+
+| Page | Title (scale 3) | Lines | Scale 2 under them |
+| --- | --- | --- | --- |
+| SYNC / MIDI | SYNC / MIDI | K1 CLOCK, K2 CLK IN, K3 SWING, K4 SEQ OUT, K7 KEY OUT | the two shortcuts |
+| MIDI TRACK | MIDI TRACK | K1 IN CH, K2 OUT CH, K3 SEQ, K4 OUT PORT | K5 TRACK, SEQ: SYNC |
+| PARA | the voice's name; DX7 QUICK EDIT and 001/128 at scale 2 above | K1 ALGORITHM, K2 FEEDBACK, K3 TRANSPOSE, K4 LEVEL | K7 VOICE K6 BANK |
+| FX | FX TRACK / FX SHARED / FX DELAY | the page's four | K6: TRACK/SHARED/DLY |
+| ARP | ARP OFF / ARP ON / ARP ON HOLD | K1 RATE, K2 DIRECTION, K3 RANGE, K4 GATE (page 2: SWING, HOLD, OUT CH) | 1/2 NOTES K6 PAGE; TAP ARP: ON/OFF |
+
+### 20.10 MIX (also while GLOBE is held)
+
+```
+MIX     K T1-4 F T1-4           title scale 3; which tracks the knobs and the faders move, scale 2
+[M1][M2][M3][M4][M5][M6][M7][M8]   mute, scale 2, filled with the track's colour when on (upper pad row)
+[S1][S2][S3][S4][S5][S6][S7][S8]   solo (lower pad row)
+ |   |   |   |   |   |   |   |     eight level bars in the tracks' colours
+T1   T2   T3   T4               scale 2: K1 to K4
+100  100  100  100
+```
+
+### 20.11 ACTIONS, SOURCE, PRESETS, SAVE PROJECT, start screen
+
+| Page | What shows |
+| --- | --- |
+| ACTIONS | The nine entries at scale 2, 17 px apart, the chosen one on a grey bar. Below, scale 2: `FREE 317K RECL 0K`, `USER 471040 READY`, `K1/K5 PICK > DOES IT`. A question is the amber box (`NEW SONG IN SLOT 03? > CONFIRMS`). |
+| SOURCE | The chosen source at scale 3; SOUND SOURCE; the five sources in two columns at scale 2; CURRENT SOUND or NEW: RESETS TIMBRE; K2 TRACK: PROJECT / LIVE / OFF; K1 / PADS CHOOSE; > APPLY PATCH BACK. |
+| PRESETS | PRESETS, the slot (01/16) and the stored name at scale 3; K5/K7 CHOOSE SLOT, SEQ PLAY: LOAD+RUN, > SAVE, PADS 1-16: LOAD at scale 2; EMPTY SLOT / LOAD FAILED amber at scale 3. |
+| SAVE PROJECT | SAVE PROJECT at scale 3; SLOT 01/16 and what it holds at scale 2; the name being written at scale 3 with its cursor; K1 CURSOR K2 LETTER, K5/K7 SLOT, >: WRITE at scale 2; the result at scale 3: SAVED green; STOP TO SAVE, OVERWRITE?, NO VALID SAVE, OLD DATA, NO MEMORY, BAD PROJECT, FLASH BUSY, FLASH ERROR amber. |
+| Start screen | SMK37 at scale 4; OFFICIAL OPEN, the version and M-VAVE at scale 2. |
+
+### 20.12 Drawing and timing
+
+Unchanged in kind: a page is composed in bands of 16 rows, one band per pass, and a band waits when a MIDI event is
+due (BUILD.md 36.6). A message appearing or leaving redraws the whole page, in bands like any page change.
