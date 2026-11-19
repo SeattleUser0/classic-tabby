@@ -6489,3 +6489,24 @@ without the state the release run gives it, failed its colour check on a pad the
 artefact of my order, not looked into further.)
 
 The page builds/tabby-v1.0.2-rc1/ gets a note line; the same build goes out as candidate 2.
+
+### 63.3 tabby-v1.0.2 released: candidate 2 (2026-11-19)
+
+Suite green on 2acfa95; builds/tabby-v1.0.2-rc2/ (build `9b00a12fd0346a65`, on the device already: nothing written);
+every step passed (24 with the two soaks and the panel state); promoted.
+
+| Step | Candidate 1 | Candidate 2 |
+| --- | --- | --- |
+| soak, EVENT LEAD OFF, 40 min, 19 segments | 0 bad; DIN 14.85 to 15.94 ms; USB 1.64 to 2.57 ms | 0 bad; DIN 14.83 to 16.98 ms; USB 1.64 to 2.75 ms |
+| soak-lead, EVENT LEAD 1/16, 80 min, 38 segments | 0 bad; DIN 1.81 to 2.77 ms; USB 1.68 to 2.56 ms; events ended 112.5 to 126.1 ms before the first note on DIN | 0 bad; DIN 1.82 to 2.42 ms; USB 1.66 to 2.07 ms; 112.5 to 125.9 ms on DIN, 123.9 to 128.4 ms on USB |
+| program changes / controllers per segment, both ports | 136 / 48 in all 57 | 136 / 48 in all 57 |
+| run-setup v0.13 | 39 of 40 (63.2) | 40 of 40 |
+| run-takeedit / run-repeat / run-program / run-chain / run-scenechain / run-sceneedit | 26 / 20 / 10 / 11 / 13 / 16, all | the same |
+| run-record / run-steps / run-launch twice | 25 / 18 / 40 and 40 | the same |
+| run-clips, the timing song | worst 1.14 ms | worst 1.19 ms |
+| run-15, one line, DIN / USB | 1.86, 1.83, 1.72 / 1.59, 1.63, 1.66 ms | 1.83, 1.74, 1.94 / 1.74, 1.70, 1.78 ms |
+| full backup, restore, verify; panel state | PASS; as found | PASS; as found |
+
+The DIN band of the lead soak leaves out each line's first note of a segment (14.4 ms at SEQ PLAY, no lead there);
+with it the largest single error on DIN is that 14.4 ms. Flash margin 28701 bytes, free RAM 142412 bytes.
+The mute of track 1 found after the tabby-v1.0.1 run (63.1) did not come back in either run and is not explained.
