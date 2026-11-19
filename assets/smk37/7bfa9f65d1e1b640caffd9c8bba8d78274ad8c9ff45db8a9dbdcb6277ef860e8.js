@@ -33,7 +33,7 @@
   };
 })();
 
-const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v1.0.1","build_id":"b3ecdffbabe49bf0fd5f4f8d0b1dac8d993c80157dc1ef453be3ce3f441bf6e1","sha256":"f2825f7c29e1b123b0ddf8c29591d0c80c0b632cfb45bbb173a6fe23cf6a68be","bytes":528948,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/f2825f7c29e1b123b0ddf8c29591d0c80c0b632cfb45bbb173a6fe23cf6a68be.bin"};
+const FM1_PACKAGE = {"schema":1,"product":"SMK-37 Pro_8000001","profile":"pro","family":8,"release_version":"V01","display_version":"tabby-v1.0.2","build_id":"9b00a12fd0346a65ca654d40d8107710dfc70f4978e6c619940c5aa735d355a2","sha256":"c98db74f4a01b4361d43a6872c39cd7a8c467ab6f79ac0145f600c91f75b767f","bytes":528948,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","hardware_validated":false,"model":"pro","stock":{"schema":1,"kind":"stock","product":"SMK-37 Pro_016","model":"pro","profile":"SMK37 Pro Original V16","family":8,"release_version":"V16","build_id":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","sha256":"2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0","bytes":705252,"loader_sha256":"ef1f2db89b011fa53e71df363f0122de0ea896618c53fb53e8da676322004541","url":"./assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin"},"user_bytes":471040,"diag":false,"a2":true,"url":"./assets/smk37/c98db74f4a01b4361d43a6872c39cd7a8c467ab6f79ac0145f600c91f75b767f.bin"};
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Classic Tabby Task 14 (2026-11-10): Help audit against tabby-v04.1: strings that named removed pages, modes or actions (step editing, REC, SEQ pages, the sampler, "Enable force flash and reconnect") rewritten or deleted, in both languages; new chapter 00 "What changed in tabby-v04"; tests/workbench/help-banned.mjs guards it. Second pass: factory-restore sectors (70-79 of 80), the TRS jack is output only (CLK IN DIN), demo-sample line. English only (SPEC 17.7): the Chinese text is replaced by English at the source, the translation table and the language selector are gone. */
 /* SMK37 OPEN browser updater.
@@ -3051,9 +3051,11 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
  *   optional `rig` (a tabby-rig/1 profile, the per-song override) travels in the `.tabby`
  *   trailer (0xFF, "TRIG", u32 length, JSON) and never reaches the device.
  *
- * Version: 0.13
+ * Version: 0.14
  *
  * Revision log
+ *   v0.14 2026-11-18  tabby-v1.0.2: the song's event lead (header byte 47, song.eventLead: 0 OFF, 1 a 32nd, 2 a 16th, 3 an
+ *                     8th, 4 a quarter note) is kept as read and written when set.
  *   v0.13 2026-11-17  tabby-v04.20: a clip's direction (header byte 14, high four bits) is kept.
  *   v0.12 2026-11-17  tabby-v04.19: a clip's scale (header byte 14) is kept.
  *   v0.11 2026-11-17  tabby-v04.17: a clip's shuffle and playback quantize (header bytes 13, 15) are kept.
@@ -3301,6 +3303,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     r[42] = song.loopRow;
     /* v0.3: per-track output channel bytes, 0 = device setting, 1..16 = MIDI channel. */
     for (let t = 0; t < 8; t++) r[LIMITS.channelsOffset + t] = song.outChannels[t] === null ? 0 : song.outChannels[t] + 1;
+    if (song.eventLead) r[47] = song.eventLead & 7;     /* v0.14: the event lead (tabby-v1.0.2); the firmware reads it in a record of any version */
     if (scenes) {
       /* Version 3: the clip table at 64 (8 tracks x 64 places, a block id each), the scenes at 1088 (12 bytes: a clip
        * place + 1 per track, repeat, flags, steps, 0), the master cycle in byte 43 (0 = 16 steps). */
@@ -3352,6 +3355,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     if (r[37] & ~7) fail('song record flags byte ' + r[37] + ' invalid');
     song.projectSlot = r[36]; song.loop = !!(r[37] & 1); song.jumpMode = r[37] & 2 ? 'row' : 'bar'; song.swing = !!(r[37] & 4);
     song.tempo = v.getUint16(38, true); song.loopRow = r[42];
+    if (r[47] >= 1 && r[47] <= 4) song.eventLead = r[47];   /* v0.14: the event lead (tabby-v1.0.2) */
     if (song.tempo && (song.tempo < LIMITS.tempoMin || song.tempo > LIMITS.tempoMax)) fail('song record tempo override ' + song.tempo + ' invalid (0 or 30..300)');   /* (f): as the device */
     song.outChannels = Array.from(r.subarray(LIMITS.channelsOffset, LIMITS.channelsOffset + 8), (c, t) => {
       if (c > 16) fail('song record track ' + (t + 1) + ' output channel byte ' + c + ' invalid (0..16)');
@@ -3487,6 +3491,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
     for (const id of ids.keys()) if (!used.has(id)) warn('block ' + id + ' is stored but no row uses it');
     validateEvents(song.events || [], (song.rows || []).length).forEach(err);   /* 9.11 */
     if (song.recordVersion !== undefined && song.recordVersion !== 3) err('record version must be 3 (scenes) or left out');
+    if (song.eventLead !== undefined && !(Number.isInteger(song.eventLead) && song.eventLead >= 0 && song.eventLead <= 4)) err('the event lead must be 0..4');
     if (song.cycleSteps !== undefined && !(Number.isInteger(song.cycleSteps) && song.cycleSteps >= 2 && song.cycleSteps <= 128)) err('the master cycle must be 2..128 steps');
     if (song.recordVersion === 3 && !errors.length) { try { clipTable(song); } catch (e) { err(e.message); } }
     const u = errors.length ? null : usage(song);
@@ -4617,7 +4622,7 @@ globalThis.FM1_GUIDE_TEMPLATE = "# Writing MIDI files for Classic Tabby\n\n<!-- 
   if (typeof module !== 'undefined' && module.exports) module.exports = TabbyImportUI;
 })();
 
-const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v1.0.1","sha256":"8ec9c81f498a2850253addeeeda966fb41e3a70b425da92792255e20271f4c2b","source_sha256":"0e555406fa9b0b6021b376c36d516200916eb2383dbc79efb57360795d12a0ab","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":372026,"url":"./assets/smk37/8ec9c81f498a2850253addeeeda966fb41e3a70b425da92792255e20271f4c2b.wasm"};
+const FM1_SIMULATOR = {"schema":1,"release_version":"V01","display_version":"tabby-v1.0.2","sha256":"f9fa536e3f9e9cd8a03a16427f59ff4943483a33801d4eea91515b3b69c55427","source_sha256":"98ed3c2e01c53d83484ab754f11b9bdb57aa764f6ebffcb9085dde927493f1c7","sample_bank":"synthesized-demo","user_bytes":471040,"diag":false,"bytes":372503,"url":"./assets/smk37/f9fa536e3f9e9cd8a03a16427f59ff4943483a33801d4eea91515b3b69c55427.wasm"};
 (() => {
   const $=id=>document.getElementById(id);
   // Task 08: the badge shows the Classic Tabby display version (the git tag); the Open label is the fallback.
