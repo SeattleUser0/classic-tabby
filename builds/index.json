@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-19T06:52:12Z",
+  "updated": "2026-11-19T09:30:01Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -640,6 +640,16 @@
       "page": "builds/tabby-v1.0.2-rc1/",
       "published": "2026-11-19",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.0.2-rc1.zip",
+      "note": "Not promoted: one check of one device test failed once and passed in two repeats; the likely cause is the test tool's clock. The firmware is the same build as tabby-v1.0.2-rc2."
+    },
+    {
+      "tag": "tabby-v1.0.2-rc2",
+      "build": "9b00a12fd0346a65ca654d40d8107710dfc70f4978e6c619940c5aa735d355a2",
+      "loader": "ota-SMK379b00a12fd0346a65",
+      "version": "tabby-v1.0.2",
+      "page": "builds/tabby-v1.0.2-rc2/",
+      "published": "2026-11-19",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.0.2-rc2.zip",
       "note": "Release candidate of tabby-v1.0.2: not a release. Use the main page unless you were asked to test this build."
     }
   ]
