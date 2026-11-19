@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-18T22:03:52Z",
+  "updated": "2026-11-19T00:25:21Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -600,7 +600,17 @@
       "page": "builds/tabby-v1.0-rc1/",
       "published": "2026-11-18",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.0-rc1.zip",
-      "note": "Release candidate of tabby-v1.0: not a release. Use the main page unless you were asked to test this build."
+      "note": "Release candidate; it passed the device tests and was released as tabby-v1.0."
+    },
+    {
+      "tag": "tabby-v1.0",
+      "build": "3b6cde4c259dd43a2d55bf0449fbcb79af4261d6213a4313427441113043fde8",
+      "loader": "ota-SMK373b6cde4c259dd43a",
+      "version": "tabby-v1.0",
+      "page": "builds/tabby-v1.0/",
+      "published": "2026-11-19",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.0.zip",
+      "note": ""
     }
   ]
 }
