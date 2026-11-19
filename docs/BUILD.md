@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 0.97
+Version: 0.98
 Revision log:
+- v0.98, 2026-11-18: 61.1 (tabby-v1.0 released as candidate 1).
 - v0.97, 2026-11-18: 59.2 (tabby-v04.23 released as candidate 2), section 60 (the 9.9 ms run answered: the NUC's clock; the tools on the raw clock; a 70-minute soak), section 61 (tabby-v1.0).
 - v0.96, 2026-11-18: 58.1 (tabby-v04.22 released as candidate 1), 59.1 (tabby-v04.23-rc1 not promoted: the NUC's clock, and one check of mine), section 59 (tabby-v04.23: the step loop).
 - v0.95, 2026-11-18: 57.5 (tabby-v04.21 released as candidate 2), section 58 (tabby-v04.22: NOTE REPEAT).
@@ -6339,3 +6340,23 @@ not a regression: documented in the guide's known limits and in the stage checkl
 judges USB by the 3.5 ms limit and DIN by a limit of 20 ms.
 
 Measured: app image 490468 bytes (+32), margin 28989, heap 142412. Build `3b6cde4c259dd43a`.
+
+### 61.1 tabby-v1.0 released: candidate 1 (2026-11-18)
+
+Suite green on 5cf1d14; builds/tabby-v1.0-rc1/ (build `3b6cde4c259dd43a`), installed in 11 s; every step passed at the
+first attempt (22 steps with the soak); promoted.
+
+| Step | Result |
+| --- | --- |
+| soak, the Wrong Room song, 121 minutes, 57 segments on six pages | 0 bad; USB band 1.65 to 2.76 ms, largest single error 2.13 ms; DIN (one cable) band 14.83 to 15.78 ms, largest single error 14.62 ms (the first notes after the loop point, behind the row events); program changes and controllers the same on both ports in every segment; no underrun, no stuck note |
+| run-takeedit / run-repeat / run-program / run-chain / run-scenechain / run-sceneedit / run-setup | 26 of 26 / 20 of 20 / 10 of 10 / 11 of 11 / 13 of 13 / 16 of 16 / 38 of 38 |
+| run-record / run-steps / run-launch twice | 25 of 25 / 18 of 18 / 40 of 40 and 40 of 40 |
+| run-clips, the timing song | 960 of 960 on DIN and USB; worst 1.12 ms on DIN; tempo ratio 0.99958 |
+| run-15, one line, three runs | DIN 1.78, 1.70, 1.64 ms; USB 1.75, 1.78, 1.67 ms; clock ratio 0.999583 |
+| full backup, restore, verify | Verify PASS, 41 items, twice |
+
+During the soak the NUC's steered clock ran between +5.5 and +55.6 ppm against its raw clock and bent up to 1.68 ms
+inside one segment; the figures above are on the raw clock. The regression found nothing to fix. The Wrong Room song
+was deleted from slot 6 afterwards. Flash margin 28989 bytes, free RAM 142412 bytes.
+
+Not verified on hardware: the screen fix (the notice in the KNOB BANK list) was looked at in the simulator only.
