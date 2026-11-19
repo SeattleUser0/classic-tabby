@@ -6510,3 +6510,24 @@ every step passed (24 with the two soaks and the panel state); promoted.
 The DIN band of the lead soak leaves out each line's first note of a segment (14.4 ms at SEQ PLAY, no lead there);
 with it the largest single error on DIN is that 14.4 ms. Flash margin 28701 bytes, free RAM 142412 bytes.
 The mute of track 1 found after the tabby-v1.0.1 run (63.1) did not come back in either run and is not explained.
+
+### 63.4 The track 1 mute, read once more (2026-11-19; read only, nothing changed)
+
+The user's order: look for any path that can set a mute without a pad press or a MIX page action. What I found
+orange in the KNOB BANK list was "muted altogether" (`mute_kind` 2), which needs the bit in `song_mute_bits`.
+
+| Path | Can it set that mute? |
+| --- | --- |
+| `smk37_screen_shortcut` (app/screen.c): KNOB BANK held + pad 9 to 16 | Yes: the only place that sets a bit of `song_mute_bits` (it toggles the mixer mute with it). Reached from the pad scan and from command 29 {6}, the injected pad, while button 0 is down |
+| the frame's sync (app/screen.c, where `song_mute_set` is called) | Only clears a bit (when the mixer says the track is not muted) |
+| GLOBE held or the MIX page + pad; the workbench's value edit (`groove_screen_web_adjust`, action 7) | The mixer mute alone: shown blue (internal sound only), not orange |
+| project load (boot, project change, restore, workspace upload): `mute_mask` from the project's byte | The mixer mute alone, and only as saved; the backups around the run are identical and unmuted |
+| song load, scene recall, launch, song settings, the song record | No mute anywhere in app/song.c but `song_mute_set`, which the screen feeds |
+| the other remote commands (29 {0..5}, {7}, {9..18}), MIDI in | None calls a mute |
+
+So no path sets it by itself. It takes KNOB BANK + pad 9 once: on the panel, or injected with the KNOB BANK button
+down. One way injection can do that without a tool meaning to: a tool that leaves the injected KNOB BANK down (the
+firmware lets go of injected keys only after 5 s without any remote command) and a later pad 9; I found no tool run
+between the last good check and the finding that presses pad 9 at all. A press on the panel itself would look the
+same, and my report after tabby-v1.0.1 had asked for exactly that press (KNOB BANK + a lower pad). Not explained;
+nothing to fix. The state check after every test stays in the release run for good (rc-validate.py v0.10).
