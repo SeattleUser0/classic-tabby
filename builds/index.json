@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-19T00:25:21Z",
+  "updated": "2026-11-19T00:34:59Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -610,7 +610,17 @@
       "page": "builds/tabby-v1.0/",
       "published": "2026-11-19",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.0.zip",
-      "note": ""
+      "note": "Use tabby-v1.0.1: in a song of two scenes that loops, this build (like tabby-v04.23, and probably every build before it) skips most of the scenes' program changes after the first pass."
+    },
+    {
+      "tag": "tabby-v1.0.1-rc1",
+      "build": "b3ecdffbabe49bf0fd5f4f8d0b1dac8d993c80157dc1ef453be3ce3f441bf6e1",
+      "loader": "ota-SMK37b3ecdffbabe49bf0",
+      "version": "tabby-v1.0.1",
+      "page": "builds/tabby-v1.0.1-rc1/",
+      "published": "2026-11-19",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.0.1-rc1.zip",
+      "note": "Release candidate of tabby-v1.0.1: not a release. Use the main page unless you were asked to test this build."
     }
   ]
 }
