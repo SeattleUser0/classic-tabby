@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.50
+Version: 0.51
 Revision log:
+- v0.51, 2026-11-19: section 51: tabby-v1.2 measured, 487844 bytes, margin 31613.
 - v0.50, 2026-11-19: section 50: tabby-v1.1 measured, 486724 bytes, margin 32733 (the readable screen: 4032 bytes smaller).
 - v0.49, 2026-11-18: section 49: tabby-v1.0.2 measured, 490756 bytes, margin 28701.
 - v0.48, 2026-11-18: section 48: tabby-v1.0.1 measured.
@@ -1412,3 +1413,14 @@ nothing; an 8x16 font with lowercase is 95 glyphs of 16 bytes, about 1.5 KB with
 It was left out for how it reads, not for its size: at 8 x 16 pixels its strokes are 1 pixel thick, thinner than
 the 2-pixel strokes of the 5x7 font at scale 2, on a screen that is read in the dark at arm's length; and at twice
 its size (16 x 32) only 15 characters fit on a line and seven lines on the screen.
+
+## 51. tabby-v1.2 (measured, 2026-11-19)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v1.1 | 486724 | | 32733 |
+| tabby-v1.2: the message box at the top; the screen copy and its remote command | 487844 | +1120 | **31613** |
+
+RAM (runtime heap): 143340 bytes (-96: the copy's colours and state). Above the 15360-byte reserve: 16253 bytes.
+The screen copy itself is 57600 bytes from the heap, taken when a test switches it on and given back when it
+switches it off; a player's device never holds it.

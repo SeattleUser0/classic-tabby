@@ -57,6 +57,7 @@
 #include "smk37_controls.h"
 #include "diag.h"   /* Classic Tabby Task 11: the ACTIONS storage lines, diagnostic build only */
 #include "clip_v3.h"   /* Goal 6: the STEP page reads the clip being edited */
+#include <stdlib.h>
 #include <string.h>
 enum {
     BACK = 0x0000,
@@ -1480,7 +1481,7 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
         else knob(col, label, value, color);
     }
 }
-/* tabby-v1.1 (docs/CONTROL-MAP.md 20.3): a message is an amber box across the bottom, black letters at scale 3, one
+/* tabby-v1.1 (docs/CONTROL-MAP.md 20.3): a message is an amber box (across the top from tabby-v1.2), black letters at scale 3, one
  * to four lines of 13 characters broken between words; " - " in a message starts a new line. */
 static unsigned banner_wrap(const char *s, char out[4][14])
 {
@@ -1533,10 +1534,16 @@ static void draw_page(const struct fm1_ble_status *ble)
         uint32_t sig = signature(n, say, (unsigned)strlen(say));
         if (n && (paint_rendering || cache->banner_cache != sig)) {
             cache->banner_cache = sig;
-            unsigned top = 240U - (n * 23U + 5U);
-            paint_fill(0, top, 240, 240U - top, AMBER);
-            for (unsigned i = 0; i < n; ++i) text(3, top + 4U + i * 23U, line[i], 3, BACK, AMBER);
+            /* tabby-v1.2 (the user's answer of 2026-11-19): at the top, over the top line, so that it never covers
+             * the pads' cells; as long as before */
+            /* its height ends where a row of the page ends (the top line, the title row, the row under it), so no
+             * half letters stand under it */
+            static const uint8_t height[] = {33, 58, 82};
+            unsigned h = height[n - 1U < 3U ? n - 1U : 2U], first = (h - n * 23U) / 2U + 1U;
+            paint_fill(0, 0, 240, h, AMBER);
+            for (unsigned i = 0; i < n && i < 3; ++i) text(3, first + i * 23U, line[i], 3, BACK, AMBER);
         }
+        return;   /* the hold bar's rows are under the box */
     } else cache->banner_cache = 0;
     if (boot_active || (paint_rendering && paint_top >= 32)) return;
     uint32_t since = 0;
@@ -1550,6 +1557,77 @@ static void draw_page(const struct fm1_ble_status *ble)
     cache->hold_cache = width;
     erase(8, 30, 224, 2);
     if (width) paint_fill(8, 30, width, 2, ACCENT);
+}
+/* tabby-v1.2 (docs/SPEC.md 19.31): the screen copy. The LCD cannot be read back (one data line, driven by the SoC
+ * only: app/board/fm1_lcd_hw.h), so the nearest proof of what is on the glass is a copy of every rectangle of pixels
+ * the firmware hands to the LCD's DMA: paint_flush is the only writer after the start screen. Remote command {19}
+ * (read only: it changes nothing a player can see or hear) switches the copy on (57600 bytes from the heap, one
+ * byte a pixel: an index into the colours seen), freezes it, reads it run-length coded and gives the memory back.
+ * State: 0 off, 1 copying, 2 freeze when no band is waiting, 3 frozen. Control task only. */
+enum { SHOT_BYTES = FM1_SCREEN_WIDTH * FM1_SCREEN_HEIGHT, SHOT_COLORS = 31, SHOT_INFO = 16 };
+static uint8_t *shot, shot_state, shot_colors, shot_info[SHOT_INFO], shot_frozen_info[SHOT_INFO];
+static uint16_t shot_palette[SHOT_COLORS], shot_errors;
+static void shot_band(unsigned left, unsigned top, unsigned width)
+{
+    unsigned last = 0;
+    for (unsigned r = 0; r < PAINT_ROWS; ++r) {
+        const uint16_t *px = paint_pixels + r * width;
+        uint8_t *to = shot + (top + r) * FM1_SCREEN_WIDTH + left;
+        for (unsigned c = 0; c < width; ++c) {
+            uint16_t v = px[c];
+            if (last >= shot_colors || shot_palette[last] != v) {
+                for (last = 0; last < shot_colors && shot_palette[last] != v; ++last) { }
+                if (last == shot_colors && shot_colors < SHOT_COLORS) shot_palette[shot_colors++] = v;
+            }
+            to[c] = (uint8_t)last;   /* SHOT_COLORS: a thirty-second colour (none of the pages has one) */
+        }
+    }
+}
+/* What the frame shows that moves with the song: the simulator is brought to the same values before its picture is
+ * compared (tools/linux/hw/run-screen.py). */
+static void shot_note(unsigned visible)
+{
+    struct song_status st; song_status_read(&st);
+    struct song_edit_info ei; song_edit_info(&ei);
+    uint32_t h = 2166136261U;
+    h = signature(h, st.track_state, 8); h = signature(h, st.track_row, 8); h = signature(h, st.track_queued, 8); h = signature(h, st.track_chain, 8);
+    uint8_t *o = shot_info;
+    o[0] = (uint8_t)visible; o[1] = st.playing; o[2] = st.playing ? st.row : 255; o[3] = st.playing ? st.repeat : 0; o[4] = st.playing ? st.step : 0;
+    o[5] = (uint8_t)(st.playing ? st.bar : 0); o[6] = (uint8_t)(st.playing ? st.bar >> 8 : 0); o[7] = ei.active ? ei.play_step : 255;
+    o[8] = st.queued; o[9] = st.count_in; o[10] = ei.recording; o[11] = (uint8_t)h; o[12] = (uint8_t)(h >> 8); o[13] = st.song; o[14] = (uint8_t)track;
+    o[15] = (uint8_t)((notice ? 1U : 0U) | (groove_project_dirty() ? 2U : 0U) | (song_unsaved() ? 4U : 0U));
+}
+int ct_screen_shot(unsigned what, unsigned offset, uint8_t *out)
+{
+    if (what == 1) {                                   /* on (again: copy from a fresh picture) */
+        if (!shot) { shot = malloc(SHOT_BYTES); if (!shot) return -1; }
+        memset(shot, 255, SHOT_BYTES); shot_colors = 0; shot_errors = 0; shot_state = 1;
+        saved_cache.shown_page = ~0U;
+    } else if (what == 2 || what == 6) {               /* freeze: when no band waits / now */
+        if (!shot) return -1;
+        if (shot_state != 3) { shot_state = what == 2 ? 2 : 3; if (shot_state == 3) memcpy(shot_frozen_info, shot_info, SHOT_INFO); }
+    } else if (what == 5) {                            /* off */
+        free(shot); shot = NULL; shot_state = 0;
+    } else if (what == 7) {                            /* a freeze that was asked for is taken back */
+        if (shot_state == 2) shot_state = 1;
+    } else if (what == 3) {                            /* the frozen picture from pixel `offset`: bytes (length << 5) | colour, length 1 to 7; length 0: the next byte is the length - 1 */
+        if (!shot || shot_state != 3) return -1;
+        unsigned n = 0;
+        while (offset < SHOT_BYTES && n + 2U <= 60U) {
+            unsigned v = shot[offset], run = 1;
+            while (offset + run < SHOT_BYTES && run < 256U && shot[offset + run] == v) ++run;
+            if (run < 8U) out[n++] = (uint8_t)((run << 5) | (v & 31U));
+            else { out[n++] = (uint8_t)(v & 31U); out[n++] = (uint8_t)(run - 1U); }
+            offset += run;
+        }
+        return (int)n;
+    } else if (what == 4) {                            /* the colours, RGB565 low byte first */
+        for (unsigned i = 0; i < shot_colors; ++i) { out[2 * i] = (uint8_t)shot_palette[i]; out[2 * i + 1] = (uint8_t)(shot_palette[i] >> 8); }
+        return 2 * shot_colors;
+    } else if (what) return -1;
+    out[0] = shot_state; out[1] = shot_colors; out[2] = (uint8_t)shot_errors; out[3] = (uint8_t)(shot_errors >> 8);
+    memcpy(out + 4, shot_state == 3 ? shot_frozen_info : shot_info, SHOT_INFO);
+    return 4 + SHOT_INFO;
 }
 static void draw(const struct fm1_ble_status *ble)
 {
@@ -1595,6 +1673,7 @@ static void draw(const struct fm1_ble_status *ble)
      * frame; no stale queue of old encoder positions needs to be displayed. */
     paint_priority = 0;
     cache = &saved_cache;
+    if (shot_state == 1 || shot_state == 2) shot_note(boot_active ? STARTUP : visible);
     /* tabby-v1.1: a message box that shrinks or leaves uncovers the page: draw the page again */
     { const char *say = banner_text(); char line[4][14]; unsigned n = say ? banner_wrap(say, line) : 0;
       if (n < banner_lines) saved_cache.shown_page = ~0U;
@@ -1656,9 +1735,11 @@ static void paint_flush(void)
         cache->shown_page = ~0U;
         draw_page(&frame_ble);
         /* Rasterize directly into the tightly packed DMA rectangle. */
+        if (shot && shot_state && shot_state < 3) shot_band(left, paint_top, width);   /* before the submit: it swaps the bytes in place */
         if (fm1_screen_submit(left, paint_top, width, PAINT_ROWS,
                             paint_pixels, width * PAINT_ROWS)) {
             saved_cache.shown_page = ~0U; /* Retry the whole page after a transport error. */
+            if (shot && shot_state && shot_state < 3 && shot_errors < 65535U) ++shot_errors;   /* the copy is ahead of the LCD until the retry */
             break;
         }
         paint_left[band] = FM1_SCREEN_WIDTH;
@@ -1676,6 +1757,11 @@ static void paint_flush(void)
     }
     paint_rendering = 0;
     cache = &saved_cache;
+    if (shot_state == 2 && !fm1_screen_pending()) {    /* freeze when the picture is whole: no band waits */
+        unsigned waiting = 0;
+        for (unsigned b = 0; b < PAINT_BANDS; ++b) waiting |= paint_left[b] < paint_right[b];
+        if (!waiting) { shot_state = 3; memcpy(shot_frozen_info, shot_info, SHOT_INFO); }
+    }
     ct_diag_paint(ct_diag_ticks() - diag_start, diag_bands);
 }
 static int release_keys_except(uint32_t keep)

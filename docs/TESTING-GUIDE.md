@@ -1,11 +1,11 @@
 CLASSIC TABBY TESTING AND USER GUIDE
 ====================================
 
-Version 5.3, 2026-11-19. For tabby-v1.1 on the M-VAVE SMK-37 Pro.
+Version 5.4, 2026-11-19. For tabby-v1.2 on the M-VAVE SMK-37 Pro.
 The user manual and the test checklist in one, for the person who plays and tests the device. No programming needed.
 Sections 3 to 5 are the manual: setting up, every page of the device in the order you use it, and the workbench. Section 6 is the checklist.
 
-This guide is for tabby-v1.1. If an older firmware is on your SMK-37, install tabby-v1.1 (section 3.2); section 2.2 lists what each release added. The guide is also one printable file: https://seattleuser0.github.io/classic-tabby/guide/classic-tabby-manual.pdf. New in tabby-v1.1: a screen you can read at arm's length: nothing smaller than 10 x 14 pixels a character, the stage information larger still, fewer things on a page, and pictures of every page in this guide (Reading the screen, before 4.1). Some lines on the screen are shorter than in older versions of this guide: PLAY QUANT, CLICK CH, K1 CC to K4 CC, REC ONLY, FWD+REV. New in tabby-v1.0.2: EVENT LEAD, a song setting that sends a scene's program changes before its downbeat (section 4.11); it is OFF unless you set it, and a song with it OFF plays exactly as on tabby-v1.0.1. New in tabby-v1.0.1: a fix: a song of two scenes that loops now sends each scene's program changes at every entry (tabby-v1.0 and tabby-v04.23 skipped most of them after the first pass, and older versions have the same code). New in tabby-v1.0: no new function; the stage checklist (section 9), and KNOB BANK with a pad now shows its message (TRACK SELECTED, TRACK MUTED) at the top of the KNOB BANK list. New in tabby-v04.23: the step loop: on CLIPS, NOTE REPEAT held with pad 9, 10, 11 or 12 repeats the last 1, 2, 4 or 8 steps of everything that plays, for as long as the pad is down (section 4.8). New in tabby-v04.22: NOTE REPEAT repeats a held key or pad, and the switch between keys and pads is now KNOB BANK and NOTE REPEAT together (section 4.1). New in tabby-v04.21: FX with a key clears notes during a take (4.10), KNOB BANK with OCTAVE- or OCTAVE+ shifts a clip by a step (4.9), and NEW SONG in ACTIONS starts an empty song on the panel (4.11). New in tabby-v04.20: DIRECTION for each clip (section 4.11). New in tabby-v04.19: STEP SIZE for each clip (section 4.11). New in tabby-v04.18: the screen and this guide call every button by the word printed on it (see How to read this guide); nothing else changed. New in tabby-v04.17: SHUFFLE and PLAY QUANTIZE for each clip, and CLIP SETTING in three pages (section 4.11). New in tabby-v04.16: a scene can be deleted and moved on the SCENES page (section 4.11), and stopping the song takes an armed take off (4.10). New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
+This guide is for tabby-v1.2. If an older firmware is on your SMK-37, install tabby-v1.2 (section 3.2); section 2.2 lists what each release added. The guide is also one printable file: https://seattleuser0.github.io/classic-tabby/guide/classic-tabby-manual.pdf. New in tabby-v1.2: a message is now a box across the top of the screen, over the top line, so it never covers the pads' cells; and the pictures in this guide are the device's own: the pixels the firmware sent to its screen, read back over USB and compared with the simulator's. New in tabby-v1.1: a screen you can read at arm's length: nothing smaller than 10 x 14 pixels a character, the stage information larger still, fewer things on a page, and pictures of every page in this guide (Reading the screen, before 4.1). Some lines on the screen are shorter than in older versions of this guide: PLAY QUANT, CLICK CH, K1 CC to K4 CC, REC ONLY, FWD+REV. New in tabby-v1.0.2: EVENT LEAD, a song setting that sends a scene's program changes before its downbeat (section 4.11); it is OFF unless you set it, and a song with it OFF plays exactly as on tabby-v1.0.1. New in tabby-v1.0.1: a fix: a song of two scenes that loops now sends each scene's program changes at every entry (tabby-v1.0 and tabby-v04.23 skipped most of them after the first pass, and older versions have the same code). New in tabby-v1.0: no new function; the stage checklist (section 9), and KNOB BANK with a pad now shows its message (TRACK SELECTED, TRACK MUTED) at the top of the KNOB BANK list. New in tabby-v04.23: the step loop: on CLIPS, NOTE REPEAT held with pad 9, 10, 11 or 12 repeats the last 1, 2, 4 or 8 steps of everything that plays, for as long as the pad is down (section 4.8). New in tabby-v04.22: NOTE REPEAT repeats a held key or pad, and the switch between keys and pads is now KNOB BANK and NOTE REPEAT together (section 4.1). New in tabby-v04.21: FX with a key clears notes during a take (4.10), KNOB BANK with OCTAVE- or OCTAVE+ shifts a clip by a step (4.9), and NEW SONG in ACTIONS starts an empty song on the panel (4.11). New in tabby-v04.20: DIRECTION for each clip (section 4.11). New in tabby-v04.19: STEP SIZE for each clip (section 4.11). New in tabby-v04.18: the screen and this guide call every button by the word printed on it (see How to read this guide); nothing else changed. New in tabby-v04.17: SHUFFLE and PLAY QUANTIZE for each clip, and CLIP SETTING in three pages (section 4.11). New in tabby-v04.16: a scene can be deleted and moved on the SCENES page (section 4.11), and stopping the song takes an armed take off (4.10). New in tabby-v04.15: TRANSPOSE for each clip and DELETE CLIP (section 4.11). New in tabby-v04.14: CLICK LEVEL, your own controller numbers for K1 to K4 (sections 4.11 and 4.14), a Full backup that names a song it cannot read (5.5), and the workbench no longer drops a clip's chain or length when it rewrites a song.
 
 Where to find what: playing a song from the pads is 4.7 and 4.8. Building and changing a song on the panel is 4.9 to 4.14. Projects, sounds and housekeeping are 4.1 to 4.6 and 4.15 to 4.18. The workbench is section 5.
 
@@ -115,7 +115,8 @@ Oldest first. The last line is the release this guide is for.
 - tabby-v04.23: the step loop. On CLIPS, hold NOTE REPEAT and hold pad 9, 10, 11 or 12: every track that plays repeats its last 1, 2, 4 or 8 steps until you let the pad go; the song then goes on where it would have been.
 - tabby-v1.0: the release for the stage. No new function. What KNOB BANK with a pad says (TRACK SELECTED, TRACK MUTED - SOUND + MIDI, TRACK UNMUTED) is now written at the top of the KNOB BANK list, where you can see it while you hold the button. The stage checklist is section 9. Tested with a one-hour and a two-hour soak (the release notes have the figures).
 - tabby-v1.0.1: a fix. When a song of two scenes loops (scene 1, scene 2, scene 1 ...), each scene's row events (program changes, bank select, controllers) are now sent every time the scene is entered. Before, they were sent on the first pass and then only now and then, so a synth could stay on the other scene's sound. Songs with three or more scenes in a row were not affected. Found by the two-hour soak. Use tabby-v1.0.1, not tabby-v1.0.
-- tabby-v1.1: the screen is readable on stage. Up to tabby-v1.0.2 almost all text was 5 x 7 pixels a character; now nothing is smaller than 10 x 14, and the tempo, PLAY / STOP / REC, the selected track, the song and scene, queued launches and every message are 15 x 21. The top line is the same on every page. Messages are an amber box across the bottom. The pages show fewer things: the key help left the screen (it is in this guide), CLIP SETTING has four pages, the pages with four knobs show one line per knob. Nothing else changed: no new function, the same songs and projects.
+- tabby-v1.1: the screen is readable on stage. Up to tabby-v1.0.2 almost all text was 5 x 7 pixels a character; now nothing is smaller than 10 x 14, and the tempo, PLAY / STOP / REC, the selected track, the song and scene, queued launches and every message are 15 x 21. The top line is the same on every page. Messages are an amber box (across the bottom in tabby-v1.1, across the top from tabby-v1.2). The pages show fewer things: the key help left the screen (it is in this guide), CLIP SETTING has four pages, the pages with four knobs show one line per knob. Nothing else changed: no new function, the same songs and projects.
+- tabby-v1.2: a message is an amber box across the top, over the top line, for about a second and a half as before: it no longer covers the pads' cells on CLIPS and SCENES. The firmware can give back what it sent to the screen (a remote command that reads only); the release test compares those pixels with the simulator's on every page, stopped and playing, and this guide's pictures are taken that way from the device.
 - tabby-v1.0.2: EVENT LEAD on CLIP SETTING (the last line of the last page): OFF, 1/32, 1/16, 1/8, 1/4. A scene's program changes, bank select and controllers go out that long before its downbeat, so its first notes do not wait behind them on a shared DIN cable. OFF by default: every existing song plays exactly as on tabby-v1.0.1. It switches the synth's sound early; section 4.11 says what that means.
 
 
@@ -140,7 +141,7 @@ Your H4MIDI settings for the Wrong Room rig are in the MIDI guide, section 14. K
 
 Use desktop Chrome on the MacBook. Close other MIDI programs and other workbench tabs first. The SMK-37 must be plugged in, powered and idle.
 
-Install is only needed when you want a new firmware. Install tabby-v1.1 to get everything in this guide. With older firmware the screen still shows the old button names (the list is in How to read this guide). Take a Full backup first (Projects and sounds tab). Storage does not move.
+Install is only needed when you want a new firmware. Install tabby-v1.2 to get everything in this guide. With older firmware the screen still shows the old button names (the list is in How to read this guide). Take a Full backup first (Projects and sounds tab). Storage does not move.
 
 1. Open https://seattleuser0.github.io/classic-tabby/ in Chrome.
 2. Make a Full backup first (section 5.5). Keep the file.
@@ -180,7 +181,7 @@ An install has stalled when the progress bar stops for more than two minutes, or
 Reading the screen (tabby-v1.1)
 -------------------------------
 
-The pictures in this guide are what the firmware draws: they are made from the simulator, which runs the device's own screen code.
+The pictures in this guide are the device's own: the pixels the firmware handed to its screen, read back over USB by the release test and compared, pixel for pixel, with what the simulator draws for the same page. (The glass itself cannot be read back; test T97 is still the look with your own eyes.)
 
 Pictures: home clips-playing scenes-playing | The overview, CLIPS and SCENES. The top line is the same on every page.
 
@@ -188,7 +189,7 @@ The top line, in large letters: the tempo; PLAY (green), STOP, PAUS, REC (red, a
 
 Pictures: clips-stop-to-save knob-bank knob-bank-track | A message, the KNOB BANK list, and a message over it.
 
-A message is an amber box across the bottom with large black letters, for about a second and a half. It covers what is under it for that long. Where this guide writes a message with a dash (TRACK MUTED - SOUND + MIDI), the dash is a new line on the screen. Hold KNOB BANK to see its shortcuts in a grey box.
+A message is an amber box across the top with large black letters, for about a second and a half. It covers the top line (and the line or two under it when it is long) for that long, never the pads' cells. Where this guide writes a message with a dash (TRACK MUTED - SOUND + MIDI), the dash is a new line on the screen. Hold KNOB BANK to see its shortcuts in a grey box.
 
 The help lines that older versions showed at the bottom of every page are gone from the screen. This section 4 says what every button does on every page.
 
@@ -312,7 +313,7 @@ With CLOCK on MIDI (tabby-v04.3.1 and later) SEQ PLAY arms the song and the mast
 4.8 Clip launching (tabby-v04.7)
 --------------------------------
 
-Pictures: clips-stopped clips-playing clips-queued | CLIPS stopped, playing, and with clip 2 queued on track 1 (>02 in amber). A cell per track: its number, the clip it plays (white: from the scene, green: launched, --: silent), and under it what is queued (>05, >ST a stop, >SC back to the scenes), where a chain leads (+05, +ST), or MUT / INT for a muted track. Below: the selected track's 16 pads in two rows like the pads.
+Pictures: clips-stopped clips-playing clips-queued clips-queued-stop | CLIPS stopped, playing, with clip 1 queued on track 1 (>01 in amber) and with a stop queued (>ST); the message is over the top line. A cell per track: its number, the clip it plays (white: from the scene, green: launched, --: silent), and under it what is queued (>05, >ST a stop, >SC back to the scenes), where a chain leads (+05, +ST), or MUT / INT for a muted track. Below: the selected track's 16 pads in two rows like the pads.
 
 Clip launching lets one track loop one of its clips while the others follow the song. A clip is one pattern of one track. Each track has its own clips, numbered from 1. The pads show 16 of them at a time.
 
@@ -343,7 +344,7 @@ The step loop (tabby-v04.23)
 4.9 Editing a clip: the STEP page (tabby-v04.8)
 ----------------------------------------------
 
-Pictures: step step-selected | STEP: the bar's 16 steps in two rows like the pads, with the number of notes on each. With a step selected: its notes by name, the chosen one underlined, and that note's NOTE, VEL (velocity), STRT (start) and LEN (length) over K1 to K4.
+Pictures: step-stopped step-selected-stopped step-playing | STEP stopped, with a step selected, and playing (the green cell is the step that sounds): the bar's 16 steps in two rows like the pads, with the number of notes on each. With a step selected: its notes by name, the chosen one underlined, and that note's NOTE, VEL (velocity), STRT (start) and LEN (length) over K1 to K4.
 
 Here you change the notes of a clip on the SMK-37 itself. The pads say where, the keys say what.
 
@@ -366,7 +367,7 @@ Only one clip can be unsaved at a time. Unsaved changes are lost when you switch
 4.10 Recording into a clip (tabby-v04.9)
 ---------------------------------------
 
-Pictures: clips-recording | SEQ REC on CLIPS: ARMD in the top line until the take starts, then REC in red.
+Pictures: clips-armed clips-recording | SEQ REC on CLIPS. Stopped: REC ARMED, and ARMD stays in the top line under the message. Playing: the take starts when the clip loops, then REC in red.
 
 SEQ REC records what you play into a clip while the clip loops. What is already in the clip stays; you add to it.
 
@@ -1330,7 +1331,7 @@ Set up: the SMK-37 where you play it, the room as dark as a stage, you an arm's 
 3. Press SCALE. Read the song, the scene and what comes next. Press the pad of another scene.
 4. Press the > button while the song plays.
 5. Press SEQ PLAY. Press PARA, FX, SEQ, GLOBE in turn (PATCH or the same button leaves each) and read every line.
-You should see: every line readable without leaning in; nothing in the small letters of older versions. The tempo, PLAY or STOP and the track in the top line; SCENE and its number; a queued clip as >02 in amber under its track; a queued scene as TO and its number in amber; EMPTY PAD and STOP TO SAVE in an amber box with black letters. On PARA, FX and SEQ one line per knob with a large value.
+You should see: every line readable without leaning in; nothing in the small letters of older versions. The tempo, PLAY or STOP and the track in the top line; SCENE and its number; a queued clip as >02 in amber under its track; a queued scene as TO and its number in amber; EMPTY PAD and STOP TO SAVE in an amber box with black letters across the top, the pads' cells still in view. On PARA, FX and SEQ one line per knob with a large value.
 Result: PASS / FAIL   Notes: ________________________________
 
 
@@ -1355,7 +1356,7 @@ Do not spend time testing these. They are known.
   - The SYNC / MIDI page and the KNOB BANK list now say SEQ+PARA: ACTIONS and NOTE REPEAT KEY-PAD, and the erase message says ERASE OLD DATA (fixed in tabby-v04.2).
   - K2 CLK IN can still be turned to DIN in the choices, though the line no longer lists it. It receives nothing.
   - SAMPLER is still in the sound list inside the firmware but cannot be chosen.
-- The page badge and the boot screen show tabby-v1.1.
+- The page badge and the boot screen show tabby-v1.2.
 
 
 8. HOW TO REPORT A PROBLEM

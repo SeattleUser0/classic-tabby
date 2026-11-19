@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 1.01
+Version: 1.02
 Revision log:
+- v1.02, 2026-11-19: 64.1 (tabby-v1.1 released), section 65 (tabby-v1.2: the message box at the top; the screen copy; the device-against-simulator comparison; two candidates on purpose).
 - v1.01, 2026-11-19: section 64 (tabby-v1.1: the readable screen; pictures in the manual; the timing-pages step).
 - v1.00, 2026-11-18: 62.4 (tabby-v1.0.1 released as candidate 1), section 63 (tabby-v1.0.2: EVENT LEAD; the device found with track 1 muted; the panel state guard).
 - v0.99, 2026-11-18: section 62 (the soak's data showed missing row events; my soak check had not looked; tabby-v1.0.1).
@@ -6584,3 +6585,36 @@ a full backup; every step of rc-validate.py v0.11 passed; promoted by the flow.
 Soaks, 40 minutes each, 19 segments, none bad: EVENT LEAD OFF: DIN band 14.83 to 15.65 ms, USB 1.68 to 1.96 ms;
 EVENT LEAD 1/16: DIN 1.83 to 2.78 ms, USB 1.66 to 2.52 ms. Backup, restore, verify PASS (41 items); the panel state
 as found. What no test here can say: whether the screen reads well on the unit (guide T97, for the user).
+
+## 65. tabby-v1.2: messages at the top, and the device's own pixels (2026-11-19)
+
+The user's answers and order: SPEC 17.19. What was built: SPEC 19.31, CONTROL-MAP 20.13.
+
+| Part | Change |
+| --- | --- |
+| app/screen.c | the box at the top (heights 33 / 58 / 82); the screen copy (`shot_band`, `shot_note`, `ct_screen_shot`) |
+| app/transfer.c | remote command 29 {19} |
+| web/engine/Simulator.c | `sim_shot`, `sim_shot_buffer`, `sim_song_select` |
+| tools/linux/hw/screen-tour.json (new) | the tour both sides run: 46 pictures, 23 at rest and 23 playing |
+| tools/linux/hw/run-screen.py v0.1 (new) | the tour on the device; reads the copy; device-shots.json and one .rgb565 per picture |
+| tools/linux/screens.mjs v0.3 | runs the tour file; reads pictures through the copy and checks them against the framebuffer; --match (device against simulator), --adopt (device pictures into docs/manual/screens with device.json), --pretend (the simulator plays the device) |
+| tests/workbench/screen-copy.mjs (new) | the comparison tested without a device; in make workbench-test |
+| tools/linux/hw/rc-validate.py v0.12 | step screen |
+| tools/linux/release-flow.sh v0.2 | TABBY_NO_PROMOTE=1 |
+
+Why two candidates: the manual is part of the published page, and its pictures must come from the firmware being
+released, which is on the device only after a candidate was installed. Candidate 1 (simulator pictures in its
+manual, not promoted on purpose, no soaks) is installed and makes the device pictures; they go into the tree with
+`screens.mjs --adopt` (documents only: the firmware build is the same); candidate 2 is tested in full, with the
+install step finding the build on the device already, and is the one promoted.
+
+What the pretend-device test found before any device was involved: my tour took a picture of a message while the
+song played without first bringing both sides to the same place in the song; the simulator, which does not wait
+while the device reads a picture, pressed its pad three bars early and its message was gone when it reached the
+device's bar. Every picture whose content depends on when something was done now has an "at" step before it.
+
+How the simulator is brought to the device's picture: it is always behind the device in the song (the device also
+spends about three seconds reading each picture), so at every "at" step and every picture it runs on until the 16
+bytes of 19.31 are the device's, then freezes its own copy the same way.
+
+Measured before the device run: app image 487844 bytes (+1120), margin 31613, heap 143340 (-96).

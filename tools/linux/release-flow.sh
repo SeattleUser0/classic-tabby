@@ -20,9 +20,10 @@
 #   Only the release session runs this (SPEC 17.12): it sets TABBY_RELEASE_SESSION=1, without which
 #   tools/linux/publish-pages.py commits nothing.
 #
-# Version: 0.1
+# Version: 0.2
 #
 # Revision log
+#   v0.2  2026-11-19  TABBY_NO_PROMOTE=1 (tabby-v1.2: candidate 1 makes the device's screen pictures, candidate 2 carries them).
 #   v0.1  2026-11-17  First version (the user's release-flow rule).
 T=$1; RC=$2; O=$3; BK=$4
 [ -n "$T" ] && [ -n "$RC" ] && [ -n "$O" ] || { echo "usage: release-flow.sh TAG RC OUT [BACKUP_URL]"; exit 2; }
@@ -47,6 +48,9 @@ make rc TAG="$T" RC="$RC" DISPLAY_VERSION="$T" > "$O/rc-$T-rc$RC.log" 2>&1 || { 
 tail -1 "$O/rc-$T-rc$RC.log"
 "$PY" tools/linux/hw/rc-validate.py --tag "$T" --rc "$RC" --out "$O" ${BK:+--backup-url "$BK"} ${TABBY_RC_ARGS:-} || { echo "release-flow: $T-rc$RC did NOT pass on the device; nothing promoted"; exit 1; }
 python3 -I tools/linux/device-gate.py check --tag "$T" || exit 1
+# v0.2: TABBY_NO_PROMOTE=1 stops here: a candidate whose device run makes something the release itself needs (the
+# device's own screen pictures for the manual) is followed by the next candidate, which is the one promoted.
+[ -z "$TABBY_NO_PROMOTE" ] || { echo "release-flow: $T-rc$RC passed on the device; NOT promoted (TABBY_NO_PROMOTE)"; exit 0; }
 git fetch -q origin gh-pages || exit 1
 git tag -a "$T" -m "$T" || exit 1
 git push -q origin "$T" || exit 1

@@ -1,26 +1,42 @@
 // SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
 //
-// tools/linux/screens.mjs — pictures of every screen page, taken from the simulator
+// tools/linux/screens.mjs — every screen page as the simulator draws it, and the comparison with the device
 //
 // Purpose
-//   Drives the simulator (build/web/simulator.wasm: the firmware's own screen code) through the panel to every page
-//   and writes what the 240 x 240 screen shows as PNG files, twice the size (480 x 480), into OUT. The manual's
-//   pictures (docs/manual/screens/, tools/linux/guide-html.py) are made with this, so a picture in the manual is
-//   what the firmware draws. A song with clips, scenes and row events is put into the simulator's song storage first
-//   (tests/midi-import/fixtures/wrong-room-all.mid with the Wrong Room profile, as tools/linux/hw/rig-song.mjs).
+//   Drives the simulator (build/web/simulator.wasm: the firmware's own screen code) through the tour of
+//   tools/linux/hw/screen-tour.json: every page of docs/CONTROL-MAP.md section 20, at rest and while the song plays.
+//   A picture is read through the screen copy (remote command 29 {19}, app/screen.c ct_screen_shot: what the firmware
+//   handed to the LCD), exactly as tools/linux/hw/run-screen.py reads it from the device, and is also compared with
+//   the simulator's whole framebuffer: the copy must be the picture.
 //
 //   node tools/linux/screens.mjs OUT            write OUT/<page>.png and OUT/screens.json (after make web)
 //   node tools/linux/screens.mjs --check DIR    exit 1 unless DIR/screens.json holds the SHA-256 of what the
-//                                               simulator draws now for every page (tests/workbench: the manual's
-//                                               pictures are the firmware's screen, not an older one)
+//                                               simulator draws now for every page (make workbench-test)
+//   node tools/linux/screens.mjs --match DEV    DEV holds a device tour (run-screen.py: device-shots.json, one
+//                                               <page>.rgb565 per picture, the song it wrote). The simulator runs the
+//                                               same tour with the same song, is brought to the same place in the song
+//                                               before every picture, and every pixel is compared (outside the masks
+//                                               the tour names, each with its reason). Writes DEV/<page>.png (the
+//                                               device's picture), <page>-sim.png and <page>-diff.png where they
+//                                               differ, and DEV/screen-compare.json. Exit 1 when a picture differs.
+//   node tools/linux/screens.mjs --adopt DEV DIR  after a --match that passed: DIR gets the device's pictures and
+//                                               device.json (which build, which simulator frame each was compared
+//                                               with, what was left out). --check DIR then also fails when the
+//                                               simulator's frame is no longer the one a device picture was proven
+//                                               against, or when a picture file was changed.
+//   node tools/linux/screens.mjs --pretend DEV  the simulator plays the device (it waits as the device does and
+//                                               lets the song run on while a picture is "read"), for testing --match
+//                                               without a device (tests/workbench: make workbench-test).
 //
-// Version: 0.2
+// Version: 0.3
 //
 // Revision log
+//   v0.3  2026-11-19  tabby-v1.2: the tour is a file both the simulator and the device run; pictures come through
+//                     the screen copy; --match compares the device's pixels with the simulator's.
 //   v0.2  2026-11-19  --check and screens.json; the question on ACTIONS, SAVE PROJECT, the fourth SETTING page, a
 //                     step with notes; no start screen (it shows the build's version).
 //   v0.1  2026-11-19  First version (tabby-v1.1: the readable screen).
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -30,80 +46,167 @@ import { deflateSync, crc32 } from 'node:zlib';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const require = createRequire(import.meta.url);
 const Midi = require(join(root, 'web/import/midi-parse.js')), Song = require(join(root, 'web/import/midi-song.js')), Format = require(join(root, 'web/import/song-format.js'));
-const D = require(join(root, 'web/rig/device-library.js')), Rig = require(join(root, 'web/rig/rig.js'));
-const checking = process.argv[2] === '--check', out = checking ? process.argv[3] : process.argv[2];
-if (!out) { console.error('usage: node tools/linux/screens.mjs OUT | --check DIR'); process.exit(2); }
-if (!checking) mkdirSync(out, { recursive: true });
-const hashes = {};
+const D = require(join(root, 'web/rig/device-library.js')), Rig = require(join(root, 'web/rig/rig.js')), Transfer = require(join(root, 'web/import/song-transfer.js'));
+const mode = { '--check': 'check', '--match': 'match', '--adopt': 'adopt', '--pretend': 'pretend' }[process.argv[2]] || 'write';
+const out = mode === 'write' ? process.argv[2] : process.argv[3];
+if (mode === 'adopt') {
+  const dir = process.argv[4], cmp = JSON.parse(readFileSync(join(out, 'screen-compare.json'), 'utf8'));
+  if (!dir || cmp.identical !== cmp.pictures) { console.log('FAIL --adopt needs a comparison in which every picture was identical (' + cmp.identical + ' of ' + cmp.pictures + ')'); process.exit(1); }
+  mkdirSync(dir, { recursive: true });
+  const pages = {}, sim = {};
+  for (const [n, r] of Object.entries(cmp.pages)) { const bytes = readFileSync(join(out, n + '.png')); writeFileSync(join(dir, n + '.png'), bytes);
+    pages[n] = { png_sha256: createHash('sha256').update(bytes).digest('hex'), sim_sha256: r.sim_sha256, playing: r.playing, compared: r.compared, left_out: r.masked, why: [...new Set(r.masks)] }; sim[n] = r.sim_sha256; }
+  writeFileSync(join(dir, 'device.json'), JSON.stringify({ what: 'These pictures are the device\'s: the pixels the firmware handed to its LCD, read back over USB (remote command 29 {19}) and compared with the simulator\'s, pixel for pixel.', tool: 'tools/linux/screens.mjs v0.3', build: cmp.build, tour: cmp.tour, pages }, null, 1) + '\n');
+  writeFileSync(join(dir, 'screens.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.3', size: '240 x 240 shown twice the size', pages: sim }, null, 1) + '\n');
+  console.log('ok   ' + Object.keys(pages).length + ' device pictures (build ' + String(cmp.build).slice(0, 16) + ') are in ' + dir); process.exit(0);
+}
+if (!out) { console.error('usage: node tools/linux/screens.mjs OUT | --check DIR | --match DEV'); process.exit(2); }
+if (mode === 'write' || mode === 'pretend') mkdirSync(out, { recursive: true });
+const pretend = mode === 'pretend', fakeLog = [];
+const tour = JSON.parse(readFileSync(join(root, 'tools/linux/hw/screen-tour.json'), 'utf8'));
+const device = mode === 'match' ? JSON.parse(readFileSync(join(out, 'device-shots.json'), 'utf8')) : null;
 const c = new WebAssembly.Instance(new WebAssembly.Module(readFileSync(join(root, 'build/web/simulator.wasm'))), {}).exports;
 c._initialize(); c.sim_boot(1);
 const mem = () => new Uint8Array(c.memory.buffer);
 const step = n => { for (let i = 0; i < n; i++) c.sim_render(); };
-const W = 240, H = 240, Z = 2;
-function png(name) {
-  const p = new Uint16Array(c.memory.buffer, c.sim_pixels(), W * H), raw = Buffer.alloc((W * Z * 3 + 1) * H * Z);
-  hashes[name] = createHash('sha256').update(Buffer.from(p.buffer, p.byteOffset, p.byteLength)).digest('hex');
-  names.push(name);
-  if (checking) return;
+const W = 240, H = 240, Z = 2, SLOT = 5;
+const fail = why => { console.log('FAIL ' + why); process.exit(1); };
+
+function png(file, frame) {
+  const raw = Buffer.alloc((W * Z * 3 + 1) * H * Z);
   for (let y = 0; y < H * Z; y++) { const row = y * (W * Z * 3 + 1); raw[row] = 0;
-    for (let x = 0; x < W * Z; x++) { const v = p[(y / Z | 0) * W + (x / Z | 0)], o = row + 1 + 3 * x; raw[o] = (v >> 11 & 31) * 255 / 31; raw[o + 1] = (v >> 5 & 63) * 255 / 63; raw[o + 2] = (v & 31) * 255 / 31; } }
+    for (let x = 0; x < W * Z; x++) { const v = frame[(y / Z | 0) * W + (x / Z | 0)], o = row + 1 + 3 * x; raw[o] = (v >> 11 & 31) * 255 / 31; raw[o + 1] = (v >> 5 & 63) * 255 / 63; raw[o + 2] = (v & 31) * 255 / 31; } }
   const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td) >>> 0); return Buffer.concat([len, td, crc]); };
   const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W * Z, 0); ihdr.writeUInt32BE(H * Z, 4); ihdr[8] = 8; ihdr[9] = 2;
-  writeFileSync(join(out, name + '.png'), Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]));
+  writeFileSync(file, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]));
 }
-const names = [];
-const BUTTON = 0, PAD = 3, KNOB = 4;
-const B = { KB: 0, FADER: 1, LEFT: 2, SAVE: 3, OCTM: 4, OCTP: 5, ARP: 6, NR: 7, SCALE: 8, CHORD: 9, GLOBE: 10, BT: 11, PATCH: 12, PARA: 13, FX: 14, SEQ: 15, PLAY: 16, REC: 17 };
-const down = id => { c.sim_smk37(BUTTON, id, 1); step(8); }, up = id => { c.sim_smk37(BUTTON, id, 0); step(8); };
-const press = id => { down(id); up(id); };
-const pad = (i, hold = 8) => { c.sim_smk37(PAD, i, 100); step(hold); c.sim_smk37(PAD, i, 0); step(8); };
-const knob = (k, d) => { c.sim_smk37(KNOB, k, d); step(8); };
-const settle = () => step(900);          /* notices gone (they last up to two seconds) */
-const home = () => { for (let i = 0; i < 3; i++) press(B.PATCH); c.sim_release(); step(20); press(B.LEFT); step(20); };
+const sha = frame => createHash('sha256').update(Buffer.from(frame.buffer, frame.byteOffset, frame.byteLength)).digest('hex');
 
-/* ---- the song: the Wrong Room fixture with its rig, looping, in slot 1 ---- */
-{ const ddir = join(root, 'web/devices');
+/* ---- the screen copy, read as the device tool reads it ---- */
+const shot = (what, offset = 0) => { const n = c.sim_shot(what, offset); return n < 0 ? null : mem().slice(c.sim_shot_buffer(), c.sim_shot_buffer() + n); };
+const status = () => { const s = shot(0); return { state: s[0], colors: s[1], errors: s[2] | s[3] << 8, info: Array.from(s.slice(4, 20)) }; };
+function readCopy() {
+  const p = shot(4), pal = []; for (let i = 0; i + 1 < p.length; i += 2) pal.push(p[i] | p[i + 1] << 8);
+  const frame = new Uint16Array(W * H); let at = 0, unpainted = 0;
+  while (at < W * H) {
+    const r = shot(3, at); if (!r || !r.length) fail('the screen copy stopped at pixel ' + at);
+    for (let i = 0; i < r.length;) { let run = r[i] >> 5, v = r[i] & 31; i++; if (!run) run = r[i++] + 1;
+      if (v >= pal.length) unpainted += run;
+      frame.fill(v < pal.length ? pal[v] : 0xf81f, at, at + run); at += run; }
+  }
+  return { frame, unpainted };
+}
+
+/* ---- the song: the Wrong Room fixture with its rig, looping, in slot 6, written as the workbench writes it ---- */
+let song;
+if (device) song = JSON.parse(readFileSync(join(out, device.song), 'utf8'));
+else { const ddir = join(root, 'web/devices');
   const library = D.load(readdirSync(ddir).filter(n => n.endsWith('.json')).sort().map(n => JSON.parse(readFileSync(join(ddir, n), 'utf8'))));
   const [rig] = Rig.rigBuiltins([JSON.parse(readFileSync(join(root, 'web/rig/profiles/wrong-room.json'), 'utf8'))]);
   const r = Song.convert(Song.analyze(Midi.parse(new Uint8Array(readFileSync(join(root, 'tests/midi-import/fixtures/wrong-room-all.mid'))))), { fileName: 'wrong-room-all.mid', rig, library, name: 'WRONG ROOM', projectSlot: 0, loop: true });
-  const song = { ...r.song, events: Rig.applyGaps(r.song.events, rig, library) };
-  mem().set(Format.encodeRecord(song), c.sim_file()); c.sim_song_record_write(0);
-  let at = c.sim_batch_buffer(), total = 0;
-  for (const b of song.blocks.slice().sort((a, b) => a.id - b.id)) { const rec = Format.encodeBlockRecord(b, 0); mem().set(rec, at); at += rec.length; total += rec.length; }
-  c.sim_block_batch(0, total); c.sim_song_load(0); }
+  song = { ...r.song, events: Rig.applyGaps(r.song.events, rig, library) }; }
+{ const plan = await Transfer.createStub().plan(song, SLOT);
+  for (const b of plan.blocks) { mem().set(b.payload, c.sim_file()); if (c.sim_block_write2(SLOT, b.id, b.format, b.payload.length)) fail('block ' + b.id + ' was not stored in the simulator'); }
+  mem().set(plan.record.image, c.sim_file());
+  if (c.sim_song_record_write(SLOT) || c.sim_song_select(SLOT)) fail('the song was not written to the simulator'); }
 
+/* ---- the tour ---- */
+const BUTTON = 0, PAD = 3, KNOB = 4;
+const B = { KB: 0, FADER: 1, LEFT: 2, SAVE: 3, OCTM: 4, OCTP: 5, ARP: 6, NR: 7, SCALE: 8, CHORD: 9, GLOBE: 10, BT: 11, PATCH: 12, PARA: 13, FX: 14, SEQ: 15, PLAY: 16, REC: 17 };
+const down = id => { c.sim_smk37(BUTTON, id, 1); step(8); }, up = id => { c.sim_smk37(BUTTON, id, 0); step(8); };
+const press = id => { down(id); up(id); if (pretend) step(55); };   /* the device's remote keys take about 0.2 s */
+const playing = () => status().info[1] !== 0;
+const ms = n => step(Math.ceil(n / 2.9));
+const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+const position = i => [i[5] | i[6] << 8, i[4]];
 step(1560);
-png('home');
-down(B.KB); step(200); png('knob-bank'); c.sim_smk37(PAD, 2, 100); step(40); png('knob-bank-track'); c.sim_smk37(PAD, 2, 0); up(B.KB); settle();
-down(B.KB); c.sim_smk37(PAD, 0, 100); step(20); c.sim_smk37(PAD, 0, 0); up(B.KB); settle();
-press(B.SEQ); settle(); png('sync-midi');
-down(B.KB); press(B.SEQ); up(B.KB); settle(); png('midi-track'); press(B.PATCH); settle();
-press(B.PARA); settle(); png('para'); press(B.PATCH); settle();
-press(B.FX); settle(); png('fx'); press(B.PATCH); settle();
-press(B.GLOBE); settle(); png('mixer'); press(B.GLOBE); settle(); press(B.PATCH); settle();
-down(B.ARP); step(400); png('arp'); up(B.ARP); press(B.PATCH); settle();
-down(B.KB); press(B.PATCH); up(B.KB); settle(); png('source'); press(B.PATCH); settle();
-down(B.SEQ); press(B.PARA); up(B.SEQ); settle(); png('actions'); knob(0, 3); press(B.SAVE); step(30); png('actions-confirm'); press(B.PATCH); settle(); press(B.PATCH); settle();
-home(); settle();
-press(B.PATCH); settle(); png('presets'); press(B.SAVE); settle(); png('save-project'); press(B.PATCH); settle(); press(B.PATCH); settle();
-home(); settle();
-press(B.BT); settle(); png('clips-stopped');
-press(B.SCALE); settle(); png('scenes-stopped');
-press(B.PLAY); step(600); png('scenes-playing'); pad(1); step(120); png('scenes-queued');
-press(B.SCALE); step(700); png('clips-playing');
-pad(1); step(60); png('clips-queued'); step(1500);
-pad(0, 250); settle(); press(B.PARA); settle(); png('step'); pad(0); step(40); png('step-selected'); pad(0); press(B.PARA); settle();
-press(B.FX); settle(); png('setting-1'); knob(4, 9); settle(); png('setting-2'); knob(4, 8); settle(); png('setting-3'); knob(4, 8); settle(); png('setting-4'); press(B.FX); settle();
-press(B.REC); step(200); png('clips-recording'); press(B.REC); settle();
-press(B.SCALE); settle(); knob(0, 1); knob(0, -1); settle(); press(B.SCALE); settle();   /* a scene's TIMES touched: the song waits for a save */
-press(B.SAVE); step(40); png('clips-stop-to-save'); settle();
-press(B.PLAY); settle();
-if (checking) {
+if (!shot(1)) fail('the simulator could not switch the screen copy on');
+step(40);
+/* The device's project may wait for a save (*PRJ in the top line) from before the tour; the tour itself does not touch
+ * the project, so the simulator is given the same mark here. */
+if (device) { const first = device.log.find(e => e.op === 'shot'); if (first && (first.info[15] & 2) && !(status().info[15] & 2)) { c.sim_smk37(4, 0, 1); step(8); c.sim_smk37(4, 0, -1); step(900); } }
+const results = {}, hashes = {}, names = [];
+let logAt = 0;
+const next = (op, name) => { if (!device) return null; const e = device.log[logAt++]; if (!e || e.op !== op || (name && e.name !== name)) fail('the device tour and the tour file differ at ' + op + ' ' + (name || '') + ' (the device ran ' + JSON.stringify(e) + ')'); return e; };
+for (const s of tour.steps) {
+  const [op, a, b] = s;
+  if (op === 'press') press(B[a]);
+  else if (op === 'down') down(B[a]);
+  else if (op === 'up') up(B[a]);
+  else if (op === 'pad') { c.sim_smk37(PAD, a, 100); ms(b || 50); c.sim_smk37(PAD, a, 0); step(8); }
+  else if (op === 'pad_down') { c.sim_smk37(PAD, a, 100); step(8); }
+  else if (op === 'pad_up') { c.sim_smk37(PAD, a, 0); step(8); }
+  else if (op === 'knob') { c.sim_smk37(KNOB, a, b); step(8); }
+  else if (op === 'home') { let n = 0; while (status().info[0] !== 0) { if (n++ > 6) fail('PATCH did not lead to the overview'); press(B.PATCH); step(60); } }
+  /* While the song plays the simulator never waits on its own: the device's waits are longer in the song's time
+   * (it also reads its pictures), and the next "at" or picture brings the simulator to the device's place. */
+  else if (op === 'settle') { if (!playing() || !device) step(pretend ? 830 : 900); }
+  else if (op === 'wait_ms') ms(a);   /* part of a gesture (a held button), or shorter than the device's own wait */
+  else if (op === 'at') {
+    const t = next('at'); let n = 0;
+    for (;; n++) { const i = status().info, [bar, st] = position(i);
+      if (t ? same(position(t.info), [bar, st]) : (i[1] === 1 && bar % a === b && st % 16 <= 3)) { if (pretend) { fakeLog.push({ op: 'at', info: i }); step(7); } break; }
+      if (n > 60000) fail('the simulator never reached ' + (t ? 'bar ' + position(t.info)[0] + ' step ' + position(t.info)[1] : 'a bar ' + b + ' of ' + a));
+      step(1); }
+  } else if (op === 'shot') {
+    const opt = s[2] || {}, t = next('shot', a), masks = typeof opt.masks === 'string' ? tour.masks[opt.masks] : opt.masks || [];
+    let got = null;
+    for (let n = 0; n < 60000 && !got; n++) {
+      const now = status();
+      if (!t || same(now.info, t.info)) {
+        c.sim_shot(opt.now ? 6 : 2, 0);
+        for (let k = 0; k < 80 && status().state !== 3; k++) step(1);
+        const f = status();
+        if (f.state === 3 && (!t || same(f.info, t.info))) got = f; else { c.sim_shot(f.state === 3 ? 1 : 7, 0); }
+      }
+      if (!got) step(1);
+    }
+    if (!got) fail(a + ': the simulator never showed the state of the device\'s picture ' + JSON.stringify(t && t.info) + ' (it is at ' + JSON.stringify(status().info) + ')');
+    const { frame, unpainted } = readCopy();
+    const real = new Uint16Array(c.memory.buffer, c.sim_pixels(), W * H);
+    let off = 0; for (let i = 0; i < W * H; i++) off += frame[i] !== real[i];
+    if (off || unpainted || got.errors) fail(a + ': the screen copy is not the simulator\'s framebuffer (' + off + ' pixels differ, ' + unpainted + ' never painted, ' + got.errors + ' errors)');
+    hashes[a] = sha(frame); names.push(a);
+    if (mode === 'write') png(join(out, a + '.png'), frame);
+    if (pretend) { writeFileSync(join(out, a + '.rgb565'), Buffer.from(frame.buffer, frame.byteOffset, frame.byteLength)); fakeLog.push({ op: 'shot', name: a, info: got.info, unpainted: 0, errors: 0 }); step(1100); /* the device reads for about three seconds */ }
+    if (device) {
+      const dev = new Uint16Array(new Uint8Array(readFileSync(join(out, a + '.rgb565'))).buffer);
+      const masked = new Uint8Array(W * H); for (const [x, y, w, h] of masks) for (let yy = y; yy < y + h && yy < H; yy++) masked.fill(1, yy * W + x, yy * W + Math.min(W, x + w));
+      let differ = 0, hidden = 0, inMask = 0; const diff = new Uint16Array(W * H);
+      for (let i = 0; i < W * H; i++) { if (masked[i]) { hidden++; inMask += dev[i] !== frame[i]; diff[i] = 0x2104; } else if (dev[i] !== frame[i]) { differ++; diff[i] = 0xf800; } else diff[i] = dev[i] ? 0x4208 : 0; }
+      png(join(out, a + '.png'), dev);
+      if (differ) { png(join(out, a + '-sim.png'), frame); png(join(out, a + '-diff.png'), diff); }
+      results[a] = { differ, compared: W * H - hidden, masked: hidden, differ_inside_masks: inMask, masks: masks.map(m => m[4]), device_unpainted: t.unpainted, device_errors: t.errors, frozen: opt.now ? 'at once' : 'when the picture was whole', playing: t.info[1] !== 0, info: t.info, sim_sha256: hashes[a] };
+    }
+    if (!c.sim_shot(1, 0)) fail('the screen copy could not be switched on again');
+    step(40);
+  } else fail('unknown tour step ' + JSON.stringify(s));
+}
+c.sim_shot(5, 0);
+
+if (pretend) {
+  writeFileSync(join(out, 'wrong-room-song.json'), JSON.stringify(song));
+  writeFileSync(join(out, 'device-shots.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs --pretend', tour: tour.version, build: 'the simulator, pretending', song: 'wrong-room-song.json', log: fakeLog }, null, 1) + '\n');
+  console.log('ok   ' + names.length + ' pictures written as a device would give them');
+} else if (mode === 'match') {
+  const bad = names.filter(n => results[n].differ || results[n].device_unpainted || results[n].device_errors);
+  writeFileSync(join(out, 'screen-compare.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.3', tour: tour.version, build: device.build, pictures: names.length,
+    at_rest: names.filter(n => !results[n].playing).length, playing: names.filter(n => results[n].playing).length, identical: names.length - bad.length, pages: results }, null, 1) + '\n');
+  for (const n of names) { const r = results[n]; console.log((bad.includes(n) ? 'FAIL ' : 'ok   ') + n + ': ' + r.differ + ' of ' + r.compared + ' pixels differ' + (r.masked ? ' (' + r.masked + ' left out: ' + [...new Set(r.masks.map(m => m.replace(/ of track \d| \d$/, '')))].join('; ') + ')' : '') + (r.playing ? ', playing' : '')); }
+  console.log((bad.length ? 'FAIL ' : 'PASS ') + 'screen: ' + (names.length - bad.length) + ' of ' + names.length + ' pictures of the device are pixel for pixel the simulator\'s (' + names.filter(n => results[n].playing).length + ' while playing)');
+  process.exit(bad.length ? 1 : 0);
+} else if (mode === 'check') {
   let want = {}; try { want = JSON.parse(readFileSync(join(out, 'screens.json'), 'utf8')).pages || {}; } catch (e) { /* none yet */ }
   const off = names.filter(n => want[n] !== hashes[n]).concat(Object.keys(want).filter(n => !(n in hashes)));
-  if (off.length) { console.log('FAIL the pictures in ' + out + ' are not what the simulator draws now: ' + off.join(' ') + ' (make web, then node tools/linux/screens.mjs ' + out + ', then make manual)'); process.exit(1); }
-  console.log('ok   ' + names.length + ' pictures in ' + out + ' are what the simulator draws');
+  if (off.length) fail('the pictures in ' + out + ' are not what the simulator draws now: ' + off.join(' ') + ' (make web, then node tools/linux/screens.mjs ' + out + ', then make manual; device pictures: a new device tour, docs/BUILD.md 65)');
+  let dev = null; try { dev = JSON.parse(readFileSync(join(out, 'device.json'), 'utf8')); } catch (e) { /* the pictures are the simulator's */ }
+  if (dev) {
+    const stale = Object.entries(dev.pages).filter(([n, p]) => p.sim_sha256 !== hashes[n] || createHash('sha256').update(readFileSync(join(out, n + '.png'))).digest('hex') !== p.png_sha256).map(([n]) => n);
+    if (stale.length || Object.keys(dev.pages).length !== names.length) fail('device pictures in ' + out + ' were not proven against what the simulator draws now, or a file changed: ' + stale.join(' '));
+    console.log('ok   ' + names.length + ' pictures in ' + out + ' are the device\'s (build ' + String(dev.build).slice(0, 16) + '), each proven pixel for pixel against the frame the simulator draws now');
+  } else console.log('ok   ' + names.length + ' pictures in ' + out + ' are what the simulator draws; the screen copy was the framebuffer in every one');
 } else {
-  writeFileSync(join(out, 'screens.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.2', size: '240 x 240 shown twice the size', pages: hashes }, null, 1) + '\n');
+  if (existsSync(join(out, 'device.json'))) { console.log('note: ' + out + ' held device pictures; they are replaced by the simulator\'s (device.json is deleted)'); (await import('node:fs')).rmSync(join(out, 'device.json')); }
+  writeFileSync(join(out, 'screens.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.3', size: '240 x 240 shown twice the size', pages: hashes }, null, 1) + '\n');
   console.log(names.join(' '));
 }

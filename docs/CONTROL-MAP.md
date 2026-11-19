@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.22 (2026-11-19). Section 20: the screen of tabby-v1.1, as built (v0.21 was the design, written before the build); sections 4, 5, 7, 9, 12, 14, 17 and 18 say what the new screen shows. v0.20 applied from tabby-v1.0.2 (section 14: EVENT LEAD). v0.19 was for tabby-v1.0 (1.2: the pad rows confirmed on the device; where a KNOB BANK shortcut's message is shown). v0.18 was for tabby-v04.23 (3.2: the step loop). v0.17 was for tabby-v04.22 (3.1: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT). v0.16 was for tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.23 (2026-11-19). 20.3: the message box is at the top (tabby-v1.2); 20.13: how the screen is proven on the device. v0.22: Section 20: the screen of tabby-v1.1, as built (v0.21 was the design, written before the build); sections 4, 5, 7, 9, 12, 14, 17 and 18 say what the new screen shows. v0.20 applied from tabby-v1.0.2 (section 14: EVENT LEAD). v0.19 was for tabby-v1.0 (1.2: the pad rows confirmed on the device; where a KNOB BANK shortcut's message is shown). v0.18 was for tabby-v04.23 (3.2: the step loop). v0.17 was for tabby-v04.22 (3.1: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT). v0.16 was for tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -292,7 +292,7 @@ There are two mutes, and they look different everywhere.
 | BLOCK READ ERROR / TOO MANY BLOCKS | A clip could not be read; the track plays silent. |
 | ROW DECODE LATE | A clip was not ready at its boundary; it starts as soon as it is (counted as late). |
 
-A message stays for one and a half seconds in an amber box across the bottom of the screen (section 20.3). Where a
+A message stays for one and a half seconds in an amber box across the top of the screen (section 20.3). Where a
 message is written here with a dash (TAKEN BACK - FROM SCENE 1), the dash is a new line on the screen.
 
 ## 10. Not on the panel yet
@@ -727,7 +727,10 @@ Gone from here: the pattern's step counter and its four page marks, the word LIV
 
 ### 20.3 Messages and warnings (every page)
 
-A message (STOP TO SAVE, TRACK MUTED, STOP THE SONG FIRST ...) is a box across the bottom of the screen: amber, black
+A message (STOP TO SAVE, TRACK MUTED, STOP THE SONG FIRST ...) is a box across the top of the screen, over the top line
+(tabby-v1.2, the user's answer of 2026-11-19; across the bottom in tabby-v1.1, where it covered the pads' cells): 33
+pixels high for one line (the top line), 58 for two (and the title row), 82 for three (and the row under it), so that
+no half letters stand under it: amber, black
 letters at scale 3, one to three lines of 13 characters, broken between words (a build check wraps every message
 the firmware can show and fails on a fourth line: tools/linux/notice-wrap.py). It covers what is under it for as long
 as the message lasts (as before, about 1.5 seconds), then the page is drawn again. A question on ACTIONS (NEW SONG IN
@@ -749,7 +752,7 @@ PATCH SRC  SEQ MIDI
 NOTE REPEAT KEY/PAD
 ```
 
-A shortcut's message (TRACK SELECTED ...) appears as the amber box over it.
+A shortcut's message (TRACK SELECTED ...) appears as the amber box at the top; the list stays readable under it.
 
 ### 20.4 HOME
 
@@ -898,3 +901,26 @@ T1   T2   T3   T4               scale 2: K1 to K4
 
 Unchanged in kind: a page is composed in bands of 16 rows, one band per pass, and a band waits when a MIDI event is
 due (BUILD.md 36.6). A message appearing or leaving redraws the whole page, in bands like any page change.
+
+### 20.13 Proof on the device (tabby-v1.2)
+
+The LCD itself cannot be read back: it hangs on one data line that the SoC only drives (app/board/fm1_lcd_hw.h), so
+no command can return what the glass shows. The nearest proof, built in tabby-v1.2:
+
+- The firmware can keep a copy of every rectangle of pixels it hands to the LCD (after the start screen there is one
+  place that does: the band painter). Remote command 29 {19} switches the copy on (57600 bytes of memory, taken only
+  while it is on), freezes it when no band is waiting, reads it, and gives the memory back. It only reads: nothing a
+  player sees or hears changes.
+- tools/linux/hw/screen-tour.json is one tour of every page of this section, at rest and while the song plays (46
+  pictures: 23 and 23). tools/linux/hw/run-screen.py runs it on the device with remote panel keys and reads the copy
+  for each picture; tools/linux/screens.mjs --match runs the simulator through the same tour with the same song,
+  brings it to the same place in the song (bar, step, queued and launched clips, recording, message) and compares
+  every pixel. It is a step of every release run (rc-validate.py: screen).
+- Left out of the comparison, each named in the result: the eight level meters and MIDI-in marks on HOME (they follow
+  the audio), FREE / RECL on ACTIONS and the stored project's name on PRESETS and SAVE PROJECT (the device holds the
+  user's data; the simulator starts empty).
+- Not covered: the start screen (it is gone before a command can ask), PRESETS and SAVE PROJECT while playing, and
+  the last step from the LCD's input to the glass: colours, contrast, viewing angle, a dead pixel. Test T97 of the
+  guide is that look, by a person.
+- The manual's pictures are these device pictures (docs/manual/screens/device.json says which build, and against
+  which simulator frame each was proven). make workbench-test fails when the simulator no longer draws that frame.

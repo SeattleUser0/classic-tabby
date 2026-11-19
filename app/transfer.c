@@ -280,6 +280,14 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
         out[4] = (uint8_t)(arp & 127U); out[5] = (uint8_t)(arp >> 7); out[6] = (uint8_t)smk37_performance_track(0); out[7] = (uint8_t)smk37_performance_track(1);
         out[8] = (uint8_t)groove_arp_setting(smk37_performance_track(0), 0); *count = 9; return 0;
     }
+    /* tabby-v1.2: {19, what[, offset low, mid, high]} the screen copy (app/screen.c ct_screen_shot): 0 its state, 1 on,
+     * 2 freeze when the picture is whole, 6 freeze now, 7 take a freeze request back, 3 read from a pixel offset, 4 the colours, 5 off. It reads
+     * what was handed to the LCD; nothing on the panel changes. */
+    else if (op == 19 && (n == 2 || n == 5)) {
+        r = ct_screen_shot(data[1], n == 5 ? data[2] | (unsigned)data[3] << 8 | (unsigned)data[4] << 16 : 0, out + 1);
+        if (r < 0) return data[1] == 1 ? GROOVE_PROJECT_MEMORY : GROOVE_PROJECT_INVALID;
+        out[0] = 6; *count = 1U + (unsigned)r; return 0;
+    }
     else return GROOVE_PROJECT_INVALID;
     remote_status(out, count);
     return 0;

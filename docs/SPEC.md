@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.65
+Version: 0.66
 Revision log:
+- v0.66, 2026-11-19: 17.19 the user's answers of 2026-11-19 (evening) and the order to prove the screen on the device; 19.31 tabby-v1.2.
 - v0.65, 2026-11-19: 17.18 the user's order of 2026-11-19 (the screen must be readable); 19.30 tabby-v1.1.
 - v0.64, 2026-11-18: 19.29 tabby-v1.0.2 (EVENT LEAD, a song setting; OFF by default).
 - v0.63, 2026-11-18: 19.28 tabby-v1.0.1 (row events at every entry of a scene in a two-scene loop).
@@ -1510,6 +1511,17 @@ Enforced in the build: `text()` refuses a scale below 2 and traps in host and si
 tour of every page, tools/linux/screens.mjs --check, runs in make workbench-test); tools/linux/notice-wrap.py wraps
 every message as the firmware does and fails on a fourth line or a word over 13 characters.
 
+### 17.19 The user's answers of 2026-11-19 (evening), and the proof of the screen
+
+- MASTER MUTED stays small in the top line (K8=0). The pattern cells and the knob strip stay out of HOME.
+- The message box moves to the top, over the top line, so that it never covers the pads' cells; about 1.5 s as before.
+- "Close the 'nobody has looked at the real screen' gap without me": a read-only remote command that reads back the
+  screen's framebuffer or the firmware's own draw buffer over USB; a test that compares the device's actual pixels
+  with the simulator's for every page of CONTROL-MAP section 20, at rest and while playing; if the hardware will not
+  give the pixels back, say so and what the nearest proof is; device screenshots in the manual instead of simulator
+  renders. Released through the candidate flow with the per-page timing check.
+- Standing from now on: the comparison is a step of every release run (rc-validate.py: screen).
+
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
 - **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
@@ -2180,3 +2192,28 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - 18 messages were shortened so that those met while playing take two lines (the list: CONTROL-MAP 20.3; Help and
   the guide quote the new texts). `ct_diag_storage_lines` gives `USER n READY` and `FREE nK RECL nK`.
 - Repaint cost is unchanged in kind: bands of 16 rows, one per pass, deferred when a MIDI event is due.
+
+### 19.31 tabby-v1.2 (2026-11-19): the message box at the top; the screen copy
+
+- The box: `draw_page` paints it at row 0, 33 / 58 / 82 rows high for one / two / three lines (the ends of the top
+  line, the title row and the row under it); the hold bar is not drawn under it. Nothing else of 19.30 changed.
+- The hardware: the ST7789 hangs on SPI1 with one data line (PB7, an output, shared with the RGB route) and no line
+  back; app/board/fm1_lcd_hw.h has a send path only. The glass cannot be read. What can be had is what was sent.
+- The copy (app/screen.c, `shot_*`, `ct_screen_shot`): one byte a pixel (an index into up to 31 colours seen), 57600
+  bytes from `malloc`, held only between "on" and "off". `paint_flush` is the only writer to the LCD after the start
+  screen; before each `fm1_screen_submit` (which swaps the bytes in place) the band's rectangle is copied in. A
+  refused submit counts an error (the copy is then ahead of the LCD until the retry); the comparison requires none.
+- Freeze: "when whole" waits for a pass after which no band is waiting and the LCD is idle, so the copy is one
+  finished frame; "now" freezes at once (HOME while playing never stands still: its meters move). With the freeze
+  16 bytes are kept that say what the frame showed of the song: page, playing, scene, pass, step, bar, the edit
+  page's running step, the queued scene, count-in, recording, a hash of every track's state / clip / queue / chain,
+  the song, the selected track, and message / project unsaved / song unsaved.
+- Remote command 29 {19, what[, offset]} (control task, as every remote command; reply type 6): 0 state, 1 on,
+  2 freeze when whole, 6 freeze now, 7 take a freeze request back, 3 read from a pixel offset (run-length coded:
+  (length << 5) | colour for 1 to 7, a zero length is followed by length - 1), 4 the colours, 5 off. It changes
+  nothing on the panel; "on" asks for one full repaint so the copy starts from a whole picture.
+- The simulator exports the same function (`sim_shot`), and tools/linux/screens.mjs reads every picture through it
+  and checks it against the simulator's whole framebuffer: the copy is the picture.
+- The tour, the device tool, the comparison and what is left out: docs/CONTROL-MAP.md 20.13. The comparison is tested
+  without a device in every suite run (tests/workbench/screen-copy.mjs: the simulator plays the device; one changed
+  pixel must fail it).

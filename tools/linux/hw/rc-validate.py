@@ -26,9 +26,11 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.11
+Version: 0.12
 
 Revision log
+    v0.12 2026-11-19  tabby-v1.2: step screen: the device's own pixels (the screen copy, run-screen.py) against the
+                      simulator's for every page, at rest and while playing (screens.mjs --match).
     v0.11 2026-11-19  tabby-v1.1 (the readable screen): step timing-pages: one line on CLIPS, SCENES, SYNC / MIDI, ACTIONS
                       and the mixer (under 2 ms each), eight lines on the overview, CLIPS and SCENES.
     v0.10 2026-11-18  The panel state (mutes, focus, ARP switches, CLOCK, A2) is read before the tests, after each one and at the
@@ -197,6 +199,27 @@ def main():
         test("steps", "run-steps.py")
         test("launch", "run-launch.py", rewrite=False)
         test("launch-again", "run-launch.py")
+        # v0.12 (tabby-v1.2): the device's own pixels. The Wrong Room song goes into slot 6 (index 5; only if that slot is
+        # empty), run-screen.py runs the tour of screen-tour.json and reads the screen copy for every page, at rest and
+        # while playing; screens.mjs --match runs the simulator through the same tour and compares every pixel.
+        shots = out / ("screen-%s" % rc_tag)
+        shots.mkdir(parents=True, exist_ok=True)
+        link = "import sys; sys.path.insert(0, %r); import tabby_link as T, time; l = T.Link(); time.sleep(0.3)\n" % str(HW)
+        c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
+        if "EMPTY" in o0:
+            r = subprocess.run(["node", str(HW / "rig-song.mjs"), str(ROOT / "tests/midi-import/fixtures/wrong-room-all.mid"), "--loop"], cwd=str(ROOT), capture_output=True, text=True)
+            (shots / "wrong-room-song.json").write_text(r.stdout)
+            c1, o1 = sh(W + ["song", "--url", url, "--song-json", str(shots / "wrong-room-song.json"), "--slot", "5", "--log", wb_log], 600, log)
+            c2, o2 = sh([py, str(HW / "run-screen.py"), "--out", str(shots), "--song", "wrong-room-song.json", "--build", build], 1500, log) if c1 == 0 else (1, "the song could not be written")
+            c3, o3 = sh(["node", str(ROOT / "tools/linux/screens.mjs"), "--match", str(shots)], 600, log) if c2 == 0 else (1, "")
+            sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.remote(16, 2)\nexcept Exception:\n    pass\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
+            fails = [l for l in (o2 + "\n" + o3).splitlines() if l.startswith("FAIL")]
+            last = [l for l in (o3 or o2).splitlines() if l.startswith(("PASS", "FAIL"))]
+            step("screen", c2 == 0 and c3 == 0, (last[-1] if last else (o2 or o1)[-200:]) + ("; " + " | ".join(f[:110] for f in fails[:4]) if fails and (c2 or c3) else ""))
+        else:
+            step("screen", False, "song slot 6 is not empty: the tour's song could not be written")
+        state("screen")
+        song()
         # the timing song (slot 13 of the device, as imported) and the one-line timing run
         code, o = sh([py, str(HW / "run-clips.py"), "--song", "13", "--expected", a.expected, "--out", str(out), "--tag", rc_tag + "-s13"], 600, log)
         lines = [l for l in o.splitlines() if l.startswith(("PASS", "FAIL"))]

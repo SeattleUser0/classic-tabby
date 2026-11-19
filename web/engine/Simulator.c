@@ -358,6 +358,9 @@ EXPORT("sim_song_compact") int sim_song_compact(void)
 }
 EXPORT("sim_song_load") int sim_song_load(unsigned song) { return song_load(song); }
 EXPORT("sim_song_play") int sim_song_play(void) { return song_play(); }
+/* tabby-v1.2: as remote command 29 {1, song} does on the device: load and show the song */
+extern void ct_screen_song_select(unsigned song);
+EXPORT("sim_song_select") int sim_song_select(unsigned song) { int r = song_load(song); ct_screen_song_select(song); return r; }
 EXPORT("sim_song_stop") void sim_song_stop(void) { song_stop(); }
 EXPORT("sim_song_jump") int sim_song_jump(unsigned row) { return song_queue_jump(row); }
 EXPORT("sim_song_send_setup") int sim_song_send_setup(void) { return song_send_setup(); } /* Task 04 */
@@ -395,6 +398,12 @@ EXPORT("sim_song_track_status") uint32_t sim_song_track_status(unsigned track)
 }
 /* song | playing << 8 | row << 16 | step << 24; the second word: repeat | next << 8 |
  * queued << 16 | error << 24; underruns in the third. */
+/* tabby-v1.2: the screen copy's remote command as the device answers it (app/screen.c ct_screen_shot), for
+ * tools/linux/screens.mjs and tests/workbench/screen-copy.mjs: the reply's bytes are at sim_shot_buffer(). */
+extern int ct_screen_shot(unsigned what, unsigned offset, uint8_t *out);
+static uint8_t shot_reply[64];
+EXPORT("sim_shot") int sim_shot(unsigned what, unsigned offset) { return ct_screen_shot(what, offset, shot_reply); }
+EXPORT("sim_shot_buffer") const uint8_t *sim_shot_buffer(void) { return shot_reply; }
 EXPORT("sim_song_status") uint32_t sim_song_status(unsigned word)
 {
     struct song_status st; song_status_read(&st);
