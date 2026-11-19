@@ -6617,4 +6617,23 @@ How the simulator is brought to the device's picture: it is always behind the de
 spends about three seconds reading each picture), so at every "at" step and every picture it runs on until the 16
 bytes of 19.31 are the device's, then freezes its own copy the same way.
 
-Measured before the device run: app image 487844 bytes (+1120), margin 31613, heap 143340 (-96).
+Measured before the device run of candidate 1: app image 487844 bytes (+1120), margin 31613, heap 143340 (-96).
+
+### 65.1 tabby-v1.2-rc1: not promoted (2026-11-19)
+
+Commit 1ee94a7, build `965a711d666e271a`, installed after a full backup. Two steps failed; the rest passed (backup,
+restore and verify; one line 1.65 to 1.93 ms on six pages, eight lines 2.38 to 2.76 ms on three).
+
+- **screen: the device refused the copy** (reply code 72, GROOVE_PROJECT_MEMORY): `malloc(57600)` failed. The build
+  report's "runtime heap 143 KB" is the size of the region; what a running device can give in one block is less,
+  and nothing in the firmware could say how much. Fix: four bits a pixel, fifteen blocks of 1952 bytes with the
+  band's own fifteen colours (29 KB), and request 8, which tries and gives back blocks from 64 KB down and reports
+  the largest; run-screen.py prints it. In the simulator no band of any page has a sixteenth colour.
+- **setup: 39 of 40.** "MIDI Start one cycle after the first click": 2001.17 ms against a cycle of 1999.16 ms, 2.0 ms
+  off, limit 1.5; the click band of the same run was 3.13 ms over 15 clicks (one click about 1.3 ms late). Three
+  repeats of the whole test on this build: 40 of 40 each, 1999.47 / 1999.95 / 1999.75 ms, band 1.29 / 1.76 / 1.75 ms.
+  In 22 earlier runs of this check the band was 1.57 to 2.02 ms in 18, 2.39 and 2.55 once each, and 4.07 (a FAIL)
+  once. NOT EXPLAINED: one late click in one run; no counter of that run shows why. The count-in's digit in the top
+  line changes at each click (it changed on the CLIPS page before tabby-v1.1 too), so a band of the screen may meet
+  a click; the click and Start are not held back for a band the way song notes are. Nothing was changed for it.
+  If it shows again in a release run it is a finding, not a tool error.

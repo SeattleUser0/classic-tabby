@@ -281,7 +281,7 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
         out[8] = (uint8_t)groove_arp_setting(smk37_performance_track(0), 0); *count = 9; return 0;
     }
     /* tabby-v1.2: {19, what[, offset low, mid, high]} the screen copy (app/screen.c ct_screen_shot): 0 its state, 1 on,
-     * 2 freeze when the picture is whole, 6 freeze now, 7 take a freeze request back, 3 read from a pixel offset, 4 the colours, 5 off. It reads
+     * 2 freeze when the picture is whole, 6 freeze now, 7 take a freeze request back, 3 read from a pixel offset, 4 the colours of a band (the offset is the band, 0 to 14), 5 off, 8 the largest block the heap gives now. It reads
      * what was handed to the LCD; nothing on the panel changes. */
     else if (op == 19 && (n == 2 || n == 5)) {
         r = ct_screen_shot(data[1], n == 5 ? data[2] | (unsigned)data[3] << 8 | (unsigned)data[4] << 16 : 0, out + 1);

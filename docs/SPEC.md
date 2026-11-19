@@ -2199,8 +2199,10 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   line, the title row and the row under it); the hold bar is not drawn under it. Nothing else of 19.30 changed.
 - The hardware: the ST7789 hangs on SPI1 with one data line (PB7, an output, shared with the RGB route) and no line
   back; app/board/fm1_lcd_hw.h has a send path only. The glass cannot be read. What can be had is what was sent.
-- The copy (app/screen.c, `shot_*`, `ct_screen_shot`): one byte a pixel (an index into up to 31 colours seen), 57600
-  bytes from `malloc`, held only between "on" and "off". `paint_flush` is the only writer to the LCD after the start
+- The copy (app/screen.c, `shot_*`, `ct_screen_shot`): fifteen blocks of 1952 bytes from `malloc`, one per band of 16
+  rows: four bits a pixel, an index into the band's own fifteen colours (15 = a sixteenth colour or never painted;
+  no page has a band with more), 29 KB together, held only between "on" and "off". The first build asked for one
+  block of 57600 bytes (a byte a pixel) and the device's heap refused it at run time (tabby-v1.2-rc1, BUILD 65.1). `paint_flush` is the only writer to the LCD after the start
   screen; before each `fm1_screen_submit` (which swaps the bytes in place) the band's rectangle is copied in. A
   refused submit counts an error (the copy is then ahead of the LCD until the retry); the comparison requires none.
 - Freeze: "when whole" waits for a pass after which no band is waiting and the LCD is idle, so the copy is one
@@ -2210,7 +2212,8 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   the song, the selected track, and message / project unsaved / song unsaved.
 - Remote command 29 {19, what[, offset]} (control task, as every remote command; reply type 6): 0 state, 1 on,
   2 freeze when whole, 6 freeze now, 7 take a freeze request back, 3 read from a pixel offset (run-length coded:
-  (length << 5) | colour for 1 to 7, a zero length is followed by length - 1), 4 the colours, 5 off. It changes
+  (length << 5) | colour for 1 to 7, a zero length is followed by length - 1; a run ends with its band), 4 the
+  colours of a band, 5 off, 8 the largest single block the heap gives at this moment (tried and given back). It changes
   nothing on the panel; "on" asks for one full repaint so the copy starts from a whole picture.
 - The simulator exports the same function (`sim_shot`), and tools/linux/screens.mjs reads every picture through it
   and checks it against the simulator's whole framebuffer: the copy is the picture.

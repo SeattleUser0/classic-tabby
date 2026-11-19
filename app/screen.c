@@ -1561,25 +1561,42 @@ static void draw_page(const struct fm1_ble_status *ble)
 /* tabby-v1.2 (docs/SPEC.md 19.31): the screen copy. The LCD cannot be read back (one data line, driven by the SoC
  * only: app/board/fm1_lcd_hw.h), so the nearest proof of what is on the glass is a copy of every rectangle of pixels
  * the firmware hands to the LCD's DMA: paint_flush is the only writer after the start screen. Remote command {19}
- * (read only: it changes nothing a player can see or hear) switches the copy on (57600 bytes from the heap, one
- * byte a pixel: an index into the colours seen), freezes it, reads it run-length coded and gives the memory back.
+ * (read only: it changes nothing a player can see or hear) switches the copy on, freezes it, reads it run-length
+ * coded and gives the memory back. The copy is fifteen blocks from the heap, one per band of 16 rows: four bits a
+ * pixel, an index into the band's own fifteen colours (15: a sixteenth colour, or never painted). One block of
+ * 57600 bytes was refused by the device's heap at run time (tabby-v1.2-rc1); fifteen of 1952 bytes are 29 KB.
  * State: 0 off, 1 copying, 2 freeze when no band is waiting, 3 frozen. Control task only. */
-enum { SHOT_BYTES = FM1_SCREEN_WIDTH * FM1_SCREEN_HEIGHT, SHOT_COLORS = 31, SHOT_INFO = 16 };
-static uint8_t *shot, shot_state, shot_colors, shot_info[SHOT_INFO], shot_frozen_info[SHOT_INFO];
-static uint16_t shot_palette[SHOT_COLORS], shot_errors;
+enum { SHOT_BYTES = FM1_SCREEN_WIDTH * FM1_SCREEN_HEIGHT, SHOT_BAND = FM1_SCREEN_WIDTH * PAINT_ROWS, SHOT_COLORS = 15, SHOT_INFO = 16 };
+struct shot_store { uint16_t color[SHOT_COLORS]; uint8_t colors, pad; uint8_t nibble[SHOT_BAND / 2]; };
+static struct shot_store *shot[PAINT_BANDS];
+static uint8_t shot_state, shot_info[SHOT_INFO], shot_frozen_info[SHOT_INFO];
+static uint16_t shot_errors;
+static void shot_free(void)
+{
+    for (unsigned b = 0; b < PAINT_BANDS; ++b) { free(shot[b]); shot[b] = NULL; }
+    shot_state = 0;
+}
+static unsigned shot_get(unsigned offset)
+{
+    const struct shot_store *st = shot[offset / SHOT_BAND];
+    unsigned i = offset % SHOT_BAND;
+    return (st->nibble[i >> 1] >> ((i & 1U) * 4U)) & 15U;
+}
 static void shot_band(unsigned left, unsigned top, unsigned width)
 {
+    struct shot_store *st = shot[top / PAINT_ROWS];
     unsigned last = 0;
     for (unsigned r = 0; r < PAINT_ROWS; ++r) {
         const uint16_t *px = paint_pixels + r * width;
-        uint8_t *to = shot + (top + r) * FM1_SCREEN_WIDTH + left;
-        for (unsigned c = 0; c < width; ++c) {
+        unsigned at = r * FM1_SCREEN_WIDTH + left;
+        for (unsigned c = 0; c < width; ++c, ++at) {
             uint16_t v = px[c];
-            if (last >= shot_colors || shot_palette[last] != v) {
-                for (last = 0; last < shot_colors && shot_palette[last] != v; ++last) { }
-                if (last == shot_colors && shot_colors < SHOT_COLORS) shot_palette[shot_colors++] = v;
+            if (last >= st->colors || st->color[last] != v) {
+                for (last = 0; last < st->colors && st->color[last] != v; ++last) { }
+                if (last == st->colors && st->colors < SHOT_COLORS) st->color[st->colors++] = v;
             }
-            to[c] = (uint8_t)last;   /* SHOT_COLORS: a thirty-second colour (none of the pages has one) */
+            unsigned shift = (at & 1U) * 4U;
+            st->nibble[at >> 1] = (uint8_t)((st->nibble[at >> 1] & ~(15U << shift)) | (last << shift));
         }
     }
 }
@@ -1599,33 +1616,45 @@ static void shot_note(unsigned visible)
 }
 int ct_screen_shot(unsigned what, unsigned offset, uint8_t *out)
 {
+    unsigned on = shot[0] != NULL;
     if (what == 1) {                                   /* on (again: copy from a fresh picture) */
-        if (!shot) { shot = malloc(SHOT_BYTES); if (!shot) return -1; }
-        memset(shot, 255, SHOT_BYTES); shot_colors = 0; shot_errors = 0; shot_state = 1;
+        for (unsigned b = 0; b < PAINT_BANDS; ++b) {
+            if (!shot[b]) shot[b] = malloc(sizeof *shot[b]);
+            if (!shot[b]) { shot_free(); return -1; }
+            memset(shot[b], 0, sizeof *shot[b]); memset(shot[b]->nibble, 255, sizeof shot[b]->nibble);
+        }
+        shot_errors = 0; shot_state = 1;
         saved_cache.shown_page = ~0U;
     } else if (what == 2 || what == 6) {               /* freeze: when no band waits / now */
-        if (!shot) return -1;
+        if (!on) return -1;
         if (shot_state != 3) { shot_state = what == 2 ? 2 : 3; if (shot_state == 3) memcpy(shot_frozen_info, shot_info, SHOT_INFO); }
     } else if (what == 5) {                            /* off */
-        free(shot); shot = NULL; shot_state = 0;
+        shot_free();
     } else if (what == 7) {                            /* a freeze that was asked for is taken back */
         if (shot_state == 2) shot_state = 1;
-    } else if (what == 3) {                            /* the frozen picture from pixel `offset`: bytes (length << 5) | colour, length 1 to 7; length 0: the next byte is the length - 1 */
-        if (!shot || shot_state != 3) return -1;
+    } else if (what == 3) {                            /* the frozen picture from pixel `offset`: bytes (length << 5) | colour, length 1 to 7; length 0: the next byte is the length - 1. A run ends with its band (the colours are the band's) */
+        if (!on || shot_state != 3) return -1;
         unsigned n = 0;
         while (offset < SHOT_BYTES && n + 2U <= 60U) {
-            unsigned v = shot[offset], run = 1;
-            while (offset + run < SHOT_BYTES && run < 256U && shot[offset + run] == v) ++run;
-            if (run < 8U) out[n++] = (uint8_t)((run << 5) | (v & 31U));
-            else { out[n++] = (uint8_t)(v & 31U); out[n++] = (uint8_t)(run - 1U); }
+            unsigned v = shot_get(offset), run = 1, end = (offset / SHOT_BAND + 1U) * SHOT_BAND;
+            while (offset + run < end && run < 256U && shot_get(offset + run) == v) ++run;
+            if (run < 8U) out[n++] = (uint8_t)((run << 5) | v);
+            else { out[n++] = (uint8_t)v; out[n++] = (uint8_t)(run - 1U); }
             offset += run;
         }
         return (int)n;
-    } else if (what == 4) {                            /* the colours, RGB565 low byte first */
-        for (unsigned i = 0; i < shot_colors; ++i) { out[2 * i] = (uint8_t)shot_palette[i]; out[2 * i + 1] = (uint8_t)(shot_palette[i] >> 8); }
-        return 2 * shot_colors;
+    } else if (what == 4) {                            /* the colours of band `offset`, RGB565 low byte first */
+        if (!on || offset >= PAINT_BANDS) return -1;
+        const struct shot_store *st = shot[offset];
+        for (unsigned i = 0; i < st->colors; ++i) { out[2 * i] = (uint8_t)st->color[i]; out[2 * i + 1] = (uint8_t)(st->color[i] >> 8); }
+        return 2 * st->colors;
+    } else if (what == 8) {                            /* how large a single block the heap gives now, in units of 256 bytes (tried from 64 KB down; nothing is kept) */
+        unsigned got = 0;
+        for (unsigned size = 65536U; size >= 1024U && !got; size -= size > 8192U ? 4096U : 1024U) { void *p = malloc(size); if (p) { free(p); got = size; } }
+        out[0] = (uint8_t)(got >> 8); out[1] = (uint8_t)(got >> 16);
+        return 2;
     } else if (what) return -1;
-    out[0] = shot_state; out[1] = shot_colors; out[2] = (uint8_t)shot_errors; out[3] = (uint8_t)(shot_errors >> 8);
+    out[0] = shot_state; out[1] = (uint8_t)(on ? PAINT_BANDS : 0); out[2] = (uint8_t)shot_errors; out[3] = (uint8_t)(shot_errors >> 8);
     memcpy(out + 4, shot_state == 3 ? shot_frozen_info : shot_info, SHOT_INFO);
     return 4 + SHOT_INFO;
 }
@@ -1735,11 +1764,11 @@ static void paint_flush(void)
         cache->shown_page = ~0U;
         draw_page(&frame_ble);
         /* Rasterize directly into the tightly packed DMA rectangle. */
-        if (shot && shot_state && shot_state < 3) shot_band(left, paint_top, width);   /* before the submit: it swaps the bytes in place */
+        if (shot_state == 1 || shot_state == 2) shot_band(left, paint_top, width);   /* before the submit: it swaps the bytes in place */
         if (fm1_screen_submit(left, paint_top, width, PAINT_ROWS,
                             paint_pixels, width * PAINT_ROWS)) {
             saved_cache.shown_page = ~0U; /* Retry the whole page after a transport error. */
-            if (shot && shot_state && shot_state < 3 && shot_errors < 65535U) ++shot_errors;   /* the copy is ahead of the LCD until the retry */
+            if ((shot_state == 1 || shot_state == 2) && shot_errors < 65535U) ++shot_errors;   /* the copy is ahead of the LCD until the retry */
             break;
         }
         paint_left[band] = FM1_SCREEN_WIDTH;

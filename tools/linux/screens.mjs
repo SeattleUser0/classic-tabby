@@ -86,12 +86,13 @@ const sha = frame => createHash('sha256').update(Buffer.from(frame.buffer, frame
 const shot = (what, offset = 0) => { const n = c.sim_shot(what, offset); return n < 0 ? null : mem().slice(c.sim_shot_buffer(), c.sim_shot_buffer() + n); };
 const status = () => { const s = shot(0); return { state: s[0], colors: s[1], errors: s[2] | s[3] << 8, info: Array.from(s.slice(4, 20)) }; };
 function readCopy() {
-  const p = shot(4), pal = []; for (let i = 0; i + 1 < p.length; i += 2) pal.push(p[i] | p[i + 1] << 8);
+  const pals = []; for (let band = 0; band < 15; band++) { const p = shot(4, band), pal = []; for (let i = 0; i + 1 < p.length; i += 2) pal.push(p[i] | p[i + 1] << 8); pals.push(pal); }
   const frame = new Uint16Array(W * H); let at = 0, unpainted = 0;
   while (at < W * H) {
     const r = shot(3, at); if (!r || !r.length) fail('the screen copy stopped at pixel ' + at);
     for (let i = 0; i < r.length;) { let run = r[i] >> 5, v = r[i] & 31; i++; if (!run) run = r[i++] + 1;
-      if (v >= pal.length) unpainted += run;
+      const pal = pals[at / 3840 | 0];
+      if (v >= pal.length) unpainted += run;   /* a sixteenth colour in one band, or never painted */
       frame.fill(v < pal.length ? pal[v] : 0xf81f, at, at + run); at += run; }
   }
   return { frame, unpainted };

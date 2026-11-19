@@ -50,8 +50,10 @@ class Shot:
         return {"state": d[0], "colors": d[1], "errors": d[2] | d[3] << 8, "info": list(d[4:20])}
 
     def read(self):
-        p = self.ask(4)
-        palette = [p[i] | p[i + 1] << 8 for i in range(0, len(p) - 1, 2)]
+        palettes = []
+        for band in range(15):
+            p = self.ask(4, band)
+            palettes.append([p[i] | p[i + 1] << 8 for i in range(0, len(p) - 1, 2)])
         frame, unpainted = [], 0
         while len(frame) < PIXELS:
             r = self.ask(3, len(frame))
@@ -63,10 +65,15 @@ class Shot:
                 i += 1
                 if not run:
                     run = r[i] + 1; i += 1
+                palette = palettes[len(frame) // 3840]
                 if v >= len(palette):
-                    unpainted += run
+                    unpainted += run       # a sixteenth colour in one band, or never painted
                 frame.extend([palette[v] if v < len(palette) else 0xF81F] * run)
         return frame[:PIXELS], unpainted
+
+    def largest_block(self):
+        d = self.ask(8)
+        return (d[0] | d[1] << 8) * 256
 
 
 def main():
@@ -92,7 +99,12 @@ def main():
         try:
             s.status(1)
         except T.DeviceError as e:
-            print("FAIL the device did not switch the screen copy on (%s): no 57600 bytes of memory free, or firmware before tabby-v1.2" % e); return 1
+            try:
+                most = "the largest single block the heap gives is %d bytes" % s.largest_block()
+            except Exception as e2:
+                most = "the heap could not be asked (%s)" % e2
+            print("FAIL the device did not switch the screen copy on (%s): fifteen blocks of 1952 bytes were not free; %s" % (e, most)); return 1
+        heap = s.largest_block()
         time.sleep(0.6)
         for st in tour["steps"]:
             op, x, y = st[0], (st[1] if len(st) > 1 else None), (st[2] if len(st) > 2 else None)
@@ -146,8 +158,8 @@ def main():
                 t0 = time.time()
                 frame, unpainted = s.read()
                 (out / (x + ".rgb565")).write_bytes(struct.pack("<%dH" % PIXELS, *frame))
-                log.append({"op": "shot", "name": x, "info": f["info"], "unpainted": unpainted, "errors": f["errors"], "colors": f["colors"], "read_s": round(time.time() - t0, 2)})
-                print("shot %-24s info %s, %d colours, read in %.1f s" % (x, f["info"], f["colors"], time.time() - t0), flush=True)
+                log.append({"op": "shot", "name": x, "info": f["info"], "unpainted": unpainted, "errors": f["errors"], "read_s": round(time.time() - t0, 2)})
+                print("shot %-24s info %s, read in %.1f s" % (x, f["info"], time.time() - t0), flush=True)
                 s.status(1); time.sleep(0.5)
             else:
                 print("FAIL unknown tour step %r" % (st,)); return 1
@@ -162,8 +174,9 @@ def main():
             pass
         l.close()
     (out / "device-shots.json").write_text(json.dumps({"tool": "tools/linux/hw/run-screen.py v0.1", "tour": tour["version"], "build": a.build, "song": a.song,
-                                                       "seconds": round(time.time() - started, 1), "log": log}, indent=1) + "\n")
+                                                       "seconds": round(time.time() - started, 1), "largest_heap_block_with_the_copy_on": heap, "log": log}, indent=1) + "\n")
     shots = [e for e in log if e["op"] == "shot"]
+    print("the largest single block the heap gave with the copy on: %d bytes" % heap)
     print("PASS %d pictures read from the device in %.0f s (%d while playing)" % (len(shots), time.time() - started, sum(1 for e in shots if e["info"][1])))
     return 0
 

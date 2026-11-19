@@ -908,8 +908,8 @@ The LCD itself cannot be read back: it hangs on one data line that the SoC only 
 no command can return what the glass shows. The nearest proof, built in tabby-v1.2:
 
 - The firmware can keep a copy of every rectangle of pixels it hands to the LCD (after the start screen there is one
-  place that does: the band painter). Remote command 29 {19} switches the copy on (57600 bytes of memory, taken only
-  while it is on), freezes it when no band is waiting, reads it, and gives the memory back. It only reads: nothing a
+  place that does: the band painter). Remote command 29 {19} switches the copy on (29 KB of memory in fifteen small
+  blocks, taken only while it is on), freezes it when no band is waiting, reads it, and gives the memory back. It only reads: nothing a
   player sees or hears changes.
 - tools/linux/hw/screen-tour.json is one tour of every page of this section, at rest and while the song plays (46
   pictures: 23 and 23). tools/linux/hw/run-screen.py runs it on the device with remote panel keys and reads the copy
