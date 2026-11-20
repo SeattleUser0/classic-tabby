@@ -391,6 +391,16 @@ def capture(a, soak=False):
                     rise.append("CPU GUARD (%.2f trips per second)" % rate)
                 if rise and a.stop_on_rise:
                     stopped = "STOPPED at %.0f s: %s rose" % (time.monotonic() - t0, ", ".join(rise)); print(stopped, flush=True); break
+        chain = None
+        if a.play:
+            # v0.16: what the scene chain was doing when the capture ended (tabby-v1.2-rc6: one soak segment stayed in a
+            # scene and nothing said why): the scene, its TIMES and flags, the hold, the status
+            try:
+                u = l.setup_state(); r = l.remote_status()
+                chain = {"hold": u["hold"], "scene": u["scene"], "scene_times": u["scene_times"], "scene_flags": u["scene_flags"], "scene_steps": u["scene_steps"],
+                         "scenes": u["scenes"], "unsaved": u["unsaved"], "row": r["row"], "queued": r["queued"], "bar": r["bar"], "song_state": r["song_state"], "page": r["page_name"]}
+            except Exception as e:
+                chain = {"error": str(e)}
         if a.play:
             l.stop_song(); end_stop = time.monotonic() + 0.5       # v0.9: the song stops before the capture ends
             while time.monotonic() < end_stop:
@@ -415,7 +425,7 @@ def capture(a, soak=False):
         M.write_csv(os.path.join(a.out, "%s-din-usb.csv" % a.tag), rows, rows[0][0])
     res = {"tag": a.tag, "a2": a2page, "fg": fgpage, "page": page_end, "seconds": a.seconds, "din": analyze(din_ev), "usb": analyze(usb_ev),
            "din_usb_differences": same_notes(din_ev, usb_ev), "health_before": before, "health_after": after,
-           "profile": d.get("profile"), "song_status": st, "stopped": stopped, "audio": {}}
+           "profile": d.get("profile"), "song_status": st, "chain_at_end": chain, "stopped": stopped, "audio": {}}
     for c, b in chans.items():
         T.write_wav(os.path.join(a.out, "%s-audio-in%d.wav" % (a.tag, c + 1)), b)
         n, longest = silent_gaps(b)

@@ -1359,13 +1359,30 @@ static int song_prepare(unsigned steps)
     start_request = 1;
     return 0;
 }
+#ifdef FM1_HOST_TEST
+unsigned song_test_interrupt;   /* 1 / 2: song_poll lets one audio tick in at that point, once */
+#endif
 void song_poll(void)
 {
     if (!state) return;
     if (follow_on && ext_prep_request) { ext_prep_request = 0; (void)song_prepare(ext_prep_steps); return; }   /* Task 16 */
     if (follow_on && groove_clock_mode() == GROOVE_CLOCK_INTERNAL && !user_stop) { user_stop = 1; stop_request = 1; }   /* the clock source was switched away */
+    /* tabby-v1.2: the start that is pending is read BEFORE `playing`. The audio interrupt takes a start in one go
+     * (start_request = 0, playing = 1). Read the other way round (playing, then start_request, as up to tabby-v1.1),
+     * an interrupt between the two reads showed "not playing" and then "no start pending": this function took the
+     * song for ended and left it (leave_song: the device's channels instead of the song's, state 0, so no scene was
+     * decoded any more) while the audio thread played on: scene 1, scene 2, then scene 2 for ever, on the wrong MIDI
+     * channels. Seen once in a soak (tabby-v1.2-rc6, docs/BUILD.md 65.6); as old as song mode. */
+    unsigned starting = start_request;
+    barrier();
+#ifdef FM1_HOST_TEST
+    if (song_test_interrupt == 1) { song_test_interrupt = 0; song_tick(120); }   /* tests/host/smoke.c: the audio interrupt, here */
+#endif
     if (!playing) {
-        if (start_request) return;
+#ifdef FM1_HOST_TEST
+        if (song_test_interrupt == 2) { song_test_interrupt = 0; song_tick(120); }   /* ... or here, where it broke up to tabby-v1.1 */
+#endif
+        if (starting || start_request) return;
         if (follow_on && !user_stop && state == 1) { ext_after_resume = 0; ext_stay_state = EXT_IDLE; (void)song_prepare(0); return; }   /* a follow song ended: arm again */
         leave_song(); return;                                                                /* stopped or ended */
     }

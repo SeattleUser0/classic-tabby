@@ -563,6 +563,26 @@ int main(void)
         /* Queued jump: row 0 x4 then row 1; a jump queued at once lands at the next bar. */
         r = sim_song_record_read(0); f[64 + 16] = 4; f[37] = 1; /* loop the song */
         CHECK(sim_song_record_write(0) == 0, "song record rewritten with row 0 x4 and loop");
+        /* ---- tabby-v1.2: a start taken by the audio interrupt while song_poll looks at the song (docs/BUILD.md 65.6) ----
+         * Up to tabby-v1.1 song_poll read `playing` and then `start_request`; an interrupt between the two made it leave
+         * the song while the audio thread played on (no scene decoded any more, the device's channels). Both places an
+         * interrupt can fall are tried: the song must still be the control task's afterwards. */
+        {
+            extern unsigned song_test_interrupt; extern void song_poll(void);
+            for (unsigned point = 1; point <= 2; ++point) {
+                sim_song_stop(); settle(); settle();
+                CHECK(sim_song_load(0) == 0, "start race: the song loads");
+                song_test_interrupt = point;
+                CHECK(sim_song_play() == 0, "start race: PLAY");
+                song_poll();
+                struct song_status st; song_status_read(&st);
+                CHECK(song_test_interrupt == 0 && st.playing == 1 && st.track_row[0] != SONG_NONE,
+                      "start race: the audio thread takes the start %s: the song is still held (playing %u, track 1 on row %u)",
+                      point == 1 ? "before song_poll reads `playing`" : "between its two reads", st.playing, st.track_row[0]);
+            }
+            sim_song_stop(); settle(); settle();
+        }
+
         CHECK(sim_song_load(0) == 0 && sim_song_play() == 0, "song restarted");
         CHECK(sim_song_jump(1) == 0, "jump to row 1 queued");
         first64 = 0; blocks = 0;

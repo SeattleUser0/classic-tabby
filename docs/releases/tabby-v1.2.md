@@ -2,8 +2,8 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
 
 # Classic Tabby tabby-v1.2: messages at the top; the screen proven on the device
 
-- Firmware package build ID: `fd7ec6000403a35c` (first 16 hex digits). App image 488516 bytes (measured), margin 30941 bytes
-  below the 519457-byte limit (docs/FLASH-BUDGET.md 51). From tabby-v1.1 (`f0bd5047ca742907`): +1792 bytes. At least
+- Firmware package build ID: `fef558ab16e275b4` (first 16 hex digits). App image 488548 bytes (measured), margin 30909 bytes
+  below the 519457-byte limit (docs/FLASH-BUDGET.md 51). From tabby-v1.1 (`f0bd5047ca742907`): +1824 bytes. At least
   15360 bytes stay free for fixes. Free RAM 143244 bytes (192 fewer).
 - Installing over tabby-v04.2 to tabby-v1.1 keeps storage as it is. Take a Full backup first anyway.
 - **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
@@ -11,7 +11,7 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
   A clip is refused (its track is silent) by firmware that does not know one of its settings: TRANSPOSE before
   tabby-v04.15, SHUFFLE and PLAY QUANTIZE before tabby-v04.17, STEP SIZE before tabby-v04.19, DIRECTION before
   tabby-v04.20. A song with EVENT LEAD set plays on older firmware, without the lead.
-- Released through the candidate flow, as candidate 6. Candidate 1 was held back: its screen copy asked the device
+- Released through the candidate flow, as candidate 7. Candidate 1 was held back: its screen copy asked the device
   for one block of 57600 bytes and the device's heap refused. Candidate 2 (a smaller copy) was held back: one line
   measured 2.01 and 2.03 ms on two of eight pages, and its screen copy showed why the device never finished a
   picture while a song played (below). Candidate 3 (no more repaint on every step) was held back: the pages were still
@@ -19,9 +19,10 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
   SCENES. Candidate 4 has the fix for that and for the standing CPU GUARD box, was installed and tested and made
   the device's screen pictures. Candidate 5 (candidate 4's firmware, those pictures in the manual) was held back:
   its own pixel comparison found leftover pieces of the page before on HOME, and eight lines on SCENES measured
-  3.9 ms once. Candidate 6 has both fixed, was tested in full, and is the one promoted. Its manual pictures are
-  the ones taken on candidate 4's build; its own release run compared its own pixels again. docs/BUILD.md 65.1
-  to 65.6.
+  3.9 ms once. Candidate 6 has both fixed and passed everything but one soak segment, in which the
+  song stayed in a scene: a fault of the song player at SEQ PLAY that is as old as song mode (below). Candidate 7
+  has it fixed, was tested in full, and is the one promoted. Its manual pictures are the ones taken on candidate
+  4's build; its own release run compared its own pixels again. docs/BUILD.md 65.1 to 65.7.
 
 ## What changed
 
@@ -36,6 +37,13 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
   page is repainted when something it shows changes (the scene, a launch, a queue); the bar count repaints only its
   own digits; on STEP only the rows of the step cells follow the running step. The pads' blink phase, which
   repainted the page on every eighth note without anything on the screen blinking, is out of that test too.
+- **A song could start wrong at SEQ PLAY: fixed.** Rarely (once in the roughly 300 starts of this release's test
+  runs; never seen before, though the code was the same), the song played scene 1, then scene 2, then scene 2 for
+  ever, and sent its notes on the device's MIDI channels instead of the song's. The control task looked at "is it
+  playing?" and then at "is a start pending?"; when the audio interrupt took the start between those two looks,
+  it saw neither, took the song for ended and let go of it while it played on. The two looks are in the safe order
+  now, and a test puts the interrupt at that very place. If this ever happened to you on stage it looked like a
+  song stuck in its second scene with some parts on the wrong synth; stopping and starting cured it.
 - **A band left over from the page before is painted within a few passes.** Found by the pixel comparison on
   candidate 5: 2.4 seconds after PATCH from CLIPS to HOME, while a song played, the project name's row still showed
   pieces of CLIPS. On HOME the level meters ask for their bands on every frame and were served first every time.

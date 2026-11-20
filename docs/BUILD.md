@@ -6769,9 +6769,36 @@ restore, verify PASS. Failed:
   command. The same question 40 minutes later was answered. NOT EXPLAINED; the release run asks a second time now.
 - soak-lead otherwise: 18 segments DIN 1.96 to 2.73 ms, USB 1.75 to 2.40 ms.
 
-### 65.6 tabby-v1.2 released: candidate 6
+### 65.6 tabby-v1.2-rc6: not promoted; one soak segment stayed in a scene: the start race (2026-11-20)
 
-Candidate 6: the two fixes of 65.5 (build `fd7ec6000403a35c`, app image 488516 bytes, margin 30941), rc-validate
-v0.14. The manual's 44 device pictures are those of rc4's build: the frames the simulator draws are the same for
-this build (make workbench-test checks that), and this candidate's own release run read and compared its own 44.
-Its results are in docs/releases/tabby-v1.2.md and in the next entry.
+Commit 113816d, build `fd7ec6000403a35c`, installed after a full backup. Everything passed but the soak with EVENT
+LEAD OFF: screen 44 of 44; one line DIN 1.73 to 1.89, USB 1.58 to 1.75, the device's own 1.41 to 1.55 ms (ACTIONS
+3.51, reported); eight lines 2.24 to 2.30 / 2.14 to 2.30 ms on the overview, CLIPS and SCENES; soak-lead 19
+segments, none bad (DIN 1.91 to 2.29, USB 1.77 to 2.14); CLIP SETTING and CLIPS 40 of 40; backup, restore, verify.
+
+**The soak: segment 3 (SCENES) "only 2 bursts", on DIN and on USB alike** (two readers: the device did it). The
+events of scene 1 at the start, of scene 2 eight seconds later, then none for 116 s. How it was found out:
+
+1. Not reproduced: 7 segments by hand, then 36 more (24 on SCENES) with the scene chain's state read at the end of
+   each (run-15.py v0.16: hold 0, TIMES 1, flags 0 every time).
+2. No tool sends a knob, a pad or a key during a soak; the scene scheduler's time in that segment was 0.002 ms a
+   pass (0.03 to 0.04 in the others): nothing was being decoded.
+3. I took it for the chain's hold (K3 on SCENES) set by something. Wrong: nothing clears the hold between two
+   segments, and the next segments were normal.
+4. The notes of the segment, compared with a good one: the same notes, but tracks 7 and 8 on channels 7 and 10
+   instead of 10 and 9, **from the first note on**. The song's channel map was gone before the first note: the
+   start, not a scene.
+5. `leave_song` is the only place that gives the device's channels back, and `song_poll` calls it when it finds
+   the song not playing and no start pending. Two reads, an interrupt between them (SPEC 19.32). Everything fits:
+   the channels, no decoding, scene 2 entered because it was decoded before the start, then replayed for ever.
+
+Fixed in app/song.c; the host test fails on the old order ("playing 0, track 1 on row 255") and passes on the new.
+As old as song mode. The chance per start depends on where the control pass stands when the audio block comes;
+the test runs of this release made about 300 starts and hit it once. Whether the quicker control pass of this
+release (far less painting) made it likelier is NOT KNOWN.
+
+### 65.7 tabby-v1.2 released: candidate 7
+
+Candidate 7: 65.6's fix (build `fef558ab16e275b4`, app image 488548 bytes, margin 30909). The manual's device pictures are
+those of rc4's build (the simulator draws the same frames for this build: make workbench-test); this candidate's
+own release run read and compared its own 44. Its results are in docs/releases/tabby-v1.2.md and below.

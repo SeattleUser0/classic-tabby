@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.66
+Version: 0.67
 Revision log:
+- v0.67, 2026-11-20: 19.32 the start race of song_poll (tabby-v1.2).
 - v0.66, 2026-11-19: 17.19 the user's answers of 2026-11-19 (evening) and the order to prove the screen on the device; 19.31 tabby-v1.2.
 - v0.65, 2026-11-19: 17.18 the user's order of 2026-11-19 (the screen must be readable); 19.30 tabby-v1.1.
 - v0.64, 2026-11-18: 19.29 tabby-v1.0.2 (EVENT LEAD, a song setting; OFF by default).
@@ -2239,3 +2240,17 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   fresh ("priority") set, so a band marked by an earlier compose cannot wait behind bands that are marked again on
   every compose; the compose itself waits like a band when a MIDI event is due within its own last time plus
   1.5 ms (bounded as the existing compose deferral: 33 ms + 2 x CT_PASS_STARVE_MS).
+
+### 19.32 tabby-v1.2: the start of a song, read in the safe order (2026-11-20)
+
+- `song_play` (control task) sets `start_request`; the audio interrupt takes it in one go: `start_request = 0`,
+  `playing = 1`. `song_poll` (control task) asked `if (!playing) { if (start_request) return; ... leave_song(); }`.
+  An interrupt between the two reads gave "not playing" and "no start pending": `leave_song` set `state = 0` and
+  gave the MIDI router the device's channels back, while the audio thread played. From then on `song_poll`
+  returned at its first line: no row and no track buffer was decoded; the row already decoded (the second) was
+  entered, and at every row end after it the audio thread replayed it (an underrun each time).
+- Now `start_request` is read first, into a local, and `playing` after it: whichever side of the interrupt the two
+  reads fall on, a pending start is seen. tests/host/smoke.c lets one audio tick in at either place
+  (`song_test_interrupt`, host builds only) and fails on the old order.
+- Found in the soak of tabby-v1.2-rc6 (BUILD 65.6) by the check of 19.28 ("every scene entry sends its events"),
+  which is the second time that check found something no timing figure shows.

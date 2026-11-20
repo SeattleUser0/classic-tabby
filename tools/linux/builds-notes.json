@@ -1,6 +1,10 @@
 {
   "comment": "The note line of a published build: shown in builds/index.json, builds/index.html and (when the page already has a note banner) at the top of builds/<tag>/. tools/linux/builds-index.py applies it on every index rewrite. Changing a note line is the only change allowed to a published builds/ page (SPEC 17.11).",
   "notes": {
+    "tabby-v1.2-rc6": {
+      "text": "Not promoted: in one of 19 soak segments the song stayed in its second scene and played on the device's MIDI channels: a fault at SEQ PLAY that every earlier version has too (rare). tabby-v1.2 has it fixed.",
+      "link": "tabby-v1.2"
+    },
     "tabby-v1.2-rc5": {
       "text": "Not promoted: the comparison of the device's own screen pixels found pieces of the page before left on HOME after a page change while a song plays, and eight simultaneous lines measured 3.9 ms once on SCENES. Same firmware as tabby-v1.2-rc4. tabby-v1.2 has both fixed.",
       "link": "tabby-v1.2"
