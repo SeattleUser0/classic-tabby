@@ -1,0 +1,55 @@
+{
+  "build": "1037d12495a94aef23943fa6d10bef7345184b7633289373baa7d1c5ee5f7790",
+  "release": "V01",
+  "version": "tabby-v1.2.1",
+  "entryBytes": 389062,
+  "initialBytes": 1448774,
+  "standaloneBytes": 3218062,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/6d779d0b22f6af02858c2faf878dacaf70aba5d83a39b7c034de05a3cb767e6e.bin",
+      "bytes": 528948,
+      "sha256": "6d779d0b22f6af02858c2faf878dacaf70aba5d83a39b7c034de05a3cb767e6e"
+    },
+    {
+      "name": "assets/smk37/7cfb5be79c3d9dd0fdab7f7e698d19f8cd9fc1ae97fee0da215cf8818eff8599.wasm",
+      "bytes": 374234,
+      "sha256": "7cfb5be79c3d9dd0fdab7f7e698d19f8cd9fc1ae97fee0da215cf8818eff8599"
+    },
+    {
+      "name": "assets/smk37/7cca9cfc01173264aef893b9564622cef582b63024808823a22ed08fdc2f1bbb.js",
+      "bytes": 613059,
+      "sha256": "7cca9cfc01173264aef893b9564622cef582b63024808823a22ed08fdc2f1bbb"
+    },
+    {
+      "name": "assets/smk37/4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b.js",
+      "bytes": 71912,
+      "sha256": "4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 389283,
+      "sha256": "a8f489d06292dfe560c662b837bb2637cf3d0a1407641bbae5a44a4290619e2d"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 389283,
+      "sha256": "a8f489d06292dfe560c662b837bb2637cf3d0a1407641bbae5a44a4290619e2d"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3218062,
+      "sha256": "69a11bc1267794f3c1dccfbcb364324d50569955b8d4758720cffa620c3e7dca"
+    }
+  ]
+}
