@@ -6637,3 +6637,38 @@ restore and verify; one line 1.65 to 1.93 ms on six pages, eight lines 2.38 to 2
   line changes at each click (it changed on the CLIPS page before tabby-v1.1 too), so a band of the screen may meet
   a click; the click and Start are not held back for a band the way song notes are. Nothing was changed for it.
   If it shows again in a release run it is a finding, not a tool error.
+
+### 65.2 tabby-v1.2-rc2: not promoted; what its failures were (2026-11-19 to 20)
+
+Commit 7db1be6, build `a7f48d486900ff6a`, installed after a full backup. The copy worked on the device (fifteen
+blocks; the heap gave a 64 KB block at that moment, so candidate 1's refusal depended on the moment). Failed steps:
+
+- **screen**: my tour pressed the > button by remote key and the firmware refused (reply 71), as it must: remote
+  button 3 is blocked so that no remote key writes flash. The tour now uses remote command {16, 5} for the question
+  on ACTIONS (NEW SONG on the slot that holds the tour's song: a yes would be refused too), and SAVE PROJECT and
+  STOP TO SAVE are taken by the simulator alone.
+- Run again by hand on the installed build: 23 pictures at rest read (0.2 to 0.5 s each), then **scenes-playing:
+  "the picture never stood still within 4 s"**. Cause: the signature of CLIPS and SCENES held the whole song status
+  with its step counter, so the page was repainted completely on every 16th: 120 bands a second wanted, 84 painted
+  (the counters of every earlier run show 84 bands a second on these pages; nobody had asked why). Fixed (SPEC 19.31).
+- **timing-pages**: one line on SCENES 2.03 ms on DIN (limit: under 2.0), and 2.01 on the overview in the third
+  ordinary run. **launch-again**: one check, first note +4.01 ms after the cycle (limit 4.0; 2.8 to 3.9 in 22 earlier
+  runs).
+
+What I checked about the timing, and what I had to withdraw:
+
+| Question | Answer |
+| --- | --- |
+| Is the device painting slower? | No: its counters are the same in every run of tabby-v1.1, rc1 and rc2 (bands 1.25 ms mean, 2.4 to 2.6 max, 84 a second; pass busy 1.4 mean, 4.1 max). |
+| Is the device sending later, by its own measure? | No: "sent after its due time" latest 1.82 ms (rc2, a run that measured 2.18) against 1.87 ms (tabby-v1.1, a run that measured 1.78), same histogram, nothing at 2 ms or more. |
+| Are the late notes late on both cables? | Yes, the same notes on DIN and USB. |
+| The test computer's clock drifting? | I thought so (its correction went from 71 to 17 ppm during rc2's runs, "bend" up to 0.88 ms) and it is WRONG: the slow curve of the residuals spans 0.07 to 0.12 ms in every run of every build, and taking it out changes no band by more than 0.05 ms. |
+| The test computer asleep between notes (idle, deep sleep states; busy with other suites during the tabby-v1.1 run)? | Partly: with all four cores kept awake the early side is -0.48 to -0.52 ms, idle -0.50 to -0.62. Not the late side: 1.59 ms late with the cores awake. |
+| Is the tail really wider? | Pooled, notes more than 1.25 ms later than the median: tabby-v1.0.2 2 of 5754, tabby-v1.1 5 of 15344, rc1 9 of 15344, rc2 29 of 21098; more than 1.4 ms: 0, 0, 2, 10. Over 10 further runs on rc2: bands 1.75 to 2.19 ms, 6 of them at 1.97 or more. |
+
+So: about one note in a thousand on rc2 arrives 0.2 to 0.3 ms later than the worst seen on tabby-v1.1, and I have not
+shown why. rc1 and rc2 differ only in the copy's storage code, which does not run in these tests; what moved is the
+code's place in flash. NOT EXPLAINED. What was changed is not a patch for that but the removal of work the firmware
+should never have done (the repaint on every step, where a band stands in the way of every note) and a guard that
+counts each band's own time. Whether that restores the margin is measured on candidate 3, with more runs than the
+release run makes, before anything is promoted.

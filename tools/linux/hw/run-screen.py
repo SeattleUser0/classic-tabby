@@ -122,6 +122,8 @@ def main():
                 l.key(3, x, 0); time.sleep(0.14)
             elif op == "knob":
                 l.key(4, x, y); time.sleep(0.14)
+            elif op == "do_action":
+                l.remote(16, 5); time.sleep(0.14)    # the > button on ACTIONS (a remote press of the button itself is refused)
             elif op == "settle":
                 time.sleep(2.4)
             elif op == "wait_ms":

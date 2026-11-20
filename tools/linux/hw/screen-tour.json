@@ -1,6 +1,6 @@
 {
- "about": "Classic Tabby: the tour of every screen page of docs/CONTROL-MAP.md section 20, at rest and while the song plays. The simulator (tools/linux/screens.mjs) and the device (tools/linux/hw/run-screen.py) run the same steps. Steps: press / down / up NAME; pad N [hold ms]; pad_down N; pad_up N; knob K DETENTS (0 to 3 = K1 to K4, 4 = K5); settle (a message is gone); wait_ms N; home (PATCH until the overview shows); at MOD PHASE (while playing: wait for the start of a bar with bar % MOD == PHASE, so that both act at the same place in the song: needed before anything whose picture depends on when it was done: a launch, a recording, a message); shot NAME [options]. Shot options: now (freeze at once: the page never stands still), masks [[x, y, w, h, why]] (pixels left out of the comparison, each with its reason). Song slot 6 holds the Wrong Room song (tools/linux/hw/rig-song.mjs --loop) on both.",
- "version": "0.1 (2026-11-19, tabby-v1.2)",
+ "about": "Classic Tabby: the tour of every screen page of docs/CONTROL-MAP.md section 20, at rest and while the song plays. The simulator (tools/linux/screens.mjs) and the device (tools/linux/hw/run-screen.py) run the same steps. Steps: press / down / up NAME; pad N [hold ms]; pad_down N; pad_up N; knob K DETENTS (0 to 3 = K1 to K4, 4 = K5); settle (a message is gone); wait_ms N; home (PATCH until the overview shows); at MOD PHASE (while playing: wait for the start of a bar with bar % MOD == PHASE, so that both act at the same place in the song: needed before anything whose picture depends on when it was done: a launch, a recording, a message); do_action (the > button on ACTIONS with NEW SONG chosen: on the device remote command 29 {16, 5}; the question NEW SONG IN SLOT 06? is the picture and PATCH answers no; slot 6 holds the tour's song, so even a yes would be refused); shot NAME [options]. The device refuses a remote press of the > button (SAVE) by design: nothing is written to flash by a remote key. The two pictures that need it (SAVE PROJECT, and STOP TO SAVE) are under simulator_only: the simulator alone takes them, after the tour. Shot options: now (freeze at once: the page never stands still), masks [[x, y, w, h, why]] (pixels left out of the comparison, each with its reason). Song slot 6 holds the Wrong Room song (tools/linux/hw/rig-song.mjs --loop) on both.",
+ "version": "0.2 (2026-11-19, tabby-v1.2)",
  "masks": {
   "meters": [[40, 70, 96, 3, "level meter of track 1: follows the audio"], [40, 93, 96, 3, "level meter 2"], [40, 116, 96, 3, "level meter 3"], [40, 139, 96, 3, "level meter 4"], [40, 162, 96, 3, "level meter 5"], [40, 185, 96, 3, "level meter 6"], [40, 208, 96, 3, "level meter 7"], [40, 231, 96, 3, "level meter 8"],
              [0, 71, 4, 4, "MIDI-in mark 1"], [0, 94, 4, 4, "MIDI-in mark 2"], [0, 117, 4, 4, "MIDI-in mark 3"], [0, 140, 4, 4, "MIDI-in mark 4"], [0, 163, 4, 4, "MIDI-in mark 5"], [0, 186, 4, 4, "MIDI-in mark 6"], [0, 209, 4, 4, "MIDI-in mark 7"], [0, 232, 4, 4, "MIDI-in mark 8"]],
@@ -21,11 +21,10 @@
   ["press", "GLOBE"], ["settle"], ["shot", "mixer"], ["press", "GLOBE"], ["settle"], ["press", "PATCH"], ["settle"],
   ["down", "ARP"], ["wait_ms", 1200], ["shot", "arp"], ["up", "ARP"], ["press", "PATCH"], ["settle"],
   ["down", "KB"], ["press", "PATCH"], ["up", "KB"], ["settle"], ["shot", "source"], ["press", "PATCH"], ["settle"],
-  ["down", "SEQ"], ["press", "PARA"], ["up", "SEQ"], ["settle"], ["shot", "actions", {"masks": "storage"}],
-  ["knob", 0, 5], ["press", "SAVE"], ["wait_ms", 200], ["shot", "actions-confirm", {"masks": "storage"}], ["press", "PATCH"], ["settle"], ["knob", 0, -5], ["press", "PATCH"], ["settle"],
+  ["down", "SEQ"], ["press", "PARA"], ["up", "SEQ"], ["settle"], ["knob", 0, -9], ["shot", "actions", {"masks": "storage"}],
+  ["knob", 0, 7], ["do_action"], ["wait_ms", 200], ["shot", "actions-confirm", {"masks": "storage"}], ["press", "PATCH"], ["settle"], ["knob", 0, -9], ["press", "PATCH"], ["settle"],
   ["home"], ["settle"],
-  ["press", "PATCH"], ["settle"], ["shot", "presets", {"masks": "preset"}],
-  ["press", "SAVE"], ["settle"], ["shot", "save-project", {"masks": "stored"}], ["press", "PATCH"], ["settle"], ["press", "PATCH"], ["settle"],
+  ["press", "PATCH"], ["settle"], ["shot", "presets", {"masks": "preset"}], ["press", "PATCH"], ["settle"],
   ["home"], ["settle"],
   ["press", "BT"], ["settle"], ["shot", "clips-stopped"],
   ["pad", 0, 700], ["settle"],
@@ -44,7 +43,7 @@
   ["at", 4, 1], ["pad", 0], ["shot", "clips-queued-stop"], ["wait_ms", 2600],
   ["at", 4, 1], ["pad", 0], ["shot", "clips-queued"], ["wait_ms", 2600],
   ["at", 2, 1], ["pad", 1], ["wait_ms", 150], ["shot", "clips-message"], ["settle"],
-  ["pad", 0, 700], ["settle"],
+  ["at", 2, 1], ["pad", 0, 700], ["settle"],
   ["home"], ["settle"], ["shot", "home-playing", {"now": true, "masks": "meters"}],
   ["press", "SEQ"], ["settle"], ["shot", "sync-midi-playing"],
   ["down", "KB"], ["press", "SEQ"], ["up", "KB"], ["settle"], ["shot", "midi-track-playing"], ["press", "PATCH"], ["settle"],
@@ -53,7 +52,7 @@
   ["press", "GLOBE"], ["settle"], ["shot", "mixer-playing"], ["press", "GLOBE"], ["settle"], ["press", "PATCH"], ["settle"],
   ["down", "ARP"], ["wait_ms", 1200], ["shot", "arp-playing"], ["up", "ARP"], ["press", "PATCH"], ["settle"],
   ["down", "KB"], ["press", "PATCH"], ["up", "KB"], ["settle"], ["shot", "source-playing"], ["press", "PATCH"], ["settle"],
-  ["down", "SEQ"], ["press", "PARA"], ["up", "SEQ"], ["settle"], ["shot", "actions-playing", {"masks": "storage"}], ["press", "PATCH"], ["settle"],
+  ["down", "SEQ"], ["press", "PARA"], ["up", "SEQ"], ["settle"], ["knob", 0, -9], ["shot", "actions-playing", {"masks": "storage"}], ["press", "PATCH"], ["settle"],
   ["home"], ["settle"],
   ["press", "BT"], ["settle"],
   ["press", "PARA"], ["settle"], ["shot", "step-playing"],
@@ -63,8 +62,13 @@
   ["knob", 4, 8], ["settle"], ["shot", "setting-3-playing"],
   ["knob", 4, 8], ["settle"], ["shot", "setting-4-playing"], ["press", "FX"], ["settle"],
   ["at", 4, 1], ["press", "REC"], ["shot", "clips-recording"], ["press", "REC"], ["settle"],
+  ["press", "PLAY"], ["settle"]
+ ],
+ "simulator_only": [
+  ["home"], ["settle"], ["press", "PATCH"], ["settle"], ["press", "SAVE"], ["settle"], ["shot", "save-project"], ["press", "PATCH"], ["settle"], ["press", "PATCH"], ["settle"],
+  ["home"], ["settle"], ["press", "BT"], ["settle"], ["press", "PLAY"], ["wait_ms", 1500],
   ["press", "SCALE"], ["settle"], ["knob", 0, 1], ["knob", 0, -1], ["settle"], ["press", "SCALE"], ["settle"],
-  ["at", 2, 1], ["press", "SAVE"], ["wait_ms", 150], ["shot", "clips-stop-to-save"], ["settle"],
+  ["press", "SAVE"], ["wait_ms", 150], ["shot", "clips-stop-to-save"], ["settle"],
   ["press", "PLAY"], ["settle"]
  ]
 }

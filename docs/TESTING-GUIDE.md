@@ -187,7 +187,7 @@ Pictures: home clips-playing scenes-playing | The overview, CLIPS and SCENES. Th
 
 The top line, in large letters: the tempo; PLAY (green), STOP, PAUS, REC (red, a take runs), ARMD (record is armed), CNT4 (the count-in, quarter notes left), LOST (the outside clock stopped coming); and the selected track, T1 to T8, in its colour. Small, on the right: ARP while the track's arpeggiator is on, K8=0 in amber while the master volume is at zero, and in amber *SNG (a clip or the song waits for a save), *PRJ (the project does) or *S+P (both).
 
-Pictures: clips-stop-to-save knob-bank knob-bank-track | A message, the KNOB BANK list, and a message over it.
+Pictures: clips-message knob-bank knob-bank-track | A message, the KNOB BANK list, and a message with the list still readable under it.
 
 A message is an amber box across the top with large black letters, for about a second and a half. It covers the top line (and the line or two under it when it is long) for that long, never the pads' cells. Where this guide writes a message with a dash (TRACK MUTED - SOUND + MIDI), the dash is a new line on the screen. Hold KNOB BANK to see its shortcuts in a grey box.
 
@@ -281,7 +281,7 @@ Tempo: on the overview turn K4. Or tap the tempo: hold PATCH and tap SEQ. The fi
 4.6 The ACTIONS menu
 --------------------
 
-Pictures: actions actions-confirm | ACTIONS, and a question: the amber box stays until you press the > button (yes) or PATCH (no).
+Pictures: actions actions-confirm | ACTIONS, and a question (here NEW SONG): the amber box stays until you press the > button (yes) or PATCH (no).
 
 1. Press SEQ and PARA together. The ACTIONS menu opens.
 2. Do not hold SEQ alone. It does not open ACTIONS. The SYNC / MIDI page of tabby-v04.2 says SEQ+PARA: ACTIONS (older firmware said HOLD SEQ: ACTIONS, which was wrong).
@@ -477,7 +477,7 @@ Deleting and moving a scene (tabby-v04.16)
 4.15 Saving a project, and the STOP TO SAVE rule
 ------------------------------------------------
 
-Pictures: save-project clips-stop-to-save | SAVE PROJECT, and what any save says while a song plays.
+Pictures: save-project clips-stop-to-save | SAVE PROJECT, and what any save says while a song plays. These two pictures are from the simulator, not from the device: both need the > button, and the device refuses a remote press of it (nothing is written to flash by a remote key).
 
 Your sounds, mixer and MIDI settings live in a project. There are 16 project slots.
 

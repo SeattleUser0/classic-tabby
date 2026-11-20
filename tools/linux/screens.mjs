@@ -55,7 +55,7 @@ if (mode === 'adopt') {
   mkdirSync(dir, { recursive: true });
   const pages = {}, sim = {};
   for (const [n, r] of Object.entries(cmp.pages)) { const bytes = readFileSync(join(out, n + '.png')); writeFileSync(join(dir, n + '.png'), bytes);
-    pages[n] = { png_sha256: createHash('sha256').update(bytes).digest('hex'), sim_sha256: r.sim_sha256, playing: r.playing, compared: r.compared, left_out: r.masked, why: [...new Set(r.masks)] }; sim[n] = r.sim_sha256; }
+    pages[n] = { from: r.simulator_only ? 'the simulator (the > button cannot be pressed by remote command)' : 'the device', png_sha256: createHash('sha256').update(bytes).digest('hex'), sim_sha256: r.sim_sha256, playing: r.playing, compared: r.compared, left_out: r.masked, why: [...new Set(r.masks)] }; sim[n] = r.sim_sha256; }
   writeFileSync(join(dir, 'device.json'), JSON.stringify({ what: 'These pictures are the device\'s: the pixels the firmware handed to its LCD, read back over USB (remote command 29 {19}) and compared with the simulator\'s, pixel for pixel.', tool: 'tools/linux/screens.mjs v0.3', build: cmp.build, tour: cmp.tour, pages }, null, 1) + '\n');
   writeFileSync(join(dir, 'screens.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.3', size: '240 x 240 shown twice the size', pages: sim }, null, 1) + '\n');
   console.log('ok   ' + Object.keys(pages).length + ' device pictures (build ' + String(cmp.build).slice(0, 16) + ') are in ' + dir); process.exit(0);
@@ -128,9 +128,13 @@ step(40);
 if (device) { const first = device.log.find(e => e.op === 'shot'); if (first && (first.info[15] & 2) && !(status().info[15] & 2)) { c.sim_smk37(4, 0, 1); step(8); c.sim_smk37(4, 0, -1); step(900); } }
 const results = {}, hashes = {}, names = [];
 let logAt = 0;
-const next = (op, name) => { if (!device) return null; const e = device.log[logAt++]; if (!e || e.op !== op || (name && e.name !== name)) fail('the device tour and the tour file differ at ' + op + ' ' + (name || '') + ' (the device ran ' + JSON.stringify(e) + ')'); return e; };
-for (const s of tour.steps) {
+let simOnly = false;
+const next = (op, name) => { if (!device || simOnly) return null; const e = device.log[logAt++]; if (!e || e.op !== op || (name && e.name !== name)) fail('the device tour and the tour file differ at ' + op + ' ' + (name || '') + ' (the device ran ' + JSON.stringify(e) + ')'); return e; };
+const only = new Set();
+for (const s of tour.steps.concat([['simulator_only']], tour.simulator_only || [])) {
   const [op, a, b] = s;
+  if (op === 'simulator_only') { if (pretend) break; if (device && logAt !== device.log.length) fail('the device ran ' + device.log.length + ' steps with a picture or a place in the song, the tour has ' + logAt); simOnly = true; continue; }
+  if (op === 'do_action') { press(B.SAVE); continue; }
   if (op === 'press') press(B[a]);
   else if (op === 'down') down(B[a]);
   else if (op === 'up') up(B[a]);
@@ -141,7 +145,7 @@ for (const s of tour.steps) {
   else if (op === 'home') { let n = 0; while (status().info[0] !== 0) { if (n++ > 6) fail('PATCH did not lead to the overview'); press(B.PATCH); step(60); } }
   /* While the song plays the simulator never waits on its own: the device's waits are longer in the song's time
    * (it also reads its pictures), and the next "at" or picture brings the simulator to the device's place. */
-  else if (op === 'settle') { if (!playing() || !device) step(pretend ? 830 : 900); }
+  else if (op === 'settle') { if (!playing() || !device || simOnly) step(pretend ? 830 : 900); }
   else if (op === 'wait_ms') ms(a);   /* part of a gesture (a held button), or shorter than the device's own wait */
   else if (op === 'at') {
     const t = next('at'); let n = 0;
@@ -169,8 +173,9 @@ for (const s of tour.steps) {
     if (off || unpainted || got.errors) fail(a + ': the screen copy is not the simulator\'s framebuffer (' + off + ' pixels differ, ' + unpainted + ' never painted, ' + got.errors + ' errors)');
     hashes[a] = sha(frame); names.push(a);
     if (mode === 'write') png(join(out, a + '.png'), frame);
-    if (pretend) { writeFileSync(join(out, a + '.rgb565'), Buffer.from(frame.buffer, frame.byteOffset, frame.byteLength)); fakeLog.push({ op: 'shot', name: a, info: got.info, unpainted: 0, errors: 0 }); step(1100); /* the device reads for about three seconds */ }
-    if (device) {
+    if (pretend) { writeFileSync(join(out, a + '.rgb565'), Buffer.from(frame.buffer, frame.byteOffset, frame.byteLength)); fakeLog.push({ op: 'shot', name: a, info: got.info, unpainted: 0, errors: 0 }); step(Number(process.argv[4] || 1100)); /* the device reads a picture for a while: the song runs on (the test tries several lengths) */ }
+    if (simOnly) { only.add(a); if (device) { png(join(out, a + '.png'), frame); results[a] = { simulator_only: true, differ: 0, compared: 0, masked: 0, masks: [], playing: got.info[1] !== 0, sim_sha256: hashes[a] }; } }
+    else if (device) {
       const dev = new Uint16Array(new Uint8Array(readFileSync(join(out, a + '.rgb565'))).buffer);
       const masked = new Uint8Array(W * H); for (const [x, y, w, h] of masks) for (let yy = y; yy < y + h && yy < H; yy++) masked.fill(1, yy * W + x, yy * W + Math.min(W, x + w));
       let differ = 0, hidden = 0, inMask = 0; const diff = new Uint16Array(W * H);
@@ -191,10 +196,11 @@ if (pretend) {
   console.log('ok   ' + names.length + ' pictures written as a device would give them');
 } else if (mode === 'match') {
   const bad = names.filter(n => results[n].differ || results[n].device_unpainted || results[n].device_errors);
-  writeFileSync(join(out, 'screen-compare.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.3', tour: tour.version, build: device.build, pictures: names.length,
-    at_rest: names.filter(n => !results[n].playing).length, playing: names.filter(n => results[n].playing).length, identical: names.length - bad.length, pages: results }, null, 1) + '\n');
-  for (const n of names) { const r = results[n]; console.log((bad.includes(n) ? 'FAIL ' : 'ok   ') + n + ': ' + r.differ + ' of ' + r.compared + ' pixels differ' + (r.masked ? ' (' + r.masked + ' left out: ' + [...new Set(r.masks.map(m => m.replace(/ of track \d| \d$/, '')))].join('; ') + ')' : '') + (r.playing ? ', playing' : '')); }
-  console.log((bad.length ? 'FAIL ' : 'PASS ') + 'screen: ' + (names.length - bad.length) + ' of ' + names.length + ' pictures of the device are pixel for pixel the simulator\'s (' + names.filter(n => results[n].playing).length + ' while playing)');
+  const devs = names.filter(n => !results[n].simulator_only);
+  writeFileSync(join(out, 'screen-compare.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.3', tour: tour.version, build: device.build, pictures: devs.length,
+    at_rest: devs.filter(n => !results[n].playing).length, playing: devs.filter(n => results[n].playing).length, identical: devs.length - bad.length, simulator_only: [...only], heap: device.largest_heap_block_with_the_copy_on, pages: results }, null, 1) + '\n');
+  for (const n of devs) { const r = results[n]; console.log((bad.includes(n) ? 'FAIL ' : 'ok   ') + n + ': ' + r.differ + ' of ' + r.compared + ' pixels differ' + (r.masked ? ' (' + r.masked + ' left out: ' + [...new Set(r.masks.map(m => m.replace(/ of track \d| \d$/, '')))].join('; ') + ')' : '') + (r.playing ? ', playing' : '')); }
+  console.log((bad.length ? 'FAIL ' : 'PASS ') + 'screen: ' + (devs.length - bad.length) + ' of ' + devs.length + ' pictures of the device are pixel for pixel the simulator\'s (' + devs.filter(n => results[n].playing).length + ' while playing); not taken on the device: ' + [...only].join(', '));
   process.exit(bad.length ? 1 : 0);
 } else if (mode === 'check') {
   let want = {}; try { want = JSON.parse(readFileSync(join(out, 'screens.json'), 'utf8')).pages || {}; } catch (e) { /* none yet */ }

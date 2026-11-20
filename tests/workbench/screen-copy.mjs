@@ -25,7 +25,17 @@ const check = (ok, what, detail = '') => { console.log(`${ok ? 'ok  ' : 'FAIL'} 
 const dir = 'build/screen-copy-test';
 rmSync(dir, { recursive: true, force: true });
 const run = (...a) => spawnSync('node', ['tools/linux/screens.mjs', ...a], { encoding: 'utf8' });
-let r = run('--pretend', dir);
+// Other lengths of the device's read first: the song is then somewhere else at every step, which is what finds a
+// tour step that only works at one place in the bar (two were found this way while the tour was written).
+let r;
+for (const read of ['173', '2417']) {
+  rmSync(dir, { recursive: true, force: true });
+  r = run('--pretend', dir, read); const p = r.status;
+  r = run('--match', dir);
+  check(p === 0 && r.status === 0, 'with a picture read in ' + (read * 2.9 / 1000).toFixed(1) + ' s: every picture is found again', r.stdout.trim().split('\n').pop().slice(0, 200));
+}
+rmSync(dir, { recursive: true, force: true });
+r = run('--pretend', dir);
 check(r.status === 0, 'the simulator gives the tour\'s pictures as a device would', (r.stdout + r.stderr).trim().split('\n').pop());
 r = run('--match', dir);
 const last = r.stdout.trim().split('\n').pop();

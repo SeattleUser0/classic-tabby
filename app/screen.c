@@ -358,7 +358,7 @@ static char edit_character(char old, int delta)
 }
 struct draw_cache {
     unsigned shown_page;
-    uint32_t header_cache, title_cache, middle_cache, hint_cache, hold_cache, shortcut_cache, banner_cache;
+    uint32_t header_cache, title_cache, middle_cache, hint_cache, hold_cache, shortcut_cache, banner_cache, hold_step;
     uint32_t foot_cache[4], row_cache[8], tile_cache[16];   /* tabby-v1.1: the step cells of HOME went (cell_cache: 512 bytes in each of the two caches) */
     unsigned meter_cache[8];
 };
@@ -1007,6 +1007,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
 {
     if (paint_rendering && paint_top + PAINT_ROWS <= 32) return;
     if (!paint_rendering) {
+        uint32_t running = 0;
         uint32_t sig = visible * 33U + action + (action_confirm << 8);
         sig = sig * 33U + cursor;
         sig = sig * 33U + source_preview;
@@ -1028,7 +1029,18 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         }
         if (visible == SONG || visible == TRACK_LAUNCH) {
             struct song_status st; song_status_read(&st);
+            /* tabby-v1.2: only what the pages show. With the step and the step in the bar in it, the whole page was
+             * painted again on every 16th while the song played: 120 bands a second asked of a painter that manages 84
+             * beside the MIDI sends, so a picture was never finished (found by the screen copy: the device never
+             * stood still) and every note met a band. SCENES shows the bar in the scene, CLIPS the bar count. */
+            st.step &= (uint8_t)~15U; st.bar_step = 0;
             sig = signature(sig, &st, sizeof st);
+            /* what the pad cells and the scene's clip line show of the song itself (a clip made or deleted, a scene
+             * stored): it used to ride on the repaint of every step */
+            { const struct song_model *sm = song_model_current(); const struct song_record *sr = song_current();
+              if (sm && sr) { unsigned row = st.playing ? st.row : song_scene_reserved() < sr->rows ? song_scene_reserved() : 0;
+                  for (unsigned i = 0; i < 16 && clip_bank * 16U + i < SONG_CLIPS; ++i) sig = sig * 33U + (sm->clip[track][clip_bank * 16U + i] != 0);
+                  sig = signature(sig, sm->scene_clip[row], SONG_TRACKS); sig = sig * 33U + sr->rows + ((unsigned)sr->tempo << 8); } }
             sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24) + (song_follow_state() << 27);
             sig = sig * 33U + clip_bank + ((unsigned)clip_select[track] << 3) + (track_muted(track) << 12) + ((unsigned)rec_lamp << 13);
             for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + mute_kind(t);   /* Task 16: the follow state */
@@ -1044,6 +1056,9 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
         if (visible == CLIP_STEPS) {
             struct song_edit_info ei; song_edit_info(&ei);
             struct song_status st; song_status_read(&st);
+            /* tabby-v1.2: the running step moves only the cells: when nothing else changed, only their rows are
+             * painted again (not the whole page on every 16th) */
+            running = ei.play_step; ei.play_step = 0;
             sig = signature(sig, &ei, sizeof ei);
             sig = sig * 33U + step_bar + ((unsigned)step_sel << 4) + ((unsigned)step_cursor << 12) + ((unsigned)step_pitch << 16) + ((unsigned)step_pads_toggle << 23) + ((unsigned)st.playing << 24);
         }
@@ -1052,8 +1067,11 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             for (unsigned i = 0; i < 6; ++i) sig = sig * 33U + groove_arp_setting(track, i);
             for (unsigned i = 0; i < 2; ++i) sig = sig * 33U + groove_midi_setting(track, i);
         }
-        if (cache->middle_cache == sig) return;
-        cache->middle_cache = sig;
+        if (cache->middle_cache == sig) {
+            if (visible == CLIP_STEPS && cache->hold_step != running) { cache->hold_step = running; paint_mark(0, 95, 240, 39); }
+            return;
+        }
+        cache->middle_cache = sig; cache->hold_step = running;
     }
     erase(0, 33, 240, 207);
     cache->hint_cache = ~0U;
@@ -1712,6 +1730,10 @@ static void draw(const struct fm1_ble_status *ble)
 /* Task 13 Step 1: the last band's paint time (24 MHz ticks), the estimate for the next band, and
  * when a band last went out (the starvation guard). */
 static uint32_t band_ticks_last = 24000U, band_sent_ms;
+/* tabby-v1.2: what each band took when it was last painted. With large text the bands differ more (an empty band
+ * 0.6 ms, a band of scale 3 text 2.5 ms): the wait before a due MIDI event counts the band's own time, not only
+ * the time of whichever band went before it. */
+static uint32_t band_cost[PAINT_BANDS];
 static void paint_flush(void)
 {
     uint32_t started = fm1_millis();
@@ -1750,7 +1772,7 @@ static void paint_flush(void)
          * (the last band's time plus 1.5 ms for an audio interrupt in between) waits for the pass after the
          * event; the same starvation guard as above. Measured before this: eight lines on ACTIONS 4.1 to
          * 4.5 ms, the late notes being the ones that met a band (BUILD 36.6). */
-        if (ct_midi_due_within(band_ticks_last + 36000U) && fm1_millis() - band_sent_ms < CT_PASS_STARVE_MS) {
+        if (ct_midi_due_within((band_cost[band] > band_ticks_last ? band_cost[band] : band_ticks_last) + 36000U) && fm1_millis() - band_sent_ms < CT_PASS_STARVE_MS) {
             ct_pass_defer(CT_DEFER_BAND);
             break;
         }
@@ -1776,6 +1798,7 @@ static void paint_flush(void)
         paint_priority &= ~(1U << band);
         ++diag_bands;
         band_ticks_last = ct_diag_ticks() - band_start;
+        band_cost[band] = band_ticks_last;
         band_sent_ms = fm1_millis();
         /* Task 13 Step 1: notes the audio thread queued while this band was composed go out now,
          * not at the next pass (the router flush is cheap when lane 0 is empty). */

@@ -13,9 +13,8 @@
   "arp": "a5ea2e80c5934ed2dfaf889424ac112156dc300e2a402f1c71f5ba88d6f2a097",
   "source": "e2030309807ffbe8ba62ffa82b28169964c67b1641ba4b665c384dfe0b90c034",
   "actions": "816eabd929913139f8140bf189a5377d41d11e8dff8fda8d0c07df181443c296",
-  "actions-confirm": "0f5f1f5e4bdcab807ba5be8daec4cfe9dc83c5bf5eeea48d69bd0da251f4b04f",
+  "actions-confirm": "ca45fc8e6cfada9358dc9f1b330fe4896979421895d0c6b5d8e06712e4056ac7",
   "presets": "42b580ef831b3170d30749cdfbfb30fcb59510f5c876cdff1584f825d48f644a",
-  "save-project": "fde2dc02f2ef177bdd2fdb91c83fb9aaabb39b9fc1f0908196f1f05a27e6ca8d",
   "clips-stopped": "0488a11392b1c28d8b144e5ed4373780ba3028c8fa1e2a6900dcc3be3f763154",
   "clips-armed": "5e53d8ed1e739160e599f37492837ccb167457b9c8f8be643ffe60b6755fb8b0",
   "step-stopped": "718249de6809af710b8caa7352a4161501722cdaf0de50cfb3cb8f6d9b45b946",
@@ -31,7 +30,7 @@
   "clips-queued-stop": "29bd68fe59db0ab87514395083038371a0faa140cd691be4a4d3ffc3d7e8b926",
   "clips-queued": "41e20f94f92dc1063b5c1846ff2d2b3f17f85b31a3c40d1f0e9ad9509049b6b6",
   "clips-message": "f67aefde8dc2c4ec1691969fc312e884cdcd3e37d987a746d0a3400d053de03e",
-  "home-playing": "167071b0f1c54e75083621e58ef38bc7fa91aae231e9ab64d1c7fee352571103",
+  "home-playing": "451fb365368ebb3cab19126ce3ea5c82d212f3c863f374c7a1450f57586ee157",
   "sync-midi-playing": "88e609fb263b1e51b9c79f5145ef3a40797ab3b1f69d497b7d91e98c608adf53",
   "midi-track-playing": "1f167ce8f9247faf1f6d274919e7d5a361ce9e8b1f8536cfbeec01b707af0911",
   "para-playing": "04b59b2ffec3089143163eb36fedf4ef7725729f434fc10ba2a6bfe285e068e8",
@@ -46,7 +45,8 @@
   "setting-2-playing": "d1e3f11f69795da7e2973f64bf3122deab67443f2cb9c1cc591797429fd02f5b",
   "setting-3-playing": "bc0cc63cc6fe31821452e3bc5336c5ec9659ac679276013961792b4fcbc226f9",
   "setting-4-playing": "212c0ca41e2cdc03342de22377deb777fdca6814c4101f233b105d8131750331",
-  "clips-recording": "83b0d4b61b6a2ad72f18b8871d5c511046c931882816df611bec531beab35179",
-  "clips-stop-to-save": "6899db8db5a644e47b2e586dd340ad8b8c44e34a3bcc3760533e52f1c6b09abd"
+  "clips-recording": "a3ea5b32c3af75a07c33b95751404c408fb92e6ce02e7eb82b1aef1571c8ae0b",
+  "save-project": "fde2dc02f2ef177bdd2fdb91c83fb9aaabb39b9fc1f0908196f1f05a27e6ca8d",
+  "clips-stop-to-save": "9ba5d332fcf62e0f4875379f9af17b8ab9d4322e3d6f16f0972cc4805d4623f9"
  }
 }

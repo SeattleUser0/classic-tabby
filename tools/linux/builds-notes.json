@@ -1,6 +1,10 @@
 {
   "comment": "The note line of a published build: shown in builds/index.json, builds/index.html and (when the page already has a note banner) at the top of builds/<tag>/. tools/linux/builds-index.py applies it on every index rewrite. Changing a note line is the only change allowed to a published builds/ page (SPEC 17.11).",
   "notes": {
+    "tabby-v1.2-rc2": {
+      "text": "Not promoted: one line of MIDI timing measured 2.01 and 2.03 ms on two of eight pages (the limit is under 2.0 ms), and its screen copy showed that CLIPS and SCENES were being repainted on every 16th note while a song played. tabby-v1.2 has the fix.",
+      "link": "tabby-v1.2"
+    },
     "tabby-v1.2-rc1": {
       "text": "Not promoted: its screen copy (a test feature) asked the device for one block of 57600 bytes of memory and was refused, so the comparison of the device's pixels could not run; and one timing check of the CLIP SETTING test failed once (2.0 ms against 1.5 ms; 40 of 40 in three repeats on this build). Everything else passed. tabby-v1.2 itself has a smaller copy.",
       "link": "tabby-v1.2"

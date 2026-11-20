@@ -911,15 +911,18 @@ no command can return what the glass shows. The nearest proof, built in tabby-v1
   place that does: the band painter). Remote command 29 {19} switches the copy on (29 KB of memory in fifteen small
   blocks, taken only while it is on), freezes it when no band is waiting, reads it, and gives the memory back. It only reads: nothing a
   player sees or hears changes.
-- tools/linux/hw/screen-tour.json is one tour of every page of this section, at rest and while the song plays (46
-  pictures: 23 and 23). tools/linux/hw/run-screen.py runs it on the device with remote panel keys and reads the copy
+- tools/linux/hw/screen-tour.json is one tour of every page of this section, at rest and while the song plays (44
+  pictures: 22 and 22). tools/linux/hw/run-screen.py runs it on the device with remote panel keys and reads the copy
   for each picture; tools/linux/screens.mjs --match runs the simulator through the same tour with the same song,
   brings it to the same place in the song (bar, step, queued and launched clips, recording, message) and compares
   every pixel. It is a step of every release run (rc-validate.py: screen).
 - Left out of the comparison, each named in the result: the eight level meters and MIDI-in marks on HOME (they follow
   the audio), FREE / RECL on ACTIONS and the stored project's name on PRESETS and SAVE PROJECT (the device holds the
   user's data; the simulator starts empty).
-- Not covered: the start screen (it is gone before a command can ask), PRESETS and SAVE PROJECT while playing, and
+- Not taken on the device: SAVE PROJECT and the message STOP TO SAVE. Both need the > button, and the device refuses
+  a remote press of it by design (nothing is written to flash by a remote key). The simulator alone takes these
+  two, and the manual says so under them.
+- Not covered: the start screen (it is gone before a command can ask), PRESETS while playing, and
   the last step from the LCD's input to the glass: colours, contrast, viewing angle, a dead pixel. Test T97 of the
   guide is that look, by a person.
 - The manual's pictures are these device pictures (docs/manual/screens/device.json says which build, and against

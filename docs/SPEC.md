@@ -2220,3 +2220,9 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 - The tour, the device tool, the comparison and what is left out: docs/CONTROL-MAP.md 20.13. The comparison is tested
   without a device in every suite run (tests/workbench/screen-copy.mjs: the simulator plays the device; one changed
   pixel must fail it).
+- Found with the copy and fixed in the same release (BUILD 65.2): `edit_page_draw` hashed the whole `song_status`
+  into the page's signature, so `step` and `bar_step` repainted CLIPS and SCENES completely on every 16th. The
+  signature now holds the status with the step rounded down to the bar, plus what the pad cells and the scene's
+  clip line show of the song (which had ridden on that repaint). On STEP the running step is kept out of the
+  signature and marks only rows 95 to 133. `band_cost[]` keeps each band's last painting time; the guard before a
+  due MIDI event (19.x, Task 17 F + G) uses the larger of it and the last band's.
