@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-20T02:11:04Z",
+  "updated": "2026-11-20T03:35:22Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -720,6 +720,16 @@
       "page": "builds/tabby-v1.2-rc4/",
       "published": "2026-11-20",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc4.zip",
+      "note": "Not promoted as it was: its manual still had simulator pictures, and three checks failed that were measured at the test computer while it was idle (docs/BUILD.md 65.4). The firmware is the same build as tabby-v1.2."
+    },
+    {
+      "tag": "tabby-v1.2-rc5",
+      "build": "a6f913f50c319f280cdd468c764b668c594f02ad79b9fcea0baef44ed38c030b",
+      "loader": "ota-SMK37a6f913f50c319f28",
+      "version": "tabby-v1.2",
+      "page": "builds/tabby-v1.2-rc5/",
+      "published": "2026-11-20",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc5.zip",
       "note": "Release candidate of tabby-v1.2: not a release. Use the main page unless you were asked to test this build."
     }
   ]
