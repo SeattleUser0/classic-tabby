@@ -79,4 +79,38 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
 
 ## Validation
 
-The device run's results are added here after the promotion.
+Candidate 7 (builds/tabby-v1.2-rc7/) on the device, unattended, before the promotion. Times at the test computer
+were taken with its cores kept awake; "own" is the device's own figure: the latest a timed event left after its
+due time.
+
+- **The device's pixels: 44 of 44 pictures identical to the simulator's**, 22 at rest and 22 while the song played.
+  Left out, by name: the level meters and MIDI-in marks on HOME, FREE / RECL on ACTIONS, the stored project name on
+  PRESETS, the last played note's name on STEP, and the unsaved-project mark and CPU! in the top line where the two
+  differ. Not taken on the device: SAVE PROJECT and STOP TO SAVE (the > button).
+
+| One line, 960 notes | DIN ms | USB ms | own ms |
+| --- | ---: | ---: | ---: |
+| Overview (three runs) | 1.66, 1.75, 1.85 | 1.62, 1.60, 1.62 | 1.49, 1.51, 1.48 |
+| CLIPS | 1.75 | 1.60 | 1.49 |
+| SCENES | 1.68 | 1.68 | 1.44 |
+| SYNC / MIDI | 1.79 | 1.59 | 1.44 |
+| ACTIONS | 1.74 | 1.64 | 2.96 |
+| Mixer | 1.79 | 1.62 | 1.45 |
+
+| Eight lines, worst line | DIN ms | USB ms | own ms |
+| --- | ---: | ---: | ---: |
+| Overview | 3.04 | 2.35 | 2.21 |
+| CLIPS | 2.27 | 2.17 | 2.19 |
+| SCENES | 2.36 | 2.24 | 2.12 |
+
+- **One line stays under 2 ms on every page**, at the test computer and by the device's own figure (tabby-v1.1, own:
+  CLIPS 1.66, SCENES 1.87, mixer 1.49). On ACTIONS the device's own figure is about 3 ms as in every version (the
+  page reads the song storage; the line's notes arrive within 1.74 ms); it is reported, not judged.
+- **Soak with EVENT LEAD OFF**, the Wrong Room song looping, 40 minutes, 19 segments on six pages, none bad: every
+  scene entry sent its events; USB band 1.73 to 2.19 ms; on the one DIN cable 14.88 to 15.79 ms, as before.
+- **Soak with EVENT LEAD 1/16**, 40 minutes, 19 segments, none bad: DIN band 1.91 to 2.33 ms, USB 1.75 to 1.98 ms.
+- CLIP SETTING 40 of 40, take edit 26 of 26, note repeat and step loop 20 of 20, program and knobs 10 of 10, clip
+  chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16, recording 25 of 25, STEP page 18 of 18, CLIPS page 40
+  of 40 twice, the timing song 960 of 960 notes (worst 1.16 ms).
+- Full backup, restore of that backup, verify: PASS (41 items). The panel was left as it was found.
+- Still not looked at by a person: the glass itself. Test T97 of the guide.

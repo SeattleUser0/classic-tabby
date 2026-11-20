@@ -6802,3 +6802,19 @@ release (far less painting) made it likelier is NOT KNOWN.
 Candidate 7: 65.6's fix (build `fef558ab16e275b4`, app image 488548 bytes, margin 30909). The manual's device pictures are
 those of rc4's build (the simulator draws the same frames for this build: make workbench-test); this candidate's
 own release run read and compared its own 44. Its results are in docs/releases/tabby-v1.2.md and below.
+
+Released 2026-11-20: commit 1caf389, build `fef558ab16e275b4`, suite green on that commit, one install from
+builds/tabby-v1.2-rc7/ after a full backup, every step of rc-validate.py v0.14 passed, promoted by the flow.
+screen 44 of 44. One line (DIN / USB / own, ms): overview 1.66, 1.75, 1.85 / 1.62, 1.60, 1.62 / 1.49, 1.51, 1.48;
+CLIPS 1.75 / 1.60 / 1.49; SCENES 1.68 / 1.68 / 1.44; SYNC / MIDI 1.79 / 1.59 / 1.44; ACTIONS 1.74 / 1.64 / 2.96;
+mixer 1.79 / 1.62 / 1.45. Eight lines: overview 3.04 / 2.35 / 2.21; CLIPS 2.27 / 2.17 / 2.19; SCENES 2.36 / 2.24 /
+2.12. Soaks 40 minutes each, 19 segments, none bad: lead OFF DIN 14.88 to 15.79, USB 1.73 to 2.19; lead 1/16 DIN
+1.91 to 2.33, USB 1.75 to 1.98. Backup, restore, verify PASS (41 items); the panel state as found.
+
+Seven candidates for one release. What each one's failure was, in one line each: rc1 a memory request the device
+refused; rc2 my tour pressed a button the device rightly refuses, and the timing looked worse (the test computer
+idle, and a page painted without end); rc3 my fix moved the painting onto the notes; rc4 the proof worked and
+found EDIT, and the manual had no device pictures yet; rc5 a band left unpainted on HOME, a page composed on the
+downbeat, and a rule of mine without a baseline; rc6 the start race. Four of the six were faults of the firmware
+that the new proof or the soak's event check found (the repaint on every step, the standing CPU GUARD box, the
+stale band, the start race); none of them had been visible to any test before.
