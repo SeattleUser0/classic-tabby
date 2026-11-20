@@ -2,7 +2,7 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
 
 # Classic Tabby tabby-v1.2: messages at the top; the screen proven on the device
 
-- Firmware package build ID: `ef44c2c896f57b5e` (first 16 hex digits). App image 488484 bytes (measured), margin 30973 bytes
+- Firmware package build ID: `a6f913f50c319f28` (first 16 hex digits). App image 488484 bytes (measured), margin 30973 bytes
   below the 519457-byte limit (docs/FLASH-BUDGET.md 51). From tabby-v1.1 (`f0bd5047ca742907`): +1760 bytes. At least
   15360 bytes stay free for fixes. Free RAM 143244 bytes (192 fewer).
 - Installing over tabby-v04.2 to tabby-v1.1 keeps storage as it is. Take a Full backup first anyway.
@@ -50,6 +50,10 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
   simulator with the same song at the same place in the song; every pixel compared. Left out, and named in the
   result: the level meters and MIDI-in marks on HOME (they follow the audio), FREE / RECL on ACTIONS and the stored
   project name on PRESETS and SAVE PROJECT (the device holds your data, the simulator starts empty).
+- The timing figures: this computer measures when a note arrives; the device also counts, by its own clock, how
+  long after its due time each note left. From this release the release run reads both, and one line must be
+  under 2 ms by both. The test computer is kept awake while it measures: idle, its own timestamps wander by 0.1 to
+  0.3 ms (docs/BUILD.md 65.4).
 - **The manual's pictures are the device's**, taken by that test, in place of simulator renders. Two are still the
   simulator's and say so: SAVE PROJECT and STOP TO SAVE need the > button, which the device does not let a remote
   command press.

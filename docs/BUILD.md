@@ -6696,3 +6696,52 @@ Commit 680035c, build `0efbf132803217a8`, installed after a full backup. Failed:
   bottom, in tabby-v1.1 as an amber box over the pads' cells, in this candidate over the top line. No test of mine
   looked at the screen while a song played; the simulator has no CPU limit. Changed to a mark in the top line
   (SPEC 19.31). This is the first thing the device's own pixels found that nothing else could have.
+
+### 65.4 tabby-v1.2-rc4: the firmware that is released; why it was not promoted as it was (2026-11-20)
+
+Commit 64e6d8c, build `a6f913f50c319f28`, installed after a full backup. App image 488484 bytes, margin 30973, heap
+143244. Failed steps: screen (40 of 44), timing-pages, launch (one check; 40 of 40 in launch-again and in two
+repeats).
+
+**screen.** All 22 pictures taken while playing were identical to the simulator's; the four that differed were the
+HOME pictures, by one word: EDIT on track 2, whose sound a device test before the tour had edited. The comparison
+now reads that off the device's HOME picture, marks the same tracks as edited in the simulator and starts again;
+with it 44 of 44. The 46 pictures of docs/manual/screens are from this capture (44 the device's, 2 the simulator's).
+
+**Timing.** By the device's own clock this is the best build so far on the pages played from:
+
+| One line, the device's latest send after its due time, ms | CLIPS | SCENES | mixer |
+| --- | ---: | ---: | ---: |
+| tabby-v1.1 | 1.66 | 1.87 | 1.49 |
+| tabby-v1.2-rc3 (repaints on the eighth notes) | 2.09 | 2.10 | 1.44 |
+| tabby-v1.2-rc4 | 1.49 | 1.52 | 1.42 |
+
+Bands painted while a song plays on CLIPS or SCENES: 84 a second (every version up to rc2), 52 (rc3), 2.4 (rc4).
+
+The test computer's figure in the same run: SCENES 2.09 ms on DIN (1.87 on USB), eight lines on CLIPS 3.53 on DIN
+(limit 3.5). Ten more runs on this build, alternating this computer awake (a low-priority spinner on each of its
+four cores) and idle:
+
+| | awake, DIN / USB, ms | idle, DIN / USB, ms | the device's own, ms |
+| --- | --- | --- | --- |
+| SCENES, one line | 1.70 / 1.89, 1.88 / 1.63, 1.82 / 1.67 | 1.93 / 1.84, 1.85 / 1.85, 2.08 / 2.04 | 1.43 to 1.75 |
+| Overview, one line | 1.84 / 1.76 | 1.79 / 2.17 | 1.42, 1.60 |
+| CLIPS, eight lines (worst line) | 2.72 / 2.18 | 2.46 / 2.43 | 2.18, 2.23 |
+
+What this shows and what it does not. Shown: with the computer awake, 8 of 8 one-line figures are under 2 ms; idle,
+3 of 8 are over; the device's own figure does not move with it. That is this computer's timestamps, not the
+device. The runs of tabby-v1.1 and before were made while another session's test suites kept this computer busy;
+from rc2 on it was idle. Not shown: that this is the whole of what 65.2 found on rc2 (about one note in a thousand
+later than any on tabby-v1.1): rc2 also painted 84 bands a second, and I did not separate the two there. From now on
+the release run keeps the computer awake while it measures and reads the device's own figure too; one line must be
+under 2 ms by both (rc-validate.py v0.13).
+
+**The three single failed checks** (rc1 CLIP SETTING: Start 2.0 ms off; rc2 CLIPS: a first note +4.01 ms; rc4 CLIPS:
+notes "back on the beat" after an unmute): each is a time measured at this computer against a limit a fraction of a
+millisecond away, each passed in every repeat (3 of 3, and 2 of 2), and all three fell in runs made with the
+computer idle. Likely the same cause; NOT PROVEN, because none of those three moments was measured both ways.
+
+### 65.5 tabby-v1.2 released: candidate 5
+
+Candidate 5 is rc4's firmware (the same build: nothing under app/ changed) with the device's pictures in the manual
+and the tools of 65.4. Its results are in docs/releases/tabby-v1.2.md and in the next entry.

@@ -26,9 +26,12 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.12
+Version: 0.13
 
 Revision log
+    v0.13 2026-11-20  This computer is kept awake (a low-priority spinner per core) while a timing-sensitive tool runs; the
+                      timing steps also read the device's own figure (the latest a timed event left after its due
+                      time) and one line must be under 2 ms by both. The three ordinary runs use that limit too.
     v0.12 2026-11-19  tabby-v1.2: step screen: the device's own pixels (the screen copy, run-screen.py) against the
                       simulator's for every page, at rest and while playing (screens.mjs --match).
     v0.11 2026-11-19  tabby-v1.1 (the readable screen): step timing-pages: one line on CLIPS, SCENES, SYNC / MIDI, ACTIONS
@@ -51,7 +54,7 @@ Revision log
     v0.2  2026-11-17  The install step accepts "already installed" (the build is on the device from an earlier candidate).
     v0.1  2026-11-17  First version (the user's release-flow rule).
 """
-import argparse, json, re, subprocess, sys, time, urllib.request
+import argparse, json, os, re, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -177,8 +180,22 @@ def main():
             step("state-after-" + after, False, "the panel was not left as it was found: %s" % json.dumps(diff))
         return not diff
     state("")
+    # v0.13: this computer awake while MIDI times are taken. Its kernel stamps each MIDI byte when the USB interrupt is
+    # served; with the machine idle the cores sit in deep sleep states and some stamps come late by 0.1 to 0.3 ms
+    # (docs/BUILD.md 65.4: the same firmware, one line: 1.63 to 1.89 ms awake, up to 2.17 idle, the device's own figure
+    # 1.42 to 1.75 in both). One low-priority spinner per core for as long as a timing-sensitive tool runs.
+    class awake:
+        def __enter__(self):
+            self.p = [subprocess.Popen(["nice", "-n", "19", "taskset", "-c", str(n), sys.executable, "-c", "while True: pass"]) for n in range(os.cpu_count() or 1)]
+            time.sleep(0.5)
+        def __exit__(self, *exc):
+            for p in self.p:
+                p.kill()
+            for p in self.p:
+                p.wait()
     def test(name, tool, extra=(), timeout=700, rewrite=True, pattern=r"^(PASS|FAIL) .*checks passed.*$"):
-        code, o = sh([py, str(HW / tool), "--song", "7", "--out", str(out), *extra], timeout, log)
+        with awake():
+            code, o = sh([py, str(HW / tool), "--song", "7", "--out", str(out), *extra], timeout, log)
         m = re.findall(pattern, o, re.M)
         lines = [l for l in o.splitlines() if re.match(pattern, l)]
         fails = [l for l in o.splitlines() if l.startswith("FAIL")]
@@ -221,38 +238,46 @@ def main():
         state("screen")
         song()
         # the timing song (slot 13 of the device, as imported) and the one-line timing run
-        code, o = sh([py, str(HW / "run-clips.py"), "--song", "13", "--expected", a.expected, "--out", str(out), "--tag", rc_tag + "-s13"], 600, log)
+        with awake():
+            code, o = sh([py, str(HW / "run-clips.py"), "--song", "13", "--expected", a.expected, "--out", str(out), "--tag", rc_tag + "-s13"], 600, log)
         lines = [l for l in o.splitlines() if l.startswith(("PASS", "FAIL"))]
         step("clips", code == 0 and lines and not any(l.startswith("FAIL") for l in lines), " | ".join(l[:120] for l in lines[-3:]) or o[-200:])
         bands = {}
         runs = []
+        own = []    # v0.13: the device's own figure: the latest a timed event left after its due time
         for n in range(3):
-            code, o = sh([py, str(HW / "run-15.py"), "l2", "--a2", "keep", "--seconds", "125", "--play", "16", "--page", "overview", "--tag", "%s-1x16-%d" % (rc_tag, n + 1), "--out", str(out)], 500, log)
+            with awake():
+                code, o = sh([py, str(HW / "run-15.py"), "l2", "--a2", "keep", "--seconds", "125", "--play", "16", "--page", "overview", "--tag", "%s-1x16-%d" % (rc_tag, n + 1), "--out", str(out)], 500, log)
+            m = re.search(r"^F \+ G: .*latest ([\d.]+) ms", o, re.M)
+            own.append(float(m.group(1)) if m else None)
             for port in ("DIN", "USB"):
                 m = re.search(r"^%s: (\d+) notes on 1 line\(s\); band per line [\d.]+\.\.([\d.]+) ms.*clock ratio ([\d.]+)" % port, o, re.M)
                 if m:
                     bands.setdefault(port, []).append((int(m.group(1)), float(m.group(2)), m.group(3)))
             runs.append(code)
         din, usb = bands.get("DIN", []), bands.get("USB", [])
-        good = len(din) == 3 and len(usb) == 3 and all(n == 960 and b <= BAND_LIMIT_MS for n, b, _ in din + usb) and not any(runs)
-        step("timing", good, "one line, 960 notes, three runs: DIN %s ms; USB %s ms; clock ratio %s" % (
-            ", ".join("%.2f" % b for _, b, _ in din), ", ".join("%.2f" % b for _, b, _ in usb), ", ".join(sorted({r for _, _, r in din}))))
+        good = len(din) == 3 and len(usb) == 3 and all(n == 960 and b < PAGE_LIMIT_MS for n, b, _ in din + usb) and not any(runs) and all(x is not None and x < PAGE_LIMIT_MS for x in own)
+        step("timing", good, "one line, 960 notes, three runs: DIN %s ms; USB %s ms; the device's own latest send %s ms; clock ratio %s" % (
+            ", ".join("%.2f" % b for _, b, _ in din), ", ".join("%.2f" % b for _, b, _ in usb), ", ".join("?" if x is None else "%.2f" % x for x in own), ", ".join(sorted({r for _, _, r in din}))))
         # v0.11 (tabby-v1.1, the readable screen): the same one-line song with each of the other pages on the screen, and
         # the eight-line song (slot 15) on the three pages looked at while playing. One line must stay under 2 ms on every
         # page (the user's limit); eight lines under EIGHT_LIMIT_MS for every line.
         got, bad = [], 0
         for lines_n, slot, page in [(1, "16", pg) for pg in ("clips", "scenes", "steps", "actions", "mixer")] + [(8, "15", pg) for pg in ("overview", "clips", "scenes")]:
-            code, o = sh([py, str(HW / "run-15.py"), "l2", "--a2", "keep", "--seconds", "125", "--play", slot, "--page", page, "--tag", "%s-%dx-%s" % (rc_tag, lines_n, page), "--out", str(out)], 500, log)
+            with awake():
+                code, o = sh([py, str(HW / "run-15.py"), "l2", "--a2", "keep", "--seconds", "125", "--play", slot, "--page", page, "--tag", "%s-%dx-%s" % (rc_tag, lines_n, page), "--out", str(out)], 500, log)
+            m = re.search(r"^F \+ G: .*latest ([\d.]+) ms", o, re.M)
+            latest = float(m.group(1)) if m else None
             worst = {}
             for port in ("DIN", "USB"):
                 m = re.search(r"^%s: (\d+) notes on %d line\(s\); band per line [\d.]+\.\.([\d.]+) ms" % (port, lines_n), o, re.M)
                 if m:
                     worst[port] = float(m.group(2))
             limit = PAGE_LIMIT_MS if lines_n == 1 else EIGHT_LIMIT_MS
-            ok = code == 0 and len(worst) == 2 and all(b < limit for b in worst.values())
+            ok = code == 0 and len(worst) == 2 and all(b < limit for b in worst.values()) and latest is not None and (lines_n > 1 or latest < PAGE_LIMIT_MS)
             bad += not ok
-            got.append("%s %s %s/%s" % ("1L" if lines_n == 1 else "8L", page, "%.2f" % worst["DIN"] if "DIN" in worst else "?", "%.2f" % worst["USB"] if "USB" in worst else "?"))
-        step("timing-pages", not bad, "worst line DIN/USB ms: " + "; ".join(got))
+            got.append("%s %s %s/%s/%s" % ("1L" if lines_n == 1 else "8L", page, "%.2f" % worst["DIN"] if "DIN" in worst else "?", "%.2f" % worst["USB"] if "USB" in worst else "?", "?" if latest is None else "%.2f" % latest))
+        step("timing-pages", not bad, "worst line DIN / USB / the device's own latest send, ms: " + "; ".join(got))
         song()
 
     # v0.7: the soak with the Wrong Room song (slot 6 on the screen, index 5; only if that slot is empty)

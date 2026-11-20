@@ -56,15 +56,19 @@ if (mode === 'adopt') {
   const pages = {}, sim = {};
   for (const [n, r] of Object.entries(cmp.pages)) { const bytes = readFileSync(join(out, n + '.png')); writeFileSync(join(dir, n + '.png'), bytes);
     pages[n] = { from: r.simulator_only ? 'the simulator (the > button cannot be pressed by remote command)' : 'the device', png_sha256: createHash('sha256').update(bytes).digest('hex'), sim_sha256: r.sim_sha256, playing: r.playing, compared: r.compared, left_out: r.masked, why: [...new Set(r.masks)] }; sim[n] = r.sim_sha256; }
-  writeFileSync(join(dir, 'device.json'), JSON.stringify({ what: 'These pictures are the device\'s: the pixels the firmware handed to its LCD, read back over USB (remote command 29 {19}) and compared with the simulator\'s, pixel for pixel.', tool: 'tools/linux/screens.mjs v0.3', build: cmp.build, tour: cmp.tour, pages }, null, 1) + '\n');
+  writeFileSync(join(dir, 'device.json'), JSON.stringify({ what: 'These pictures are the device\'s: the pixels the firmware handed to its LCD, read back over USB (remote command 29 {19}) and compared with the simulator\'s, pixel for pixel.', tool: 'tools/linux/screens.mjs v0.3', build: cmp.build, tour: cmp.tour, levels: cmp.levels, tracks_shown_as_edited: cmp.tracks_shown_as_edited, pages }, null, 1) + '\n');
+  writeFileSync(join(dir, 'device-shots.json'), readFileSync(join(out, 'device-shots.json')));   /* where in the song each picture was taken: --check follows it */
   writeFileSync(join(dir, 'screens.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.3', size: '240 x 240 shown twice the size', pages: sim }, null, 1) + '\n');
-  console.log('ok   ' + Object.keys(pages).length + ' device pictures (build ' + String(cmp.build).slice(0, 16) + ') are in ' + dir); process.exit(0);
+  console.log('ok   ' + Object.values(pages).filter(p => p.from === 'the device').length + ' device pictures and ' + Object.values(pages).filter(p => p.from !== 'the device').length + ' of the simulator (build ' + String(cmp.build).slice(0, 16) + ') are in ' + dir); process.exit(0);
 }
 if (!out) { console.error('usage: node tools/linux/screens.mjs OUT | --check DIR | --match DEV'); process.exit(2); }
 if (mode === 'write' || mode === 'pretend') mkdirSync(out, { recursive: true });
 const pretend = mode === 'pretend', fakeLog = [];
 const tour = JSON.parse(readFileSync(join(root, 'tools/linux/hw/screen-tour.json'), 'utf8'));
-const device = mode === 'match' ? JSON.parse(readFileSync(join(out, 'device-shots.json'), 'utf8')) : null;
+/* --check on a folder of device pictures follows the device's tour as --match does (the same places in the song), so
+ * that the simulator's frames are the ones the device's pictures were proven against; no pixels are compared then. */
+const following = mode === 'check' && existsSync(join(out, 'device.json')) && existsSync(join(out, 'device-shots.json'));
+const device = mode === 'match' || following ? JSON.parse(readFileSync(join(out, 'device-shots.json'), 'utf8')) : null;
 const c = new WebAssembly.Instance(new WebAssembly.Module(readFileSync(join(root, 'build/web/simulator.wasm'))), {}).exports;
 c._initialize(); c.sim_boot(1);
 const mem = () => new Uint8Array(c.memory.buffer);
@@ -100,7 +104,7 @@ function readCopy() {
 
 /* ---- the song: the Wrong Room fixture with its rig, looping, in slot 6, written as the workbench writes it ---- */
 let song;
-if (device) song = JSON.parse(readFileSync(join(out, device.song), 'utf8'));
+if (device && !following) song = JSON.parse(readFileSync(join(out, device.song), 'utf8'));
 else { const ddir = join(root, 'web/devices');
   const library = D.load(readdirSync(ddir).filter(n => n.endsWith('.json')).sort().map(n => JSON.parse(readFileSync(join(ddir, n), 'utf8'))));
   const [rig] = Rig.rigBuiltins([JSON.parse(readFileSync(join(root, 'web/rig/profiles/wrong-room.json'), 'utf8'))]);
@@ -129,6 +133,15 @@ step(40);
 /* The same for CPU! in the top line (the device's CPU guard took voices back; the simulator has no such limit). */
 const sameShown = (a, b) => a.length === b.length && a.every((v, i) => i === 15 ? (v & ~10) === (b[i] & ~10) : v === b[i]);
 if (device && device.levels) for (let t = 0; t < 8; t++) if (c.sim_track_level(t, device.levels[t]) !== device.levels[t]) fail('the simulator could not be given the device\'s level of track ' + (t + 1));
+/* A track whose sound was edited (by the device tests before the tour) shows EDIT on HOME. The firmware does not
+ * say which tracks; it is read off the device's first picture: where the state word of a track differs from the
+ * simulator's, the comparison starts again with that track marked as edited in the simulator. If that is not what
+ * the device shows, the page still differs and fails as any other. */
+const editedArg = process.argv.indexOf('--edited');
+let adopted = null; if (mode === 'check') try { adopted = JSON.parse(readFileSync(join(out, 'device.json'), 'utf8')); } catch (e) { /* the pictures are the simulator's */ }
+if (adopted && adopted.levels) for (let t = 0; t < 8; t++) c.sim_track_level(t, adopted.levels[t]);   /* the frames the device's pictures were proven against had the device's levels */
+const edited = editedArg > 0 ? JSON.parse(process.argv[editedArg + 1]) : adopted ? adopted.tracks_shown_as_edited : device ? device.edited : null;
+if (edited) for (let t = 0; t < 8; t++) if (edited[t] && !c.sim_track_edited(t)) fail('the simulator could not mark track ' + (t + 1) + ' as edited');
 const results = {}, hashes = {}, names = [];
 let logAt = 0;
 let simOnly = false;
@@ -183,9 +196,16 @@ for (const s of tour.steps.concat([['simulator_only']], tour.simulator_only || [
     hashes[a] = sha(frame); names.push(a);
     if (mode === 'write') png(join(out, a + '.png'), frame);
     if (pretend) { writeFileSync(join(out, a + '.rgb565'), Buffer.from(frame.buffer, frame.byteOffset, frame.byteLength)); fakeLog.push({ op: 'shot', name: a, info: got.info, unpainted: 0, errors: 0 }); step(Number(process.argv[4] || 1100)); /* the device reads a picture for a while: the song runs on (the test tries several lengths) */ }
-    if (simOnly) { only.add(a); if (device) { png(join(out, a + '.png'), frame); results[a] = { simulator_only: true, differ: 0, compared: 0, masked: 0, masks: [], playing: got.info[1] !== 0, sim_sha256: hashes[a] }; } }
+    if (following) { /* the frame's hash is what is checked */ }
+    else if (simOnly) { only.add(a); if (device) { png(join(out, a + '.png'), frame); results[a] = { simulator_only: true, differ: 0, compared: 0, masked: 0, masks: [], playing: got.info[1] !== 0, sim_sha256: hashes[a] }; } }
     else if (device) {
       const dev = new Uint16Array(new Uint8Array(readFileSync(join(out, a + '.rgb565'))).buffer);
+      if (a === 'home' && !edited) {
+        const guess = []; let any = 0;
+        for (let t = 0; t < 8; t++) { let d = 0; for (let y = 54 + 23 * t; y < 68 + 23 * t; y++) for (let x = 142; x < 190; x++) d += dev[y * W + x] !== frame[y * W + x]; guess.push(d ? 1 : 0); any += d; }
+        if (any) { const { spawnSync } = await import('node:child_process');
+          const r = spawnSync(process.argv[0], [process.argv[1], '--match', out, '--edited', JSON.stringify(guess)], { stdio: 'inherit' }); process.exit(r.status === null ? 1 : r.status); }
+      }
       const masked = new Uint8Array(W * H); for (const [x, y, w, h] of masks) for (let yy = y; yy < y + h && yy < H; yy++) masked.fill(1, yy * W + x, yy * W + Math.min(W, x + w));
       let differ = 0, hidden = 0, inMask = 0; const diff = new Uint16Array(W * H);
       for (let i = 0; i < W * H; i++) { if (masked[i]) { hidden++; inMask += dev[i] !== frame[i]; diff[i] = 0x2104; } else if (dev[i] !== frame[i]) { differ++; diff[i] = 0xf800; } else diff[i] = dev[i] ? 0x4208 : 0; }
@@ -207,7 +227,7 @@ if (pretend) {
   const bad = names.filter(n => results[n].differ || results[n].device_unpainted || results[n].device_errors);
   const devs = names.filter(n => !results[n].simulator_only);
   writeFileSync(join(out, 'screen-compare.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.3', tour: tour.version, build: device.build, pictures: devs.length,
-    at_rest: devs.filter(n => !results[n].playing).length, playing: devs.filter(n => results[n].playing).length, identical: devs.length - bad.length, simulator_only: [...only], heap: device.largest_heap_block_with_the_copy_on, pages: results }, null, 1) + '\n');
+    at_rest: devs.filter(n => !results[n].playing).length, playing: devs.filter(n => results[n].playing).length, identical: devs.length - bad.length, simulator_only: [...only], tracks_shown_as_edited: edited || [0, 0, 0, 0, 0, 0, 0, 0], levels: device.levels, heap: device.largest_heap_block_with_the_copy_on, pages: results }, null, 1) + '\n');
   for (const n of devs) { const r = results[n]; if (r.error) { console.log('FAIL ' + n + ': ' + r.error + '; the pictures after it were not compared'); continue; } console.log((bad.includes(n) ? 'FAIL ' : 'ok   ') + n + ': ' + r.differ + ' of ' + r.compared + ' pixels differ' + (r.masked ? ' (' + r.masked + ' left out: ' + [...new Set(r.masks.map(m => m.replace(/ of track \d| \d$/, '')))].join('; ') + ')' : '') + (r.playing ? ', playing' : '')); }
   console.log((bad.length ? 'FAIL ' : 'PASS ') + 'screen: ' + (devs.length - bad.length) + ' of ' + devs.length + ' pictures of the device are pixel for pixel the simulator\'s (' + devs.filter(n => results[n].playing).length + ' while playing); not taken on the device: ' + [...only].join(', '));
   process.exit(bad.length ? 1 : 0);

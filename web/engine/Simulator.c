@@ -411,6 +411,13 @@ EXPORT("sim_track_level") unsigned sim_track_level(unsigned t, unsigned level)
     for (unsigned n = 0; n < 130; ++n) { groove_get_view(t, 0, &v); if (v.volume == level) break; groove_control_edit(t, 0, level > v.volume ? 1 : -1, 0); }
     return v.volume;
 }
+/* ... and a track whose sound was edited on the device (EDIT on HOME): one step of the tone control and back */
+EXPORT("sim_track_edited") unsigned sim_track_edited(unsigned t)
+{
+    struct groove_view v;
+    groove_control_edit(t, 0, 0, 1); groove_control_edit(t, 0, 0, -1);
+    groove_get_view(t, 0, &v); return v.modified;
+}
 EXPORT("sim_song_status") uint32_t sim_song_status(unsigned word)
 {
     struct song_status st; song_status_read(&st);

@@ -921,7 +921,8 @@ no command can return what the glass shows. The nearest proof, built in tabby-v1
   simulator starts empty), the name of the last played note on STEP (the tests before played the keys), and in the
   top line the unsaved-project mark and CPU! where device and simulator differ in them (the device's project may
   wait for a save from before; the simulator has no CPU limit). The device's eight track levels are read and given
-  to the simulator, so levels are compared.
+  to the simulator, so levels are compared. A track whose sound was edited by the tests before shows EDIT on HOME:
+  which tracks is read off the device's HOME picture, the simulator is given the same, and the result names them.
 - Not taken on the device: SAVE PROJECT and the message STOP TO SAVE. Both need the > button, and the device refuses
   a remote press of it by design (nothing is written to flash by a remote key). The simulator alone takes these
   two, and the manual says so under them.
@@ -929,4 +930,5 @@ no command can return what the glass shows. The nearest proof, built in tabby-v1
   the last step from the LCD's input to the glass: colours, contrast, viewing angle, a dead pixel. Test T97 of the
   guide is that look, by a person.
 - The manual's pictures are these device pictures (docs/manual/screens/device.json says which build, and against
-  which simulator frame each was proven). make workbench-test fails when the simulator no longer draws that frame.
+  which simulator frame each was proven). make workbench-test follows the device's tour (device-shots.json: where
+  in the song each picture was taken) and fails when the simulator no longer draws that frame.

@@ -2231,3 +2231,7 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   only their own digits. The CPU guard no longer announces: `cpu_guard_until` shows `CPU!` in the top line for two
   seconds after it adapted (17.19's reasoning for K8=0 applied: a standing box is in the way). Request 9 of the
   screen copy returns the eight track levels; the copy's status byte 15 also says whether CPU! is shown.
+- Timing, as measured from tabby-v1.2 on (rc-validate.py v0.13): the band of arrival times at the test computer
+  (as before) and the device's own figure, "the latest a timed event left after its due time" (the F + G page,
+  remote request 10); one line must be under 2.0 ms by both, on every page of the timing steps. The test computer
+  runs one low-priority spinner per core while it measures.

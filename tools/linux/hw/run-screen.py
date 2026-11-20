@@ -105,7 +105,8 @@ def main():
                 most = "the heap could not be asked (%s)" % e2
             print("FAIL the device did not switch the screen copy on (%s): fifteen blocks of 1952 bytes were not free; %s" % (e, most)); return 1
         heap = s.largest_block()
-        levels = list(s.ask(9)[:8])       # the device's own project: the simulator is given the same levels
+        own = s.ask(9)                    # the device's own project: the simulator is given the same levels
+        levels, edited = list(own[:8]), (list(own[8:16]) if len(own) >= 16 else None)   # (a later firmware may also say which tracks' sounds were edited)
         time.sleep(0.6)
         for st in tour["steps"]:
             op, x, y = st[0], (st[1] if len(st) > 1 else None), (st[2] if len(st) > 2 else None)
@@ -177,7 +178,7 @@ def main():
             pass
         l.close()
     (out / "device-shots.json").write_text(json.dumps({"tool": "tools/linux/hw/run-screen.py v0.1", "tour": tour["version"], "build": a.build, "song": a.song,
-                                                       "seconds": round(time.time() - started, 1), "largest_heap_block_with_the_copy_on": heap, "levels": levels, "log": log}, indent=1) + "\n")
+                                                       "seconds": round(time.time() - started, 1), "largest_heap_block_with_the_copy_on": heap, "levels": levels, "edited": edited, "log": log}, indent=1) + "\n")
     shots = [e for e in log if e["op"] == "shot"]
     print("the largest single block the heap gave with the copy on: %d bytes" % heap)
     print("PASS %d pictures read from the device in %.0f s (%d while playing)" % (len(shots), time.time() - started, sum(1 for e in shots if e["info"][1])))
