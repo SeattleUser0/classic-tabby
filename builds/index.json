@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-20T05:07:38Z",
+  "updated": "2026-11-20T08:56:39Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -740,6 +740,16 @@
       "page": "builds/tabby-v1.2-rc6/",
       "published": "2026-11-20",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc6.zip",
+      "note": "Not promoted: in one of 19 soak segments the song stayed in its second scene and played on the device's MIDI channels: a fault at SEQ PLAY that every earlier version has too (rare). tabby-v1.2 has it fixed."
+    },
+    {
+      "tag": "tabby-v1.2-rc7",
+      "build": "fef558ab16e275b45b501e6e48c076da3f5ed327fb4358e0843000ee67b78de8",
+      "loader": "ota-SMK37fef558ab16e275b4",
+      "version": "tabby-v1.2",
+      "page": "builds/tabby-v1.2-rc7/",
+      "published": "2026-11-20",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc7.zip",
       "note": "Release candidate of tabby-v1.2: not a release. Use the main page unless you were asked to test this build."
     }
   ]
