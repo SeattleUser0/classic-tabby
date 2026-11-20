@@ -20,7 +20,7 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-launch.py --song N --out DIR
 
-Version: 0.6
+Version: 0.7
 
 Revision log
     v0.6  2026-11-17  The launched clip's first note is judged against where it is expected: one audio block (2.90 ms)
@@ -28,6 +28,10 @@ Revision log
                       the cycle: 70 measurements on five builds lie between 2.31 and 4.21 ms (a spread of 1.90 ms, the
                       one-line band), so the upper limit sat 1.1 ms above the mean and the lower 2.9 ms below it; the
                       4.21 ms held tabby-v04.18-rc1 back.
+    v0.7  2026-11-20  The two "on the beat" checks (after an unmute, after ENV) measure the note against the device's own
+                      MIDI clock byte of that beat, within the timing band (--band 2.0), and say every figure; the DIN
+                      capture is saved (launch-din.csv). Until now the beat was worked out from Start and an averaged
+                      cycle length: 2.8 to 3.9 ms "late" in 56 runs, 4.01 once against 4.0 (docs/BUILD.md 66.3).
     v0.5  2026-11-16  The cycle length comes from the device's MIDI clock on the DIN input, not from a fixed clock ratio.
     v0.4  2026-11-16  tabby-v04.7.1: a pad pressed while stopped reserves; a reserved clip starts with PLAY.
     v0.3  2026-11-14  Presses whose queued state is checked are not made in the last 700 ms before a cycle.
@@ -61,6 +65,7 @@ def main():
     p.add_argument("--launches", type=int, default=5)
     p.add_argument("--din", default="H4MIDI-WC Port 1")
     p.add_argument("--tolerance", type=float, default=4.0)
+    p.add_argument("--band", type=float, default=2.0, help="v0.7: ms a note may lie from the MIDI clock byte that marks its place (the timing band)")
     p.add_argument("--lead", type=float, default=2.90, help="ms from the cycle (counted from MIDI Start) to a note on it: one audio block")
     p.add_argument("--launch-tolerance", type=float, default=2.0, help="ms a launched clip's first note may lie from cycle + lead")
     p.add_argument("--out", required=True)
@@ -74,6 +79,20 @@ def main():
         end = time.monotonic() + seconds
         while time.monotonic() < end:
             l.messages(20)
+
+    try:
+        fg0 = l.fg()       # the device's own lateness counters when the test began
+    except Exception:
+        fg0 = None
+
+    def own():
+        """v0.7: the device's own figure beside a time taken at this computer: the latest any timed event left after its due
+        time since the device's counters were reset. A late note with a small figure here was late at this computer."""
+        f = l.fg()
+        if not f:
+            return ""
+        now = f["late_bins"]; d = [x - y for x, y in zip(now, fg0["late_bins"])] if fg0 else now
+        return "; the device's own count of sends 2 ms or more after their due time since this test began: %d" % (d[4] + d[5])
 
     def ons(channel, since, until=None):
         return [(t, m[1]) for t, m in list(din.messages) if t > since and (until is None or t <= until) and len(m) == 3 and m[0] == (0x90 | channel) and m[2]]
@@ -205,19 +224,33 @@ def main():
         l.shift_pad(9); idle(0.3); s = l.clips_state()
         tc = T.now_ns()
         check(s["pads"][0]["code"] & 16 and s["pads"][0]["rgb"] == 0x301808, "SHIFT + pad 10 mutes track 2: its playing pad is orange", "%d %06x" % (s["pads"][0]["code"], s["pads"][0]["rgb"]))
+        # v0.7: "on the beat" is judged against the device's own MIDI clock, byte by byte. The song's notes and the clock
+        # byte of their 16th leave together (in a capture of this test: track 1's notes 1.17 to 1.37 ms before that byte,
+        # track 2's 0.02 to 0.39), so a note on the beat lies within the timing band of the clock byte that marks its
+        # place: byte 0, 96, 192 ... after Start for a cycle, every 48th for a half cycle. Until v0.6 the place was worked
+        # out from Start and an averaged cycle length, which put these notes 2.8 to 3.9 ms "late" in 56 runs and 4.01
+        # once, against a limit of 4.0 (tabby-v1.2-rc2): a figure of the arithmetic, not of the device.
+        def beat(t, every):
+            clk = [u for u, m in list(din.messages) if u >= t0 and list(m) == [0xF8]]
+            j = min(range(len(clk)), key=lambda k: abs(clk[k] - t)) if clk else 0
+            return ((t - clk[j]) / 1e6 if clk else 999.0), j % every
+        on_beat = lambda t, every: (lambda d, r: r == 0 and abs(d) <= a.band)(*beat(t, every))
+        said = lambda t, every: (lambda d, r: "%+.2f%s" % (d, "" if r == 0 else " (clock byte %d of %d: not the beat)" % (r, every)))(*beat(t, every))
         idle(2 * CYCLE_MS / 1000.0)
         muted = ons(1, tc + 300_000_000)
         l.shift_pad(9); idle(0.2); tc = T.now_ns(); s = l.clips_state()
         idle(2 * CYCLE_MS / 1000.0)
         back = ons(1, tc)
-        check(not muted and len(back) >= 3 and not (s["pads"][0]["code"] & 16) and all(abs(((t - t0) / 1e6) % (cyc() / 2) - (0 if ((t - t0) / 1e6) % (cyc() / 2) < cyc() / 4 else cyc() / 2)) <= a.tolerance for t, _ in back),
-              "muted: no note of track 2 for two cycles; unmuted: its notes are back on the beat", "%d while muted, %d after" % (len(muted), len(back)))
+        check(not muted and len(back) >= 3 and not (s["pads"][0]["code"] & 16) and all(on_beat(t, 48) for t, _ in back),
+              "muted: no note of track 2 for two cycles; unmuted: its notes are back on the beat", "%d while muted, %d after; ms from the clock byte of their half cycle: %s%s"
+              % (len(muted), len(back), ", ".join(said(t, 48) for t, _ in back), own()))
         # ---- track 1 is still stopped: ENV brings it back ----
         l.shift_pad(0); idle(0.2)
         l.press("ENV"); idle(0.1)
         tc = T.now_ns(); idle(CYCLE_MS / 1000.0 + 0.5)
         got = ons(0, tc)
-        check(bool(got) and abs(on_cycle(got[0][0])) <= a.tolerance, "ENV: track 1 follows the scenes again from the next cycle", "first note %+.2f ms from the cycle" % (on_cycle(got[0][0]) if got else 0))
+        check(bool(got) and on_beat(got[0][0], 96), "ENV: track 1 follows the scenes again from the next cycle",
+              "first note %s ms from the clock byte of its cycle%s" % (said(got[0][0], 96) if got else "none", own()))
         # ---- SCENES ----
         l.press("SCL"); idle(0.3); s = l.clips_state()
         codes = [x["code"] for x in s["pads"]]
@@ -270,6 +303,12 @@ def main():
             pass
         l.close(); din.finish()
     ok = bool(RESULTS) and all(r["pass"] for r in RESULTS)
+    # every message the DIN input brought, with this computer's time (ns): a check that fails can be worked out afterwards
+    try:
+        with open(os.path.join(a.out, "launch-din.csv"), "w") as f:
+            f.write("t_ns,bytes\n" + "".join("%d,%s\n" % (t, bytes(m).hex()) for t, m in list(din.messages)))
+    except Exception as e:
+        print("the DIN capture was not written: %s" % e)
     with open(os.path.join(a.out, "launch-page.json"), "w") as f:
         json.dump({"results": RESULTS}, f, indent=1)
     print("%s clip launch page: %d of %d checks passed" % ("PASS" if ok else "FAIL", sum(1 for r in RESULTS if r["pass"]), len(RESULTS)))

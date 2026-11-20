@@ -1,6 +1,6 @@
 # Classic Tabby control map: clips and scenes on the SMK-37
 
-Version: 0.23 (2026-11-19). 20.3: the message box is at the top (tabby-v1.2); 20.13: how the screen is proven on the device. v0.22: Section 20: the screen of tabby-v1.1, as built (v0.21 was the design, written before the build); sections 4, 5, 7, 9, 12, 14, 17 and 18 say what the new screen shows. v0.20 applied from tabby-v1.0.2 (section 14: EVENT LEAD). v0.19 was for tabby-v1.0 (1.2: the pad rows confirmed on the device; where a KNOB BANK shortcut's message is shown). v0.18 was for tabby-v04.23 (3.2: the step loop). v0.17 was for tabby-v04.22 (3.1: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT). v0.16 was for tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
+Version: 0.24 (2026-11-20). 20.3: the play state at the left end of a message, any press clears it (tabby-v1.2.1); section 7: a muted internal sound is not rendered. v0.23: 20.3: the message box is at the top (tabby-v1.2); 20.13: how the screen is proven on the device. v0.22: Section 20: the screen of tabby-v1.1, as built (v0.21 was the design, written before the build); sections 4, 5, 7, 9, 12, 14, 17 and 18 say what the new screen shows. v0.20 applied from tabby-v1.0.2 (section 14: EVENT LEAD). v0.19 was for tabby-v1.0 (1.2: the pad rows confirmed on the device; where a KNOB BANK shortcut's message is shown). v0.18 was for tabby-v04.23 (3.2: the step loop). v0.17 was for tabby-v04.22 (3.1: NOTE REPEAT repeats; the focus switch is KNOB BANK + NOTE REPEAT). v0.16 was for tabby-v04.21 (12.4: shift a clip; 13.2: clear notes in a take; 2.1: NEW SONG; 1.2: the pad rows). v0.15 was for tabby-v04.20 (section 14: DIRECTION). v0.14 was for tabby-v04.19 (section 14: STEP SIZE). v0.13 was for tabby-v04.18 (every button by its printed word; section 1.1 is the name table). v0.12 was for tabby-v04.17 (section 14: SHUFFLE, PLAY QUANTIZE, three pages). v0.11 was for tabby-v04.16 (section 5: a scene deleted and moved; 13.2: a stop takes an armed take off). v0.10 was for tabby-v04.15 (section 14: TRANSPOSE and DELETE CLIP). v0.9 was for tabby-v04.14 (section 14: CLIP SETTING has two pages; CLICK LEVEL; the controller numbers of K1 to K4 are the song's). v0.8 was for tabby-v04.13 (section 19: a clip's program and bank, the controller knobs). v0.7 was for tabby-v04.12 (section 18, the scene chain); v0.6 was for tabby-v04.11 (section 17, clip chains); v0.5 was for tabby-v04.10 (sections 14 to 16: CLIP SETTING, click and count-in, clip lengths; new clips; stored scenes). v0.4 was for tabby-v04.9 (section 13, recording); v0.3 was for tabby-v04.8 (section 12, the STEP page); v0.2 was for tabby-v04.7.1, v0.1 for tabby-v04.7.
 
 This is the complete control map for the clip workflow: what every button, pad, knob and fader does on the
 two pages you play a song from, CLIPS and SCENES, on the STEP page, where you edit a clip, and when you record. Control names are the ones in SPEC.md 17.4: knobs K1 to K8
@@ -116,7 +116,7 @@ From any other page add one press: BT first.
 
 It is the track's arpeggiator, not a generator of its own: one held note repeats; several held notes take turns in
 the ARP's DIRECTION; RANGE above 1 OCT adds octaves; GATE and SWING apply. A track whose ARP is on already is left
-alone (ARP IS ON: IT REPEATS ALREADY). A key that is down when NOTE REPEAT is pressed is cut off: press NOTE REPEAT
+alone (ARP IS ON - IT REPEATS). A key that is down when NOTE REPEAT is pressed is cut off: press NOTE REPEAT
 first. A take records the held key as one note, not the repeats. Because the ARP switch belongs to the project, the
 project counts as changed afterwards.
 
@@ -127,7 +127,7 @@ project counts as changed afterwards.
 | NOTE REPEAT, held | The lower pad row shows the loop pads: 9 to 12 amber, 13 to 16 dark. No pad launches a clip while it is down. (The keys repeat as in 3.1.) |
 | + pad 9, 10, 11 or 12, held | STEP LOOP: LAST 1 / 2 / 4 / 8 STEPS. Every track that plays repeats that many 16ths of what it plays, ending with the step it is in. The pad is white. |
 | The pad let go | STEP LOOP OFF. Every track is where it would have been without the loop. NOTE REPEAT may be let go before the pad. |
-| + another pad | NOTE REPEAT + PAD 9-12: STEP LOOP. Nothing is launched. |
+| + another pad | STEP LOOP - NOTE REPEAT + PAD 9-12. Nothing is launched. |
 
 The clips' clocks run on underneath the loop (launches, chains, scene changes and stops land as always; what they
 bring is heard when the loop ends or, for a new clip, looped in its turn). A loop is not longer than the clip that
@@ -214,11 +214,11 @@ each track plays in the scene, and the 16 scenes of the pad bank. Section 20.6 h
 | Control | Result |
 | --- | --- |
 | Pad 1 to 16 | Recalls that scene of the bank. Every track goes back to following and plays the scene's clips. It lands by the jump mode. |
-| An empty pad held half a second, while the song plays | Stores what plays now as a new scene after the last one (STORED AS A NEW SCENE): per track the clip it plays, nothing for a stopped track. The new scene repeats until another is recalled. A short press on an empty pad says HOLD TO STORE WHAT PLAYS AS A SCENE and stores nothing. A pad that holds a scene is never written over. |
+| An empty pad held half a second, while the song plays | Stores what plays now as a new scene after the last one (STORED AS A NEW SCENE): per track the clip it plays, nothing for a stopped track. The new scene repeats until another is recalled. A short press on an empty pad says HOLD PAD - STORES A SCENE and stores nothing. A pad that holds a scene is never written over. |
 | > button | Saves the song (stopped only). |
 | K1, K2, K3 | The scene chain (section 18): how many times the scene plays, what follows it, and the hold. |
 | FX, twice within two seconds, song stopped (tabby-v04.16) | Deletes the selected scene: the one reserved (its pad blinks), else scene 1. The first press asks: FX AGAIN DELETES SCENE nnn. Then SCENE DELETED - SAVE THE SONG; the later scenes move one pad earlier, the scene's row events go with it, its clips stay. The last scene of a song stays (THE LAST SCENE STAYS). There is no undo: the change is saved with the song (the > button, ten seconds after the change, or on leaving the song). |
-| PARA held + K1, song stopped (tabby-v04.16) | Moves the selected scene one pad earlier (left) or later (right): SCENE MOVED - SAVE THE SONG. Its row events and the song's loop scene move with it; it stays the selected scene. PARA alone says HOLD PARA, TURN K1: MOVE THE SCENE. |
+| PARA held + K1, song stopped (tabby-v04.16) | Moves the selected scene one pad earlier (left) or later (right): SCENE MOVED - SAVE THE SONG. Its row events and the song's loop scene move with it; it stays the selected scene. PARA alone says PARA + K1 - MOVES A SCENE. |
 | FX or PARA while the song plays | STOP THE SONG FIRST. Nothing changes. |
 | K4 | Jump mode: NEXT CYCLE (the next master cycle) or SCENE END (when the current scene has played out). |
 | Pad while the song is stopped | Reserves the scene: it blinks, the screen says RESERVED FOR SEQ PLAY, and SEQ PLAY starts the song there. The same pad again takes it back (SEQ PLAY starts at scene 1). |
@@ -258,6 +258,7 @@ There are two mutes, and they look different everywhere.
 | CLIPS screen | MUT in amber under the track; the track's clip number in amber | INT in blue under the track; the track's clip number in blue |
 | Overview | MUTE in amber | INT in blue |
 | Screen when set | TRACK MUTED - SOUND + MIDI | (the mixer page shows it) |
+| The sound engine (tabby-v1.2.1) | The track's notes are held back before the engine | The track's song notes are not started on the engine: a muted sound costs it nothing. Unmuted, the track sounds from its next note (not in the middle of one). The same for a track silenced by another track's solo |
 
 - While a track is muted altogether its clip keeps running, so unmuting brings it back in time. Notes already
   sounding end at their normal length. Controller and program events of a clip are still sent.
@@ -470,7 +471,7 @@ pads in Note mode, here the 16 pads and the 37 keys.
 | Message | Reason |
 | --- | --- |
 | SELECT A CLIP FIRST | PARA on CLIPS with no clip selected and none playing on the track. |
-| ANOTHER CLIP IS UNSAVED: THIS ONE | PARA while another clip has unsaved changes; the page shows that clip. |
+| UNSAVED CLIP - THIS ONE | PARA while another clip has unsaved changes; the page shows that clip. |
 | CLIP SHARED BY ANOTHER TRACK | The clip's block is used by another track too. |
 | NOTE ENTERED / NOTE REMOVED | A key changed the selected step. |
 | NOTE ON THE STEP / NOTE OFF THE STEP | A pad changed its step (PADS TOGGLE). |
@@ -559,7 +560,7 @@ Without a selected clip the clip's lines show a dash and the song's lines still 
 | PLAY QUANT (play quantize) | OFF, 1/16, 1/8, 1/4 | When the clip plays, every note starts on the nearest line of that grid; a note exactly halfway goes to the earlier line, a note nearest the clip's end starts the clip. The stored notes keep their timing (the STEP page shows it), controllers are not moved, and of two notes of one pitch that land on one step the first plays. (tabby-v04.17) |
 | STEP SIZE | 1/16, 1/8, 1/32, 16T, 8T (the triplets 1/16T, 1/8T); after it `=` and the clip's length in 16ths | What one step of the clip lasts: a 16th (as before), an 8th, a 32nd, a 16th triplet (two thirds of a 16th) or an 8th triplet (four thirds). K1 moves one size at a time and passes over a size that would not give the clip a whole number of 16ths from 1 to 128; the line shows what the clip plays (= nn 16THS). If LENGTH is changed afterwards so that the size no longer fits, the line says NOT THIS LENGTH and the clip plays as 16ths. The stored notes are not changed; the STEP page shows the clip's own steps, the play cursor and a take count in them; AFTER of a clip chain counts 16ths. A step's probability goes to the step where that step begins after the change. (tabby-v04.19) |
 | DIRECTION | FORWARD, REVERSE, FWD+REV | REVERSE: the clip's steps play from the last to the first; a note keeps its place inside its step and its length. FWD+REV: forwards, then backwards: twice the length (with a step size: twice the played length); when that would be more than 128 steps or 512 events the line shows LONG and the clip plays forwards. The stored notes are not changed. The STEP page shows the clip's own steps: the play cursor walks backwards, and a take is recorded at the clip step that sounds. A step's probability stays with its step. (tabby-v04.20) |
-| DELETE CLIP | | Press the > button: PRESS AGAIN TO DELETE THE CLIP. Press it again within two seconds: CLIP DELETED - SAVE THE SONG, and the pad is empty. Only while the song is stopped (STOP TO DELETE). A clip that a scene uses is not deleted: USED BY SCENE n - NOT DELETED. Chains that led to the clip do nothing afterwards. The song is UNSAVED until you save it; loading the song again before saving brings the clip back. |
+| DELETE CLIP | | Press the > button: > AGAIN - DELETES THE CLIP. Press it again within two seconds: CLIP DELETED - SAVE THE SONG, and the pad is empty. Only while the song is stopped (STOP TO DELETE). A clip that a scene uses is not deleted: USED BY SCENE n - NOT DELETED. Chains that led to the clip do nothing afterwards. The song is UNSAVED until you save it; loading the song again before saving brings the clip back. |
 | COUNT-IN | OFF, 1 CYCLE, 2 CYCLES, 4 CYCLES | Section 15. |
 | CLICK | OFF, REC ONLY, ALWAYS | Section 15. |
 | CLICK OUT | INTERNAL, MIDI, BOTH | Section 15. |
@@ -571,7 +572,7 @@ Without a selected clip the clip's lines show a dash and the song's lines still 
 
 Messages: SELECT A CLIP FIRST, NOTES PAST THE END REMOVED, NOT DURING A TAKE, THE CLIP IS UNSAVED: SAVE IT FIRST,
 THAT PAD HOLDS A CLIP, COPIED - THE COPY IS OPEN, CLIP SHARED BY ANOTHER TRACK, STOP TO SAVE, SAVED, NOTHING TO SAVE,
-PRESS AGAIN TO DELETE THE CLIP, CLIP DELETED - SAVE THE SONG, USED BY SCENE n - NOT DELETED, STOP TO DELETE.
+> AGAIN - DELETES THE CLIP, CLIP DELETED - SAVE THE SONG, USED BY SCENE n - NOT DELETED, STOP TO DELETE.
 
 ## 15. Click and count-in
 
@@ -727,7 +728,10 @@ Gone from here: the pattern's step counter and its four page marks, the word LIV
 
 ### 20.3 Messages and warnings (every page)
 
-A message (STOP TO SAVE, TRACK MUTED, STOP THE SONG FIRST ...) is a box across the top of the screen, over the top line
+A message (STOP TO SAVE, TRACK MUTED, STOP THE SONG FIRST ...) is a box across the top of the screen. From
+tabby-v1.2.1 (the user's answers of 2026-11-20) PLAY / STOP / REC stands at the left end of its first line, in its own
+colour on black, so the first line holds 9 characters and the others 13; and any press on the panel (a button, a pad,
+a key, a knob) takes the message away at once. It lies over the top line
 (tabby-v1.2, the user's answer of 2026-11-19; across the bottom in tabby-v1.1, where it covered the pads' cells): 33
 pixels high for one line (the top line), 58 for two (and the title row), 82 for three (and the row under it), so that
 no half letters stand under it: amber, black

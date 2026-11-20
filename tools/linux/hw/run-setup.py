@@ -19,10 +19,13 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.13
+Version: 0.14
 
 Revision log
     v0.13 2026-11-18  tabby-v1.0.2: the line EVENT LEAD (skipped on firmware that does not report it).
+    v0.14 2026-11-20  The count-in check allows 4.0 ms between the cycle and the time from the first click to Start (Start is
+                      not a timed event: one control pass), saves the DIN capture (setup-din.csv) and
+                      says every figure and the device's own count of late sends (docs/BUILD.md 66.3).
     v0.12 2026-11-18  tabby-v04.20: DIRECTION REVERSE heard on MIDI out.
     v0.11 2026-11-17  tabby-v04.19: STEP SIZE 1/8 heard on MIDI out.
     v0.10 2026-11-17  tabby-v04.17: SHUFFLE and PLAY QUANTIZE heard on MIDI out (a second note 150 units late on step 2);
@@ -299,6 +302,7 @@ def main():
         check(ok and u["click_note"] == 37, "the song's settings: COUNT-IN 1 cycle, CLICK ALWAYS, MIDI NOTE, channel 16 (note 37)", (u["count_in"], u["click"], u["click_out"], u["click_ch"], u["click_note"]))
         l.press("FX"); idle(0.3)
         l.press("REC"); idle(0.4)
+        fg_before = l.fg()
         mark = T.now_ns()
         l.press("PLAY"); idle(1.0)
         counting = l.setup_state()["counting"]
@@ -309,8 +313,17 @@ def main():
         if check(len(clicks) >= 10 and start, "clicks on channel 16 and the song's Start", (len(clicks), len(start))):
             pre = [t for t, _ in clicks if t < start[0] - 20_000_000]
             lead = (start[0] - clicks[0][0]) / 1e6
-            check(len(pre) == 4 and clicks[0][1] == 127 and clicks[1][1] == 90 and abs(lead - (cycle or 2000.0)) <= 1.5 and 1 <= counting <= 4,
-                  "the count-in: four clicks, the first louder, then MIDI Start one cycle after the first click", "%d clicks, %.2f ms, %d beats left after 1 s" % (len(pre), lead, counting))
+            # v0.14: 4.0 ms, not 1.5. The clicks are timed events (they leave within the timing band); MIDI Start is not: it
+            # leaves in the control pass after the audio block that started the song, and a pass can be busy for 4 ms (the
+            # device's counters: "pass busy" max 4.0 to 5.8 ms in every run). 1.5 was inside that: +0.3 to +0.9 ms in the
+            # runs before and in four repeats, +2.0 once (tabby-v1.2-rc1). What the check is for, a count-in that is a
+            # clock tick (20.8 ms) or a beat too long or too short, is far outside both. Every figure is said.
+            f = l.fg()
+            check(len(pre) == 4 and clicks[0][1] == 127 and clicks[1][1] == 90 and abs(lead - (cycle or 2000.0)) <= 4.0 and 1 <= counting <= 4,
+                  "the count-in: four clicks, the first louder, then MIDI Start one cycle after the first click",
+                  "%d clicks, %.2f ms (the cycle %.2f: %+.2f), %d beats left after 1 s; clicks from a quarter-note grid, ms: %s%s"
+                  % (len(pre), lead, cycle or 2000.0, lead - (cycle or 2000.0), counting, " ".join("%+.2f" % ((t - clicks[0][0]) / 1e6 - k * beat) for k, (t, _) in enumerate(clicks[:6])),
+                     "; the device's own count of sends 2 ms or more after their due time in this part: %d" % sum(x - y for x, y in zip(f["late_bins"][4:], fg_before["late_bins"][4:])) if f and fg_before else ""))
             res = [((t - clicks[0][0]) / 1e6 + beat / 2) % beat - beat / 2 for t, _ in clicks]
             band = max(res) - min(res)
             check(band <= 4.0, "every click on its quarter note, the count-in and the song on one grid", "band %.2f ms over %d clicks" % (band, len(clicks)))
@@ -426,6 +439,12 @@ def main():
             pass
         l.close(); din.finish()
     ok = bool(RESULTS) and all(r["pass"] for r in RESULTS)
+    # every message the DIN input brought, with this computer's time (ns): a check that fails can be worked out afterwards
+    try:
+        with open(os.path.join(a.out, "setup-din.csv"), "w") as f:
+            f.write("t_ns,bytes\n" + "".join("%d,%s\n" % (t, bytes(m).hex()) for t, m in list(din.messages)))
+    except Exception as e:
+        print("the DIN capture was not written: %s" % e)
     with open(os.path.join(a.out, "setup.json"), "w") as f:
         json.dump({"results": RESULTS, "measured": measured}, f, indent=1)
     print("%s setting page: %d of %d checks passed" % ("PASS" if ok else "FAIL", sum(1 for r in RESULTS if r["pass"]), len(RESULTS)))

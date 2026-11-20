@@ -26,9 +26,14 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.14
+Version: 0.17
 
 Revision log
+    v0.17 2026-11-20  Every test starts from the state the first one found (panel-state.py v0.2 selects the track again and
+                      shows the overview); what a test left is kept in the results (left_by_tests).
+    v0.16 2026-11-20  tabby-v1.2.1: step guard (run-guard.py).
+    v0.15 2026-11-20  An unanswered question before a soak is kept in the results with what the port brought meanwhile and
+                      the device's MIDI-in drop count (it happened once, tabby-v1.2-rc5, and left nothing to look at).
     v0.14 2026-11-20  The device's own figure is not judged on ACTIONS (3.2 to 4.0 ms in every version); the question before
                       a soak is asked a second time when it got no answer.
     v0.13 2026-11-20  This computer is kept awake (a low-priority spinner per core) while a timing-sensitive tool runs; the
@@ -169,12 +174,16 @@ def main():
 
     # v0.10: the panel state a test must leave as it found it (tools/linux/hw/panel-state.py): read before the tests,
     # after every test and at the end; the step that changed it fails, and the mutes are put back.
-    base = {}
+    base = {}; left = []
     def state(after):
-        code, o = sh([py, str(HW / "panel-state.py")] + (["--baseline", json.dumps(base), "--restore-mutes"] if base else []), 120, log)
+        code, o = sh([py, str(HW / "panel-state.py")] + (["--baseline", json.dumps(base), "--restore-mutes", "--restore-track"] if base else []), 120, log)
         now = last_json(o)
         if not base:
             base.update(now); return True
+        # v0.17: every test starts from the state the first one found: the song stopped, the overview, the same track. What
+        # a test left otherwise (another track selected, another page) is put back and kept in the results, not failed.
+        if now.get("track_was") is not None or now.get("left_on_page") not in (None, "OVERVIEW"):
+            left.append({"after": after, "track": now.get("track_was"), "page": now.get("left_on_page")})
         diff = {k: (base.get(k), now.get(k)) for k in ("mutes", "focus", "arp", "repeat", "clock", "a2") if base.get(k) != now.get(k) and not now.get("restored")}
         if now.get("restored"):
             diff["mutes"] = "tracks %s were left muted (unmuted again)" % now["restored"]
@@ -239,6 +248,19 @@ def main():
             step("screen", False, "song slot 6 is not empty: the tour's song could not be written")
         state("screen")
         song()
+        # v0.16 (tabby-v1.2.1): the CPU guard with the Wrong Room song as it is, and with every internal sound muted on the
+        # mixer: a muted sound must not load the engine (run-guard.py). The song goes into slot 6 as for the screen step.
+        c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
+        if "EMPTY" in o0:
+            c1, o1 = sh(W + ["song", "--url", url, "--song-json", str(shots / "wrong-room-song.json"), "--slot", "5", "--log", wb_log], 600, log)
+            c2, o2 = sh([py, str(HW / "run-guard.py"), "--song", "6", "--seconds", "20", "--only", "as it is,internal sounds muted", "--out", str(out / ("guard-%s" % rc_tag))], 400, log) if c1 == 0 else (1, o1)
+            sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
+            last = [x for x in o2.splitlines() if x.startswith(("PASS", "FAIL"))]
+            step("guard", c2 == 0 and bool(last), last[-1] if last else o2[-200:])
+        else:
+            step("guard", False, "song slot 6 is not empty: the song could not be written")
+        state("guard")
+        song()
         # the timing song (slot 13 of the device, as imported) and the one-line timing run
         with awake():
             code, o = sh([py, str(HW / "run-clips.py"), "--song", "13", "--expected", a.expected, "--out", str(out), "--tag", rc_tag + "-s13"], 600, log)
@@ -287,6 +309,7 @@ def main():
 
     # v0.7: the soak with the Wrong Room song (slot 6 on the screen, index 5; only if that slot is empty)
     # v0.9: twice: with EVENT LEAD OFF (as every song has it that never set it) and with EVENT LEAD 1/16
+    unanswered = []
     for name, minutes, lead, extra in (("soak", a.soak_minutes, 0, ["--din-band-limit", "20"]),
                                        ("soak-lead", a.soak_lead_minutes, 2, ["--events-ahead-ms", "80", "--skip-first-note"])):
         if minutes <= 0:
@@ -294,8 +317,12 @@ def main():
         link = "import sys; sys.path.insert(0, %r); import tabby_link as T, time; l = T.Link(); time.sleep(0.3)\n" % str(HW)
         c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
         if "EMPTY" not in o0 and "HOLDS A SONG" not in o0:    # v0.14: one unanswered remote command (tabby-v1.2-rc5): ask once more
+            # v0.15: and keep what is known: the error now says what the port brought meanwhile (tabby_link v0.26); the
+            # device's MIDI-in drop count and flash times are read with the second question
+            unanswered.append({"before": name, "error": o0.strip().splitlines()[-1][:300] if o0.strip() else "no output"})
             time.sleep(2)
-            c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
+            c0, o0 = sh([py, "-c", link + "h = l.health(); d = l.diag(0); print('AFTER NO REPLY: midi_dropped %d, flash erase max %.1f ms' % (h['midi_dropped'], d['flash']['erase_max_ms']))\ntry:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
+            unanswered[-1]["second"] = " | ".join(o0.strip().splitlines()[-2:])[:300]
         songfile = str(out / ("wrong-room-song-lead%d.json" % lead))
         c1 = 1
         if "EMPTY" in o0:
@@ -332,6 +359,8 @@ def main():
 
     failed = [s["step"] for s in results["steps"] if not s["pass"]]
     results["finished"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    results["unanswered_commands"] = unanswered    # v0.15
+    results["left_by_tests"] = left                # v0.17
     file.write_text(json.dumps(results, indent=1) + "\n")
     if failed:
         print("NOT MARKED: failed steps: %s. The build stays a release candidate; give its page a note (tools/linux/builds-notes.json)." % ", ".join(failed))

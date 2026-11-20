@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 1.02
+Version: 1.03
 Revision log:
+- v1.03, 2026-11-20: 65.1 to 65.7 (tabby-v1.2, seven candidates), section 66 (tabby-v1.2.1: the CPU guard measured part by part; the message box; the four unexplained failures).
 - v1.02, 2026-11-19: 64.1 (tabby-v1.1 released), section 65 (tabby-v1.2: the message box at the top; the screen copy; the device-against-simulator comparison; two candidates on purpose).
 - v1.01, 2026-11-19: section 64 (tabby-v1.1: the readable screen; pictures in the manual; the timing-pages step).
 - v1.00, 2026-11-18: 62.4 (tabby-v1.0.1 released as candidate 1), section 63 (tabby-v1.0.2: EVENT LEAD; the device found with track 1 muted; the panel state guard).
@@ -6818,3 +6819,70 @@ found EDIT, and the manual had no device pictures yet; rc5 a band left unpainted
 downbeat, and a rule of mine without a baseline; rc6 the start race. Four of the six were faults of the firmware
 that the new proof or the soak's event check found (the repaint on every step, the standing CPU GUARD box, the
 stale band, the start race); none of them had been visible to any test before.
+
+## 66. tabby-v1.2.1: the user's answers of 2026-11-20 (SPEC 17.20)
+
+### 66.1 Why the CPU guard is on for the whole Wrong Room song
+
+The guard is in sdk/lib/libfm1_engine.a (`fm1_render_guard_take`, a 64-byte state `guard`): the SDK's binary, read
+but not changed. Measured on the device with tabby-v1.2 (tools/linux/hw/run-guard.py, 16 s a case, counters read
+twice a second; ../overnight/v13/guard/guard.json):
+
+| Case | Guard acts, a second | A block of sound, ms (min / mean / max of the samples) | Voices allowed | Underruns, DMA overruns, overloads |
+| --- | ---: | --- | ---: | --- |
+| The song as it is | 1.06 | 0.68 / 0.86 / 0.98 | 59 | 0 |
+| Without track 1 (DX7 PIANO 1) | 0.00 | 0.99 / 1.03 / 1.16 | 62 | 0 |
+| Without track 2 (303) | 1.04 | 0.85 / 0.94 / 1.04 | 59 | 0 |
+| Without track 3 (PSG) | 0.00 | 0.94 / 1.03 / 1.15 | 62 | 0 |
+| Without track 4 (PLUCK) | 1.04 | 0.69 / 0.91 / 1.02 | 59 | 0 |
+| Without track 5 (808) | 0.97 | 0.70 / 0.89 / 1.05 | 59 | 0 |
+| Without track 6 (DX7, internal sound muted) | 1.04 | 0.72 / 0.89 / 1.02 | 59 | 0 |
+| Without track 7 (303, internal sound muted) | 1.04 | 0.65 / 0.93 / 1.05 | 59 | 0 |
+| Without track 8 (808 kit) | 0.00 | 0.60 / 0.62 / 0.71 | 62 | 0 |
+| Every internal sound muted on the mixer (1 to 5 and 8 muted, 6 and 7 on) | 1.05 | 0.85 / 0.95 / 1.06 | 59 | 0 |
+
+The deadline of a block is 2.90 ms; the peak since power-on was 1.29 ms. ("Without" = the track muted altogether:
+its notes held back before the engine.)
+
+- Tracks 1, 3 and 8 together trip it; any one of them missing and it is quiet. 62 is the sum of the engine's voice
+  table for this project (8 + 4 + 8 + 8 + 11 + 8 + 4 + 11); the guard takes 3 back.
+- It acts between 1.16 ms (the largest sample without an action) and 1.29 ms (the peak): under half the deadline.
+  Why the SDK's threshold is there is not known and not ours to change.
+- Nothing is late or lost in the audio by its counters, and MIDI out is untouched (every soak). The audio itself
+  was not compared voice by voice: NOT MEASURED.
+- The last row is the finding: muting a sound on the mixer changes nothing for the engine. Fixed in our own code
+  (SPEC 19.33): a muted or solo-silenced track's song notes are not started on the engine. The release run's new
+  step guard measures "as it is" and "every internal sound muted" and fails unless the muted case has no guard
+  action and a block well under the song's.
+
+### 66.2 The message box
+
+Any press clears it (buttons, knobs, pads and keys); the play state stands at its left end (SPEC 19.33). Thirteen
+messages reworded for a first line of 9 characters; tools/linux/notice-wrap.py v0.2 wraps as the firmware does. The
+tour (0.3) takes a picture of a message and one 0.5 s after a key: on the first build of this the second picture
+still had the box: keys of the keyboard do not come through `apply_controls`. Found by the picture, fixed.
+
+### 66.3 The four unexplained failures of the tabby-v1.2 candidates
+
+| Failure | What it was | What was done |
+| --- | --- | --- |
+| rc2, CLIPS: "ENV: track 1 follows the scenes again: first note +4.01 ms from the cycle" (limit 4.0) | **The arithmetic of the test.** The cycle's place was worked out from MIDI Start and an averaged cycle length over the whole run; that figure drifts with the average (2.8 to 3.9 ms in 56 runs). Measured against the device's own clock byte of the same beat, the note is -1.14 to -1.31 ms in eight runs, idle or awake. | run-launch.py v0.7 measures against the clock byte (band 2.0 ms) and says every figure. |
+| rc4, CLIPS: "unmuted: its notes are back on the beat" | **The same arithmetic** (the same grid). Against the clock byte: -0.02 to -0.36 ms in eight runs. | The same. |
+| rc1, CLIP SETTING: "MIDI Start one cycle after the first click": 2.0 ms off (limit 1.5) | **A limit inside what the design allows.** The clicks are timed events; Start is not: it leaves in the control pass after the block that started the song, and a pass can be busy for 4 ms. +0.3 to +0.9 ms in the runs before and in four repeats, +2.0 once. NOT PROVEN for that one run: its capture was not kept. | run-setup.py v0.14: limit 4.0 ms with that reason; every click's place and the figures are said; the DIN capture is saved. |
+| rc5: one remote command without a reply (the question before a soak) | **NOT FOUND.** Not the device being busy: replies come within 1 to 12 ms directly after a song write (three tries, 60 commands each; flash erase at most 17.8 ms). Not the first command after opening the port: 150 openings, 150 answers (median 0.8 ms, the slowest 9.7). | tabby_link.py v0.26: the error says what the port brought while it waited (clock bytes: the device ran and the cable was good; nothing: the port was silent). rc-validate v0.15 keeps it in the results with the device's MIDI-in drop count and asks once more. |
+
+Two things I had wrong on the way. First I compared a note with where the same track's notes lay earlier in the
+run: wrong, the old grid itself was what moved. Then I counted the bytes ahead of the note on the cable: only 0.96 ms
+of the 3 ms. Saving the capture and measuring against the clock byte showed both. The earlier guess that the idle
+test computer explained these three (BUILD 65.4) is withdrawn for the two CLIPS checks: idle and awake give the
+same figures. It stands, as measured there, for the band of 960 notes.
+
+Also seen, not explained: the device's own "latest send after its due time" stood at 115.67 ms when read without a
+reset between my manual runs. No release run shows such a figure (each resets the counters first: at most 4 ms).
+It is on the list (66.5).
+
+### 66.4 The release run: every test from the same state
+
+panel-state.py v0.2 also reads the selected track, the tracks the keys and pads play, and the page a test left the
+device on; rc-validate v0.17 selects the first test's track again after every test and keeps what each test left
+in the results (left_by_tests). Mutes, focus, ARP switches, CLOCK and A2 still fail the step that changed them.

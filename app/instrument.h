@@ -138,6 +138,7 @@ void groove_control_edit(unsigned track, int program_steps, int volume_steps, in
 int groove_master_update(unsigned adc);
 uint32_t groove_master_state(void); /* ADC in bits 0..15, level 0..127 in 16..23. */
 void groove_mix_toggle(unsigned track, int solo);
+void groove_midi_song_quiet(unsigned mask);   /* tabby-v1.2.1: bit t: track t's internal sound cannot be heard: its song notes are not started on the engine (app/midi_router.c) */
 /* 303, PSG and pluck use part0; 808 uses parts0..10 and part11 for kit
  * controls. The sampler uses pads0..7, each with six independent
  * parameters. All 808 pan/FX sends follow the engine descriptors.

@@ -25,7 +25,7 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.25
+Version: 0.26
 
 Revision log
     v0.25 2026-11-19  now_ns() is THE clock of the device tools: every tool takes its marks ("notes since now") from it and not
@@ -101,6 +101,7 @@ _spec.loader.exec_module(monitor)
 
 # ---- v0.23: a clock the time service does not move -------------------------------------------------------------
 STEADY = True
+# v0.26 (2026-11-20): an unanswered command's error says what the port brought meanwhile (docs/BUILD.md 66.3).
 CLOCKMAP = []                  # (CLOCK_MONOTONIC ns, CLOCK_MONOTONIC_RAW ns), ten times a second while the tool runs
 _CLOCK_LOCK = threading.Lock()
 
@@ -297,6 +298,7 @@ class Link:
         return self.parser.feed(t, self.buf.raw[:n])
 
     def query(self, command, payload=b"", timeout=1.5, attempts=3, empty_ok=False):
+        seen = []      # v0.26: what did come in while a reply was awaited (for the error below)
         for _ in range(attempts):
             self.token = (self.token + 1) & 16383
             token = self.token
@@ -308,8 +310,9 @@ class Link:
                 found = None
                 for t, m in self.messages(50):
                     if m[0] != 0xF0:
-                        self.other.append((t, m)); continue
+                        self.other.append((t, m)); seen.append(m[0]); continue
                     r = parse(m)
+                    seen.append(("reply to %d token %d" % (r["command"] & 63, r["token"])) if r else "a SysEx that is not ours")
                     if found is None and r and r["command"] == (command | 64) and r["token"] == token:
                         found = r
                 if found is not None:
@@ -317,7 +320,14 @@ class Link:
                     if code and not (empty_ok and code == 1):
                         raise DeviceError(code)
                     return found["data"][1:]
-        raise TimeoutError("no reply to command %d" % command)
+        # v0.26: an unanswered command says what the port did bring meanwhile: clock bytes mean the device runs and the
+        # cable is good (the request or the reply was lost); nothing at all means the port or the device was silent.
+        kinds = {}
+        for x in seen:
+            k = x if isinstance(x, str) else ("clock" if x == 0xF8 else "status %02X" % x)
+            kinds[k] = kinds.get(k, 0) + 1
+        raise TimeoutError("no reply to command %d (token %d, %d tries of %.1f s); meanwhile the port brought: %s"
+                           % (command, self.token, attempts, timeout, ", ".join("%d x %s" % (n, k) for k, n in sorted(kinds.items())) or "nothing"))
 
     # ---- commands --------------------------------------------------------------------------
     def info(self):

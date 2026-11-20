@@ -628,9 +628,18 @@ static void release_owner(unsigned owner, unsigned ports)
 }
 /* Local engine copy of a song note: the track's input channel, when Local Control is
  * on, the track's SEQ mode is not MIDI-only and the track is not OFF (Task 03 d). */
+/* tabby-v1.2.1: tracks whose internal sound cannot be heard (muted on the mixer, or another track is solo): bit t.
+ * The sound engine renders a muted track's voices all the same (measured on the device: the block's render time
+ * and the CPU guard's rate are the same with every internal sound muted: docs/BUILD.md 66.1), so a song whose
+ * parts go to outside gear only loaded the engine for nothing. Such a track's song notes are no longer started on
+ * the internal engine; its note-offs still go, so that a note that sounded when the mute came is released. The
+ * screen's compose sets the mask (control task, as the drain is). */
+static uint8_t song_quiet;
+void groove_midi_song_quiet(unsigned mask) { song_quiet = (uint8_t)mask; }
 static void song_local(unsigned track, const uint8_t *m)
 {
     if ((config.flags & LOCAL_OFF) || groove_midi_mode(track) == 2 || groove_track_role(track) == GROOVE_TRACK_OFF) return;
+    if ((song_quiet >> track & 1U) && (m[0] & 0xf0U) == 0x90U && m[2]) return;
     uint8_t local[3] = {(uint8_t)((m[0] & 0xf0U) | groove_midi_input_channel(track)), m[1], m[2]};
     (void)fm1_midi_post(local, 3);
 }

@@ -515,7 +515,7 @@ static const char *setup_do(void)
         if (!ei.active) return "SELECT A CLIP FIRST";
         if (!asked || asked_track != ei.track || asked_place != ei.place || t_now - asked_at > 2000U) {
             asked = 1; asked_track = ei.track; asked_place = ei.place; asked_at = t_now;
-            return "PRESS AGAIN TO DELETE THE CLIP";
+            return "> AGAIN - DELETES THE CLIP";
         }
         asked = 0;
         int r = song_clip_delete(ei.track, ei.place);
@@ -706,18 +706,32 @@ static void strip(unsigned col, const char *label, const char *value, uint16_t c
 }
 /* tabby-v1.1 (docs/CONTROL-MAP.md 20.2): the top line: tempo, play state, the selected track at scale 3; ARP and
  * what waits for a save at scale 2. The state follows the song when one plays, else the pattern sequencer. */
+/* The play state of the top line (and, from tabby-v1.2.1, of the left end of a message box): the song's when a
+ * song plays, counts in or records, else the pattern sequencer's. *count: the count-in's quarter notes left. */
+static const char *const state_words[] = {"STOP", "PLAY", "PAUS", "ARMD", "REC", "CNT", "LOST"};
+static const uint16_t state_tints[] = {DIM, GREEN, AMBER, AMBER, RED, AMBER, AMBER};
+static unsigned play_state(const struct groove_view *v, unsigned *count)
+{
+    struct song_status st; song_status_read(&st);
+    struct song_edit_info ei; song_edit_info(&ei);
+    unsigned paused = !v->playing && !groove_sequence_rewound();
+    *count = st.count_in > 9 ? 9U : st.count_in;
+    return v->clock_mode && v->clock_state == GROOVE_CLOCK_LOST ? 6U : st.count_in ? 5U : ei.recording == 2 ? 4U : ei.recording ? 3U
+         : st.playing || v->playing ? 1U : paused ? 2U : 0U;
+}
+static void state_word(unsigned x, unsigned y, unsigned state, unsigned count, uint16_t bg)
+{
+    text(x, y, state_words[state], 3, state_tints[state], bg);
+    if (state == 5) number(x + 54, y, (int)count, 1, 3, AMBER, bg);
+}
 static uint32_t cpu_guard_until;
 static unsigned cpu_guard_shown(void) { return cpu_guard_until && (int32_t)(cpu_guard_until - fm1_millis()) > 0; }
 static __attribute__((noinline)) void header(const struct groove_view *v)
 {
     if (paint_rendering && paint_top >= 30) return;
-    struct song_status st; song_status_read(&st);
-    struct song_edit_info ei; song_edit_info(&ei);
-    unsigned paused = !v->playing && !groove_sequence_rewound();
-    unsigned state = v->clock_mode && v->clock_state == GROOVE_CLOCK_LOST ? 6U : st.count_in ? 5U : ei.recording == 2 ? 4U : ei.recording ? 3U
-                   : st.playing || v->playing ? 1U : paused ? 2U : 0U;
+    unsigned count, state = play_state(v, &count);
     unsigned unsaved = (song_unsaved() ? 1U : 0U) | (groove_project_dirty() ? 2U : 0U), silent = !fm1_engine_output_level();
-    uint32_t sig = v->tempo | (state << 10) | ((uint32_t)(st.count_in > 9 ? 9 : st.count_in) << 13) | ((uint32_t)track << 17) |
+    uint32_t sig = v->tempo | (state << 10) | ((uint32_t)count << 13) | ((uint32_t)track << 17) |
         (groove_arp_enabled(track) << 20) | (unsaved << 21) | ((uint32_t)v->clock_mode << 23) | (silent << 24) | (cpu_guard_shown() << 25);
     if (sig == cache->header_cache)
         return;
@@ -725,10 +739,7 @@ static __attribute__((noinline)) void header(const struct groove_view *v)
     erase(0, 0, 240, 30);
     if (v->clock_mode && !v->tempo) big_text(4, 5, "---", DIM);
     else big_number(4, 5, v->tempo, 3, v->clock_mode ? ACCENT : TEXT);
-    static const char *const words[] = {"STOP", "PLAY", "PAUS", "ARMD", "REC", "CNT", "LOST"};
-    static const uint16_t tint[] = {DIM, GREEN, AMBER, AMBER, RED, AMBER, AMBER};
-    big_text(66, 5, words[state], tint[state]);
-    if (state == 5) big_number(120, 5, st.count_in > 9 ? 9 : st.count_in, 1, AMBER);
+    state_word(66, 5, state, count, BACK);
     big_text(144, 5, "T", colors[track]); big_number(162, 5, (int)track + 1, 1, colors[track]);
     /* K8 at zero: no sound at all. It stays here in amber for as long as it is so (a rig that plays outside gear
      * only may leave it there: a box over every page would be in the way). */
@@ -1513,20 +1524,23 @@ static __attribute__((noinline, cold, minsize)) void draw_page_body(const struct
  * to four lines of 13 characters broken between words; " - " in a message starts a new line. */
 static unsigned banner_wrap(const char *s, char out[4][14])
 {
+    /* tabby-v1.2.1: the first line is 9 characters: the play state keeps its place at the left end of the box */
     unsigned lines = 0, n = 0;
+#define BANNER_ROOM (lines ? 13U : 9U)
     while (*s && lines < 4) {
         while (*s == ' ') ++s;
         unsigned w = 0;
         while (s[w] && s[w] != ' ') ++w;
         if (!w) break;
         if (w == 1 && *s == '-') { if (n) { out[lines++][n] = 0; n = 0; } ++s; continue; }
-        if (n && n + 1U + w > 13U) { out[lines++][n] = 0; n = 0; if (lines == 4) break; }
+        if (n && n + 1U + w > BANNER_ROOM) { out[lines++][n] = 0; n = 0; if (lines == 4) break; }
         if (n) out[lines][n++] = ' ';
-        if (w > 13U - n) w = 13U - n;
+        if (w > BANNER_ROOM - n) w = BANNER_ROOM - n;
         memcpy(out[lines] + n, s, w); n += w; s += w;
     }
     if (n && lines < 4) out[lines++][n] = 0;
     return lines;
+#undef BANNER_ROOM
 }
 /* What the box says: a message while it lasts; else a question that waits for its answer. */
 static const char *banner_text(void)
@@ -1559,7 +1573,10 @@ static void draw_page(const struct fm1_ble_status *ble)
     if (say) {
         char line[4][14];
         unsigned n = banner_wrap(say, line);
-        uint32_t sig = signature(n, say, (unsigned)strlen(say));
+        /* tabby-v1.2.1 (the user's answer of 2026-11-20): PLAY / STOP / REC stays readable while the box is up: its
+         * word, in its own colour on black, at the left end of the box's first line */
+        unsigned count, state = play_state(&frame_views[track], &count);
+        uint32_t sig = signature(n | (state << 4) | (count << 8), say, (unsigned)strlen(say));
         if (n && (paint_rendering || cache->banner_cache != sig)) {
             cache->banner_cache = sig;
             /* tabby-v1.2 (the user's answer of 2026-11-19): at the top, over the top line, so that it never covers
@@ -1569,7 +1586,9 @@ static void draw_page(const struct fm1_ble_status *ble)
             static const uint8_t height[] = {33, 58, 82};
             unsigned h = height[n - 1U < 3U ? n - 1U : 2U], first = (h - n * 23U) / 2U + 1U;
             paint_fill(0, 0, 240, h, AMBER);
-            for (unsigned i = 0; i < n && i < 3; ++i) text(3, first + i * 23U, line[i], 3, BACK, AMBER);
+            paint_fill(0, 0, 76, first + 23U, BACK);
+            state_word(2, first, state, count, BACK);
+            for (unsigned i = 0; i < n && i < 3; ++i) text(i ? 3 : 78, first + i * 23U, line[i], 3, BACK, AMBER);
         }
         return;   /* the hold bar's rows are under the box */
     } else cache->banner_cache = 0;
@@ -1717,6 +1736,9 @@ static void draw(const struct fm1_ble_status *ble)
             memcpy(frame_fm_names[t], frame_patch + 145, 7);
     }
     song_mute_set(song_mutes);
+    { unsigned quiet = 0;   /* tabby-v1.2.1: internal sounds that cannot be heard are not rendered for the song (app/midi_router.c) */
+      for (unsigned t = 0; t < GROOVE_TRACKS && t < 8; ++t) if (frame_views[t].muted || !frame_views[t].audible) quiet |= 1U << t;
+      groove_midi_song_quiet(quiet); }
     if (visible == EFFECTS) {
         groove_effects_get(frame_effects);
         if (!effects_page) {
@@ -1871,7 +1893,7 @@ static int preset_load(unsigned start, uint32_t now)
     memset(drum_parts, 0, sizeof drum_parts);
     selected_note = groove_pad_count(track) ? groove_pad_note(track, 0) : 60;
     page = music_page = OVERVIEW;
-    announce(start ? "PRESET LOADED - PLAYING" : "PRESET LOADED - SEQ PLAY TO START", now + 2000U);
+    announce(start ? "PRESET LOADED - PLAYING" : "LOADED - SEQ PLAY STARTS", now + 2000U);
     if (start) {
         struct groove_view view; groove_get_view(track, cursor, &view);
         /* A live Play session keeps its transport during project replacement.
@@ -1977,7 +1999,9 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     previous_buttons = controls->buttons;
     previous_keys = controls->keys;
     blocked_keys &= controls->keys;
-    if (pressed || encoder_active(controls->encoders)) notice = NULL;
+    /* tabby-v1.2.1 (the user's answer of 2026-11-20): any press on the panel takes the message box away at once: a
+     * button, a knob, and now a pad or a key too. What the press itself has to say comes after this line. */
+    if (pressed || key_down || encoder_active(controls->encoders)) notice = NULL;
     if (retry_reset) {
         blocked_keys = controls->keys;
         if (!post(0xff, 0, 0, 1))
@@ -2066,7 +2090,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         int r = place < SONG_CLIPS ? song_edit_open(track, place) : SONG_EMPTY;
         /* tabby-v04.10: on a selected empty pad EDIT makes a new clip (one master cycle long) and opens it */
         if (r == SONG_EMPTY && place < SONG_CLIPS && st.song == song_select) { r = song_clip_new(track, place); if (!r) announce("NEW CLIP", now + 1500U); }
-        if (r == SONG_BUSY) { announce("ANOTHER CLIP IS UNSAVED: THIS ONE", now + 2500U); r = 0; }
+        if (r == SONG_BUSY) { announce("UNSAVED CLIP - THIS ONE", now + 2500U); r = 0; }
         if (r == SONG_EDIT_SHARED) announce("CLIP SHARED BY ANOTHER TRACK", now + 2000U);
         else if (r) announce(r == SONG_EMPTY ? "SELECT A CLIP FIRST" : "BLOCK READ ERROR", now + 2000U);
         else { page = CLIP_STEPS; step_bar = 0; step_sel = 255; step_cursor = 0; step_pads_toggle = groove_pad_count(track) != 0; cache->shown_page = ~0U; }
@@ -2099,7 +2123,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         unsigned row = song_scene_reserved();
         if (st.song != song_select) announce("NO SONG", now + 1500U);
         else if (st.playing) announce("STOP THE SONG FIRST", now + 2000U);
-        else if (pressed & BUTTON(EDIT)) announce("HOLD PARA, TURN K1: MOVE THE SCENE", now + 2000U);
+        else if (pressed & BUTTON(EDIT)) announce("PARA + K1 - MOVES A SCENE", now + 2000U);
         else if (!asked || asked_row != row || now - asked_at > 2000U) {
             static char ask[] = "FX AGAIN DELETES SCENE 000";
             asked = 1; asked_row = (uint8_t)row; asked_at = now;
@@ -2108,7 +2132,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         } else {
             asked = 0;
             int r = song_scene_delete(row);
-            announce(r == SONG_EMPTY ? "THE LAST SCENE STAYS" : r == SONG_EDIT_SHARED ? "NOT DELETED: SETS A CLIP'S LENGTH" : r ? "NOT DELETED" : "SCENE DELETED - SAVE THE SONG", now + 2000U);
+            announce(r == SONG_EMPTY ? "THE LAST SCENE STAYS" : r == SONG_EDIT_SHARED ? "KEPT - IT SETS A CLIP'S LENGTH" : r ? "NOT DELETED" : "SCENE DELETED - SAVE THE SONG", now + 2000U);
         }
         cache->shown_page = ~0U;
         goto controls_done;
@@ -2119,7 +2143,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         struct song_status st; song_status_read(&st);
         unsigned place = clip_select[track] < SONG_CLIPS ? clip_select[track] : song_row_place(track, st.track_row[track]);
         int r = place < SONG_CLIPS && st.song == song_select ? song_edit_open(track, place) : SONG_EMPTY;
-        if (r == SONG_BUSY) announce("ANOTHER CLIP IS UNSAVED: THIS ONE", now + 2500U);
+        if (r == SONG_BUSY) announce("UNSAVED CLIP - THIS ONE", now + 2500U);
         else if (r == SONG_EDIT_SHARED) announce("CLIP SHARED BY ANOTHER TRACK", now + 2000U);
         setup_open(place);
         goto controls_done;
@@ -2381,7 +2405,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 /* tabby-v04.10: an empty scene pad held half a second stores what plays now as a new scene (the MC-707's
                  * long press; an existing scene is never written over) */
                 if (rec && st.song == song_select && st.playing && song_row_page * 16U + i >= rec->rows) {
-                    scene_hold_pad = (uint8_t)i; scene_hold_ms = now; announce("HOLD TO STORE WHAT PLAYS AS A SCENE", now + 1500U); continue;
+                    scene_hold_pad = (uint8_t)i; scene_hold_ms = now; announce("HOLD PAD - STORES A SCENE", now + 1500U); continue;
                 }
                 { int jr = song_queue_jump(song_row_page * 16U + i);
                   if (!st.playing && jr >= 0) announce(jr ? "TAKEN BACK - FROM SCENE 1" : "RESERVED FOR SEQ PLAY", now + 1500U);
@@ -2449,7 +2473,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                     if (!r) loop_pad = (uint8_t)i;
                     announce(r == SONG_BUSY ? "NOT DURING A TAKE" : r ? "STEP LOOP - PLAY FIRST" : say, now + 60000U);
                 }
-            if (loop_pad == 255 && !notice) announce("NOTE REPEAT + PAD 9-12: STEP LOOP", now + 1500U);
+            if (loop_pad == 255 && !notice) announce("STEP LOOP - NOTE REPEAT + PAD 9-12", now + 1500U);
             blocked_keys |= controls->keys;
             goto controls_done;
         }
@@ -2570,7 +2594,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                 if (!post(0xff, 0, 0, 1)) return 0;
                 memset(key_note, 0xff, sizeof key_note); project_keys = 0; page = OVERVIEW;
             }
-            announce(r ? "UNAVAILABLE / INCOMPATIBLE" : action == ACT_COPY_TIMBRE ? "TIMBRE COPIED" : "DONE", now + 2000U);
+            announce(r ? "NOT POSSIBLE HERE" : action == ACT_COPY_TIMBRE ? "TIMBRE COPIED" : "DONE", now + 2000U);
             cache->middle_cache = ~0U;
         }
         goto controls_done;
@@ -2660,7 +2684,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                             r=groove_settings_track(track,1,delta);
                         }
                         else groove_settings_midi(track,parameter,delta);
-                        announce(r ? "TRACK SETTING FAILED" : parameter == 0 ? "SEQ OUTPUT UPDATED" : "MIDI SETTING - NOTES RELEASED", now + 1500U);
+                        announce(r ? "TRACK SETTING FAILED" : parameter == 0 ? "SEQ OUTPUT UPDATED" : "MIDI SET - NOTES RELEASED", now + 1500U);
                     }
                 }
                 if (page == ARP_EDIT) {
@@ -2668,10 +2692,10 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                     for (unsigned i = 0; i < 4; ++i) if (controls->encoders[2 + i]) {
                         if (arp_page && i == 3) {
                             groove_settings_midi(track, 1, controls->encoders[2 + i]);
-                            announce("MIDI SETTING - NOTES RELEASED", now + 1500U);
+                            announce("MIDI SET - NOTES RELEASED", now + 1500U);
                         } else if (arp_page) { if (i < 2) groove_arp_edit(track, i + 4, controls->encoders[2 + i]); }
                         else if (groove_pad_count(track) && i >= 2) {
-                            announce("RANGE / GATE FOR MELODIC TRACKS", now + 2000U);
+                            announce("NOT FOR DRUMS - RANGE / GATE", now + 2000U);
                         } else groove_arp_edit(track, i, controls->encoders[2 + i]);
                     }
                 } else if (page == FM_QUICK) {
@@ -2817,7 +2841,7 @@ static void groove_screen_control_body(void)
     if (modes != panel_modes_seen) {
         announce((modes ^ panel_modes_seen) & 2U
             ? modes & 2U ? "PAD STEP MODE" : "PAD PLAY MODE"
-            : modes & 1U ? "FADERS 5-8 - MOVE TO MATCH LEVEL" : "FADERS 1-4 - MOVE TO MATCH LEVEL", now + 1800U); panel_modes_seen = modes;
+            : modes & 1U ? "FADER 5-8 - MOVE TO MATCH" : "FADER 1-4 - MOVE TO MATCH", now + 1800U); panel_modes_seen = modes;
     }
     uint32_t feedback = smk37_fader_feedback();
     if (feedback != fader_feedback_seen && (feedback & (1U << 23))) {
@@ -3027,6 +3051,7 @@ int ct_screen_steps_open(unsigned t, unsigned place)
  * step selected it is put on that step, or taken off it. */
 void smk37_screen_key(unsigned note, unsigned velocity)
 {
+    notice = NULL;   /* tabby-v1.2.1: any press takes a message away at once: a key of the keyboard too (they do not come through apply_controls) */
     if (page != CLIP_STEPS || note > 127) return;
     step_pitch = (uint8_t)note; step_velocity = (uint8_t)(velocity < 1 ? 1 : velocity > 127 ? 127 : velocity);
     cache->middle_cache = ~0U;
@@ -3159,7 +3184,7 @@ __attribute__((noinline, cold, minsize)) void smk37_screen_pad_mode(unsigned ste
 void smk37_screen_note_repeat(unsigned tracks)
 {
     static const char *const say[] = { "NOTE REPEAT 1/4", "NOTE REPEAT 1/8", "NOTE REPEAT 1/16", "NOTE REPEAT 1/32" };
-    notice = tracks ? say[groove_arp_setting(smk37_performance_track(pad_focus), 0) & 3U] : "ARP IS ON: IT REPEATS ALREADY";
+    notice = tracks ? say[groove_arp_setting(smk37_performance_track(pad_focus), 0) & 3U] : "ARP IS ON - IT REPEATS";
     notice_until = fm1_millis() + 2000U;
 }
 unsigned smk37_screen_pad_key(unsigned pad)
@@ -3170,7 +3195,8 @@ unsigned smk37_screen_pad_key(unsigned pad)
 /* Task 12 A2: pad-step mode is gone (smk37_controls.c never sets it); pads always play. */
 int smk37_screen_pad(unsigned pad,unsigned velocity,unsigned steps)
 {
-    (void)pad; (void)velocity; (void)steps;
+    (void)pad; (void)steps;
+    if (velocity) notice = NULL;   /* tabby-v1.2.1: ... and a pad that plays */
     return 0;
 }
 void smk37_screen_page(unsigned target)

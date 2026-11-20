@@ -118,6 +118,8 @@ def main():
                 l.key(0, B[x], 0); time.sleep(0.14)
             elif op == "pad":
                 l.key(3, x, 100); time.sleep((y or 50) / 1000.0); l.key(3, x, 0); time.sleep(0.14)
+            elif op == "key":
+                l.key(1, x, 100); time.sleep(0.06); l.key(1, x, 0); time.sleep(0.14)
             elif op == "pad_down":
                 l.key(3, x, 100); time.sleep(0.1)
             elif op == "pad_up":

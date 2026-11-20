@@ -155,6 +155,7 @@ for (const s of tour.steps.concat([['simulator_only']], tour.simulator_only || [
   else if (op === 'down') down(B[a]);
   else if (op === 'up') up(B[a]);
   else if (op === 'pad') { c.sim_smk37(PAD, a, 100); ms(b || 50); c.sim_smk37(PAD, a, 0); step(8); }
+  else if (op === 'key') { c.sim_smk37(1, a, 100); step(18); c.sim_smk37(1, a, 0); step(8); if (pretend) step(55); }
   else if (op === 'pad_down') { c.sim_smk37(PAD, a, 100); step(8); }
   else if (op === 'pad_up') { c.sim_smk37(PAD, a, 0); step(8); }
   else if (op === 'knob') { c.sim_smk37(KNOB, a, b); step(8); }

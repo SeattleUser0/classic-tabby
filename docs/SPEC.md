@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.67
+Version: 0.68
 Revision log:
+- v0.68, 2026-11-20: 17.20 the user's answers of 2026-11-20; 19.33 tabby-v1.2.1.
 - v0.67, 2026-11-20: 19.32 the start race of song_poll (tabby-v1.2).
 - v0.66, 2026-11-19: 17.19 the user's answers of 2026-11-19 (evening) and the order to prove the screen on the device; 19.31 tabby-v1.2.
 - v0.65, 2026-11-19: 17.18 the user's order of 2026-11-19 (the screen must be readable); 19.30 tabby-v1.1.
@@ -1523,6 +1524,19 @@ every message as the firmware does and fails on a fourth line or a word over 13 
   renders. Released through the candidate flow with the per-page timing check.
 - Standing from now on: the comparison is a step of every release run (rc-validate.py: screen).
 
+### 17.20 The user's answers of 2026-11-20
+
+- CPU! stays small in the top line. Find out why the guard is on for the whole Wrong Room song: which parts, and
+  whether it changes what comes out; if it counts load that is not real, fix the cause. (BUILD 66.1, SPEC 19.33.)
+- Any panel press clears the message box at once; PLAY / STOP stays readable while the box is up; about 1.5 s
+  otherwise.
+- No experiment on the LCD: the draw-buffer comparison is enough.
+- The four unexplained failures are to be chased: a cause, or tests that record enough for the next occurrence.
+  "A release gate that fails at random will either block a good build or teach us to rerun until green."
+  Standing rule from this: a check that measures a time says every figure it used when it fails, keeps its raw
+  capture, and its limit is derived from what the design guarantees, not from the largest value seen so far.
+- Then the next item of the report's own list, inside the hard limits.
+
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
 - **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
@@ -2254,3 +2268,16 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   (`song_test_interrupt`, host builds only) and fails on the old order.
 - Found in the soak of tabby-v1.2-rc6 (BUILD 65.6) by the check of 19.28 ("every scene entry sends its events"),
   which is the second time that check found something no timing figure shows.
+
+### 19.33 tabby-v1.2.1 (2026-11-20): the message box and the play state; muted internal sounds
+
+- `play_state()` and `state_word()` are shared by the top line and the box. The box's first line starts at x 78:
+  a black field 76 wide holds the state word; `banner_wrap` gives the first line 9 characters and the others 13.
+  The box's signature holds the state, so the word follows PLAY and STOP while the box stands.
+- A message is cleared by `apply_controls` on any button, any pad that comes as a key bit, any encoder; and now by
+  `smk37_screen_key` (a key of the keyboard) and `smk37_screen_pad` (a pad that plays), which do not come through
+  `apply_controls`. The tour has a picture taken 0.5 s after a key: no box.
+- `groove_midi_song_quiet(mask)` (app/midi_router.c): bit t: track t's internal sound cannot be heard (its view says
+  muted, or not audible: another track is solo). `draw()` sets it on every compose. `song_local` does not post a
+  song note-on of such a track to the engine; note-offs still go. The SDK's engine renders a muted track's voices
+  like any other (measured: BUILD 66.1); its guard counts the block's render time.
