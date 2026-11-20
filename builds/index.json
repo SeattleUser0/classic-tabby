@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-19T23:38:11Z",
+  "updated": "2026-11-20T01:10:38Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -700,6 +700,16 @@
       "page": "builds/tabby-v1.2-rc2/",
       "published": "2026-11-19",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc2.zip",
+      "note": "Not promoted: one line of MIDI timing measured 2.01 and 2.03 ms on two of eight pages (the limit is under 2.0 ms), and its screen copy showed that CLIPS and SCENES were being repainted on every 16th note while a song played. tabby-v1.2 has the fix."
+    },
+    {
+      "tag": "tabby-v1.2-rc3",
+      "build": "0efbf132803217a8d850d3d4f46af09f7ee04983f206310949817dca78159092",
+      "loader": "ota-SMK370efbf132803217a8",
+      "version": "tabby-v1.2",
+      "page": "builds/tabby-v1.2-rc3/",
+      "published": "2026-11-20",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc3.zip",
       "note": "Release candidate of tabby-v1.2: not a release. Use the main page unless you were asked to test this build."
     }
   ]
