@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-20T01:10:38Z",
+  "updated": "2026-11-20T02:11:04Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -710,6 +710,16 @@
       "page": "builds/tabby-v1.2-rc3/",
       "published": "2026-11-20",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc3.zip",
+      "note": "Not promoted: one line of MIDI timing measured 2.3 to 2.5 ms on CLIPS and SCENES (the limit is under 2.0 ms): a change in this candidate moved the pages' repaints onto the eighth notes. It also shows the message CPU GUARD - VOICES ADAPTED over the page for as long as a song with many internal parts plays. tabby-v1.2 has both fixed."
+    },
+    {
+      "tag": "tabby-v1.2-rc4",
+      "build": "a6f913f50c319f280cdd468c764b668c594f02ad79b9fcea0baef44ed38c030b",
+      "loader": "ota-SMK37a6f913f50c319f28",
+      "version": "tabby-v1.2",
+      "page": "builds/tabby-v1.2-rc4/",
+      "published": "2026-11-20",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc4.zip",
       "note": "Release candidate of tabby-v1.2: not a release. Use the main page unless you were asked to test this build."
     }
   ]
