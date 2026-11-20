@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-20T03:35:22Z",
+  "updated": "2026-11-20T05:07:38Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -730,6 +730,16 @@
       "page": "builds/tabby-v1.2-rc5/",
       "published": "2026-11-20",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc5.zip",
+      "note": "Not promoted: the comparison of the device's own screen pixels found pieces of the page before left on HOME after a page change while a song plays, and eight simultaneous lines measured 3.9 ms once on SCENES. Same firmware as tabby-v1.2-rc4. tabby-v1.2 has both fixed."
+    },
+    {
+      "tag": "tabby-v1.2-rc6",
+      "build": "fd7ec6000403a35ca29dcbf51cc42727360f1ddd14c1c4d683fe2661f4af8a2b",
+      "loader": "ota-SMK37fd7ec6000403a35c",
+      "version": "tabby-v1.2",
+      "page": "builds/tabby-v1.2-rc6/",
+      "published": "2026-11-20",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc6.zip",
       "note": "Release candidate of tabby-v1.2: not a release. Use the main page unless you were asked to test this build."
     }
   ]
