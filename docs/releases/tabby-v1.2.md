@@ -2,8 +2,8 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
 
 # Classic Tabby tabby-v1.2: messages at the top; the screen proven on the device
 
-- Firmware package build ID: `a6f913f50c319f28` (first 16 hex digits). App image 488484 bytes (measured), margin 30973 bytes
-  below the 519457-byte limit (docs/FLASH-BUDGET.md 51). From tabby-v1.1 (`f0bd5047ca742907`): +1760 bytes. At least
+- Firmware package build ID: `fd7ec6000403a35c` (first 16 hex digits). App image 488516 bytes (measured), margin 30941 bytes
+  below the 519457-byte limit (docs/FLASH-BUDGET.md 51). From tabby-v1.1 (`f0bd5047ca742907`): +1792 bytes. At least
   15360 bytes stay free for fixes. Free RAM 143244 bytes (192 fewer).
 - Installing over tabby-v04.2 to tabby-v1.1 keeps storage as it is. Take a Full backup first anyway.
 - **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
@@ -11,14 +11,17 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
   A clip is refused (its track is silent) by firmware that does not know one of its settings: TRANSPOSE before
   tabby-v04.15, SHUFFLE and PLAY QUANTIZE before tabby-v04.17, STEP SIZE before tabby-v04.19, DIRECTION before
   tabby-v04.20. A song with EVENT LEAD set plays on older firmware, without the lead.
-- Released through the candidate flow, as candidate 5. Candidate 1 was held back: its screen copy asked the device
+- Released through the candidate flow, as candidate 6. Candidate 1 was held back: its screen copy asked the device
   for one block of 57600 bytes and the device's heap refused. Candidate 2 (a smaller copy) was held back: one line
   measured 2.01 and 2.03 ms on two of eight pages, and its screen copy showed why the device never finished a
   picture while a song played (below). Candidate 3 (no more repaint on every step) was held back: the pages were still
   repainted on every eighth note, now exactly on the notes, and one line measured 2.3 to 2.5 ms on CLIPS and
   SCENES. Candidate 4 has the fix for that and for the standing CPU GUARD box, was installed and tested and made
-  the device's screen pictures. Candidate 5 is the same firmware as candidate 4 with those pictures in the manual,
-  tested again in full, and promoted. docs/BUILD.md 65.1 to 65.4.
+  the device's screen pictures. Candidate 5 (candidate 4's firmware, those pictures in the manual) was held back:
+  its own pixel comparison found leftover pieces of the page before on HOME, and eight lines on SCENES measured
+  3.9 ms once. Candidate 6 has both fixed, was tested in full, and is the one promoted. Its manual pictures are
+  the ones taken on candidate 4's build; its own release run compared its own pixels again. docs/BUILD.md 65.1
+  to 65.6.
 
 ## What changed
 
@@ -33,6 +36,12 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
   page is repainted when something it shows changes (the scene, a launch, a queue); the bar count repaints only its
   own digits; on STEP only the rows of the step cells follow the running step. The pads' blink phase, which
   repainted the page on every eighth note without anything on the screen blinking, is out of that test too.
+- **A band left over from the page before is painted within a few passes.** Found by the pixel comparison on
+  candidate 5: 2.4 seconds after PATCH from CLIPS to HOME, while a song played, the project name's row still showed
+  pieces of CLIPS. On HOME the level meters ask for their bands on every frame and were served first every time.
+  Every second band now goes in plain rotation.
+- A page is not composed when a note is due before the composing would end (as for a band): SCENES is composed
+  again at each new scene, the moment its first notes are due.
 - **CPU GUARD - VOICES ADAPTED is no longer a message box.** Seen in the device's own pictures: with eight parts on
   the internal sounds the guard takes voices back about once a second, and its message stood over the page for the
   whole song (every Wrong Room soak since tabby-v1.0 counted 125 of them in 125 seconds; nobody was looking at the

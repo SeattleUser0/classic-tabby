@@ -6741,7 +6741,37 @@ notes "back on the beat" after an unmute): each is a time measured at this compu
 millisecond away, each passed in every repeat (3 of 3, and 2 of 2), and all three fell in runs made with the
 computer idle. Likely the same cause; NOT PROVEN, because none of those three moments was measured both ways.
 
-### 65.5 tabby-v1.2 released: candidate 5
+### 65.5 tabby-v1.2-rc5: not promoted; a stale band on HOME; eight lines on SCENES (2026-11-20)
 
-Candidate 5 is rc4's firmware (the same build: nothing under app/ changed) with the device's pictures in the manual
-and the tools of 65.4. Its results are in docs/releases/tabby-v1.2.md and in the next entry.
+Commit 0492896: rc4's firmware (build `a6f913f50c319f28`; the install step found it on the device and wrote
+nothing), the device's pictures in the manual, rc-validate v0.13. Every device test passed (40 of 40 on CLIP
+SETTING and on CLIPS twice: the three flaky checks of 65.4 did not show with the computer awake). One line, awake:
+overview DIN 1.87, 1.78, 1.73 / USB 1.81, 1.69, 1.87, the device's own 1.67, 1.62, 1.60; CLIPS 1.76 / 1.78 / 1.62;
+SCENES 1.71 / 1.70 / 1.52; SYNC / MIDI 1.73 / 1.75 / 1.65; mixer 1.94 / 1.89 / 1.71; ACTIONS 1.64 / 1.61. Backup,
+restore, verify PASS. Failed:
+
+- **screen: 43 of 44.** home-playing: 1135 pixels. The device's picture, taken 2.4 s after PATCH from CLIPS to HOME
+  while the song played, still has pieces of the CLIPS page in the rows of the project name (band 2). The same
+  picture had matched on rc4: it depends on the moment. Cause: `paint_flush` serves the bands marked by the latest
+  compose first; on HOME the meters mark eight to twelve bands on every compose, more than are painted between two
+  composes, so a band that only the page change had marked waits as long as the meters move. As old as the
+  priority rule; never seen because nothing looked at the device's pixels. Fixed (SPEC 19.31).
+- **timing-pages**, two different things. (1) My new rule failed ACTIONS: the device's own figure 3.19 ms. It is 3.2
+  to 4.0 ms on that page in every version (tabby-v1.1: 3.99) while the line's notes arrive within 1.64 ms: the
+  page reads the song storage twice a second and about ten timed events of 8000 leave late. I had made a rule
+  without looking at what the figure had been. It is reported on ACTIONS, not judged. (2) Eight lines on SCENES:
+  3.86 / 3.78 ms, the device's own 3.69 (limit 3.5; tabby-v1.1: 2.71 / 2.66 with the device's own at 3.48). And in
+  **soak-lead** one segment of 19 on SCENES: 3.75 / 3.57. The histogram of the device's own figure is no worse
+  than tabby-v1.1's (40 events between 2 and 4 ms of 21384, against 53), but before rc4 SCENES was being composed
+  all the time; now it is composed when the scene changes, which is when eight first notes are due. The compose
+  now waits for a due event like a band does.
+- **soak** (EVENT LEAD OFF) did not run: the question before it ("is slot 6 empty") got no reply to one remote
+  command. The same question 40 minutes later was answered. NOT EXPLAINED; the release run asks a second time now.
+- soak-lead otherwise: 18 segments DIN 1.96 to 2.73 ms, USB 1.75 to 2.40 ms.
+
+### 65.6 tabby-v1.2 released: candidate 6
+
+Candidate 6: the two fixes of 65.5 (build `fd7ec6000403a35c`, app image 488516 bytes, margin 30941), rc-validate
+v0.14. The manual's 44 device pictures are those of rc4's build: the frames the simulator draws are the same for
+this build (make workbench-test checks that), and this candidate's own release run read and compared its own 44.
+Its results are in docs/releases/tabby-v1.2.md and in the next entry.

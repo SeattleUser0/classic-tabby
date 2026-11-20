@@ -2235,3 +2235,7 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   (as before) and the device's own figure, "the latest a timed event left after its due time" (the F + G page,
   remote request 10); one line must be under 2.0 ms by both, on every page of the timing steps. The test computer
   runs one low-priority spinner per core while it measures.
+- After tabby-v1.2-rc5 (BUILD 65.5): `paint_flush` takes every second band in plain rotation instead of from the
+  fresh ("priority") set, so a band marked by an earlier compose cannot wait behind bands that are marked again on
+  every compose; the compose itself waits like a band when a MIDI event is due within its own last time plus
+  1.5 ms (bounded as the existing compose deferral: 33 ms + 2 x CT_PASS_STARVE_MS).

@@ -26,9 +26,11 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.13
+Version: 0.14
 
 Revision log
+    v0.14 2026-11-20  The device's own figure is not judged on ACTIONS (3.2 to 4.0 ms in every version); the question before
+                      a soak is asked a second time when it got no answer.
     v0.13 2026-11-20  This computer is kept awake (a low-priority spinner per core) while a timing-sensitive tool runs; the
                       timing steps also read the device's own figure (the latest a timed event left after its due
                       time) and one line must be under 2 ms by both. The three ordinary runs use that limit too.
@@ -274,7 +276,10 @@ def main():
                 if m:
                     worst[port] = float(m.group(2))
             limit = PAGE_LIMIT_MS if lines_n == 1 else EIGHT_LIMIT_MS
-            ok = code == 0 and len(worst) == 2 and all(b < limit for b in worst.values()) and latest is not None and (lines_n > 1 or latest < PAGE_LIMIT_MS)
+            # the device's own figure counts every timed event. On ACTIONS it has been 3.2 to 4.0 ms in every version
+            # (tabby-v1.1: 3.99): the page reads the song storage twice a second and about ten events of 8000 leave
+            # late, none of them a note of the line. It is reported there, not judged (v0.14).
+            ok = code == 0 and len(worst) == 2 and all(b < limit for b in worst.values()) and latest is not None and (lines_n > 1 or page == "actions" or latest < PAGE_LIMIT_MS)
             bad += not ok
             got.append("%s %s %s/%s/%s" % ("1L" if lines_n == 1 else "8L", page, "%.2f" % worst["DIN"] if "DIN" in worst else "?", "%.2f" % worst["USB"] if "USB" in worst else "?", "?" if latest is None else "%.2f" % latest))
         step("timing-pages", not bad, "worst line DIN / USB / the device's own latest send, ms: " + "; ".join(got))
@@ -288,6 +293,9 @@ def main():
             continue
         link = "import sys; sys.path.insert(0, %r); import tabby_link as T, time; l = T.Link(); time.sleep(0.3)\n" % str(HW)
         c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
+        if "EMPTY" not in o0 and "HOLDS A SONG" not in o0:    # v0.14: one unanswered remote command (tabby-v1.2-rc5): ask once more
+            time.sleep(2)
+            c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
         songfile = str(out / ("wrong-room-song-lead%d.json" % lead))
         c1 = 1
         if "EMPTY" in o0:

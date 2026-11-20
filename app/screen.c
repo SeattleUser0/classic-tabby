@@ -1767,7 +1767,12 @@ static void paint_flush(void)
         unsigned starving = ct_pass_over(band_ticks_last);
         /* Fresh knob/key feedback goes ahead of the rest of a page repaint.
          * Rotate within that set so continuous motion cannot starve its text. */
-        if (paint_priority && !starving)
+        /* tabby-v1.2: every second band goes in plain rotation, whatever is fresh. On HOME the level meters mark their
+         * bands on every compose while a song plays; served first every time, they left a band of the page before
+         * (after a page change) unpainted for seconds: found by the screen copy: the name row still showed pieces of
+         * CLIPS 2.4 s after PATCH. */
+        static unsigned paint_turn;
+        if (paint_priority && !starving && (++paint_turn & 1U))
             for (unsigned i = 0; i < PAINT_BANDS; ++i) {
                 unsigned candidate = (paint_next + i) % PAINT_BANDS;
                 if (paint_priority & (1U << candidate)) { band = candidate; break; }
@@ -2916,10 +2921,20 @@ static void groove_screen_control_body(void)
          * waits for a later pass (frame_ms stays, so the next pass asks again). Input is never
          * lost by this: apply_controls above already ran; only the picture is late. The guard
          * keeps the delay under 2 x CT_PASS_STARVE_MS past the 33 ms frame. */
-        if (ct_pass_over(0) && now - frame_ms < 33U + 2U * CT_PASS_STARVE_MS) ct_pass_defer(CT_DEFER_DRAW);
+        /* tabby-v1.2: nor does it start when a MIDI event is due before it would end (its own last time plus 1.5 ms,
+         * as for a band): a page that changes with the song (a new scene on SCENES) is composed at the very moment
+         * the scene's first notes are due. The same bound on the delay. */
+        static uint32_t compose_ticks = 24000U;
+        unsigned wait = ct_pass_over(0);
+#ifdef CT_A2
+        wait |= ct_midi_due_within(compose_ticks + 36000U);
+#endif
+        if (wait && now - frame_ms < 33U + 2U * CT_PASS_STARVE_MS) ct_pass_defer(CT_DEFER_DRAW);
         else {
+            uint32_t t0 = ct_diag_ticks();
             frame_ms = now;
             draw(&ble);
+            compose_ticks = ct_diag_ticks() - t0;
         }
     }
     paint_flush();
