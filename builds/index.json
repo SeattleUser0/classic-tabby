@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-20T08:56:39Z",
+  "updated": "2026-11-20T10:59:16Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -703,6 +703,16 @@
       "note": "Not promoted: one line of MIDI timing measured 2.01 and 2.03 ms on two of eight pages (the limit is under 2.0 ms), and its screen copy showed that CLIPS and SCENES were being repainted on every 16th note while a song played. tabby-v1.2 has the fix."
     },
     {
+      "tag": "tabby-v1.2",
+      "build": "fef558ab16e275b45b501e6e48c076da3f5ed327fb4358e0843000ee67b78de8",
+      "loader": "ota-SMK37fef558ab16e275b4",
+      "version": "tabby-v1.2",
+      "page": "builds/tabby-v1.2/",
+      "published": "2026-11-20",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2.zip",
+      "note": ""
+    },
+    {
       "tag": "tabby-v1.2-rc3",
       "build": "0efbf132803217a8d850d3d4f46af09f7ee04983f206310949817dca78159092",
       "loader": "ota-SMK370efbf132803217a8",
@@ -750,7 +760,7 @@
       "page": "builds/tabby-v1.2-rc7/",
       "published": "2026-11-20",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2-rc7.zip",
-      "note": "Release candidate of tabby-v1.2: not a release. Use the main page unless you were asked to test this build."
+      "note": "Release candidate; it passed the device tests and was released as tabby-v1.2."
     }
   ]
 }
