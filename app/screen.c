@@ -230,7 +230,6 @@ static unsigned track, cursor, selected_note = 60, drum, page;
 static unsigned music_page, subpage_return, project_return, effects_page;
 static unsigned seq_page, arp_page;
 static unsigned song_select, song_row_page; /* SONG page: selected song, pads = rows 1-16 + 16 * page */
-static unsigned launch_phase(void);         /* Task 06 (c): the TRACK LAUNCH page's flash phase */
 /* Task 16 Goal 1 (remote control, transfer command 29, app/transfer.c): what the screen state is, and
  * the SONG page's selected song, so a remote select leaves the page and the song loaded together
  * (the page then shows what the song state says). The page numbers are this file's enum. */
@@ -707,6 +706,8 @@ static void strip(unsigned col, const char *label, const char *value, uint16_t c
 }
 /* tabby-v1.1 (docs/CONTROL-MAP.md 20.2): the top line: tempo, play state, the selected track at scale 3; ARP and
  * what waits for a save at scale 2. The state follows the song when one plays, else the pattern sequencer. */
+static uint32_t cpu_guard_until;
+static unsigned cpu_guard_shown(void) { return cpu_guard_until && (int32_t)(cpu_guard_until - fm1_millis()) > 0; }
 static __attribute__((noinline)) void header(const struct groove_view *v)
 {
     if (paint_rendering && paint_top >= 30) return;
@@ -717,7 +718,7 @@ static __attribute__((noinline)) void header(const struct groove_view *v)
                    : st.playing || v->playing ? 1U : paused ? 2U : 0U;
     unsigned unsaved = (song_unsaved() ? 1U : 0U) | (groove_project_dirty() ? 2U : 0U), silent = !fm1_engine_output_level();
     uint32_t sig = v->tempo | (state << 10) | ((uint32_t)(st.count_in > 9 ? 9 : st.count_in) << 13) | ((uint32_t)track << 17) |
-        (groove_arp_enabled(track) << 20) | (unsaved << 21) | ((uint32_t)v->clock_mode << 23) | (silent << 24);
+        (groove_arp_enabled(track) << 20) | (unsaved << 21) | ((uint32_t)v->clock_mode << 23) | (silent << 24) | (cpu_guard_shown() << 25);
     if (sig == cache->header_cache)
         return;
     cache->header_cache = sig;
@@ -732,6 +733,7 @@ static __attribute__((noinline)) void header(const struct groove_view *v)
     /* K8 at zero: no sound at all. It stays here in amber for as long as it is so (a rig that plays outside gear
      * only may leave it there: a box over every page would be in the way). */
     if (silent) color_text(190, 0, "K8=0", AMBER);
+    else if (cpu_guard_shown()) color_text(190, 0, "CPU!", AMBER);   /* the CPU guard took voices back within the last two seconds */
     else if (groove_arp_enabled(track)) plain_text(190, 0, "ARP");
     if (unsaved) color_text(190, 15, unsaved == 3 ? "*S+P" : unsaved == 2 ? "*PRJ" : "*SNG", AMBER);
 }
@@ -1033,7 +1035,10 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
              * painted again on every 16th while the song played: 120 bands a second asked of a painter that manages 84
              * beside the MIDI sends, so a picture was never finished (found by the screen copy: the device never
              * stood still) and every note met a band. SCENES shows the bar in the scene, CLIPS the bar count. */
-            st.step &= (uint8_t)~15U; st.bar_step = 0;
+            /* The bar count (CLIPS) and the bar in the scene (SCENES) change at every bar line, where the bar's first
+             * notes are due: only their own digits are painted again (edit_page_draw, below), not the page. */
+            running = st.bar | ((uint32_t)(st.step >> 4) << 16);
+            st.step = 0; st.bar_step = 0; st.bar = 0;
             sig = signature(sig, &st, sizeof st);
             /* what the pad cells and the scene's clip line show of the song itself (a clip made or deleted, a scene
              * stored): it used to ride on the repaint of every step */
@@ -1041,7 +1046,7 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
               if (sm && sr) { unsigned row = st.playing ? st.row : song_scene_reserved() < sr->rows ? song_scene_reserved() : 0;
                   for (unsigned i = 0; i < 16 && clip_bank * 16U + i < SONG_CLIPS; ++i) sig = sig * 33U + (sm->clip[track][clip_bank * 16U + i] != 0);
                   sig = signature(sig, sm->scene_clip[row], SONG_TRACKS); sig = sig * 33U + sr->rows + ((unsigned)sr->tempo << 8); } }
-            sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (launch_phase() << 24) + (song_follow_state() << 27);
+            sig = sig * 33U + song_select + (song_row_page << 8) + (song_storage_state() << 12) + (track << 20) + (song_follow_state() << 27);   /* tabby-v1.2: without the pads' blink phase: nothing on the screen blinks, and it repainted the page on every eighth note */
             sig = sig * 33U + clip_bank + ((unsigned)clip_select[track] << 3) + (track_muted(track) << 12) + ((unsigned)rec_lamp << 13);
             for (unsigned t = 0; t < 8; ++t) sig = sig * 33U + mute_kind(t);   /* Task 16: the follow state */
             sig = sig * 33U + song_unsaved() + (song_scene_hold() << 1) + (song_scene_reserved() << 2);
@@ -1068,7 +1073,12 @@ static __attribute__((noinline)) void edit_page_draw(unsigned visible)
             for (unsigned i = 0; i < 2; ++i) sig = sig * 33U + groove_midi_setting(track, i);
         }
         if (cache->middle_cache == sig) {
-            if (visible == CLIP_STEPS && cache->hold_step != running) { cache->hold_step = running; paint_mark(0, 95, 240, 39); }
+            if (cache->hold_step != running) {
+                cache->hold_step = running;
+                if (visible == CLIP_STEPS) paint_mark(0, 95, 240, 39);
+                else if (visible == TRACK_LAUNCH) paint_mark(180, 39, 48, 14);
+                else if (visible == SONG) paint_mark(134, 126, 12, 14);
+            }
             return;
         }
         cache->middle_cache = sig; cache->hold_step = running;
@@ -1589,6 +1599,7 @@ struct shot_store { uint16_t color[SHOT_COLORS]; uint8_t colors, pad; uint8_t ni
 static struct shot_store *shot[PAINT_BANDS];
 static uint8_t shot_state, shot_info[SHOT_INFO], shot_frozen_info[SHOT_INFO];
 static uint16_t shot_errors;
+static unsigned cpu_guard_shown(void);
 static void shot_free(void)
 {
     for (unsigned b = 0; b < PAINT_BANDS; ++b) { free(shot[b]); shot[b] = NULL; }
@@ -1630,7 +1641,7 @@ static void shot_note(unsigned visible)
     o[0] = (uint8_t)visible; o[1] = st.playing; o[2] = st.playing ? st.row : 255; o[3] = st.playing ? st.repeat : 0; o[4] = st.playing ? st.step : 0;
     o[5] = (uint8_t)(st.playing ? st.bar : 0); o[6] = (uint8_t)(st.playing ? st.bar >> 8 : 0); o[7] = ei.active ? ei.play_step : 255;
     o[8] = st.queued; o[9] = st.count_in; o[10] = ei.recording; o[11] = (uint8_t)h; o[12] = (uint8_t)(h >> 8); o[13] = st.song; o[14] = (uint8_t)track;
-    o[15] = (uint8_t)((notice ? 1U : 0U) | (groove_project_dirty() ? 2U : 0U) | (song_unsaved() ? 4U : 0U));
+    o[15] = (uint8_t)((notice ? 1U : 0U) | (groove_project_dirty() ? 2U : 0U) | (song_unsaved() ? 4U : 0U) | (cpu_guard_shown() ? 8U : 0U));
 }
 int ct_screen_shot(unsigned what, unsigned offset, uint8_t *out)
 {
@@ -1666,6 +1677,9 @@ int ct_screen_shot(unsigned what, unsigned offset, uint8_t *out)
         const struct shot_store *st = shot[offset];
         for (unsigned i = 0; i < st->colors; ++i) { out[2 * i] = (uint8_t)st->color[i]; out[2 * i + 1] = (uint8_t)(st->color[i] >> 8); }
         return 2 * st->colors;
+    } else if (what == 9) {                            /* the eight tracks' levels: the device's own project; the simulator is given the same before its pictures are compared */
+        for (unsigned t = 0; t < 8; ++t) { struct groove_view v; groove_get_view(t, cursor, &v); out[t] = v.volume; }
+        return 8;
     } else if (what == 8) {                            /* how large a single block the heap gives now, in units of 256 bytes (tried from 64 KB down; nothing is kept) */
         unsigned got = 0;
         for (unsigned size = 65536U; size >= 1024U && !got; size -= size > 8192U ? 4096U : 1024U) { void *p = malloc(size); if (p) { free(p); got = size; } }
@@ -2839,7 +2853,11 @@ static void groove_screen_control_body(void)
         } else if (groove_midi_dropped() != health_output) {
             announce("MIDI OUT FULL - NOTES RESET", now + 2500U);
         } else if (adapted > health_adapted) {
-            announce("CPU GUARD - VOICES ADAPTED", now + 2500U);
+            /* tabby-v1.2: no message box. With eight parts on the internal sounds the guard takes voices back about
+             * once a second for as long as the song plays (125 times in every 125 s of every Wrong Room soak since
+             * tabby-v1.0): the box stood for the whole song, over the top line (seen in the device's own screen
+             * pictures). It is the guard doing its work, with nothing lost: CPU! in the top line while it does. */
+            cpu_guard_until = now + 2000U;
         }
         health_output = groove_midi_dropped();
         health_adapted = adapted;
@@ -2918,11 +2936,6 @@ void groove_screen_mmc(unsigned command)
 unsigned smk37_screen_track(void) { return track; }
 /* Task 06 (c): the pads' flash phase: eighth notes of the master clock while the song plays,
  * 4 Hz otherwise. */
-static unsigned launch_phase(void)
-{
-    struct song_status st; song_status_read(&st);
-    return st.playing ? (st.bar_step >> 1) & 1U : (fm1_millis() / 250U) & 1U;
-}
 /* Task 17 Goal 4: the state of pad `pad` on the CLIPS page for the selected track (docs/CONTROL-MAP.md 4.2):
  * 0 empty, 1 stopped, 2 playing, 3 queued (launch), 4 the playing clip with a stop queued; + 8 selected, + 16 the
  * track is muted (sound and song notes), + 32 its internal sound alone is muted. On the SCENES page: 0 no such scene, 1 a scene, 2 the scene that plays, 3 the queued scene. */

@@ -1,6 +1,10 @@
 {
   "comment": "The note line of a published build: shown in builds/index.json, builds/index.html and (when the page already has a note banner) at the top of builds/<tag>/. tools/linux/builds-index.py applies it on every index rewrite. Changing a note line is the only change allowed to a published builds/ page (SPEC 17.11).",
   "notes": {
+    "tabby-v1.2-rc3": {
+      "text": "Not promoted: one line of MIDI timing measured 2.3 to 2.5 ms on CLIPS and SCENES (the limit is under 2.0 ms): a change in this candidate moved the pages' repaints onto the eighth notes. It also shows the message CPU GUARD - VOICES ADAPTED over the page for as long as a song with many internal parts plays. tabby-v1.2 has both fixed.",
+      "link": "tabby-v1.2"
+    },
     "tabby-v1.2-rc2": {
       "text": "Not promoted: one line of MIDI timing measured 2.01 and 2.03 ms on two of eight pages (the limit is under 2.0 ms), and its screen copy showed that CLIPS and SCENES were being repainted on every 16th note while a song played. tabby-v1.2 has the fix.",
       "link": "tabby-v1.2"

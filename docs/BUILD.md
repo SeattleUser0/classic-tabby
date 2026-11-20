@@ -6672,3 +6672,27 @@ code's place in flash. NOT EXPLAINED. What was changed is not a patch for that b
 should never have done (the repaint on every step, where a band stands in the way of every note) and a guard that
 counts each band's own time. Whether that restores the margin is measured on candidate 3, with more runs than the
 release run makes, before anything is promoted.
+
+### 65.3 tabby-v1.2-rc3: not promoted; my fix had made it worse; what the device's pictures showed (2026-11-20)
+
+Commit 680035c, build `0efbf132803217a8`, installed after a full backup. Failed: timing-pages and screen.
+
+- **One line on CLIPS 2.31 / 2.54 ms, on SCENES 2.46 / 2.43; eight lines on SCENES 4.50 / 4.16** (DIN / USB), and this
+  time the device's own figure agrees: latest send 2.09 and 2.10 ms after the due time (1.66 to 1.87 before), 4.14
+  with eight lines (3.48). The counters say why: still 52 bands a second on CLIPS. The signature also held the pads'
+  blink phase, which flips on every eighth note; with the per-step repaint gone, the page was now repainted exactly
+  at the eighth notes, where notes are due, instead of all the time. I had removed one cause and left the other,
+  and had not read the signature to its end. Fixed: the phase is out (nothing on the screen blinks), and the bar
+  count marks only its digits. Static pages on this build (mixer: 3 bands in 125 s): the device's latest send 1.44 ms.
+- **screen**, run again by hand on this build: 44 pictures read in 241 s. At rest 20 of 22 identical at once; the two
+  STEP pictures differed in 116 pixels: the name of the last played note (F3 on the device, played by the tests;
+  C4 in the simulator). Left out by name. HOME showed track 1 at level 88 where the simulator had 100: the device's
+  own project; the levels are now read (request 9) and given to the simulator instead of being left out. With
+  both: 22 of 22 at rest identical.
+- **Every picture taken while playing carried a message: CPU GUARD - VOICES ADAPTED**, three lines over the top of the
+  page. Not the copy's doing: every Wrong Room soak segment since tabby-v1.0 reports "CPU GUARD adapted +125" in 125
+  seconds. The guard takes voices back once a second while eight parts play on the internal sounds, and each time
+  the message was announced for 2.5 s: it stood for the whole song, in tabby-v1.0.2 as one small line at the
+  bottom, in tabby-v1.1 as an amber box over the pads' cells, in this candidate over the top line. No test of mine
+  looked at the screen while a song played; the simulator has no CPU limit. Changed to a mark in the top line
+  (SPEC 19.31). This is the first thing the device's own pixels found that nothing else could have.

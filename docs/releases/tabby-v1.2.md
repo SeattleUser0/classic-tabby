@@ -2,8 +2,8 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
 
 # Classic Tabby tabby-v1.2: messages at the top; the screen proven on the device
 
-- Firmware package build ID: `0efbf132803217a8` (first 16 hex digits). App image 488356 bytes (measured), margin 31101 bytes
-  below the 519457-byte limit (docs/FLASH-BUDGET.md 51). From tabby-v1.1 (`f0bd5047ca742907`): +1632 bytes. At least
+- Firmware package build ID: `ef44c2c896f57b5e` (first 16 hex digits). App image 488484 bytes (measured), margin 30973 bytes
+  below the 519457-byte limit (docs/FLASH-BUDGET.md 51). From tabby-v1.1 (`f0bd5047ca742907`): +1760 bytes. At least
   15360 bytes stay free for fixes. Free RAM 143244 bytes (192 fewer).
 - Installing over tabby-v04.2 to tabby-v1.1 keeps storage as it is. Take a Full backup first anyway.
 - **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
@@ -11,12 +11,14 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
   A clip is refused (its track is silent) by firmware that does not know one of its settings: TRANSPOSE before
   tabby-v04.15, SHUFFLE and PLAY QUANTIZE before tabby-v04.17, STEP SIZE before tabby-v04.19, DIRECTION before
   tabby-v04.20. A song with EVENT LEAD set plays on older firmware, without the lead.
-- Released through the candidate flow, as candidate 4. Candidate 1 was held back: its screen copy asked the device
+- Released through the candidate flow, as candidate 5. Candidate 1 was held back: its screen copy asked the device
   for one block of 57600 bytes and the device's heap refused. Candidate 2 (a smaller copy) was held back: one line
   measured 2.01 and 2.03 ms on two of eight pages, and its screen copy showed why the device never finished a
-  picture while a song played (below). Candidate 3 has the fix, was installed and tested and made the device's
-  screen pictures. Candidate 4 is the same firmware as candidate 3 with those pictures in the manual, tested again
-  in full, and promoted. docs/BUILD.md 65.1 to 65.3.
+  picture while a song played (below). Candidate 3 (no more repaint on every step) was held back: the pages were still
+  repainted on every eighth note, now exactly on the notes, and one line measured 2.3 to 2.5 ms on CLIPS and
+  SCENES. Candidate 4 has the fix for that and for the standing CPU GUARD box, was installed and tested and made
+  the device's screen pictures. Candidate 5 is the same firmware as candidate 4 with those pictures in the manual,
+  tested again in full, and promoted. docs/BUILD.md 65.1 to 65.4.
 
 ## What changed
 
@@ -28,8 +30,13 @@ Messages moved to the top of the screen, so they never cover the pads' cells. Th
   copy: the page's own "did anything change" test included the step counter, so the whole page (15 bands) was
   repainted eight times a second, more than the painter manages beside the MIDI sends (84 bands a second): a
   picture was never finished, and every note had a band in its way. It has been so since these pages exist. Now a
-  page is repainted when something it shows changes (the bar, the scene, a launch, a queue); on STEP only the rows
-  of the step cells follow the running step.
+  page is repainted when something it shows changes (the scene, a launch, a queue); the bar count repaints only its
+  own digits; on STEP only the rows of the step cells follow the running step. The pads' blink phase, which
+  repainted the page on every eighth note without anything on the screen blinking, is out of that test too.
+- **CPU GUARD - VOICES ADAPTED is no longer a message box.** Seen in the device's own pictures: with eight parts on
+  the internal sounds the guard takes voices back about once a second, and its message stood over the page for the
+  whole song (every Wrong Room soak since tabby-v1.0 counted 125 of them in 125 seconds; nobody was looking at the
+  screen). It is `CPU!` in amber in the top line while it happens. AUDIO OVERLOAD and MIDI FULL stay message boxes.
 - The wait before a due MIDI note counts the band's own last painting time, not only that of the band before it
   (large text makes bands differ more: 0.6 to 2.5 ms).
 - Kept as they were, by your answers: MASTER MUTED small in the top line (`K8=0`); no pattern cells and no knob strip

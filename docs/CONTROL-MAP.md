@@ -720,7 +720,7 @@ almost everything was drawn with the 5x7 font at scale 1 (5 x 7 pixels a charact
 | Tempo | 3 | `120`; `---` while an outside clock is awaited. |
 | State | 3 | `PLAY` green, `STOP` grey, `PAUS` amber, `REC` amber (a take runs), `ARMD` amber (record armed), `CNT4` amber (count-in, quarter notes left), `WAIT` / `LOST` amber (outside clock). It follows the song when a song plays, else the pattern sequencer. |
 | Selected track | 3 | `T1` to `T8` in the track's colour. |
-| ARP | 2 | Shown while the selected track's arpeggiator is on. `K8=0` in amber takes its place while the master volume (K8) is at zero: no sound at all. It is here and not a box, because a rig that plays outside gear only may leave K8 down. |
+| ARP | 2 | Shown while the selected track's arpeggiator is on. `K8=0` in amber takes its place while the master volume (K8) is at zero: no sound at all. It is here and not a box, because a rig that plays outside gear only may leave K8 down. `CPU!` in amber (tabby-v1.2) while the CPU guard takes voices back (the last two seconds): with many parts on the internal sounds it does so about once a second for a whole song, and its message (CPU GUARD - VOICES ADAPTED) stood over the page all that time; nothing is lost when it works, so it is a mark and not a box. |
 | Unsaved | 2 | Amber: `*SNG` a clip or the song waits for a save, `*PRJ` the project does, `*S+P` both. |
 
 Gone from here: the pattern's step counter and its four page marks, the word LIVE, the word BPM.
@@ -917,8 +917,11 @@ no command can return what the glass shows. The nearest proof, built in tabby-v1
   brings it to the same place in the song (bar, step, queued and launched clips, recording, message) and compares
   every pixel. It is a step of every release run (rc-validate.py: screen).
 - Left out of the comparison, each named in the result: the eight level meters and MIDI-in marks on HOME (they follow
-  the audio), FREE / RECL on ACTIONS and the stored project's name on PRESETS and SAVE PROJECT (the device holds the
-  user's data; the simulator starts empty).
+  the audio), FREE / RECL on ACTIONS and the stored project's name on PRESETS (the device holds the user's data; the
+  simulator starts empty), the name of the last played note on STEP (the tests before played the keys), and in the
+  top line the unsaved-project mark and CPU! where device and simulator differ in them (the device's project may
+  wait for a save from before; the simulator has no CPU limit). The device's eight track levels are read and given
+  to the simulator, so levels are compared.
 - Not taken on the device: SAVE PROJECT and the message STOP TO SAVE. Both need the > button, and the device refuses
   a remote press of it by design (nothing is written to flash by a remote key). The simulator alone takes these
   two, and the manual says so under them.

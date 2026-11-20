@@ -459,7 +459,7 @@ main{max-width:1440px}
 <p>In the browser simulator the Song mode shortcut on the Play &amp; edit tab opens the same page.</p>
 <h4>Every line on the SONG page</h4>
 <div class="manual-table"><table><thead><tr><th scope="col">Line</th><th scope="col">Meaning</th></tr></thead><tbody>
-<tr><td>Top line</td><td>On every page, large: the tempo, PLAY / STOP / PAUS / REC / ARMD (record armed) / CNT4 (count-in), and the selected track. Small, on the right: ARP, K8=0 while the master volume is at zero, and in amber *SNG (a clip or the song waits for a save), *PRJ (the project does) or *S+P.</td></tr>
+<tr><td>Top line</td><td>On every page, large: the tempo, PLAY / STOP / PAUS / REC / ARMD (record armed) / CNT4 (count-in), and the selected track. Small, on the right: ARP, K8=0 while the master volume is at zero, CPU! while the CPU guard takes voices back (from tabby-v1.2 this is a mark, not a message), and in amber *SNG (a clip or the song waits for a save), *PRJ (the project does) or *S+P.</td></tr>
 <tr><td>SONG n</td><td>Large: the selected song slot. Under it its name and, when the song sets its own tempo, BPM n.</td></tr>
 <tr><td>OLD DATA</td><td>Large, in amber: song storage is blocked by V01 data. Erase it from ACTIONS. Also possible: STORAGE ERROR, COMPACTING, SCANNING.</td></tr>
 <tr><td>SCENE r / total</td><td>Large: the scene (row) playing and the number of scenes in the song.</td></tr>

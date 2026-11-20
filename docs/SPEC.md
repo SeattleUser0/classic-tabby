@@ -2226,3 +2226,8 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   clip line show of the song (which had ridden on that repaint). On STEP the running step is kept out of the
   signature and marks only rows 95 to 133. `band_cost[]` keeps each band's last painting time; the guard before a
   due MIDI event (19.x, Task 17 F + G) uses the larger of it and the last band's.
+- After tabby-v1.2-rc3 (BUILD 65.3): the pads' blink phase left the signature too (it repainted the pages on every
+  eighth note; nothing on the screen blinks); the bar count and the bar in the scene are kept out of it and mark
+  only their own digits. The CPU guard no longer announces: `cpu_guard_until` shows `CPU!` in the top line for two
+  seconds after it adapted (17.19's reasoning for K8=0 applied: a standing box is in the way). Request 9 of the
+  screen copy returns the eight track levels; the copy's status byte 15 also says whether CPU! is shown.

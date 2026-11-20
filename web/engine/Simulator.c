@@ -404,6 +404,13 @@ extern int ct_screen_shot(unsigned what, unsigned offset, uint8_t *out);
 static uint8_t shot_reply[64];
 EXPORT("sim_shot") int sim_shot(unsigned what, unsigned offset) { return ct_screen_shot(what, offset, shot_reply); }
 EXPORT("sim_shot_buffer") const uint8_t *sim_shot_buffer(void) { return shot_reply; }
+/* the device's own track levels, given to the simulator before its pictures are compared (tools/linux/screens.mjs --match) */
+EXPORT("sim_track_level") unsigned sim_track_level(unsigned t, unsigned level)
+{
+    struct groove_view v;
+    for (unsigned n = 0; n < 130; ++n) { groove_get_view(t, 0, &v); if (v.volume == level) break; groove_control_edit(t, 0, level > v.volume ? 1 : -1, 0); }
+    return v.volume;
+}
 EXPORT("sim_song_status") uint32_t sim_song_status(unsigned word)
 {
     struct song_status st; song_status_read(&st);

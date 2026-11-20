@@ -123,9 +123,12 @@ const position = i => [i[5] | i[6] << 8, i[4]];
 step(1560);
 if (!shot(1)) fail('the simulator could not switch the screen copy on');
 step(40);
-/* The device's project may wait for a save (*PRJ in the top line) from before the tour; the tour itself does not touch
- * the project, so the simulator is given the same mark here. */
-if (device) { const first = device.log.find(e => e.op === 'shot'); if (first && (first.info[15] & 2) && !(status().info[15] & 2)) { c.sim_smk37(4, 0, 1); step(8); c.sim_smk37(4, 0, -1); step(900); } }
+/* The device's project may wait for a save from before the tour (*PRJ in the top line); the simulator's does not, and
+ * the tour does not touch the project. That mark is the device's own data, like the stored names: where the two
+ * differ in it, the mark's place is left out of the comparison and the result says so. */
+/* The same for CPU! in the top line (the device's CPU guard took voices back; the simulator has no such limit). */
+const sameShown = (a, b) => a.length === b.length && a.every((v, i) => i === 15 ? (v & ~10) === (b[i] & ~10) : v === b[i]);
+if (device && device.levels) for (let t = 0; t < 8; t++) if (c.sim_track_level(t, device.levels[t]) !== device.levels[t]) fail('the simulator could not be given the device\'s level of track ' + (t + 1));
 const results = {}, hashes = {}, names = [];
 let logAt = 0;
 let simOnly = false;
@@ -154,19 +157,25 @@ for (const s of tour.steps.concat([['simulator_only']], tour.simulator_only || [
       if (n > 60000) fail('the simulator never reached ' + (t ? 'bar ' + position(t.info)[0] + ' step ' + position(t.info)[1] : 'a bar ' + b + ' of ' + a));
       step(1); }
   } else if (op === 'shot') {
-    const opt = s[2] || {}, t = next('shot', a), masks = typeof opt.masks === 'string' ? tour.masks[opt.masks] : opt.masks || [];
+    const opt = s[2] || {}, t = next('shot', a); let masks = typeof opt.masks === 'string' ? tour.masks[opt.masks] : opt.masks || [];
     let got = null;
     for (let n = 0; n < 60000 && !got; n++) {
       const now = status();
-      if (!t || same(now.info, t.info)) {
+      if (!t || sameShown(now.info, t.info)) {
         c.sim_shot(opt.now ? 6 : 2, 0);
         for (let k = 0; k < 80 && status().state !== 3; k++) step(1);
         const f = status();
-        if (f.state === 3 && (!t || same(f.info, t.info))) got = f; else { c.sim_shot(f.state === 3 ? 1 : 7, 0); }
+        if (f.state === 3 && (!t || sameShown(f.info, t.info))) got = f; else { c.sim_shot(f.state === 3 ? 1 : 7, 0); }
       }
       if (!got) step(1);
     }
-    if (!got) fail(a + ': the simulator never showed the state of the device\'s picture ' + JSON.stringify(t && t.info) + ' (it is at ' + JSON.stringify(status().info) + ')');
+    if (!got && device) {   /* the pictures so far are still reported; the rest of the tour cannot be followed from here */
+      names.push(a); results[a] = { differ: -1, compared: 0, masked: 0, masks: [], playing: t.info[1] !== 0, info: t.info, error: 'the simulator never showed the state of the device\'s picture ' + JSON.stringify(t.info) + ' (it is at ' + JSON.stringify(status().info) + ')' };
+      break;
+    }
+    if (!got) fail(a + ': the simulator never reached a whole picture');
+    if (t && ((t.info[15] ^ got.info[15]) & 8)) masks = masks.concat([[188, 0, 52, 15, 'CPU! in the top line: the device\'s CPU guard was at work']]);
+    if (t && ((t.info[15] ^ got.info[15]) & 2)) masks = masks.concat([[188, 15, 52, 15, 'the unsaved mark: the device\'s project waited for a save before the tour']]);
     const { frame, unpainted } = readCopy();
     const real = new Uint16Array(c.memory.buffer, c.sim_pixels(), W * H);
     let off = 0; for (let i = 0; i < W * H; i++) off += frame[i] !== real[i];
@@ -199,7 +208,7 @@ if (pretend) {
   const devs = names.filter(n => !results[n].simulator_only);
   writeFileSync(join(out, 'screen-compare.json'), JSON.stringify({ tool: 'tools/linux/screens.mjs v0.3', tour: tour.version, build: device.build, pictures: devs.length,
     at_rest: devs.filter(n => !results[n].playing).length, playing: devs.filter(n => results[n].playing).length, identical: devs.length - bad.length, simulator_only: [...only], heap: device.largest_heap_block_with_the_copy_on, pages: results }, null, 1) + '\n');
-  for (const n of devs) { const r = results[n]; console.log((bad.includes(n) ? 'FAIL ' : 'ok   ') + n + ': ' + r.differ + ' of ' + r.compared + ' pixels differ' + (r.masked ? ' (' + r.masked + ' left out: ' + [...new Set(r.masks.map(m => m.replace(/ of track \d| \d$/, '')))].join('; ') + ')' : '') + (r.playing ? ', playing' : '')); }
+  for (const n of devs) { const r = results[n]; if (r.error) { console.log('FAIL ' + n + ': ' + r.error + '; the pictures after it were not compared'); continue; } console.log((bad.includes(n) ? 'FAIL ' : 'ok   ') + n + ': ' + r.differ + ' of ' + r.compared + ' pixels differ' + (r.masked ? ' (' + r.masked + ' left out: ' + [...new Set(r.masks.map(m => m.replace(/ of track \d| \d$/, '')))].join('; ') + ')' : '') + (r.playing ? ', playing' : '')); }
   console.log((bad.length ? 'FAIL ' : 'PASS ') + 'screen: ' + (devs.length - bad.length) + ' of ' + devs.length + ' pictures of the device are pixel for pixel the simulator\'s (' + devs.filter(n => results[n].playing).length + ' while playing); not taken on the device: ' + [...only].join(', '));
   process.exit(bad.length ? 1 : 0);
 } else if (mode === 'check') {

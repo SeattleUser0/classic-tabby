@@ -185,7 +185,7 @@ The pictures in this guide are the device's own: the pixels the firmware handed 
 
 Pictures: home clips-playing scenes-playing | The overview, CLIPS and SCENES. The top line is the same on every page.
 
-The top line, in large letters: the tempo; PLAY (green), STOP, PAUS, REC (red, a take runs), ARMD (record is armed), CNT4 (the count-in, quarter notes left), LOST (the outside clock stopped coming); and the selected track, T1 to T8, in its colour. Small, on the right: ARP while the track's arpeggiator is on, K8=0 in amber while the master volume is at zero, and in amber *SNG (a clip or the song waits for a save), *PRJ (the project does) or *S+P (both).
+The top line, in large letters: the tempo; PLAY (green), STOP, PAUS, REC (red, a take runs), ARMD (record is armed), CNT4 (the count-in, quarter notes left), LOST (the outside clock stopped coming); and the selected track, T1 to T8, in its colour. Small, on the right: ARP while the track's arpeggiator is on, K8=0 in amber while the master volume is at zero, CPU! in amber while the SMK-37 is taking voices back to keep the sound clean (many parts on its own sounds at once; nothing is lost on MIDI out), and in amber *SNG (a clip or the song waits for a save), *PRJ (the project does) or *S+P (both).
 
 Pictures: clips-message knob-bank knob-bank-track | A message, the KNOB BANK list, and a message with the list still readable under it.
 
