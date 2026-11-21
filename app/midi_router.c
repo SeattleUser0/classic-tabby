@@ -434,6 +434,65 @@ int ct_fg_read(uint8_t *out)
     return 56;
 }
 static volatile uint8_t fg_reset_request;
+/* tabby-v1.3 (the user's request of 2026-11-21): the worst lateness with what the device was doing then. The F + G
+ * page says how late the latest timed event left, not when or during what; 115.67 ms stood there once and nothing
+ * could say which run it was (BUILD 66.3, 66.8). Four records: since the counters' reset and since power-on, each for
+ * "the transport stopped" and "the transport running". Each: the lateness, the time, how many events left 4 ms or
+ * more late, and at that moment: the page, the last remote command and the last panel action with their age, the age
+ * of the last flash erase or write, the age of the last start or stop, the event itself.
+ * Command 25 request 12 reads the pair since the reset, 13 the pair since power-on (2 x 28 bytes each). */
+struct late_rec {
+    uint32_t late, at, count;
+    uint8_t flags, page, cmd, op; uint16_t cmd_ms;
+    uint8_t kind, id; uint16_t panel_ms, flash_ms;
+    uint8_t status, lane; uint16_t transport_ms;
+};
+static struct late_rec late_rec[2][2];
+static struct { uint32_t remote_at, panel_at, flash_at, transport_at; uint8_t cmd, op, kind, id, running, any; } late_ctx;
+void ct_late_remote(unsigned cmd, unsigned op) { late_ctx.cmd = (uint8_t)cmd; late_ctx.op = (uint8_t)op; late_ctx.remote_at = fm1_millis(); late_ctx.any |= 1; }
+void ct_late_panel(unsigned kind, unsigned id) { late_ctx.kind = (uint8_t)kind; late_ctx.id = (uint8_t)id; late_ctx.panel_at = fm1_millis(); late_ctx.any |= 2; }
+void ct_late_flash(void) { late_ctx.flash_at = fm1_millis(); late_ctx.any |= 4; }
+extern unsigned ct_transport_running(void);
+extern unsigned ct_screen_page_now(void);
+static uint16_t late_age(uint32_t now, uint32_t at, unsigned have)
+{
+    uint32_t d = now - at;
+    return have && d < 0xffffU ? (uint16_t)d : 0xffffU;
+}
+static void late_note(uint32_t late, unsigned lane, unsigned status)
+{
+    uint32_t now = fm1_millis();
+    unsigned running = ct_transport_running() ? 1U : 0U;
+    if (running != late_ctx.running) { late_ctx.running = (uint8_t)running; late_ctx.transport_at = now; late_ctx.any |= 8; }
+    for (unsigned k = 0; k < 2; ++k) {
+        struct late_rec *r = &late_rec[k][running];
+        if (late >= 96000U) ++r->count;
+        if (late <= r->late) continue;
+        r->late = late; r->at = now;
+        r->cmd = late_ctx.cmd; r->op = late_ctx.op; r->cmd_ms = late_age(now, late_ctx.remote_at, late_ctx.any & 1);
+        r->kind = late_ctx.kind; r->id = late_ctx.id; r->panel_ms = late_age(now, late_ctx.panel_at, late_ctx.any & 2);
+        r->flash_ms = late_age(now, late_ctx.flash_at, late_ctx.any & 4);
+        r->transport_ms = late_age(now, late_ctx.transport_at, late_ctx.any & 8);
+        r->page = (uint8_t)ct_screen_page_now(); r->status = (uint8_t)status; r->lane = (uint8_t)lane;
+        /* flags: 1 the transport runs, 2 a flash erase or write within 250 ms, 4 a remote command other than the
+         * diagnostics (25) and the remote keys (29) within 250 ms: a transfer, 8 a flash operation runs now */
+        r->flags = (uint8_t)(running | (r->flash_ms < 250U ? 2U : 0U)
+                             | (r->cmd_ms < 250U && r->cmd != 25 && r->cmd != 29 ? 4U : 0U) | (ct_flash_busy ? 8U : 0U));
+    }
+}
+int ct_late_read(unsigned boot, uint8_t *out)
+{
+    for (unsigned s = 0; s < 2; ++s) {
+        const struct late_rec *r = &late_rec[boot ? 1 : 0][s]; uint8_t *o = out + 28U * s;
+        uint32_t w[3] = { r->late, r->at, r->count };
+        for (unsigned i = 0; i < 3; ++i) for (unsigned b = 0; b < 4; ++b) o[i * 4 + b] = (uint8_t)(w[i] >> (8U * b));
+        o[12] = r->flags; o[13] = r->page; o[14] = r->cmd; o[15] = r->op; o[16] = (uint8_t)r->cmd_ms; o[17] = (uint8_t)(r->cmd_ms >> 8);
+        o[18] = r->kind; o[19] = r->id; o[20] = (uint8_t)r->panel_ms; o[21] = (uint8_t)(r->panel_ms >> 8);
+        o[22] = (uint8_t)r->flash_ms; o[23] = (uint8_t)(r->flash_ms >> 8); o[24] = r->status; o[25] = r->lane;
+        o[26] = (uint8_t)r->transport_ms; o[27] = (uint8_t)(r->transport_ms >> 8);
+    }
+    return 56;
+}
 /* Control task (the screen painter, before it starts a band): 1 when an event in lane 0 or 1 is due within
  * `ticks` from now, while F + G is live. A band takes 2 to 6 ms and cannot be interrupted; one that would
  * run over a due time waits for the pass after the event (app/screen.c paint_flush). */
@@ -711,7 +770,7 @@ static void midi_poll_body(void)
     /* Round robin: a dense chord on one owner cannot starve the other's gates
      * or source-routed Thru. Maximum work per control iteration is fixed. */
 #ifdef CT_A2
-    if (fg_reset_request) { fg_reset_request = 0; fg.sent = fg.late_max = 0; fg.ticks = 0; memset(fg.late, 0, sizeof fg.late); }
+    if (fg_reset_request) { fg_reset_request = 0; fg.sent = fg.late_max = 0; fg.ticks = 0; memset(fg.late, 0, sizeof fg.late); memset(late_rec[0], 0, sizeof late_rec[0]); }
 #endif
     batching = 1;   /* Task 17: what this drain sends to a port leaves in one call (see ct_midi_send_port) */
     for (unsigned work = 0; work < QUEUE; ++work) {
@@ -729,6 +788,8 @@ static void midi_poll_body(void)
                 if (fg_live) {
                     uint32_t late = wait < 0 ? (uint32_t)-wait : 0;
                     ++fg.sent; if (late > fg.late_max) fg.late_max = late;
+                    if (late >= 96000U || late > late_rec[0][0].late || late > late_rec[0][1].late || late > late_rec[1][0].late || late > late_rec[1][1].late)
+                        late_note(late, i, q->data[r & (QUEUE - 1)] & 255U);
                     ++fg.late[late < 6000U ? 0 : late < 12000U ? 1 : late < 24000U ? 2 : late < 48000U ? 3 : late < 96000U ? 4 : 5];
                 }
             }

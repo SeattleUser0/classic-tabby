@@ -165,6 +165,12 @@ extern volatile uint8_t ct_flash_busy;   /* nonzero while an app flash erase or 
 /* Task 17 (F + G, app/midi_router.c): command 25 request 10 reads the page (56 bytes); ct_fg_tick is the
  * TIMER5 interrupt's body (the host tests call it; ct_fg_test starts F + G there). */
 int ct_fg_read(uint8_t *out);
+/* tabby-v1.3: the worst lateness with its circumstances (app/midi_router.c): command 25 request 12 (since the reset of
+ * the counters) and 13 (since power-on), 56 bytes each; the three notes are called where the thing happens. */
+int ct_late_read(unsigned boot, uint8_t *out);
+void ct_late_remote(unsigned cmd, unsigned op);
+void ct_late_panel(unsigned kind, unsigned id);   /* kind: 1 button, 2 pad, 3 key of the keyboard, 4 knob */
+void ct_late_flash(void);
 void ct_fg_tick(void);
 unsigned ct_midi_due_within(uint32_t ticks);   /* an event is due within `ticks` (F + G live): the painter waits */
 #ifdef FM1_HOST_TEST

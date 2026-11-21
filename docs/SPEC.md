@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.68
+Version: 0.69
 Revision log:
+- v0.69, 2026-11-21: 17.21 the user's answers of 2026-11-21; 19.34 tabby-v1.3 (the worst-lateness record; eight unsaved clips).
 - v0.68, 2026-11-20: 17.20 the user's answers of 2026-11-20; 19.33 tabby-v1.2.1.
 - v0.67, 2026-11-20: 19.32 the start race of song_poll (tabby-v1.2).
 - v0.66, 2026-11-19: 17.19 the user's answers of 2026-11-19 (evening) and the order to prove the screen on the device; 19.31 tabby-v1.2.
@@ -1537,6 +1538,21 @@ every message as the firmware does and fails on a fourth line or a word over 13 
   capture, and its limit is derived from what the design guarantees, not from the largest value seen so far.
 - Then the next item of the report's own list, inside the hard limits.
 
+### 17.21 The user's answers of 2026-11-21
+
+1. The song soak does not wait for the user: this computer is searched for MIDI files of theirs, the densest is
+   imported and soaked; with none, the item is dropped. Found: the four Renoise exports in tests/fixtures/ (BUILD
+   14.4); the densest is meridian_fault.mid. It is a step of the release run (rc-validate `soak-song`).
+2. The 115.67 ms reading must be caught: "I'd hear that on stage". The firmware keeps its own worst-lateness record
+   in RAM with what it was doing (playing or stopped, page, last remote command or panel action, transfer or save in
+   progress); it is read with the diagnostics, after every test and at the end of every soak. A reading that only
+   happens while stopped or during a transfer is not a stage problem and is said so; one while playing is found
+   before anything else. Built: 19.34.
+3. Then the MC-707 workflow: the biggest gap for playing live, by judgment. Both things the user named (step editing
+   on the pads, real-time recording) were built in tabby-v04.8 and v04.9. The largest gap left inside them: only one
+   clip could be unsaved, and nothing is saved while a song plays, so a set that plays on allowed one take or one
+   edited clip. Built: eight unsaved clips (19.34).
+
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
 - **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
@@ -2286,3 +2302,42 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   (240 ms). Before, only "no band at all was sent for CT_PASS_STARVE_MS" ended it, and short bands that kept going
   through held a long band back for as long as events were due at every pass (with A2 a pass is asked for just
   before an event: always).
+
+### 19.34 tabby-v1.3 (2026-11-21): the worst-lateness record; eight unsaved clips
+
+**The record** (app/midi_router.c, `late_rec`, `late_note`). The control pass that sends a timed event knows how late
+it is (the F + G page's "latest send"). Now, when a send is the latest of its kind or 4 ms or more late, the
+circumstances are kept: four records, [since the counters' reset, since power-on] x [the transport stopped, running]
+(`ct_transport_running()`), 28 bytes each:
+
+| Bytes | Content |
+| --- | --- |
+| 0..3 | the lateness, ticks of 1/24000 ms |
+| 4..7 | when: milliseconds since power-on |
+| 8..11 | how many sends were 4 ms or more late |
+| 12 | flags: 1 running, 2 a flash erase or write ended within 250 ms, 4 a remote command other than 25 and 29 within 250 ms (a transfer), 8 a flash operation runs now |
+| 13 | the page |
+| 14, 15 | the last remote command and its first data byte |
+| 16, 17 | its age in ms (65535: never, or longer) |
+| 18, 19 | the last panel action: 1 button, 2 pad, 3 key, 4 knob; which one |
+| 20, 21 | its age |
+| 22, 23 | the age of the last flash erase or write (through ct_diag_flash_*) |
+| 24, 25 | the event's status byte; its lane |
+| 26, 27 | the age of the last start or stop of the transport |
+
+Command 25 request 12 reads the pair since the reset (request 1 resets it with the other counters), request 13 the
+pair since power-on (never reset). Fed by `ct_late_remote` (app/transfer.c, every command), `ct_late_panel`
+(app/screen.c), `ct_late_flash` (app/diag.c). Tools: `tabby_link.worst()`, panel-state.py v0.4 after every test,
+rc-validate v0.21 step `lateness`: to SEE: since power-on nothing left 10 ms or more late while the transport ran
+(a send waits at most for one screen band, up to 6 ms, and a control pass); a late send while stopped is reported
+with its circumstances and not judged.
+
+**Eight unsaved clips** (app/song.c, `park`). The editor still holds one open clip with four undo levels. When
+another clip is opened, made, copied or recorded into while the open one is unsaved, the open one is copied to one
+of seven waiting places (3088 bytes each, no undo levels) instead of the refusal SONG_BUSY. `prepare` plays a
+waiting clip from its place as it plays the open one; `song_edit_open` on a waiting clip brings it back (the open
+unsaved one takes its place); `song_edit_save` writes the open clip and every waiting one, then the directory once;
+`song_load` saves and empties the places; `song_clip_delete` frees a deleted clip's place; the save by itself ten
+seconds after the stop counts waiting clips too. Refused as before: a ninth unsaved clip, and another clip while a
+take is armed or runs (the screen: 8 UNSAVED - STOP TO SAVE, END THE TAKE FIRST). `song_unsaved_clips()`.
+Not changed: nothing is written to flash while a song plays; unsaved clips are lost at power-off.

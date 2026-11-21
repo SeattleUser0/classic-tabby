@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.52
+Version: 0.53
 Revision log:
+- v0.53, 2026-11-21: section 53: tabby-v1.3 measured, 490308 bytes, margin 29149.
 - v0.52, 2026-11-20: section 52: tabby-v1.2.1 measured, 488676 bytes, margin 30781.
 - v0.51, 2026-11-20: section 51: tabby-v1.2 measured, 488548 bytes, margin 30909.
 - v0.50, 2026-11-19: section 50: tabby-v1.1 measured, 486724 bytes, margin 32733 (the readable screen: 4032 bytes smaller).
@@ -1434,3 +1435,14 @@ switches it off; a player's device never holds it.
 | tabby-v1.2.1: the play state in the message box, any press clears it; muted internal sounds are not played | 488676 | +128 | **30781** |
 
 RAM (runtime heap): 143180 bytes. Above the 15360-byte reserve: 15421 bytes.
+
+## 53. tabby-v1.3 (measured, 2026-11-21)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v1.2.1 | 488676 | | 30781 |
+| tabby-v1.3: eight unsaved clips; the worst-lateness record (command 25 requests 12, 13) | 490308 | +1632 | **29149** |
+
+RAM (runtime heap): 121388 bytes (-21792: seven waiting clips of 3088 bytes each, and the record). Above the
+15360-byte reserve: 13789 bytes.
+

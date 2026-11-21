@@ -17,9 +17,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/panel-state.py [--baseline JSON --restore-mutes]
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-21  Also read: the firmware's worst-lateness record (tabby-v1.3), since the reset and since power-on.
     v0.3  2026-11-20  Also read (and then reset): the device's own lateness counters as the test before left them.
     v0.2  2026-11-20  Also read: the selected track, the track the keys and the pads play, the page the device was left on.
                       --restore-track selects the baseline's track again, so every test of the release run starts from
@@ -46,6 +47,8 @@ def read(l):
         f = l.fg()
         if f:
             own = {"own_latest_ms": round(f["late_max_ms"], 2), "own_4ms_or_more": f["late_bins"][5], "own_sent": f["sent"]}
+            # v0.4 (tabby-v1.3): the firmware's worst-lateness record: since the counters' reset and since power-on
+            own["worst"] = l.worst(); own["worst_boot"] = l.worst(True)
     except Exception:
         pass
     l.release_all(); l.stop_song(); time.sleep(0.4)

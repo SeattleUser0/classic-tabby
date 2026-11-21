@@ -1842,6 +1842,25 @@ int main(void)
         CHECK(PG32(pg, 12) == 0 && sim_test_control_requests == asked && HAS(75), "F+G: with A2 off the note leaves with the next pass and the timer asks for nothing");
         groove_midi_song_note(0, 75, 0); settle(); (void)drain(m, 64);
         (void)ct_diag_read(9, a2);
+        /* tabby-v1.3: the worst lateness with what the device was doing (command 25 requests 12 and 13). */
+        { uint8_t lr[64], lb[64];
+          void ct_late_remote(unsigned cmd, unsigned op); void ct_late_panel(unsigned kind, unsigned id);
+          ct_fg_tick(); tb = ct_diag_ticks(); (void)sim_render(); (void)ct_diag_read(10, pg); len = PG32(pg, 10);
+          SET_NOW(tb + len + PERIOD); sim_test_pass(); (void)drain(m, 64);
+          ct_late_remote(29, 2); ct_late_panel(2, 5);
+          ct_fg_tick(); tb = ct_diag_ticks(); (void)sim_render();
+          groove_midi_song_note(0, 71, 100);
+          SET_NOW(tb + len + 240000U); sim_test_pass(); n = drain(m, 64);        /* the pass comes 10 ms after the due time */
+          CHECK(ct_diag_read(12, lr) == 56 && ct_diag_read(13, lb) == 56, "worst lateness: both pages are 56 bytes");
+          CHECK(HAS(71) && PG32(lr, 0) >= 239000U && PG32(lr, 0) <= 260000U && PG32(lr, 2) >= 1 && !(lr[12] & 1) && lr[14] == 29 && lr[15] == 2
+                && lr[18] == 2 && lr[19] == 5 && lr[24] == 0x90 && (lr[16] | lr[17] << 8) != 0xffff && PG32(lr, 7) == 0,
+                "worst lateness: a note sent 10 ms late is in the record for 'stopped' with the last remote command (29, 2), the last panel action (pad 5) and the event; none while running (%u ticks, %u at 4 ms or more, flags %u, command %u %u, panel %u %u, status %02x)",
+                PG32(lr, 0), PG32(lr, 2), lr[12], lr[14], lr[15], lr[18], lr[19], lr[24]);
+          CHECK(!memcmp(lr, lb, 28), "worst lateness: the record since power-on holds the same");
+          groove_midi_song_note(0, 71, 0); sim_test_pass(); (void)drain(m, 64);
+          (void)ct_diag_read(1, lr); sim_test_pass(); (void)drain(m, 64);
+          (void)ct_diag_read(12, lr); (void)ct_diag_read(13, lb);
+          CHECK(PG32(lr, 0) < 239000U && PG32(lb, 0) >= 239000U && lb[14] == 29, "worst lateness: the reset of the counters clears the first record and keeps the one since power-on (%u, %u)", PG32(lr, 0), PG32(lb, 0)); }
         /* The same song with F + G off and on: the same notes in the same order, none lost. */
         { static uint8_t seq[2][600][3]; unsigned len2[2] = {0, 0};
           for (unsigned run = 0; run < 2; ++run) {
@@ -2461,7 +2480,7 @@ int main(void)
           CHECK(n64 == 2 && n65 == 1 && at65 >= 1376 && at65 <= 1380 && other == 0, "chain: clip 3 plays twice, then clip 4 starts at step 32 (%u, %u, block %u; 1378; %u other notes)", n64, n65, at65, other);
           CHECK(row1000 == SONG_ROWS + 2 && row1500 == SONG_ROWS + 3 && st1800 == SONG_TRACK_STOPPED, "chain: the track is on clip 3, then on clip 4, and stopped 8 steps into clip 4 (rows %u, %u, state %u)", row1000, row1500, st1800); }
         /* a clip made on the device, and the song saved */
-        int made = song_clip_new(0, 9), again = song_clip_new(0, 12), taken = song_clip_new(0, 0);
+        int made = song_clip_new(0, 9), again = SONG_BUSY /* until tabby-v1.3 a second new clip was refused here; the test of several unsaved clips is below */, taken = song_clip_new(0, 0);
         struct song_edit_info ei; song_edit_info(&ei);
         CHECK(made == 0 && again == SONG_BUSY && taken == SONG_INVALID && ei.active && ei.created && ei.dirty && ei.steps == 16 && ei.place == 9 && ei.block == 5 && song_unsaved(),
               "new clip: an empty clip of one master cycle in place 10, block id 5, open and unsaved; a place that holds a clip is refused (%d %d %d)", made, again, taken);
@@ -2518,9 +2537,33 @@ int main(void)
           CHECK(undone >= 3 && undone <= 4 && clip_v3_next(song_edit_clip()) == 0 && clip_v3_after(song_edit_clip()) == 0 && clip_v3_times(song_edit_clip()) == 1, "chain setting: one undo level per setting: the undos give the clip without a chain (%u; one more level is the length test's)", undone); }
         song_edit_discard();
         int c1 = song_clip_copy(0, 0, 1), c2 = song_clip_copy(0, 30, 20), cp3 = song_clip_copy(0, 0, 20); song_edit_info(&ei);
-        CHECK(c1 == SONG_INVALID && c2 == SONG_EMPTY && cp3 == 0 && ei.active && ei.created && ei.place == 20 && ei.steps == 32 && ei.events == 2 && ei.block == 6 && song_clip_copy(0, 1, 21) == SONG_BUSY,
+        CHECK(c1 == SONG_INVALID && c2 == SONG_EMPTY && cp3 == 0 && ei.active && ei.created && ei.place == 20 && ei.steps == 32 && ei.events == 2 && ei.block == 6,
               "copy: a place that holds a clip and an empty source are refused; the copy is a new clip (block 6) in place 21, open and unsaved; no second copy before a save (%d %d %d)", c1, c2, cp3);
         CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_model_current()->clip[0][20] == 6 && sim_block_read(SONG, 6) == 16 + 12 && f[0] == 32, "copy: saved and loaded again: place 21 holds a 32-step clip with both notes");
+        /* tabby-v1.3: several unsaved clips. The open one goes to wait when another is opened, plays from there, comes
+         * back when it is opened again, and all are written by one save. Eight at most (the open one and seven). */
+        { unsigned song_unsaved_clips(void);
+          int o0 = song_edit_open(0, 0), t0 = song_edit_note_toggle(3, 90, 100, 480);
+          int o1 = song_edit_open(0, 1); unsigned n1 = song_unsaved_clips();
+          int t1 = song_edit_note_toggle(5, 91, 100, 480); unsigned n2 = song_unsaved_clips();
+          CHECK(o0 == 0 && t0 >= 0 && o1 == 0 && n1 == 1 && t1 >= 0 && n2 == 2 && song_unsaved(), "unsaved clips: a second clip opens while the first is unsaved; both count (%d %d %d, %u then %u)", o0, t0, o1, n1, n2);
+          int back = song_edit_open(0, 0); song_edit_info(&ei);
+          CHECK(back == 0 && ei.dirty && ei.place == 0 && clip_v3_note_find(song_edit_clip(), 3, 90) >= 0 && clip_v3_note_find(song_edit_clip(), 5, 91) < 0 && song_unsaved_clips() == 2 && song_edit_undo() == SONG_EMPTY,
+                "unsaved clips: the first comes back with its note, unsaved, without undo levels; the second waits");
+          int made2 = song_clip_new(0, 40), copy2 = song_clip_copy(0, 0, 41);
+          CHECK(made2 == 0 && copy2 == 0 && song_unsaved_clips() == 4 && clip_v3_note_find(song_edit_clip(), 3, 90) >= 0, "unsaved clips: a new clip and a copy of an unsaved clip beside them: four unsaved, the copy has the unsaved note (%d %d, %u)", made2, copy2, song_unsaved_clips());
+          int more[5], full, k = 0;
+          for (; k < 4; ++k) more[k] = song_clip_new(0, 42U + (unsigned)k);
+          full = song_clip_new(0, 50);
+          CHECK(!more[0] && !more[1] && !more[2] && !more[3] && full == SONG_BUSY && song_unsaved_clips() == 8 && !song_model_current()->clip[0][50], "unsaved clips: eight are held, the ninth is refused and leaves no clip (%d, %u)", full, song_unsaved_clips());
+          CHECK(song_edit_save() == 0 && !song_unsaved() && song_unsaved_clips() == 0 && sim_song_load(SONG) == 0, "unsaved clips: one save writes all of them");
+          int r0 = song_edit_open(0, 0); int a = clip_v3_note_find(song_edit_clip(), 3, 90);
+          int r1 = song_edit_open(0, 1); int b = clip_v3_note_find(song_edit_clip(), 5, 91);
+          int r2 = song_edit_open(0, 41); int c = clip_v3_note_find(song_edit_clip(), 3, 90);
+          CHECK(r0 == 0 && a >= 0 && r1 == 0 && b >= 0 && r2 == 0 && c >= 0 && song_model_current()->clip[0][45] && !song_unsaved(), "unsaved clips: loaded again, each clip holds its note and the new clips are in the song (%d %d %d)", a, b, c);
+          /* put the two notes back so that the tests after this find the clips as before */
+          (void)song_edit_open(0, 0); (void)song_edit_note_toggle(3, 90, 100, 480); (void)song_edit_open(0, 1); (void)song_edit_note_toggle(5, 91, 100, 480);
+          CHECK(song_edit_save() == 0 && !song_unsaved(), "unsaved clips: taken out again and saved"); }
         /* the song's click settings */
         CHECK(song_setting(SONG_SET_CLICK) == 0 && song_setting(SONG_SET_COUNT_IN) == 0 && song_setting(SONG_SET_CLICK_CH) == 9 && song_setting(SONG_SET_CLICK_NOTE) == 37, "click: a song that was never set: no click, no count-in; channel 10 and note 37 when it is switched on");
         (void)song_setting_edit(SONG_SET_CLICK, 5); (void)song_setting_edit(SONG_SET_CLICK_OUT, 1); (void)song_setting_edit(SONG_SET_CLICK_CH, -6); (void)song_setting_edit(SONG_SET_CLICK_NOTE, 3); (void)song_setting_edit(SONG_SET_COUNT_IN, 1);

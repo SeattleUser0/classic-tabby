@@ -125,7 +125,7 @@ press(PLAY); step(60);
 press(FX); knob(K5, 7); u = setup();
 check(u.row === 7 && u.to === 2, 'K5: the COPY TO PAD row; the first empty pad of the track is offered (pad ' + (u.to + 1) + ')');
 press(SAVE); u = setup();
-check(u.unsaved === 1 && u.place === 0, 'the 4th left button with the clip unsaved: THE CLIP IS UNSAVED: SAVE IT FIRST');
+check(u.unsaved === 1 && u.place === 2, 'the 4th left button with the clip unsaved: the copy is made all the same and is the open clip (tabby-v1.3; before: THE CLIP IS UNSAVED: SAVE IT FIRST)');
 knob(K5, 1); press(SAVE); u = setup();
 check(u.unsaved === 0, 'on another row the 4th left button saves (stopped)');
 knob(K5, -1); press(SAVE); u = setup(); press(FX); s = state();

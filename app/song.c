@@ -192,6 +192,29 @@ static struct {
     uint32_t changed_ms;
     uint16_t revision;                 /* counts the changes: the screen redraws on it */
 } edit;
+/* tabby-v1.3: more than one unsaved clip. Nothing is written to flash while the song plays, and until now a second clip
+ * could not be opened, recorded or made while one was unsaved: in a set that plays on, one take was all there was.
+ * Now the unsaved clip that is left goes into `park` (its notes, without its undo levels: the MC-707 also clears undo
+ * when the clip changes) and plays from there; opening it again brings it back. Everything is written at the next
+ * save. PARK clips can wait beside the open one; with all places taken the next one is refused as before. */
+enum { PARK = 7 };
+static struct { uint8_t clip[SONG_PAYLOAD_V3_MAX]; uint16_t block; uint8_t track, place, created, used; } park[PARK];
+static int park_find(unsigned block)
+{
+    for (unsigned i = 0; i < PARK; ++i) if (park[i].used && park[i].block == block) return (int)i;
+    return -1;
+}
+static unsigned park_count(void)
+{
+    unsigned n = 0;
+    for (unsigned i = 0; i < PARK; ++i) n += park[i].used;
+    return n;
+}
+static void park_put(unsigned i)
+{
+    memcpy(park[i].clip, edit.clip, SONG_PAYLOAD_V3_MAX);
+    park[i].block = edit.block; park[i].track = edit.track; park[i].place = edit.place; park[i].created = edit.created; park[i].used = 1;
+}
 static uint8_t edit_refresh;           /* 1 + the track whose looping buffer should be decoded again */
 /* tabby-v04.10: the song itself (its clip table, scenes or header) was changed on the device: the record is written,
  * as version 3, when the song is saved (stopped only, as every flash write). */
@@ -1210,8 +1233,11 @@ static void decode_track(unsigned t, struct trackbuf *b, unsigned row, unsigned 
     if (id) {
         int e = 0;
         b->block = (uint16_t)id;
+        int parked = park_find(id);
         if (edit.active && edit.dirty && id == edit.block) {   /* Goal 6: the unsaved edit is what plays */
             bytes = clip_v3_bytes(edit.clip); memcpy(payload, edit.clip, bytes); format = SONG_FORMAT_V3;
+        } else if (parked >= 0) {                              /* tabby-v1.3: and an unsaved clip that waits */
+            bytes = clip_v3_bytes(park[parked].clip); memcpy(payload, park[parked].clip, bytes); format = SONG_FORMAT_V3;
         } else {
             e = song_block_read(loaded, id, payload, &bytes, &format);
             if (!e) e = song_payload_valid(format, payload, bytes);
@@ -1488,7 +1514,8 @@ int song_setting_edit(unsigned which, int delta)
 int song_load(unsigned song)
 {
     if (state) return SONG_BUSY;
-    if ((song_dirty || (edit.active && edit.dirty)) && loaded != SONG_NONE) (void)song_edit_save();   /* Goal 6: the unsaved clip and song changes belong to the song being left */
+    if (song_unsaved() && loaded != SONG_NONE) (void)song_edit_save();   /* Goal 6: the unsaved clips and song changes belong to the song being left */
+    for (unsigned i = 0; i < PARK; ++i) park[i].used = 0;
     edit.active = 0; edit.dirty = 0; edit.created = 0; song_dirty = 0; scene_hold = 0; reserve_scene = 0;
     loaded = SONG_NONE; memset(reserve_row, SONG_NONE, sizeof reserve_row);
     int r = song_record_read(song, &record);
@@ -1785,18 +1812,40 @@ static void edit_changed(void)
     edit.dirty = 1; edit.changed_ms = fm1_millis(); ++edit.revision;
     edit_refresh = (uint8_t)(1U + edit.track);
 }
+/* tabby-v1.3: the open unsaved clip goes to wait. 0, or SONG_BUSY when no place is free or a take is armed or runs. */
+static int edit_park(void)
+{
+    if (!(edit.active && edit.dirty)) return 0;
+    if (rec.state != REC_OFF) return SONG_BUSY;
+    for (unsigned i = 0; i < PARK; ++i)
+        if (!park[i].used) { park_put(i); edit.active = 0; edit.dirty = 0; edit.created = 0; edit.undo = edit.redo = 0; return 0; }
+    return SONG_BUSY;
+}
 int song_edit_open(unsigned track, unsigned place)
 {
     if (loaded == SONG_NONE || track >= SONG_TRACKS || place >= SONG_CLIPS) return SONG_INVALID;
     unsigned id = model.clip[track][place], bytes, format = SONG_FORMAT_V2;
     if (!id) return SONG_EMPTY;
     if (edit.active && edit.track == track && edit.block == id) { edit.place = (uint8_t)place; return 0; }   /* the same block in another place of the track is the same clip */
-    if (edit.active && edit.dirty) return SONG_BUSY;                 /* one unsaved clip at a time */
     for (unsigned t = 0; t < SONG_TRACKS; ++t)
         for (unsigned c = 0; t != track && c < model.clips[t]; ++c) if (model.clip[t][c] == id) return SONG_EDIT_SHARED;
+    int from = park_find(id);
+    if (from >= 0) {
+        /* tabby-v1.3: the clip waits unsaved: it comes back, and the open unsaved one takes its place */
+        if (edit.active && edit.dirty && rec.state != REC_OFF) return SONG_BUSY;
+        unsigned created = park[from].created;
+        memcpy(payload, park[from].clip, SONG_PAYLOAD_V3_MAX);
+        if (edit.active && edit.dirty) park_put((unsigned)from); else park[from].used = 0;
+        memcpy(edit.clip, payload, SONG_PAYLOAD_V3_MAX);
+        edit.block = (uint16_t)id; edit.track = (uint8_t)track; edit.place = (uint8_t)place;
+        edit.undo = edit.redo = 0; edit.gesture = 0; edit.created = (uint8_t)created; edit.active = 1;
+        edit.dirty = 1; edit.changed_ms = fm1_millis(); ++edit.revision;
+        return 0;
+    }
     int e = song_block_read(loaded, id, payload, &bytes, &format);
     if (!e) e = song_payload_valid(format, payload, bytes);
     if (e) return e < 0 ? e : SONG_INVALID;
+    if ((e = edit_park()) != 0) return e;                           /* SONG_BUSY: PARK unsaved clips wait already, or a take runs */
     edit.active = 0;
     if (format == SONG_FORMAT_V3) memcpy(edit.clip, payload, bytes);
     else {
@@ -1828,11 +1877,11 @@ int song_edit_open(unsigned track, unsigned place)
 int song_clip_new(unsigned track, unsigned place)
 {
     if (loaded == SONG_NONE || track >= SONG_TRACKS || place >= SONG_CLIPS || model.clip[track][place]) return SONG_INVALID;
-    if (edit.active && edit.dirty) return SONG_BUSY;
     unsigned id = 0;
     for (unsigned t = 0; t < SONG_TRACKS; ++t)
         for (unsigned c = 0; c < SONG_CLIPS; ++c) if (model.clip[t][c] > id) id = model.clip[t][c];
     if (id >= 65535U) return SONG_FULL;
+    if (edit_park()) return SONG_BUSY;                              /* tabby-v1.3: the unsaved clip waits; BUSY only when PARK wait already */
     clip_v3_empty(edit.clip, model.cycle > CLIP_V3_STEPS_MAX ? CLIP_V3_STEPS_MAX : model.cycle);
     edit.block = (uint16_t)(id + 1U); edit.track = (uint8_t)track; edit.place = (uint8_t)place;
     edit.undo = edit.redo = 0; edit.gesture = 0; edit.created = 1; edit.active = 1;
@@ -2077,6 +2126,7 @@ int song_clip_delete(unsigned track, unsigned place)
     if (state) return SONG_BUSY;
     if (song_clip_scene(track, place) >= 0) return SONG_EDIT_SHARED;
     if (edit.active && edit.track == track && edit.place == place) { rec.state = REC_OFF; edit.active = 0; edit.dirty = 0; edit.created = 0; edit.undo = edit.redo = 0; }
+    { int k = park_find(model.clip[track][place]); if (k >= 0) park[k].used = 0; }   /* tabby-v1.3: a deleted clip no longer waits to be saved */
     model.clip[track][place] = 0;
     while (model.clips[track] && !model.clip[track][model.clips[track] - 1U]) --model.clips[track];
     if (reserve_row[track] == SONG_ROWS + place) reserve_row[track] = SONG_NONE;
@@ -2087,15 +2137,17 @@ int song_clip_copy(unsigned track, unsigned from, unsigned to)
 {
     if (loaded == SONG_NONE || track >= SONG_TRACKS || from >= SONG_CLIPS || to >= SONG_CLIPS || model.clip[track][to]) return SONG_INVALID;
     if (!model.clip[track][from]) return SONG_EMPTY;
-    if (edit.active && edit.dirty) return SONG_BUSY;
     unsigned id = 0;
     for (unsigned t = 0; t < SONG_TRACKS; ++t)
         for (unsigned c = 0; c < SONG_CLIPS; ++c) if (model.clip[t][c] > id) id = model.clip[t][c];
     if (id >= 65535U) return SONG_FULL;
-    edit.active = 0;
+    /* tabby-v1.3: the source may be unsaved itself (open, or waiting): it is opened, goes to wait under its own name,
+     * and what stays in the editor becomes the copy */
+    if (edit.active && !edit.dirty) edit.active = 0;
     int r = song_edit_open(track, from);
-    if (r && r != SONG_EDIT_SHARED) return r;
-    if (r == SONG_EDIT_SHARED) return r;
+    if (r) return r;
+    if (edit.dirty) { r = edit_park(); if (r) return r; }
+    edit.active = 1; edit.undo = edit.redo = 0; edit.gesture = 0;
     edit.block = (uint16_t)(id + 1U); edit.place = (uint8_t)to; edit.created = 1;
     model.clip[track][to] = edit.block;
     if (to >= model.clips[track]) model.clips[track] = (uint8_t)(to + 1U);
@@ -2150,14 +2202,24 @@ int song_edit_redo(void)
  * Only while every transport is stopped (SPEC 15.4): SONG_BUSY otherwise. */
 int song_edit_save(void)
 {
-    unsigned clip = edit.active && edit.dirty;
-    if (!clip && !song_dirty) return 0;
+    unsigned clip = edit.active && edit.dirty, waiting = park_count();
+    if (!clip && !waiting && !song_dirty) return 0;
     if (ct_transport_running() || state) return SONG_BUSY;
-    if (clip) {
-        int r = song_block_append(loaded, edit.block, SONG_FORMAT_V3, edit.clip, clip_v3_bytes(edit.clip));
-        if (!r) r = song_directory_build(loaded);
+    if (clip || waiting) {
+        int r = 0;
+        if (clip) {
+            r = song_block_append(loaded, edit.block, SONG_FORMAT_V3, edit.clip, clip_v3_bytes(edit.clip));
+            if (!r) { edit.dirty = 0; edit.created = 0; }
+        }
+        /* tabby-v1.3: and every clip that waits; one that does not fit stays waiting (SONG STORAGE FULL) */
+        for (unsigned i = 0; i < PARK && !r; ++i) {
+            if (!park[i].used) continue;
+            r = song_block_append(loaded, park[i].block, SONG_FORMAT_V3, park[i].clip, clip_v3_bytes(park[i].clip));
+            if (!r) park[i].used = 0;
+        }
+        int d = song_directory_build(loaded);
+        if (!r) r = d;
         if (r) return r;
-        edit.dirty = 0; edit.created = 0;
     }
     if (song_dirty) {   /* tabby-v04.10: after the clip, so that the record never names a block that is not stored */
         int r = song_record_write_model(loaded, &record, &model);
@@ -2166,7 +2228,8 @@ int song_edit_save(void)
     }
     return 0;
 }
-unsigned song_unsaved(void) { return song_dirty || (edit.active && edit.dirty); }
+unsigned song_unsaved(void) { return song_dirty || (edit.active && edit.dirty) || park_count(); }
+unsigned song_unsaved_clips(void) { return (edit.active && edit.dirty ? 1U : 0U) + park_count(); }   /* tabby-v1.3 */
 /* Give the edit up: the stored clip plays again. */
 void song_edit_discard(void)
 {
@@ -2423,6 +2486,7 @@ int song_edit_poll(void)
     song_record_poll();
     click_update();   /* tabby-v04.10 */
     unsigned clip = edit.active && edit.dirty, now = fm1_millis();
+    if (!clip && park_count()) { clip = 1; }                         /* tabby-v1.3: clips that wait are saved with the same rule */
     if ((!clip && !song_dirty) || state) return 0;
     if ((clip && now - edit.changed_ms < 10000U) || (song_dirty && now - song_changed_ms < 10000U)) return 0;
     if (ct_transport_running() || song_storage_state() != SONG_STORAGE_READY) return 0;

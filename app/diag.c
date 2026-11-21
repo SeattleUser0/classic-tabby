@@ -114,6 +114,9 @@ int ct_diag_flash_erase(uint32_t offset)
     int r = fm1_flash_erase(offset);
     __atomic_signal_fence(__ATOMIC_SEQ_CST); --ct_flash_busy;
     uint32_t used = ticks() - start;
+#ifdef CT_A2
+    ct_late_flash();
+#endif
     ++d.erase_count; if (used > d.erase_max) d.erase_max = used;
     return r;
 }
@@ -124,6 +127,9 @@ int ct_diag_flash_write(uint32_t offset, const void *data, size_t bytes)
     int r = fm1_flash_write(offset, data, bytes);
     __atomic_signal_fence(__ATOMIC_SEQ_CST); --ct_flash_busy;
     uint32_t used = ticks() - start;
+#ifdef CT_A2
+    ct_late_flash();
+#endif
     ++d.write_count;
     if (used > d.write_max) { d.write_max = used; d.write_max_bytes = (uint32_t)bytes; }
     return r;
@@ -142,6 +148,7 @@ int ct_diag_read(unsigned request, uint8_t out[CT_DIAG_REPLY_BYTES])
         return ct_a2_read(out);
     }
     if (request == 10) return ct_fg_read(out);   /* Task 17: the F + G page */
+    if (request == 12 || request == 13) return ct_late_read(request - 12, out);   /* tabby-v1.3: the worst lateness */
 #endif
     if (request == 1) {
 #ifdef CT_A2

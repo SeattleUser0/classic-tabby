@@ -20,9 +20,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-record.py --song N --out DIR
 
-Version: 0.5
+Version: 0.6
 
 Revision log
+    v0.6  2026-11-21  tabby-v1.3: a second take into a second new clip while the first is unsaved and the song plays; one save writes both.
     v0.5  2026-11-16  v0.4's cycle came from four seconds of MIDI clock pulses, whose own arrival jitter made it wrong by
                       2.6e-4 (errors that grew through the run: +2, then +5 ms). The cycle is now the median ratio of
                       every note of the song so far to the 125 ms grid, taken again before each comparison.
@@ -207,6 +208,7 @@ def main():
         if c["track"] != 0:
             l.shift_pad(0); idle(0.3); c = l.clips_state()
         empty = next((i for i, q in enumerate(c["pads"]) if (q["code"] & 7) == 0), None)
+        two = False; empty2 = None
         if check(c["page_name"] == "CLIPS" and empty is not None, "BT opens CLIPS; track 1 has an empty pad", (c["page_name"], empty)):
             l.pad(empty); idle(0.3); c = l.clips_state()
             check(c["selected"] == empty and c["pads"][empty]["code"] == 8, "the empty pad is selected and nothing is queued", c["pads"][empty])
@@ -239,12 +241,34 @@ def main():
                 except T.DeviceError:
                     refused = True
                 check(refused, "a save while the song plays is refused")
+                # ---- v0.6 (tabby-v1.3): a second take into another new clip while the first is unsaved and the song plays on ----
+                l.show_page("clips"); l.shift_pad(1); idle(0.3); c2 = l.clips_state()
+                empty2 = next((i for i, q in enumerate(c2["pads"]) if (q["code"] & 7) == 0), None)
+                if check(c2["track"] == 1 and empty2 is not None, "the song plays on: track 2 selected, it has an empty pad", (c2["track"], empty2)):
+                    l.pad(empty2); idle(0.3)
+                    l.press("REC"); idle(0.3 + 2 * CYCLE_MS / 1000.0); s = l.steps_state()
+                    check(s["recording"] == 2 and s["track"] == 1 and s["place"] == empty2 and s["events"] == 0,
+                          "REC on the empty pad of track 2 while clip 1 is unsaved: a second new clip, and its take runs (before tabby-v1.3: ANOTHER CLIP IS UNSAVED)",
+                          (s["recording"], s["track"], s["place"], s["events"]))
+                    tk2 = T.now_ns()
+                    l.key(1, 20, 100); idle(0.2); l.key(1, 20, 0); idle(0.2 + 2 * CYCLE_MS / 1000.0)
+                    l.press("REC"); idle(0.3); s = l.steps_state()
+                    check(s["recording"] == 0 and s["events"] == 1 and s["dirty"], "the second take ends: one note in the second new clip, unsaved", (s["recording"], s["events"], s["dirty"]))
+                    still = [phase(t, t0) for t in ons(tk2 + 300_000_000, pitch)] if pitch is not None else []
+                    oks = [near(x, 8 * STEP_MS, a.tolerance) for x in still]
+                    check(len(still) >= 2 and all(o for o, _ in oks), "meanwhile the first new clip, unsaved and no longer open, went on playing its note on its step", ["%+.2f" % d for _, d in oks])
+                    two = True
             l.press("PLAY"); idle(0.8)
-            l.edit_save(); idle(0.5); s = l.steps_state(); c = l.clips_state()
+            l.edit_save(); idle(0.5); s = l.steps_state()
+            l.show_page("clips"); l.shift_pad(0); idle(0.3); c = l.clips_state()
             check(not s["dirty"] and (c["pads"][empty]["code"] & 7) == 1, "stopped: the clip and the song are saved; the pad holds a clip", (s["dirty"], c["pads"][empty]["code"]))
             l.select_song(a.song - 1); idle(0.4)                    # remote op 1 reads the song from storage again
             c = l.clips_state()
             check((c["pads"][empty]["code"] & 7) == 1, "loaded again from storage: the new clip is in its place", c["pads"][empty])
+            if two:
+                l.shift_pad(1); idle(0.3); c2 = l.clips_state()
+                check(c2["track"] == 1 and (c2["pads"][empty2]["code"] & 7) == 1, "loaded again from storage: the second new clip (track 2) is in its place too: one save wrote both", c2["pads"][empty2])
+                l.shift_pad(0); idle(0.3)
         l.show_page("overview")
         h = l.health()
         check(h["underruns"] == h0["underruns"] and h["dma_overruns"] == h0["dma_overruns"], "no audio underrun, no DMA overrun during the test",

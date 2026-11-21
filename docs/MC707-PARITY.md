@@ -1,10 +1,11 @@
 # MC-707 parity matrix for Classic Tabby
 
-Version 0.9, 2026-11-18 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
+Version 0.10, 2026-11-21 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
 Section 0 is the list that is worked from: what is done, and what is left in the order it will be built. Sections 1 to 8
 are the matrix of 2026-11-07; its "Today" and "Status" columns describe that day, and section 0 says what changed since.
 
 Revision log
+- v0.10 2026-11-21: tabby-v1.3: unsaved clips, eight at a time (0.3: the comparison of 2026-11-21 and what is left).
 - v0.9 2026-11-18: tabby-v04.23: item 4 done (the step loop while held). The user's order is complete; items 10 and 11 are open questions.
 - v0.8 2026-11-18: tabby-v04.22: item 7 done (NOTE REPEAT, as the track's arpeggiator while held).
 - v0.7 2026-11-18: tabby-v04.21: items 8, 9 and half of 10 done (clear notes in a take, NEW SONG, shift a clip); the user's order for the rest: note repeat (NOTE REPEAT gets its printed meaning), scene program change, the step loop last.
@@ -77,6 +78,22 @@ The user's order of 2026-11-18 is built. The user's word of the same evening: no
 change (11), no step-events edit (10) for now. tabby-v1.0 adds no feature. About 13.6 KB can be spent above the 15 KB
 reserve. Each release measures. Not planned: chord pads, the motion designer, a random clip direction,
 multitrack note mode, a user pad palette, and everything in section 1.
+
+### 0.3 The comparison of 2026-11-21 (tabby-v1.3)
+
+The user asked for the biggest gap for playing live, naming step editing on the pads and real-time recording. Both
+are built (v04.8, v04.9; rows above). Read again against docs/CONTROL-MAP.md section 11, what stood between them and
+a set that plays on:
+
+| Gap | MC-707 | Was | Now |
+| --- | --- | --- | --- |
+| Unsaved clips | any number | one: a second take, edit or new clip was refused until the song was stopped and saved | **tabby-v1.3: eight**; saved together at the stop |
+| Hearing an edit | at once | from the clip's next loop (a launched clip), or the next scene | unchanged: next in line; needs the player to take a changed clip inside a loop |
+| Step input that moves on by itself (RM p. 28, step recording) | yes | no: one pad per step | open |
+| Sub steps / flam | yes | no | not planned yet |
+| Edit all events of a step together (item 10) | yes | no | the user: not for now |
+
+Flash margin after tabby-v1.3: 29149 bytes (13789 above the reserve). Free RAM 121388 bytes.
 
 ## 1. Excluded once
 

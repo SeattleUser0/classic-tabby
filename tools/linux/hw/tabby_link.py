@@ -25,7 +25,7 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.27
+Version: 0.28
 
 Revision log
     v0.25 2026-11-19  now_ns() is THE clock of the device tools: every tool takes its marks ("notes since now") from it and not
@@ -102,6 +102,7 @@ _spec.loader.exec_module(monitor)
 # ---- v0.23: a clock the time service does not move -------------------------------------------------------------
 STEADY = True
 # v0.26 (2026-11-20): an unanswered command's error says what the port brought meanwhile (docs/BUILD.md 66.3).
+# v0.28 (2026-11-21): worst() and worst_text(): the firmware's worst-lateness record of tabby-v1.3 (command 25 requests 12, 13).
 # v0.27 (2026-11-20): query() empties the port before it sends: a full input buffer dropped the reply (docs/BUILD.md 66.5).
 CLOCKMAP = []                  # (CLOCK_MONOTONIC ns, CLOCK_MONOTONIC_RAW ns), ten times a second while the tool runs
 _CLOCK_LOCK = threading.Lock()
@@ -633,6 +634,44 @@ class Link:
         v = struct.unpack("<14I", p)
         return {"running": v[0], "timer_ticks": v[1], "sent": v[2], "late_max_ms": v[3] / 24000.0,
                 "late_bins": list(v[4:10]), "block_ticks": v[10], "period_ticks": v[11], "live": v[12]}
+
+    def worst(self, boot=False):
+        """v0.28 (tabby-v1.3): command 25 request 12 (since the counters' reset) or 13 (since power-on): the latest a
+        timed event left after its due time, once for "the transport stopped" and once for "running", each with what
+        the device was doing then. None when the firmware has no such record."""
+        try:
+            p = self.query(25, bytes([13 if boot else 12]), attempts=1)
+        except (DeviceError, TimeoutError):
+            return None
+        if len(p) != 56:
+            return None
+        out = {}
+        for i, name in enumerate(("stopped", "running")):
+            late, at, count, flags, page, cmd, op, cmd_ms, kind, ident, panel_ms, flash_ms, status, lane, transport_ms = struct.unpack("<3I4BH2B2H2BH", p[28 * i:28 * i + 28])
+            age = lambda v: None if v == 0xffff else v
+            out[name] = {"late_ms": round(late / 24000.0, 2), "at_ms": at, "at_4ms_or_more": count, "page": self.PAGES.get(page, str(page)),
+                         "flash_within_250ms": bool(flags & 2), "transfer_within_250ms": bool(flags & 4), "flash_running": bool(flags & 8),
+                         "last_remote": [cmd, op], "remote_ms_before": age(cmd_ms),
+                         "last_panel": [{0: "none", 1: "button", 2: "pad", 3: "key", 4: "knob"}.get(kind, str(kind)), ident], "panel_ms_before": age(panel_ms),
+                         "flash_ms_before": age(flash_ms), "transport_change_ms_before": age(transport_ms), "event": "%02X" % status, "lane": lane}
+        return out
+
+    @staticmethod
+    def worst_text(w):
+        """One line for a report: what the record says, in words."""
+        if not w:
+            return "no record (firmware before tabby-v1.3)"
+        parts = []
+        for name in ("running", "stopped"):
+            r = w[name]
+            if not r["late_ms"]:
+                parts.append("%s: none" % name); continue
+            ago = lambda v: "never" if v is None else "%d ms before" % v
+            parts.append("%s: %.2f ms (%d at 4 ms or more) on %s, event %s; last remote command %d/%d %s, last panel action %s %d %s, flash %s%s, start/stop %s" % (
+                name, r["late_ms"], r["at_4ms_or_more"], r["page"], r["event"], r["last_remote"][0], r["last_remote"][1], ago(r["remote_ms_before"]),
+                r["last_panel"][0], r["last_panel"][1], ago(r["panel_ms_before"]), ago(r["flash_ms_before"]),
+                " (a transfer within 250 ms)" if r["transfer_within_250ms"] else "", ago(r["transport_change_ms_before"])))
+        return "; ".join(parts)
 
     def health(self):
         """v0.6: commands 17, 18, 19 (read only): the audio counters that show a dropout or CPU GUARD."""

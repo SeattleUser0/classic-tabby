@@ -24,9 +24,10 @@ Usage (browser closed)
     node tools/linux/hw/expected-events.mjs FILE.mid [--options JSON] > expected.json
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-clips.py --song N --expected expected.json --out DIR --tag NAME
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-21  The DIN tolerance counts every message due together, note-offs too (the user's song: 18).
     v0.4  2026-11-18  Every note's error is kept in the result file (errors: time in the song, error); the result names what
                       this computer's steered clock did during the run (tabby_link v0.23 puts the stamps on the raw clock).
     v0.3  2026-11-14  A row controller event in the expected list names its channel (expected-events v0.2).
@@ -159,7 +160,11 @@ def main():
         # v0.2: on DIN notes due together pass the cable one after the other (0.96 ms a note): the tolerance grows by that for
         # the largest group of note-ons due within 1 ms of each other (multitrack-64bar: 1600 of 1600 notes, USB worst
         # 1.44 ms, DIN worst 6.3 ms with up to 9 notes on a step)
-        times = sorted(n["ms"] for n in expected["notes"]); group = 1; j = 0
+        # v0.5: and the note-offs: a note that ends where others begin shares the cable with them. Meridian Fault (the user's
+        # song) has 9 note-ons and 9 note-offs due in the same millisecond: 18 messages, 16.3 ms of cable; with the note-ons
+        # alone the limit was 11.68 ms and the song measured 11.40 to 11.69 in five passes: a limit at the edge of what the
+        # cable does fails at random. USB has no such queue and stays at the plain tolerance: it is the proof of the timing.
+        times = sorted([n["ms"] for n in expected["notes"]] + [n["ms"] + n["lengthMs"] for n in expected["notes"]]); group = 1; j = 0
         for i in range(len(times)):
             while times[i] - times[j] > 1.0:
                 j += 1

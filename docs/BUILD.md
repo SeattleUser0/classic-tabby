@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 1.03
+Version: 1.04
 Revision log:
+- v1.04, 2026-11-21: section 67 (tabby-v1.3: the soak with the user's song; the worst-lateness record; eight unsaved clips).
 - v1.03, 2026-11-20: 65.1 to 65.7 (tabby-v1.2, seven candidates), section 66 (tabby-v1.2.1: the CPU guard measured part by part; the message box; the four unexplained failures).
 - v1.02, 2026-11-19: 64.1 (tabby-v1.1 released), section 65 (tabby-v1.2: the message box at the top; the screen copy; the device-against-simulator comparison; two candidates on purpose).
 - v1.01, 2026-11-19: section 64 (tabby-v1.1: the readable screen; pictures in the manual; the timing-pages step).
@@ -6975,3 +6976,42 @@ device (slots 7 to 16) are all test songs of mine, every one named IMPORTED; non
 **"Each device test setting and restoring its own starting state": done in the release run** (66.4), not inside each
 tool: after every test the song is stopped, the overview shown, the first test's track selected again, the mutes
 put back; what a test left is in the results. In the run of the release: only the CLIPS page after the screen tour.
+
+## 67. tabby-v1.3 (2026-11-21): the user's song, the worst-lateness record, eight unsaved clips
+
+The user's answers of 2026-11-21: SPEC 17.21.
+
+### 67.1 A soak with one of the user's songs
+
+Search of this computer (~/Documents, ~/Music, ~/Downloads, ~/Desktop): 160 MIDI files, all inside the Classic Tabby
+folders. Mine: the timing and import fixtures and the clips-song copies. The user's: wrong-room-all.mid (already
+the soak song) and the four Renoise exports of tests/fixtures/ (14.4). Note-ons in the file / tracks: meridian_fault
+2189 / 12, the_space_between_wires 1662 / 10, Glass Relay 1617 / 9, renoise-export 1002 / 9. The densest, Meridian
+Fault, imports ({"record":"scenes"}) as 11 scenes, 84 blocks (76 in the v3 format), 1532 notes in eight tracks (three
+parts are skipped: the song has more than eight), 203 s, up to 9 note-ons and 9 note-offs in one millisecond.
+
+tools/linux/hw/run-songsoak.py v0.1: the song pass after pass, each on the next page, every note of every pass
+against the file (run-clips.py), the device's own counters reset before and read after each pass.
+
+On tabby-v1.2.1, 40 minutes, 12 passes (../overnight/v14/usersong/): every pass 1532 of 1532 notes on DIN and USB,
+in order, nothing extra, nothing stuck, the song ended by itself, no underrun, no guard action (a block at most
+1.46 ms). USB worst note 1.54 to 1.79 ms. The device's own latest send 2.2 to 2.7 ms, on ACTIONS 4.5 and 4.8. DIN
+worst note 11.40 to 11.69 ms: the cable. Two passes were marked FAIL at 11.69 against a limit of 11.68: the limit
+counted the 9 note-ons due together and not the 9 note-offs that share the cable with them. run-clips v0.5 counts
+every message due together (18: 20.3 ms). The USB limit stays 4 ms and is the proof of the timing.
+In the release run: step `soak-song` (rc-validate v0.21, --soak-song-minutes).
+
+### 67.2 The worst-lateness record
+
+SPEC 19.34. Host test: a note sent 10 ms late is in the record for "stopped" with the last remote command, the
+last panel action and the event; the reset clears the first pair and keeps the one since power-on.
+A correction to 66.8: timed events do not leave from the timer interrupt. The timer asks for a control pass and the
+pass sends them (`midi_poll_body`); a pass that comes late sends late, and that is what the record measures.
+
+### 67.3 Eight unsaved clips
+
+SPEC 19.34, MC707-PARITY 0.3. Host test "unsaved clips" (8 checks), simulator tests steps-sim and setup-sim, device
+test run-record.py v0.6 (a second take into a second new clip while the first is unsaved and the song plays; the
+first goes on playing; one save writes both). Messages: 8 UNSAVED - STOP TO SAVE, END THE TAKE FIRST (in place of
+ANOTHER CLIP IS UNSAVED, UNSAVED CLIP - THIS ONE, THE CLIP IS UNSAVED: SAVE IT FIRST). Flash +1632 bytes, RAM
+-21792 bytes (FLASH-BUDGET 53).

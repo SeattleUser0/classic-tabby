@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.20
+Version: 0.21
 
 Revision log
+    v0.21 2026-11-21  tabby-v1.3: the step `lateness`: the firmware's worst-lateness record, read after every test and soak.
     v0.20 2026-11-20  The device's own lateness counters are kept per step in the results (own_lateness_by_step).
     v0.19 2026-11-20  The identity read is asked again when the candidate's page did not load (a network error is not an
                       answer of the device).
@@ -110,6 +111,7 @@ def main():
     p.add_argument("--backups", default=str(ROOT.parent / "overnight/backups"))
     p.add_argument("--soak-minutes", type=float, default=0.0, help="v0.7: the Wrong Room soak, in minutes (0: no soak)")
     p.add_argument("--soak-lead-minutes", type=float, default=0.0, help="v0.9: the Wrong Room soak with EVENT LEAD 1/16, in minutes")
+    p.add_argument("--soak-song-minutes", type=float, default=0.0, help="v0.21: the soak with one of the user's own songs (tests/fixtures/meridian_fault.mid, the densest), in minutes")
     p.add_argument("--expected", default=str(ROOT.parent / "overnight/g6/exp-v046-s13-timing-1x16.json"))
     a = p.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -197,7 +199,8 @@ def main():
         now = last_json(o)
         # v0.20: the device's own lateness counters as each test left them (panel-state.py v0.3), kept per step
         if now.get("own_latest_ms") is not None:
-            own_by_step.append({"after": after or "(before the tests)", "latest_ms": now["own_latest_ms"], "at_4ms_or_more": now.get("own_4ms_or_more"), "sent": now.get("own_sent")})
+            own_by_step.append({"after": after or "(before the tests)", "latest_ms": now["own_latest_ms"], "at_4ms_or_more": now.get("own_4ms_or_more"), "sent": now.get("own_sent"),
+                                "worst": now.get("worst"), "worst_boot": now.get("worst_boot")})
         if not base:
             base.update(now); return True
         # v0.17: every test starts from the state the first one found: the song stopped, the overview, the same track. What
@@ -380,6 +383,31 @@ def main():
         state(name)
         song()
 
+    # v0.21 (the user's answer of 2026-11-21): a soak with one of the user's own songs: the densest MIDI file of theirs on
+    # this computer, tests/fixtures/meridian_fault.mid (2189 note-ons in the file, 1532 in the eight tracks the import
+    # keeps, up to 9 due together). To SEE in every pass: every note of the file, in order, on DIN and USB; USB within
+    # 4 ms of a straight line, DIN within 4 ms plus the cable time of the notes due together; the song ends by itself.
+    if a.soak_song_minutes > 0:
+        link = "import sys; sys.path.insert(0, %r); import tabby_link as T, time; l = T.Link(); time.sleep(0.3)\n" % str(HW)
+        c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
+        mid = str(ROOT / "tests/fixtures/meridian_fault.mid"); opts = '{"record":"scenes"}'
+        if "EMPTY" in o0:
+            r = subprocess.run(["node", str(HW / "expected-events.mjs"), mid, "--options", opts], cwd=str(ROOT), capture_output=True, text=True)
+            exp = out / "meridian-expected.json"; exp.write_text(r.stdout)
+            c1, o1 = sh(W + ["song", "--url", url, "--mid", mid, "--slot", "5", "--options", opts, "--log", wb_log], 600, log)
+            if c1 == 0:
+                tag = rc_tag + "-meridian"
+                c2, o2 = sh([py, str(HW / "run-songsoak.py"), "--song", "6", "--expected", str(exp), "--minutes", str(a.soak_song_minutes), "--tag", tag, "--out", str(out)], int(a.soak_song_minutes * 60 + 900), log)
+                sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
+                tail = [x for x in o2.splitlines() if x.startswith(("PASS " + tag + ":", "FAIL " + tag + ":"))]
+                step("soak-song", c2 == 0, "Meridian Fault: " + (tail[-1] if tail else o2[-300:]))
+            else:
+                step("soak-song", False, "the song could not be written: %s" % o1.strip()[-200:])
+        else:
+            step("soak-song", False, "song slot 6 is not empty: %s" % o0.strip()[-80:])
+        state("soak-song")
+        song()
+
     # backup, restore, verify through the release candidate's page
     after = str(Path(a.backups) / ("after-%s.json" % rc_tag))
     code, o = sh(W + ["backup", "--url", url, "--file", after, "--log", wb_log], 1200, log)
@@ -396,6 +424,40 @@ def main():
     if state("verify"):
         step("state", True, "the panel is as it was before the tests: mutes %s, focus, ARP switches, CLOCK, A2" % ",".join(m[0] for m in base.get("mutes", [])))
 
+    # v0.21 (tabby-v1.3; the user's request of 2026-11-21 after one reading of 115.67 ms): the firmware keeps the latest any
+    # timed event left after its due time since power-on, apart for "the transport running" and "stopped", with what it
+    # was doing. Read after every test (state()). To SEE: while running, nothing left LATE_LIMIT_MS or more late in any
+    # step. The limit: a send waits at most for one screen band (up to 6 ms, not interruptible) and one control pass;
+    # the ACTIONS page reads 3 to 4 ms in every version. A late send while stopped (the clock alone) or during a
+    # transfer is reported with its circumstances and not judged: flash writes are refused while the transport runs.
+    LATE_LIMIT_MS = 10.0
+    def worst_text(w):                               # as tabby_link.Link.worst_text (this script does not load the link)
+        parts = []
+        for name in ("running", "stopped"):
+            r = w[name]
+            if not r["late_ms"]:
+                parts.append("%s: none" % name); continue
+            ago = lambda v: "never" if v is None else "%d ms before" % v
+            parts.append("%s: %.2f ms (%d at 4 ms or more) on %s, event %s; last remote command %d/%d %s, last panel action %s %d %s, flash %s%s, start/stop %s" % (
+                name, r["late_ms"], r["at_4ms_or_more"], r["page"], r["event"], r["last_remote"][0], r["last_remote"][1], ago(r["remote_ms_before"]),
+                r["last_panel"][0], r["last_panel"][1], ago(r["panel_ms_before"]), ago(r["flash_ms_before"]),
+                " (a transfer within 250 ms)" if r["transfer_within_250ms"] else "", ago(r["transport_change_ms_before"])))
+        return "; ".join(parts)
+    seen = [o for o in own_by_step if o.get("worst_boot")]
+    if seen:
+        first_over = next((o for o in seen if o["worst_boot"]["running"]["late_ms"] >= LATE_LIMIT_MS), None)
+        last = seen[-1]["worst_boot"]
+        grew = []; before = 0.0
+        for o in seen:                                   # the steps in which the record for "stopped" grew: which test it was
+            v = o["worst_boot"]["stopped"]["late_ms"]
+            if v > before + 0.005:
+                grew.append("%s %.2f" % (o["after"], v)); before = v
+        step("lateness", first_over is None,
+             ("since power-on, read after each of %d steps: " % len(seen)) + worst_text(last)
+             + ("; FIRST AT OR OVER %.0f ms WHILE RUNNING after the step %s" % (LATE_LIMIT_MS, first_over["after"]) if first_over else "")
+             + ("; 'stopped' grew after: " + ", ".join(grew[-6:]) if grew else ""))
+    else:
+        step("lateness", False, "the firmware gave no worst-lateness record")
     failed = [s["step"] for s in results["steps"] if not s["pass"]]
     results["finished"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     results["unanswered_commands"] = unanswered    # v0.15

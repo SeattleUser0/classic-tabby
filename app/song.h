@@ -115,6 +115,7 @@ int song_edit_poll(void);
  * song record when the song was changed on the device (song_unsaved: a clip or the song waits for a save). */
 int song_clip_new(unsigned track, unsigned place);
 unsigned song_unsaved(void);
+unsigned song_unsaved_clips(void);     /* tabby-v1.3: the open unsaved clip and those that wait (8 at most) */
 /* tabby-v04.10: the clip workflow on the panel. song_edit_length changes the open clip's length by `delta` steps (1 to
  * 128; returns the events it removed past a shorter end); song_clip_copy makes a copy of a clip in an empty place of the
  * same track (it becomes the open, unsaved clip); song_scene_store adds what plays now as a new scene (its index). */

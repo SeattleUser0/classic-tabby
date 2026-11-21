@@ -509,6 +509,9 @@ static void setup_open(unsigned place)
 }
 /* The row's action (the 4th left button; remote op 16 sub 4): COPY copies the clip, any other row saves the song.
  * Returns the text for the notice line. */
+/* tabby-v1.3: a clip could not be opened, made, copied or recorded into: eight unsaved clips are held (they are
+ * written when the song stops), or a take is armed or runs on the open one. */
+static const char *busy_text(void) { return song_unsaved_clips() >= 8U ? "8 UNSAVED - STOP TO SAVE" : "END THE TAKE FIRST"; }
 static const char *setup_do(void)
 {
     struct song_edit_info ei; song_edit_info(&ei);
@@ -535,7 +538,7 @@ static const char *setup_do(void)
         if (!ei.active) return "SELECT A CLIP FIRST";
         int r = song_clip_copy(ei.track, ei.place, setup_to);
         if (!r) clip_select[ei.track] = setup_to;
-        return r == SONG_BUSY ? "THE CLIP IS UNSAVED: SAVE IT FIRST" : r == SONG_INVALID ? "THAT PAD HOLDS A CLIP" : r == SONG_EDIT_SHARED ? "CLIP SHARED BY ANOTHER TRACK" : r ? "COPY FAILED" : "COPIED - THE COPY IS OPEN";
+        return r == SONG_BUSY ? busy_text() : r == SONG_INVALID ? "THAT PAD HOLDS A CLIP" : r == SONG_EDIT_SHARED ? "CLIP SHARED BY ANOTHER TRACK" : r ? "COPY FAILED" : "COPIED - THE COPY IS OPEN";
     }
     unsigned had = song_unsaved(); int r = song_edit_save();
     return r == SONG_BUSY ? "STOP TO SAVE" : r == SONG_FULL ? "SONG STORAGE FULL" : r ? "SAVE FAILED" : had ? "SAVED" : "NOTHING TO SAVE";
@@ -2011,6 +2014,12 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     /* tabby-v1.2.1 (the user's answer of 2026-11-20): any press on the panel takes the message box away at once: a
      * button, a knob, and now a pad or a key too. What the press itself has to say comes after this line. */
     if (pressed || key_down || encoder_active(controls->encoders)) notice = NULL;
+#ifdef CT_A2
+    /* tabby-v1.3: the worst-lateness record names the last panel action (app/midi_router.c) */
+    if (pressed) ct_late_panel(1, (unsigned)__builtin_ctz(pressed));
+    else if (key_down) ct_late_panel(3, (unsigned)__builtin_ctz(key_down));
+    else if (encoder_active(controls->encoders)) ct_late_panel(4, 0);
+#endif
     if (retry_reset) {
         blocked_keys = controls->keys;
         if (!post(0xff, 0, 0, 1))
@@ -2099,7 +2108,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         int r = place < SONG_CLIPS ? song_edit_open(track, place) : SONG_EMPTY;
         /* tabby-v04.10: on a selected empty pad EDIT makes a new clip (one master cycle long) and opens it */
         if (r == SONG_EMPTY && place < SONG_CLIPS && st.song == song_select) { r = song_clip_new(track, place); if (!r) announce("NEW CLIP", now + 1500U); }
-        if (r == SONG_BUSY) { announce("UNSAVED CLIP - THIS ONE", now + 2500U); r = 0; }
+        if (r == SONG_BUSY) { announce(busy_text(), now + 2500U); r = 0; }
         if (r == SONG_EDIT_SHARED) announce("CLIP SHARED BY ANOTHER TRACK", now + 2000U);
         else if (r) announce(r == SONG_EMPTY ? "SELECT A CLIP FIRST" : "BLOCK READ ERROR", now + 2000U);
         else { page = CLIP_STEPS; step_bar = 0; step_sel = 255; step_cursor = 0; step_pads_toggle = groove_pad_count(track) != 0; cache->shown_page = ~0U; }
@@ -2152,7 +2161,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         struct song_status st; song_status_read(&st);
         unsigned place = clip_select[track] < SONG_CLIPS ? clip_select[track] : song_row_place(track, st.track_row[track]);
         int r = place < SONG_CLIPS && st.song == song_select ? song_edit_open(track, place) : SONG_EMPTY;
-        if (r == SONG_BUSY) announce("UNSAVED CLIP - THIS ONE", now + 2500U);
+        if (r == SONG_BUSY) announce(busy_text(), now + 2500U);
         else if (r == SONG_EDIT_SHARED) announce("CLIP SHARED BY ANOTHER TRACK", now + 2000U);
         setup_open(place);
         goto controls_done;
@@ -2307,7 +2316,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
             }
             if (!r) r = song_record_start();
             announce(r == REC_ON_NOW ? "RECORDING" : r == REC_ARMED_NOW ? (song_playing() ? "REC WHEN THE CLIP LOOPS" : "REC ARMED - SEQ PLAY: GO")
-                     : r == SONG_BUSY ? "ANOTHER CLIP IS UNSAVED" : r == SONG_EDIT_SHARED ? "CLIP SHARED BY ANOTHER TRACK" : r == SONG_EMPTY ? "SELECT A CLIP FIRST" : "CANNOT RECORD HERE", now + 2000U);
+                     : r == SONG_BUSY ? busy_text() : r == SONG_EDIT_SHARED ? "CLIP SHARED BY ANOTHER TRACK" : r == SONG_EMPTY ? "SELECT A CLIP FIRST" : "CANNOT RECORD HERE", now + 2000U);
         }
         cache->middle_cache = ~0U;
         goto controls_done;
@@ -3058,9 +3067,13 @@ int ct_screen_steps_open(unsigned t, unsigned place)
 }
 /* Goal 6: a key of the keyboard was played (it sounds as always). On the STEP page it is the current note, and with a
  * step selected it is put on that step, or taken off it. */
+unsigned ct_screen_page_now(void) { return page; }
 void smk37_screen_key(unsigned note, unsigned velocity)
 {
     notice = NULL;   /* tabby-v1.2.1: any press takes a message away at once: a key of the keyboard too (they do not come through apply_controls) */
+#ifdef CT_A2
+    if (velocity) ct_late_panel(3, note);
+#endif
     if (page != CLIP_STEPS || note > 127) return;
     step_pitch = (uint8_t)note; step_velocity = (uint8_t)(velocity < 1 ? 1 : velocity > 127 ? 127 : velocity);
     cache->middle_cache = ~0U;
@@ -3206,6 +3219,9 @@ int smk37_screen_pad(unsigned pad,unsigned velocity,unsigned steps)
 {
     (void)pad; (void)steps;
     if (velocity) notice = NULL;   /* tabby-v1.2.1: ... and a pad that plays */
+#ifdef CT_A2
+    if (velocity) ct_late_panel(2, pad);
+#endif
     return 0;
 }
 void smk37_screen_page(unsigned target)

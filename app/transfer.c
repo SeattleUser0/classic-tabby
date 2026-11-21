@@ -296,6 +296,9 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
 {
     int r = GROOVE_PROJECT_INVALID;
     *count = 0;
+#ifdef CT_A2
+    ct_late_remote(cmd, n ? data[0] : 0);   /* tabby-v1.3: the worst-lateness record names the last command */
+#endif
     /* Task 12 A1: command 27, the Classic Tabby capability reply. A new command, so pages older
      * than tabby-v04.0 never see it (they read 21 and 22 with fixed lengths). Reply:
      *   out[0]    version of this reply (1)
@@ -363,7 +366,8 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
 #endif   /* CT_DIAG: command 26 only (Task 12 A4) */
     /* Task 12 A4: the counters are in every build; request 4 and 5 are the loop profile. */
 #ifdef CT_A2   /* the normal build defines it since Task 16 (build.py) */
-    enum { DIAG_REQUEST_MAX = 10 };  /* Task 15 Step 4: 7 = the A2 page, 8 / 9 = A2 off / on (app/diag.h); Task 17: 10 = the F + G page */
+    enum { DIAG_REQUEST_MAX = 13 };  /* tabby-v1.3: 12 / 13 = the worst lateness since the reset / since power-on */
+    /* Task 15 Step 4: 7 = the A2 page, 8 / 9 = A2 off / on (app/diag.h); Task 17: 10 = the F + G page */
 #else
     enum { DIAG_REQUEST_MAX = 6 };
 #endif

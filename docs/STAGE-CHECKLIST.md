@@ -1,6 +1,6 @@
 # Classic Tabby stage checklist
 
-Version 1.2 (2026-11-19). For tabby-v1.1 to tabby-v1.2.1 (v1.2: the words of the new screen; v1.1: EVENT LEAD under "If the timing feels off"). One page: print it and keep it with the SMK-37. The same text is section 9 of
+Version 1.2 (2026-11-19). For tabby-v1.1 to tabby-v1.3 (v1.2: the words of the new screen; v1.1: EVENT LEAD under "If the timing feels off"). One page: print it and keep it with the SMK-37. The same text is section 9 of
 the manual (docs/TESTING-GUIDE.md, the manual PDF); tests/workbench/guide.mjs fails when the two differ. Section
 numbers in brackets are the manual's.
 

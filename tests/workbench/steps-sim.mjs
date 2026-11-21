@@ -201,7 +201,7 @@ step(3100); check(sstate().dirty === 1, 'nine seconds after the change it is sti
 step(600); check(sstate().dirty === 0, 'ten seconds after the change, with the song stopped, it is saved by itself');
 check(c.sim_edit(3, 1, 0) === 0 && sstate().track === 1, 'another clip can be opened once the first is saved');
 pad(2); key(12);
-check(sstate().dirty === 1 && c.sim_edit(3, 0, 1) === -3, 'with that one unsaved, a third clip is refused (one unsaved clip at a time)');
+check(sstate().dirty === 1 && c.sim_edit(3, 0, 1) === 0 && sstate().track === 0 && c.sim_edit(3, 1, 0) === 0 && sstate().dirty === 1, 'with that one unsaved, a third clip opens all the same (tabby-v1.3: unsaved clips wait); opened again, the second is still unsaved');
 c.sim_edit(2, 0, 0);
 
 c.sim_midi_capture(0); c.sim_midi_drain(0);
