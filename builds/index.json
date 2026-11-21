@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-21T01:53:46Z",
+  "updated": "2026-11-21T03:58:44Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -773,6 +773,16 @@
       "note": "Not promoted: the comparison of the device's own screen pixels again found a row of the page before left on HOME after a page change while a song plays (the fix of tabby-v1.2 was not enough). tabby-v1.2.1 has it fixed."
     },
     {
+      "tag": "tabby-v1.2.1",
+      "build": "9e858b3b5fa9f1b175ed6fd1ca9e7825a042ed5f9df7af7767b199e595d42eff",
+      "loader": "ota-SMK379e858b3b5fa9f1b1",
+      "version": "tabby-v1.2.1",
+      "page": "builds/tabby-v1.2.1/",
+      "published": "2026-11-21",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2.1.zip",
+      "note": ""
+    },
+    {
       "tag": "tabby-v1.2.1-rc2",
       "build": "9e858b3b5fa9f1b175ed6fd1ca9e7825a042ed5f9df7af7767b199e595d42eff",
       "loader": "ota-SMK379e858b3b5fa9f1b1",
@@ -790,7 +800,7 @@
       "page": "builds/tabby-v1.2.1-rc3/",
       "published": "2026-11-21",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.2.1-rc3.zip",
-      "note": "Release candidate of tabby-v1.2.1: not a release. Use the main page unless you were asked to test this build."
+      "note": "Release candidate; it passed the device tests and was released as tabby-v1.2.1."
     }
   ]
 }
