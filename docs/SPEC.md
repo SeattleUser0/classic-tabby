@@ -2281,3 +2281,8 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
   muted, or not audible: another track is solo). `draw()` sets it on every compose. `song_local` does not post a
   song note-on of such a track to the engine; note-offs still go. The SDK's engine renders a muted track's voices
   like any other (measured: BUILD 66.1); its guard counts the block's render time.
+- `paint_since[band]`: when a clean band was marked. The wait before a due MIDI event (the larger of the band's own
+  last painting time and the last band's, plus 1.5 ms) ends for a band that has waited 4 x CT_PASS_STARVE_MS
+  (240 ms). Before, only "no band at all was sent for CT_PASS_STARVE_MS" ended it, and short bands that kept going
+  through held a long band back for as long as events were due at every pass (with A2 a pass is asked for just
+  before an event: always).

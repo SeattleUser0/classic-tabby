@@ -6886,3 +6886,34 @@ It is on the list (66.5).
 panel-state.py v0.2 also reads the selected track, the tracks the keys and pads play, and the page a test left the
 device on; rc-validate v0.17 selects the first test's track again after every test and keeps what each test left
 in the results (left_by_tests). Mutes, focus, ARP switches, CLOCK and A2 still fail the step that changed them.
+
+### 66.5 tabby-v1.2.1-rc1: not promoted; three findings (2026-11-20)
+
+Commit 1d7c66e, build `1037d12495a94aef`, installed after a full backup. Every device test passed (CLIP SETTING and
+CLIPS 40 of 40 with the new measures). **guard: PASS**: the Wrong Room song as it is 0.00 actions a second, a block
+0.63 ms, 62 voices (tabby-v1.2: 1.06 a second, 0.86 ms, 59); with every internal sound muted 0.00 and 0.10 ms. The
+two muted DX7 and 303 parts of your project were what pushed the three audible ones over the guard's line: with
+their notes no longer rendered the guard is silent for this song. Failed:
+
+- **screen: an unanswered command, and this time it says why**: "no reply to command 29 (1 tries of 1.5 s);
+  meanwhile the port brought: 195 x clock". 195 clock bytes in 1.5 s is 4 s of clock: the tour had slept 2.4 s
+  while the song played and nothing read the port; the kernel keeps 128 timestamped frames for a port and drops
+  what arrives when they are full; the reply comes a millisecond after the request. tabby_link.py v0.27 empties the
+  port before it sends. NOT REPRODUCED on purpose (four tries of the old way after sleeps of 1 to 6 s: answered
+  each time, after 67 to 129 old messages: the read usually wins the race against the reply), so this is the likely
+  cause with its evidence, not a proven one. The rc5 command without a reply had slept only 0.3 s: for that one
+  it may or may not be the same.
+- Run again by hand with v0.27: 46 pictures read. **45 of 46 identical; home-playing again with a row of CLIPS left
+  on it** (the same 1135 pixels as tabby-v1.2-rc5). The fix of tabby-v1.2 ("every second band in plain rotation")
+  let the rotation reach the band, where the wait before a due MIDI event then held it: since rc3 that wait counts
+  the band's own painting time, the title row of CLIPS takes about 2.5 ms, and with A2 a pass is asked for just
+  before an event is due, so there was always one due. The meters' short bands went through and kept the only
+  timer that ended the wait fresh. Passed in rc6 and rc7 by the moment, not by the fix. Now each band's own
+  waiting time ends the wait (SPEC 19.33). A fault of mine twice over: the cause in rc3, the half fix in rc6.
+- **timing-pages: one line on ACTIONS 2.03 ms on DIN** (USB 1.67; the device's own 3.29 as always there). The note
+  that set it is note 0, +1.42 ms: the first note at SEQ PLAY, which stands behind MIDI Start and Song Position on
+  the one cable (4 bytes, 1.28 ms); the 959 others lie within 1.67. The same note was the latest on DIN in most
+  earlier runs (+1.09 to +1.43). rc-validate v0.18 gives the DIN band without each line's first note and judges
+  that note on its own (no later than Start and Song Position take plus the band).
+
+Still open: the 115.67 ms once read from the device's own "latest send" between manual runs (66.3).

@@ -25,7 +25,7 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.26
+Version: 0.27
 
 Revision log
     v0.25 2026-11-19  now_ns() is THE clock of the device tools: every tool takes its marks ("notes since now") from it and not
@@ -102,6 +102,7 @@ _spec.loader.exec_module(monitor)
 # ---- v0.23: a clock the time service does not move -------------------------------------------------------------
 STEADY = True
 # v0.26 (2026-11-20): an unanswered command's error says what the port brought meanwhile (docs/BUILD.md 66.3).
+# v0.27 (2026-11-20): query() empties the port before it sends: a full input buffer dropped the reply (docs/BUILD.md 66.5).
 CLOCKMAP = []                  # (CLOCK_MONOTONIC ns, CLOCK_MONOTONIC_RAW ns), ten times a second while the tool runs
 _CLOCK_LOCK = threading.Lock()
 
@@ -299,6 +300,13 @@ class Link:
 
     def query(self, command, payload=b"", timeout=1.5, attempts=3, empty_ok=False):
         seen = []      # v0.26: what did come in while a reply was awaited (for the error below)
+        # v0.27: what is waiting in the port is read BEFORE the request goes out. A tool that slept while the device played
+        # (the screen tour's 2.4 s waits) left the kernel's input buffer full of clock bytes; the reply, about a
+        # millisecond after the request, found no room and was dropped by the kernel: "no reply to command 29 ...
+        # meanwhile the port brought: 195 x clock" (tabby-v1.2.1-rc1; the one of tabby-v1.2-rc5 was this too).
+        for t, m in self.messages(0):
+            if m[0] != 0xF0:
+                self.other.append((t, m))
         for _ in range(attempts):
             self.token = (self.token + 1) & 16383
             token = self.token

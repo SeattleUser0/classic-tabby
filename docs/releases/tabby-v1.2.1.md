@@ -2,9 +2,9 @@ A message goes away at once when you press anything, and PLAY / STOP stays reada
 
 # Classic Tabby tabby-v1.2.1: a message goes when you press anything
 
-- Firmware package build ID: `1037d12495a94aef` (first 16 hex digits). App image 488644 bytes (measured), margin 30813 bytes
-  below the 519457-byte limit (docs/FLASH-BUDGET.md 52). From tabby-v1.2 (`fef558ab16e275b4`): +96 bytes. At least
-  15360 bytes stay free for fixes. Free RAM 143244 bytes (unchanged).
+- Firmware package build ID: `9e858b3b5fa9f1b1` (first 16 hex digits). App image 488676 bytes (measured), margin 30781 bytes
+  below the 519457-byte limit (docs/FLASH-BUDGET.md 52). From tabby-v1.2 (`fef558ab16e275b4`): +128 bytes. At least
+  15360 bytes stay free for fixes. Free RAM 143180 bytes.
 - Installing over tabby-v04.2 to tabby-v1.2 keeps storage as it is. Take a Full backup first anyway.
 - **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
   an older build only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.
@@ -22,6 +22,11 @@ A message goes away at once when you press anything, and PLAY / STOP stays reada
   its own colour on black. The first line of a message therefore holds 9 characters and the others 13; thirteen
   messages were reworded to fit in three lines (FADER 1-4 / MOVE TO MATCH, PARA + K1 / MOVES A SCENE, > AGAIN /
   DELETES THE CLIP ...). Help and the guide quote the new words.
+- **A band of the page before no longer stays on the screen.** Seen again in the device's own pixels, on HOME
+  after a page change while a song plays: the fix in tabby-v1.2 was not enough. The painter is called just before
+  a note is due, so a band that takes long to paint (a title row) found a note due every time, while the short
+  bands of the level meters went through. Each band now has its own limit: after a quarter of a second it is
+  painted whatever is due.
 - **An internal sound that cannot be heard is not played.** A track muted on the mixer (blue, INT), or silenced
   by another track's solo, no longer starts its song notes on the SMK-37's sound engine. Until now the engine
   rendered such a track in full and threw the result away. A song whose parts go to outside gear only now costs

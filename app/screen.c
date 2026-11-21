@@ -94,9 +94,13 @@ static uint8_t paint_left[PAINT_BANDS], paint_right[PAINT_BANDS];
 static unsigned paint_rendering, paint_top, paint_next, paint_x, paint_end;
 static uint32_t paint_priority;
 static struct fm1_ble_status frame_ble; /* Task 06 (a): stays zero; no page reads it since the BLE page went */
+/* tabby-v1.2.1: since when each band has waited to be painted (set when a clean band is marked). A band that has
+ * waited four starvation periods goes even when a MIDI event is due: see paint_flush. */
+static uint32_t paint_since[PAINT_BANDS];
 static void paint_mark(unsigned x, unsigned y, unsigned w, unsigned h)
 {
     for (unsigned b = y / PAINT_ROWS; b <= (y + h - 1) / PAINT_ROWS; ++b) {
+        if (paint_left[b] >= paint_right[b]) paint_since[b] = fm1_millis();
         paint_priority |= 1U << b;
         if (x < paint_left[b]) paint_left[b] = (uint8_t)x;
         if (x + w > paint_right[b]) paint_right[b] = (uint8_t)(x + w);
@@ -1813,7 +1817,12 @@ static void paint_flush(void)
          * (the last band's time plus 1.5 ms for an audio interrupt in between) waits for the pass after the
          * event; the same starvation guard as above. Measured before this: eight lines on ACTIONS 4.1 to
          * 4.5 ms, the late notes being the ones that met a band (BUILD 36.6). */
-        if (ct_midi_due_within((band_cost[band] > band_ticks_last ? band_cost[band] : band_ticks_last) + 36000U) && fm1_millis() - band_sent_ms < CT_PASS_STARVE_MS) {
+        /* tabby-v1.2.1: ... and no band waits for ever. A pass is asked for just before an event is due, so a band
+         * that takes long (a title row at scale 3) found an event due at every pass, while short bands (the meters of
+         * HOME) went through and kept `band_sent_ms` fresh: the long band of the page before stayed on the screen
+         * (seen twice in the device's own pixels, 2.4 s after the page change). Its own waiting time bounds it now. */
+        if (ct_midi_due_within((band_cost[band] > band_ticks_last ? band_cost[band] : band_ticks_last) + 36000U) && fm1_millis() - band_sent_ms < CT_PASS_STARVE_MS
+            && fm1_millis() - paint_since[band] < 4U * CT_PASS_STARVE_MS) {
             ct_pass_defer(CT_DEFER_BAND);
             break;
         }

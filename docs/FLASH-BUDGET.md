@@ -2,7 +2,7 @@
 
 Version: 0.52
 Revision log:
-- v0.52, 2026-11-20: section 52: tabby-v1.2.1 measured, 488644 bytes, margin 30813.
+- v0.52, 2026-11-20: section 52: tabby-v1.2.1 measured, 488676 bytes, margin 30781.
 - v0.51, 2026-11-20: section 51: tabby-v1.2 measured, 488548 bytes, margin 30909.
 - v0.50, 2026-11-19: section 50: tabby-v1.1 measured, 486724 bytes, margin 32733 (the readable screen: 4032 bytes smaller).
 - v0.49, 2026-11-18: section 49: tabby-v1.0.2 measured, 490756 bytes, margin 28701.
@@ -1431,6 +1431,6 @@ switches it off; a player's device never holds it.
 | Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
 | --- | ---: | ---: | ---: |
 | tabby-v1.2 | 488548 | | 30909 |
-| tabby-v1.2.1: the play state in the message box, any press clears it; muted internal sounds are not played | 488644 | +96 | **30813** |
+| tabby-v1.2.1: the play state in the message box, any press clears it; muted internal sounds are not played | 488676 | +128 | **30781** |
 
-RAM (runtime heap): 143244 bytes (unchanged). Above the 15360-byte reserve: 15453 bytes.
+RAM (runtime heap): 143180 bytes. Above the 15360-byte reserve: 15421 bytes.

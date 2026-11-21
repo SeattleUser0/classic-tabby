@@ -26,9 +26,11 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.17
+Version: 0.18
 
 Revision log
+    v0.18 2026-11-20  The DIN figure of the timing steps is the band without each line's first note at SEQ PLAY (it stands
+                      behind Start and Song Position on the cable); that note is said and judged on its own.
     v0.17 2026-11-20  Every test starts from the state the first one found (panel-state.py v0.2 selects the track again and
                       shows the overview); what a test left is kept in the results (left_by_tests).
     v0.16 2026-11-20  tabby-v1.2.1: step guard (run-guard.py).
@@ -68,6 +70,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent.parent
 HW = ROOT / "tools/linux/hw"
 PAGES = "https://seattleuser0.github.io/classic-tabby/"
 SONGOPT = '{"record":"scenes","loop":true,"rowSteps":16}'
+FIRST_NOTE_MS = 3.3      # v0.18: the first note at SEQ PLAY on DIN: Start and Song Position ahead of it (1.28 ms) plus the band (2.0)
 PAGE_LIMIT_MS = 2.0      # v0.11: one line with any page on the screen: under 2 ms, or the step fails
 EIGHT_LIMIT_MS = 3.5     # v0.11: eight lines, the worst line (2.2 to 3.1 ms measured from tabby-v04.4 to tabby-v1.0)
 BAND_LIMIT_MS = 2.5      # one line: the goal is 2 ms; above this the run fails. The bands are reported either way.
@@ -195,6 +198,19 @@ def main():
     # served; with the machine idle the cores sit in deep sleep states and some stamps come late by 0.1 to 0.3 ms
     # (docs/BUILD.md 65.4: the same firmware, one line: 1.63 to 1.89 ms awake, up to 2.17 idle, the device's own figure
     # 1.42 to 1.75 in both). One low-priority spinner per core for as long as a timing-sensitive tool runs.
+    # v0.18: the DIN band without each line's first note, and that note's place. At SEQ PLAY the first note stands behind
+    # MIDI Start and Song Position on the one cable (4 bytes: 1.28 ms); it set the DIN figure of a one-line run again
+    # and again (2.03 ms on ACTIONS in tabby-v1.2.1-rc1: note 0 at +1.42, the 959 others within 1.67; on USB, where
+    # nothing queues, 1.67). It is said beside the band and judged on its own: no later than Start and Song Position
+    # take plus the band.
+    def din_without_first(tag):
+        try:
+            q = json.loads((out / (tag + "-summary.json")).read_text())["din"]["lines"]
+            rest = [max(v["errors_ms"][1:]) - min(v["errors_ms"][1:]) for v in q.values() if len(v.get("errors_ms", [])) > 2]
+            first = [v["errors_ms"][0] - sorted(v["errors_ms"][1:])[len(v["errors_ms"][1:]) // 2] for v in q.values() if len(v.get("errors_ms", [])) > 2]
+            return (max(rest), max(first)) if rest else (None, None)
+        except Exception:
+            return None, None
     class awake:
         def __enter__(self):
             self.p = [subprocess.Popen(["nice", "-n", "19", "taskset", "-c", str(n), sys.executable, "-c", "while True: pass"]) for n in range(os.cpu_count() or 1)]
@@ -269,20 +285,24 @@ def main():
         bands = {}
         runs = []
         own = []    # v0.13: the device's own figure: the latest a timed event left after its due time
+        rests = []  # v0.18: (the DIN band without the first note, the first note's place) per run
         for n in range(3):
             with awake():
                 code, o = sh([py, str(HW / "run-15.py"), "l2", "--a2", "keep", "--seconds", "125", "--play", "16", "--page", "overview", "--tag", "%s-1x16-%d" % (rc_tag, n + 1), "--out", str(out)], 500, log)
             m = re.search(r"^F \+ G: .*latest ([\d.]+) ms", o, re.M)
             own.append(float(m.group(1)) if m else None)
+            rests.append(din_without_first("%s-1x16-%d" % (rc_tag, n + 1)))
             for port in ("DIN", "USB"):
                 m = re.search(r"^%s: (\d+) notes on 1 line\(s\); band per line [\d.]+\.\.([\d.]+) ms.*clock ratio ([\d.]+)" % port, o, re.M)
                 if m:
                     bands.setdefault(port, []).append((int(m.group(1)), float(m.group(2)), m.group(3)))
             runs.append(code)
         din, usb = bands.get("DIN", []), bands.get("USB", [])
-        good = len(din) == 3 and len(usb) == 3 and all(n == 960 and b < PAGE_LIMIT_MS for n, b, _ in din + usb) and not any(runs) and all(x is not None and x < PAGE_LIMIT_MS for x in own)
-        step("timing", good, "one line, 960 notes, three runs: DIN %s ms; USB %s ms; the device's own latest send %s ms; clock ratio %s" % (
-            ", ".join("%.2f" % b for _, b, _ in din), ", ".join("%.2f" % b for _, b, _ in usb), ", ".join("?" if x is None else "%.2f" % x for x in own), ", ".join(sorted({r for _, _, r in din}))))
+        good = (len(din) == 3 and len(usb) == 3 and all(n == 960 for n, _, _ in din + usb) and all(b < PAGE_LIMIT_MS for _, b, _ in usb) and not any(runs)
+                and all(x is not None and x < PAGE_LIMIT_MS for x in own) and all(r is not None and r < PAGE_LIMIT_MS and f < FIRST_NOTE_MS for r, f in rests))
+        step("timing", good, "one line, 960 notes, three runs: DIN %s ms (the first note at SEQ PLAY %s behind Start; with it %s); USB %s ms; the device's own latest send %s ms; clock ratio %s" % (
+            ", ".join("?" if r is None else "%.2f" % r for r, _ in rests), ", ".join("?" if f is None else "%+.2f" % f for _, f in rests), ", ".join("%.2f" % b for _, b, _ in din),
+            ", ".join("%.2f" % b for _, b, _ in usb), ", ".join("?" if x is None else "%.2f" % x for x in own), ", ".join(sorted({r for _, _, r in din}))))
         # v0.11 (tabby-v1.1, the readable screen): the same one-line song with each of the other pages on the screen, and
         # the eight-line song (slot 15) on the three pages looked at while playing. One line must stay under 2 ms on every
         # page (the user's limit); eight lines under EIGHT_LIMIT_MS for every line.
@@ -301,10 +321,12 @@ def main():
             # the device's own figure counts every timed event. On ACTIONS it has been 3.2 to 4.0 ms in every version
             # (tabby-v1.1: 3.99): the page reads the song storage twice a second and about ten events of 8000 leave
             # late, none of them a note of the line. It is reported there, not judged (v0.14).
-            ok = code == 0 and len(worst) == 2 and all(b < limit for b in worst.values()) and latest is not None and (lines_n > 1 or page == "actions" or latest < PAGE_LIMIT_MS)
+            rest, first = din_without_first("%s-%dx-%s" % (rc_tag, lines_n, page))
+            ok = (code == 0 and len(worst) == 2 and worst["USB"] < limit and rest is not None and rest < limit and first < FIRST_NOTE_MS + (0.0 if lines_n == 1 else 7 * 0.96)
+                  and latest is not None and (lines_n > 1 or page == "actions" or latest < PAGE_LIMIT_MS))
             bad += not ok
-            got.append("%s %s %s/%s/%s" % ("1L" if lines_n == 1 else "8L", page, "%.2f" % worst["DIN"] if "DIN" in worst else "?", "%.2f" % worst["USB"] if "USB" in worst else "?", "?" if latest is None else "%.2f" % latest))
-        step("timing-pages", not bad, "worst line DIN / USB / the device's own latest send, ms: " + "; ".join(got))
+            got.append("%s %s %s/%s/%s" % ("1L" if lines_n == 1 else "8L", page, "?" if rest is None else "%.2f" % rest, "%.2f" % worst["USB"] if "USB" in worst else "?", "?" if latest is None else "%.2f" % latest))
+        step("timing-pages", not bad, "worst line DIN (without each line's first note at SEQ PLAY) / USB / the device's own latest send, ms: " + "; ".join(got))
         song()
 
     # v0.7: the soak with the Wrong Room song (slot 6 on the screen, index 5; only if that slot is empty)
