@@ -17,9 +17,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/panel-state.py [--baseline JSON --restore-mutes]
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-20  Also read (and then reset): the device's own lateness counters as the test before left them.
     v0.2  2026-11-20  Also read: the selected track, the track the keys and the pads play, the page the device was left on.
                       --restore-track selects the baseline's track again, so every test of the release run starts from
                       the same state: overview, song stopped, the same track, the same mutes.
@@ -36,6 +37,17 @@ import tabby_link as T
 
 
 def read(l):
+    # v0.3: the device's own lateness counters as the test before left them (they count since the last reset, and each
+    # timing tool resets them when it starts): the latest any timed event left after its due time, and how many left
+    # 4 ms or more late. Read first, before this tool does anything; reset at the end (main), so the next reading
+    # belongs to the next test alone. 115.67 ms once stood there between manual runs and nothing said which run.
+    own = None
+    try:
+        f = l.fg()
+        if f:
+            own = {"own_latest_ms": round(f["late_max_ms"], 2), "own_4ms_or_more": f["late_bins"][5], "own_sent": f["sent"]}
+    except Exception:
+        pass
     l.release_all(); l.stop_song(); time.sleep(0.4)
     page = l.remote_status().get("page_name")     # v0.2: the page the test left the device on (it goes back to the overview)
     l.show_page("overview"); l.press("BLUETOOTH"); time.sleep(0.4)
@@ -52,6 +64,8 @@ def read(l):
     except T.DeviceError:
         pass
     l.show_page("overview")
+    if own:
+        out.update(own)
     return out
 
 
@@ -86,6 +100,10 @@ def main():
                 s = read(l); s["track_was"] = was; s["left_on_page"] = page
                 if kept:
                     s["restored"] = kept
+        try:
+            l.diag(1)      # v0.3: the counters start again for the next test
+        except Exception:
+            pass
         print(json.dumps(s))
     finally:
         l.close()

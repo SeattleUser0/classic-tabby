@@ -6945,3 +6945,33 @@ Released 2026-11-20: commit 4c1ac63, build `9e858b3b5fa9f1b1`, suite green on th
 build on the device, every step of rc-validate.py v0.19 passed, promoted by the flow. Figures:
 docs/releases/tabby-v1.2.1.md. timing-pages as the run printed it: worst line DIN (without each line's first note at SEQ PLAY) / USB / the device's own latest send, ms: 1L clips 1.65/1.66/1.51; 1L scenes 1.71/1.81/1.47; 1L steps 1.63/1.64/1.46; 1L actions 1.67/1.64/3.50; 1L mixer 1.63/1.69/1.49; 8L overview 2.57/1.89/1.93; 8L clips 2.88/1.94/1.88; 8L scenes 2.77/1.
 Results file: no unanswered command, no page-load error; left by tests: the CLIPS page after the screen step.
+
+### 66.8 After the release: the 115.67 ms, and the next items of the list (2026-11-20)
+
+**The 115.67 ms once read from the device's own "latest send" (66.3): not found.** On tabby-v1.2.1, counters reset
+before each action, the latest send after it:
+
+| Action | Latest send after its due time |
+| --- | ---: |
+| Stopped, 3 s (the clock runs: 48 timed events a second) | 0.47 ms |
+| Play the one-line song 4 s, 4 s more, stop | 1.18, 1.39, 1.24 |
+| Select another song; play it (eight lines) 4 s | 0.48, 1.67 |
+| Four page changes while it plays | 2.06 |
+| Stop; play again; stop and play at once | 1.64, 1.02, 1.29 |
+| The screen copy on, frozen, off | 2.03 |
+| KNOB BANK + pad 9 twice (mute, unmute) | 1.16 |
+| A song written over the workbench (8 blocks; flash erase 17.6 ms, write 29.4 ms), written again, deleted | 0.53, 0.35, 0.35 |
+| A full backup (reads only) | 3.58 |
+
+Timed events leave from the timer interrupt, so even a 29 ms flash write does not hold the clock. Nothing I can
+do by remote produced a late send. What stood between the last reset and that reading: the guard runs, 150
+openings of the port, a test killed in the middle. So that the next one shows itself: panel-state.py v0.3 reads the
+device's own counters as each test left them and resets them; rc-validate v0.20 keeps them per step in the results
+(own_lateness_by_step).
+
+**"A soak with one of your songs" (the list of the tabby-v1.0.2 report): cannot be done yet.** The ten songs on the
+device (slots 7 to 16) are all test songs of mine, every one named IMPORTED; none of the user's is stored there.
+
+**"Each device test setting and restoring its own starting state": done in the release run** (66.4), not inside each
+tool: after every test the song is stopped, the overview shown, the first test's track selected again, the mutes
+put back; what a test left is in the results. In the run of the release: only the CLIPS page after the screen tour.

@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.19
+Version: 0.20
 
 Revision log
+    v0.20 2026-11-20  The device's own lateness counters are kept per step in the results (own_lateness_by_step).
     v0.19 2026-11-20  The identity read is asked again when the candidate's page did not load (a network error is not an
                       answer of the device).
     v0.18 2026-11-20  The DIN figure of the timing steps is the band without each line's first note at SEQ PLAY (it stands
@@ -190,10 +191,13 @@ def main():
 
     # v0.10: the panel state a test must leave as it found it (tools/linux/hw/panel-state.py): read before the tests,
     # after every test and at the end; the step that changed it fails, and the mutes are put back.
-    base = {}; left = []
+    base = {}; left = []; own_by_step = []
     def state(after):
         code, o = sh([py, str(HW / "panel-state.py")] + (["--baseline", json.dumps(base), "--restore-mutes", "--restore-track"] if base else []), 120, log)
         now = last_json(o)
+        # v0.20: the device's own lateness counters as each test left them (panel-state.py v0.3), kept per step
+        if now.get("own_latest_ms") is not None:
+            own_by_step.append({"after": after or "(before the tests)", "latest_ms": now["own_latest_ms"], "at_4ms_or_more": now.get("own_4ms_or_more"), "sent": now.get("own_sent")})
         if not base:
             base.update(now); return True
         # v0.17: every test starts from the state the first one found: the song stopped, the overview, the same track. What
@@ -396,6 +400,7 @@ def main():
     results["finished"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     results["unanswered_commands"] = unanswered    # v0.15
     results["left_by_tests"] = left                # v0.17
+    results["own_lateness_by_step"] = own_by_step   # v0.20
     file.write_text(json.dumps(results, indent=1) + "\n")
     if failed:
         print("NOT MARKED: failed steps: %s. The build stays a release candidate; give its page a note (tools/linux/builds-notes.json)." % ", ".join(failed))
