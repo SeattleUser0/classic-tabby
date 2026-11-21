@@ -6938,5 +6938,10 @@ the SCENES page; no other track selected by any test.
 ### 66.7 tabby-v1.2.1 released: candidate 3
 
 Candidate 3 is rc2's firmware (nothing under app/ changed) with the 46 device pictures of rc2's run in the manual
-(44 the device's, 2 the simulator's) and rc-validate v0.19. Its results are in docs/releases/tabby-v1.2.1.md and
+(46 the device's, 2 the simulator's) and rc-validate v0.19. Its results are in docs/releases/tabby-v1.2.1.md and
 in the next entry.
+
+Released 2026-11-20: commit 4c1ac63, build `9e858b3b5fa9f1b1`, suite green on that commit, the install step found the
+build on the device, every step of rc-validate.py v0.19 passed, promoted by the flow. Figures:
+docs/releases/tabby-v1.2.1.md. timing-pages as the run printed it: worst line DIN (without each line's first note at SEQ PLAY) / USB / the device's own latest send, ms: 1L clips 1.65/1.66/1.51; 1L scenes 1.71/1.81/1.47; 1L steps 1.63/1.64/1.46; 1L actions 1.67/1.64/3.50; 1L mixer 1.63/1.69/1.49; 8L overview 2.57/1.89/1.93; 8L clips 2.88/1.94/1.88; 8L scenes 2.77/1.
+Results file: no unanswered command, no page-load error; left by tests: the CLIPS page after the screen step.

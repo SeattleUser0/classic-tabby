@@ -55,4 +55,33 @@ A message goes away at once when you press anything, and PLAY / STOP stays reada
 
 ## Validation
 
-VALIDATION
+Candidate 3 (builds/tabby-v1.2.1-rc3/) on the device, unattended, before the promotion. The test computer was kept
+awake while it measured. "Own" is the device's own figure: the latest a timed event left after its due time. The DIN
+figure is the band without each line's first note at SEQ PLAY, which stands behind MIDI Start and Song Position on
+the cable and is given beside it.
+
+- **The device's pixels: 46 of 46 pictures identical to the simulator's**, 24 at rest and 22 while the song played;
+  among them a message with PLAY or STOP at its left end, and the page half a second after a key: no message.
+- **The CPU guard**, Wrong Room song: as it is 0.00 actions a second, a block of sound 0.63 ms of 2.90, 62 voices
+  (tabby-v1.2: 1.06 a second, 0.86 ms, 59 voices). Every internal sound muted: 0.00 a second, 0.10 ms.
+
+| One line, 960 notes | DIN ms | first note | USB ms | own ms |
+| --- | ---: | ---: | ---: | ---: |
+| Overview (three runs) | 1.71, 1.67, 1.67 | +1.12, +1.36, +1.41 | 1.71, 1.71, 1.68 | 1.55, 1.51, 1.44 |
+| CLIPS | 1.65 | | 1.66 | 1.51 |
+| SCENES | 1.71 | | 1.81 | 1.47 |
+| SYNC / MIDI | 1.63 | | 1.64 | 1.46 |
+| ACTIONS | 1.67 | | 1.64 | 3.50 |
+| Mixer | 1.63 | | 1.69 | 1.49 |
+
+- **One line stays under 2 ms on every page.** Eight lines: 2.57 to 2.88 ms on DIN, about 1.9 on USB. On ACTIONS the
+  device's own figure is 3 to 4 ms as in every version (reported, not judged).
+- **Soak with EVENT LEAD OFF**, 40 minutes, 19 segments on six pages, none bad: every scene entry sent its events; USB
+  band 1.30 to 2.33 ms; on the one DIN cable 14.70 to 15.13 ms, as before.
+- **Soak with EVENT LEAD 1/16**, 40 minutes, 19 segments, none bad: DIN band 1.57 to 1.84 ms, USB 1.31 to 1.64 ms.
+- CLIP SETTING 40 of 40, take edit 26 of 26, note repeat and step loop 20 of 20, program and knobs 10 of 10, clip
+  chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16, recording 25 of 25, STEP page 18 of 18, CLIPS page 40
+  of 40 twice, the timing song 960 of 960 notes (worst 1.16 ms).
+- Full backup, restore of that backup, verify: PASS (41 items). The panel was left as it was found; no command went
+  unanswered; the only thing a test left was the CLIPS page after the screen tour (put back).
+- Still not looked at by a person: the glass itself (test T97 of the guide).
