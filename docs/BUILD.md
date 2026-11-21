@@ -6917,3 +6917,26 @@ their notes no longer rendered the guard is silent for this song. Failed:
   that note on its own (no later than Start and Song Position take plus the band).
 
 Still open: the 115.67 ms once read from the device's own "latest send" between manual runs (66.3).
+
+### 66.6 tabby-v1.2.1-rc2: the firmware that is released; its first run stopped on this computer's network
+
+Commit 971e1ac, build `9e858b3b5fa9f1b1`, installed after a full backup ("Firmware ready" in 10 s). Then the
+release run stopped: "identity: the device reports build None". The identity is read through the candidate's page
+in a browser, and the page did not load: `net::ERR_NAME_NOT_RESOLVED`. The run obeyed its rule (no further device
+writes). Checked read-only with two tools before anything else: the device answered tabby_link (status, the screen
+copy's command) and, a minute later, the page read gave build 9e858b3b5fa9. rc-validate v0.19 asks the identity
+again when the page did not load (never when the device answered with another build) and keeps the error in the
+results. Run again by hand (the install step: "already installed", nothing written): every step passed.
+
+screen 46 of 46 (22 playing). guard: 0.00 actions a second as it is and muted; a block 0.63 and 0.10 ms. One line
+(DIN without the first note at SEQ PLAY / USB / own, ms): overview 1.72, 1.92, 1.83 / 1.66, 1.85, 1.74 / 1.45, 1.71,
+1.62 (the first note +1.16, +1.30, +1.26); CLIPS 1.66 / 1.71 / 1.48; SCENES 1.80 / 1.81 / 1.59; SYNC / MIDI 1.68 /
+1.66 / 1.53; ACTIONS 1.73 / 1.68 / 4.05; mixer 1.77 / 1.76 / 1.61. Eight lines: 2.74, 2.87, 2.90 on DIN, 1.90 to
+1.91 on USB. What the tests left (new in the results): after the screen step the CLIPS page, after the verify
+the SCENES page; no other track selected by any test.
+
+### 66.7 tabby-v1.2.1 released: candidate 3
+
+Candidate 3 is rc2's firmware (nothing under app/ changed) with the 46 device pictures of rc2's run in the manual
+(44 the device's, 2 the simulator's) and rc-validate v0.19. Its results are in docs/releases/tabby-v1.2.1.md and
+in the next entry.

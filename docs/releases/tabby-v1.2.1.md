@@ -12,7 +12,11 @@ A message goes away at once when you press anything, and PLAY / STOP stays reada
   tabby-v04.15, SHUFFLE and PLAY QUANTIZE before tabby-v04.17, STEP SIZE before tabby-v04.19, DIRECTION before
   tabby-v04.20. A song with EVENT LEAD set plays on older firmware, without the lead.
 - Released through the candidate flow, with the per-page timing check and the comparison of the device's own
-  screen pixels. CANDIDATES
+  screen pixels, as candidate 3. Candidate 1 was held back: the pixel comparison again found a row of the page
+  before left on HOME (fixed, below). Candidate 2 has that fixed, was installed and tested, and made the device's
+  screen pictures; its first run stopped because this computer could not load the candidate's page for a moment
+  (the device was never at fault), and was run again. Candidate 3 is the same firmware with those pictures in the
+  manual, tested in full, and promoted. docs/BUILD.md 66.5 and 66.6.
 
 ## What changed
 

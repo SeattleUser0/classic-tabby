@@ -26,9 +26,11 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.18
+Version: 0.19
 
 Revision log
+    v0.19 2026-11-20  The identity read is asked again when the candidate's page did not load (a network error is not an
+                      answer of the device).
     v0.18 2026-11-20  The DIN figure of the timing steps is the band without each line's first note at SEQ PLAY (it stands
                       behind Start and Song Position on the cable); that note is said and judged on its own.
     v0.17 2026-11-20  Every test starts from the state the first one found (panel-state.py v0.2 selects the track again and
@@ -163,6 +165,17 @@ def main():
     time.sleep(6)
     code, o = sh(W + ["info", "--url", url, "--log", wb_log], 300, log)
     j = last_json(o)
+    # v0.19: the identity is read through the candidate's page in a browser. When the page did not load (tabby-v1.2.1-rc2:
+    # "net::ERR_NAME_NOT_RESOLVED", this computer's name service for a moment) there is no answer of the device at all:
+    # that is asked again, up to three times a minute apart, and kept in the results. An answer with another build is
+    # never asked again.
+    for again in range(3):
+        if j.get("identity") or "net::ERR_" not in o:
+            break
+        results.setdefault("page_load_errors", []).append((re.search(r"net::ERR_\w+", o) or [""])[0] if re.search(r"net::ERR_\w+", o) else "?")
+        time.sleep(60)
+        code, o = sh(W + ["info", "--url", url, "--log", wb_log], 300, log)
+        j = last_json(o)
     results["device_build"] = (j.get("identity") or {}).get("build")
     if not step("identity", results["device_build"] == build, "the device reports build %s" % str(results["device_build"])[:16]):
         return stop("the device does not run the build of this tree")
