@@ -128,8 +128,8 @@ press(SAVE); u = setup();
 check(u.unsaved === 1 && u.place === 2, 'the 4th left button with the clip unsaved: the copy is made all the same and is the open clip (tabby-v1.3; before: THE CLIP IS UNSAVED: SAVE IT FIRST)');
 knob(K5, 1); press(SAVE); u = setup();
 check(u.unsaved === 0, 'on another row the 4th left button saves (stopped)');
-knob(K5, -1); press(SAVE); u = setup(); press(FX); s = state();
-check(u.place === 2 && u.unsaved === 1 && u.steps === 8 && s.selected === 2 && (s.pads[2].code & 7) === 1, 'COPY: pad 3 holds the copy (8 steps), open, selected and unsaved');
+knob(K5, -1); u = setup(); press(FX); s = state();          /* tabby-v1.3: the first press made the copy already; no second one */
+check(u.place === 2 && u.unsaved === 0 && u.steps === 8 && s.selected === 2 && (s.pads[2].code & 7) === 1, 'COPY: pad 3 holds the copy (8 steps), open, selected, saved with its source');
 /* the song settings */
 press(FX); knob(K5, 14); knob(K1, 1); knob(K5, 1); knob(K1, 2); knob(K5, 1); knob(K1, 1); knob(K5, 1); knob(K1, -6); knob(K5, 1); knob(K1, 3); u = setup();
 check(u.row === 18 && u.countIn === 1 && u.click === 2 && u.out === 1 && u.ch === 3 && u.note === 40, 'COUNT-IN 1 cycle, CLICK ALWAYS, as a MIDI NOTE, channel 4, note 40 (' + [u.countIn, u.click, u.out, u.ch, u.note] + ')');
