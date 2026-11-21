@@ -2,7 +2,7 @@ Record or edit one clip after another while the song plays on: eight clips can b
 
 # Classic Tabby tabby-v1.3: take after take without stopping
 
-- Firmware package build ID: `BUILDID` (first 16 hex digits). App image 490308 bytes (measured), margin 29149 bytes
+- Firmware package build ID: `526ab98ed9887632` (first 16 hex digits). App image 490308 bytes (measured), margin 29149 bytes
   below the 519457-byte limit (docs/FLASH-BUDGET.md 53). From tabby-v1.2.1 (`9e858b3b5fa9f1b1`): +1632 bytes. At least
   15360 bytes stay free for fixes. Free RAM 121388 bytes (21792 less: the places for seven waiting clips).
 - Installing over tabby-v04.2 to tabby-v1.2.1 keeps storage as it is. Take a Full backup first anyway.
