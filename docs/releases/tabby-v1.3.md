@@ -2,7 +2,7 @@ Record or edit one clip after another while the song plays on: eight clips can b
 
 # Classic Tabby tabby-v1.3: take after take without stopping
 
-- Firmware package build ID: `32df8437e103362c` (first 16 hex digits). App image 490372 bytes (measured), margin 29085 bytes
+- Firmware package build ID: `397f401dd16b8873` (first 16 hex digits). App image 490372 bytes (measured), margin 29085 bytes
   below the 519457-byte limit (docs/FLASH-BUDGET.md 53). From tabby-v1.2.1 (`9e858b3b5fa9f1b1`): +1696 bytes. At least
   15360 bytes stay free for fixes. Free RAM 142924 bytes; each waiting clip takes 3088 bytes of it until it is saved.
 - Installing over tabby-v04.2 to tabby-v1.2.1 keeps storage as it is. Take a Full backup first anyway.
@@ -30,6 +30,9 @@ Record or edit one clip after another while the song plays on: eight clips can b
   already past), the page, the last remote command and the last panel action with their age, how long ago flash
   was written and the song was started or stopped. The test tools read it after every test and every soak; the
   release run fails when anything left 10 ms or more late while a song ran.
+- **The ACTIONS page no longer sends late while a song plays.** It read the song storage every two seconds whatever
+  was due (up to 5 ms): with a dense song the latest send on that page was 6.5 to 6.9 ms, 3 to 4 ms in every version
+  before. While the transport runs the storage cannot change, so it is not read then.
 - **The release run soaks one of the user's own songs**: Meridian Fault (tests/fixtures/meridian_fault.mid), every
   note of every pass against the file.
 

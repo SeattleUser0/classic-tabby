@@ -7052,3 +7052,37 @@ song ran, in four hours with three soaks. The Stop message's 177.79 ms: plain st
 same build: 0.86, 2.67, 0.67, 2.65 ms (remote stop, SEQ PLAY, one line and eight). The setup test stops during
 a count-in. Whether that Stop left late or was given a due time already past, this record could not say: from
 candidate 2 each record also holds how long before the send the pass before it ran.
+
+### 67.5 tabby-v1.3-rc2: not promoted; the 115 ms found, and the ACTIONS page's late sends
+
+Commit bcd3008, build `32df8437e103362c`. screen 46 of 46 (the waiting places from the heap), program 10 of 10,
+record 30 of 30, soak-song 9 passes, 0 bad (DIN 11.85, USB 1.88 ms). Failed: timing-pages and soak.
+
+**The 115 ms.** Each record now says how long before the send the pass before it ran. Since the reset, per step:
+
+| After the step | Stopped: latest | Clock byte, on | Last command | Flash | The pass before |
+| --- | ---: | --- | --- | --- | ---: |
+| (the test song written) | 63.43 ms | overview | 5 (a block of a transfer), 36 ms before | 0 ms before | 65.9 ms |
+| takeedit | 114.80 | overview | 5, 96 ms | 0 | 116.0 |
+| setup | 191.33 | CLIPS | 29/16 (the remote save), 134 ms | 0 | 194.4 |
+| guard | 115.02 | overview | 5, 87 ms | 1 | 116.3 |
+| soak-lead | 17.96 | overview | 5, 8 ms | 0 | 18.4 |
+| verify (the restore) | 115.82 | overview | 5, 86 ms | 0 | 116.3 |
+| every other step | 0.5 to 2.6 | | | | 0.7 to 9.5 |
+
+Every one: the transport stopped, a flash write just over, the pass that did the flash work really took 116 ms (flash operations
+mask every interrupt). The clock bytes due meanwhile leave afterwards. **While a song ran:
+0.58 to 4.84 ms in the tests, 6.47 at most in the soaks, on ACTIONS.** Nothing is written to flash while the
+transport runs (SPEC 15.4), so this cannot happen in a playing song.
+
+timing-pages failed on "1L scenes: the device's own latest send 115.92 ms": the F + G figure counts the clock bytes
+before SEQ PLAY and after the stop as well, and a save by itself (ten seconds after the stop of the run before) fell
+between the reset and SEQ PLAY. The same is the 115.67 ms of 66.3. run-15 v0.16 prints the record and
+"RUNNING latest"; rc-validate v0.22 takes that figure.
+
+**ACTIONS.** soak: segment 18, eight lines on ACTIONS: USB band 3.54 ms (limit 3.5). The record while running:
+6.47 ms on ACTIONS (22 sends at 4 ms or more), the pass before 7.0 ms earlier. Cause (app/diag.c
+ct_diag_storage_lines): the page's two storage lines are worked out from the song storage (up to 5 ms), at most
+twice a second and not while an event is due within 6 ms, but after 2 s whatever is due; with eight lines an
+event is always due, so every 2 s the read ran over one. While the transport runs the storage cannot change:
+the lines are no longer worked out then.

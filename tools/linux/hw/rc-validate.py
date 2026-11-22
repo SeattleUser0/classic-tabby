@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.21
+Version: 0.22
 
 Revision log
+    v0.22 2026-11-21  The pages' own figure is the one while the song ran (the firmware's record).
     v0.21 2026-11-21  tabby-v1.3: the step `lateness`: the firmware's worst-lateness record, read after every test and soak.
     v0.20 2026-11-20  The device's own lateness counters are kept per step in the results (own_lateness_by_step).
     v0.19 2026-11-20  The identity read is asked again when the candidate's page did not load (a network error is not an
@@ -332,6 +333,12 @@ def main():
                 code, o = sh([py, str(HW / "run-15.py"), "l2", "--a2", "keep", "--seconds", "125", "--play", slot, "--page", page, "--tag", "%s-%dx-%s" % (rc_tag, lines_n, page), "--out", str(out)], 500, log)
             m = re.search(r"^F \+ G: .*latest ([\d.]+) ms", o, re.M)
             latest = float(m.group(1)) if m else None
+            # v0.22: the figure while the song ran, from the firmware's record (run-15 v0.16). The F + G figure also counts
+            # the clock bytes before SEQ PLAY and after the stop: a save by itself there read 115.92 ms on SCENES in
+            # tabby-v1.3-rc2 and failed a run whose song was never late.
+            m = re.search(r"^RUNNING latest ([\d.]+) ms", o, re.M)
+            if m:
+                latest = float(m.group(1))
             worst = {}
             for port in ("DIN", "USB"):
                 m = re.search(r"^%s: (\d+) notes on %d line\(s\); band per line [\d.]+\.\.([\d.]+) ms" % (port, lines_n), o, re.M)

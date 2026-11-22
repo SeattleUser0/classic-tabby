@@ -241,6 +241,7 @@ static void storage_lines(char user_line[40], char song_line[40]);
  * painted): a song note that came due inside it left late (eight lines on ACTIONS 4.1 to 4.5 ms, the other
  * pages under 4; BUILD 36.6). The lines are now worked out at most twice a second, and not while a MIDI
  * event is due within 6 ms (unless they are 2 s old); in between the last ones are given. */
+unsigned ct_transport_running(void);   /* app/song.h */
 void ct_diag_storage_lines(char user_line[40], char song_line[40])
 {
     static char user[40], song[40];
@@ -250,7 +251,10 @@ void ct_diag_storage_lines(char user_line[40], char song_line[40])
 #ifdef CT_A2
     busy = ct_midi_due_within(144000U);
 #endif
-    if (!have || (age >= 500U && !busy) || age >= 2000U) { storage_lines(user, song); at = now; have = 1; }
+    /* tabby-v1.3: and not at all while the transport runs. Nothing is written to flash then, so the lines cannot change;
+     * the read after 2 s "whatever is due" was the page's late sends: 6.5 to 6.9 ms on ACTIONS with a dense song, a
+     * soak segment's USB band 3.54 ms (tabby-v1.3-rc1, -rc2), 3 to 4 ms in every version before. */
+    if (!have || (!ct_transport_running() && ((age >= 500U && !busy) || age >= 2000U))) { storage_lines(user, song); at = now; have = 1; }
     memcpy(user_line, user, 40); memcpy(song_line, song, 40);
 }
 static void storage_lines(char user_line[40], char song_line[40])

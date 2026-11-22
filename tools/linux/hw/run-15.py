@@ -41,9 +41,10 @@ Usage (the browser closed: Chrome holds the SMK-37's port while a workbench tab 
     $P tools/linux/hw/run-15.py table --off off-1x16 --on on-1x16 --out RUN/
     $P tools/linux/hw/run-15.py soak --a2 on --seconds 3600 --tag soak --stop-on-rise --out RUN/
 
-Version: 0.15
+Version: 0.16
 
 Revision log
+    v0.16 2026-11-21  tabby-v1.3: prints the firmware's worst-lateness record; RUNNING latest: the figure while the song ran.
     v0.15 2026-11-18  The clock mapping moved into tabby_link v0.23 (every tool has it now); the summary names the bend of
                       the steered clock over the run (what an unmapped fit would have shown) and keeps every note's
                       error per line (errors_ms); --page clips, scenes, mixer.
@@ -406,7 +407,7 @@ def capture(a, soak=False):
             while time.monotonic() < end_stop:
                 usb.extend(l.messages(50))
         usb.extend(l.other); l.other = []
-        after = l.health(); a2page = l.a2(7); fgpage = l.fg(); d = l.diag(0); st = l.song_status()
+        after = l.health(); a2page = l.a2(7); fgpage = l.fg(); worst_rec = l.worst(); d = l.diag(0); st = l.song_status()
         page_end = None
         try:
             page_end = l.remote_status()["page_name"]
@@ -423,7 +424,7 @@ def capture(a, soak=False):
     rows = sorted(din_rows + usb_rows, key=lambda r: r[0])
     if rows:
         M.write_csv(os.path.join(a.out, "%s-din-usb.csv" % a.tag), rows, rows[0][0])
-    res = {"tag": a.tag, "a2": a2page, "fg": fgpage, "page": page_end, "seconds": a.seconds, "din": analyze(din_ev), "usb": analyze(usb_ev),
+    res = {"tag": a.tag, "a2": a2page, "fg": fgpage, "worst": worst_rec, "page": page_end, "seconds": a.seconds, "din": analyze(din_ev), "usb": analyze(usb_ev),
            "din_usb_differences": same_notes(din_ev, usb_ev), "health_before": before, "health_after": after,
            "profile": d.get("profile"), "song_status": st, "chain_at_end": chain, "stopped": stopped, "audio": {}}
     for c, b in chans.items():
@@ -463,6 +464,12 @@ def summary(r):
     if g:
         out.append("F + G: %s, live %d; timer interrupts %d (%.0f per second); %d events sent with a due time; sent < 0.25, < 0.5, < 1, < 2, < 4, >= 4 ms after it: %s; latest %.2f ms; block %d ticks"
                    % ("running" if g["running"] else "not running", g["live"], g["timer_ticks"], g["timer_ticks"] / max(1.0, r["seconds"]), g["sent"], ", ".join(str(x) for x in g["late_bins"]), g["late_max_ms"], g["block_ticks"]))
+    if r.get("worst"):
+        # v0.16 (tabby-v1.3): the F + G figure counts every timed event since the reset, the clock bytes sent before SEQ PLAY
+        # and after the stop too: a save by itself or a transfer there gave "latest 115.92 ms" for a run whose song was
+        # never late (tabby-v1.3-rc2). The firmware's record keeps the two apart: the figure of a run is the one "running".
+        out.append("RUNNING latest %.2f ms" % r["worst"]["running"]["late_ms"])
+        out.append("Worst lateness since the reset: " + T.Link.worst_text(r["worst"]))
     out += [port_line("DIN", r["din"]), port_line("USB", r["usb"])]
     out.append("USB against DIN: " + ("; ".join(r["din_usb_differences"]) if r["din_usb_differences"] else "the same notes on both"))
     out += T.health_lines(r["health_after"], r["health_before"])
