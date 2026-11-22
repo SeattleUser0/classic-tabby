@@ -89,6 +89,7 @@
  *   v0.2  2026-11-02  Task 04: row events, pre-firing, late counter, SEND SETUP.
  *   v0.1  2026-11-02  Initial version.
  */
+#include <stdlib.h>
 #include "song.h"
 #include "timed_note.h"
 #include "clip_v3.h"   /* Task 16 Goal 5: v3 clips through the step grid */
@@ -198,7 +199,10 @@ static struct {
  * when the clip changes) and plays from there; opening it again brings it back. Everything is written at the next
  * save. PARK clips can wait beside the open one; with all places taken the next one is refused as before. */
 enum { PARK = 7 };
-static struct { uint8_t clip[SONG_PAYLOAD_V3_MAX]; uint16_t block; uint8_t track, place, created, used; } park[PARK];
+/* The places come from the heap when a clip has to wait and go back at the save: as static memory (21.6 KB) they left
+ * the screen copy of the tests without its fifteen blocks (tabby-v1.3-rc1). No room: refused like a ninth clip. */
+static struct { uint8_t *clip; uint16_t block; uint8_t track, place, created, used; } park[PARK];
+static void park_drop(unsigned i) { free(park[i].clip); park[i].clip = NULL; park[i].used = 0; }
 static int park_find(unsigned block)
 {
     for (unsigned i = 0; i < PARK; ++i) if (park[i].used && park[i].block == block) return (int)i;
@@ -210,10 +214,13 @@ static unsigned park_count(void)
     for (unsigned i = 0; i < PARK; ++i) n += park[i].used;
     return n;
 }
-static void park_put(unsigned i)
+static int park_put(unsigned i)
 {
+    if (!park[i].clip) park[i].clip = malloc(SONG_PAYLOAD_V3_MAX);
+    if (!park[i].clip) return SONG_BUSY;
     memcpy(park[i].clip, edit.clip, SONG_PAYLOAD_V3_MAX);
     park[i].block = edit.block; park[i].track = edit.track; park[i].place = edit.place; park[i].created = edit.created; park[i].used = 1;
+    return 0;
 }
 static uint8_t edit_refresh;           /* 1 + the track whose looping buffer should be decoded again */
 /* tabby-v04.10: the song itself (its clip table, scenes or header) was changed on the device: the record is written,
@@ -1515,7 +1522,7 @@ int song_load(unsigned song)
 {
     if (state) return SONG_BUSY;
     if (song_unsaved() && loaded != SONG_NONE) (void)song_edit_save();   /* Goal 6: the unsaved clips and song changes belong to the song being left */
-    for (unsigned i = 0; i < PARK; ++i) park[i].used = 0;
+    for (unsigned i = 0; i < PARK; ++i) park_drop(i);
     edit.active = 0; edit.dirty = 0; edit.created = 0; song_dirty = 0; scene_hold = 0; reserve_scene = 0;
     loaded = SONG_NONE; memset(reserve_row, SONG_NONE, sizeof reserve_row);
     int r = song_record_read(song, &record);
@@ -1818,7 +1825,7 @@ static int edit_park(void)
     if (!(edit.active && edit.dirty)) return 0;
     if (rec.state != REC_OFF) return SONG_BUSY;
     for (unsigned i = 0; i < PARK; ++i)
-        if (!park[i].used) { park_put(i); edit.active = 0; edit.dirty = 0; edit.created = 0; edit.undo = edit.redo = 0; return 0; }
+        if (!park[i].used) { if (park_put(i)) return SONG_BUSY; edit.active = 0; edit.dirty = 0; edit.created = 0; edit.undo = edit.redo = 0; return 0; }
     return SONG_BUSY;
 }
 int song_edit_open(unsigned track, unsigned place)
@@ -1835,7 +1842,7 @@ int song_edit_open(unsigned track, unsigned place)
         if (edit.active && edit.dirty && rec.state != REC_OFF) return SONG_BUSY;
         unsigned created = park[from].created;
         memcpy(payload, park[from].clip, SONG_PAYLOAD_V3_MAX);
-        if (edit.active && edit.dirty) park_put((unsigned)from); else park[from].used = 0;
+        if (edit.active && edit.dirty) (void)park_put((unsigned)from); else park_drop((unsigned)from);   /* its place has memory already */
         memcpy(edit.clip, payload, SONG_PAYLOAD_V3_MAX);
         edit.block = (uint16_t)id; edit.track = (uint8_t)track; edit.place = (uint8_t)place;
         edit.undo = edit.redo = 0; edit.gesture = 0; edit.created = (uint8_t)created; edit.active = 1;
@@ -2126,7 +2133,7 @@ int song_clip_delete(unsigned track, unsigned place)
     if (state) return SONG_BUSY;
     if (song_clip_scene(track, place) >= 0) return SONG_EDIT_SHARED;
     if (edit.active && edit.track == track && edit.place == place) { rec.state = REC_OFF; edit.active = 0; edit.dirty = 0; edit.created = 0; edit.undo = edit.redo = 0; }
-    { int k = park_find(model.clip[track][place]); if (k >= 0) park[k].used = 0; }   /* tabby-v1.3: a deleted clip no longer waits to be saved */
+    { int k = park_find(model.clip[track][place]); if (k >= 0) park_drop((unsigned)k); }   /* tabby-v1.3: a deleted clip no longer waits to be saved */
     model.clip[track][place] = 0;
     while (model.clips[track] && !model.clip[track][model.clips[track] - 1U]) --model.clips[track];
     if (reserve_row[track] == SONG_ROWS + place) reserve_row[track] = SONG_NONE;
@@ -2215,7 +2222,7 @@ int song_edit_save(void)
         for (unsigned i = 0; i < PARK && !r; ++i) {
             if (!park[i].used) continue;
             r = song_block_append(loaded, park[i].block, SONG_FORMAT_V3, park[i].clip, clip_v3_bytes(park[i].clip));
-            if (!r) park[i].used = 0;
+            if (!r) park_drop(i);
         }
         int d = song_directory_build(loaded);
         if (!r) r = d;

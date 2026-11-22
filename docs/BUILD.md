@@ -7013,5 +7013,42 @@ pass sends them (`midi_poll_body`); a pass that comes late sends late, and that 
 SPEC 19.34, MC707-PARITY 0.3. Host test "unsaved clips" (8 checks), simulator tests steps-sim and setup-sim, device
 test run-record.py v0.6 (a second take into a second new clip while the first is unsaved and the song plays; the
 first goes on playing; one save writes both). Messages: 8 UNSAVED - STOP TO SAVE, END THE TAKE FIRST (in place of
-ANOTHER CLIP IS UNSAVED, UNSAVED CLIP - THIS ONE, THE CLIP IS UNSAVED: SAVE IT FIRST). Flash +1632 bytes, RAM
--21792 bytes (FLASH-BUDGET 53).
+ANOTHER CLIP IS UNSAVED, UNSAVED CLIP - THIS ONE, THE CLIP IS UNSAVED: SAVE IT FIRST). FLASH-BUDGET 53.
+
+### 67.4 tabby-v1.3-rc1: not promoted; what the record caught
+
+Commit 483aa44, build `526ab98ed9887632`. (A first start stopped at the suite: tests/workbench/setup-sim.mjs still
+expected the refusal of a copy of an unsaved clip; that target is not in test-fast.) Failed steps:
+
+- **screen**: "the device did not switch the screen copy on: fifteen blocks of 1952 bytes were not free". The seven
+  waiting places were static memory (21.6 KB less heap). Now each comes from the heap when a clip has to wait and
+  goes back at the save; with no room the clip is refused like a ninth.
+- **program**: the tool died opening the DIN port: "Device or resource busy", just after the browser of the step
+  before. tabby_link v0.28 and midi-monitor ask again for 20 s.
+- **record**: 29 of 30; "a sweep of 61 controller values in 249 ms is recorded as 6 (at most 5 expected)". The test's
+  bound: 249 ms holds 3.98 windows of 62.5 ms, so five windows can be touched, and the last value is recorded too:
+  six is right. Bound + 3 (run-record v0.7). The four new checks of the second take passed.
+- My fault in rc-validate v0.21: the soak-song step named its file `mid`, the name of the test song's file in the
+  same function, and song() then wrote the test song over tests/fixtures/meridian_fault.mid (seen as a modified file
+  and a failing import test; restored from git). The soak itself had run with the real file. The step now copies
+  the fixture out of the repository under its own name.
+
+Passed: every other device test, timing (one line DIN 1.66, 1.75, 1.73; pages 1.59 to 1.75; eight lines 2.00 to
+2.16), both Wrong Room soaks (19 segments each, 0 bad), **soak-song: Meridian Fault, 9 passes in 30 minutes, 0 bad,
+worst note DIN 11.66 ms, USB 1.76 ms**, backup, restore, verify, state.
+
+**The worst-lateness record, since power-on, read after each step** (results file, own_lateness_by_step):
+
+| | Latest send | When | Circumstances |
+| --- | ---: | --- | --- |
+| Running | 0.75 to 2.93 ms through the tests; 3.65 and 4.10 after the Wrong Room soaks; **6.87** after Meridian Fault (12 sends at 4 ms or more) | on the ACTIONS page, a clock byte | the last remote command 342 ms before: nothing was being done |
+| Stopped | **112.62 ms**, there after the first tests | overview, a clock byte | 86 ms after transfer command 5 (a block of the test song being written: flash) |
+| Stopped | **177.79 ms**, first after the setup test | SCENES page, the MIDI Stop message | at the stop itself (0 ms), 142 ms after a remote key |
+| Stopped | the count of sends 4 ms or more late: 19 before the restore, 46 after it | | the restore writes flash |
+
+So the 115.67 ms of 66.3 has its kind: **stopped, during a transfer** (a song written over USB: flash operations
+mask every interrupt, the clock bytes due meanwhile leave when the write is over). Nothing above 6.87 ms while a
+song ran, in four hours with three soaks. The Stop message's 177.79 ms: plain stops measured afterwards on the
+same build: 0.86, 2.67, 0.67, 2.65 ms (remote stop, SEQ PLAY, one line and eight). The setup test stops during
+a count-in. Whether that Stop left late or was given a due time already past, this record could not say: from
+candidate 2 each record also holds how long before the send the pass before it ran.

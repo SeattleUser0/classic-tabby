@@ -1851,9 +1851,9 @@ int main(void)
           ct_fg_tick(); tb = ct_diag_ticks(); (void)sim_render();
           groove_midi_song_note(0, 71, 100);
           SET_NOW(tb + len + 240000U); sim_test_pass(); n = drain(m, 64);        /* the pass comes 10 ms after the due time */
-          CHECK(ct_diag_read(12, lr) == 56 && ct_diag_read(13, lb) == 56, "worst lateness: both pages are 56 bytes");
+          CHECK(ct_diag_read(12, lr) == 60 && ct_diag_read(13, lb) == 60, "worst lateness: both pages are 60 bytes");
           CHECK(HAS(71) && PG32(lr, 0) >= 239000U && PG32(lr, 0) <= 260000U && PG32(lr, 2) >= 1 && !(lr[12] & 1) && lr[14] == 29 && lr[15] == 2
-                && lr[18] == 2 && lr[19] == 5 && lr[24] == 0x90 && (lr[16] | lr[17] << 8) != 0xffff && PG32(lr, 7) == 0,
+                && lr[18] == 2 && lr[19] == 5 && lr[24] == 0x90 && (lr[16] | lr[17] << 8) != 0xffff && (lr[28] | lr[29] << 8) >= 90 && lr[30] == 0 && lr[31] == 0 && lr[32] == 0 && lr[33] == 0,
                 "worst lateness: a note sent 10 ms late is in the record for 'stopped' with the last remote command (29, 2), the last panel action (pad 5) and the event; none while running (%u ticks, %u at 4 ms or more, flags %u, command %u %u, panel %u %u, status %02x)",
                 PG32(lr, 0), PG32(lr, 2), lr[12], lr[14], lr[15], lr[18], lr[19], lr[24]);
           CHECK(!memcmp(lr, lb, 28), "worst lateness: the record since power-on holds the same");

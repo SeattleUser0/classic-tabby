@@ -28,7 +28,7 @@ section K.
 
 ## 0. Where it stands, and what comes next (tabby-v1.0, 2026-11-18)
 
-Flash margin after tabby-v1.0.2: 28701 bytes (app image 490756 of 519457). Free RAM 142412 bytes. At least 15360
+Flash margin after tabby-v1.3: 29085 bytes (0.3). After tabby-v1.0.2: 28701 bytes (app image 490756 of 519457). Free RAM 142412 bytes. At least 15360
 bytes stay free for fixes (the user's rule, SPEC 17.15): features are added while the margin after them stays above
 that, so 13341 bytes can still be spent.
 
@@ -93,7 +93,7 @@ a set that plays on:
 | Sub steps / flam | yes | no | not planned yet |
 | Edit all events of a step together (item 10) | yes | no | the user: not for now |
 
-Flash margin after tabby-v1.3: 29149 bytes (13789 above the reserve). Free RAM 121388 bytes.
+Flash margin after tabby-v1.3: 29085 bytes (13725 above the reserve). Free RAM 142924 bytes.
 
 ## 1. Excluded once
 

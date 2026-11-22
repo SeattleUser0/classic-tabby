@@ -230,6 +230,13 @@ class Link:
         self.name = monitor.resolve(port)
         self.inp, self.out = ctypes.c_void_p(), ctypes.c_void_p()
         r = LIB.snd_rawmidi_open(ctypes.byref(self.inp), ctypes.byref(self.out), self.name.encode(), 2)   # non-blocking
+        # v0.28: "Device or resource busy" (-16) for a moment after the browser of the step before let go of the port
+        # (tabby-v1.3-rc1: the program test died of it): asked again for 20 s before it is an error
+        for _ in range(40):
+            if r != -16:
+                break
+            time.sleep(0.5)
+            r = LIB.snd_rawmidi_open(ctypes.byref(self.inp), ctypes.byref(self.out), self.name.encode(), 2)
         if r < 0:
             raise OSError("snd_rawmidi_open(%s): %s (close the browser: it holds the port)" % (self.name, err(r)))
         LIB.snd_rawmidi_nonblock(self.out, 0)       # writes block until the bytes are queued
@@ -643,17 +650,17 @@ class Link:
             p = self.query(25, bytes([13 if boot else 12]), attempts=1)
         except (DeviceError, TimeoutError):
             return None
-        if len(p) != 56:
+        if len(p) != 60:
             return None
         out = {}
         for i, name in enumerate(("stopped", "running")):
-            late, at, count, flags, page, cmd, op, cmd_ms, kind, ident, panel_ms, flash_ms, status, lane, transport_ms = struct.unpack("<3I4BH2B2H2BH", p[28 * i:28 * i + 28])
+            late, at, count, flags, page, cmd, op, cmd_ms, kind, ident, panel_ms, flash_ms, status, lane, transport_ms, gap = struct.unpack("<3I4BH2B2H2B2H", p[30 * i:30 * i + 30])
             age = lambda v: None if v == 0xffff else v
             out[name] = {"late_ms": round(late / 24000.0, 2), "at_ms": at, "at_4ms_or_more": count, "page": self.PAGES.get(page, str(page)),
                          "flash_within_250ms": bool(flags & 2), "transfer_within_250ms": bool(flags & 4), "flash_running": bool(flags & 8),
                          "last_remote": [cmd, op], "remote_ms_before": age(cmd_ms),
                          "last_panel": [{0: "none", 1: "button", 2: "pad", 3: "key", 4: "knob"}.get(kind, str(kind)), ident], "panel_ms_before": age(panel_ms),
-                         "flash_ms_before": age(flash_ms), "transport_change_ms_before": age(transport_ms), "event": "%02X" % status, "lane": lane}
+                         "flash_ms_before": age(flash_ms), "transport_change_ms_before": age(transport_ms), "event": "%02X" % status, "lane": lane, "pass_gap_ms": round(gap / 10.0, 1)}
         return out
 
     @staticmethod
@@ -667,8 +674,8 @@ class Link:
             if not r["late_ms"]:
                 parts.append("%s: none" % name); continue
             ago = lambda v: "never" if v is None else "%d ms before" % v
-            parts.append("%s: %.2f ms (%d at 4 ms or more) on %s, event %s; last remote command %d/%d %s, last panel action %s %d %s, flash %s%s, start/stop %s" % (
-                name, r["late_ms"], r["at_4ms_or_more"], r["page"], r["event"], r["last_remote"][0], r["last_remote"][1], ago(r["remote_ms_before"]),
+            parts.append("%s: %.2f ms (%d at 4 ms or more) on %s, event %s, the pass before %s ms earlier; last remote command %d/%d %s, last panel action %s %d %s, flash %s%s, start/stop %s" % (
+                name, r["late_ms"], r["at_4ms_or_more"], r["page"], r["event"], r.get("pass_gap_ms"), r["last_remote"][0], r["last_remote"][1], ago(r["remote_ms_before"]),
                 r["last_panel"][0], r["last_panel"][1], ago(r["panel_ms_before"]), ago(r["flash_ms_before"]),
                 " (a transfer within 250 ms)" if r["transfer_within_250ms"] else "", ago(r["transport_change_ms_before"])))
         return "; ".join(parts)

@@ -2,9 +2,9 @@ Record or edit one clip after another while the song plays on: eight clips can b
 
 # Classic Tabby tabby-v1.3: take after take without stopping
 
-- Firmware package build ID: `526ab98ed9887632` (first 16 hex digits). App image 490308 bytes (measured), margin 29149 bytes
-  below the 519457-byte limit (docs/FLASH-BUDGET.md 53). From tabby-v1.2.1 (`9e858b3b5fa9f1b1`): +1632 bytes. At least
-  15360 bytes stay free for fixes. Free RAM 121388 bytes (21792 less: the places for seven waiting clips).
+- Firmware package build ID: `32df8437e103362c` (first 16 hex digits). App image 490372 bytes (measured), margin 29085 bytes
+  below the 519457-byte limit (docs/FLASH-BUDGET.md 53). From tabby-v1.2.1 (`9e858b3b5fa9f1b1`): +1696 bytes. At least
+  15360 bytes stay free for fixes. Free RAM 142924 bytes; each waiting clip takes 3088 bytes of it until it is saved.
 - Installing over tabby-v04.2 to tabby-v1.2.1 keeps storage as it is. Take a Full backup first anyway.
 - **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
   an older build only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.
@@ -26,7 +26,8 @@ Record or edit one clip after another while the song plays on: eight clips can b
   before: stop and save between songs.
 - **The worst-lateness record.** The firmware now remembers the latest any timed MIDI event left after its due
   time, apart for "song running" and "stopped", since power-on and since the counters' reset, each with what the
-  SMK-37 was doing: the page, the last remote command and the last panel action with their age, how long ago flash
+  SMK-37 was doing: how long before it the pass before ran (a late pass, or an event that was given a due time
+  already past), the page, the last remote command and the last panel action with their age, how long ago flash
   was written and the song was started or stopped. The test tools read it after every test and every soak; the
   release run fails when anything left 10 ms or more late while a song ran.
 - **The release run soaks one of the user's own songs**: Meridian Fault (tests/fixtures/meridian_fault.mid), every

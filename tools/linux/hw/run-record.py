@@ -20,7 +20,7 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-record.py --song N --out DIR
 
-Version: 0.6
+Version: 0.7
 
 Revision log
     v0.6  2026-11-21  tabby-v1.3: a second take into a second new clip while the first is unsaved and the song plays; one save writes both.
@@ -188,7 +188,9 @@ def main():
         sweep_ms = (T.now_ns() - tk) / 1e6
         idle(CYCLE_MS / 1000.0 + 0.5)
         after = l.steps_state()["events"]
-        expect = int(sweep_ms / (240.0 / 480.0 * STEP_MS)) + 2
+        # v0.7: a sweep of that length touches at most int(length / window) + 2 windows of 240 units, and the last value is
+        # recorded as well: + 3 (the + 2 until v0.6 failed tabby-v1.3-rc1 at 249 ms: 4 full windows, both ends touched, the last)
+        expect = int(sweep_ms / (240.0 / 480.0 * STEP_MS)) + 3
         cc = [m[2] for t, m in list(din.messages) if t > tk + int((sweep_ms + 300) * 1e6) and len(m) == 3 and m[0] == 0xB0 and m[1] == 74]
         check(3 <= after - before <= expect and after - before < 20, "a sweep of 61 controller values in %.0f ms is recorded as %d (one per 240 units and the last)" % (sweep_ms, after - before), "at most %d expected" % expect)
         check(cc and cc[-1] == 60 and len(cc) <= 2 * (after - before), "the clip plays the thinned sweep back; its last value is the gesture's last", cc[:10])

@@ -2308,7 +2308,7 @@ copy, a stored scene. docs/CONTROL-MAP.md sections 13 to 16 are the user's side 
 **The record** (app/midi_router.c, `late_rec`, `late_note`). The control pass that sends a timed event knows how late
 it is (the F + G page's "latest send"). Now, when a send is the latest of its kind or 4 ms or more late, the
 circumstances are kept: four records, [since the counters' reset, since power-on] x [the transport stopped, running]
-(`ct_transport_running()`), 28 bytes each:
+(`ct_transport_running()`), 30 bytes each:
 
 | Bytes | Content |
 | --- | --- |
@@ -2324,6 +2324,7 @@ circumstances are kept: four records, [since the counters' reset, since power-on
 | 22, 23 | the age of the last flash erase or write (through ct_diag_flash_*) |
 | 24, 25 | the event's status byte; its lane |
 | 26, 27 | the age of the last start or stop of the transport |
+| 28, 29 | how long before this send the router pass before it ran, 0.1 ms. A long gap: the pass came late (something held the control task). A short gap with a large lateness: the event was given a due time already past and left at once |
 
 Command 25 request 12 reads the pair since the reset (request 1 resets it with the other counters), request 13 the
 pair since power-on (never reset). Fed by `ct_late_remote` (app/transfer.c, every command), `ct_late_panel`
@@ -2334,7 +2335,7 @@ with its circumstances and not judged.
 
 **Eight unsaved clips** (app/song.c, `park`). The editor still holds one open clip with four undo levels. When
 another clip is opened, made, copied or recorded into while the open one is unsaved, the open one is copied to one
-of seven waiting places (3088 bytes each, no undo levels) instead of the refusal SONG_BUSY. `prepare` plays a
+of seven waiting places (3088 bytes each from the heap, given back at the save; no undo levels) instead of the refusal SONG_BUSY. `prepare` plays a
 waiting clip from its place as it plays the open one; `song_edit_open` on a waiting clip brings it back (the open
 unsaved one takes its place); `song_edit_save` writes the open clip and every waiting one, then the directory once;
 `song_load` saves and empties the places; `song_clip_delete` frees a deleted clip's place; the save by itself ten

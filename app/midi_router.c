@@ -440,14 +440,17 @@ static volatile uint8_t fg_reset_request;
  * "the transport stopped" and "the transport running". Each: the lateness, the time, how many events left 4 ms or
  * more late, and at that moment: the page, the last remote command and the last panel action with their age, the age
  * of the last flash erase or write, the age of the last start or stop, the event itself.
- * Command 25 request 12 reads the pair since the reset, 13 the pair since power-on (2 x 28 bytes each). */
+ * Command 25 request 12 reads the pair since the reset, 13 the pair since power-on (2 x 30 bytes each). */
 struct late_rec {
     uint32_t late, at, count;
     uint8_t flags, page, cmd, op; uint16_t cmd_ms;
     uint8_t kind, id; uint16_t panel_ms, flash_ms;
     uint8_t status, lane; uint16_t transport_ms;
+    uint16_t gap;       /* how long before this send the control pass before it ran, 0.1 ms: a long gap is a pass that came late;
+                         * a short one with a large lateness is an event that was given a due time already past */
 };
 static struct late_rec late_rec[2][2];
+static uint32_t late_pass_at, late_pass_gap;   /* ticks: the start of this router pass; from the one before to this one */
 static struct { uint32_t remote_at, panel_at, flash_at, transport_at; uint8_t cmd, op, kind, id, running, any; } late_ctx;
 void ct_late_remote(unsigned cmd, unsigned op) { late_ctx.cmd = (uint8_t)cmd; late_ctx.op = (uint8_t)op; late_ctx.remote_at = fm1_millis(); late_ctx.any |= 1; }
 void ct_late_panel(unsigned kind, unsigned id) { late_ctx.kind = (uint8_t)kind; late_ctx.id = (uint8_t)id; late_ctx.panel_at = fm1_millis(); late_ctx.any |= 2; }
@@ -473,6 +476,7 @@ static void late_note(uint32_t late, unsigned lane, unsigned status)
         r->kind = late_ctx.kind; r->id = late_ctx.id; r->panel_ms = late_age(now, late_ctx.panel_at, late_ctx.any & 2);
         r->flash_ms = late_age(now, late_ctx.flash_at, late_ctx.any & 4);
         r->transport_ms = late_age(now, late_ctx.transport_at, late_ctx.any & 8);
+        r->gap = (uint16_t)(late_pass_gap / 2400U > 0xffffU ? 0xffffU : late_pass_gap / 2400U);
         r->page = (uint8_t)ct_screen_page_now(); r->status = (uint8_t)status; r->lane = (uint8_t)lane;
         /* flags: 1 the transport runs, 2 a flash erase or write within 250 ms, 4 a remote command other than the
          * diagnostics (25) and the remote keys (29) within 250 ms: a transfer, 8 a flash operation runs now */
@@ -483,15 +487,16 @@ static void late_note(uint32_t late, unsigned lane, unsigned status)
 int ct_late_read(unsigned boot, uint8_t *out)
 {
     for (unsigned s = 0; s < 2; ++s) {
-        const struct late_rec *r = &late_rec[boot ? 1 : 0][s]; uint8_t *o = out + 28U * s;
+        const struct late_rec *r = &late_rec[boot ? 1 : 0][s]; uint8_t *o = out + 30U * s;
         uint32_t w[3] = { r->late, r->at, r->count };
         for (unsigned i = 0; i < 3; ++i) for (unsigned b = 0; b < 4; ++b) o[i * 4 + b] = (uint8_t)(w[i] >> (8U * b));
         o[12] = r->flags; o[13] = r->page; o[14] = r->cmd; o[15] = r->op; o[16] = (uint8_t)r->cmd_ms; o[17] = (uint8_t)(r->cmd_ms >> 8);
         o[18] = r->kind; o[19] = r->id; o[20] = (uint8_t)r->panel_ms; o[21] = (uint8_t)(r->panel_ms >> 8);
         o[22] = (uint8_t)r->flash_ms; o[23] = (uint8_t)(r->flash_ms >> 8); o[24] = r->status; o[25] = r->lane;
         o[26] = (uint8_t)r->transport_ms; o[27] = (uint8_t)(r->transport_ms >> 8);
+        o[28] = (uint8_t)r->gap; o[29] = (uint8_t)(r->gap >> 8);
     }
-    return 56;
+    return 60;
 }
 /* Control task (the screen painter, before it starts a band): 1 when an event in lane 0 or 1 is due within
  * `ticks` from now, while F + G is live. A band takes 2 to 6 ms and cannot be interrupted; one that would
@@ -770,6 +775,7 @@ static void midi_poll_body(void)
     /* Round robin: a dense chord on one owner cannot starve the other's gates
      * or source-routed Thru. Maximum work per control iteration is fixed. */
 #ifdef CT_A2
+    { uint32_t t = a2_ticks(); late_pass_gap = t - late_pass_at; late_pass_at = t; }
     if (fg_reset_request) { fg_reset_request = 0; fg.sent = fg.late_max = 0; fg.ticks = 0; memset(fg.late, 0, sizeof fg.late); memset(late_rec[0], 0, sizeof late_rec[0]); }
 #endif
     batching = 1;   /* Task 17: what this drain sends to a port leaves in one call (see ct_midi_send_port) */

@@ -390,11 +390,14 @@ def main():
     if a.soak_song_minutes > 0:
         link = "import sys; sys.path.insert(0, %r); import tabby_link as T, time; l = T.Link(); time.sleep(0.3)\n" % str(HW)
         c0, o0 = sh([py, "-c", link + "try:\n    l.stop_song(); l.select_song(5); print('HOLDS A SONG')\nexcept T.DeviceError:\n    print('EMPTY')\nl.close()"], 60, log)
-        mid = str(ROOT / "tests/fixtures/meridian_fault.mid"); opts = '{"record":"scenes"}'
+        # its own name and a copy outside the repository: `mid` is the test song's file, which song() writes anew
+        # (tabby-v1.3-rc1: this block called its file `mid` too, and song() then wrote the test song over the fixture)
+        user_mid = str(out / "meridian_fault.mid"); opts = '{"record":"scenes"}'
+        Path(user_mid).write_bytes((ROOT / "tests/fixtures/meridian_fault.mid").read_bytes())
         if "EMPTY" in o0:
-            r = subprocess.run(["node", str(HW / "expected-events.mjs"), mid, "--options", opts], cwd=str(ROOT), capture_output=True, text=True)
+            r = subprocess.run(["node", str(HW / "expected-events.mjs"), user_mid, "--options", opts], cwd=str(ROOT), capture_output=True, text=True)
             exp = out / "meridian-expected.json"; exp.write_text(r.stdout)
-            c1, o1 = sh(W + ["song", "--url", url, "--mid", mid, "--slot", "5", "--options", opts, "--log", wb_log], 600, log)
+            c1, o1 = sh(W + ["song", "--url", url, "--mid", user_mid, "--slot", "5", "--options", opts, "--log", wb_log], 600, log)
             if c1 == 0:
                 tag = rc_tag + "-meridian"
                 c2, o2 = sh([py, str(HW / "run-songsoak.py"), "--song", "6", "--expected", str(exp), "--minutes", str(a.soak_song_minutes), "--tag", tag, "--out", str(out)], int(a.soak_song_minutes * 60 + 900), log)
@@ -438,8 +441,8 @@ def main():
             if not r["late_ms"]:
                 parts.append("%s: none" % name); continue
             ago = lambda v: "never" if v is None else "%d ms before" % v
-            parts.append("%s: %.2f ms (%d at 4 ms or more) on %s, event %s; last remote command %d/%d %s, last panel action %s %d %s, flash %s%s, start/stop %s" % (
-                name, r["late_ms"], r["at_4ms_or_more"], r["page"], r["event"], r["last_remote"][0], r["last_remote"][1], ago(r["remote_ms_before"]),
+            parts.append("%s: %.2f ms (%d at 4 ms or more) on %s, event %s, the pass before %s ms earlier; last remote command %d/%d %s, last panel action %s %d %s, flash %s%s, start/stop %s" % (
+                name, r["late_ms"], r["at_4ms_or_more"], r["page"], r["event"], r.get("pass_gap_ms"), r["last_remote"][0], r["last_remote"][1], ago(r["remote_ms_before"]),
                 r["last_panel"][0], r["last_panel"][1], ago(r["panel_ms_before"]), ago(r["flash_ms_before"]),
                 " (a transfer within 250 ms)" if r["transfer_within_250ms"] else "", ago(r["transport_change_ms_before"])))
         return "; ".join(parts)

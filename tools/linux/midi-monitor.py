@@ -149,6 +149,11 @@ class AlsaInput:
         # Input only (output pointer NULL), non-blocking (SND_RAWMIDI_NONBLOCK = 2): the loop waits
         # in poll() on the port's descriptor, so a silent port cannot hang the capture.
         r = self.lib.snd_rawmidi_open(ctypes.byref(self.handle), None, name.encode(), 2)
+        for _ in range(40):      # "Device or resource busy" (-16) just after another program let go of the port: asked again for 20 s
+            if r != -16:
+                break
+            time.sleep(0.5)
+            r = self.lib.snd_rawmidi_open(ctypes.byref(self.handle), None, name.encode(), 2)
         if r < 0:
             raise OSError("snd_rawmidi_open(%s) failed: %s" % (name, self.error(r)))
         class PollFd(ctypes.Structure):
