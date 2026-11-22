@@ -402,12 +402,17 @@ def capture(a, soak=False):
                          "scenes": u["scenes"], "unsaved": u["unsaved"], "row": r["row"], "queued": r["queued"], "bar": r["bar"], "song_state": r["song_state"], "page": r["page_name"]}
             except Exception as e:
                 chain = {"error": str(e)}
+        worst_rec = None
+        try:
+            worst_rec = l.worst()      # v0.16: read while the song still plays: the stop's own pass is not the song's timing
+        except Exception:
+            pass
         if a.play:
             l.stop_song(); end_stop = time.monotonic() + 0.5       # v0.9: the song stops before the capture ends
             while time.monotonic() < end_stop:
                 usb.extend(l.messages(50))
         usb.extend(l.other); l.other = []
-        after = l.health(); a2page = l.a2(7); fgpage = l.fg(); worst_rec = l.worst(); d = l.diag(0); st = l.song_status()
+        after = l.health(); a2page = l.a2(7); fgpage = l.fg(); d = l.diag(0); st = l.song_status()
         page_end = None
         try:
             page_end = l.remote_status()["page_name"]

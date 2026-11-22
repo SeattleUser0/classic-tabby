@@ -25,9 +25,11 @@ Purpose (the user's requests of 2026-11-21, after a Stop message that the device
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-stop.py --out DIR [--tag NAME] [--report-only]
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-22  'The Stop before the pause': within one clock period after the last clock byte before the write (v0.1
+                      asked for it before that byte and failed a Stop that left 4 to 15 ms after the key).
     v0.1  2026-11-21  First version.
 """
 import argparse
@@ -193,7 +195,8 @@ def main():
                 c = clock_report(ev, t0 - 400_000_000, t0 + 900_000_000)
                 row[port + "_clock"] = c
                 # the Stop before the pause the write makes: FC earlier than the start of the longest clock pause
-                row[port + "_stop_before_pause"] = bool(t is not None and c and (c["longest_pause_ms"] < 3 * c["period_ms"] or t <= c["pause_at"] + 2_000_000))
+                # (v0.2) the pause is counted from the last clock byte before the write: the Stop leaves within one period after that byte
+                row[port + "_stop_before_pause"] = bool(t is not None and c and (c["longest_pause_ms"] < 3 * c["period_ms"] or t <= c["pause_at"] + int((c["period_ms"] + 2.0) * 1e6)))
             rows.append(row); data["stops"].append(row)
             l.stop_song(); pump(0.3)
         if rows:

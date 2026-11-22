@@ -2212,6 +2212,9 @@ int song_edit_save(void)
     unsigned clip = edit.active && edit.dirty, waiting = park_count();
     if (!clip && !waiting && !song_dirty) return 0;
     if (ct_transport_running() || state) return SONG_BUSY;
+    /* tabby-v1.3: the Stop of the song that just ended leaves before the save's own work begins (candidate 4: 17 ms from
+     * SEQ PLAY to the Stop when the save by itself was due at the stop; the flash calls alone waited too late) */
+    ct_flash_prepare();
     if (clip || waiting) {
         int r = 0;
         if (clip) {

@@ -168,6 +168,9 @@ int ct_fg_read(uint8_t *out);
 /* tabby-v1.3: the worst lateness with its circumstances (app/midi_router.c): command 25 request 12 (since the reset of
  * the counters) and 13 (since power-on), 56 bytes each; the three notes are called where the thing happens. */
 int ct_late_read(unsigned boot, uint8_t *out);
+/* tabby-v1.3: before anything that ends in a flash write: what is due on MIDI out leaves, a waiting MIDI Stop first
+ * (app/diag.c; called by every flash erase and write, and by song_edit_save before its own work). */
+void ct_flash_prepare(void);
 void ct_late_remote(unsigned cmd, unsigned op);
 void ct_late_panel(unsigned kind, unsigned id);   /* kind: 1 button, 2 pad, 3 key of the keyboard, 4 knob */
 void ct_late_flash(void);

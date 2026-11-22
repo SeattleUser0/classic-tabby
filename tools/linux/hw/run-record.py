@@ -20,7 +20,7 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-record.py --song N --out DIR
 
-Version: 0.7
+Version: 0.8
 
 Revision log
     v0.6  2026-11-21  tabby-v1.3: a second take into a second new clip while the first is unsaved and the song plays; one save writes both.
@@ -252,6 +252,7 @@ def main():
                     check(s["recording"] == 2 and s["track"] == 1 and s["place"] == empty2 and s["events"] == 0,
                           "REC on the empty pad of track 2 while clip 1 is unsaved: a second new clip, and its take runs (before tabby-v1.3: ANOTHER CLIP IS UNSAVED)",
                           (s["recording"], s["track"], s["place"], s["events"]))
+                    wait_phase(t0, 3.6)        # v0.8: inside the loop, as the first take's note (a note across the loop's end is two events)
                     tk2 = T.now_ns()
                     l.key(1, 20, 100); idle(0.2); l.key(1, 20, 0); idle(0.2 + 2 * CYCLE_MS / 1000.0)
                     l.press("REC"); idle(0.3); s = l.steps_state()

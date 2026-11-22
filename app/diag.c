@@ -111,15 +111,16 @@ void ct_diag_key(uint32_t queued)
 /* tabby-v1.3: before a flash operation holds the control task: what is due on MIDI out leaves, and a MIDI Stop that
  * still waits in the queue goes out first (it is due within one audio block; 20 ms at most are waited). */
 unsigned ct_midi_stop_pending(void);
-static void before_flash(void)
+void ct_flash_prepare(void)
 {
     uint32_t t0 = ticks();
     ct_midi_flush();
     for (unsigned n = 0; ct_midi_stop_pending() && ticks() - t0 < 480000U && n < 5000U; ++n) ct_midi_flush();
 }
 #else
-static void before_flash(void) {}
+void ct_flash_prepare(void) {}
 #endif
+static void before_flash(void) { ct_flash_prepare(); }
 int ct_diag_flash_erase(uint32_t offset)
 {
     before_flash();

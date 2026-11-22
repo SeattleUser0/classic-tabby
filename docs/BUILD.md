@@ -7125,3 +7125,33 @@ tools/linux/hw/run-stop.py v0.1 on that firmware, judging nothing (../overnight/
   30 ms, the others 15 (run-stop.py --stop-limit says what the path is made of).
 
 In the release run from candidate 4: the step `stop` (rc-validate v0.23).
+
+### 67.7 tabby-v1.3-rc4: not promoted; the fix measured, one case 2 ms over
+
+Commit 0a6a7b9, build `ba7549500c0c076d`. (A first start stopped in the suite: the cross compiler under wine lost its
+connection once, "wine client error: recvmsg: Connection reset by peer"; started again unchanged.)
+
+| Stop, ms from the key being sent (rc4) | DIN | USB |
+| --- | --- | --- |
+| after SEQ PLAY | 8.19, 5.16, 7.83, 6.90, 5.07 | 5.97, 5.13, 7.57, 6.00, 4.73 |
+| right after a page change | 17.89, 16.32, 19.27, 6.31, 18.22 | 15.61, 16.04, 17.98, 5.01, 17.95 |
+| **a save sent 1 ms after it** (rc3: 86.16, 86.25, 7.93, 7.93, 90.78) | **14.54, 4.52, 7.82, 9.53, 7.61** | 14.26, 4.46, 6.54, 8.37, 7.22 |
+| first stop after a save | 8.90, 8.08, 6.72, 7.14, 4.52 | 6.71, 7.78, 6.67, 5.89, 4.55 |
+| more than 10 s after a change | 5.99, **17.00** | 5.63, 16.73 |
+| the clock's pause around a save / shortest interval after | 87.07 to 89.75 / 20.31 to 20.46 | 87.02 to 90.70 / 20.36 to 20.45 |
+
+The Stop no longer waits for the write. Failed steps:
+- **stop**, two checks. (1) "Stop more than 10 s after a change": 17.00 ms, limit 15: the save by itself is due in the
+  pass that sees the stop, and its own work before the first flash call (the block's check sum, the directory) ran
+  before the Stop was sent. `song_edit_save` now calls `ct_flash_prepare()` first. (2) "the Stop before the pause":
+  my check asked for the Stop before the last clock byte ahead of the write; it leaves up to one period after that
+  byte. run-stop v0.2.
+- **record**: 29 of 30: the second take's note was two events: the key was pressed without waiting for a place inside
+  the loop and lay across its end. run-record v0.8 waits as the first take does.
+- **timing**: the third run's own figure 3.07 ms: the record says a clock byte, 6 ms after the remote stop command,
+  the pass before 5.4 ms earlier: the pass that handles the stop. run-15 reads the record before it stops the song.
+
+**The worst-lateness record over the whole run** (4 h, three soaks): running 3.07 ms (that one; 0 sends at 4 ms or
+more: on ACTIONS no longer anything), stopped 17.57 ms (a transfer; 191.33 in rc2: a waiting Stop and what is due
+now leave before each flash call). soak 19 segments 0 bad (USB band 1.33 to 2.29), soak-lead 0 bad, soak-song 9
+passes 0 bad (USB 1.72, own 2.76 ms; 6.47 in rc2). timing-pages: ACTIONS own 1.54 ms.
