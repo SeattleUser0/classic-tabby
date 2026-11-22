@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-22T04:57:36Z",
+  "updated": "2026-11-22T06:13:26Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -830,6 +830,16 @@
       "page": "builds/tabby-v1.3-rc3/",
       "published": "2026-11-22",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.3-rc3.zip",
+      "note": "Not promoted: its test run was stopped; a MIDI Stop could wait behind a save sent right after it. Fixed in the next candidate."
+    },
+    {
+      "tag": "tabby-v1.3-rc4",
+      "build": "ba7549500c0c076db9f325c7ec6409fede3b739cfea595774b8a31ef55689d4b",
+      "loader": "ota-SMK37ba7549500c0c076d",
+      "version": "tabby-v1.3",
+      "page": "builds/tabby-v1.3-rc4/",
+      "published": "2026-11-22",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.3-rc4.zip",
       "note": "Release candidate of tabby-v1.3: not a release. Use the main page unless you were asked to test this build."
     }
   ]

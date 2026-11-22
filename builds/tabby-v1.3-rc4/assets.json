@@ -1,0 +1,55 @@
+{
+  "build": "ba7549500c0c076db9f325c7ec6409fede3b739cfea595774b8a31ef55689d4b",
+  "release": "V01",
+  "version": "tabby-v1.3",
+  "entryBytes": 389675,
+  "initialBytes": 1455483,
+  "standaloneBytes": 3226803,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/f7e4ad58c95956bf9c0d0d49bd4eebeb0bb02b97906009e8fbf0ce2e380429f2.bin",
+      "bytes": 528948,
+      "sha256": "f7e4ad58c95956bf9c0d0d49bd4eebeb0bb02b97906009e8fbf0ce2e380429f2"
+    },
+    {
+      "name": "assets/smk37/a11f80d8532fb2bab91907758cb272b3839f303722aca5e5666921e8f0679e20.wasm",
+      "bytes": 380334,
+      "sha256": "a11f80d8532fb2bab91907758cb272b3839f303722aca5e5666921e8f0679e20"
+    },
+    {
+      "name": "assets/smk37/cdfb0ecfae6972b55c20828aa39c2a06ef8b40f6a992daeaefc8447b0ba0d662.js",
+      "bytes": 613055,
+      "sha256": "cdfb0ecfae6972b55c20828aa39c2a06ef8b40f6a992daeaefc8447b0ba0d662"
+    },
+    {
+      "name": "assets/smk37/4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b.js",
+      "bytes": 71912,
+      "sha256": "4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 389894,
+      "sha256": "8a00c576fa146e9e40f80c5a02d3942061d85a8ea1dc5d7669da5fdeb7630489"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 389894,
+      "sha256": "8a00c576fa146e9e40f80c5a02d3942061d85a8ea1dc5d7669da5fdeb7630489"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3226803,
+      "sha256": "9b80c527051bdf0075d1ef531bacd6e477557fc4635d86fca127a5d196d3af41"
+    }
+  ]
+}
