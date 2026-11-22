@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-22T06:13:26Z",
+  "updated": "2026-11-22T09:10:20Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -840,6 +840,16 @@
       "page": "builds/tabby-v1.3-rc4/",
       "published": "2026-11-22",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.3-rc4.zip",
+      "note": "Not promoted: with a save due at the stop, MIDI Stop left 17 ms after SEQ PLAY (the limit is 15). Fixed in the next candidate."
+    },
+    {
+      "tag": "tabby-v1.3-rc5",
+      "build": "2fea867243829b606b214d9355f090b90c9aabd78b27355faab8aedfdc5c3626",
+      "loader": "ota-SMK372fea867243829b60",
+      "version": "tabby-v1.3",
+      "page": "builds/tabby-v1.3-rc5/",
+      "published": "2026-11-22",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.3-rc5.zip",
       "note": "Release candidate of tabby-v1.3: not a release. Use the main page unless you were asked to test this build."
     }
   ]
