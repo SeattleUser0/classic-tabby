@@ -1,6 +1,10 @@
 {
   "comment": "The note line of a published build: shown in builds/index.json, builds/index.html and (when the page already has a note banner) at the top of builds/<tag>/. tools/linux/builds-index.py applies it on every index rewrite. Changing a note line is the only change allowed to a published builds/ page (SPEC 17.11).",
   "notes": {
+    "tabby-v1.3-rc3": {
+      "text": "Not promoted: its test run was stopped; a MIDI Stop could wait behind a save sent right after it. Fixed in the next candidate.",
+      "link": "tabby-v1.3"
+    },
     "tabby-v1.3-rc2": {
       "text": "Not promoted: on the ACTIONS page a soak segment's USB band was 3.54 ms (the page read the song storage while playing). Fixed in the next candidate.",
       "link": "tabby-v1.3"

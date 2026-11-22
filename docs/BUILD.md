@@ -7086,3 +7086,42 @@ ct_diag_storage_lines): the page's two storage lines are worked out from the son
 twice a second and not while an event is due within 6 ms, but after 2 s whatever is due; with eight lines an
 event is always due, so every 2 s the read ran over one. While the transport runs the storage cannot change:
 the lines are no longer worked out then.
+
+### 67.6 tabby-v1.3-rc3: stopped by me; the Stop and the clock measured (the user's follow-ups of 2026-11-21)
+
+Commit 0017101, build `397f401dd16b8873`. Its run was stopped after the timing steps: it could not be the release
+(the two follow-ups go into candidate 4), and my own builds on this computer during its timing steps had disturbed
+them (timing 1.97 ms, a page's own figure 2.93: the measuring computer was busy; not the device). What it showed
+before that: every device test, screen 46 of 46, **ACTIONS: the device's own latest send 1.53 ms** (3.15 to 4.05 in
+the candidates before): the storage read was the cause.
+
+tools/linux/hw/run-stop.py v0.1 on that firmware, judging nothing (../overnight/v14/stop/before-rc3-stop.json):
+
+| Measured on rc3 (before the fix) | DIN | USB |
+| --- | --- | --- |
+| Stop after SEQ PLAY, 5 times, ms from the key being sent | 9.39, 5.34, 5.39, 8.58, 7.44 | 7.10, 5.01, 5.07, 7.28, 7.10 |
+| Stop right after a page change | 20.98, 6.35, 19.12, 18.70, 17.10 | 18.70, 6.00, 17.24, 17.43, 16.72 |
+| **Stop with a save sent 1 ms after it** | **86.16, 86.25**, 7.93, 7.93, **90.78** | **85.78, 85.94**, 6.66, 6.69, **90.45** |
+| First stop after a save | 8.14, 8.02, 5.51, 8.51, 7.43 | 5.88, 7.64, 5.23, 7.19, 7.12 |
+| Stop more than 10 s after a change (the save by itself due) | 6.38, 6.10 | 6.02, 5.83 |
+| The clock's pause around a save (period 20.88 ms) | 105.38, 105.04, 107.48, 107.85, 106.27 | 105.36, 105.02, 107.52, 107.83, 107.19 |
+| Shortest clock interval after the pause | 20.34, 20.49, 20.40, 20.38, 20.26 | 20.33, 20.48, 20.35, 20.43, 20.27 |
+
+- **The late Stop is real and is a flash write.** The transport counts as stopped from the audio block that stops the
+  song; its Stop message is due one block later. A save taken in between (three of five tries) ran its three erases
+  and three writes (17.7 and 16.6 ms each at most, about 95 ms together) before the Stop left. The device's record
+  has the same thing from the setup test, which saves by remote right after its stop: 177.79 ms (rc1), 230.46 ms
+  (rc3; flash 1 ms before, the pass before 231.9 ms earlier). By hand: SEQ PLAY and the > button within about 7 ms.
+  The save by itself did not do it in two tries (it is asked for a pass later), but nothing forbade it.
+  Fix: SPEC 19.34, `before_flash`.
+- **The clock runs while stopped** (CLOCK OUT is on by default, app/midi_router.c line 75). Around a save it pauses
+  105 to 108 ms: four clock bytes are missing, and it goes on at its period. No burst: the audio interrupt that
+  makes the clock bytes stands still during the write as well, so nothing piles up; one byte waits and leaves at
+  the end, on the shifted grid. Dropping bytes (asked for in case of a burst) would make the pause one period
+  longer and was left out. A synced synth sees one pause of five periods (120 BPM), then the same tempo.
+- **No save without a change**: six pages visited, the song played and stopped, a clip opened and a step selected
+  and let go: 15 s later 0 flash operations. One note changed: 6 flash operations within 15 s, then 0 in 8 s.
+- The page-change case: the pass that draws the new page whole reads the stop after it (up to 21 ms); its limit is
+  30 ms, the others 15 (run-stop.py --stop-limit says what the path is made of).
+
+In the release run from candidate 4: the step `stop` (rc-validate v0.23).

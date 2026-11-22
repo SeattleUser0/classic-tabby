@@ -2342,3 +2342,12 @@ unsaved one takes its place); `song_edit_save` writes the open clip and every wa
 seconds after the stop counts waiting clips too. Refused as before: a ninth unsaved clip, and another clip while a
 take is armed or runs (the screen: 8 UNSAVED - STOP TO SAVE, END THE TAKE FIRST). `song_unsaved_clips()`.
 Not changed: nothing is written to flash while a song plays; unsaved clips are lost at power-off.
+
+**A Stop before any flash write** (the user's request of 2026-11-21). `stop_queued` counts the MIDI Stop messages put
+into lane 0 (audio interrupt, in `enqueue`), `stop_sent` those the router pass took out; `ct_midi_stop_pending()`.
+`before_flash()` (app/diag.c), at the start of `ct_diag_flash_erase` and `ct_diag_flash_write`: `ct_midi_flush()`,
+and again while a Stop is pending (it is due within one audio block; 20 ms at most). The transport counts as
+stopped from the audio block that stops the song, while its Stop message is still due one block later: a save taken
+in that window began before the Stop had left. **The clock while stopped** is not changed: measured, a flash write
+pauses it (about 105 ms) and it goes on at its period; nothing is sent in a burst, so nothing is dropped.
+**ACTIONS**: `ct_diag_storage_lines` does not read the song storage while the transport runs.

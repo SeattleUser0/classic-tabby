@@ -37,6 +37,8 @@ static uint8_t song_channel[8];
 static uint32_t clock_seen, clock_phase;
 static uint32_t resume_phase;
 static unsigned clock_first, resume_first, master_running;
+static volatile uint32_t stop_queued;   /* MIDI Stop messages put into the queue (audio interrupt) */
+static uint32_t stop_sent;              /* ... taken out of it (control task) */
 static uint32_t dropped;
 static void release_owner(unsigned owner, unsigned ports);
 #ifdef CT_A2
@@ -139,6 +141,7 @@ void groove_midi_clock_reset(void)
 }
 void groove_midi_init(void)
 {
+    stop_sent = stop_queued;   /* tabby-v1.3: the queues start empty: no Stop waits */
     memset(events, 0, sizeof events); memset(output, 0, sizeof output); memset(song_channel, 0, sizeof song_channel);
     groove_midi_defaults(&config);
     ready_seen = dropped = clock_seen = 0; groove_midi_clock_reset();
@@ -176,6 +179,7 @@ static FM1_AUDIO_CODE void enqueue(unsigned lane, unsigned owner, unsigned ports
 #ifdef CT_A2
     if (lane < 2) fg_due[lane][w & (QUEUE - 1)] = fg_stamp;
 #endif
+    if (status == 0xfc && !lane && !owner) ++stop_queued;   /* tabby-v1.3: a Stop waits (ct_midi_stop_pending) */
     barrier(); q->write = w + 1U;
 }
 FM1_AUDIO_CODE void groove_midi_note(unsigned track, unsigned note, unsigned velocity)
@@ -234,6 +238,11 @@ FM1_AUDIO_CODE void groove_midi_transport(unsigned owner, uint8_t status)
     }
     enqueue(0, 0, config.flags & 7U, status == 0xff ? 0xfc : status, 0, 0);
 }
+/* tabby-v1.3 (the user's request of 2026-11-21): 1 while a MIDI Stop waits in the queue. A flash write masks every
+ * interrupt and holds the control task for up to 0.2 s; one that began in the pass after SEQ PLAY (a save sent 5 ms
+ * after the stop by the test tool) kept the Stop back for 178 ms (tabby-v1.3-rc1). The flash calls of app/diag.c send
+ * what is due first and do not start while this says 1 (ct_midi_before_flash). */
+unsigned ct_midi_stop_pending(void) { return stop_queued != stop_sent; }
 #ifdef CT_A2
 /* ---- Classic Tabby Task 15 Step 4: option A2, the control pass on demand (diag builds only) ----
  * Revision notes
@@ -769,6 +778,7 @@ static void midi_poll_body(void)
         if (q->lost != q->seen) {
             dropped += q->lost - q->seen; q->seen = q->lost;
             q->read = q->write;
+            if (!i) stop_sent = stop_queued;
             for (unsigned p = 0; p < 3; ++p) recover(p);
         }
     }
@@ -791,6 +801,11 @@ static void midi_poll_body(void)
                  * FG_FAR is not believed and the event leaves at once. */
                 int32_t wait = (int32_t)(fg_due[i][r & (QUEUE - 1)] - a2_ticks());
                 if (wait > FG_LEAD && wait <= FG_FAR) continue;
+                /* tabby-v1.3: the clock runs on while the transport is stopped, and a flash write then (a save, a transfer)
+                 * holds everything for about 105 ms. Measured on DIN and USB (tools/linux/hw/run-stop.py): the clock
+                 * pauses for five periods and goes on at its period; no bytes follow each other closely afterwards (the
+                 * audio interrupt that makes them stands still too). Dropping the one byte that waited was tried on
+                 * paper and left out: it would make the pause one period longer. */
                 if (fg_live) {
                     uint32_t late = wait < 0 ? (uint32_t)-wait : 0;
                     ++fg.sent; if (late > fg.late_max) fg.late_max = late;
@@ -801,6 +816,8 @@ static void midi_poll_body(void)
             }
 #endif
             barrier(); uint32_t event = q->data[r & (QUEUE - 1)]; barrier(); q->read = r + 1;
+            if ((event & 255U) == 0xfcU && i == 0 && !((event >> 24) & 31U)) ++stop_sent;
+
             unsigned owner = ((event >> 24) & 31U) | ((event >> 18) & 32U), ports = event >> 29;
             uint8_t m[3] = {(uint8_t)event, (uint8_t)(event >> 8), (uint8_t)((event >> 16) & 127U)};
             if (m[0] == 0xff) {

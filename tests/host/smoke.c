@@ -1860,7 +1860,15 @@ int main(void)
           groove_midi_song_note(0, 71, 0); sim_test_pass(); (void)drain(m, 64);
           (void)ct_diag_read(1, lr); sim_test_pass(); (void)drain(m, 64);
           (void)ct_diag_read(12, lr); (void)ct_diag_read(13, lb);
-          CHECK(PG32(lr, 0) < 239000U && PG32(lb, 0) >= 239000U && lb[14] == 29, "worst lateness: the reset of the counters clears the first record and keeps the one since power-on (%u, %u)", PG32(lr, 0), PG32(lb, 0)); }
+          { unsigned ct_midi_stop_pending(void); void groove_midi_transport(unsigned owner, uint8_t status);
+            ct_fg_tick(); tb = ct_diag_ticks(); (void)sim_render();
+            groove_midi_transport(0, 0xfa); groove_midi_transport(0, 0xfc);
+            unsigned waits = ct_midi_stop_pending();
+            SET_NOW(tb + 2 * len + PERIOD); sim_test_pass(); n = drain(m, 64);
+            unsigned fc = 0; for (unsigned i = 0; i < n; ++i) fc += m[i].data[0] == 0xfc;
+            CHECK(waits == 1 && fc >= 1 && !ct_midi_stop_pending(), "stop: a MIDI Stop in the queue is 'pending' until the pass that sends it (%u, %u sent)", waits, fc);
+            { uint8_t tmp[64]; (void)ct_diag_read(1, tmp); } sim_test_pass(); (void)drain(m, 64); }
+          CHECK(PG32(lr, 0) < 239000U && PG32(lb, 0) >= 239000U && lb[14] == 29, "worst lateness: the reset of the counters clears the first record and keeps the one since power-on (%u, %u; event %02x gap %u)", PG32(lr, 0), PG32(lb, 0), lr[24], lr[28] | lr[29] << 8); }
         /* The same song with F + G off and on: the same notes in the same order, none lost. */
         { static uint8_t seq[2][600][3]; unsigned len2[2] = {0, 0};
           for (unsigned run = 0; run < 2; ++run) {

@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.22
+Version: 0.23
 
 Revision log
+    v0.23 2026-11-21  The step `stop` (run-stop.py): Stop latency, the clock around a save, no save without a change.
     v0.22 2026-11-21  The pages' own figure is the one while the song ran (the firmware's record).
     v0.21 2026-11-21  tabby-v1.3: the step `lateness`: the firmware's worst-lateness record, read after every test and soak.
     v0.20 2026-11-20  The device's own lateness counters are kept per step in the results (own_lateness_by_step).
@@ -264,6 +265,8 @@ def main():
         test("steps", "run-steps.py")
         test("launch", "run-launch.py", rewrite=False)
         test("launch-again", "run-launch.py")
+        # v0.23 (the user's request of 2026-11-21): MIDI Stop latency on DIN and USB, the clock around a save, no save without a change
+        test("stop", "run-stop.py", extra=("--tag", rc_tag))
         # v0.12 (tabby-v1.2): the device's own pixels. The Wrong Room song goes into slot 6 (index 5; only if that slot is
         # empty), run-screen.py runs the tour of screen-tour.json and reads the screen copy for every page, at rest and
         # while playing; screens.mjs --match runs the simulator through the same tour and compares every pixel.
