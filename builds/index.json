@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-21T23:13:49Z",
+  "updated": "2026-11-22T02:01:07Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -810,6 +810,16 @@
       "page": "builds/tabby-v1.3-rc1/",
       "published": "2026-11-21",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.3-rc1.zip",
+      "note": "Not promoted: its waiting places for unsaved clips left the test tools' screen copy without memory. Fixed in the next candidate."
+    },
+    {
+      "tag": "tabby-v1.3-rc2",
+      "build": "32df8437e103362c21d235cec6392221e3bd945a5cc3524c781be2602ff76f36",
+      "loader": "ota-SMK3732df8437e103362c",
+      "version": "tabby-v1.3",
+      "page": "builds/tabby-v1.3-rc2/",
+      "published": "2026-11-22",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.3-rc2.zip",
       "note": "Release candidate of tabby-v1.3: not a release. Use the main page unless you were asked to test this build."
     }
   ]
