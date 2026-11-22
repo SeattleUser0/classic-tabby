@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-22T02:01:07Z",
+  "updated": "2026-11-22T04:57:36Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -820,6 +820,16 @@
       "page": "builds/tabby-v1.3-rc2/",
       "published": "2026-11-22",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.3-rc2.zip",
+      "note": "Not promoted: on the ACTIONS page a soak segment's USB band was 3.54 ms (the page read the song storage while playing). Fixed in the next candidate."
+    },
+    {
+      "tag": "tabby-v1.3-rc3",
+      "build": "397f401dd16b8873a139c5dd269e8cb5a688d72eb37472b0ae0f82bd0621c3b6",
+      "loader": "ota-SMK37397f401dd16b8873",
+      "version": "tabby-v1.3",
+      "page": "builds/tabby-v1.3-rc3/",
+      "published": "2026-11-22",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.3-rc3.zip",
       "note": "Release candidate of tabby-v1.3: not a release. Use the main page unless you were asked to test this build."
     }
   ]
