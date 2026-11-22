@@ -12,7 +12,10 @@ Record or edit one clip after another while the song plays on: eight clips can b
   tabby-v04.15, SHUFFLE and PLAY QUANTIZE before tabby-v04.17, STEP SIZE before tabby-v04.19, DIRECTION before
   tabby-v04.20. A song with EVENT LEAD set plays on older firmware, without the lead.
 - Released through the candidate flow, with the per-page timing check, the comparison of the device's own screen
-  pixels and the soaks. CANDIDATES
+  pixels and the soaks, as candidate 6. Candidates 1 to 5 were held back (docs/BUILD.md 67.4 to 67.8): 1: the places
+  for waiting clips took the test tools' screen copy its memory; 2: the ACTIONS page sent late (fixed, below); 3:
+  stopped by hand; 4: the Stop still waited 17 ms when a save was due at the stop; 5: the firmware that is
+  released, held back by three checks of the test run itself. Candidate 6 is candidate 5's firmware, tested in full.
 
 ## What changed
 
@@ -47,4 +50,37 @@ Record or edit one clip after another while the song plays on: eight clips can b
 
 ## Validation
 
-VALIDATION
+Candidate 6 (builds/tabby-v1.3-rc6/) on the device, unattended, before the promotion; the test computer kept awake
+and otherwise idle. "Own" is the device's own record of how late a timed event left.
+
+| Stop: ms from SEQ PLAY being sent to the Stop byte | DIN | USB |
+| --- | --- | --- |
+| after SEQ PLAY | 13.11, 7.77, 8.09, 6.78, 5.14 | 10.79, 7.46, 7.91, 5.41, 4.74 |
+| right after a page change | 7.11, 11.74, 13.84, 19.22, 6.01 | 4.85, 11.40, 12.45, 17.91, 5.72 |
+| a save sent 1 ms after the stop (before: 86, 86, 8, 8, 91) | 6.18, 11.78, 8.00, 7.90, 6.57 | 5.85, 11.55, 6.70, 6.54, 6.20 |
+| the first stop after a save | 7.99, 5.45, 4.65, 7.89, 7.16 | 5.71, 5.08, 4.58, 6.92, 6.77 |
+| more than 10 s after a change (the save by itself due) | 6.17, 7.08 | 5.81, 6.76 |
+
+- **The clock around a save while stopped** (120 BPM, period 20.95 ms): a pause of 87.2 to 88.9 ms on DIN, 87.1 to
+  90.0 on USB (three clock bytes missing); the shortest interval after it 20.10 ms (DIN), 19.94 (USB): no burst.
+  Before this release: 105 to 108 ms, four bytes missing, no burst either.
+- **No save without a change**: 0 flash operations 15 s after pages, play, stop, a clip opened; one changed note: one
+  save within 15 s, nothing after.
+- **The worst-lateness record over the run** (three soaks, every test): while a song ran 5.68 ms at most (STEP page,
+  during the recording test; 4.84 on CLIPS in the program test; 7 sends at 4 ms or more in all, none in the soaks or
+  timing runs); stopped 17.24 ms (a transfer).
+- **One line, 960 notes** (DIN without the first note / USB / own, ms): overview 1.69, 1.71, 1.74 / 1.64, 1.65, 1.70 /
+  1.46, 1.52, 1.52 (the first note +1.32, +1.20, +1.24); CLIPS 1.69 / 1.69 / 1.49; SCENES 1.72 / 1.73 / 1.53; SYNC /
+  MIDI 1.73 / 1.66 / 1.50; **ACTIONS 1.67 / 1.66 / 1.49** (own was 3 to 4 in every version); mixer 1.67 / 1.75 / 1.50.
+  Eight lines: 2.65 to 2.93 on DIN, about 2.0 on USB.
+- **Soaks**: Wrong Room, EVENT LEAD OFF, 40 minutes, 19 segments, none bad (USB band 1.36 to 2.36 ms; DIN 14.79 to
+  15.07 as before); EVENT LEAD 1/16, 19 segments, none bad (DIN 1.57 to 2.50, USB 1.33 to 1.56). **Meridian Fault**
+  (the user's song), 30 minutes, 9 passes, none bad: 1532 of 1532 notes on both ports each time, worst note USB
+  1.76 ms, DIN 11.76 ms (the cable: up to 18 messages due together), own 2.76 ms.
+- The device's pixels: 46 of 46 pictures identical to the simulator's. The CPU guard: no action.
+- Recording 30 of 30 (with a second take into a second new clip while the first is unsaved and the song plays; one
+  save writes both), CLIP SETTING 40 of 40, take edit 26 of 26, note repeat 20 of 20, program and knobs 10 of 10,
+  clip chains 11 of 11, scene chain 13 of 13, scene edit 16 of 16, STEP page 18 of 18, CLIPS page 40 of 40 twice.
+- Full backup, restore, verify: PASS (41 items). The panel as it was found; the timing songs unchanged after every
+  test; no command unanswered.
+- Still not looked at by a person: the glass itself (test T97 of the guide).

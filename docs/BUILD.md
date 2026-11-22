@@ -7184,3 +7184,12 @@ Failed steps:
   read as held: the unit's analog inputs flicker, see the wheel). The songs were restored from the backup made before
   rc2 (slot 16: one scene again). rc-validate v0.24 reads the scenes of slots 13, 15 and 16 after every test, names
   the test after which they changed, and says the note counts when they are not 960.
+
+### 67.9 tabby-v1.3 released: candidate 6 (2026-11-22)
+
+Commit c4e5131 (tools only after 2a2c0d7), build `2fea867243829b60`, suite green on that commit, the install step
+found the build on the device, every step of rc-validate v0.24 passed (30 steps with stop, soak-song, lateness),
+promoted by the flow. Figures: docs/releases/tabby-v1.3.md. The record since power-on at the end: running 5.68 ms
+(STEP page, in the recording test; 4.60 of it from my bench runs before, 4.84 on CLIPS in the program test),
+stopped 17.24 ms. Timing songs: slot 13 two scenes, 15 and 16 one, after every step. Left by tests: the CLIPS page
+after the screen tour.
