@@ -7155,3 +7155,32 @@ The Stop no longer waits for the write. Failed steps:
 more: on ACTIONS no longer anything), stopped 17.57 ms (a transfer; 191.33 in rc2: a waiting Stop and what is due
 now leave before each flash call). soak 19 segments 0 bad (USB band 1.33 to 2.29), soak-lead 0 bad, soak-song 9
 passes 0 bad (USB 1.72, own 2.76 ms; 6.47 in rc2). timing-pages: ACTIONS own 1.54 ms.
+
+### 67.8 tabby-v1.3-rc5: not promoted; three failures, none of them the firmware's timing
+
+Commit 2a2c0d7, build `2fea867243829b60` (the firmware that is released: candidate 6 changes tools only).
+
+Stop, ms from the key (DIN / USB): after SEQ PLAY 5.00 to 8.54 / 4.70 to 7.31; after a page change 14.42 to 19.33 /
+14.05 to 18.03; **a save sent 1 ms after it 6.24, 5.74, 8.16, 7.47, 10.77** / 5.93 to 10.48; **more than 10 s after
+a change 6.71, 7.36** / 6.35, 7.08 (17.00 in rc4: `ct_flash_prepare` at the start of `song_edit_save`); the first
+stop after a save 10.03, 10.75, 6.34, **16.67**, 5.42 / 7.76, 10.41, 6.07, 15.31, 5.07. The clock around a save:
+pause 86.70 to 88.95 ms, three bytes missing, shortest interval after 20.30 ms, no burst. No save without a change.
+The record over the run: running 3.70 ms at most (STEP page), none at 4 ms or more; stopped 17.24 ms.
+Soaks: 19 + 19 segments, 0 bad (USB band 1.33 to 2.00); Meridian Fault 9 passes, 0 bad, USB 1.81 ms.
+
+Failed steps:
+- **stop**: "the first stop after a save: 16.67 ms" against 15. Not a flash write (that is 85 ms or more): the key is
+  read by the pass after the one that draws the screen whole, as after a page change (19.33). The 15 ms left the
+  screen's drawing out of the path. One limit for every case: 30 ms (run-stop v0.3).
+- **record**: "one note in the second new clip": 2 events again, also alone on the bench. The stored clip, decoded
+  from a backup: the note (step 5, pitch 56) and **controller 1 = 1**: the unit's own mod wheel reads 0 or 1 at rest,
+  and a take records what the panel sends. The test now takes 1 to 3 events (run-record v0.10). A finding for the
+  user: a wheel that flickers at rest puts controller events into every take.
+- **timing**: every figure in the limits (DIN 1.63, 1.72, 1.68; USB 1.74, 1.66, 1.61; own 1.62, 1.49, 1.46), but 1001
+  and 1002 notes for 960: the one-line timing song in slot 16 had two scenes. From the backups: its record changed
+  during rc2's run, in the run on the SCENES page (960 notes before, 1002 from then on; the "115.92 ms" of 67.5 was
+  the save of that change): a scene was stored, which takes a pad held on SCENES while the song plays. No tool holds
+  one there, and playing the song on CLIPS and SCENES for 12 s each did not do it again. NOT EXPLAINED (a pad that
+  read as held: the unit's analog inputs flicker, see the wheel). The songs were restored from the backup made before
+  rc2 (slot 16: one scene again). rc-validate v0.24 reads the scenes of slots 13, 15 and 16 after every test, names
+  the test after which they changed, and says the note counts when they are not 960.

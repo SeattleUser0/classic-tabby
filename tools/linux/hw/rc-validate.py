@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.23
+Version: 0.24
 
 Revision log
+    v0.24 2026-11-22  The timing songs' scenes are read after every test; the timing steps say the note counts.
     v0.23 2026-11-21  The step `stop` (run-stop.py): Stop latency, the clock around a save, no save without a change.
     v0.22 2026-11-21  The pages' own figure is the one while the song ran (the firmware's record).
     v0.21 2026-11-21  tabby-v1.3: the step `lateness`: the firmware's worst-lateness record, read after every test and soak.
@@ -196,7 +197,21 @@ def main():
     # v0.10: the panel state a test must leave as it found it (tools/linux/hw/panel-state.py): read before the tests,
     # after every test and at the end; the step that changed it fails, and the mutes are put back.
     base = {}; left = []; own_by_step = []
+    # v0.24: the timing songs must be as they were stored. In tabby-v1.3-rc2 the one-line song in slot 16 got a second
+    # scene during a run (a scene is stored by a pad held on SCENES while the song plays; nothing in the run holds one)
+    # and played on past its end from then on: 1001 notes for 960, which failed `timing` in rc4 and rc5 without a word
+    # about why. The scenes of slots 13, 15 and 16 are read after every test; a change names the test.
+    songs_seen = []
+    def timing_songs(after):
+        link = "import sys; sys.path.insert(0, %r); import tabby_link as T, time, json; l = T.Link(); time.sleep(0.3)\n" % str(HW)
+        c, o = sh([py, "-c", link + "l.stop_song(); out = {}\nfor s in (12, 14, 15):\n    l.select_song(s); time.sleep(0.2); out[str(s + 1)] = l.setup_state()['scenes']\nl.select_song(6); l.close(); print(json.dumps(out))"], 60, log)
+        now = last_json(o)
+        if now:
+            if songs_seen and songs_seen[-1]["scenes"] != now:
+                step("timing-songs", False, "after the step %s the scenes of the timing songs are %s; before it %s" % (after, now, songs_seen[-1]["scenes"]))
+            songs_seen.append({"after": after or "(before the tests)", "scenes": now})
     def state(after):
+        timing_songs(after)
         code, o = sh([py, str(HW / "panel-state.py")] + (["--baseline", json.dumps(base), "--restore-mutes", "--restore-track"] if base else []), 120, log)
         now = last_json(o)
         # v0.20: the device's own lateness counters as each test left them (panel-state.py v0.3), kept per step
@@ -324,7 +339,7 @@ def main():
         din, usb = bands.get("DIN", []), bands.get("USB", [])
         good = (len(din) == 3 and len(usb) == 3 and all(n == 960 for n, _, _ in din + usb) and all(b < PAGE_LIMIT_MS for _, b, _ in usb) and not any(runs)
                 and all(x is not None and x < PAGE_LIMIT_MS for x in own) and all(r is not None and r < PAGE_LIMIT_MS and f < FIRST_NOTE_MS for r, f in rests))
-        step("timing", good, "one line, 960 notes, three runs: DIN %s ms (the first note at SEQ PLAY %s behind Start; with it %s); USB %s ms; the device's own latest send %s ms; clock ratio %s" % (
+        step("timing", good, ("" if all(n == 960 for n, _, _ in din + usb) else "NOTES %s, NOT 960: THE TIMING SONG IN SLOT 16 IS NOT AS STORED. " % sorted(set(n for n, _, _ in din + usb))) + "one line, 960 notes, three runs: DIN %s ms (the first note at SEQ PLAY %s behind Start; with it %s); USB %s ms; the device's own latest send %s ms; clock ratio %s" % (
             ", ".join("?" if r is None else "%.2f" % r for r, _ in rests), ", ".join("?" if f is None else "%+.2f" % f for _, f in rests), ", ".join("%.2f" % b for _, b, _ in din),
             ", ".join("%.2f" % b for _, b, _ in usb), ", ".join("?" if x is None else "%.2f" % x for x in own), ", ".join(sorted({r for _, _, r in din}))))
         # v0.11 (tabby-v1.1, the readable screen): the same one-line song with each of the other pages on the screen, and
@@ -476,6 +491,7 @@ def main():
     results["unanswered_commands"] = unanswered    # v0.15
     results["left_by_tests"] = left                # v0.17
     results["own_lateness_by_step"] = own_by_step   # v0.20
+    results["timing_song_scenes"] = songs_seen      # v0.24
     file.write_text(json.dumps(results, indent=1) + "\n")
     if failed:
         print("NOT MARKED: failed steps: %s. The build stays a release candidate; give its page a note (tools/linux/builds-notes.json)." % ", ".join(failed))

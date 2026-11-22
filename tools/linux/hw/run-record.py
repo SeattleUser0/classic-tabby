@@ -20,7 +20,7 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-record.py --song N --out DIR
 
-Version: 0.8
+Version: 0.10
 
 Revision log
     v0.6  2026-11-21  tabby-v1.3: a second take into a second new clip while the first is unsaved and the song plays; one save writes both.
@@ -192,7 +192,9 @@ def main():
         # recorded as well: + 3 (the + 2 until v0.6 failed tabby-v1.3-rc1 at 249 ms: 4 full windows, both ends touched, the last)
         expect = int(sweep_ms / (240.0 / 480.0 * STEP_MS)) + 3
         cc = [m[2] for t, m in list(din.messages) if t > tk + int((sweep_ms + 300) * 1e6) and len(m) == 3 and m[0] == 0xB0 and m[1] == 74]
-        check(3 <= after - before <= expect and after - before < 20, "a sweep of 61 controller values in %.0f ms is recorded as %d (one per 240 units and the last)" % (sweep_ms, after - before), "at most %d expected" % expect)
+        # v0.10: + 2: the unit's own mod wheel reads 0 or 1 at rest and a take records that as controller 1 (seen in the
+        # stored clip of tabby-v1.3-rc5: one event CC 1 = 1 beside the note)
+        check(3 <= after - before <= expect + 2 and after - before < 20, "a sweep of 61 controller values in %.0f ms is recorded as %d (one per 240 units and the last)" % (sweep_ms, after - before), "at most %d expected" % expect)
         check(cc and cc[-1] == 60 and len(cc) <= 2 * (after - before), "the clip plays the thinned sweep back; its last value is the gesture's last", cc[:10])
         measured["sweep"] = {"sent": 61, "ms": round(sweep_ms), "recorded": after - before}
         # ---- stop, undo ----
@@ -236,7 +238,7 @@ def main():
                 oks = [near(x, 8 * STEP_MS, a.tolerance) for x in later]
                 check(len(later) >= 1 and all(o for o, _ in oks), "the new clip plays the recorded note on its step in the following loops", ["%+.2f" % d for _, d in oks])
                 l.press("REC"); idle(0.3); s = l.steps_state()
-                check(s["recording"] == 0 and s["events"] == 1 and s["dirty"], "REC stops the take: one note in the new clip, unsaved", (s["recording"], s["events"]))
+                check(s["recording"] == 0 and 1 <= s["events"] <= 3 and s["dirty"], "REC stops the take: the note is in the new clip (1 event; up to 2 more when the unit's mod wheel flickers at rest), unsaved", (s["recording"], s["events"]))
                 refused = False
                 try:
                     l.edit_save()
@@ -256,7 +258,7 @@ def main():
                     tk2 = T.now_ns()
                     l.key(1, 20, 100); idle(0.2); l.key(1, 20, 0); idle(0.2 + 2 * CYCLE_MS / 1000.0)
                     l.press("REC"); idle(0.3); s = l.steps_state()
-                    check(s["recording"] == 0 and s["events"] == 1 and s["dirty"], "the second take ends: one note in the second new clip, unsaved", (s["recording"], s["events"], s["dirty"]))
+                    check(s["recording"] == 0 and 1 <= s["events"] <= 3 and s["dirty"], "the second take ends: the note is in the second new clip (1 event; up to 2 more when the unit's mod wheel flickers at rest), unsaved", (s["recording"], s["events"], s["dirty"]))
                     still = [phase(t, t0) for t in ons(tk2 + 300_000_000, pitch)] if pitch is not None else []
                     oks = [near(x, 8 * STEP_MS, a.tolerance) for x in still]
                     check(len(still) >= 2 and all(o for o, _ in oks), "meanwhile the first new clip, unsaved and no longer open, went on playing its note on its step", ["%+.2f" % d for _, d in oks])

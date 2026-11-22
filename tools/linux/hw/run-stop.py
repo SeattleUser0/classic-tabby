@@ -25,9 +25,10 @@ Purpose (the user's requests of 2026-11-21, after a Stop message that the device
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-stop.py --out DIR [--tag NAME] [--report-only]
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-22  One limit, 30 ms, for every case: the screen's own drawing delays the key in any of them.
     v0.2  2026-11-22  'The Stop before the pause': within one clock period after the last clock byte before the write (v0.1
                       asked for it before that byte and failed a Stop that left 4 to 15 ms after the key).
     v0.1  2026-11-21  First version.
@@ -54,10 +55,12 @@ def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--song", type=int, default=7, help="the looping test song's slot, 1 to 16")
     p.add_argument("--din", default="H4MIDI-WC Port 1")
-    p.add_argument("--stop-limit", type=float, default=15.0,
+    p.add_argument("--stop-limit", type=float, default=30.0,
                    help="ms from the stop being sent to FC on a port. The path: the remote command over USB (1 to 2 ms), the control pass "
                         "that reads the key (a pass may wait for one screen band, up to 6 ms), the audio block that stops the song "
-                        "(2.9 ms), the Stop due one block later (2.9 ms), the pass that sends it: 15 ms. A flash write is 100 to 200 ms.")
+                        "(2.9 ms), the Stop due one block later (2.9 ms), the pass that sends it: 15 ms; and when the screen is drawing a page "
+                        "whole (after a page change, a message, a save) the key is read after that pass: up to 12 ms more measured "
+                        "(16.67 ms after a save, 19.33 after a page change). 30 ms. A Stop behind a flash write is 85 ms or more.")
     p.add_argument("--repeats", type=int, default=5)
     p.add_argument("--tag", default="stop")
     p.add_argument("--out", required=True)
@@ -153,7 +156,7 @@ def main():
         def page_change():
             l.key(0, l.PANEL[pages[0]], 1); l.key(0, l.PANEL[pages[0]], 0); pages.reverse()
         # a page change: the pass that draws the new page whole (not interruptible; 12 ms measured) reads the stop after it
-        stop_case("a page change (the page key, then SEQ PLAY at once)", before=page_change, limit=a.stop_limit + 15.0)
+        stop_case("a page change (the page key, then SEQ PLAY at once)", before=page_change)
         l.show_page("overview"); pump(0.3)
 
         # the clip unsaved, and a save sent at once after the stop
