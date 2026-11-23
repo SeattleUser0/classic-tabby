@@ -222,6 +222,8 @@ static int park_put(unsigned i)
     park[i].block = edit.block; park[i].track = edit.track; park[i].place = edit.place; park[i].created = edit.created; park[i].used = 1;
     return 0;
 }
+static volatile uint8_t edit_lock[SONG_TRACKS];   /* tabby-v1.4: the control task decodes the edited clip into this track's free buffer: no swap meanwhile */
+static volatile uint8_t rec_running;              /* tabby-v1.4: a take runs (the audio thread's copy of rec.state == REC_ON) */
 static uint8_t edit_refresh;           /* 1 + the track whose looping buffer should be decoded again */
 /* tabby-v04.10: the song itself (its clip table, scenes or header) was changed on the device: the record is written,
  * as version 3, when the song is saved (stopped only, as every flash write). */
@@ -778,6 +780,12 @@ static FM1_AUDIO_CODE int song_switch(unsigned next, uint32_t bd, unsigned at)
     }
     return 1;
 }
+/* tabby-v1.4: two v3 clips with the same header apart from the number of events (bytes 6 and 7). No library call: audio code. */
+static FM1_AUDIO_CODE unsigned same_settings(const uint8_t *a, const uint8_t *b)
+{
+    for (unsigned i = 0; i < 16; ++i) if (i != 6 && i != 7 && a[i] != b[i]) return 0;
+    return 1;
+}
 /* A track's own boundary: its pattern loops, or a queue lands on the bar. */
 static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
 {
@@ -905,6 +913,27 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         if (qk != seen_kind[t] || qr != seen_row[t]) { seen_kind[t] = (uint8_t)qk; seen_row[t] = (uint8_t)qr; tstreamed[t] = 0; streams[1 + t].active = 0; }
         unsigned purpose, row = target(t, &purpose);
         unsigned active = row != SONG_NONE && !k->waiting;
+        /* tabby-v1.4 (MC707-PARITY 0.3, "hearing an edit"): a launched clip that was edited is taken at once, in the
+         * middle of its loop, when the edit left its shape alone (length, step size, direction, swing, chain, program):
+         * the window of this block is read from the newly decoded buffer, at the same place in the loop. Until
+         * tabby-v1.3 the loop's next pass took it: an edit of an eight-bar clip was heard up to eight bars later. Not
+         * within two steps of the loop's end (the look-ahead of the next pass has begun), not while the control task
+         * is decoding (edit_lock), and not during a take: a note just recorded and moved to the next grid line would
+         * sound a second time. A changed shape waits for the loop's end as before. */
+        if (k->state == 1 && !k->waiting && qk == Q_NONE && !edit_lock[t] && !rec_running) {
+            struct trackbuf *nw = &tbuf[t][k->cur ^ 1U]; const struct trackbuf *ow = &tbuf[t][k->cur];
+            if (nw->fresh && nw->ready && ow->ready && nw->row == ow->row && nw->purpose == ow->purpose && nw->block == ow->block
+                && nw->steps == ow->steps && nw->scale == ow->scale && nw->dir == ow->dir && nw->swing == ow->swing && nw->prog == ow->prog
+                && nw->chain_next == ow->chain_next && nw->chain_times == ow->chain_times && nw->chain_after == ow->chain_after && nw->chain_row == ow->chain_row
+                /* the clip's settings as they were: only its events changed. A clip the grid can hold is decoded as a grid
+                 * (v3 = 0) and has no settings; an edit that takes it out of the grid's shape (a fifth note on a step, a
+                 * controller, a setting) or back waits for the loop's end */
+                && nw->v3 == ow->v3 && (!nw->v3 || same_settings(nw->clip, ow->clip))
+                && k->start + k->len > m1 + 2U * (uint32_t)UNITS) {
+                nw->look_from = LOOK_NONE;
+                tbuf[t][k->cur].ready = 0; barrier(); k->cur ^= 1U; nw->fresh = 0;
+            }
+        }
         unsigned o = k->cur ^ 1U;
         plan[t].landing = !scene && qk != Q_NONE && bar < m1;
         plan[t].tb = 0; plan[t].what = SW_SONG; plan[t].nb = SONG_NONE; plan[t].origin = 0;
@@ -1424,6 +1453,7 @@ void song_poll(void)
         /* Goal 6: the edited clip loops on its track: decode it again into the track's free buffer; the audio thread
          * takes it at the loop's next pass. A track that follows the scenes hears the edit at its next decode. */
         unsigned t = edit_refresh - 1U; struct track *k = &tr[t];
+        edit_lock[t] = 1; barrier();                                 /* tabby-v1.4: from here the audio thread does not change k->cur in mid-loop */
         struct trackbuf *p = &tbuf[t][k->cur], *o = &tbuf[t][k->cur ^ 1U];
         edit_refresh = 0;
         if (k->state == 1 && !k->waiting && queue_kind[t] == Q_NONE && p->ready && p->purpose == P_LAUNCH && p->row == k->row && p->block == edit.block) {
@@ -1431,6 +1461,7 @@ void song_poll(void)
             o->fresh = 1;
             decode_track(t, o, k->row, P_LAUNCH);
         }
+        barrier(); edit_lock[t] = 0;
     }
     /* Each track's free buffer: what it will need next (one block read per decode). */
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
@@ -2495,6 +2526,12 @@ unsigned song_record_disarmed(void) { unsigned f = rec.disarmed; rec.disarmed = 
 /* Control task, every pass. */
 void song_record_poll(void)
 {
+    /* tabby-v1.4: the audio thread takes an edited clip in mid-loop only when no take runs, and not in the quarter
+     * second after one (its last notes are written when it ends) */
+    { static uint32_t rec_seen; static uint8_t rec_was; uint32_t now = fm1_millis();
+      if (rec.state == REC_ON) { rec_seen = now; rec_was = 1; }
+      else if (rec_was && now - rec_seen >= 250U) rec_was = 0;
+      rec_running = (uint8_t)(rec.state == REC_ON || rec_was); }
     if (rec.state == REC_OFF) return;
     if (!edit.active) { rec.state = REC_OFF; return; }
     if (rec.state == REC_ARMED) {

@@ -19,9 +19,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-steps.py --song N --out DIR
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-23  tabby-v1.4: a note entered while the clip loops is heard in the same loop.
     v0.1  2026-11-16  First version.
 """
 import argparse
@@ -117,6 +118,10 @@ def main():
         phase = [h % CYCLE_MS - 12 * STEP_MS for h in hits]
         check(s["count"] == 1 and len(hits) >= 2 and all(abs(x) <= a.tolerance for x in phase), "a note entered while the clip loops plays on step 13 of the following loops (pitch %d)" % p2,
               ["%+.2f" % x for x in phase])
+        # tabby-v1.4: and already in the loop in which it was entered (step 13 was 0.8 to 1.4 s ahead of the key)
+        first = (hits[0] - (tk - t0) / 1e6) if hits else None
+        check(first is not None and first < CYCLE_MS * 0.75, "the clip plays the new note in the same loop, on its step (before tabby-v1.4: from the next loop)",
+              "%.0f ms after the key" % first if first is not None else "no note")
         s = l.steps_state()
         check(s["play_step"] != 255 and sum(1 for x in s["pads"] if x & 8) <= 1, "the page reports the step that plays", s["play_step"])
         code = 0

@@ -348,7 +348,7 @@ Deliberate differences:
 | Tie / long note | Hold a pad and press [REST/TIE]. | K4 sets the length. | No TIE button. |
 | Undo | 10 levels; cleared when the clip or track changes (UM, Ver. 1.80). | 4 levels; cleared when another clip is opened (SPEC 14.1, decision 8). | Memory: each level is a copy of the clip. |
 | Saving | The project lives in memory until you save it. | A clip saves by itself ten seconds after the song stops, or with the > button; never while playing. | Flash writes stop the MIDI out for a moment, so they wait for the stop; saving by itself protects against a forgotten save. |
-| Hearing an edit | At once. | A launched clip from its next loop; a track following the scenes from its next scene. | The player reads a prepared copy of the clip; it is swapped only where a loop begins. |
+| Hearing an edit | At once. | A launched clip: at once (tabby-v1.4; until tabby-v1.3 from its next loop), when the edit is to notes, velocities, starts, lengths or controllers. A change of the clip's length, step size, direction, shuffle, chain or program waits for the loop's end; so does everything in the last two steps of the loop and during a take (a take's notes play from the next loop), and the rare edit that changes how the clip is held in memory (the fifth note on one step, the first controller event). A track following the scenes: from its next scene. | The player reads a prepared copy of the clip; it is swapped in mid-loop when the clip's shape is unchanged. A note just recorded and moved to the grid would sound twice if the take were heard at once. |
 | Clip length (STEP LEN) | 1 to 128 steps, in the clip settings (RM, "STEP LEN 1-128"). | The same: LENGTH on CLIP SETTING, 1 to 128 steps. | Same. |
 | Shortening a clip | Not described in either manual. | The notes past the new end are removed; undo (FX on the STEP page) brings them back. | The clip's event list holds only what plays; one undo level covers a slip of the knob. |
 | SCALE, sub steps | On the device. | Not on the device. | Not planned yet. |
@@ -454,7 +454,8 @@ pads in Note mode, here the 16 pads and the 37 keys.
   unsaved (*SNG in the top line), until it is saved: with the > button while stopped, or by itself ten seconds after the last
   change once the song is stopped (the screen says CLIP SAVED), or when you choose another song.
 - An unsaved edit is what the song plays. A clip that is launched on its track (CLIPS: press its pad) plays each
-  change from its next loop. A track that follows the scenes plays the changed clip the next time a scene brings it.
+  change at once (tabby-v1.4: a note put on a step that is still ahead sounds in this pass; a change of the clip's
+  length or other settings, and a take, from its next loop). A track that follows the scenes plays the changed clip the next time a scene brings it.
 - Eight clips can be unsaved at a time (tabby-v1.3; before, one). Opening, recording or making another clip while one is
   unsaved lets the first wait: it keeps playing as edited, loses its undo levels, and is written with the others at the
   next save. Opened again it is as you left it. With eight unsaved the ninth is refused (8 UNSAVED - STOP TO SAVE); before tabby-v1.3:

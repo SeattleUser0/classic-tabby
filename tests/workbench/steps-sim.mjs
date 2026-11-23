@@ -172,7 +172,8 @@ check(e.page === 21 && e.playStep < 16 && e.pads.filter(p => p & 8).length === 1
 toBar(3, 250); pad(12); key(19); e = sstate();                       /* G4 on step 13, in the first half of the bar */
 check(e.count === 1 && e.notes[0].pitch === 67, 'G4 entered on step 13 while the clip loops');
 toBar(6, 0);
-check(pitches(4, 9) === '44 60 62 44 67' && pitches(5, 9) === '44 60 62 44 67', 'the loop plays it from its next pass (bar 5: ' + pitches(4, 9) + ')');
+check(pitches(3, 9) === '44 60 62 67 44 67', 'tabby-v1.4: the note is heard in the pass in which it was entered: the key itself, then the clip on step 13, which was still ahead (bar 4: ' + pitches(3, 9) + '; until tabby-v1.3 only from the next pass)');
+check(pitches(4, 9) === '44 60 62 44 67' && pitches(5, 9) === '44 60 62 44 67', 'and in every pass after it, once each (bar 5: ' + pitches(4, 9) + ')');
 check(((c.sim_song_status(2) >>> 16) & 0xffff) === 0, 'nothing came late');
 
 /* ---- saving ------------------------------------------------------------------------------------------ */

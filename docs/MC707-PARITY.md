@@ -1,10 +1,11 @@
 # MC-707 parity matrix for Classic Tabby
 
-Version 0.10, 2026-11-21 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
+Version 0.11, 2026-11-23 (first version 2026-11-07, Task 10, Step 1). Companion to docs/tasks/TASK-10-step1-assessment.md.
 Section 0 is the list that is worked from: what is done, and what is left in the order it will be built. Sections 1 to 8
 are the matrix of 2026-11-07; its "Today" and "Status" columns describe that day, and section 0 says what changed since.
 
 Revision log
+- v0.11 2026-11-23: tabby-v1.4: an edit of a launched clip is heard at once (0.3).
 - v0.10 2026-11-21: tabby-v1.3: unsaved clips, eight at a time (0.3: the comparison of 2026-11-21 and what is left).
 - v0.9 2026-11-18: tabby-v04.23: item 4 done (the step loop while held). The user's order is complete; items 10 and 11 are open questions.
 - v0.8 2026-11-18: tabby-v04.22: item 7 done (NOTE REPEAT, as the track's arpeggiator while held).
@@ -88,7 +89,7 @@ a set that plays on:
 | Gap | MC-707 | Was | Now |
 | --- | --- | --- | --- |
 | Unsaved clips | any number | one: a second take, edit or new clip was refused until the song was stopped and saved | **tabby-v1.3: eight**; saved together at the stop |
-| Hearing an edit | at once | from the clip's next loop (a launched clip), or the next scene | unchanged: next in line; needs the player to take a changed clip inside a loop |
+| Hearing an edit | at once | from the clip's next loop (a launched clip), or the next scene | **tabby-v1.4: at once** for a launched clip when the edit is to its events (a setting, and a take, from the next loop) |
 | Step input that moves on by itself (RM p. 28, step recording) | yes | no: one pad per step | open |
 | Sub steps / flam | yes | no | not planned yet |
 | Edit all events of a step together (item 10) | yes | no | the user: not for now |

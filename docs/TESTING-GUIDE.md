@@ -359,7 +359,7 @@ Here you change the notes of a clip on the SMK-37 itself. The pads say where, th
 6. Press the pad again to let go of the step. Now a key only sets the NOTE shown on the screen.
 7. For drums: press SCALE. The screen says PADS TOGGLE and the note. Now each pad press puts that note on its step or takes it off. Amber pads hold that note. SCALE again goes back.
 8. CHORD clears the selected step. FX undoes the last change, up to four. KNOB BANK and FX redo.
-9. To hear it: press SEQ PLAY. The song plays your change even though it is not saved. If the clip is launched and looping (go back with PARA, press its pad, come back with PARA), each change is heard from the clip's next loop, and a white pad runs along with the music.
+9. To hear it: press SEQ PLAY. The song plays your change even though it is not saved. If the clip is launched and looping (go back with PARA, press its pad, come back with PARA), each change is heard at once (tabby-v1.4: a note you put on a step that is still ahead sounds in this pass; before, from the clip's next loop), and a white pad runs along with the music.
 10. To save: stop the song. Press the > button: CLIP SAVED. If you forget, the clip is saved by itself ten seconds after the song stopped. While the song plays the button says STOP TO SAVE.
 11. To throw the changes away: KNOB BANK and CHORD. The screen says EDITS DISCARDED.
 12. PARA goes back to the CLIPS page.
