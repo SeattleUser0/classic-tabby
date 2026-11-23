@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.69
+Version: 0.70
 Revision log:
+- v0.70, 2026-11-23: 17.22 the user's orders of 2026-11-22 and 2026-11-23; 19.35 tabby-v1.4.
 - v0.69, 2026-11-21: 17.21 the user's answers of 2026-11-21; 19.34 tabby-v1.3 (the worst-lateness record; eight unsaved clips).
 - v0.68, 2026-11-20: 17.20 the user's answers of 2026-11-20; 19.33 tabby-v1.2.1.
 - v0.67, 2026-11-20: 19.32 the start race of song_poll (tabby-v1.2).
@@ -1553,6 +1554,22 @@ every message as the firmware does and fails on a fourth line or a word over 13 
    clip could be unsaved, and nothing is saved while a song plays, so a set that plays on allowed one take or one
    edited clip. Built: eight unsaved clips (19.34).
 
+### 17.22 The user's orders of 2026-11-22 and 2026-11-23
+
+1. A control that wiggles at rest is never recorded (the mod wheel, pitch bend at its centre, faders, knobs).
+2. The phantom scene is a real fault, not a one-off (a track once muted itself too): log raw pad and button events
+   with their pressure readings, soak with nothing injected (idle, playing, every page), flag every event that comes
+   by itself; fix the input side where it is wrong. Storing a scene must take a deliberate action that one stuck or
+   noisy pad cannot produce.
+3. The pad's release level is set per pad above that pad's measured resting noise, with a margin and a clear gap to
+   the press level; the same check on the press side; note whether spikes come with screen drawing, audio load or
+   USB traffic.
+4. Launch timing at the bar line: a press just before the line must not wait a whole cycle; scene recall gets the
+   same grace window as a clip launch ("the main stage action; it can't have a tighter deadline than a clip"), with
+   the same release-run check: a press sent 12 ms or more before the line lands on it with its first notes.
+5. The Orange Cat window: no suites, soaks, timing runs or SMK-37 writes from 13:00 to 15:15, or while
+   /tmp/oc-soak-running exists.
+
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 
 - **17.3 is superseded as a finding, and stays in force as a rule until a diag build proves
@@ -2351,3 +2368,45 @@ stopped from the audio block that stops the song, while its Stop message is stil
 in that window began before the Stop had left. **The clock while stopped** is not changed: measured, a flash write
 pauses it (about 105 ms) and it goes on at its period; nothing is sent in a burst, so nothing is dropped.
 **ACTIONS**: `ct_diag_storage_lines` does not read the song storage while the transport runs.
+
+### 19.35 tabby-v1.4 (2026-11-23): inputs that cannot act by themselves; the bar line; an edit heard at once
+
+**The input log** (app/smk37_controls.c `input_note`, command 29 op 20). Every event of a pad, button, key or
+encoder as it reaches `smk37_control_event`: the time (ms), the kind, the id, the value, the source (0 the panel's
+scan, 1 a remote command: app/transfer.c `remote_event`, 2 the app's own release of everything) and for a pad from
+the panel the sensor's peak and resting level (`smk37_pad_raw`, app/board/scan.c). The last 128 are kept. The analog
+controls (faders, wheels, pedal, pad pressure) are counted with their lowest, highest and last value. Sub-commands:
+0 counts, 1 events from an index (four of 14 bytes), 2 the analog table, 3 reset, 4 per pad the highest reading above
+rest that did not press and the resting level, 5 / 6 the samples of the highest excursion that did not press / of
+the last press (24 samples, with what the control task was doing: a band going to the LCD, the transport running, a
+USB command within 20 ms), 7 pad 1's sample count, per pad the longest wait for a release, the resting noise, the
+spikes refused, 8 forget. Tool: tools/linux/hw/run-phantom.py.
+
+**The pads' levels** (app/board/scan.c). Per pad `pad_noise`: the highest reading above the resting level at rest
+(readings under 64 while the pad is not down), falling by one every 512 samples. Release level = rest + noise + 8
+(at least + 12, at most + 96); an excursion begins at the release level + 12 (it was rest + 10); a press must have
+peaked 64 above the release level, and when its rising run ends the sample that ended it must still be a quarter
+of the peak (a spike returns to rest in one sample). Until tabby-v1.3: release at rest + 5 for 24 samples, with a
+resting noise of 14 to 16.
+
+**A scene is stored with two controls**: SEQ REC held and an empty pad pressed (app/screen.c). No pad gesture
+writes over an existing scene, and none ever did: `song_scene_store` only adds a scene after the last one.
+
+**A resting control is not recorded** (app/song.c `rest_wiggle`): per controller of the panel the value it rests
+at; a message less than 2 away (a pitch bend: 256 of 16383) is dropped; a larger one starts a move, during which
+everything passes until 300 ms of quiet. MIDI in is not touched.
+
+**The bar line** (app/song.c). Measured (tools/linux/hw/run-barline.py, BUILD 68): a clip launch sent 20 ms before
+the line landed, 15 ms and less waited a cycle or landed without its first note; a scene recall landed from 10 ms.
+(1) `catch_up`: a frame taken late (its buffer ready after the frame began) plays what it skipped, up to one step,
+at the start of the block (the late-adoption loop of `tick`). (2) The grace: a clip launch (`Q_LAUNCH`) or a scene
+recall on the master cycle that is ready within `LAUNCH_GRACE` blocks (7: about 20 ms) after a line lands on that
+line: the boundary is this block, the frame starts at the line (`plan[t].origin`, `scene_since`) and what it holds
+up to now is played at once. Not in the song's very first block. The old tests queue on the line itself and switch
+the grace off (`song_test_launch_grace`).
+
+**An edit heard at once**: `tick` takes a freshly decoded buffer of a launched clip in mid-loop when the clip's
+settings are unchanged (`same_settings`: the v3 header apart from the event count; a grid-shaped clip has none), not
+in the last two steps of the loop, not while the control task decodes (`edit_lock`), not during a take or 250 ms
+after one (`rec_running`). A buffer still marked fresh after the track left its clip is no longer skipped by the
+decoder (it kept the track silent).

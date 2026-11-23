@@ -504,30 +504,58 @@ void smk37_pad_raw(unsigned id, uint16_t *last, uint16_t *gate, uint16_t *near)
  * And for the release: a pad counts as held until PADKEY_UPJET samples in a row are at rest + 5 or lower; how many
  * samples that took from the first such sample, at most, is kept per pad (pad_release_wait): a resting level that is
  * noisier than 5 keeps a pad "held" after the finger is gone. pad_samples counts pad 1's samples (the rate). */
+/* tabby-v1.4 (the user's order of 2026-11-23): the levels of a pad follow that pad's own resting noise. Until now a
+ * pad was let go when 24 samples in a row were at its resting level + 5 or lower, and an excursion began above + 10,
+ * while the sensors at rest read up to 16 above that level: below the noise on both sides. A pad stayed "held" until
+ * the noise happened to stay under 5 for 24 samples, and every noise peak began an excursion.
+ *   pad_noise[id]  the highest reading above the resting level seen at rest (readings under 64 while the pad is not
+ *                  down); it falls by one every 512 samples of that pad, so it follows the sensor over minutes
+ *   release level  rest + noise + PAD_REL_MARGIN (at least + 12, at most + 96)
+ *   arm level      release level + PAD_ARM_GAP: where an excursion begins; a press must also have peaked
+ *                  PAD_PRESS_GAP above the release level (the scan's own rule asks for samples above 300 besides)
+ * and one more test on the press side, for a spike like the 582 that was seen: when the rising run ends, the sample
+ * that ended it must still be a quarter of the peak. A finger does not leave in one sample; a spike does. */
+enum { PAD_REL_MARGIN = 8, PAD_ARM_GAP = 12, PAD_PRESS_GAP = 64 };
+static s16 pad_noise[PAD_CNT];
+static u16 pad_noise_age[PAD_CNT];
+static u32 pad_spike_refused;
+static inline FM1_AUDIO_CODE s16 pad_rel(u8 id)
+{
+    s16 m = (s16)(pad_noise[id] + PAD_REL_MARGIN);
+    if (m < 12) m = 12;
+    if (m > 96) m = 96;
+    return (s16)(padgate[id] + m);
+}
+static inline FM1_AUDIO_CODE s16 pad_arm(u8 id) { return (s16)(pad_rel(id) + PAD_ARM_GAP); }
 enum { PAD_CAP = 24 };
-struct pad_capture { u8 id, n, pressed, spare; s16 gate, peak; s16 v[PAD_CAP]; };
+struct pad_capture { u8 id, n, pressed, ctx; s16 gate, peak; s16 v[PAD_CAP]; };
+/* What the control task was doing, as it says itself once a pass (app/screen.c paint_flush): bit 0 a band of the screen
+ * is on its way to the LCD, bit 1 the transport runs, bit 2 a USB command was handled in the last 20 ms. A capture
+ * keeps every bit it saw: spikes that come with one of them point at electrical noise from that. */
+volatile u8 smk37_scan_ctx;
 static struct pad_capture pad_live, pad_miss, pad_press;
 static u8 pad_live_low;
 static u32 pad_samples;
 static u16 pad_release_wait[PAD_CNT], pad_release_run[PAD_CNT];
 static FM1_AUDIO_CODE void pad_capture_copy(struct pad_capture *to, const struct pad_capture *from)
 {
-    to->id = from->id; to->n = from->n; to->pressed = from->pressed; to->gate = from->gate; to->peak = from->peak;
+    to->id = from->id; to->n = from->n; to->pressed = from->pressed; to->ctx = from->ctx; to->gate = from->gate; to->peak = from->peak;
     for (unsigned i = 0; i < PAD_CAP; ++i) to->v[i] = from->v[i];
 }
 static FM1_AUDIO_CODE void pad_capture_step(u8 id, s16 val)
 {
     if (!id) ++pad_samples;
     if (!pad_live.n) {
-        if (val <= padgate[id] + 10 || padkey[id].sta >= PADKEY_DNJET) return;
-        pad_live.id = id; pad_live.gate = padgate[id]; pad_live.peak = val; pad_live.pressed = 0; pad_live.v[0] = val; pad_live.n = 1; pad_live_low = 0;
+        if (val <= pad_arm(id) || padkey[id].sta >= PADKEY_DNJET) return;
+        pad_live.ctx = smk37_scan_ctx; pad_live.id = id; pad_live.gate = padgate[id]; pad_live.peak = val; pad_live.pressed = 0; pad_live.v[0] = val; pad_live.n = 1; pad_live_low = 0;
         return;
     }
     if (id != pad_live.id) return;
     if (pad_live.n < PAD_CAP) pad_live.v[pad_live.n++] = val;
+    pad_live.ctx |= smk37_scan_ctx;
     if (val > pad_live.peak) pad_live.peak = val;
     if (padkey[id].sta >= PADKEY_DNJET) pad_live.pressed = 1;
-    pad_live_low = val <= padgate[id] + 10 ? (u8)(pad_live_low + 1) : 0;
+    pad_live_low = val <= pad_arm(id) ? (u8)(pad_live_low + 1) : 0;
     if (pad_live.n >= PAD_CAP || pad_live_low >= 2) {
         if (pad_live.pressed) pad_capture_copy(&pad_press, &pad_live);
         else if (pad_live.peak - pad_live.gate > pad_miss.peak - pad_miss.gate || !pad_miss.n) pad_capture_copy(&pad_miss, &pad_live);
@@ -542,7 +570,7 @@ int smk37_pad_diag(unsigned what, uint8_t *out)
     unsigned n = 0;
     if (what < 2) {
         const struct pad_capture *c = what ? &pad_press : &pad_miss;
-        out[n++] = c->id; out[n++] = c->n; out[n++] = c->pressed; out[n++] = 0;
+        out[n++] = c->id; out[n++] = c->n; out[n++] = c->pressed; out[n++] = c->ctx;
         out[n++] = (uint8_t)c->gate; out[n++] = (uint8_t)((u16)c->gate >> 8); out[n++] = (uint8_t)c->peak; out[n++] = (uint8_t)((u16)c->peak >> 8);
         for (unsigned i = 0; i < PAD_CAP; ++i) { out[n++] = (uint8_t)c->v[i]; out[n++] = (uint8_t)((u16)c->v[i] >> 8); }
         return (int)n;
@@ -551,6 +579,8 @@ int smk37_pad_diag(unsigned what, uint8_t *out)
         u32 c = pad_samples;
         for (unsigned b = 0; b < 4; ++b) out[n++] = (uint8_t)(c >> (8 * b));
         for (unsigned i = 0; i < PAD_CNT; ++i) { out[n++] = (uint8_t)pad_release_wait[i]; out[n++] = (uint8_t)(pad_release_wait[i] >> 8); }
+        for (unsigned i = 0; i < PAD_CNT; ++i) out[n++] = (uint8_t)(pad_noise[i] > 255 ? 255 : pad_noise[i] < 0 ? 0 : pad_noise[i]);   /* each pad's resting noise */
+        out[n++] = (uint8_t)pad_spike_refused; out[n++] = (uint8_t)(pad_spike_refused >> 8);
         return (int)n;
     }
     if (what == 3) { pad_miss.n = 0; pad_miss.peak = pad_miss.gate = 0; pad_press.n = 0; pad_samples = 0; for (unsigned i = 0; i < PAD_CNT; ++i) pad_release_wait[i] = 0; return 0; }
@@ -558,7 +588,15 @@ int smk37_pad_diag(unsigned what, uint8_t *out)
 }
 static FM1_AUDIO_CODE void pad_prc(u8 id,s16 val)
 {
-    if (padkey[id].sta < PADKEY_DNJET && val > padgate[id] + 10 && val - padgate[id] > pad_near[id]) pad_near[id] = (s16)(val - padgate[id]);
+    /* the resting noise of this pad (see pad_rel above) */
+    if (!padkey[id].sta) {
+        s16 d = (s16)(val - padgate[id]);
+        if (d < 64) {
+            if (d > pad_noise[id]) pad_noise[id] = d;
+            else if (++pad_noise_age[id] >= 512) { pad_noise_age[id] = 0; if (pad_noise[id] > 0) --pad_noise[id]; }
+        }
+    }
+    if (padkey[id].sta < PADKEY_DNJET && val > pad_arm(id) && val - padgate[id] > pad_near[id]) pad_near[id] = (s16)(val - padgate[id]);
     pad_capture_step(id, val);
     int i;
     s16 tmp;
@@ -592,7 +630,7 @@ static FM1_AUDIO_CODE void pad_prc(u8 id,s16 val)
     {
         if(padkey[id].cvel)
             padkey[id].cvel--;
-        if(val <= padgate[id] + 10)
+        if(val <= pad_arm(id))   /* tabby-v1.4: was the resting level + 10 */
         {
             padkey[id].sta = padkey[id].last = 0;
             /* Quiet/released pads must not retain a peak that prevents the
@@ -615,7 +653,11 @@ static FM1_AUDIO_CODE void pad_prc(u8 id,s16 val)
             }
             else if(padkey[id].sta > 0)
             {
-                if(padkey[id].last > padkey[id].cvel)
+                /* tabby-v1.4: the press must stand clear of the release level, and the sample that ended the rising run
+                 * must still be a quarter of the peak (else it was a spike: counted, not pressed) */
+                unsigned real = padkey[id].last >= pad_rel(id) + PAD_PRESS_GAP && (s32)val * 4 >= padkey[id].last;
+                if (!real && padkey[id].last > padkey[id].cvel) ++pad_spike_refused;
+                if(real && padkey[id].last > padkey[id].cvel)
                 {
                     kbd_hw_msg_wr_atom(PADKEY_MSG(id,pad_trim(padkey[id].last,id)));
                     padkey[id].sta  = PADKEY_DNJET;
@@ -632,8 +674,8 @@ static FM1_AUDIO_CODE void pad_prc(u8 id,s16 val)
     else
     {
         /* tabby-v1.4: from the first sample at rest + 5 or lower to the release: how many samples (pad_release_wait) */
-        if (pad_release_run[id] || val <= padgate[id] + 5) { if (pad_release_run[id] < 65535) ++pad_release_run[id]; }
-        if(val <= padgate[id] + 5)
+        if (pad_release_run[id] || val <= pad_rel(id)) { if (pad_release_run[id] < 65535) ++pad_release_run[id]; }
+        if(val <= pad_rel(id))   /* tabby-v1.4: was the resting level + 5, under the sensors' own noise */
         {
             if(++padkey[id].sta >= PADKEY_DNJET + PADKEY_UPJET)
             {

@@ -308,6 +308,7 @@ static int command(unsigned cmd, const uint8_t *data, unsigned n, uint8_t *out, 
 #ifdef CT_A2
     ct_late_remote(cmd, n ? data[0] : 0);   /* tabby-v1.3: the worst-lateness record names the last command */
 #endif
+    { extern uint32_t ct_usb_at; ct_usb_at = fm1_millis(); }   /* tabby-v1.4: the pad captures' context */
     /* Task 12 A1: command 27, the Classic Tabby capability reply. A new command, so pages older
      * than tabby-v04.0 never see it (they read 21 and 22 with fixed lengths). Reply:
      *   out[0]    version of this reply (1)

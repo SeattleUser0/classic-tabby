@@ -93,8 +93,10 @@ def main():
                 print("%s %-8s %-7s %4.1f min: %d event(s) from the panel; analog messages: %s; highest pad reading above rest without a press: %d (pad %d; a press needs more than rest + 10 and a rising run)" % (
                     "ok  " if not found else "FAIL", page, state, a.minutes, len(found), wig, max(near), near.index(max(near)) + 1), flush=True)
                 if shape and shape["peak"] - shape["resting"] >= 100:
-                    print("     the highest reading without a press: pad %d, resting %d, samples %s (%s samples of a pad a second)" % (
-                        shape["pad"], shape["resting"], shape["samples"], rates["per_second"] if rates else "?"), flush=True)
+                    print("     the highest reading without a press: pad %d, resting %d, samples %s (%s samples of a pad a second); meanwhile: %s" % (
+                        shape["pad"], shape["resting"], shape["samples"], rates["per_second"] if rates else "?", ", ".join(shape.get("during") or []) or "nothing flagged"), flush=True)
+                if rates and rates.get("noise") is not None:
+                    print("     resting noise per pad %s; spikes refused as presses %s; longest wait for a release (samples) %s" % (rates["noise"], rates.get("spikes_refused"), max(rates["release_wait"])), flush=True)
                 if press:
                     print("     the last press seen by the scan: pad %d, resting %d, samples %s" % (press["pad"], press["resting"], press["samples"]), flush=True)
         l.stop_song(); l.show_page("overview")

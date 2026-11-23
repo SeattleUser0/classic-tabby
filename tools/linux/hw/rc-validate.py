@@ -26,7 +26,7 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.25
+Version: 0.26
 
 Revision log
     v0.25 2026-11-23  The step `barline` (run-barline.py --limit 12).
@@ -90,7 +90,8 @@ def sh(cmd, timeout, log):
         r = subprocess.run(cmd, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout)
         code, out = r.returncode, r.stdout
     except subprocess.TimeoutExpired as e:
-        code, out = 124, (e.stdout or "") + "\nTIMEOUT after %d s" % timeout
+        o = e.stdout or ""      # v0.26: bytes here even with text=True: the run died on its own timeout message (tabby-v1.4-rc2)
+        code, out = 124, (o.decode("utf-8", "replace") if isinstance(o, bytes) else o) + "\nTIMEOUT after %d s" % timeout
     with open(log, "a") as f:
         f.write("\n$ %s\n%s\n" % (" ".join(str(c) for c in cmd), out))
     return code, out
@@ -284,7 +285,7 @@ def main():
         # v0.23 (the user's request of 2026-11-21): MIDI Stop latency on DIN and USB, the clock around a save, no save without a change
         test("stop", "run-stop.py", extra=("--tag", rc_tag))
         # v0.25 (tabby-v1.4; the user's question of 2026-11-22): a launch pressed 12 ms or more before the bar line lands on it, with its first note
-        test("barline", "run-barline.py", extra=("--tag", rc_tag, "--limit", "12"), pattern=r"^(PASS|FAIL) bar line.*$")
+        test("barline", "run-barline.py", extra=("--tag", rc_tag, "--limit", "12"), timeout=1800, pattern=r"^(PASS|FAIL) bar line.*$")
         # v0.12 (tabby-v1.2): the device's own pixels. The Wrong Room song goes into slot 6 (index 5; only if that slot is
         # empty), run-screen.py runs the tour of screen-tour.json and reads the screen copy for every page, at rest and
         # while playing; screens.mjs --match runs the simulator through the same tour and compares every pixel.

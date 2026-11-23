@@ -19,7 +19,7 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.15
+Version: 0.16
 
 Revision log
     v0.15 2026-11-23  tabby-v1.4: a scene is stored with SEQ REC held and an empty pad; a pad held alone stores nothing.
@@ -168,7 +168,15 @@ def main():
             l.pad(before % 16); idle((cycle or 2000.0) / 1000.0 * 2 + 0.3)
             st = l.remote_status(); t1 = T.now_ns(); idle((cycle or 2000.0) / 1000.0 * 2)
             again = [t for t, m in since(t1, lambda m: len(m) == 3 and m[0] == (0x90 | (ch or 0)) and m[1] == pitch and m[2])]
-            check(st["row"] == before and len(again) >= 3, "the new scene recalled: it plays, track 1 on the new clip", (st["row"], len(again)))
+            ok_new = check(st["row"] == before and len(again) >= 3, "the new scene recalled: it plays, track 1 on the new clip", (st["row"], len(again)))
+            if not ok_new:     # v0.16: what the device says then (tabby-v1.4-rc2 failed here once: the row right, no note of track 1)
+                try:
+                    cs = l.clips_state(); ss = l.song_status(); es = l.steps_state()
+                    heard = sorted(set((m[0] & 15, m[1]) for t, m in since(t1, lambda m: len(m) == 3 and (m[0] & 0xf0) == 0x90 and m[2])))
+                    print("     at the failure: status %s; song %s; pads of the page %s; the editor: track %s place %s unsaved %s recording %s; notes heard since the recall (channel, pitch): %s" % (
+                        l.remote_status(), ss, [q["code"] for q in cs["pads"]], es.get("track"), es.get("place"), es.get("dirty"), es.get("recording"), heard), flush=True)
+                except Exception as e:
+                    print("     at the failure: no state (%r)" % e, flush=True)
         refused = False
         try:
             l.edit_save()

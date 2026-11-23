@@ -445,6 +445,7 @@ static FM1_AUDIO_CODE void note_on(unsigned buf, unsigned t, unsigned step, unsi
  * scan finds at the start of the block. */
 enum { LAUNCH_GRACE = 7 };
 static uint8_t catch_up, launch_grace = LAUNCH_GRACE;
+static uint32_t scene_since;   /* audio: this block's scene recall landed in the grace: units since the line (0: none) */
 #if defined(FM1_HOST_TEST) || defined(FM1_OPEN_WEB)
 void song_test_launch_grace(unsigned blocks) { launch_grace = (uint8_t)blocks; }   /* tests written before the grace queue their launches on the line itself */
 #endif
@@ -779,14 +780,14 @@ static FM1_AUDIO_CODE int song_switch(unsigned next, uint32_t bd, unsigned at)
         stream_run_one(&streams[0]);       /* the boundary tick's sends, before this tick's notes */
         if (streams[0].active) ++late_count;   /* events still pending after the boundary: late */
     }
-    song_start = bd;
+    song_start = bd - (next == NEXT_ROW ? scene_since : 0U);   /* tabby-v1.4: a recall in the grace starts at the line */
     if (next != NEXT_ROW) return 1;   /* tabby-v04.10: a repeat of the scene: the tracks loop their clips by themselves (track_switch) */
     for (unsigned t = 0; t < SONG_TRACKS; ++t) {
         struct track *k = &tr[t];
         if (!landed && (k->state != 0 || plan[t].landing)) continue;
         unsigned o = k->cur ^ 1U, nr = rowset[cur].row;
         unsigned nb = holds(&tbuf[t][k->cur], nr, P_SONG) ? k->cur : holds(&tbuf[t][o], nr, P_SONG) ? o : SONG_NONE;
-        k->start = bd; k->len = song_len; k->chain_at = 0;
+        k->start = bd - scene_since; k->len = song_len; k->chain_at = 0;
         adopt(t, nb, at, 1);
         frame_set(t);
         /* A scene jump into a row with no block for this track stops the track (9.13). */
@@ -890,6 +891,16 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
     /* Goal 6: where this block starts in time and in the song, for the recorder's stamps */
     ++rec_block_seq; rec_block_master = m0; rec_block_ticks = ct_diag_ticks(); rec_block_adv = adv; ++rec_block_seq;
     unsigned snext = song_next(m0, &sbd);
+    /* tabby-v1.4 (the user's order of 2026-11-23: scene recall is the main stage action and cannot have a tighter
+     * deadline than a clip): a scene recall that is ready to land within the grace after the line lands on that line:
+     * the boundary is now, the scene's frames start at the line (scene_since units ago) and what they hold up to here
+     * is played at once. Only a recall on the master cycle (not K4's "at the scene's end"). */
+    scene_since = 0;
+    if (snext == NEXT_ROW && jump_row != SONG_NONE && rowset[cur ^ 1U].ready && rowset[cur ^ 1U].row == jump_row && (song_over || !jump_mode)
+        && sbd == bar && bar > m0 && bar >= cycle_now) {
+        uint32_t since = m0 - (bar - cycle_now);
+        if (since && since <= (uint32_t)launch_grace * adv && since < (uint32_t)UNITS) { scene_since = since; sbd = m0; }
+    }
     prefire(tempo, m0, sbd, snext);
     if (click_live || click_held) { click_window(m0, adv, click_live, 0); groove_midi_at(0, 0); }   /* tabby-v04.10 */
     action_count = 0;
@@ -967,13 +978,13 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
             else if (snext == NEXT_ROW && loop_at >= sbd) { plan[t].tb = sbd; plan[t].what = SW_SONG; }
             else if (snext == NEXT_NONE && song_end && loop_at >= sbd) plan[t].tb = 0;
         }
-        if (scene && (!plan[t].tb || plan[t].tb >= sbd)) { plan[t].tb = sbd; plan[t].what = SW_SONG; }
+        if (scene && (!plan[t].tb || plan[t].tb >= sbd)) { plan[t].tb = sbd; plan[t].what = SW_SONG; if (scene_since) plan[t].origin = (int32_t)scene_since; }
         if (scene) qk = Q_NONE;
         else if (qk != Q_NONE && (!plan[t].tb || bar <= plan[t].tb)) { plan[t].tb = bar; plan[t].what = SW_QUEUE; }
         /* tabby-v1.4: a clip launch seen just after the line lands on that line (LAUNCH_GRACE blocks of grace) */
         if (!scene && qk == Q_LAUNCH && bar > m0) {
             uint32_t since = m0 - (bar - cycle_now);
-            if (bar >= cycle_now && since <= (uint32_t)launch_grace * adv && since < (uint32_t)UNITS) {
+            if (bar >= cycle_now && since && since <= (uint32_t)launch_grace * adv && since < (uint32_t)UNITS) {
                 plan[t].tb = m0; plan[t].what = SW_QUEUE; plan[t].origin = (int32_t)since; plan[t].landing = 1;
             }
         }
@@ -1005,7 +1016,7 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         if (!loop_now && tb && plan[t].nb != SONG_NONE && !(plan[t].what == SW_QUEUE && qk == Q_STOP)) {
             unsigned nb = plan[t].nb;
             int32_t origin = plan[t].origin;   /* back to song joins mid-clip */
-            if (crossing && origin && plan[t].what == SW_QUEUE && qk == Q_LAUNCH) {   /* tabby-v1.4: the launch in the grace: what lies before now, at once */
+            if (crossing && origin && ((plan[t].what == SW_QUEUE && qk == Q_LAUNCH) || (plan[t].what == SW_SONG && scene_since))) {   /* tabby-v1.4: the launch or the scene in the grace: what lies before now, at once */
                 catch_up = 1; scan(t, nb, 0, origin, 0, 0, k->pass + 1U); catch_up = 0;
             }
             if (crossing) scan(t, nb, origin, origin + (int32_t)(m1 - tb), (int32_t)(tb - m0), 0, k->pass + 1U);
@@ -1500,7 +1511,13 @@ void song_poll(void)
         struct trackbuf *p = &tbuf[t][tr[t].cur], *o = &tbuf[t][tr[t].cur ^ 1U];
         if (holds(p, row, purpose) && purpose == P_LAUNCH) continue;   /* a relaunch of the pattern still in the playing buffer */
         if (holds(o, row, purpose)) continue;
-        if (o->ready && o->fresh) continue;   /* the edited clip waits there for the loop's next pass */
+        /* the edited clip waits there for the loop's next pass. tabby-v1.4: only while the track still loops that clip:
+         * a scene recall or another launch that landed first left the buffer marked, and nothing the track needed
+         * afterwards was ever decoded into it (the track stayed silent) */
+        if (o->ready && o->fresh) {
+            if (tr[t].state == 1 && !tr[t].waiting && p->ready && p->purpose == P_LAUNCH && o->purpose == P_LAUNCH && o->row == p->row && o->block == p->block) continue;
+            o->fresh = 0;
+        }
         o->ready = 0;
         barrier();
         decode_track(t, o, row, purpose);

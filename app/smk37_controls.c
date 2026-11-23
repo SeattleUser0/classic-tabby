@@ -210,6 +210,7 @@ static struct { uint32_t at; uint8_t kind, id, source, spare; uint16_t value, ra
 static uint32_t input_count, input_physical;
 static struct { uint32_t count; uint16_t lo, hi, last; } input_analog[INPUT_ANALOG];   /* 0..5 faders and wheels, 6 the pedal, 7..22 pad pressure */
 uint8_t ct_input_source;   /* 0 the panel, 1 a remote command, 2 the app's own release of everything */
+uint32_t ct_usb_at;        /* when the last USB command was handled (app/transfer.c), for the pad captures' context */
 __attribute__((weak)) void smk37_pad_raw(unsigned id, uint16_t *last, uint16_t *gate, uint16_t *near);
 __attribute__((weak)) int smk37_pad_diag(unsigned what, uint8_t *out);   /* app/board/scan.c: the sensors' samples */
 static void input_note(unsigned kind, unsigned id, int value)

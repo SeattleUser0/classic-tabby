@@ -702,15 +702,19 @@ class Link:
         """tabby-v1.4: the samples of a pad's sensor: the highest excursion since the reset that did NOT become a press, or (pressed)
         the last one that did. None when there is none."""
         d = self._input(6 if pressed else 5)
-        ident, n, was, _, gate, peak = struct.unpack("<4B2h", d[:8])
+        ident, n, was, ctx, gate, peak = struct.unpack("<4B2h", d[:8])
         if not n:
             return None
-        return {"pad": ident + 1, "pressed": bool(was), "resting": gate, "peak": peak, "samples": list(struct.unpack("<%dh" % n, d[8:8 + 2 * n]))}
+        during = [w for b, w in ((1, "a band going to the LCD"), (2, "the transport running"), (4, "a USB command within 20 ms")) if ctx & b]
+        return {"pad": ident + 1, "pressed": bool(was), "resting": gate, "peak": peak, "samples": list(struct.unpack("<%dh" % n, d[8:8 + 2 * n])), "during": during}
 
     def pad_rates(self):
         """Pad 1's sample count since the reset, and per pad the longest wait for a release (samples from the first one at rest)."""
         d = self._input(7)
-        return {"samples": struct.unpack("<I", d[:4])[0], "release_wait": list(struct.unpack("<16H", d[4:36]))}
+        out = {"samples": struct.unpack("<I", d[:4])[0], "release_wait": list(struct.unpack("<16H", d[4:36]))}
+        if len(d) >= 54:
+            out["noise"] = list(d[36:52]); out["spikes_refused"] = d[52] | d[53] << 8
+        return out
 
     def pad_forget(self):
         self._input(8)

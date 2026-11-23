@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 1.04
+Version: 1.05
 Revision log:
+- v1.05, 2026-11-23: section 68 (tabby-v1.4: the input log and the soak with nothing injected; the pads' levels; the bar line; an edit heard at once).
 - v1.04, 2026-11-21: section 67 (tabby-v1.3: the soak with the user's song; the worst-lateness record; eight unsaved clips).
 - v1.03, 2026-11-20: 65.1 to 65.7 (tabby-v1.2, seven candidates), section 66 (tabby-v1.2.1: the CPU guard measured part by part; the message box; the four unexplained failures).
 - v1.02, 2026-11-19: 64.1 (tabby-v1.1 released), section 65 (tabby-v1.2: the message box at the top; the screen copy; the device-against-simulator comparison; two candidates on purpose).
@@ -7193,3 +7194,52 @@ promoted by the flow. Figures: docs/releases/tabby-v1.3.md. The record since pow
 (STEP page, in the recording test; 4.60 of it from my bench runs before, 4.84 on CLIPS in the program test),
 stopped 17.24 ms. Timing songs: slot 13 two scenes, 15 and 16 one, after every step. Left by tests: the CLIPS page
 after the screen tour.
+
+## 68. tabby-v1.4 (2026-11-23): inputs that cannot act by themselves; the bar line; an edit heard at once
+
+The user's orders: SPEC 17.22. What was built: SPEC 19.35.
+
+### 68.1 tabby-v1.4-rc1: the logging build; two hours with nothing injected
+
+Commit 19bdf1e, build `793e13686f5b9163`, not promoted on purpose (it only had to carry the input log onto the
+device). Its device run (no soaks): every step passed; 1364 input events in 46 minutes, none from the panel.
+
+run-phantom.py v0.1, 12 periods of 10 minutes (overview, CLIPS, SCENES, SYNC / MIDI, mixer, ACTIONS; stopped, then
+playing), only read-only questions in a period (../overnight/v15/phantom/soak1.log):
+
+- **0 events from the panel in 120 minutes.** No analog control sent anything (the mod wheel was quiet that day).
+- The highest pad reading above the resting level that did not become a press, per period: 0 to 16 in eleven
+  periods; **582 (pad 2) on the mixer page with the song playing**. The scan asks for samples above 300 in a
+  rising run of three and a fourth above rest + 10 before it calls a press: this reading was too short.
+- The resting levels the scan follows: 0 or 1; readings at rest up to 16 above them. The release rule (24 samples in
+  a row at rest + 5 or lower) lies under that noise.
+
+### 68.2 The bar line, measured on rc1 (run-barline.py v0.1)
+
+120 BPM, a cycle of 2 s, six presses per lead; the lead from the moment the press is sent (the USB command takes
+about 1 ms of it):
+
+| Sent before the line | clip launch on CLIPS | scene recall on SCENES | the BT key, then a clip pad at once |
+| --- | --- | --- | --- |
+| 100 to 25 ms | landed 6 of 6 | 6 of 6 | 6 of 6 |
+| 20 ms | 6 of 6 | 6 of 6 | **0 of 6: landed without its first note** |
+| 15 ms | 3 landed, 1 waited a cycle, **2 without the first note** | 6 of 6 | 2 landed, 1 waited, 3 without |
+| 10 ms | 1 landed, **5 without the first note** | 6 of 6 | 6 waited a cycle |
+| 6 ms | 1 landed, 5 waited | 6 waited | 6 waited |
+| 3 ms | 6 waited | 6 waited | 6 waited |
+
+"Without its first note", looked at note by note: the clip is on the line (its beats 2, 3 and 4 sound), the note
+on the line itself is missing, and the device's `late` counter goes up by one. The buffer was ready a block or two
+after the line; the frame was taken "late, in phase" and the scan went on from where the frame stood.
+Fix: SPEC 19.35 (catch-up; the grace of about 20 ms for clip launches, then for scene recalls too).
+
+### 68.3 tabby-v1.4-rc2: not promoted
+
+Commit 5310284, build `4538fcb2a369db2b` (the catch-up, the grace for clip launches, an edit heard at once, the pad
+captures). Its run ended at the new barline step: the step takes more than the 700 s it was given, and the release
+tool then died on its own timeout message (bytes joined to text; rc-validate v0.26). One real failure before that:
+setup 40 of 41, "the new scene recalled: it plays, track 1 on the new clip": the scene's row right, no note of track 1
+in two cycles. Not seen again in six repeats of that test alone on the same build. One way to it was found by
+reading and closed (a buffer still marked "edited, waiting for the loop" after the track had left the clip was never
+decoded again; SPEC 19.35); whether it was this one is NOT PROVEN. The test now prints what the device says at that
+failure (run-setup v0.16).

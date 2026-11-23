@@ -1860,6 +1860,14 @@ static void paint_flush(void)
         if (fm1_millis() - started >= 4U) break;
     }
     paint_rendering = 0;
+#ifndef FM1_HOST_TEST
+#ifndef FM1_OPEN_WEB
+    /* tabby-v1.4: what this pass was doing, for the pad scan's captures (app/board/scan.c): a band on its way to the
+     * LCD, the transport running, a USB command in the last 20 ms */
+    { extern volatile uint8_t smk37_scan_ctx; extern uint32_t ct_usb_at;
+      smk37_scan_ctx = (uint8_t)((diag_bands || fm1_screen_pending() ? 1U : 0U) | (ct_transport_running() ? 2U : 0U) | (fm1_millis() - ct_usb_at < 20U ? 4U : 0U)); }
+#endif
+#endif
     cache = &saved_cache;
     if (shot_state == 2 && !fm1_screen_pending()) {    /* freeze when the picture is whole: no band waits */
         unsigned waiting = 0;

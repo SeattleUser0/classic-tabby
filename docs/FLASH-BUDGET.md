@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.53
+Version: 0.54
 Revision log:
+- v0.54, 2026-11-23: section 54: tabby-v1.4 measured.
 - v0.53, 2026-11-21: section 53: tabby-v1.3 measured, 490532 bytes, margin 28925.
 - v0.52, 2026-11-20: section 52: tabby-v1.2.1 measured, 488676 bytes, margin 30781.
 - v0.51, 2026-11-20: section 51: tabby-v1.2 measured, 488548 bytes, margin 30909.
@@ -1446,4 +1447,13 @@ RAM (runtime heap): 143180 bytes. Above the 15360-byte reserve: 15421 bytes.
 RAM (runtime heap): 142892 bytes (-288: the record). A waiting clip takes 3088 bytes from the heap until the save
 (seven at most: 21.6 KB). As static memory (candidate 1: heap 121388) they left the screen copy without its blocks.
 Above the 15360-byte reserve: 13565 bytes.
+
+## 54. tabby-v1.4 (measured, 2026-11-23)
+
+| Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
+| --- | ---: | ---: | ---: |
+| tabby-v1.3 | 490532 | | 28925 |
+| tabby-v1.4: the input log and the pad captures; the pads' levels; SEQ REC + pad stores a scene; resting controls; the bar line; an edit heard at once | IMAGE | +DELTA | **MARGIN** |
+
+RAM (runtime heap): HEAP bytes (the input log of 128 events, the captures). Above the 15360-byte reserve: ABOVE bytes.
 
