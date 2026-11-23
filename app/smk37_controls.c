@@ -198,8 +198,75 @@ static void fader(unsigned id,unsigned value)
     }
 }
 
+/* ---- tabby-v1.4: the input log (the user's request of 2026-11-22) ------------------------------------------------
+ * Twice something happened that nobody asked for (a track muted, a scene stored), and both fit a pad that read as
+ * pressed or held. Every event of a pad, a button, a key or an encoder is kept here as it reaches the app: when, what,
+ * its value, who sent it (the panel's scan, a remote command of the test tools, the app itself when it lets go of
+ * everything), and for a pad what its sensor read (the peak and the resting level). The analog controls (faders,
+ * wheels, the pedal, pad pressure) are counted with the range of their values: a control that wiggles at rest shows
+ * as a count that grows with a range of 1 or 2. Command 29 op 20 reads it (app/transfer.c). 128 events are kept. */
+enum { INPUT_LOG = 128, INPUT_ANALOG = 23 };
+static struct { uint32_t at; uint8_t kind, id, source, spare; uint16_t value, raw, gate, near; } input_log[INPUT_LOG];
+static uint32_t input_count, input_physical;
+static struct { uint32_t count; uint16_t lo, hi, last; } input_analog[INPUT_ANALOG];   /* 0..5 faders and wheels, 6 the pedal, 7..22 pad pressure */
+uint8_t ct_input_source;   /* 0 the panel, 1 a remote command, 2 the app's own release of everything */
+__attribute__((weak)) void smk37_pad_raw(unsigned id, uint16_t *last, uint16_t *gate, uint16_t *near);
+static void input_note(unsigned kind, unsigned id, int value)
+{
+    int slot = kind == SMK37_FADER && id < 6 ? (int)id : kind == SMK37_PEDAL ? 6 : kind == SMK37_PRESSURE && id < 16 ? 7 + (int)id : -1;
+    if (slot >= 0) {
+        if (ct_input_source) return;
+        uint16_t v = (uint16_t)value;
+        if (!input_analog[slot].count || v < input_analog[slot].lo) input_analog[slot].lo = v;
+        if (!input_analog[slot].count || v > input_analog[slot].hi) input_analog[slot].hi = v;
+        input_analog[slot].last = v; ++input_analog[slot].count;
+        return;
+    }
+    if (kind != SMK37_PAD && kind != SMK37_BUTTON && kind != SMK37_KEY && kind != SMK37_ENCODER) return;
+    unsigned i = input_count++ % INPUT_LOG;
+    input_log[i].at = fm1_millis(); input_log[i].kind = (uint8_t)kind; input_log[i].id = (uint8_t)id; input_log[i].source = ct_input_source;
+    input_log[i].spare = 0; input_log[i].value = (uint16_t)value; input_log[i].raw = input_log[i].gate = input_log[i].near = 0;
+    if (!ct_input_source) ++input_physical;
+    if (kind == SMK37_PAD && !ct_input_source && smk37_pad_raw) smk37_pad_raw(id, &input_log[i].raw, &input_log[i].gate, &input_log[i].near);
+}
+/* Command 29 op 20: what 0: the counts (events in all, from the panel, now in ms); 1: `index` = an event's number
+ * (0 = the first since the reset): up to four events of 14 bytes from there; 2: the analog table from `index`, six
+ * entries of 10 bytes; 3: reset; 4: the pads' near misses now (16 x u16: the highest reading above the gate that did
+ * not become a press since the last read). Returns the reply's length, or -1. */
+int ct_input_read(unsigned what, unsigned index, uint8_t *out)
+{
+    unsigned n = 0;
+#define P16(v) do { out[n++] = (uint8_t)(v); out[n++] = (uint8_t)((v) >> 8); } while (0)
+#define P32(v) do { P16((v) & 0xffffU); P16((uint32_t)(v) >> 16); } while (0)
+    if (what == 0) { P32(input_count); P32(input_physical); P32(fm1_millis()); return (int)n; }
+    if (what == 1) {
+        uint32_t first = input_count > INPUT_LOG ? input_count - INPUT_LOG : 0;
+        if (index < first) index = first;
+        P32(index);
+        for (unsigned k = 0; k < 4 && index + k < input_count; ++k) {
+            unsigned i = (index + k) % INPUT_LOG;
+            P32(input_log[i].at); out[n++] = input_log[i].kind; out[n++] = input_log[i].id; out[n++] = input_log[i].source; out[n++] = 0;
+            P16(input_log[i].value); P16(input_log[i].raw); P16(input_log[i].gate);
+        }
+        return (int)n;
+    }
+    if (what == 2) {
+        for (unsigned k = 0; k < 6 && index + k < INPUT_ANALOG; ++k) { P32(input_analog[index + k].count); P16(input_analog[index + k].lo); P16(input_analog[index + k].hi); P16(input_analog[index + k].last); }
+        return (int)n;
+    }
+    if (what == 3) { input_count = input_physical = 0; memset(input_analog, 0, sizeof input_analog); return 0; }
+    if (what == 4) {
+        for (unsigned k = 0; k < 16; ++k) { uint16_t a = 0, b = 0, c = 0; if (smk37_pad_raw) smk37_pad_raw(k, &a, &b, &c); P16(c); }
+        for (unsigned k = 0; k < 16; ++k) { uint16_t a = 0, b = 0, c = 0; if (smk37_pad_raw) smk37_pad_raw(k, &a, &b, &c); P16(b); }
+        return (int)n;
+    }
+#undef P16
+#undef P32
+    return -1;
+}
 void smk37_control_event(unsigned kind,unsigned id,int value)
 {
+    input_note(kind, id, value);
     if(kind==SMK37_KEY && id<37) {
         if(!value)release(&held_notes[id]);
         else {
@@ -365,6 +432,7 @@ void smk37_master_set(unsigned level)
 {panel.knob=level;master=(level*127U+511U)/1023U;}
 void smk37_controls_release(void)
 {
+    uint8_t was=ct_input_source; ct_input_source=2;   /* tabby-v1.4: the input log: these are the app's own */
     for(unsigned i=0;i<37;++i)smk37_control_event(SMK37_KEY,i,0);
     for(unsigned i=0;i<16;++i)smk37_control_event(SMK37_PAD,i,0);
     for(unsigned i=0;i<18;++i)smk37_control_event(SMK37_BUTTON,i,0);
@@ -374,4 +442,5 @@ void smk37_controls_release(void)
     for(unsigned w=0;w<2;++w)if(wheel_value[w]!=(w?0:64))
         smk37_control_event(SMK37_FADER,4+w,w?0:64);
     memset(panel.encoders,0,sizeof panel.encoders);
+    ct_input_source=was;
 }

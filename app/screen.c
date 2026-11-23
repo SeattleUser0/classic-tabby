@@ -252,11 +252,10 @@ static uint16_t step_length = 480;
 static uint8_t rec_lamp;   /* the recorder's state as the control pass last read it */
 /* tabby-v04.10 (docs/CONTROL-MAP.md 14): the CLIP SETTING page: a list; K5 chooses the row, K1 changes its value (K2 in
  * steps of 16), the 4th left button does a row that is an action (COPY) and saves on the others. The scene pad that is
- * being held on the SCENES page (a long press on an empty pad stores what plays as a new scene). */
+ * being held on the SCENES page (until tabby-v1.3 a long press on an empty pad stored a scene). */
 enum { SET_LENGTH, SET_NEXT, SET_AFTER, SET_TIMES, SET_PROGRAM, SET_BANK_MSB, SET_BANK_LSB, SET_COPY, SET_TRANSPOSE, SET_SHUFFLE, SET_QUANTIZE, SET_SCALE /* tabby-v04.19 */, SET_DIRECTION /* tabby-v04.20 */ /* tabby-v04.17; the second page starts at SET_TRANSPOSE */, SET_DELETE /* tabby-v04.15 */, SET_COUNT_IN, SET_CLICK, SET_CLICK_OUT, SET_CLICK_CH, SET_CLICK_NOTE,
        SET_CLICK_LEVEL, SET_KNOB1, SET_KNOB2, SET_KNOB3, SET_KNOB4 /* tabby-v04.14: the song's page starts at SET_COUNT_IN */, SET_EVENT_LEAD /* tabby-v1.0.2 */, SETUP_ROWS };   /* tabby-v04.11: the chain's three lines */
-static uint8_t setup_row, setup_to, scene_hold_pad = 255;
-static uint32_t scene_hold_ms;
+static uint8_t setup_row, setup_to;
 static uint8_t rec_full_seen;
 static unsigned song_record_full_seen(void) { unsigned f = rec_full_seen; rec_full_seen = 0; return f; }
 enum { REC_ARMED_NOW = 1, REC_ON_NOW = 2 };   /* song_record_start */
@@ -2302,7 +2301,8 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
          * Elsewhere REC says where it works. */
         glo_down = 0;
         struct song_edit_info ei; song_edit_info(&ei);
-        if (page != TRACK_LAUNCH && page != CLIP_STEPS) announce("SEQ REC: ON THE CLIPS OR STEP PAGE", now + 2000U);
+        if (page == SONG) { announce("SEQ REC + PAD - NEW SCENE", now + 2000U); }   /* tabby-v1.4: on SCENES, SEQ REC held with an empty pad stores a scene */
+        else if (page != TRACK_LAUNCH && page != CLIP_STEPS) announce("SEQ REC: ON THE CLIPS OR STEP PAGE", now + 2000U);
         else if (smk37_shift()) { song_record_quantize(!ei.quantize); announce(ei.quantize ? "INPUT QUANTIZE OFF" : "INPUT QUANTIZE ON", now + 1500U); }
         else if (ei.recording) { song_record_stop(); announce("REC STOPPED", now + 1500U); }
         else {
@@ -2420,24 +2420,22 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
         for (unsigned i = 0; i < 16; ++i)
             if ((key_down & ~blocked_keys) & (1U << white_keys[i])) {
                 const struct song_record *rec = song_current();
-                /* tabby-v04.10: an empty scene pad held half a second stores what plays now as a new scene (the MC-707's
-                 * long press; an existing scene is never written over) */
+                /* tabby-v04.10: an empty scene pad stores what plays now as a new scene (an existing scene is never
+                 * written over). tabby-v1.4 (the user's order of 2026-11-22, after a scene that nobody stored): no longer
+                 * by holding the pad half a second, which one pad that reads as held can do by itself, but by SEQ REC held
+                 * and the pad pressed: two controls at once. The pad alone says how. */
                 if (rec && st.song == song_select && st.playing && song_row_page * 16U + i >= rec->rows) {
-                    scene_hold_pad = (uint8_t)i; scene_hold_ms = now; announce("HOLD PAD - STORES A SCENE", now + 1500U); continue;
+                    if (controls->buttons & BUTTON(REC)) {
+                        int r = song_scene_store();
+                        announce(r >= 0 ? "STORED AS A NEW SCENE" : r == SONG_FULL ? "128 SCENES: NO ROOM" : "SEQ PLAY FIRST", now + 2000U);
+                        if (r >= 0) song_row_page = (unsigned)r / 16U;
+                    } else announce("SEQ REC + PAD - NEW SCENE", now + 2000U);
+                    continue;
                 }
                 { int jr = song_queue_jump(song_row_page * 16U + i);
                   if (!st.playing && jr >= 0) announce(jr ? "TAKEN BACK - FROM SCENE 1" : "RESERVED FOR SEQ PLAY", now + 1500U);
                   else if (jr) announce("NO SUCH SCENE / NOT PLAYING", now + 1500U); }
             }
-        if (scene_hold_pad != 255) {
-            if (!(controls->keys & (1U << white_keys[scene_hold_pad]))) scene_hold_pad = 255;
-            else if (now - scene_hold_ms >= 500U) {
-                int r = song_scene_store();
-                scene_hold_pad = 255;
-                announce(r >= 0 ? "STORED AS A NEW SCENE" : r == SONG_FULL ? "128 SCENES: NO ROOM" : "SEQ PLAY FIRST", now + 2000U);
-                if (r >= 0) song_row_page = (unsigned)r / 16U;
-            }
-        }
         if (pressed & BUTTON(PLAY)) {
             if (st.playing) song_stop();
             else {

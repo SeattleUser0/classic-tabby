@@ -19,9 +19,10 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-setup.py --song N --out DIR
 
-Version: 0.14
+Version: 0.15
 
 Revision log
+    v0.15 2026-11-23  tabby-v1.4: a scene is stored with SEQ REC held and an empty pad; a pad held alone stores nothing.
     v0.13 2026-11-18  tabby-v1.0.2: the line EVENT LEAD (skipped on firmware that does not report it).
     v0.14 2026-11-20  The count-in check allows 4.0 ms between the cycle and the time from the first click to Start (Start is
                       not a timed event: one control pass), saves the DIN capture (setup-din.csv) and
@@ -159,8 +160,10 @@ def main():
         if check(c["page_name"] == "SONG" and free is not None, "SCENES: an empty scene pad", (c["page_name"], free)):
             l.pad(free, hold=0.15); idle(0.3)
             check(l.setup_state()["scenes"] == before, "a short press stores nothing")
-            l.pad(free, hold=0.8); idle(0.3); u = l.setup_state()
-            check(u["scenes"] == before + 1 and u["unsaved"], "the pad held: what plays is stored as scene %d" % (before + 1), u["scenes"])
+            l.pad(free, hold=1.2); idle(0.3)
+            check(l.setup_state()["scenes"] == before, "v0.15 (tabby-v1.4): the pad held for 1.2 s stores nothing either: one pad alone never stores")
+            l.key(0, l.PANEL["REC"], 1); idle(0.15); l.pad(free, hold=0.1); idle(0.1); l.key(0, l.PANEL["REC"], 0); idle(0.3); u = l.setup_state()
+            check(u["scenes"] == before + 1 and u["unsaved"], "SEQ REC held and the pad pressed: what plays is stored as scene %d" % (before + 1), u["scenes"])
             l.pad(0); idle(cycle / 1000.0 + 0.3 if cycle else 2.5)          # scene 1: track 1 leaves the new clip
             l.pad(before % 16); idle((cycle or 2000.0) / 1000.0 * 2 + 0.3)
             st = l.remote_status(); t1 = T.now_ns(); idle((cycle or 2000.0) / 1000.0 * 2)

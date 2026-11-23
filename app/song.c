@@ -2261,8 +2261,45 @@ void song_edit_discard(void)
 /* ---- the recorder (control task, except song_record_in) ---------------------------------------------------- */
 /* A channel voice message arrived: source 0 the panel (keys, pads, wheels, pedal; control task), 1 MIDI in (the
  * SDK's MIDI task). Stamped here; one writer per queue. */
+/* tabby-v1.4 (the user's answer of 2026-11-22): a control of the panel that wiggles at rest is never recorded. This
+ * unit's mod wheel reads 0 or 1 at rest, and a take held "controller 1 = 1" beside its one note (tabby-v1.3-rc5). For
+ * each controller of the panel (the wheels, the pedal, faders and knobs that send a controller, pad pressure) the value
+ * it rests at is kept, takes or no takes. A message counts as a move when it is REST_BAND or more away from that value
+ * (2 of 127; a pitch bend 256 of 16383); from then on every message of that controller passes until it has been quiet
+ * for REST_QUIET_MS, and where it stopped is the new resting value. What comes in at MIDI in is not touched. */
+enum { REST_SLOTS = 12, REST_BAND = 2, REST_BAND_BEND = 256, REST_QUIET_MS = 300 };
+static struct { uint8_t used, type, number, moving; uint16_t rest; uint32_t at; } rest_slot[REST_SLOTS];
+static unsigned rest_wiggle(unsigned status, unsigned a, unsigned b)
+{
+    unsigned type = status & 0xf0U, number = type == 0xb0 ? a : 0;
+    if (type != 0xb0 && type != 0xe0 && type != 0xd0) return 0;
+    unsigned value = type == 0xb0 ? b : type == 0xe0 ? a | b << 7 : a, band = type == 0xe0 ? REST_BAND_BEND : REST_BAND;
+    uint32_t now = fm1_millis();
+    unsigned c = REST_SLOTS, spare = REST_SLOTS;
+    for (unsigned i = 0; i < REST_SLOTS; ++i) {
+        if (rest_slot[i].used && rest_slot[i].type == type && rest_slot[i].number == number) { c = i; break; }
+        /* a place for a new controller: a free one, else the one that was quiet longest */
+        if (spare == REST_SLOTS || (rest_slot[spare].used && (!rest_slot[i].used || now - rest_slot[i].at > now - rest_slot[spare].at))) spare = i;
+    }
+    if (c == REST_SLOTS) {
+        /* first sight of this controller: where it is now is taken as its rest; this one message passes (a pedal's first
+         * press must be recorded; a wheel's first wiggle after power-on comes long before any take) */
+        c = spare; rest_slot[c].used = 1; rest_slot[c].type = (uint8_t)type; rest_slot[c].number = (uint8_t)number;
+        rest_slot[c].rest = (uint16_t)value; rest_slot[c].moving = 0; rest_slot[c].at = now;
+        return 0;
+    }
+    if (rest_slot[c].moving && now - rest_slot[c].at >= REST_QUIET_MS) rest_slot[c].moving = 0;
+    unsigned d = value > rest_slot[c].rest ? value - rest_slot[c].rest : rest_slot[c].rest - value;
+    if (!rest_slot[c].moving && d < band) { rest_slot[c].at = now; return 1; }
+    rest_slot[c].moving = 1; rest_slot[c].rest = (uint16_t)value; rest_slot[c].at = now;
+    return 0;
+}
+#ifdef FM1_HOST_TEST
+unsigned song_test_rest_wiggle(unsigned status, unsigned a, unsigned b) { return rest_wiggle(status, a, b); }
+#endif
 void song_record_in(unsigned source, unsigned status, unsigned a, unsigned b)
 {
+    if (source == 0 && status >= 0x80 && status < 0xf0 && rest_wiggle(status, a, b)) return;   /* tabby-v1.4: kept current outside takes too */
     if (rec.state != REC_ON || source > 1 || status < 0x80 || status >= 0xf0) return;
     unsigned w = rec_wr[source], next = (w + 1U) % REC_QUEUE;
     if (next == rec_rd[source]) return;                              /* full: the event is not recorded */

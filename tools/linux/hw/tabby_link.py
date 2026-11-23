@@ -25,7 +25,7 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.28
+Version: 0.29
 
 Revision log
     v0.25 2026-11-19  now_ns() is THE clock of the device tools: every tool takes its marks ("notes since now") from it and not
@@ -102,6 +102,7 @@ _spec.loader.exec_module(monitor)
 # ---- v0.23: a clock the time service does not move -------------------------------------------------------------
 STEADY = True
 # v0.26 (2026-11-20): an unanswered command's error says what the port brought meanwhile (docs/BUILD.md 66.3).
+# v0.29 (2026-11-23): the input log of tabby-v1.4 (input_counts, input_events, input_analog, pad_levels, input_reset).
 # v0.28 (2026-11-21): worst() and worst_text(): the firmware's worst-lateness record of tabby-v1.3 (command 25 requests 12, 13).
 # v0.27 (2026-11-20): query() empties the port before it sends: a full input buffer dropped the reply (docs/BUILD.md 66.5).
 CLOCKMAP = []                  # (CLOCK_MONOTONIC ns, CLOCK_MONOTONIC_RAW ns), ten times a second while the tool runs
@@ -641,6 +642,61 @@ class Link:
         v = struct.unpack("<14I", p)
         return {"running": v[0], "timer_ticks": v[1], "sent": v[2], "late_max_ms": v[3] / 24000.0,
                 "late_bins": list(v[4:10]), "block_ticks": v[10], "period_ticks": v[11], "live": v[12]}
+
+    # v0.29 (tabby-v1.4): the input log, command 29 op 20 (app/smk37_controls.c ct_input_read)
+    INPUT_KINDS = {0: "button", 1: "key", 3: "pad", 4: "encoder"}
+    INPUT_SOURCES = {0: "panel", 1: "remote", 2: "app"}
+
+    def _input(self, what, index=None):
+        d = self.query(29, bytes([20, what] + ([index & 255, (index >> 8) & 255, (index >> 16) & 255] if index is not None else [])), attempts=1)
+        if not d or d[0] != 7:
+            raise DeviceError(-1)
+        return d[1:]
+
+    def input_counts(self):
+        """Events of pads, buttons, keys and encoders since the log's reset: all, those from the panel itself, the device's time (ms)."""
+        a, b, c = struct.unpack("<3I", self._input(0)[:12])
+        return {"events": a, "panel": b, "now_ms": c}
+
+    def input_reset(self):
+        self._input(3)
+
+    def input_events(self, since=0):
+        """Every event from number `since` on (the log keeps the last 128): number, time, kind, id, value, source, and for a pad from the
+        panel what its sensor read (raw: the peak; gate: the resting level)."""
+        out = []
+        total = self.input_counts()["events"]
+        while since < total:
+            d = self._input(1, since)
+            first = struct.unpack("<I", d[:4])[0]
+            n = (len(d) - 4) // 14
+            if not n:
+                break
+            for k in range(n):
+                at, kind, ident, source, _, value, raw, gate = struct.unpack("<I4B3H", d[4 + 14 * k:18 + 14 * k])
+                out.append({"n": first + k, "at_ms": at, "kind": self.INPUT_KINDS.get(kind, str(kind)), "id": ident, "value": value if value < 32768 else value - 65536,
+                            "source": self.INPUT_SOURCES.get(source, str(source)), "raw": raw, "gate": gate})
+            since = first + n
+        return out
+
+    def input_analog(self):
+        """The analog controls since the reset: how many messages, the lowest, highest and last value. Faders 1 to 4, the two wheels,
+        the pedal, the pressure of pads 1 to 16."""
+        names = ["fader 1", "fader 2", "fader 3", "fader 4", "wheel 1 (pitch)", "wheel 2 (mod)", "pedal"] + ["pad %d pressure" % (i + 1) for i in range(16)]
+        out = {}
+        for start in (0, 6, 12, 18):
+            d = self._input(2, start)
+            for k in range(len(d) // 10):
+                count, lo, hi, last = struct.unpack("<I3H", d[10 * k:10 * k + 10])
+                out[names[start + k]] = {"count": count, "low": lo, "high": hi, "last": last}
+        return out
+
+    def pad_levels(self):
+        """Per pad: the highest sensor reading above its resting level that did not become a press since the last call (a near miss),
+        and the resting level itself."""
+        d = self._input(4)
+        v = struct.unpack("<32H", d[:64])
+        return {"near": list(v[:16]), "gate": list(v[16:])}
 
     def worst(self, boot=False):
         """v0.28 (tabby-v1.3): command 25 request 12 (since the counters' reset) or 13 (since power-on): the latest a

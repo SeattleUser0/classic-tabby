@@ -41,7 +41,7 @@ that, so 13341 bytes can still be spent.
 | Master clock length | v04.6 | the master cycle, 2 to 128 steps, per song |
 | Launch and stop at the master clock, reservation | v04.7, v04.7.1 | CLIPS page; a pad pressed while stopped reserves |
 | Pad MUTE mode | v04.7 | SHIFT + pad 1 to 8 selects a track, 9 to 16 mutes |
-| Scenes: store, recall, chain, reserve | v04.6, v04.10, v04.12 | SCENES page; hold an empty pad to store; TIMES, THEN, the hold; a scene pad while stopped is the first scene |
+| Scenes: store, recall, chain, reserve | v04.6, v04.10, v04.12 | SCENES page; SEQ REC + an empty pad stores (tabby-v1.4; a held pad before); TIMES, THEN, the hold; a scene pad while stopped is the first scene |
 | Clip chains | v04.11 | NEXT CLIP, AFTER (the MC-707's LENGTH), TIMES (ours) |
 | Real-time REC, overdub, input quantize | v04.9 | REC on CLIPS and STEP; SHIFT + REC; a take is one undo level |
 | Step recording, TR-REC, step edit | v04.8 | STEP page: pads are steps, keys enter notes, PADS TOGGLE for drums, velocity / start / length per note |

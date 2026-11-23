@@ -2548,6 +2548,17 @@ int main(void)
         CHECK(c1 == SONG_INVALID && c2 == SONG_EMPTY && cp3 == 0 && ei.active && ei.created && ei.place == 20 && ei.steps == 32 && ei.events == 2 && ei.block == 6,
               "copy: a place that holds a clip and an empty source are refused; the copy is a new clip (block 6) in place 21, open and unsaved; no second copy before a save (%d %d %d)", c1, c2, cp3);
         CHECK(song_edit_save() == 0 && sim_song_load(SONG) == 0 && song_model_current()->clip[0][20] == 6 && sim_block_read(SONG, 6) == 16 + 12 && f[0] == 32, "copy: saved and loaded again: place 21 holds a 32-step clip with both notes");
+        /* tabby-v1.4: a control of the panel that wiggles at rest is not recorded (song_record_in drops it) */
+        { unsigned song_test_rest_wiggle(unsigned status, unsigned a, unsigned b);
+          unsigned f = song_test_rest_wiggle(0xb0, 1, 0), w1 = song_test_rest_wiggle(0xb0, 1, 1), w0 = song_test_rest_wiggle(0xb0, 1, 0), w1b = song_test_rest_wiggle(0xb0, 1, 1);
+          unsigned m2 = song_test_rest_wiggle(0xb0, 1, 2), m3 = song_test_rest_wiggle(0xb0, 1, 3), m2b = song_test_rest_wiggle(0xb0, 1, 2);
+          CHECK(!f && w1 && w0 && w1b && !m2 && !m3 && !m2b, "resting controls: the mod wheel between 0 and 1 is dropped; 2 is a move, and what follows at once passes (%u %u %u %u, %u %u %u)", f, w1, w0, w1b, m2, m3, m2b);
+          for (unsigned i = 0; i < 140; ++i) (void)sim_render();                 /* 0.4 s without a message: it rests at 2 */
+          unsigned r3 = song_test_rest_wiggle(0xb0, 1, 3), r1 = song_test_rest_wiggle(0xb0, 1, 1), r4 = song_test_rest_wiggle(0xb0, 1, 4);
+          CHECK(r3 && r1 && !r4, "resting controls: after 0.3 s of quiet its last value is the rest: one step either way is dropped, two pass (%u %u %u)", r3, r1, r4);
+          unsigned b0 = song_test_rest_wiggle(0xe0, 0, 64), b1 = song_test_rest_wiggle(0xe0, 64, 64), b2 = song_test_rest_wiggle(0xe0, 127, 63), b3 = song_test_rest_wiggle(0xe0, 0, 67);
+          unsigned p0 = song_test_rest_wiggle(0xb0, 64, 0), p1 = song_test_rest_wiggle(0xb0, 64, 127), n0 = song_test_rest_wiggle(0x90, 60, 100);
+          CHECK(!b0 && b1 && b2 && !b3 && !p0 && !p1 && !n0, "resting controls: a pitch bend within 255 of its centre is dropped, 384 away passes; the pedal's press passes; notes are never touched (%u %u %u %u, %u %u, %u)", b0, b1, b2, b3, p0, p1, n0); }
         /* tabby-v1.3: several unsaved clips. The open one goes to wait when another is opened, plays from there, comes
          * back when it is opened again, and all are written by one save. Eight at most (the open one and seven). */
         { unsigned song_unsaved_clips(void);

@@ -44,6 +44,8 @@ unsigned ct_screen_mute_kind(unsigned track);     /* 0 none, 1 internal sound on
 unsigned ct_screen_clips_read(uint8_t *out);
 unsigned ct_screen_steps_read(uint8_t *out);      /* command 29 op 15: the STEP page state, 55 bytes */
 int ct_screen_steps_open(unsigned track, unsigned place);   /* command 29 op 16 {16, 3, track, place} */
+int ct_input_read(unsigned what, unsigned index, uint8_t *out);   /* tabby-v1.4: command 29 op 20: the input log (app/smk37_controls.c) */
+extern uint8_t ct_input_source;                                   /* 0 the panel, 1 a remote command, 2 the app itself */
 int ct_screen_shot(unsigned what, unsigned offset, uint8_t *out);   /* tabby-v1.2: command 29 op 19: the screen copy (at most 62 bytes; -1 refused) */
 unsigned ct_screen_setup_read(uint8_t *out);      /* tabby-v04.10: command 29 op 17: the CLIP SETTING page state, 23 bytes */
 int smk37_send_controller(unsigned track, unsigned controller, unsigned value);   /* tabby-v04.13: K1..K4 on the CLIPS page */

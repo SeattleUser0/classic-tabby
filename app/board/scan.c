@@ -485,8 +485,20 @@ static inline FM1_AUDIO_CODE u16 pad_adc_trim(u16 val)
     return val;
 }
 
+/* tabby-v1.4 (the user's request of 2026-11-22: a scene and a mute that nobody asked for): what a pad's sensor read.
+ * `last` is the peak of the press that is being judged or was just reported, `gate` the pad's resting level as the scan
+ * follows it, `near` the highest reading above the gate + 10 that did NOT become a press since it was last read (a
+ * near miss: noise that came close). Read by the control task for the input log (app/smk37_controls.c). */
+static s16 pad_near[PAD_CNT];
+void smk37_pad_raw(unsigned id, uint16_t *last, uint16_t *gate, uint16_t *near)
+{
+    if (id >= PAD_CNT) { *last = *gate = *near = 0; return; }
+    *last = (uint16_t)padkey[id].last; *gate = (uint16_t)padgate[id];
+    *near = (uint16_t)pad_near[id]; pad_near[id] = 0;
+}
 static FM1_AUDIO_CODE void pad_prc(u8 id,s16 val)
 {
+    if (padkey[id].sta < PADKEY_DNJET && val > padgate[id] + 10 && val - padgate[id] > pad_near[id]) pad_near[id] = (s16)(val - padgate[id]);
     int i;
     s16 tmp;
     tmp = val - padadc[id].val;

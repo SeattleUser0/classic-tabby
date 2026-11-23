@@ -180,12 +180,14 @@ static void put32(uint8_t *p, uint32_t value)
  *   {11, track}        back to the song at the next master cycle (255: every track)
  * The status is 14 bytes from v0.8: [13] CLOCK (0 INT, 1 MIDI). */
 static uint32_t remote_buttons, remote_pads, remote_at;
+/* tabby-v1.4: what a remote command presses is marked in the input log: only the panel's own events count as phantom */
+static void remote_event(unsigned kind, unsigned id, int value) { uint8_t was = ct_input_source; ct_input_source = 1; smk37_control_event(kind, id, value); ct_input_source = was; }
 static uint64_t remote_keys;   /* 37 keys: more than 32 bits (cppcheck found the shift by 36 in the first draft) */
 static void remote_release_all(void)
 {
-    for (unsigned i = 0; i < 18; ++i) if (remote_buttons & (1U << i)) smk37_control_event(SMK37_BUTTON, i, 0);
-    for (unsigned i = 0; i < 37; ++i) if ((remote_keys >> i) & 1U) smk37_control_event(SMK37_KEY, i, 0);
-    for (unsigned i = 0; i < 16; ++i) if (remote_pads & (1U << i)) smk37_control_event(SMK37_PAD, i, 0);
+    for (unsigned i = 0; i < 18; ++i) if (remote_buttons & (1U << i)) remote_event(SMK37_BUTTON, i, 0);
+    for (unsigned i = 0; i < 37; ++i) if ((remote_keys >> i) & 1U) remote_event(SMK37_KEY, i, 0);
+    for (unsigned i = 0; i < 16; ++i) if (remote_pads & (1U << i)) remote_event(SMK37_PAD, i, 0);
     remote_buttons = remote_keys = remote_pads = 0;
 }
 /* Control task, every poll: the watchdog (a lost PC must not leave SHIFT held). */
@@ -235,14 +237,14 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
         int v = kind == SMK37_ENCODER ? (int)(int8_t)data[3] : (int)data[3];
         if (kind == SMK37_BUTTON && id < 18 && id != 3) {
             if (v) remote_buttons |= 1U << id; else remote_buttons &= ~(1U << id);
-            smk37_control_event(SMK37_BUTTON, id, v ? 1 : 0);
+            remote_event(SMK37_BUTTON, id, v ? 1 : 0);
         } else if (kind == SMK37_KEY && id < 37) {
             if (v) remote_keys |= (uint64_t)1 << id; else remote_keys &= ~((uint64_t)1 << id);
-            smk37_control_event(SMK37_KEY, id, v);
+            remote_event(SMK37_KEY, id, v);
         } else if (kind == SMK37_PAD && id < 16) {
             if (v) remote_pads |= 1U << id; else remote_pads &= ~(1U << id);
-            smk37_control_event(SMK37_PAD, id, v);
-        } else if (kind == SMK37_ENCODER && id < 8) smk37_control_event(SMK37_ENCODER, id, v);
+            remote_event(SMK37_PAD, id, v);
+        } else if (kind == SMK37_ENCODER && id < 8) remote_event(SMK37_ENCODER, id, v);
         else return GROOVE_PROJECT_INVALID;
     } else if (op == 7 && n == 1) remote_release_all();
     /* Task 17 Goal 3: the track queues by remote command (they land on the next master cycle, as from the panel):
@@ -287,6 +289,13 @@ static int remote(const uint8_t *data, unsigned n, uint8_t *out, unsigned *count
         r = ct_screen_shot(data[1], n == 5 ? data[2] | (unsigned)data[3] << 8 | (unsigned)data[4] << 16 : 0, out + 1);
         if (r < 0) return data[1] == 1 ? GROOVE_PROJECT_MEMORY : GROOVE_PROJECT_INVALID;
         out[0] = 6; *count = 1U + (unsigned)r; return 0;
+    }
+    /* tabby-v1.4: {20, what[, index lo, mid, hi]}: the input log (ct_input_read: 0 counts, 1 events from an index, 2 the
+     * analog controls, 3 reset, 4 the pads' near misses and resting levels). Read only, except the reset of the log. */
+    else if (op == 20 && (n == 2 || n == 5)) {
+        r = ct_input_read(data[1], n == 5 ? data[2] | (unsigned)data[3] << 8 | (unsigned)data[4] << 16 : 0, out + 1);
+        if (r < 0) return GROOVE_PROJECT_INVALID;
+        out[0] = 7; *count = 1U + (unsigned)r; return 0;
     }
     else return GROOVE_PROJECT_INVALID;
     remote_status(out, count);
