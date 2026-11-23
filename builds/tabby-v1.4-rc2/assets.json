@@ -1,0 +1,55 @@
+{
+  "build": "4538fcb2a369db2b47a6b4d9e8d42d580bc8723b70b757d385f6439006975127",
+  "release": "V01",
+  "version": "tabby-v1.4",
+  "entryBytes": 390266,
+  "initialBytes": 1461135,
+  "standaloneBytes": 3239606,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/c8c56cd9c483334c6eed7c383807fe6d8f23f5f90bf44d0eec4ad36d852034cb.bin",
+      "bytes": 533044,
+      "sha256": "c8c56cd9c483334c6eed7c383807fe6d8f23f5f90bf44d0eec4ad36d852034cb"
+    },
+    {
+      "name": "assets/smk37/6cccf8db44b7f9fe68cb836b2261d7776a090ab8d3942d1623e228141c63f8b4.wasm",
+      "bytes": 385395,
+      "sha256": "6cccf8db44b7f9fe68cb836b2261d7776a090ab8d3942d1623e228141c63f8b4"
+    },
+    {
+      "name": "assets/smk37/6481ac840fb8fe6be8404437bac0ab3bc3f7ad025b2048338f7febb5c475629f.js",
+      "bytes": 613055,
+      "sha256": "6481ac840fb8fe6be8404437bac0ab3bc3f7ad025b2048338f7febb5c475629f"
+    },
+    {
+      "name": "assets/smk37/4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b.js",
+      "bytes": 71912,
+      "sha256": "4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 390485,
+      "sha256": "c86f467713a88b9ba1135f346047661c6e64743d8387e97322498e94111a7c70"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 390485,
+      "sha256": "c86f467713a88b9ba1135f346047661c6e64743d8387e97322498e94111a7c70"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3239606,
+      "sha256": "8f0667020752167e9bbf48febd92b67fd4ebea51f16fd90993ae559d94430760"
+    }
+  ]
+}
