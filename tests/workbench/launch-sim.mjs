@@ -121,6 +121,7 @@ function expectedNotes() {
 /* ---- play it -------------------------------------------------------------------- */
 const c = new WebAssembly.Instance(new WebAssembly.Module(readFileSync(wasmPath)), {}).exports;
 c._initialize(); c.sim_boot(1);
+c.sim_launch_grace(0);   /* tabby-v1.4: this model queues launches on the bar line itself and expects the next one */
 const mem = () => new Uint8Array(c.memory.buffer);
 for (const [id, notes] of Object.entries(blocks)) { const b = encodeBlock(notes); mem().set(b, c.sim_file()); check(c.sim_block_write2(0, Number(id), 1, b.length) === 0, 'block ' + id + ' stored'); }
 mem().set(record(), c.sim_file());

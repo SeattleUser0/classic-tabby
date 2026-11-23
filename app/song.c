@@ -435,9 +435,23 @@ static FM1_AUDIO_CODE void note_on(unsigned buf, unsigned t, unsigned step, unsi
     sounding[t][sounding_count[t]++].remaining = at + dur;
     groove_midi_song_note(t, n.pitch, n.velocity);
 }
+/* tabby-v1.4 (the bar line, measured with tools/linux/hw/run-barline.py): a clip launched 10 to 20 ms before the line
+ * landed on the line WITHOUT ITS FIRST NOTE: its buffer was ready a block or two after the line, the frame was taken
+ * "late, in phase", and the scan went on from where the frame stood; what lay between the frame's start and that place
+ * was never played. And a press 3 to 15 ms before the line waited a whole cycle. Now (1) a frame taken late plays what
+ * it skipped at once (up to one step of it: later than that it would be a wrong note, not a late one), and (2) a clip
+ * launch that reaches the audio thread within LAUNCH_GRACE blocks after the line (about 20 ms: what reading a key can take) still lands on that line:
+ * the frame starts at the line and what it holds up to now is played at once. `catch_up` makes add_action place what a
+ * scan finds at the start of the block. */
+enum { LAUNCH_GRACE = 7 };
+static uint8_t catch_up, launch_grace = LAUNCH_GRACE;
+#if defined(FM1_HOST_TEST) || defined(FM1_OPEN_WEB)
+void song_test_launch_grace(unsigned blocks) { launch_grace = (uint8_t)blocks; }   /* tests written before the grace queue their launches on the line itself */
+#endif
 static FM1_AUDIO_CODE void add_action(unsigned at, unsigned kind, unsigned buf, unsigned t, unsigned step, unsigned index, unsigned pitch)
 {
     if (action_count == ACTIONS) return;   /* cannot happen within the window bound; a note would then wait one block */
+    if (catch_up) at = 0;                  /* tabby-v1.4: what a late frame skipped leaves at the start of this block */
     struct action a = { (uint16_t)at, (uint16_t)index, (uint8_t)kind, (uint8_t)buf, (uint8_t)t, (uint8_t)step, (uint8_t)pitch };
     /* Insertion sort: by time, note-offs before switches before note-ons, then arrival order. */
     unsigned i = action_count++;
@@ -820,7 +834,7 @@ static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
     if (kind == Q_STOP) { k->state = 2; k->waiting = 0; return; }
     if (kind == Q_LAUNCH) {
         k->state = 1; k->row = queue_row[t];
-        k->start = plan[t].tb;
+        k->start = plan[t].tb - (uint32_t)plan[t].origin;   /* tabby-v1.4: origin is not 0 when the launch landed in the grace after the line */
         k->len = (k->row >= SONG_ROWS ? (place_steps[t] ? place_steps[t] : SONG_BLOCK_STEPS)
                   : record.row[k->row].steps ? record.row[k->row].steps : SONG_BLOCK_STEPS) * UNITS;
         k->chain_at = 0;
@@ -872,6 +886,7 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
     if (ext_use_adv) adv = ext_adv;           /* Task 16: a follow song advances as the clock pulses say (ext_block) */
     else { acc += tempo * ADV_MUL; adv = acc / ADV_DIV; acc %= ADV_DIV; }
     uint32_t m0 = master, m1 = master + adv, bar = next_bar(m0), sbd;
+    uint32_t cycle_now = cycle_units;
     /* Goal 6: where this block starts in time and in the song, for the recorder's stamps */
     ++rec_block_seq; rec_block_master = m0; rec_block_ticks = ct_diag_ticks(); rec_block_adv = adv; ++rec_block_seq;
     unsigned snext = song_next(m0, &sbd);
@@ -895,6 +910,11 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         /* tabby-v04.10: the clip's own length; in phase with where it would have started (the scene's entry for a
          * track that follows the scenes) */
         if (k->state == 0) k->start = song_start - repeat * song_len;
+        /* tabby-v1.4: what the frame held from its start to here was skipped: played now, when it is within one step */
+        { int32_t skipped = (int32_t)(m0 - k->start);
+          if (skipped > 0 && skipped <= UNITS && tbuf[t][nb].has_block) {
+              catch_up = 1; scan(t, nb, -HALF, 0, 0, 1, k->pass); scan(t, nb, 0, skipped, 0, 0, k->pass); catch_up = 0;
+          } }
         frame_set(t);
         while (k->len && (int32_t)(m0 - k->start) >= (int32_t)k->len) k->start += k->len;
         chain_set(t);
@@ -950,6 +970,13 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         if (scene && (!plan[t].tb || plan[t].tb >= sbd)) { plan[t].tb = sbd; plan[t].what = SW_SONG; }
         if (scene) qk = Q_NONE;
         else if (qk != Q_NONE && (!plan[t].tb || bar <= plan[t].tb)) { plan[t].tb = bar; plan[t].what = SW_QUEUE; }
+        /* tabby-v1.4: a clip launch seen just after the line lands on that line (LAUNCH_GRACE blocks of grace) */
+        if (!scene && qk == Q_LAUNCH && bar > m0) {
+            uint32_t since = m0 - (bar - cycle_now);
+            if (bar >= cycle_now && since <= (uint32_t)launch_grace * adv && since < (uint32_t)UNITS) {
+                plan[t].tb = m0; plan[t].what = SW_QUEUE; plan[t].origin = (int32_t)since; plan[t].landing = 1;
+            }
+        }
         /* The buffer of the frame that follows the boundary. */
         if (plan[t].what == SW_SONG) { if (plan[t].tb) { unsigned nr = rowset[cur ^ 1U].row; plan[t].nb = holds(&tbuf[t][k->cur], nr, P_SONG) ? k->cur : holds(&tbuf[t][o], nr, P_SONG) ? o : SONG_NONE; } }
         else if (plan[t].what == SW_LOOP) plan[t].nb = tbuf[t][o].fresh && holds(&tbuf[t][o], row, purpose) ? o : k->cur;   /* Goal 6: the edited clip, decoded again */
@@ -978,6 +1005,9 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         if (!loop_now && tb && plan[t].nb != SONG_NONE && !(plan[t].what == SW_QUEUE && qk == Q_STOP)) {
             unsigned nb = plan[t].nb;
             int32_t origin = plan[t].origin;   /* back to song joins mid-clip */
+            if (crossing && origin && plan[t].what == SW_QUEUE && qk == Q_LAUNCH) {   /* tabby-v1.4: the launch in the grace: what lies before now, at once */
+                catch_up = 1; scan(t, nb, 0, origin, 0, 0, k->pass + 1U); catch_up = 0;
+            }
             if (crossing) scan(t, nb, origin, origin + (int32_t)(m1 - tb), (int32_t)(tb - m0), 0, k->pass + 1U);
             /* Look-ahead: step-0 notes of the next frame whose negative offset lands in this window. */
             if (!origin && m1 + HALF > tb) {

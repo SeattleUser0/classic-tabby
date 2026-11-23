@@ -412,6 +412,9 @@ EXPORT("sim_track_level") unsigned sim_track_level(unsigned t, unsigned level)
     return v.volume;
 }
 /* ... and a track whose sound was edited on the device (EDIT on HOME): one step of the tone control and back */
+/* tabby-v1.4: the tests written before the launch grace queue their launches on the bar line itself */
+void song_test_launch_grace(unsigned blocks);
+EXPORT("sim_launch_grace") void sim_launch_grace(unsigned blocks) { song_test_launch_grace(blocks); }
 EXPORT("sim_track_edited") unsigned sim_track_edited(unsigned t)
 {
     struct groove_view v;

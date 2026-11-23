@@ -496,9 +496,70 @@ void smk37_pad_raw(unsigned id, uint16_t *last, uint16_t *gate, uint16_t *near)
     *last = (uint16_t)padkey[id].last; *gate = (uint16_t)padgate[id];
     *near = (uint16_t)pad_near[id]; pad_near[id] = 0;
 }
+/* tabby-v1.4, second part: the shape of what the sensors read. In two hours with nobody at the panel one pad read 582
+ * above its resting level without becoming a press (a press needs three rising samples and a fourth above rest + 10).
+ * To see what such a reading looks like, and what a press nobody made would look like, the samples themselves are
+ * kept: `live` follows the excursion that is going on (from the first sample above rest + 10, up to PAD_CAP samples);
+ * when it ends it is kept as `miss` (the highest one that did not press) or as `press` (the last one that did).
+ * And for the release: a pad counts as held until PADKEY_UPJET samples in a row are at rest + 5 or lower; how many
+ * samples that took from the first such sample, at most, is kept per pad (pad_release_wait): a resting level that is
+ * noisier than 5 keeps a pad "held" after the finger is gone. pad_samples counts pad 1's samples (the rate). */
+enum { PAD_CAP = 24 };
+struct pad_capture { u8 id, n, pressed, spare; s16 gate, peak; s16 v[PAD_CAP]; };
+static struct pad_capture pad_live, pad_miss, pad_press;
+static u8 pad_live_low;
+static u32 pad_samples;
+static u16 pad_release_wait[PAD_CNT], pad_release_run[PAD_CNT];
+static FM1_AUDIO_CODE void pad_capture_copy(struct pad_capture *to, const struct pad_capture *from)
+{
+    to->id = from->id; to->n = from->n; to->pressed = from->pressed; to->gate = from->gate; to->peak = from->peak;
+    for (unsigned i = 0; i < PAD_CAP; ++i) to->v[i] = from->v[i];
+}
+static FM1_AUDIO_CODE void pad_capture_step(u8 id, s16 val)
+{
+    if (!id) ++pad_samples;
+    if (!pad_live.n) {
+        if (val <= padgate[id] + 10 || padkey[id].sta >= PADKEY_DNJET) return;
+        pad_live.id = id; pad_live.gate = padgate[id]; pad_live.peak = val; pad_live.pressed = 0; pad_live.v[0] = val; pad_live.n = 1; pad_live_low = 0;
+        return;
+    }
+    if (id != pad_live.id) return;
+    if (pad_live.n < PAD_CAP) pad_live.v[pad_live.n++] = val;
+    if (val > pad_live.peak) pad_live.peak = val;
+    if (padkey[id].sta >= PADKEY_DNJET) pad_live.pressed = 1;
+    pad_live_low = val <= padgate[id] + 10 ? (u8)(pad_live_low + 1) : 0;
+    if (pad_live.n >= PAD_CAP || pad_live_low >= 2) {
+        if (pad_live.pressed) pad_capture_copy(&pad_press, &pad_live);
+        else if (pad_live.peak - pad_live.gate > pad_miss.peak - pad_miss.gate || !pad_miss.n) pad_capture_copy(&pad_miss, &pad_live);
+        pad_live.n = 0;
+    }
+}
+/* Control task (the input log): what 0: the highest excursion that did not press, 1: the last one that did (52 bytes
+ * each: id, samples, pressed, 0, the resting level, the peak, 24 samples); 2: pad 1's sample count (u32) and per pad the
+ * longest wait for a release in samples (16 x u16); 3: forget them. */
+int smk37_pad_diag(unsigned what, uint8_t *out)
+{
+    unsigned n = 0;
+    if (what < 2) {
+        const struct pad_capture *c = what ? &pad_press : &pad_miss;
+        out[n++] = c->id; out[n++] = c->n; out[n++] = c->pressed; out[n++] = 0;
+        out[n++] = (uint8_t)c->gate; out[n++] = (uint8_t)((u16)c->gate >> 8); out[n++] = (uint8_t)c->peak; out[n++] = (uint8_t)((u16)c->peak >> 8);
+        for (unsigned i = 0; i < PAD_CAP; ++i) { out[n++] = (uint8_t)c->v[i]; out[n++] = (uint8_t)((u16)c->v[i] >> 8); }
+        return (int)n;
+    }
+    if (what == 2) {
+        u32 c = pad_samples;
+        for (unsigned b = 0; b < 4; ++b) out[n++] = (uint8_t)(c >> (8 * b));
+        for (unsigned i = 0; i < PAD_CNT; ++i) { out[n++] = (uint8_t)pad_release_wait[i]; out[n++] = (uint8_t)(pad_release_wait[i] >> 8); }
+        return (int)n;
+    }
+    if (what == 3) { pad_miss.n = 0; pad_miss.peak = pad_miss.gate = 0; pad_press.n = 0; pad_samples = 0; for (unsigned i = 0; i < PAD_CNT; ++i) pad_release_wait[i] = 0; return 0; }
+    return -1;
+}
 static FM1_AUDIO_CODE void pad_prc(u8 id,s16 val)
 {
     if (padkey[id].sta < PADKEY_DNJET && val > padgate[id] + 10 && val - padgate[id] > pad_near[id]) pad_near[id] = (s16)(val - padgate[id]);
+    pad_capture_step(id, val);
     int i;
     s16 tmp;
     tmp = val - padadc[id].val;
@@ -570,10 +631,14 @@ static FM1_AUDIO_CODE void pad_prc(u8 id,s16 val)
     }
     else
     {
+        /* tabby-v1.4: from the first sample at rest + 5 or lower to the release: how many samples (pad_release_wait) */
+        if (pad_release_run[id] || val <= padgate[id] + 5) { if (pad_release_run[id] < 65535) ++pad_release_run[id]; }
         if(val <= padgate[id] + 5)
         {
             if(++padkey[id].sta >= PADKEY_DNJET + PADKEY_UPJET)
             {
+                if (pad_release_run[id] > pad_release_wait[id]) pad_release_wait[id] = pad_release_run[id];
+                pad_release_run[id] = 0;
                 padkey[id].sta = padkey[id].last = 0;
                 padkey[id].cvel = 256;
                 memset(padkey[id].dat,0,sizeof padkey[id].dat);

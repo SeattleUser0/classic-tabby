@@ -398,8 +398,10 @@ static int rcmd(unsigned cmd, const uint8_t *d, unsigned n, uint8_t *outp)
 }
 
 #include "v1_reference.inc"
+void song_test_launch_grace(unsigned blocks);
 int main(void)
 {
+    song_test_launch_grace(0);   /* tabby-v1.4: the launch tests below queue on the bar line itself and expect the next one; the grace has its own test */
     /* 2. Initialization with cleared storage (the workbench's first-run path). */
     sim_boot(1);
     const uint8_t *state = sim_state();

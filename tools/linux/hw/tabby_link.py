@@ -698,6 +698,23 @@ class Link:
         v = struct.unpack("<32H", d[:64])
         return {"near": list(v[:16]), "gate": list(v[16:])}
 
+    def pad_capture(self, pressed=False):
+        """tabby-v1.4: the samples of a pad's sensor: the highest excursion since the reset that did NOT become a press, or (pressed)
+        the last one that did. None when there is none."""
+        d = self._input(6 if pressed else 5)
+        ident, n, was, _, gate, peak = struct.unpack("<4B2h", d[:8])
+        if not n:
+            return None
+        return {"pad": ident + 1, "pressed": bool(was), "resting": gate, "peak": peak, "samples": list(struct.unpack("<%dh" % n, d[8:8 + 2 * n]))}
+
+    def pad_rates(self):
+        """Pad 1's sample count since the reset, and per pad the longest wait for a release (samples from the first one at rest)."""
+        d = self._input(7)
+        return {"samples": struct.unpack("<I", d[:4])[0], "release_wait": list(struct.unpack("<16H", d[4:36]))}
+
+    def pad_forget(self):
+        self._input(8)
+
     def worst(self, boot=False):
         """v0.28 (tabby-v1.3): command 25 request 12 (since the counters' reset) or 13 (since power-on): the latest a
         timed event left after its due time, once for "the transport stopped" and once for "running", each with what
