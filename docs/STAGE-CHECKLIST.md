@@ -1,6 +1,6 @@
 # Classic Tabby stage checklist
 
-Version 1.2 (2026-11-19). For tabby-v1.1 to tabby-v1.4 (v1.2: the words of the new screen; v1.1: EVENT LEAD under "If the timing feels off"). One page: print it and keep it with the SMK-37. The same text is section 9 of
+Version 1.2 (2026-11-19). For tabby-v1.1 to tabby-v1.5 (v1.2: the words of the new screen; v1.1: EVENT LEAD under "If the timing feels off"). One page: print it and keep it with the SMK-37. The same text is section 9 of
 the manual (docs/TESTING-GUIDE.md, the manual PDF); tests/workbench/guide.mjs fails when the two differ. Section
 numbers in brackets are the manual's.
 
@@ -29,7 +29,7 @@ numbers in brackets are the manual's.
 
 ## If a synth does not respond
 
-1. Hold KNOB BANK and look at the lower pad row: an orange pad is a muted track. Press it to unmute.
+1. Hold KNOB BANK and look at the lower pad row: an orange pad is a muted track. Keep it pressed for a moment to unmute (a brushed pad does nothing).
 2. Hold KNOB BANK and press SEQ: the track's OUT CH (K2) is the synth's channel, SEQ (K3) is BOTH or MIDI, OUT PORT (K4) is ALL.
 3. Press SEQ: SEQ OUT is ON. KEY OUT (K7) is ON if the keys should reach it.
 4. The cable, and the H4MIDI's route for that channel (MIDI guide, section 14). Swap the cable before anything else.

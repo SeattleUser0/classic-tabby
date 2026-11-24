@@ -7388,3 +7388,12 @@ also shows as "SMK37" in the kernel log and in `amidi -l`, so the name counts on
 MIDI tool; and Orange Cat writes memory notes with python here-documents whose TEXT may name our directory, so a
 path counts only outside a here-document's text (tabby_link counts inside one: that is how the device is driven).
 scripts/oc_hook.py v0.2: naming a tool (grep tabby_link FILE) is reading, not running.
+
+## 70. tabby-v1.5 (2026-11-24)
+
+The user's answers of 2026-11-24: one-pad mutes stay on the mixer page; remotely held keys let go after 30 s; the
+grace landing stays, with the old notes cut where the new ones begin and that in the release-run check; the mute
+under KNOB BANK made harder to hit by accident (my choice: the pad held 150 ms, SPEC 19.36); a plan for the flash
+margin before the next feature (FLASH-BUDGET 55). No feature in this release. Simulator: SHIFT + pad 10 brushed for
+23 ms mutes nothing; pad 10 caught 60 ms before pad 2 selects track 2 and mutes nothing; held, it mutes
+(tests/workbench/clips-sim.mjs).

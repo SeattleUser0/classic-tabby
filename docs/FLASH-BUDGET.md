@@ -1,7 +1,8 @@
 # Classic Tabby — Flash budget of SMK37 Open V01 (Pro)
 
-Version: 0.54
+Version: 0.55
 Revision log:
+- v0.55, 2026-11-24: section 55: the plan the user asked for before the next feature: where the growth went, what can be reclaimed, what the remaining MC-707 items cost.
 - v0.54, 2026-11-23: section 54: tabby-v1.4 measured, 493924 bytes, margin 25533.
 - v0.53, 2026-11-21: section 53: tabby-v1.3 measured, 490532 bytes, margin 28925.
 - v0.52, 2026-11-20: section 52: tabby-v1.2.1 measured, 488676 bytes, margin 30781.
@@ -1456,4 +1457,72 @@ Above the 15360-byte reserve: 13565 bytes.
 | tabby-v1.4: the input log and the pad captures; the pads' levels; SEQ REC + pad stores a scene; resting controls; the bar line; an edit heard at once | 493924 | +3392 | **25533** |
 
 RAM (runtime heap): 138220 bytes (-4672: the input log of 128 events, the pad captures, the resting levels). Above the 15360-byte reserve: 10173 bytes.
+
+## 55. The plan before the next feature (the user's order of 2026-11-24)
+
+The margin went from 32733 bytes (tabby-v1.1) to 25533 (tabby-v1.4) in four releases, against the reserve of 15360.
+The tree for tabby-v1.5 measures 494212 bytes: margin 25245, **9885 bytes spendable above the reserve**.
+
+### 55.1 Where the growth went
+
+| Release | Bytes | What |
+| --- | ---: | --- |
+| tabby-v1.2 | +1824 | the message box at the top; the screen copy and its remote command |
+| tabby-v1.2.1 | +128 | the play state in the message box; muted internal sounds |
+| tabby-v1.3 | +1856 | eight unsaved clips; the worst-lateness record; the Stop before a flash write |
+| tabby-v1.4 | +3392 | the input log and the pad captures; the pads' levels; the two-control scene store; resting controls; the bar line (catch-up, grace); an edit heard at once |
+| tabby-v1.5 (tree) | +288 | a mute under KNOB BANK that needs its pad held; remote keys let go after 30 s; a grace landing cuts the old notes |
+| **sum** | **+7488** | |
+
+Of the 7.5 KB about half is **test and proof machinery that lives in the released firmware** (the release run measures
+the firmware that is released): the screen copy 0.7 KB, the worst-lateness record 0.5 KB, the input log and the pad
+captures 1.3 KB, their share of the remote commands. The rest is behaviour: about 1.9 KB for the unsaved clips and
+the Stop guard, 1.6 KB for the bar line and the at-once edit, 0.6 KB for the pads' levels and the resting controls.
+
+### 55.2 What the image is made of (make flash-budget, 2026-11-24)
+
+| Part | Bytes | Can it shrink? |
+| --- | ---: | --- |
+| libfm1_engine.a (the SDK: sound engines, Bluetooth, OS, updater) | 360510 | **No.** It is one object, linked whole; taking a piece out means changing the SDK binary (hard limit 2). The engines the user does not need beyond FM6 are in it: 303 bass 4780, PSG 4458, Pluck 1918, sample drums 1634 (and 808 drums 1856, which the click uses): 12790 bytes that cannot be taken out from here. Bluetooth is about 150 KB of it |
+| app, LTO-merged (song.c 24231, fm_factory.c 10233, project.c 6462, song_storage.c 5884, smk37_controls.c 3001, samples.c 1936, ...) | 65040 | see 55.3 |
+| app/screen.c | 42708 | see 55.3 |
+| app/midi_router.c 7067, app/board/scan.c 6539, app/transfer.c 5480, app/board/panel.c 2727 | 21813 | little |
+| compiler runtime, libc | 3940 | no |
+
+### 55.3 What can be reclaimed, in the order I would take it
+
+| # | What | Bytes | Cost / risk | Needs the user? |
+| ---: | --- | ---: | --- | --- |
+| 1 | `groove_samples_poll` and the rest of app/samples.c: the sample upload of the SAMPLER, which cannot be chosen any more (TESTING-GUIDE, known limits) | about 1900 | low: check that nothing reaches it; the workbench's sample page goes with it | no |
+| 2 | The strings of screen.c (5426 bytes): messages that say the same thing in two wordings, texts of pages that are gone | 400 to 800 | low; the notice-wrap check and the banned-phrase test guard it | no |
+| 3 | `ct_diag_read` (1658) and the loop profile `ct_prof_*` (720): pages of command 25 that no tool of the release run reads any more (scan page, old loop profile, budget page); the storage lines' cache (570) once the lines are only made while stopped | 1500 to 2500 | low; each page's reader in tabby_link goes with it | no |
+| 4 | `pad_velocity` (1280): the table has 1280 bytes for 1024 entries of 10 bits; a curve of 64 points read with interpolation | about 1000 | medium: the pads' velocity response must stay exactly as it is (a table test on the host) | no |
+| 5 | `edit_page_draw` (8748) and its part of `apply_controls`: the editing pages of the STOCK sequencer (STEPS, STEP EDIT, RHYTHM, ARP EDIT). Song mode has its own STEP page | up to 8000 (ARP EDIT stays: about 6000) | high: it removes pages from the product | **yes** |
+| 6 | `factory_tokens` (9399): the factory FM patches as text tokens. Fewer patches, or packed | 3000 to 6000 | medium: which patches stay | **yes** |
+| 7 | The test machinery of 55.1 behind a build switch (a DIAG build for the release run, a plain build for the page) | about 2500 | **I advise against it**: the release run would then measure a firmware that is not the one released (rule of 2026-11-17) | yes |
+
+Without the user: items 1 to 4, about **4.8 to 6.2 KB**. With items 5 and 6: up to 14 KB more.
+
+### 55.4 What the remaining MC-707 items are expected to cost
+
+Estimates from what the releases so far cost (a setting with a line on a page 0.4 to 1 KB; an engine change 1 to 3 KB).
+
+| Item (docs/MC707-PARITY.md 0.2, 0.3) | Estimate |
+| --- | ---: |
+| Step input that moves on by itself (STEP page: keys enter and the step advances; the selected pad again = a rest) | 0.6 to 0.9 KB |
+| Edit all events of a step together (item 10) | 0.5 KB |
+| Scene program change on a control channel; Tx switches per track (item 11) | 1.0 KB |
+| Sub steps / flam | 1.5 to 2.5 KB |
+| Note repeat that repeats a whole chord | 1.0 to 1.5 KB |
+| **all of them** | **4.6 to 6.4 KB** |
+
+### 55.5 The plan
+
+1. tabby-v1.5 adds no feature (the three answers of 2026-11-24 and this plan): margin 25245.
+2. Before the next feature: items 1 to 3 of 55.3 in one release with nothing else (a release that only takes out is
+   easy to prove: every test must pass unchanged). Expected margin: about 29 KB.
+3. Then the MC-707 items in the order of 55.4, each release giving its measured cost against its estimate here; the
+   margin stays above 22 KB with all of them (reserve 15360).
+4. Items 5 and 6 only on the user's word; item 7 not at all unless the user says so.
+5. A release that would leave less than 18 KB (the reserve + 2.6 KB) stops and reports before it is built further.
 

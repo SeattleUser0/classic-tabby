@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.71
+Version: 0.72
 Revision log:
+- v0.72, 2026-11-24: 19.36 tabby-v1.5.
 - v0.71, 2026-11-24: 17.23 the Orange Cat soak rule (the file, not the clock), replacing the windows of 17.22.
 - v0.70, 2026-11-23: 17.22 the user's orders of 2026-11-22 and 2026-11-23; 19.35 tabby-v1.4.
 - v0.69, 2026-11-21: 17.21 the user's answers of 2026-11-21; 19.34 tabby-v1.3 (the worst-lateness record; eight unsaved clips).
@@ -2422,3 +2423,16 @@ settings are unchanged (`same_settings`: the v3 header apart from the event coun
 in the last two steps of the loop, not while the control task decodes (`edit_lock`), not during a take or 250 ms
 after one (`rec_running`). A buffer still marked fresh after the track left its clip is no longer skipped by the
 decoder (it kept the track silent).
+
+### 19.36 tabby-v1.5 (2026-11-24): the mute under KNOB BANK; the grace landing's note-offs; remote keys
+
+- **KNOB BANK + pad 9 to 16** (app/screen.c `smk37_screen_shortcut`, `kb_mute_poll`): the press only notes the pad;
+  the mute is done when the pad is still down KB_MUTE_MS (150) later (`smk37_shortcut_held`, app/smk37_controls.c).
+  Let go earlier: HOLD THE PAD TO MUTE. A pad of the upper row (a track select) in that time takes it back. The
+  mixer page (`groove_mix_toggle` on a pad press) is unchanged: the user's decision of 2026-11-24.
+- **A scene recall that lands in the grace** releases every track's sounding notes (app/song.c `song_switch`:
+  `tr[t].state != 0 || scene_since`); a clip launch has always released its track (`track_switch`). run-barline v0.3
+  measures, for every landing after the old clip's note on the line, when that note ends: 3 ms at most after the new
+  clip's first note.
+- **Remote keys** (app/transfer.c `groove_remote_poll`): let go 5 s after the last remote command, as before, and
+  now also when any key has been held for 30 s without the set being empty in between.
