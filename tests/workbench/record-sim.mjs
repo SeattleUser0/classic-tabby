@@ -26,6 +26,7 @@
 //   v0.2  2026-11-17  tabby-v04.16: a stop takes an armed take off; armed while stopped it stays.
 //   v0.1  2026-11-16  Initial version.
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -78,7 +79,7 @@ const drain = () => { for (;;) { const w = c.sim_midi_output() >>> 0; if (!w) br
 const step = (n = 1) => { for (let i = 0; i < n; i++) { c.sim_render(); drain(); block++; } };
 const press = (id, blocks = 8) => { c.sim_smk37(BUTTON, id, 1); step(blocks); c.sim_smk37(BUTTON, id, 0); step(4); };
 const pad = (i, blocks = 8) => { c.sim_smk37(PAD, i, 100); step(blocks); c.sim_smk37(PAD, i, 0); step(4); };
-const shiftPad = i => { c.sim_smk37(BUTTON, SHIFT, 1); step(4); c.sim_smk37(PAD, i, 100); step(8); c.sim_smk37(PAD, i, 0); step(4); c.sim_smk37(BUTTON, SHIFT, 0); step(4); };
+const shiftPad = (i, blocks = i >= 8 ? 80 : 8) => { c.sim_smk37(BUTTON, SHIFT, 1); step(4); c.sim_smk37(PAD, i, 100); step(blocks); c.sim_smk37(PAD, i, 0); step(4); c.sim_smk37(BUTTON, SHIFT, 0); step(4); };   /* tabby-v1.5: a mute under KNOB BANK needs its pad held 150 ms */
 const state = () => { const n = c.sim_clips_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n));
   const pads = Array.from({ length: 16 }, (_, i) => { const p = d[7 + 3 * i] | d[8 + 3 * i] << 7; return { code: d[6 + 3 * i], rgb: ((p >> 10) & 31) << 17 | ((p >> 5) & 31) << 9 | (p & 31) << 1 }; });
   return { page: d[0], track: d[1], bank: d[2], sceneBank: d[3], selected: d[4], pads }; };

@@ -26,6 +26,7 @@
 //
 // Revision log
 //   v1.0  2026-11-10  Task 14: first version (the converter that produced the English-only workbench).
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import {readFileSync,writeFileSync} from 'node:fs';
 const TABLE=process.argv[2],DRY=process.argv.includes('--dry-run');
 if(!TABLE){console.error('usage: anglicize-workbench.mjs <upstream I18n.js> [--dry-run]');process.exit(2)}

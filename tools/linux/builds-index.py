@@ -53,6 +53,7 @@ Revision log
                       existing note banner on every rewrite (the correction of the tabby-v04.3 note).
     v0.1  2026-11-08  Initial version (Task 12 A5).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 
 import argparse
 import datetime

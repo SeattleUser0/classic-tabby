@@ -49,6 +49,7 @@
 //                     mixed case, no silent failure); device() takes a separate output name.
 //   v0.1  2026-11-08  Initial version (Task 11B, workbench port fix).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

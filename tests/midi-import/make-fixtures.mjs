@@ -50,6 +50,7 @@
 //   v0.2  2026-11-03  Task 05: kick-nudge, ppq-120/480/960 and ppq-100 fixtures.
 //   v0.1  2026-11-02  Initial version (Task 02, Step 2).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

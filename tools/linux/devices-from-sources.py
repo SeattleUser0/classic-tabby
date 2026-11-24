@@ -40,6 +40,7 @@ Revision log
                       (web/rig/device-library.js v0.2 validates them when present).
     v0.1  2026-11-02  Initial version (Task 04, workbench part).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import argparse
 import json
 import os

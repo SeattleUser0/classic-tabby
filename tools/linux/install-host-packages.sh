@@ -27,6 +27,7 @@
 #                     (Microsoft repo), wine64 + wine32:i386 (the JieLi Windows tools are
 #                     32-bit PE), innoextract, p7zip-full, alsa-utils, google-chrome-stable
 #                     (Google repo).
+"$(dirname "$(readlink -f "$0")")/../../scripts/oc_guard.sh" "$0"; oc=$?; [ $oc -eq 0 ] || exit $(( oc == 64 ? 0 : oc ))   # OC-GUARD: the Orange Cat soak rule, before anything else
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then

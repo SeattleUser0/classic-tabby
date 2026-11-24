@@ -20,6 +20,7 @@
 //   v0.2  2026-11-08  Task 12 A2: the removed step-editor texts must be absent too.
 //   v0.1  2026-11-04  Initial version (Task 08, the manual rewrite).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 
 let failures = 0;

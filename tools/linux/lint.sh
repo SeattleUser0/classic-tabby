@@ -44,6 +44,7 @@
 #                     cppcheck: app/screen.c:107 arrayIndexOutOfBoundsCond, app/project.c:750 uninitvar;
 #                     clang-tidy: 13 (docs/DEV_CHECKS.md lists them). Line numbers as of linux-build
 #                     8114114 (after Task 06).
+"$(dirname "$(readlink -f "$0")")/../../scripts/oc_guard.sh" "$0"; oc=$?; [ $oc -eq 0 ] || exit $(( oc == 64 ? 0 : oc ))   # OC-GUARD: the Orange Cat soak rule, before anything else
 set -u
 cd "$(dirname "$0")/../.."
 MODEL=${MODEL:-pro}

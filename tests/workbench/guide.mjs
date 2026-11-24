@@ -28,6 +28,7 @@
 //   v0.2  2026-11-11  Chapter 00 names tabby-v04.2 (was tabby-v04.1.1).
 //   v0.1  2026-11-10  Initial version (testing guide, tabby-v04.1.1).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 

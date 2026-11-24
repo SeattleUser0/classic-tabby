@@ -24,6 +24,7 @@
 // Revision log
 //   v0.1  2026-11-01  Initial version (Task 01, Steps 6-7).
 
+import '../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 
 const SMK37_KEY = 1;                    // app/smk37_controls.h enum order: BUTTON, KEY, ...

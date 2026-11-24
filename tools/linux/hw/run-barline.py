@@ -23,13 +23,15 @@ Purpose (the user's question of 2026-11-22)
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-barline.py --out DIR [--leads 100,60,40,30,25,20,15,10,6,3] [--limit 30]
 
-Version: 0.2
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-24  A landing in the grace: the old clip's note on the line ends with the new clip's first note (3 ms at most).
     v0.2  2026-11-23  A landing in the grace after the line is seen (the old clip's note sounds on the line first); the pad's own
                       send time is the one judged; the first note's distance from the line.
     v0.1  2026-11-23  First version.
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import argparse
 import json
 import os
@@ -44,7 +46,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--song", type=int, default=7)
     p.add_argument("--din", default="H4MIDI-WC Port 1")
-    p.add_argument("--leads", default="100,60,40,30,25,20,15,10,6,3")
+    p.add_argument("--leads", default="100,40,20,15,12,10,6,3,0,-5")
     p.add_argument("--repeats", type=int, default=6)
     p.add_argument("--cases", default="clips,scenes,page+clip")
     p.add_argument("--limit", type=float, default=0.0, help="ms: a press this long or longer before the line must land (0: report only)")
@@ -67,6 +69,9 @@ def main():
 
     def lead_notes(lo, hi):
         return [(t, m[1]) for t, m in list(din.messages) if lo <= t <= hi and len(m) == 3 and m[0] == 0x90 and m[2]]
+
+    def lead_offs(lo, hi, pitch):
+        return [t for t, m in list(din.messages) if lo <= t <= hi and len(m) == 3 and (m[0] == 0x80 or (m[0] == 0x90 and not m[2])) and m[1] == pitch]
 
     def next_bar(margin_ms):
         """The time (this computer's raw clock, ns) of the next bar line at least margin_ms away, and the cycle (ns)."""
@@ -132,8 +137,16 @@ def main():
                     landed = any(pp == want for _, pp in at)
                     waited = not landed and any(pp == want for _, pp in after)
                     first_ms = min((ms for ms, pp in at if pp == want), default=None)
+                    # v0.3 (the user's answer of 2026-11-24): a landing in the grace: the old clip's note on the line must end where the
+                    # new clip's first note begins (one short overlap, not two parts ringing together): its note-off, in ms after
+                    # the new clip's first note
+                    overlap = None
+                    if landed and first_ms is not None and first_ms > 3.0 and any(pp == now_pitch for _, pp in at):
+                        t_new = real + int(first_ms * 1e6)
+                        offs = lead_offs(real - 5_000_000, real + 400_000_000, now_pitch)
+                        overlap = round((offs[0] - t_new) / 1e6, 2) if offs else 999.0
                     rows.append({"case": case, "lead_ms": L, "n": n + 1, "sent_before_line_ms": round((real - t_pad) / 1e6, 2), "first_key_before_line_ms": round((real - t_send) / 1e6, 2),
-                                 "landed": landed, "waited_a_cycle": waited, "first_note_after_line_ms": first_ms, "notes_at_line": at, "notes_a_cycle_later": after})
+                                 "landed": landed, "waited_a_cycle": waited, "first_note_after_line_ms": first_ms, "old_note_ends_after_new_ms": overlap, "notes_at_line": at, "notes_a_cycle_later": after})
                     if landed or waited:
                         now_pitch = want
                     if case == "page+clip":
@@ -164,7 +177,12 @@ def main():
         latest_ok = min(landed) if landed else None
         earliest_miss = max(missed) if missed else None
         over = [m for m in missed if a.limit and m >= a.limit]
-        bad += len(over) + neither
+        laps = [r["old_note_ends_after_new_ms"] for r in got if r.get("old_note_ends_after_new_ms") is not None]
+        ringing = [x for x in laps if x > 3.0]
+        bad += len(over) + neither + (len(ringing) if a.limit else 0)
+        if laps:
+            print("%s %s: %d landing(s) in the grace after the old clip's note on the line: that note ended %.2f to %.2f ms after the new clip's first note (it must not ring on: 3 ms at most)%s" % (
+                "FAIL" if ringing and a.limit else "ok  ", case, len(laps), min(laps), max(laps), "; %d rang on" % len(ringing) if ringing else ""))
         print("%s %s: the latest press that landed %s ms before the line; the earliest that waited a cycle %s ms before it; %d of %d landed; neither %d%s" % (
             "FAIL" if over or neither else "ok  ", case, "%.1f" % latest_ok if latest_ok is not None else "-", "%.1f" % earliest_miss if earliest_miss is not None else "-",
             len(landed), len(got), neither, ("; LIMIT %.0f ms: %d press(es) that early waited a cycle" % (a.limit, len(over))) if a.limit else ""))

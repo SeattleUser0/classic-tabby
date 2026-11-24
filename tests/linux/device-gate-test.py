@@ -11,6 +11,7 @@ release candidate's page (tools/linux/builds-index.py).
 Run: python3 -I tests/linux/device-gate-test.py   (part of make workbench-test)
 Version: 0.1 (2026-11-17)
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import importlib.util, json, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -31,6 +32,7 @@ with tempfile.TemporaryDirectory() as d:
     r = Path(d)
     (r / "tools/linux").mkdir(parents=True)
     shutil.copy(ROOT / "tools/linux/device-gate.py", r / "tools/linux/device-gate.py")
+    shutil.copytree(ROOT / "scripts", r / "scripts")   # the Orange Cat soak guard goes with every tool: without it the copy refuses to run
     (r / ".gitignore").write_text("build/\n")
     (r / "build/pro/generated").mkdir(parents=True)
     BUILD = "ab" * 32

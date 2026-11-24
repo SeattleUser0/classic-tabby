@@ -1,7 +1,8 @@
 # Classic Tabby — Linux build of SMK37 Open V01
 
-Version: 1.05
+Version: 1.06
 Revision log:
+- v1.06, 2026-11-24: section 69 (the Orange Cat soak rule broken twice in the night of 2026-11-23; the guard).
 - v1.05, 2026-11-23: section 68 (tabby-v1.4: the input log and the soak with nothing injected; the pads' levels; the bar line; an edit heard at once).
 - v1.04, 2026-11-21: section 67 (tabby-v1.3: the soak with the user's song; the worst-lateness record; eight unsaved clips).
 - v1.03, 2026-11-20: 65.1 to 65.7 (tabby-v1.2, seven candidates), section 66 (tabby-v1.2.1: the CPU guard measured part by part; the message box; the four unexplained failures).
@@ -7316,3 +7317,50 @@ of 46; its pictures went into the manual (commit 36d4351). Candidate 5: the same
 soaks from 22:14 to 01:19 (clear of the Orange Cat windows), every step passed (32 steps with barline), promoted by
 the flow. Figures: docs/releases/tabby-v1.4.md. The record since power-on: running 5.07 ms, stopped 17.40 ms. The
 input log at the end: 4970 events, 0 from the panel. Left by tests: the CLIPS page after the screen tour.
+
+## 69. The Orange Cat soak rule broken twice, and the guard (2026-11-24)
+
+### 69.1 What happened
+
+The rule as I had it since 2026-11-23: no suites, soaks, timing runs or SMK-37 writes from 13:00 to 15:15 and from
+7:00 to 9:15, "or while /tmp/oc-soak-running exists". In the night of 2026-11-23 the release of tabby-v1.4 ran from
+20:57 to 01:19, through the soaks that began at 21:00 and 23:30. The user named two acts inside a soak:
+
+| When (Pacific) | What | The entry point | Why it did not check |
+| --- | --- | --- | --- |
+| 00:47:34 | a browser driving the workbench page: the test song written to slot 7, then Meridian Fault to slot 6 (the start of the soak-song step) | `tools/linux/hw/workbench.mjs song`, started by `tools/linux/hw/rc-validate.py`, started by `tools/linux/release-flow.sh tabby-v1.4 5`, started by one chained command of mine | none of the three looked at the file at all. The chain looked once, `[ ! -e /tmp/oc-soak-running ]`, at 20:57 before candidate 4, and never again: not before candidate 5 at 22:14, not between steps |
+| 01:19 | `make promote TAG=tabby-v1.4` (the main page and the GitHub release) | `tools/linux/release-flow.sh`, its last stage | the same: no check in release-flow.sh, in the Makefile or in publish-pages.py |
+
+They were not the only two: everything that chain did after 21:00 (the suite of candidate 5, its device run, three
+soaks of my own, the backup, restore and verify) ran while a soak may have been under way. Two causes, both mine:
+I planned by the clock (I knew two windows and the run fitted between them as I knew them) although the rule named
+the file; and where I did look at the file it was once, in the command that queued the run, and nowhere in the
+things that ran.
+
+### 69.2 The guard
+
+docs/DEV_CHECKS.md, "The Orange Cat soak rule". scripts/oc_guard.sh, .py, .cjs, .mjs; scripts/oc_nice.sh;
+scripts/oc_hook.py and .claude/settings.json; 103 scripts got the guard as their first statement, the Makefile at
+parse time; tabby_link asks before the port is opened and before every write; the browser tools right before the
+launch; publish-pages.py right before the push; rc-validate before every command; release-flow.sh before every
+stage. An interrupted run: exit code 75, INTERRUPTED, neither pass nor fail. Every entry point with its line:
+docs/OC-GUARD-TABLE.md.
+
+### 69.3 The proof
+
+`make test-oc-guard` (tests/linux/oc-guard-test.py v0.1, in `make suite`): 157 entry points found (52 Makefile
+targets, 105 scripts; the guard's 4 files and the hook apart): each refused with the message and touched nothing
+under strace while the fake flag existed; each got past the guard after; rc-validate's next command is not started
+when the flag appears in the middle; tabby_link opens neither port; the hook blocks make, a browser, node, amidi, a
+python line that opens the SMK-37 and a push, and allows them after; reading a file is never blocked. A script
+added without the guard (tried: a two-line Python file in tools/linux/) fails the test twice: it did not refuse,
+and it did not say "passed".
+
+Two things the test found while it was written: the gate tests copy a tool into a scratch repository, and the copy
+refused to run without the guard beside it (the tests now copy scripts/ too: a tool without its guard does not
+run); and a file called `--help` in the repository's root, which I had made on 2026-11-23 by calling a tool with
+that word (removed).
+
+A limit that is stated, not solved: `.claude/settings.json` is read by a Claude Code session started IN this
+repository. A session started elsewhere (mine starts in the home directory) loads its hooks from there. The same
+hook belongs in the user's own settings for such sessions; that file is the user's, and is not changed from here.

@@ -22,6 +22,7 @@
 // Revision log
 //   v0.1  2026-11-05  Initial version (Task 09, checkpoint c).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync, existsSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

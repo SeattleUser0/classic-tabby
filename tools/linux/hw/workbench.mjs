@@ -48,6 +48,7 @@
 //   v0.2  2026-11-08  stock: wait for the page to settle after switching to V16 before Connect.
 //   v0.1  2026-11-07  Task 11B: first version.
 
+import { recheck as ocRecheck } from '../../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, appendFileSync, copyFileSync } from 'node:fs';
 import { basename } from 'node:path';
@@ -65,6 +66,7 @@ const log = text => appendFileSync(logFile, new Date().toISOString() + ' ' + tex
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function open() {
+  ocRecheck('a browser (workbench.mjs)');   // OC-GUARD: right before the browser is launched, not only when the tool started
   const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox'] });
   const context = await browser.newContext({ locale: 'zh-CN', acceptDownloads: true });
   await context.grantPermissions(['midi', 'midi-sysex'], { origin: new URL(url).origin });
@@ -297,4 +299,4 @@ async function run() {
     process.exitCode = 1;
   } finally { await browser.close(); }
 }
-await run();
+await run().catch(e => { if (e && e.ocInterrupted) { console.error('INTERRUPTED: ' + e.message); process.exit(75); } throw e; });   // OC-GUARD: the soak began before the browser was launched

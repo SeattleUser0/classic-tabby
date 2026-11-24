@@ -10,6 +10,7 @@ or holds a word longer than 13 characters (9 for its first word). Version histor
     v0.2  2026-11-20  tabby-v1.2.1: the first line is 9 characters (the play state stands at the left end of the box).
     v0.1  2026-11-19  tabby-v1.1 (the readable screen).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import re, sys, pathlib
 
 def wrap(s):

@@ -26,7 +26,7 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.26
+Version: 0.27
 
 Revision log
     v0.25 2026-11-23  The step `barline` (run-barline.py --limit 12).
@@ -71,6 +71,7 @@ Revision log
     v0.2  2026-11-17  The install step accepts "already installed" (the build is on the device from an earlier candidate).
     v0.1  2026-11-17  First version (the user's release-flow rule).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import argparse, json, os, re, subprocess, sys, time, urllib.request
 from pathlib import Path
 
@@ -84,14 +85,25 @@ EIGHT_LIMIT_MS = 3.5     # v0.11: eight lines, the worst line (2.2 to 3.1 ms mea
 BAND_LIMIT_MS = 2.5      # one line: the goal is 2 ms; above this the run fails. The bands are reported either way.
 
 
+INTERRUPT_OUT = []     # OC-GUARD: the run's output directory, for the record of an interrupted run
+
+
 def sh(cmd, timeout, log):
-    """Run a command; return (exit code, output). The output is appended to the log."""
+    """Run a command; return (exit code, output). The output is appended to the log.
+    OC-GUARD v0.27: asked before EVERY command of the run, not only when the run started: when the Orange Cat soak has
+    begun nothing more is started, and a command that ended with exit code 75 (it was interrupted by the soak itself)
+    ends the run: oc_guard.Interrupted, which the end of this file turns into "INTERRUPTED": neither pass nor fail."""
+    oc_guard.recheck(os.path.basename(str(cmd[1] if len(cmd) > 1 and str(cmd[0]).endswith(("python3", "node")) else cmd[0])))
     try:
         r = subprocess.run(cmd, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout)
         code, out = r.returncode, r.stdout
     except subprocess.TimeoutExpired as e:
         o = e.stdout or ""      # v0.26: bytes here even with text=True: the run died on its own timeout message (tabby-v1.4-rc2)
         code, out = 124, (o.decode("utf-8", "replace") if isinstance(o, bytes) else o) + "\nTIMEOUT after %d s" % timeout
+    if code == oc_guard.EXIT_INTERRUPTED:
+        with open(log, "a") as f:
+            f.write("\n$ %s\n%s\nINTERRUPTED (exit code 75)\n" % (" ".join(str(c) for c in cmd), out))
+        raise oc_guard.Interrupted("the Orange Cat soak began during %s" % os.path.basename(str(cmd[1] if len(cmd) > 1 else cmd[0])))
     with open(log, "a") as f:
         f.write("\n$ %s\n%s\n" % (" ".join(str(c) for c in cmd), out))
     return code, out
@@ -119,7 +131,7 @@ def main():
     p.add_argument("--soak-song-minutes", type=float, default=0.0, help="v0.21: the soak with one of the user's own songs (tests/fixtures/meridian_fault.mid, the densest), in minutes")
     p.add_argument("--expected", default=str(ROOT.parent / "overnight/g6/exp-v046-s13-timing-1x16.json"))
     a = p.parse_args()
-    out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
+    out = Path(a.out); out.mkdir(parents=True, exist_ok=True); INTERRUPT_OUT.append(str(out))
     rc_tag = "%s-rc%s" % (a.tag, a.rc)
     url = "%sbuilds/%s/" % (PAGES, rc_tag)
     log = out / (rc_tag + "-validate.log")
@@ -506,4 +518,15 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except oc_guard.Interrupted as e:
+        # OC-GUARD v0.27: the device was put at rest by the tool that was running (tabby_link: every key let go, the song
+        # stopped); nothing more is sent from here. The run is recorded as interrupted: neither pass nor fail.
+        print("INTERRUPTED: %s. Nothing is marked; the run is neither passed nor failed. Run it again after the soak." % e, flush=True)
+        try:
+            with open(os.path.join(INTERRUPT_OUT[0] if INTERRUPT_OUT else ".", "INTERRUPTED-%s.txt" % time.strftime("%Y%m%dT%H%M%S")), "w") as f:
+                f.write("interrupted by the Orange Cat soak: %s\nat %s\nneither pass nor fail\n" % (e, time.strftime("%Y-%m-%dT%H:%M:%S%z")))
+        except Exception:
+            pass
+        sys.exit(oc_guard.EXIT_INTERRUPTED)

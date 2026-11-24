@@ -1,7 +1,8 @@
 # Classic Tabby — Specification
 
-Version: 0.70
+Version: 0.71
 Revision log:
+- v0.71, 2026-11-24: 17.23 the Orange Cat soak rule (the file, not the clock), replacing the windows of 17.22.
 - v0.70, 2026-11-23: 17.22 the user's orders of 2026-11-22 and 2026-11-23; 19.35 tabby-v1.4.
 - v0.69, 2026-11-21: 17.21 the user's answers of 2026-11-21; 19.34 tabby-v1.3 (the worst-lateness record; eight unsaved clips).
 - v0.68, 2026-11-20: 17.20 the user's answers of 2026-11-20; 19.33 tabby-v1.2.1.
@@ -1567,8 +1568,19 @@ every message as the firmware does and fails on a fourth line or a word over 13 
 4. Launch timing at the bar line: a press just before the line must not wait a whole cycle; scene recall gets the
    same grace window as a clip launch ("the main stage action; it can't have a tighter deadline than a clip"), with
    the same release-run check: a press sent 12 ms or more before the line lands on it with its first notes.
-5. The Orange Cat window: no suites, soaks, timing runs or SMK-37 writes from 13:00 to 15:15, or while
-   /tmp/oc-soak-running exists.
+5. (The Orange Cat window as it stood here, two time windows and the file, is REPLACED by 17.23.)
+
+### 17.23 The Orange Cat soak rule (the user, 2026-11-24)
+
+"While /tmp/oc-soak-running exists, nothing of ours starts: no build, no test (host, simulator or device), no browser,
+no publish or promote, no install, no read or write to the SMK-37. The file is what counts, not the clock." For
+planning only, the soaks start at 7:00, 13:00, 21:00 and 23:30 Pacific and run about 2 h 15 each. No override switch:
+"If something truly must run during a soak, it waits." Every entry point asks one guard first (scripts/oc_guard.sh
+and its Python and node forms); each script asks for itself, so calling it directly cannot pass the guard by; long
+runs ask again between steps, and a browser launch or a device write asks right before it starts; a run the soak
+interrupts leaves the device at rest and is recorded as interrupted, neither pass nor fail; Claude Code's own
+commands go through a PreToolUse hook. The proof is `make test-oc-guard`, part of `make suite`. In full:
+docs/DEV_CHECKS.md, "The Orange Cat soak rule"; every entry point: docs/OC-GUARD-TABLE.md; why: docs/BUILD.md 69.
 
 ## 18. Task 15 — Timing research (2026-11-10; nothing built)
 

@@ -21,6 +21,7 @@
 // Revision log
 //   v0.1  2026-11-02  Initial version (Task 02, Step 2).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 export function note(events, tick, duration, pitch, velocity = 100, channel = 0) {
   events.push({ tick, type: 'noteOn', channel, pitch, velocity });
   events.push({ tick: tick + duration, type: 'noteOff', channel, pitch, velocity: 0, order: 1 });

@@ -24,6 +24,7 @@ Revision log
     v0.2  2026-11-23  Per period: the samples of the highest reading that did not press and of the last press, the sample rate.
     v0.1  2026-11-23  First version.
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import argparse
 import json
 import os

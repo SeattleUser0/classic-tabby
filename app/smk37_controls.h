@@ -12,6 +12,7 @@ void smk37_controls_release(void);
 unsigned smk37_fader_bank(void);
 unsigned smk37_pad_steps(void);
 unsigned smk37_shift(void);
+unsigned smk37_shortcut_held(unsigned pad);
 uint32_t smk37_pad_color(unsigned pad, unsigned lit);
 unsigned smk37_pickup_mask(void);
 uint32_t smk37_fader_feedback(void);

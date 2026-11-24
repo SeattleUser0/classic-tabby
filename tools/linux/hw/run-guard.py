@@ -20,6 +20,7 @@ Revision log
                       release run (tabby-v1.2.1: muted internal sounds are not rendered for the song).
     v0.1  2026-11-20  First version (the user's question of 2026-11-20: why is CPU GUARD on for the whole song).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import argparse, json, sys, time
 from pathlib import Path
 

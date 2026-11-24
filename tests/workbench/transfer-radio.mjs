@@ -25,6 +25,7 @@
 //   v0.2  2026-11-07  Task 11: the capability byte may also be 255 (diagnostic build).
 //   v0.1  2026-11-04  Initial version (Task 06, checkpoint a).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

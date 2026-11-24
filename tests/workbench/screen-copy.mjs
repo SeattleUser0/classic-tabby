@@ -17,6 +17,7 @@
 //
 // Revision log
 //   v0.1  2026-11-19  First version (tabby-v1.2).
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 

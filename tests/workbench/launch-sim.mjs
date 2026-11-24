@@ -33,6 +33,7 @@
 //   v0.2  2026-11-14  Task 17 Goal 4: page 20 is the CLIPS page; its pads are clip places (the pad check follows).
 //   v0.1  2026-11-04  Initial version (Task 06, checkpoint d).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

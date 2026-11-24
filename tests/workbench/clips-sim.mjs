@@ -27,6 +27,7 @@
 //   v0.2  2026-11-16  A pad pressed while stopped reserves its clip and PLAY starts it; the mixer's mute shows blue.
 //   v0.1  2026-11-14  Initial version.
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -79,7 +80,7 @@ const drain = () => { for (;;) { const w = c.sim_midi_output() >>> 0; if (!w) br
 const step = (n = 1) => { for (let i = 0; i < n; i++) { c.sim_render(); drain(); block++; } };
 const press = (id, blocks = 8) => { c.sim_smk37(BUTTON, id, 1); step(blocks); c.sim_smk37(BUTTON, id, 0); step(4); };
 const pad = (i, blocks = 8) => { c.sim_smk37(PAD, i, 100); step(blocks); c.sim_smk37(PAD, i, 0); step(4); };
-const shiftPad = i => { c.sim_smk37(BUTTON, SHIFT, 1); step(4); c.sim_smk37(PAD, i, 100); step(8); c.sim_smk37(PAD, i, 0); step(4); c.sim_smk37(BUTTON, SHIFT, 0); step(4); };
+const shiftPad = (i, blocks = i >= 8 ? 80 : 8) => { c.sim_smk37(BUTTON, SHIFT, 1); step(4); c.sim_smk37(PAD, i, 100); step(blocks); c.sim_smk37(PAD, i, 0); step(4); c.sim_smk37(BUTTON, SHIFT, 0); step(4); };   /* tabby-v1.5: a mute under KNOB BANK needs its pad held 150 ms */
 const state = () => { const n = c.sim_clips_state(), d = Array.from(mem().subarray(c.sim_file(), c.sim_file() + n));
   const pads = Array.from({ length: 16 }, (_, i) => { const p = d[7 + 3 * i] | d[8 + 3 * i] << 7; return { code: d[6 + 3 * i], rgb: ((p >> 10) & 31) << 17 | ((p >> 5) & 31) << 9 | (p & 31) << 1 }; });
   return { page: d[0], track: d[1], bank: d[2], sceneBank: d[3], selected: d[4], pads }; };
@@ -170,6 +171,10 @@ check((trackStatus(1) & 3) === 1 && ((trackStatus(1) >> 8) & 255) === 128 + 2 &&
 toBar(13, 0);
 check(pitches(11, 1) === '50' && pitches(12, 1) === '50' && Math.abs(firstOn(11, 1)) <= 1, 'it plays on the cycle with its own length (bar 12: ' + pitches(11, 1) + '; bar 13: ' + pitches(12, 1) + ')');
 toBar(13, 100);
+shiftPad(9, 8); step(8); s = state();
+check(!(s.pads[2].code & 16), 'tabby-v1.5: SHIFT + pad 10 only brushed (23 ms): nothing is muted');
+c.sim_smk37(BUTTON, SHIFT, 1); step(4); c.sim_smk37(PAD, 9, 100); step(20); c.sim_smk37(PAD, 1, 100); step(60); c.sim_smk37(PAD, 9, 0); c.sim_smk37(PAD, 1, 0); step(4); c.sim_smk37(BUTTON, SHIFT, 0); step(8); s = state();
+check(!(s.pads[2].code & 16) && s.track === 1, 'the lower pad caught on the way to the upper one (pad 10, then pad 2 within 60 ms): track 2 is selected and not muted');
 shiftPad(9); step(8); s = state();
 check(s.pads[2].code === (2 | 8 | 16) && s.pads[2].rgb === 0x301808 && s.pads[0].rgb === 0x0c0600, 'SHIFT + pad 10 mutes track 2: playing pad orange, stopped pad dim orange (' + hex(s.pads[2].rgb) + ', ' + hex(s.pads[0].rgb) + ')');
 toBar(15, 0);

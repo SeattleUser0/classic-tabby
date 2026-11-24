@@ -6,6 +6,7 @@ param(
     [string]$SourceUrl = $env:FM1_SOURCE_URL,
     [switch]$LocalPreview
 )
+foreach ($ocFlag in @('/tmp/oc-soak-running', $env:OC_GUARD_TEST_FLAG)) { if ($ocFlag -and (Test-Path $ocFlag)) { [Console]::Error.WriteLine("Orange Cat soak running ($ocFlag). Refusing to start $($MyInvocation.MyCommand.Name)."); exit 75 } }; if ($env:OC_GUARD_TEST_STOP -eq '1') { [Console]::Error.WriteLine("oc-guard: passed $($MyInvocation.MyCommand.Name)"); exit 0 }   # OC-GUARD: the Orange Cat soak rule, before anything else
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $utf8 = New-Object Text.UTF8Encoding $false

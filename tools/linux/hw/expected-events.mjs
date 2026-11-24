@@ -17,6 +17,7 @@
 //   v0.2  2026-11-14  The row controller events (the song event table) are in `controls` too, with their channel.
 //   v0.1  2026-11-14  First version (Task 17).
 
+import '../../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';

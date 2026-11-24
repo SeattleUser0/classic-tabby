@@ -19,6 +19,7 @@ newer units came with the UC25HQ80. This test fails when the ID reaches anything
 Run: python3 -I tests/linux/flash-part-guard.py   (part of make workbench-test)
 Version: 0.1 (2026-11-16)
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import re, sys
 from pathlib import Path
 

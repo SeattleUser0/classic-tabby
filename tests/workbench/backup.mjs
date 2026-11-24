@@ -49,6 +49,7 @@
 //   v0.2  2026-11-07  Task 11B: command 26 checks.
 //   v0.1  2026-11-07  Initial version (Task 11 Step 2).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
+foreach ($ocFlag in @('/tmp/oc-soak-running', $env:OC_GUARD_TEST_FLAG)) { if ($ocFlag -and (Test-Path $ocFlag)) { [Console]::Error.WriteLine("Orange Cat soak running ($ocFlag). Refusing to start $($MyInvocation.MyCommand.Name)."); exit 75 } }; if ($env:OC_GUARD_TEST_STOP -eq '1') { [Console]::Error.WriteLine("oc-guard: passed $($MyInvocation.MyCommand.Name)"); exit 0 }   # OC-GUARD: the Orange Cat soak rule, before anything else
 <#
 tools/linux/package-pwsh.ps1 — drive the ORIGINAL sdk/Package.cs through PowerShell Add-Type
 

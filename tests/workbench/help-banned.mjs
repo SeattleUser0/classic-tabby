@@ -43,6 +43,7 @@
 //   v0.2  2026-11-10  Task 14 second pass: more phrases (restore sectors, CLK IN DIN).
 //   v0.1  2026-11-10  Task 14: first version.
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 
 let failures = 0;

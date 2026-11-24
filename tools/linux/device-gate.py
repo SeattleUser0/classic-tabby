@@ -28,6 +28,7 @@ Version: 0.1
 Revision log
     v0.1  2026-11-17  First version (the user's release-flow rule; SPEC 17.13, docs/DEV_CHECKS.md).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import argparse, hashlib, json, subprocess, sys, time
 from pathlib import Path
 

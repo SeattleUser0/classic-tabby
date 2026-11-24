@@ -25,7 +25,7 @@ Purpose
     hardware timestamps after every read, so a sample's time is known on the same clock as the
     DIN monitor's kernel MIDI timestamps (tools/linux/midi-monitor.py).
 
-Version: 0.29
+Version: 0.31
 
 Revision log
     v0.25 2026-11-19  now_ns() is THE clock of the device tools: every tool takes its marks ("notes since now") from it and not
@@ -81,6 +81,7 @@ Revision log
     v0.2  2026-11-08  diag page 3 (screen timing) when the firmware has it.
     v0.1  2026-11-07  Task 11B: first version.
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 
 import ctypes
 import ctypes.util
@@ -224,10 +225,24 @@ def crc32(data):
     return zlib.crc32(bytes(data)) & 0xFFFFFFFF
 
 
+def _oc_excepthook(kind, value, trace, _before=sys.excepthook):
+    """OC-GUARD v0.31: a run the Orange Cat soak interrupted ends with its message and exit code 75 (interrupted: neither
+    pass nor fail), whichever tool it was."""
+    if isinstance(value, oc_guard.Interrupted):
+        sys.stderr.write("INTERRUPTED: %s\n" % value); sys.stderr.flush()
+        os._exit(oc_guard.EXIT_INTERRUPTED)
+    _before(kind, value, trace)
+
+
+sys.excepthook = _oc_excepthook
+
+
 class Link:
     """Duplex raw MIDI on the device's port (default: the ALSA port named "SMK37")."""
 
     def __init__(self, port="SMK37", timestamps=True):
+        oc_guard.recheck("the SMK-37 port")     # OC-GUARD v0.31: right before the port is opened, not only when the tool started
+        self._oc_rest = False
         self.name = monitor.resolve(port)
         self.inp, self.out = ctypes.c_void_p(), ctypes.c_void_p()
         r = LIB.snd_rawmidi_open(ctypes.byref(self.inp), ctypes.byref(self.out), self.name.encode(), 2)   # non-blocking
@@ -272,7 +287,25 @@ class Link:
                 LIB.snd_rawmidi_close(h)
         self.inp = self.out = None
 
+    def _oc_check(self, what):
+        """OC-GUARD v0.31: before every write to the device. When the Orange Cat soak begins in the middle of a run the
+        device is put at rest with two commands (every key let go, the song stopped) and the run ends: Interrupted,
+        exit code 75, neither pass nor fail."""
+        path = oc_guard.blocked()
+        if not path or self._oc_rest:
+            return
+        self._oc_rest = True
+        try:
+            self.release_all(); self.stop_song()
+        except Exception:
+            pass
+        self._oc_rest = None                     # from here nothing more is sent
+        raise oc_guard.Interrupted(oc_guard.message(what, path))
+
     def send(self, data):
+        if self._oc_rest is None:
+            raise oc_guard.Interrupted(oc_guard.message("a write to the SMK-37", oc_guard.blocked() or oc_guard.FLAG))
+        self._oc_check("a write to the SMK-37")
         """Write bytes now; returns now_ns() (the steady clock, v0.25) taken just before the write call."""
         t = now_ns()
         n = LIB.snd_rawmidi_write(self.out, bytes(data), len(data))
@@ -448,7 +481,7 @@ class Link:
 
     def shift_pad(self, pad):
         self.key(0, self.PANEL["SHIFT"], 1); time.sleep(0.05)
-        self.pad(pad); time.sleep(0.05)
+        self.pad(pad, hold=0.3 if pad >= 8 else 0.05); time.sleep(0.05)     # v0.30 (tabby-v1.5): a mute under KNOB BANK needs its pad held 150 ms
         return self.key(0, self.PANEL["SHIFT"], 0)
 
     def steps_state(self):
@@ -881,6 +914,7 @@ def profile_lines(p):
 # ---- DIN monitor in a thread (same capture code as midi-monitor.py) ---------------------
 class Monitor(threading.Thread):
     def __init__(self, port="AUDIO4c DIN"):
+        oc_guard.recheck("the H4MIDI port")     # OC-GUARD v0.31: right before the port is opened
         super().__init__(daemon=True)
         self.port = monitor.AlsaInput(monitor.resolve(port))
         self.parser, self.messages, self.running = monitor.Parser(), [], True

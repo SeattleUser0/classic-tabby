@@ -165,6 +165,19 @@
 #                     package-equivalence, clean. web and test are added in Steps 6 and 7.
 
 SHELL := /bin/bash
+
+# OC-GUARD: the Orange Cat soak rule (docs/DEV_CHECKS.md, docs/SPEC.md 17.23): while /tmp/oc-soak-running exists
+# nothing of ours starts. This runs when make READS this file, before any target, for every target there is or will
+# be, and again in every sub-make. No override. Each script a recipe calls checks for itself as well, tools/linux/
+# timed.sh (the $(T) in front of the commands) and $(NICE) in front of the compilers check before each command, so
+# a run that is under way stops at its next command when a soak begins.
+OC_GUARD_RC := $(shell scripts/oc_guard.sh make $(MAKECMDGOALS) 1>&2; echo $$?)
+ifeq ($(OC_GUARD_RC),64)
+$(error oc-guard test stop: make $(MAKECMDGOALS) got past the guard and stops here)
+endif
+ifneq ($(OC_GUARD_RC),0)
+$(error Orange Cat soak running: make $(MAKECMDGOALS) was not started)
+endif
 .DEFAULT_GOAL := help
 
 MODEL      ?= pro
@@ -195,7 +208,7 @@ FWSC           := build/$(MODEL)/generated/SMK37_$(shell echo $(MODEL) | tr a-z 
 # Task 07: the machine rules. LOCK serialises the heavy runs among the Classic Tabby sessions (not with
 # Orange Cat's /tmp/oc-suite.lock) and caps their memory; NICE keeps single builds out of the way;
 # T times every command into build/profile.txt (tools/linux/timed.sh; `make profile` prints it).
-NICE       ?= nice -n 19
+NICE       ?= scripts/oc_nice.sh   # OC-GUARD: nice -n 19 behind the guard, before every compiler and builder call
 JOBS       ?= 2
 LOCKFILE   ?= /tmp/tabby-suite.lock
 LOCK       := flock $(LOCKFILE) systemd-run --user --scope -q -p MemoryMax=4G -- env TABBY_LOCKED=1
@@ -225,7 +238,7 @@ A2OPT      := $(if $(filter 0,$(A2)),--no-a2,--a2)
 NATIVE     := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind native --toolchain "$(JIELI_LINUX)" $(DV) $(OPTS) $(A2OPT)
 WINE       := $(PYTHON) -I $(BUILD) --model $(MODEL) --firmware-only --toolchain-kind wine --toolchain "$(JIELI_WIN)" --wine-prefix "$(WINEPREFIX)" $(DV) $(OPTS) $(A2OPT)
 
-.PHONY: suite-begin suite-gate help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
+.PHONY: test-oc-guard suite-begin suite-gate help verify firmware firmware-native firmware-ref crosscheck web web-smoke host-smoke test flash-budget package-equivalence \
         package hosted release-assets publish release rc promote device-gate clean midi-import-test midi-import-sim workbench-test timed-note-test clip-v3-test \
         check lint host-sanitize test-fast suite profile firmware-ref-run crosscheck-run host-sanitize-run suite-run midi-guide \
         web-normal web-diag web-old536 backup-test manual
@@ -415,7 +428,7 @@ suite:
 # and release-assets refuse any other commit, another display version or a tree that is not clean.
 suite-begin:
 	@$(PYTHON) -I tools/linux/suite-gate.py begin --display "$(DISPLAY_VERSION)"
-suite-run: suite-begin crosscheck-run test midi-import-sim host-sanitize-run
+suite-run: suite-begin test-oc-guard crosscheck-run test midi-import-sim host-sanitize-run
 	@$(PYTHON) -I tools/linux/suite-gate.py mark --display "$(DISPLAY_VERSION)"
 	@{ echo "suite passed $$(date -u +%FT%TZ) at $$(git rev-parse --short HEAD) (crosscheck, test, midi-import-sim, host-sanitize)"; \
 	   sha256sum build/$(MODEL)/sdk.elf "$(FWSC)" build/$(MODEL)/generated/app-image.bin; } | tee build/suite-passed.txt
@@ -527,6 +540,11 @@ release: release-assets
 	@test -f "docs/releases/$(TAG).md" || { echo "write docs/releases/$(TAG).md first"; exit 1; }
 	gh release create "$(TAG)" --repo "$(GITHUB_REPO)" --verify-tag --title "$(RELEASE_TITLE)" \
 	    $(if $(filter 1,$(PRERELEASE)),--prerelease,) --notes-file "docs/releases/$(TAG).md" "build/release/$(TAG)/"*
+
+# The proof of the Orange Cat soak guard (docs/DEV_CHECKS.md): every Makefile target and every script under tools/,
+# scripts/ and tests/, found by the test itself, refuses while a (fake) flag exists and gets past the guard after.
+test-oc-guard:
+	$(T) $(PYTHON) -I tests/linux/oc-guard-test.py
 
 clean:
 	git worktree remove --force build/gh-pages 2>/dev/null || true

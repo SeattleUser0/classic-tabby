@@ -65,6 +65,7 @@ Revision log
     v0.1  2026-11-01  Initial port of tools/Build-Web.ps1 (Task 01, Step 6). Local preview
                       and package modes; Linux WASI SDK 27 pinned.
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 
 import argparse
 import hashlib

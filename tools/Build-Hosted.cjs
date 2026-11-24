@@ -2,6 +2,7 @@
 // Static-site packaging. Keep the standalone download intact.
 // Classic Tabby, Task 08 (2026-11-04): assets.json also carries "version", the display version
 // (FM1_SIMULATOR.display_version, the git tag); "release" stays the Open label.
+require(require('path').join(__dirname, '../scripts/oc_guard.cjs'));   // OC-GUARD: the Orange Cat soak rule, before anything else
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const [input,output]=process.argv.slice(2);assert(input&&output,'Pass the standalone HTML and a new staging directory.');
 assert(!fs.existsSync(output),'Use a new staging directory.');

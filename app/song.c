@@ -770,7 +770,10 @@ static FM1_AUDIO_CODE int song_switch(unsigned next, uint32_t bd, unsigned at)
             /* A scene jump landed: every track follows the song again (9.13). */
             jump_row = SONG_NONE; song_over = 0; landed = 1;
             for (unsigned t = 0; t < SONG_TRACKS; ++t) {
-                if (tr[t].state != 0) release_track(t);
+                /* tabby-v1.5 (the user's answer of 2026-11-24): a recall that lands in the grace cuts what sounds on every
+                 * track: the old scene's notes on the line end where the new scene's begin, 7 to 25 ms later, and do not
+                 * ring on beside them (a clip launch has always released its track) */
+                if (tr[t].state != 0 || scene_since) release_track(t);
                 tr[t].state = 0; queue_kind[t] = Q_NONE; plan[t].landing = 0;
                 streams[1 + t].active = 0;
             }

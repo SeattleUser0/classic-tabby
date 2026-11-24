@@ -36,6 +36,7 @@
 //   v0.2  2026-11-19  --check and screens.json; the question on ACTIONS, SAVE PROJECT, the fourth SETTING page, a
 //                     step with notes; no start screen (it shows the build's version).
 //   v0.1  2026-11-19  First version (tabby-v1.1: the readable screen).
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';

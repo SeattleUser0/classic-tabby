@@ -14,6 +14,7 @@
 //
 // Version: 0.1 (2026-11-14, tabby-v04.5.1)
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

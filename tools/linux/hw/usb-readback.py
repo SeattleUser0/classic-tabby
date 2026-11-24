@@ -58,6 +58,7 @@ Revision log
     v0.2  2026-11-08  --seq backend (ALSA sequencer via python-rtmidi; shares the port with Chrome).
     v0.1  2026-11-08  Task 11C: first version (identity, soak).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 
 import argparse
 import json

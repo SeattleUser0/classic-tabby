@@ -26,6 +26,7 @@
 // Revision log
 //   v0.1  2026-11-09  Initial version (the 2026-11-09 install incident).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

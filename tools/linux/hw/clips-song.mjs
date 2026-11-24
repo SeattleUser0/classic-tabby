@@ -16,6 +16,7 @@
 //
 // Revision log
 //   v0.1  2026-11-14  First version.
+import '../../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { writeFileSync } from 'node:fs';
 import { write, note } from '../../../tests/midi-import/smf-write.mjs';
 

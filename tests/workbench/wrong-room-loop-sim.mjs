@@ -33,6 +33,7 @@
 //   v0.2  2026-11-18  tabby-v1.0.2: EVENT LEAD (OFF identical to tabby-v1.0.1; 1/16; with a gap).
 //   v0.1  2026-11-18  First version (tabby-v1.0.1).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';

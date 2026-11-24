@@ -179,7 +179,7 @@ static void put32(uint8_t *p, uint32_t value)
  *   {10, track}        stop the track at the next master cycle
  *   {11, track}        back to the song at the next master cycle (255: every track)
  * The status is 14 bytes from v0.8: [13] CLOCK (0 INT, 1 MIDI). */
-static uint32_t remote_buttons, remote_pads, remote_at;
+static uint32_t remote_buttons, remote_pads, remote_at, remote_held_since;
 /* tabby-v1.4: what a remote command presses is marked in the input log: only the panel's own events count as phantom */
 static void remote_event(unsigned kind, unsigned id, int value) { uint8_t was = ct_input_source; ct_input_source = 1; smk37_control_event(kind, id, value); ct_input_source = was; }
 static uint64_t remote_keys;   /* 37 keys: more than 32 bits (cppcheck found the shift by 36 in the first draft) */
@@ -193,7 +193,13 @@ static void remote_release_all(void)
 /* Control task, every poll: the watchdog (a lost PC must not leave SHIFT held). */
 static void groove_remote_poll(uint32_t now)
 {
-    if ((remote_buttons || remote_keys || remote_pads) && now - remote_at > 5000U) remote_release_all();
+    unsigned held = remote_buttons || remote_keys || remote_pads;
+    if (held && now - remote_at > 5000U) remote_release_all();
+    /* tabby-v1.5 (the user's answer of 2026-11-24): and after 30 s whatever else arrives. A test tool that died between
+     * its KNOB BANK down and up left KNOB BANK held for as long as other remote commands kept coming, and the next pad
+     * 9 to 16 from any tool muted a track. Nothing a tool does holds a key for 30 s. */
+    if (!held) remote_held_since = now;
+    else if (now - remote_held_since > 30000U) { remote_release_all(); remote_held_since = now; }
 }
 static void remote_status(uint8_t *out, unsigned *count)
 {

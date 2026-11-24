@@ -69,6 +69,7 @@ Revision log
                       tools/Build-Hosted.cjs, gh-pages worktree update, push with the gh
                       credential helper, .nojekyll, tag/clean-tree/source-link checks.
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 
 import argparse
 import importlib.util
@@ -273,6 +274,7 @@ def update_branch(staging, report, source_url, args, log):
     sha = git(["rev-parse", "HEAD"], cwd=worktree)
     log("Committed %s on %s: %s" % (sha[:12], branch, subject))
     if args.push:
+        oc_guard.check("publish-pages.py: the push")   # OC-GUARD: right before anything goes out on the network
         cmd = ["-c", "credential.helper=!gh auth git-credential", "push", remote, "%s:%s" % (branch, branch)]
         git(cmd, cwd=worktree, capture=False)
         log("Pushed %s to %s." % (branch, remote))

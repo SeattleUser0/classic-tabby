@@ -32,6 +32,7 @@
 //   v0.2  2026-11-10  Task 14: Z expects no force button element at all (the page dropped it).
 //   v0.1  2026-11-09  Initial version (Task 12, the 2026-11-09 install incident).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

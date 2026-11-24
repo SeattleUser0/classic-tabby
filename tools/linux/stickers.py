@@ -41,6 +41,7 @@ Revision log
     v0.2  2026-11-17  Every dimension is printed as inches in fractions to 1/32 (frac); the decimals stay in measurements.json.
     v0.1  2026-11-17  First version (labels of CONTROL-MAP.md v0.9, tabby-v04.14).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import argparse, html, json, shutil, subprocess, sys
 from pathlib import Path
 
@@ -463,6 +464,7 @@ def main():
     print("wrote %s and measurements.json" % page)
     if not a.no_pdf:
         pdf = out / "classic-tabby-stickers.pdf"
+        oc_guard.check("a browser (stickers.py)")   # OC-GUARD: right before the browser is launched
         r = subprocess.run([a.chrome, "--headless=new", "--disable-gpu", "--no-pdf-header-footer", "--print-to-pdf=%s" % pdf.resolve(), page.resolve().as_uri()],
                            capture_output=True, text=True)
         if r.returncode or not pdf.is_file():

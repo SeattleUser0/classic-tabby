@@ -21,6 +21,7 @@ Revision log
                       manual.json records their SHA-256 too: --check fails when a picture changed without a new PDF.
     v0.1  2026-11-17  First version (the user's answer 6: one printable PDF of the full manual).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import argparse, hashlib, json, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -102,6 +103,7 @@ def main():
             sys.stderr.write("manual-pdf: the guide page has no single style block\n"); return 1
         text = text.replace("</style>", PRINT_CSS + "</style>").replace("<title>Classic Tabby testing guide</title>", "<title>Classic Tabby manual</title>")
         page.write_text(text, encoding="utf-8")
+        oc_guard.check("a browser (manual-pdf.py)")   # OC-GUARD: right before the browser is launched
         r = subprocess.run([a.chrome, "--headless=new", "--disable-gpu", "--no-pdf-header-footer", "--allow-file-access-from-files", "--print-to-pdf=%s" % PDF.resolve(), page.resolve().as_uri()],
                            capture_output=True, text=True, timeout=180)
         if r.returncode != 0 or not PDF.is_file() or PDF.read_bytes()[:5] != b"%PDF-":

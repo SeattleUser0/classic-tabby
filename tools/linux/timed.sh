@@ -25,6 +25,7 @@
 #   v0.1  2026-11-04  Task 07 Step 2: initial version. The shape of the line follows Orange Cat's
 #                     build/host/profile.txt (docs/DEV_CHECKS.md on its dev-tools branch), reduced to
 #                     one line per command since Classic Tabby's targets are single commands.
+"$(dirname "$(readlink -f "$0")")/../../scripts/oc_guard.sh" "$0"; oc=$?; [ $oc -eq 0 ] || exit $(( oc == 64 ? 0 : oc ))   # OC-GUARD: the Orange Cat soak rule, before anything else
 set -u
 PROFILE=${TABBY_PROFILE:-build/profile.txt}
 

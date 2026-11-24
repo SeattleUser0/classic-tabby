@@ -2007,6 +2007,7 @@ void groove_screen_tap(uint32_t now)
     int bpm = groove_tempo_tap(now);
     announce(bpm < 0 ? "TAP: EXTERNAL MIDI CLOCK" : bpm ? "TAP TEMPO APPLIED" : "TAP AGAIN / PATCH+SEQ", now + 1500U);
 }
+static void kb_mute_poll(uint32_t now);   /* tabby-v1.5: below, with smk37_screen_shortcut */
 /* Keep modal editors out of the common key/transport control frame. */
 static int apply_controls(const struct fm1_controls *controls, uint32_t now,
                           const struct fm1_ble_status *ble)
@@ -2020,6 +2021,7 @@ static int apply_controls(const struct fm1_controls *controls, uint32_t now,
     blocked_keys &= controls->keys;
     /* tabby-v1.2.1 (the user's answer of 2026-11-20): any press on the panel takes the message box away at once: a
      * button, a knob, and now a pad or a key too. What the press itself has to say comes after this line. */
+    kb_mute_poll(now);   /* tabby-v1.5: a mute under KNOB BANK waits for its pad to be held */
     if (pressed || key_down || encoder_active(controls->encoders)) notice = NULL;
 #ifdef CT_A2
     /* tabby-v1.3: the worst-lateness record names the last panel action (app/midi_router.c) */
@@ -3242,16 +3244,17 @@ void smk37_screen_page(unsigned target)
     else {source_preview=groove_source_type(track);source_result=0;}
     boot_active=0;cache->shown_page=~0U;
 }
-void smk37_screen_shortcut(unsigned pad)
+/* tabby-v1.5 (the user's order of 2026-11-24): KNOB BANK + pad 1 to 8 selects a track and KNOB BANK + pad 9 to 16 mutes
+ * one, and the two rows lie one above the other: a hand that goes for track 1's pad and catches the pad under it muted
+ * track 1 (that is what the "mute that nobody asked for" most likely was). The mixer page keeps its mutes from one
+ * press; under KNOB BANK a mute now needs the lower pad HELD for KB_MUTE_MS: a pad that is only brushed does nothing
+ * (HOLD THE PAD TO MUTE), and a pad of the upper row pressed in that time takes the mute back. */
+enum { KB_MUTE_MS = 150 };
+static uint8_t kb_mute_pad = 255;
+static uint32_t kb_mute_ms;
+static void kb_mute_do(unsigned pad)
 {
-    if(pad<8) {
-        if(!release_keys())return;
-        blocked_keys|=previous_keys;
-        if(page==PROJECT || page==SOURCE || page==PRESET_BROWSER)
-            page=music_page=OVERVIEW;
-        select_track((int)pad-(int)track);
-        notice="TRACK SELECTED";
-    } else if(groove_track_role(pad-8)==GROOVE_TRACK_OFF) {
+    if(groove_track_role(pad-8)==GROOVE_TRACK_OFF) {
         /* Task 17 Goal 4: a track without a source can still play a song on MIDI out; its mute holds those notes back. */
         song_mute_bits^=(uint8_t)(1U<<(pad-8));
         notice=track_muted(pad-8)?"MIDI TRACK MUTED":"MIDI TRACK UNMUTED";
@@ -3261,6 +3264,29 @@ void smk37_screen_shortcut(unsigned pad)
         groove_get_view(pad-8,0,&view);
         song_mute_bits=(uint8_t)((song_mute_bits&~(1U<<(pad-8)))|((unsigned)(view.muted!=0)<<(pad-8)));
         notice=view.muted?"TRACK MUTED - SOUND + MIDI":"TRACK UNMUTED";
+    }
+    notice_until=fm1_millis()+1200U;boot_active=0;cache->shown_page=~0U;
+}
+static void kb_mute_poll(uint32_t now)
+{
+    if (kb_mute_pad == 255) return;
+    unsigned pad = kb_mute_pad;
+    if (!smk37_shortcut_held(pad)) { kb_mute_pad = 255; notice = "HOLD THE PAD TO MUTE"; notice_until = now + 1200U; cache->shown_page = ~0U; return; }
+    if (now - kb_mute_ms >= KB_MUTE_MS) { kb_mute_pad = 255; kb_mute_do(pad); }
+}
+void smk37_screen_shortcut(unsigned pad)
+{
+    if(pad<8) {
+        kb_mute_pad=255;   /* tabby-v1.5: the upper row was meant: a mute that waits is taken back */
+        if(!release_keys())return;
+        blocked_keys|=previous_keys;
+        if(page==PROJECT || page==SOURCE || page==PRESET_BROWSER)
+            page=music_page=OVERVIEW;
+        select_track((int)pad-(int)track);
+        notice="TRACK SELECTED";
+    } else {
+        kb_mute_pad=(uint8_t)pad;kb_mute_ms=fm1_millis();   /* tabby-v1.5: the mute waits for the hold (kb_mute_poll) */
+        return;
     }
     notice_until=fm1_millis()+1200U;boot_active=0;cache->shown_page=~0U;
 }

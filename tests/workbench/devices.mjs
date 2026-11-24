@@ -30,6 +30,7 @@
 //                     optional-field validation.
 //   v0.1  2026-11-02  Initial version (Task 04, workbench part).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';

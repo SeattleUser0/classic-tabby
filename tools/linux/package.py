@@ -33,6 +33,7 @@ Revision log
                       the same order and with the same integer widths as the C# original.
                       Layout dictionary keys and values match Package.Create.
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 
 import re
 import sys

@@ -16,6 +16,7 @@
 #
 # Revision log
 #   v0.1  2026-11-04  Task 07 Step 2: moved out of the Makefile; same files, same output lines.
+"$(dirname "$(readlink -f "$0")")/../../scripts/oc_guard.sh" "$0"; oc=$?; [ $oc -eq 0 ] || exit $(( oc == 64 ? 0 : oc ))   # OC-GUARD: the Orange Cat soak rule, before anything else
 set -u
 model=${1:-pro}
 upper=$(echo "$model" | tr a-z A-Z)

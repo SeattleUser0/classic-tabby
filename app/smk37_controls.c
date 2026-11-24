@@ -413,6 +413,7 @@ unsigned smk37_note_repeat(void) {return repeat_tracks;}
 unsigned smk37_note_repeat_down(void) {return (physical_buttons>>7)&1U;}   /* tabby-v04.23: the button itself (the step loop's modifier) */   /* tabby-v04.22: bit t: track t repeats while NOTE REPEAT is held */
 unsigned smk37_pad_steps(void) {return step_pads;}
 unsigned smk37_shift(void) {return physical_buttons&1U;}
+unsigned smk37_shortcut_held(unsigned pad) {return pad<16 && (shortcut_pads>>pad)&1U;}   /* tabby-v1.5: a pad pressed under KNOB BANK is still down */
 unsigned smk37_pad_aftertouch(void)
 { return channel_pressure[groove_midi_input_channel(smk37_performance_track(1))]; }
 uint32_t smk37_pad_color(unsigned pad,unsigned lit)

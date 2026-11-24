@@ -35,6 +35,7 @@
 //                     checked to one block, the 10 ms-poll band reported.
 //   v0.1  2026-11-02  Initial version (Task 02, Step 4).
 
+import '../../scripts/oc_guard.mjs';   // OC-GUARD: the Orange Cat soak rule, before anything else
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';

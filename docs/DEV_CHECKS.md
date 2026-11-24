@@ -1,6 +1,6 @@
 # Development checks (Task 07; releasing: 2026-11-17)
 
-Version 0.6, 2026-11-17. The opt-in checks between builds, what each catches, how long it takes, and
+Version 0.7, 2026-11-24. The opt-in checks between builds, what each catches, how long it takes, and
 the standing rules for every Classic Tabby session on this machine. The default build is unchanged:
 `make firmware`, `make package` and `make hosted` produce the same bytes as before Task 07 (the gate at
 the end). The measurement series that led here is docs/tasks/TASK-07-step1-assessment.md. The shape of
@@ -10,6 +10,7 @@ compiles 16 firmware units and 36 host units separately, its whole test cycle is
 here needed Orange Cat's per-compile profile, dependency database or `--changed` tier.
 
 Revision log
+- v0.7, 2026-11-24: the Orange Cat soak rule (the file, not the clock), its guard, its proof (make test-oc-guard).
 - v0.6 2026-11-17: "Releasing": one session releases; a release candidate on the device first, then promote
   (the user's rules; SPEC 17.12 and 17.13).
 - v0.4 2026-11-12: rule 0a: pushed tags and builds/ pages are never moved or deleted.
@@ -17,6 +18,48 @@ Revision log
 - v0.2 2026-11-04: Task 08: the display version (DISPLAY_VERSION, tests/display-version.mjs in web-smoke);
   web-smoke and midi-import-sim depend on `web` (the stale-wasm trap below is closed).
 - v0.1 2026-11-04: first version, Task 07 Steps 2 and 3.
+
+## The Orange Cat soak rule (the user, 2026-11-24; it replaces every earlier "window")
+
+**While `/tmp/oc-soak-running` exists, nothing of ours starts**: no build, no test (host, simulator or device), no
+browser, no publish or promote, no install, no read or write to the SMK-37 or the H4MIDI. **The file is what counts,
+not the clock.** There is no override switch: what must run during a soak waits.
+
+For planning only (never as the check): the soaks start at 7:00, 13:00, 21:00 and 23:30 Pacific and run about 2 h 15
+each. 21:00 to about 1:45 is blocked nearly solid; a full release run fits in 1:45 to 7:00, 9:15 to 13:00 or 15:15
+to 21:00.
+
+How it is enforced (every entry point, with file and line: docs/OC-GUARD-TABLE.md):
+
+| Where | What asks | When |
+| --- | --- | --- |
+| `make` anything | the Makefile itself, through `scripts/oc_guard.sh` | when make reads the Makefile, before any target; again in every sub-make |
+| inside a recipe | `tools/linux/timed.sh` (the `$(T)` prefix) and `scripts/oc_nice.sh` (`$(NICE)`) | before each command |
+| every script under tools/, scripts/ and tests/ | its own first statement: `scripts/oc_guard.py` (`oc_guard.check()`), `scripts/oc_guard.mjs` / `.cjs` (the first import), `scripts/oc_guard.sh`, or the same test written out in a PowerShell script | when the script starts, also when it is called directly or loaded by another script |
+| the device | `tools/linux/hw/tabby_link.py`: `Link()` and `Monitor()` before the port is opened, and before every write | every command of every device tool |
+| a browser | `tools/linux/hw/workbench.mjs`, `tools/linux/manual-pdf.py`, `tools/linux/stickers.py` | right before the browser is launched |
+| the network | `tools/linux/publish-pages.py` | right before the push |
+| long runs | `tools/linux/hw/rc-validate.py` before every command; `tools/linux/release-flow.sh` before every stage (the suite, the candidate's page, the device run, the promotion, `make promote`); `run-soak.py` between segments; `run-songsoak.py` between passes | between steps |
+| Claude Code's own commands | `.claude/settings.json`: PreToolUse hook `scripts/oc_hook.py` on Bash | before any command that runs make, a build, a test, a browser, node, an ALSA MIDI tool, a publish, or a tool that reaches the SMK-37 or the H4MIDI |
+
+The message is always: `Orange Cat soak running (/tmp/oc-soak-running). Refusing to start <name>.` and the exit code
+75. **When the file appears in the middle of a run**: the device tool that is running lets go of every key and stops
+the song (two commands, the only ones still sent), a device write that cannot be safely stopped (an install, a
+restore, a song being written by the workbench) runs to its end, and then the run stops: `INTERRUPTED`, exit code
+75, an `INTERRUPTED-<time>.txt` beside the results. An interrupted run is **neither pass nor fail**: nothing is
+marked, nothing is promoted, and it is run again after the soak.
+
+A queued job waits with `scripts/oc_guard.sh --waiting` (it returns when the file is gone) and then starts; every
+stage after that asks again by itself. A check "once, when the queue was written" is not a check (that is how the
+rule was broken twice in the night of 2026-11-23: docs/BUILD.md 69).
+
+The proof: `make test-oc-guard` (in `make suite`). It finds the entry points itself (the Makefile's targets, every
+script under tools/, scripts/ and tests/), makes a fake flag, runs each one under strace and checks that it refuses
+with the message and touches nothing (no file written, no device node or port opened, no network connection, no
+program started but its interpreter and the guard); removes the flag and checks that each gets past the guard; checks
+the re-check of the release run and the device ports; and checks the hook. A new script without the guard fails it.
+The two test switches (`OC_GUARD_TEST_FLAG`: a SECOND file that blocks; `OC_GUARD_TEST_STOP`: stop right after the
+guard) cannot let anything run during a soak.
 
 ## The standing rules
 

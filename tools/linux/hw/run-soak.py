@@ -37,6 +37,7 @@ Revision log
                       note-ons and note-offs are counted on both ports and must agree (--events: there must be some).
     v0.1  2026-11-18  First version (the user's priority 1 of 2026-11-18: the 9.9 ms run of tabby-v04.23-rc1).
 """
+import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
 import argparse
 import json
 import os
@@ -70,6 +71,8 @@ def main():
     end = time.monotonic() + a.minutes * 60.0
     rows = []; n = 0; t_begin = time.time()
     while time.monotonic() < end:
+        if oc_guard.blocked():      # OC-GUARD: between the segments: the Orange Cat soak began: stop, exit code 75 (interrupted)
+            print("INTERRUPTED: " + oc_guard.message("the next segment", oc_guard.blocked()), flush=True); sys.exit(oc_guard.EXIT_INTERRUPTED)
         slot, lines = songs[n % len(songs)]
         page = pages[(n // len(songs)) % len(pages)]
         tag = "%s-%02d" % (a.tag, n + 1)
