@@ -94,7 +94,7 @@ a set that plays on:
 | Sub steps / flam | yes | no | not planned yet |
 | Edit all events of a step together (item 10) | yes | no | the user: not for now |
 
-Flash margin after tabby-v1.3: 28925 bytes (13565 above the reserve). Free RAM 142892 bytes.
+Flash margin after tabby-v1.4: 25533 bytes (10173 above the reserve). Free RAM 138220 bytes.
 
 ## 1. Excluded once
 

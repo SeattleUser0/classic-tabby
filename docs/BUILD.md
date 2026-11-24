@@ -7262,3 +7262,49 @@ for two cycles after a new scene was recalled. Read for: a track number that is 
 - The silent track 1 of rc2 was NOT a mute: the state read after that test shows no track muted. Track 1 is where every
   test works (the test song's clips, the takes, pad 1), so a fault of "the track being worked on" shows on track 1.
   What was found for it: the buffer mark of SPEC 19.35 (`edit.track` is that track). Not proven.
+
+### 68.5 tabby-v1.4-rc3: not promoted; four hours with nothing injected
+
+Commit f516509, build `8da6b462b73330de` (the pads' levels from their own noise, the spike test, the grace for scene
+recalls too, the stale buffer mark). Run after the Orange Cat window, without soaks, not to be promoted.
+
+- record 30 of 30, setup 41 of 41, stop 10 of 10, timing (one line DIN 1.62, 1.68, 1.72; pages 1.58 to 1.74; eight
+  lines 2.75 to 2.95), guard, backup, restore, verify: pass. The record over the run: running 5.21 ms (CLIPS, in a
+  test), stopped 17.23 ms.
+- **barline** (v0.1 of the tool): no launch without its first note any more in any case (the catch-up). Clips and
+  scenes landed from 8.5 and 8.8 ms before the line. The rows at 6 and 3 ms said "waited a cycle": the tool looked
+  only at the FIRST note on the line, and a press in the grace lands after the old clip's note on the line has
+  sounded. run-barline v0.2 looks at every note there, judges the pad's own send time, and gives the first note's
+  distance from the line.
+- **launch** 38 of 40: the test pressed 0 ms after a line and the clip landed at once (first note 14 ms after the
+  line) where the test expected a queued pad and the next cycle. run-launch v0.8 keeps its presses out of the 80 ms
+  after a line; the grace is the bar-line step's business.
+- **screen** 41 of 46: the device's CLIPS and SCENES pages (stopped) showed LATE 043, the count the bar-line step
+  had left: each late landing counted. Grace landings are no longer counted (`grace_tick`, `grace_wait`), and the
+  counter starts at 0 when a song is loaded.
+
+**run-phantom v0.2 on rc3, 12 periods of 20 minutes** (../overnight/v15/phantom/soak2.log): **0 events from the
+panel in 240 minutes**; no analog control sent anything; no reading above a pad's arm level at all (rest + 24 at
+least: the readings of 14 to 16 of the first soak lie under it now); no spike refused; the resting noise per pad 0
+to 7 (release level rest + 12 to rest + 15). So in six hours of soaks nothing pressed by itself, one reading (582,
+pad 2, the mixer page, playing) came near it, and the levels that made a held pad possible are changed. Whether
+spikes come with screen drawing or USB traffic: with one spike in six hours, NOT ANSWERED; the capture keeps what
+the control task was doing for the next one.
+
+### 68.6 The bar line with the grace, measured on rc3 (run-barline v0.2)
+
+Six presses per lead; "sent" is the pad's own send time, negative = after the line; the first note of the new clip
+or scene in ms after the line (../overnight/v15/barline/rc3b.log):
+
+| The pad sent | clip launch | scene recall | the BT key, then a clip pad |
+| --- | --- | --- | --- |
+| 40 to 13 ms before the line | landed 6 of 6, first note on the line (-1.0 ms) | 6 of 6 | 6 of 6 (first note -1 to +6 ms) |
+| 12 to 4 ms before | 6 of 6, first note -1 to +7.5 ms | 6 of 6 | 6 of 6, +2 to +11 ms |
+| 3 ms before to 8 ms after | 6 of 6, +7 to +17 ms | 6 of 6, +7 to +19 ms | 6 of 6, +13 to +25 ms |
+| 10 to 13 ms after | 3 of 6 (+20 to +24 ms), 3 waited a cycle | 3 of 6, 3 waited | 5 of 12 |
+| 15 ms after and later | 0 of 6: the next line | 0 of 6 | 0 of 6 |
+
+No launch without its first note in 216 presses. The latest press that landed: 11.2 (clip), 11.5 (scene), 13.8 ms
+(page + clip) AFTER the line; the earliest that waited a cycle: 12.9, 10.7, 14.2 ms after it. Before (68.2): a clip
+needed 20 ms before the line, a scene 10 ms, page + clip 25 ms. The release-run check (a press sent 12 ms or more
+before the line lands with its first notes): PASS for all three.

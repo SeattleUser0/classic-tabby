@@ -2,7 +2,7 @@
 
 Version: 0.54
 Revision log:
-- v0.54, 2026-11-23: section 54: tabby-v1.4 measured.
+- v0.54, 2026-11-23: section 54: tabby-v1.4 measured, 493924 bytes, margin 25533.
 - v0.53, 2026-11-21: section 53: tabby-v1.3 measured, 490532 bytes, margin 28925.
 - v0.52, 2026-11-20: section 52: tabby-v1.2.1 measured, 488676 bytes, margin 30781.
 - v0.51, 2026-11-20: section 51: tabby-v1.2 measured, 488548 bytes, margin 30909.
@@ -1453,7 +1453,7 @@ Above the 15360-byte reserve: 13565 bytes.
 | Build (measured, USER 471040, hard limit 519457) | App image | Change | Margin |
 | --- | ---: | ---: | ---: |
 | tabby-v1.3 | 490532 | | 28925 |
-| tabby-v1.4: the input log and the pad captures; the pads' levels; SEQ REC + pad stores a scene; resting controls; the bar line; an edit heard at once | IMAGE | +DELTA | **MARGIN** |
+| tabby-v1.4: the input log and the pad captures; the pads' levels; SEQ REC + pad stores a scene; resting controls; the bar line; an edit heard at once | 493924 | +3392 | **25533** |
 
-RAM (runtime heap): HEAP bytes (the input log of 128 events, the captures). Above the 15360-byte reserve: ABOVE bytes.
+RAM (runtime heap): 138220 bytes (-4672: the input log of 128 events, the pad captures, the resting levels). Above the 15360-byte reserve: 10173 bytes.
 

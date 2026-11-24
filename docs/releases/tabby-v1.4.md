@@ -2,8 +2,8 @@ Nothing happens by itself: a scene is stored with SEQ REC held and an empty pad,
 
 # Classic Tabby tabby-v1.4: nothing happens by itself
 
-- Firmware package build ID: `BUILDID` (first 16 hex digits). App image IMAGE bytes (measured), margin MARGIN bytes
-  below the 519457-byte limit (docs/FLASH-BUDGET.md 54). At least 15360 bytes stay free for fixes. Free RAM HEAP bytes.
+- Firmware package build ID: `46301b99eb3e5a67` (first 16 hex digits). App image 493924 bytes (measured), margin 25533 bytes
+  below the 519457-byte limit (docs/FLASH-BUDGET.md 54). From tabby-v1.3 (`2fea867243829b60`): +3392 bytes. At least 15360 bytes stay free for fixes. Free RAM 138220 bytes.
 - Installing over tabby-v04.2 to tabby-v1.3 keeps storage as it is. Take a Full backup first anyway.
 - **Going back to older firmware:** songs saved on tabby-v04.10 or later cannot be read by older firmware. Go back to
   an older build only with a Full backup made before tabby-v04.10: install the older build, then restore that backup.
@@ -11,7 +11,11 @@ Nothing happens by itself: a scene is stored with SEQ REC held and an empty pad,
   tabby-v04.15, SHUFFLE and PLAY QUANTIZE before tabby-v04.17, STEP SIZE before tabby-v04.19, DIRECTION before
   tabby-v04.20. A song with EVENT LEAD set plays on older firmware, without the lead.
 - Released through the candidate flow, with the per-page timing check, the comparison of the device's own screen
-  pixels and the soaks. CANDIDATES
+  pixels, the bar-line check and the soaks, as candidate 5. Candidates 1 to 4 were not to be promoted or were held
+  back (docs/BUILD.md 68): 1 carried the input log onto the device for a soak with nothing injected; 2 stopped at the
+  new bar-line step (the release tool's fault) after one failed check that was not seen again; 3 was held back by
+  three checks that the grace after the bar line made wrong (fixed in the tools and in what the LATE counter
+  counts); 4 made the device's screen pictures for the manual. Candidate 5 is candidate 4's firmware.
 
 ## What changed
 
