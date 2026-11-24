@@ -2,7 +2,7 @@ A mute under KNOB BANK needs its pad held, so reaching for a track pad no longer
 
 # Classic Tabby tabby-v1.5: a mute under KNOB BANK needs its pad held
 
-- Firmware package build ID: `d402d6c42a6a4895` (first 16 hex digits). App image 494212 bytes (measured), margin 25245 bytes
+- Firmware package build ID: `7c12d1c2a3ce15ed` (first 16 hex digits). App image 494212 bytes (measured), margin 25245 bytes
   below the 519457-byte limit (docs/FLASH-BUDGET.md 55). From tabby-v1.4 (`46301b99eb3e5a67`): +288 bytes. At least
   15360 bytes stay free for fixes. Free RAM 138188 bytes.
 - Installing over tabby-v04.2 to tabby-v1.4 keeps storage as it is. Take a Full backup first anyway.
@@ -13,7 +13,8 @@ A mute under KNOB BANK needs its pad held, so reaching for a track pad no longer
   tabby-v04.20. A song with EVENT LEAD set plays on older firmware, without the lead.
 - Released through the candidate flow, with the per-page timing check, the comparison of the device's own screen
   pixels, the bar-line check and the soaks. Every build, test, browser, publish and device access of the flow now
-  asks the Orange Cat soak guard first and between its steps (docs/DEV_CHECKS.md). CANDIDATES
+  asks the Orange Cat soak guard first and between its steps (docs/DEV_CHECKS.md). Candidate 1 was a short run
+  without soaks, not to be promoted; candidate 2 is the same firmware, tested in full.
 
 ## What changed
 
