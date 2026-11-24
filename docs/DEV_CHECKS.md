@@ -40,7 +40,8 @@ How it is enforced (every entry point, with file and line: docs/OC-GUARD-TABLE.m
 | a browser | `tools/linux/hw/workbench.mjs`, `tools/linux/manual-pdf.py`, `tools/linux/stickers.py` | right before the browser is launched |
 | the network | `tools/linux/publish-pages.py` | right before the push |
 | long runs | `tools/linux/hw/rc-validate.py` before every command; `tools/linux/release-flow.sh` before every stage (the suite, the candidate's page, the device run, the promotion, `make promote`); `run-soak.py` between segments; `run-songsoak.py` between passes | between steps |
-| Claude Code's own commands | `.claude/settings.json`: PreToolUse hook `scripts/oc_hook.py` on Bash | before any command that runs make, a build, a test, a browser, node, an ALSA MIDI tool, a publish, or a tool that reaches the SMK-37 or the H4MIDI |
+| Claude Code's own commands, session started in this repository | `.claude/settings.json`: PreToolUse hook `scripts/oc_hook.py` on Bash | before any command that runs make, a build, a test, a browser, node, an ALSA MIDI tool, a publish, or a tool that reaches the SMK-37 or the H4MIDI |
+| Claude Code's own commands, any session on this computer | the user's `~/.claude/settings.json`: PreToolUse hook `scripts/oc_hook_user.py` on Bash | before a command that is clearly Classic Tabby's (it runs in or names the Classic Tabby directory, loads tabby_link, runs a tool of the repository, publishes for SeattleUser0/classic-tabby, or opens the SMK-37's port by name) and that the repository's hook would block. Never a command of Orange Cat's: generic make, node, python, amidi or Chrome pass |
 
 The message is always: `Orange Cat soak running (/tmp/oc-soak-running). Refusing to start <name>.` and the exit code
 75. **When the file appears in the middle of a run**: the device tool that is running lets go of every key and stops
@@ -58,6 +59,9 @@ script under tools/, scripts/ and tests/), makes a fake flag, runs each one unde
 with the message and touches nothing (no file written, no device node or port opened, no network connection, no
 program started but its interpreter and the guard); removes the flag and checks that each gets past the guard; checks
 the re-check of the release run and the device ports; and checks the hook. A new script without the guard fails it.
+Start a Classic Tabby session inside the repository, so that both hooks load:
+`cd "$HOME/Documents/Classic Tabby/firmware-clipv3" && claude`.
+
 The two test switches (`OC_GUARD_TEST_FLAG`: a SECOND file that blocks; `OC_GUARD_TEST_STOP`: stop right after the
 guard) cannot let anything run during a soak.
 

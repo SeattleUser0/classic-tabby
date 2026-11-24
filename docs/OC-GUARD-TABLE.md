@@ -1,7 +1,7 @@
 # The Orange Cat soak guard: every entry point and where it calls the guard
 
 Written by `python3 -I tests/linux/oc-guard-test.py --table` (make test-oc-guard checks that it is current). The rule:
-docs/DEV_CHECKS.md. 52 Makefile targets, 110 scripts.
+docs/DEV_CHECKS.md. 52 Makefile targets, 111 scripts.
 
 ## Makefile targets
 
@@ -72,7 +72,8 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `scripts/oc_guard.mjs` | the guard itself | |
 | `scripts/oc_guard.py` | the guard itself | |
 | `scripts/oc_guard.sh` | the guard itself | |
-| `scripts/oc_hook.py` | the hook: it must run during a soak, to say no (it reads the flag at its line 57) | |
+| `scripts/oc_hook.py` | the hook: it must run during a soak, to say no (it reads the flag at its line 58) | |
+| `scripts/oc_hook_user.py` | the user-level hook, for Classic Tabby's commands only: it must run during a soak, to say no (it uses the flag test of scripts/oc_hook.py) | |
 | `scripts/oc_nice.sh` | scripts/oc_nice.sh:8 |  |
 | `tests/clip-v3/dump-v2.mjs` | tests/clip-v3/dump-v2.mjs:18 |  |
 | `tests/clip-v3/importer.mjs` | tests/clip-v3/importer.mjs:17 |  |
@@ -83,7 +84,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tests/linux/device-gate-test.py` | tests/linux/device-gate-test.py:14 |  |
 | `tests/linux/flash-part-guard.py` | tests/linux/flash-part-guard.py:22 |  |
 | `tests/linux/midi-monitor-test.py` | tests/linux/midi-monitor-test.py:28 |  |
-| `tests/linux/oc-guard-test.py` | tests/linux/oc-guard-test.py:36 | 219 |
+| `tests/linux/oc-guard-test.py` | tests/linux/oc-guard-test.py:37 | 223 |
 | `tests/linux/suite-gate-test.py` | tests/linux/suite-gate-test.py:13 |  |
 | `tests/midi-import/make-fixtures.mjs` | tests/midi-import/make-fixtures.mjs:53 |  |
 | `tests/midi-import/run.mjs` | tests/midi-import/run.mjs:58 |  |

@@ -28,9 +28,10 @@ Purpose
 Usage
     python3 -I tests/linux/oc-guard-test.py [--list]       (make test-oc-guard; part of make suite)
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-24  The user-level hook: every command of ours blocked, every Orange Cat command allowed (docs/BUILD.md 69.4).
     v0.1  2026-11-24  First version (docs/BUILD.md 69).
 """
 import os as _oc_os, sys as _oc_sys; _oc_sys.path.insert(0, _oc_os.path.join(_oc_os.path.dirname(_oc_os.path.abspath(__file__)), "../../scripts")); import oc_guard; oc_guard.check()   # OC-GUARD: the Orange Cat soak rule, before anything else (scripts/oc_guard.py)
@@ -46,6 +47,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 EXTS = (".py", ".sh", ".mjs", ".cjs", ".js", ".ps1")
 GUARD_FILES = {"scripts/oc_guard.sh", "scripts/oc_guard.py", "scripts/oc_guard.cjs", "scripts/oc_guard.mjs"}
 HOOK = "scripts/oc_hook.py"
+USER_HOOK = "scripts/oc_hook_user.py"
 # programs an entry point may start before the guard has spoken: its interpreter, the shell, and the guard's own helpers
 ALLOWED_EXEC = {"make", "gmake", "bash", "sh", "dash", "python3", "python", "node", "pwsh", "env", "oc_guard.sh", "oc_nice.sh", "basename", "dirname", "readlink", "strace"}
 failed = []
@@ -169,6 +171,8 @@ def table(targets, files):
         lines = open(os.path.join(ROOT, f), errors="replace").read().split("\n")
         if f in GUARD_FILES:
             out.append("| `%s` | the guard itself | |" % f); continue
+        if f == USER_HOOK:
+            out.append("| `%s` | the user-level hook, for Classic Tabby's commands only: it must run during a soak, to say no (it uses the flag test of scripts/oc_hook.py) | |" % f); continue
         if f == HOOK:
             out.append("| `%s` | the hook: it must run during a soak, to say no (it reads the flag at its line %d) | |" % (f, next(i + 1 for i, l in enumerate(lines) if l.startswith("def blocked")))); continue
         first = next((i + 1 for i, l in enumerate(lines) if "OC-GUARD" in l or (f == "scripts/oc_nice.sh" and "oc_guard.sh" in l)), None)
@@ -180,7 +184,7 @@ def table(targets, files):
 def main():
     targets = ["make " + t for t in make_targets()]
     files = scripts()
-    entries = targets + [f for f in files if f not in GUARD_FILES and f != HOOK]
+    entries = targets + [f for f in files if f not in GUARD_FILES and f not in (HOOK, USER_HOOK)]
     if "--list" in sys.argv:
         print("\n".join(entries)); return 0
     if "--table" in sys.argv:
@@ -259,6 +263,46 @@ def main():
         for cmd, must in samples:
             code, err = hook(cmd)
             check((code == 2 and "Orange Cat soak running" in err) if must else code == 0, "hook, flag present: %-7s %s" % ("BLOCKED" if code == 2 else "allowed", cmd), err[-100:])
+        # ---- 5b. the user-level hook (scripts/oc_hook_user.py): every session on this computer loads it, Orange Cat's too.
+        # With the flag it must block every command of ours and NOT ONE of Orange Cat's.
+        R = ROOT
+        def user_hook(cmd, cwd):
+            env = dict(os.environ); env["OC_GUARD_TEST_FLAG"] = flag
+            r = subprocess.run([sys.executable, USER_HOOK], cwd=ROOT, env=env, input=json.dumps({"tool_name": "Bash", "cwd": cwd, "tool_input": {"command": cmd}}), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return r.returncode, r.stderr.strip()
+        ours = [('cd "%s" && make suite DISPLAY_VERSION=tabby-v1.5' % R, "/home/userzero"), ("make test-fast", R),
+                ('cd "%s"; node tools/linux/hw/workbench.mjs backup --url U --file f' % R, "/home/userzero"),
+                ('cd "%s"; ~/fm1-hw/hwvenv/bin/python3 - <<\'EOF\'\nimport sys\nsys.path.insert(0, "tools/linux/hw"); import tabby_link as T\nl = T.Link()\nEOF' % R, "/home/userzero"),
+                ('~/fm1-hw/hwvenv/bin/python3 -c "import sys; sys.path.insert(0, \'x\'); import tabby_link as T; T.Link()"', "/home/userzero"),
+                ('amidi -p "SMK37" -S "F0 7D 00 F7"', "/home/userzero"), ("gh release edit tabby-v1.4 -R SeattleUser0/classic-tabby --notes-file x", "/home/userzero"),
+                ('cd "%s" && git push -q origin HEAD:classic-tabby/record' % R, "/home/userzero"), ('cd "%s" && tools/linux/release-flow.sh tabby-v1.5 1 ../overnight/v16' % R, "/home/userzero"),
+                ('/usr/bin/google-chrome --headless=new --print-to-pdf=a.pdf "file://%s/build/guide.html"' % R, "/home/userzero"), ("python3 -I tools/linux/publish-pages.py --push", R),
+                ("cd ~/Documents/Classic\\ Tabby/firmware && make suite", "/home/userzero")]
+        for cmd, cwd in ours:
+            code, err = user_hook(cmd, cwd)
+            check(code == 2 and "Orange Cat soak running" in err, "user hook, flag present: BLOCKED (ours) %s" % cmd.replace("\n", " \\n ")[:110], "exit %d %s" % (code, err[-80:]))
+        for cmd, cwd in (('cd "%s"; sed -n 1,5p Makefile; git status --short' % R, "/home/userzero"), ('grep -n tabby_link "%s/tools/linux/hw/run-stop.py"' % R, "/home/userzero")):
+            code, err = user_hook(cmd, cwd)
+            check(code == 0, "user hook, flag present: allowed (reading a file of ours) %s" % cmd[:90], err[-80:])
+        # Orange Cat's own commands: real ones, from its sessions and the shell history of this computer (the file beside this
+        # test), and the commands of its scripts; from the home directory and from inside its repository
+        theirs = json.load(open(os.path.join(ROOT, "tests/linux/oc-guard-orange-cat-samples.json")))
+        theirs += ["cd ~/OrangeCat && ./build.sh", "cd ~/oc-dev-tools && tools/ci_gate.sh", "cd ~/oc-dev-tools && tools/lint.sh", "cd ~/OrangeCat && tools/flash.sh build/orangecat.fw",
+                   "amidi -l", 'amidi -p hw:2,0,0 -S "F0 7E 7F 06 01 F7" -d -t 1', "make -C ~/oc-dev-tools/tests", "node ~/oc-web-r7/web/test_web.mjs",
+                   "google-chrome --headless=new --dump-dom file:///home/userzero/oc-web-r7/web/editor.html", "~/fm1-hw/hwvenv/bin/python3 ~/fm1-hw/r22/probe.py boot",
+                   "cd ~/oc-int-suite && ~/fm1-hw/r23/suite-int.sh", "python3 tools/ci_step.py build", "gh run view 44588839353 -R SeattleUser0/OrangeCat", "cd ~/OrangeCat && git push origin linux-hw",
+                   "make", "node test.mjs", "python3 -m pytest", 'journalctl -k | grep -iE "SMK37|Product:"; amidi -l']
+        hit = []
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import oc_hook, oc_hook_user
+        for cmd in theirs:
+            for cwd in ("/home/userzero", "/home/userzero/OrangeCat", "/home/userzero/oc-dev-tools"):
+                why = oc_hook_user.ours(cmd, cwd)
+                if why and (oc_hook.reason(cmd) or why == "the SMK-37's MIDI port"):
+                    hit.append(cmd[:100])
+        codes = [user_hook(cmd, "/home/userzero")[0] for cmd in theirs[:12] + theirs[-18:]]      # and 30 of them through the hook as a process
+        check(not hit and all(c == 0 for c in codes), "user hook, flag present: allowed: every one of %d Orange Cat commands, from 3 directories (%d real ones from its sessions and this computer's shell history, %d of its scripts and generic make / node / python / amidi / Chrome)" % (
+            len(theirs), len(theirs) - 18, 18), "; ".join(hit[:3]))
         st = json.load(open(os.path.join(ROOT, ".claude/settings.json")))
         wired = any(h.get("matcher") == "Bash" and any("oc_hook.py" in x.get("command", "") for x in h.get("hooks", [])) for h in st.get("hooks", {}).get("PreToolUse", []))
         check(wired, ".claude/settings.json: the hook is wired as PreToolUse for Bash")
@@ -278,6 +322,9 @@ def main():
         for cmd, must in samples[:2]:
             code, err = hook(cmd)
             check(code == 0, "hook, flag gone:    allowed %s" % cmd, err[-100:])
+        for cmd, cwd in ours[:3]:
+            code, err = user_hook(cmd, cwd)
+            check(code == 0, "user hook, flag gone: allowed %s" % cmd[:90], err[-100:])
         try:
             current = open(os.path.join(ROOT, "docs/OC-GUARD-TABLE.md")).read() == table(targets, files)
         except OSError:

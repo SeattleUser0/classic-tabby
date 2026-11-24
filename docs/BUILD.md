@@ -7364,3 +7364,27 @@ that word (removed).
 A limit that is stated, not solved: `.claude/settings.json` is read by a Claude Code session started IN this
 repository. A session started elsewhere (mine starts in the home directory) loads its hooks from there. The same
 hook belongs in the user's own settings for such sessions; that file is the user's, and is not changed from here.
+
+### 69.4 The user-level hook, for Classic Tabby's commands only (2026-11-24)
+
+The repository's hook loads in a session started in the repository; mine started in the home directory. A hook in
+the user's `~/.claude/settings.json` loads everywhere on this computer, in Orange Cat's sessions too, and those must
+work during their own soaks. scripts/oc_hook_user.py v0.1 therefore blocks, while the file exists, only a command
+that is clearly ours (it runs in the Classic Tabby directory or goes there or names a path in it outside the text of
+a here-document; it loads tabby_link or runs a tool of the repository; it publishes for SeattleUser0/classic-tabby;
+it opens the SMK-37's MIDI port by name) AND that the repository's hook would block. Installed 2026-11-24 12:30;
+the file before: `~/.claude/settings.json.bak-2026-11-24-before-oc-hook` (it had no hooks). The installed command
+allows everything when the script is not there (a moved worktree must not stop Orange Cat).
+
+Proof, in make test-oc-guard (tests/linux/oc-guard-test.py v0.2): 12 commands of ours blocked with the flag (from the
+home directory and from the repository; make, node workbench.mjs, python with tabby_link as a line and as a
+here-document, amidi -p "SMK37", gh for our repository, git push from our directory, release-flow.sh, Chrome on a
+file of ours, publish-pages.py, the path written with an escaped space); two that only read our files allowed;
+**157 Orange Cat commands allowed, each from three directories**: 139 real ones (120 drawn from the 1505 Bash commands
+of its five most recent sessions, 19 from this computer's shell history: tests/linux/oc-guard-orange-cat-samples.json)
+and 18 of its scripts and generic make / node / python / amidi / Chrome. Before installing, the hook was run against
+all 1505 session commands and 1143 history lines: 0 blocked. Two things that run fixed first: Orange Cat's unit
+also shows as "SMK37" in the kernel log and in `amidi -l`, so the name counts only as the port argument of an ALSA
+MIDI tool; and Orange Cat writes memory notes with python here-documents whose TEXT may name our directory, so a
+path counts only outside a here-document's text (tabby_link counts inside one: that is how the device is driven).
+scripts/oc_hook.py v0.2: naming a tool (grep tabby_link FILE) is reading, not running.

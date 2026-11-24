@@ -18,9 +18,11 @@ Usage
     echo '{"tool_name":"Bash","tool_input":{"command":"make suite"}}' | python3 scripts/oc_hook.py ; echo $?
     For make test-oc-guard only: OC_GUARD_TEST_FLAG=path (a SECOND file that blocks; the real one always counts).
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-24  Naming a tool is not running it: grep for tabby_link in a file is reading (the tools are caught where they
+                      are run: by their interpreter, their path, or the words of a python line).
     v0.1  2026-11-24  First version (docs/BUILD.md 69).
 """
 import json
@@ -50,7 +52,6 @@ PYTHON = r"(?:\S*/)?python[0-9.]*\b"
 PYTHON_WORDS = r"tabby_link|midi|snd_|/dev/snd|rawmidi|\bLink\(|\bMonitor\(|subprocess|os\.system|os\.popen|Popen|pexpect|tools/|tests/|scripts/|\bmake\b|\bnode\b|chrome|chromium|playwright|wine|socket|urllib|requests|http\.client|webbrowser|H4MIDI|SMK"
 ANYWHERE = [
     (r"/dev/(?:snd|midi|ttyACM|ttyUSB|hidraw|bus/usb)", "a device node"),
-    (r"release-flow\.sh|rc-validate\.py|workbench\.mjs|run-[a-z0-9]+\.py|tabby_link", "a tool that reaches the SMK-37"),
 ]
 
 
