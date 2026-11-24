@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-24T05:04:32Z",
+  "updated": "2026-11-24T06:21:33Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -911,6 +911,16 @@
       "published": "2026-11-24",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.4-rc4.zip",
       "note": "Not promoted: it made the device's screen pictures for the manual. The firmware is the same build as tabby-v1.4."
+    },
+    {
+      "tag": "tabby-v1.4-rc5",
+      "build": "46301b99eb3e5a671b28bb78283e3212b15636e0db4d3459aa6cf1c21fb46b37",
+      "loader": "ota-SMK3746301b99eb3e5a67",
+      "version": "tabby-v1.4",
+      "page": "builds/tabby-v1.4-rc5/",
+      "published": "2026-11-24",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.4-rc5.zip",
+      "note": "Release candidate of tabby-v1.4: not a release. Use the main page unless you were asked to test this build."
     }
   ]
 }
