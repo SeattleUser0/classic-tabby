@@ -45,4 +45,31 @@ Nothing happens by itself: a scene is stored with SEQ REC held and an empty pad,
 
 ## Validation
 
-VALIDATION
+Candidate 5 (builds/tabby-v1.4-rc5/) on the device, unattended, before the promotion; the test computer awake and
+otherwise idle; the same firmware had passed as candidate 4 the evening before.
+
+- **Nothing pressed by itself**: soaks with nothing injected (only read-only questions), on six pages, stopped and
+  playing: 2 hours on candidate 1 and 4 hours on candidate 3: 0 events from the panel. One pad reading came near a
+  press in those six hours (582 above rest, pad 2, the mixer page, playing; on candidate 1, before the levels were
+  changed). In this run: 4970 events of pads, buttons, keys and knobs in the log, every one sent by the test tools;
+  no spike refused; the pads' resting noise 0 to 4 (their release levels: rest + 12).
+- **The bar line** (120 BPM; a press sent 100 to 3 ms before the line, 6 times each): clip launch 60 of 60 on the
+  line, scene recall 60 of 60, the page key and then a clip pad 60 of 60; none without its first note; none waited
+  a cycle. Measured on the candidate before with presses after the line too: a press up to 8 ms after the line
+  landed 18 of 18 times in each case, its first note 7 to 25 ms after the line; from 15 ms after, the next line.
+- **A scene is stored** with SEQ REC + an empty pad; the pad alone held 1.2 s stores nothing (setting page 41 of 41).
+- **An edit is heard in the same loop**: 1207 ms after the key, on its step (STEP page 19 of 19).
+- **Stop** (ms from SEQ PLAY sent to the Stop byte, DIN): after SEQ PLAY 4.71 to 9.05; after a page change 5.41 to
+  21.06; a save sent 1 ms after it 6.70 to 9.15; the first stop after a save 5.09 to 16.90; with the save by itself
+  due 5.89, 5.60. The clock around a save: a pause of 90 to 93 ms, then its period (20.3 ms at the shortest).
+- **One line, 960 notes** (DIN without the first note / USB / own, ms): overview 1.64, 1.73, 1.61 / 1.68, 1.68, 1.69 /
+  1.50, 1.53, 1.54; CLIPS 1.79 / 1.76 / 1.63; SCENES 1.85 / 1.84 / 1.66; SYNC / MIDI 1.65 / 1.79 / 1.52; ACTIONS 1.74 /
+  1.79 / 1.57; mixer 1.72 / 1.70 / 1.52. Eight lines: 2.69 to 2.95 on DIN, 2.0 to 2.2 on USB.
+- **The latest send while a song ran**: 5.07 ms (CLIPS, in a device test; 5 sends at 4 ms or more in the whole run,
+  none in the soaks); stopped 17.40 ms.
+- **Soaks**: Wrong Room 40 + 40 minutes, 19 + 19 segments, none bad (USB band 1.39 to 2.40 and 1.41 to 1.77 ms);
+  Meridian Fault 30 minutes, 9 passes, none bad, every note on both ports (worst USB 2.08 ms, DIN 11.86, own 2.88).
+- The device's pixels 46 of 46; the CPU guard quiet; recording 30 of 30 (the mod wheel's controller did not appear in
+  the takes); clip launch page 40 of 40 twice; the other device tests as before; backup, restore, verify PASS; the
+  panel as it was found; the timing songs unchanged after every test.
+- Still not looked at by a person: the glass itself (test T97 of the guide).

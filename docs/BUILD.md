@@ -7308,3 +7308,11 @@ No launch without its first note in 216 presses. The latest press that landed: 1
 (page + clip) AFTER the line; the earliest that waited a cycle: 12.9, 10.7, 14.2 ms after it. Before (68.2): a clip
 needed 20 ms before the line, a scene 10 ms, page + clip 25 ms. The release-run check (a press sent 12 ms or more
 before the line lands with its first notes): PASS for all three.
+
+### 68.7 tabby-v1.4 released: candidate 5 (2026-11-24, 01:19)
+
+Candidate 4 (commit 08c4c0e, build `46301b99eb3e5a67`, no soaks, not to be promoted): every step passed, screen 46
+of 46; its pictures went into the manual (commit 36d4351). Candidate 5: the same build, the full run with the three
+soaks from 22:14 to 01:19 (clear of the Orange Cat windows), every step passed (32 steps with barline), promoted by
+the flow. Figures: docs/releases/tabby-v1.4.md. The record since power-on: running 5.07 ms, stopped 17.40 ms. The
+input log at the end: 4970 events, 0 from the panel. Left by tests: the CLIPS page after the screen tour.
