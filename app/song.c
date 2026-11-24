@@ -446,6 +446,9 @@ static FM1_AUDIO_CODE void note_on(unsigned buf, unsigned t, unsigned step, unsi
 enum { LAUNCH_GRACE = 7 };
 static uint8_t catch_up, launch_grace = LAUNCH_GRACE;
 static uint32_t scene_since;   /* audio: this block's scene recall landed in the grace: units since the line (0: none) */
+static uint8_t grace_tick;      /* audio: this block lands a launch or a recall in the grace: what it plays at once is late on purpose and is not
+                                 * counted in `late` (the screen's LATE nnn is for what the engine could not do in time) */
+static uint8_t grace_wait;      /* bit t: track t's grace landing still waits for its buffer */
 #if defined(FM1_HOST_TEST) || defined(FM1_OPEN_WEB)
 void song_test_launch_grace(unsigned blocks) { launch_grace = (uint8_t)blocks; }   /* tests written before the grace queue their launches on the line itself */
 #endif
@@ -615,7 +618,7 @@ static FM1_AUDIO_CODE void enter_frame(unsigned t, unsigned buf, unsigned at, un
             if (!step_skipped(t, 0, probability, k->pass)) note_on(buf, t, 0, i, at);
         }
     }
-    if (late) ++late_count;
+    if (late && !grace_tick) ++late_count;
     b->look_from = LOOK_NONE;
     tbuf[t][buf ^ 1U].look_from = LOOK_NONE;
 }
@@ -778,7 +781,7 @@ static FM1_AUDIO_CODE int song_switch(unsigned next, uint32_t bd, unsigned at)
         if (streams[0].active && streams[0].idx != cur) streams[0].active = 0;   /* the left row's tail is abandoned */
         if (!streamed[cur]) { stream_begin(0, 0, cur); streamed[cur] = 1; }
         stream_run_one(&streams[0]);       /* the boundary tick's sends, before this tick's notes */
-        if (streams[0].active) ++late_count;   /* events still pending after the boundary: late */
+        if (streams[0].active && !grace_tick) ++late_count;   /* events still pending after the boundary: late */
     }
     song_start = bd - (next == NEXT_ROW ? scene_since : 0U);   /* tabby-v1.4: a recall in the grace starts at the line */
     if (next != NEXT_ROW) return 1;   /* tabby-v04.10: a repeat of the scene: the tracks loop their clips by themselves (track_switch) */
@@ -851,7 +854,8 @@ static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
     /* The launch stream (the row's events on this track's channel): pre-fired, or now. */
     if (!tstreamed[t] && !k->waiting) { stream_begin(1 + t, 1, t * 2U + k->cur); tstreamed[t] = 1; }
     stream_run_one(&streams[1 + t]);
-    if (streams[1 + t].active) ++late_count;
+    if (streams[1 + t].active && !grace_tick) ++late_count;
+    if (grace_tick && tr[t].waiting) grace_wait |= (uint8_t)(1U << t);
 }
 /* One block: the window [m0, m1) of the master clock, every track's frame, the switches
  * inside the window and the look-ahead into the frames that follow. */
@@ -895,11 +899,11 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
      * deadline than a clip): a scene recall that is ready to land within the grace after the line lands on that line:
      * the boundary is now, the scene's frames start at the line (scene_since units ago) and what they hold up to here
      * is played at once. Only a recall on the master cycle (not K4's "at the scene's end"). */
-    scene_since = 0;
+    scene_since = 0; grace_tick = 0;
     if (snext == NEXT_ROW && jump_row != SONG_NONE && rowset[cur ^ 1U].ready && rowset[cur ^ 1U].row == jump_row && (song_over || !jump_mode)
         && sbd == bar && bar > m0 && bar >= cycle_now) {
         uint32_t since = m0 - (bar - cycle_now);
-        if (since && since <= (uint32_t)launch_grace * adv && since < (uint32_t)UNITS) { scene_since = since; sbd = m0; }
+        if (since && since <= (uint32_t)launch_grace * adv && since < (uint32_t)UNITS) { scene_since = since; sbd = m0; grace_tick = 1; }
     }
     prefire(tempo, m0, sbd, snext);
     if (click_live || click_held) { click_window(m0, adv, click_live, 0); groove_midi_at(0, 0); }   /* tabby-v04.10 */
@@ -916,7 +920,8 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         unsigned o = k->cur ^ 1U, nb = holds(&tbuf[t][k->cur], row, purpose) ? k->cur : holds(&tbuf[t][o], row, purpose) ? o : SONG_NONE;
         if (nb == SONG_NONE) { k->waiting = 1; continue; }
         if (nb != k->cur) { tbuf[t][k->cur].ready = 0; barrier(); k->cur = (uint8_t)nb; }
-        k->waiting = 0; ++k->pass; ++late_count;
+        k->waiting = 0; ++k->pass;
+        if (grace_wait & (1U << t)) grace_wait &= (uint8_t)~(1U << t); else ++late_count;
         tbuf[t][nb].look_from = LOOK_NONE;
         /* tabby-v04.10: the clip's own length; in phase with where it would have started (the scene's entry for a
          * track that follows the scenes) */
@@ -985,7 +990,7 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         if (!scene && qk == Q_LAUNCH && bar > m0) {
             uint32_t since = m0 - (bar - cycle_now);
             if (bar >= cycle_now && since && since <= (uint32_t)launch_grace * adv && since < (uint32_t)UNITS) {
-                plan[t].tb = m0; plan[t].what = SW_QUEUE; plan[t].origin = (int32_t)since; plan[t].landing = 1;
+                plan[t].tb = m0; plan[t].what = SW_QUEUE; plan[t].origin = (int32_t)since; plan[t].landing = 1; grace_tick = 1;
             }
         }
         /* The buffer of the frame that follows the boundary. */
@@ -1601,6 +1606,7 @@ int song_load(unsigned song)
     if (state) return SONG_BUSY;
     if (song_unsaved() && loaded != SONG_NONE) (void)song_edit_save();   /* Goal 6: the unsaved clips and song changes belong to the song being left */
     for (unsigned i = 0; i < PARK; ++i) park_drop(i);
+    late_count = 0;   /* tabby-v1.4: LATE nnn on the screen belongs to the song that ran, not to the next one loaded */
     edit.active = 0; edit.dirty = 0; edit.created = 0; song_dirty = 0; scene_hold = 0; reserve_scene = 0;
     loaded = SONG_NONE; memset(reserve_row, SONG_NONE, sizeof reserve_row);
     int r = song_record_read(song, &record);

@@ -20,7 +20,7 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-launch.py --song N --out DIR
 
-Version: 0.7
+Version: 0.8
 
 Revision log
     v0.6  2026-11-17  The launched clip's first note is judged against where it is expected: one audio block (2.90 ms)
@@ -166,7 +166,9 @@ def main():
             idle(random.uniform(0.3, 2.2))
             # v0.3: not inside the last 700 ms before a cycle: the queued state and its blink are read after the press, and
             # a press 22 ms before the cycle (v0.2, once) had landed before they could be seen. The device was right.
-            while ((T.now_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0:
+            # v0.8 (tabby-v1.4): nor in the 80 ms after a cycle: a press there lands on that cycle (the grace after the bar line,
+            # measured by run-barline.py) and there is no queued state to look at
+            while ((T.now_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0 or ((T.now_ns() - t0) / 1e6) % CYCLE_MS < 80.0:
                 idle(0.02)
             tc = T.now_ns()
             l.pad(1, hold=0.04)
@@ -191,7 +193,9 @@ def main():
             late = ons(0, notes[0] + int(CYCLE_MS * 1e6) - 20_000_000)
             check(late and all(pitch == 72 for _, pitch in late), "launch %d: the launched clip loops over the scene change" % (i + 1), [pitch for _, pitch in late][:6])
             idle(random.uniform(0.2, 1.5))
-            while ((T.now_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0:
+            # v0.8 (tabby-v1.4): nor in the 80 ms after a cycle: a press there lands on that cycle (the grace after the bar line,
+            # measured by run-barline.py) and there is no queued state to look at
+            while ((T.now_ns() - t0) / 1e6) % CYCLE_MS > CYCLE_MS - 700.0 or ((T.now_ns() - t0) / 1e6) % CYCLE_MS < 80.0:
                 idle(0.02)
             tc = T.now_ns()
             l.pad(1, hold=0.04)

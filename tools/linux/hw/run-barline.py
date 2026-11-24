@@ -14,15 +14,20 @@ Purpose (the user's question of 2026-11-22)
         clips        on the CLIPS page: the pad of the clip track 1 does not play
         scenes       on the SCENES page, the chain held (K3): the pad of the other scene
         page+clip    on SCENES: the BT key (the CLIPS page is drawn whole) and at once the clip's pad
-    L is counted at this computer, from the moment the press is sent; the USB command takes about 1 ms of it.
+    L is counted at this computer, from the moment the press is sent; the USB command takes about 1 ms of it. In the
+    third case the figure that is judged is the moment the PAD is sent (the page key goes about 10 ms before it).
+    LANDED: the new clip's pitch within -10..+60 ms of the line (after the old clip's note on the line, when the press
+    came in the grace after it); its first note's distance from the line is reported.
     With --limit N the run fails when a press N ms or more before the line waited a cycle.
 
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-barline.py --out DIR [--leads 100,60,40,30,25,20,15,10,6,3] [--limit 30]
 
-Version: 0.1
+Version: 0.2
 
 Revision log
+    v0.2  2026-11-23  A landing in the grace after the line is seen (the old clip's note sounds on the line first); the pad's own
+                      send time is the one judged; the first note's distance from the line.
     v0.1  2026-11-23  First version.
 """
 import argparse
@@ -82,11 +87,11 @@ def main():
             # the last 3 ms: spin
 
     def pitch_at(line, cyc):
-        """Track 1's pitch on the bar line `line` and on the one after: the first note within -10..+60 ms of each."""
+        """Track 1's notes on the bar line `line` and on the one after: (ms from the line, pitch) within -10..+60 ms of each.
+        v0.2: all of them: a press in the grace after the line lands on it AFTER the old clip's note on the line has sounded."""
         out = []
         for k in (0, 1):
-            n = [pp for t, pp in lead_notes(line + k * cyc - 10_000_000, line + k * cyc + 60_000_000)]
-            out.append(n[0] if n else None)
+            out.append([(round((t - line - k * cyc) / 1e6, 1), pp) for t, pp in lead_notes(line + k * cyc - 10_000_000, line + k * cyc + 60_000_000)])
         return out
 
     try:
@@ -124,10 +129,11 @@ def main():
                     b = bars(line - 30_000_000)
                     real = b[0] if b else line                      # the bar line as it really came
                     at, after = pitch_at(real, cyc)
-                    landed = at == want
-                    waited = at == now_pitch and after == want
-                    rows.append({"case": case, "lead_ms": L, "n": n + 1, "sent_before_line_ms": round((real - t_send) / 1e6, 2), "pad_sent_before_line_ms": round((real - t_pad) / 1e6, 2),
-                                 "landed": landed, "waited_a_cycle": waited, "pitch_at_line": at, "pitch_a_cycle_later": after})
+                    landed = any(pp == want for _, pp in at)
+                    waited = not landed and any(pp == want for _, pp in after)
+                    first_ms = min((ms for ms, pp in at if pp == want), default=None)
+                    rows.append({"case": case, "lead_ms": L, "n": n + 1, "sent_before_line_ms": round((real - t_pad) / 1e6, 2), "first_key_before_line_ms": round((real - t_send) / 1e6, 2),
+                                 "landed": landed, "waited_a_cycle": waited, "first_note_after_line_ms": first_ms, "notes_at_line": at, "notes_a_cycle_later": after})
                     if landed or waited:
                         now_pitch = want
                     if case == "page+clip":
@@ -136,9 +142,9 @@ def main():
                     elif not (landed or waited):
                         idle(cyc / 1e9)
                 got = [r for r in rows if r["case"] == case and r["lead_ms"] == L]
-                print("%-9s %5.0f ms before the line: landed %d of %d, waited a cycle %d, neither %d (sent %s ms before the line as it came)" % (
+                print("%-9s %5.0f ms before the line: landed %d of %d, waited a cycle %d, neither %d (the pad sent %s ms before the line as it came; the new clip's first note %s ms after the line)" % (
                     case, L, sum(r["landed"] for r in got), len(got), sum(r["waited_a_cycle"] for r in got), sum(1 for r in got if not r["landed"] and not r["waited_a_cycle"]),
-                    ", ".join("%.1f" % r["sent_before_line_ms"] for r in got)), flush=True)
+                    ", ".join("%.1f" % r["sent_before_line_ms"] for r in got), ", ".join("%.1f" % r["first_note_after_line_ms"] if r["first_note_after_line_ms"] is not None else "-" for r in got)), flush=True)
             if case != "clips":
                 l.show_page("scenes"); idle(0.2); l.knob(2, -1); idle(0.3)        # the chain runs again
         l.stop_song(); idle(0.3)
