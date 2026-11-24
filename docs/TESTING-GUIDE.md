@@ -1399,7 +1399,7 @@ What to check on the screen
 6. Play one key on each track (KNOB BANK and pad 1 to 8 choose the track): every synth answers.
 
 If a synth does not respond
-1. Hold KNOB BANK and look at the lower pad row: an orange pad is a muted track. Press it to unmute.
+1. Hold KNOB BANK and look at the lower pad row: an orange pad is a muted track. Keep it pressed for a moment to unmute (a brushed pad does nothing).
 2. Hold KNOB BANK and press SEQ: the track's OUT CH (K2) is the synth's channel, SEQ (K3) is BOTH or MIDI, OUT PORT (K4) is ALL.
 3. Press SEQ: SEQ OUT is ON. KEY OUT (K7) is ON if the keys should reach it.
 4. The cable, and the H4MIDI's route for that channel (MIDI guide, section 14). Swap the cable before anything else.
