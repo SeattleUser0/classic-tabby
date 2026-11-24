@@ -7243,3 +7243,22 @@ in two cycles. Not seen again in six repeats of that test alone on the same buil
 reading and closed (a buffer still marked "edited, waiting for the loop" after the track had left the clip was never
 decoded again; SPEC 19.35); whether it was this one is NOT PROVEN. The test now prints what the device says at that
 failure (run-setup v0.16).
+
+### 68.4 Is track 1 a default somewhere? (the user's question of 2026-11-23)
+
+Two things happened to track 1 that nobody asked for: it was muted once, and in rc2's setup test it played nothing
+for two cycles after a new scene was recalled. Read for: a track number that is 0 when unset, a "no track" value of
+0, a reset that lands on track 1.
+
+- No such fallback in the mute, launch, scene or decode paths: "no track" is SONG_NONE (255) throughout app/song.c;
+  the mute calls take the pad's own number.
+- **Two ways in which ONE pad press mutes track 1**, both by design: (1) on the mixer page, and while GLOBE is held,
+  pads 1 to 8 mute tracks 1 to 8 and pads 9 to 16 solo them, with no other button (app/screen.c, `groove_mix_toggle(i
+  & 7, i >= 8)`): pad 1 mutes track 1. (2) With KNOB BANK held, pad 9 mutes track 1 on every page
+  (`smk37_screen_shortcut`); KNOB BANK is button 0, and "held" is a bit that a remote press sets too: a test tool that
+  died between its KNOB BANK down and up leaves it set for as long as other remote commands keep coming (the release
+  of everything after 5 s without a remote key never comes then), and the next pad 9 to 16 from any tool mutes.
+  The only pad reading of the two-hour soak that came near a press (582) was on the mixer page.
+- The silent track 1 of rc2 was NOT a mute: the state read after that test shows no track muted. Track 1 is where every
+  test works (the test song's clips, the takes, pad 1), so a fault of "the track being worked on" shows on track 1.
+  What was found for it: the buffer mark of SPEC 19.35 (`edit.track` is that track). Not proven.
