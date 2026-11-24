@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-24T06:21:33Z",
+  "updated": "2026-11-24T09:19:28Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -903,6 +903,16 @@
       "note": "Not promoted: three checks of the test run did not yet know the grace after the bar line. An earlier build than tabby-v1.4."
     },
     {
+      "tag": "tabby-v1.4",
+      "build": "46301b99eb3e5a671b28bb78283e3212b15636e0db4d3459aa6cf1c21fb46b37",
+      "loader": "ota-SMK3746301b99eb3e5a67",
+      "version": "tabby-v1.4",
+      "page": "builds/tabby-v1.4/",
+      "published": "2026-11-24",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.4.zip",
+      "note": ""
+    },
+    {
       "tag": "tabby-v1.4-rc4",
       "build": "46301b99eb3e5a671b28bb78283e3212b15636e0db4d3459aa6cf1c21fb46b37",
       "loader": "ota-SMK3746301b99eb3e5a67",
@@ -920,7 +930,7 @@
       "page": "builds/tabby-v1.4-rc5/",
       "published": "2026-11-24",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.4-rc5.zip",
-      "note": "Release candidate of tabby-v1.4: not a release. Use the main page unless you were asked to test this build."
+      "note": "Release candidate; it passed the device tests and was released as tabby-v1.4."
     }
   ]
 }
