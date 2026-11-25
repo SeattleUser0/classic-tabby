@@ -802,6 +802,7 @@ static FM1_AUDIO_CODE int song_switch(unsigned next, uint32_t bd, unsigned at)
         unsigned nb = holds(&tbuf[t][k->cur], nr, P_SONG) ? k->cur : holds(&tbuf[t][o], nr, P_SONG) ? o : SONG_NONE;
         k->start = bd - scene_since; k->len = song_len; k->chain_at = 0;
         adopt(t, nb, at, 1);
+        if (k->waiting) wait_from[t] = k->start;   /* tabby-v1.5.1: as for a launch: the scene's frame begins at the line */
         frame_set(t);
         /* A scene jump into a row with no block for this track stops the track (9.13). */
         if (landed && !k->waiting && !tbuf[t][k->cur].has_block) release_track(t);
@@ -853,6 +854,10 @@ static FM1_AUDIO_CODE void track_switch(unsigned t, unsigned what, unsigned at)
                   : record.row[k->row].steps ? record.row[k->row].steps : SONG_BLOCK_STEPS) * UNITS;
         k->chain_at = 0;
         adopt(t, plan[t].nb, at, 1);
+        /* tabby-v1.5.1: a launch's frame begins at k->start: the line itself when it landed in the grace. tabby-v1.5 counted
+         * the catch-up from the block of the landing and so lost the first note of every grace launch whose buffer was not
+         * ready (found in its own release run's figures after the release: 24 of 60 presses; docs/BUILD.md 71) */
+        if (k->waiting) wait_from[t] = k->start;
         frame_set(t);   /* the clip's own length and its chain */
     } else {   /* Q_ATTACH: back to song, into the scene's clip where it stands (no look-ahead) */
         k->state = 0; k->row = 0; k->chain_at = 0;

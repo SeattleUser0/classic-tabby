@@ -35,4 +35,24 @@ A mute under KNOB BANK needs its pad held, so reaching for a track pad no longer
 
 ## Validation
 
-VALIDATION
+Candidate 3 (builds/tabby-v1.5-rc3/) on the device, unattended, 01:35 to 04:36 on 2026-11-25, every stage behind
+the Orange Cat soak guard. Every step passed and it was promoted.
+
+**A fault found in this run's own figures after the release, fixed in tabby-v1.5.1:** a clip launched in the last
+10 ms before the bar line, or just after it, whose buffer was not ready, lands on the line WITHOUT ITS FIRST NOTE
+(24 of 60 such presses on CLIPS, 33 of 60 with a page change before the pad; a scene recall is not affected: 60 of
+60). tabby-v1.4 did not have this; it came in with this release's change to the catch-up, and the bar-line tool
+called those presses "waited a cycle" (they were all sent later than the 12 ms the check asks for). A press 12 ms
+or more before the line landed with its first note every time. Install tabby-v1.5.1.
+
+- Stop (ms, DIN): after SEQ PLAY 4.86 to 17.00; after a page change 7.43 to 19.28; a save sent after it 5.66 to
+  8.30; the first stop after a save 5.44 to 13.84; the save by itself due 8.92, 6.50. The clock around a save: a
+  pause of 105 to 108 ms, then its period.
+- A landing in the grace cuts the old notes: the old clip's note on the line ended 1 to 2 ms BEFORE the new clip's
+  first note (11 landings).
+- One line, 960 notes (DIN / USB / own, ms): overview 1.68, 1.74, 1.72 / 1.62, 1.73, 1.72 / 1.47, 1.50, 1.49; the
+  other pages 1.59 to 1.96 / 1.66 to 1.84 / 1.47 to 1.62. Eight lines: about 2.1 on DIN and 2.0 on USB.
+- The latest send while a song ran 4.71 ms; stopped 17.51 ms.
+- Soaks: Wrong Room 40 + 40 minutes, none bad; Meridian Fault 9 passes, none bad (USB worst 1.89 ms).
+- The mute under KNOB BANK with the pad held: clip launch page 40 of 40 twice. Pixels 46 of 46. Recording 30 of 30,
+  setting page 41 of 41, the other device tests as before; backup, restore, verify PASS.

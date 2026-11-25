@@ -23,9 +23,10 @@ Purpose (the user's question of 2026-11-22)
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-barline.py --out DIR [--leads 100,60,40,30,25,20,15,10,6,3] [--limit 30]
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-25  A clip that landed without its first note is not "waited a cycle": it is counted apart and fails the run.
     v0.3  2026-11-24  A landing in the grace: the old clip's note on the line ends with the new clip's first note (3 ms at most).
     v0.2  2026-11-23  A landing in the grace after the line is seen (the old clip's note sounds on the line first); the pad's own
                       send time is the one judged; the first note's distance from the line.
@@ -135,7 +136,12 @@ def main():
                     real = b[0] if b else line                      # the bar line as it really came
                     at, after = pitch_at(real, cyc)
                     landed = any(pp == want for _, pp in at)
-                    waited = not landed and any(pp == want for _, pp in after)
+                    # v0.4: "waited a cycle" only when the new clip is silent for the whole cycle. A clip that landed WITHOUT its
+                    # first note plays its later notes in that cycle: that is neither landing nor waiting, and it fails the run
+                    # at any lead (v0.3 called it "waited": tabby-v1.5 was released with 24 such launches in its own figures).
+                    inside = [(round((t - real) / 1e6, 1), pp) for t, pp in lead_notes(real + 60_000_001, real + int(cyc) - 60_000_000)]
+                    headless = not landed and any(pp == want for _, pp in inside)
+                    waited = not landed and not headless and any(pp == want for _, pp in after)
                     first_ms = min((ms for ms, pp in at if pp == want), default=None)
                     # v0.3 (the user's answer of 2026-11-24): a landing in the grace: the old clip's note on the line must end where the
                     # new clip's first note begins (one short overlap, not two parts ringing together): its note-off, in ms after
@@ -146,7 +152,7 @@ def main():
                         offs = lead_offs(real - 5_000_000, real + 400_000_000, now_pitch)
                         overlap = round((offs[0] - t_new) / 1e6, 2) if offs else 999.0
                     rows.append({"case": case, "lead_ms": L, "n": n + 1, "sent_before_line_ms": round((real - t_pad) / 1e6, 2), "first_key_before_line_ms": round((real - t_send) / 1e6, 2),
-                                 "landed": landed, "waited_a_cycle": waited, "first_note_after_line_ms": first_ms, "old_note_ends_after_new_ms": overlap, "notes_at_line": at, "notes_a_cycle_later": after})
+                                 "landed": landed, "waited_a_cycle": waited, "landed_without_first_note": headless, "notes_inside_the_cycle": inside[:6], "first_note_after_line_ms": first_ms, "old_note_ends_after_new_ms": overlap, "notes_at_line": at, "notes_a_cycle_later": after})
                     if landed or waited:
                         now_pitch = want
                     if case == "page+clip":
@@ -176,7 +182,10 @@ def main():
         neither = sum(1 for r in got if not r["landed"] and not r["waited_a_cycle"])
         latest_ok = min(landed) if landed else None
         earliest_miss = max(missed) if missed else None
-        over = [m for m in missed if a.limit and m >= a.limit]
+        # v0.4: with a limit, a press sent 6 ms or more before the line that did not land is a failure too: tabby-v1.4 landed
+        # every one of them (60 of 60 in each case); tabby-v1.5 went to 36 of 60 and its check, which only looked at 12 ms
+        # and more, passed
+        over = [m for m in missed if a.limit and m >= min(a.limit, 6.0)]
         laps = [r["old_note_ends_after_new_ms"] for r in got if r.get("old_note_ends_after_new_ms") is not None]
         ringing = [x for x in laps if x > 3.0]
         bad += len(over) + neither + (len(ringing) if a.limit else 0)
@@ -185,7 +194,7 @@ def main():
                 "FAIL" if ringing and a.limit else "ok  ", case, len(laps), min(laps), max(laps), "; %d rang on" % len(ringing) if ringing else ""))
         print("%s %s: the latest press that landed %s ms before the line; the earliest that waited a cycle %s ms before it; %d of %d landed; neither %d%s" % (
             "FAIL" if over or neither else "ok  ", case, "%.1f" % latest_ok if latest_ok is not None else "-", "%.1f" % earliest_miss if earliest_miss is not None else "-",
-            len(landed), len(got), neither, ("; LIMIT %.0f ms: %d press(es) that early waited a cycle" % (a.limit, len(over))) if a.limit else ""))
+            len(landed), len(got), neither, ("; LIMIT: %d press(es) sent 6 ms or more before the line waited a cycle" % len(over)) if a.limit else ""))
     print("%s bar line: %s" % ("PASS" if not bad else "FAIL", "a press %.0f ms or more before the line always landed" % a.limit if a.limit and not bad else "see the lines above"))
     return 0 if not bad else 1
 

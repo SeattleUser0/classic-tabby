@@ -138,7 +138,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/hw/run-11b.py` | tools/linux/hw/run-11b.py:49 |  |
 | `tools/linux/hw/run-12b.py` | tools/linux/hw/run-12b.py:33 |  |
 | `tools/linux/hw/run-15.py` | tools/linux/hw/run-15.py:103 |  |
-| `tools/linux/hw/run-barline.py` | tools/linux/hw/run-barline.py:34 |  |
+| `tools/linux/hw/run-barline.py` | tools/linux/hw/run-barline.py:35 |  |
 | `tools/linux/hw/run-chain.py` | tools/linux/hw/run-chain.py:28 |  |
 | `tools/linux/hw/run-clips.py` | tools/linux/hw/run-clips.py:37 |  |
 | `tools/linux/hw/run-follow.py` | tools/linux/hw/run-follow.py:44 |  |

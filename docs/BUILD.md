@@ -7432,3 +7432,32 @@ proven, and the fix did not change the result. Then measured:
 The device was right both times. run-launch v0.10 counts from the press and prints, on a failure, where in the cycle
 the press was and every note heard. Run again on the device: 40 of 40. Lesson (the third of its kind this month): a
 failing check is read from the notes on the cable before the firmware is changed.
+
+### 70.3 tabby-v1.5 released: candidate 3, and what its own figures show (2026-11-25)
+
+Commit 314eeda, build `1a9b1f5a63c8b84b`, 01:35 to 04:36 (started by the guard's wait after the 23:30 soak; every
+stage asked the guard). Every step passed; promoted by the flow. Figures: docs/releases/tabby-v1.5.md.
+
+## 71. tabby-v1.5.1: the first note of a late launch (2026-11-25)
+
+Reading the released run's bar-line lines: clips 36 of 60 landed, page + clip 27 of 60, scenes 60 of 60, where
+tabby-v1.4 had 60 of 60 in all three. The presses that did not land (24 and 33) were all sent less than 12 ms
+before the line, so the check passed; the tool said "waited a cycle". In the notes: the old clip's note on the line,
+and the new clip's pitch only from the next line.
+
+Cause: 70.1. On a diagnosis that 70.2 showed to be wrong I had changed the catch-up to count from "where the frame
+began without its buffer", taken as the block of the landing. For a launch that lands in the grace the frame begins
+at the LINE, up to 20 ms before that block; counted from the block, the notes between the line and the block (the
+first note) were skipped again, as before tabby-v1.4. A scene recall was not hit: its buffers are ready when it
+lands (they are what makes it land).
+
+Fix: a launch's and a scene's `wait_from` is the frame's start (`k->start`: the line); a track sent back to the
+scenes keeps the block of its landing (it joins its clip where the clip stands). run-barline v0.4: a clip whose
+pitch appears INSIDE the cycle but not on the line "landed without its first note": counted apart from "waited a
+cycle", and a failure at any lead.
+
+What went wrong in the work, beyond the line of code: a firmware change made on an unproven reading (70.1), kept
+"because it is right for a late buffer" when the reading fell (70.2), with no measurement of the case it touched;
+and a release whose check passed on its limit while its own table had gone from 60 of 60 to 36 of 60. The table was
+there to be read before the promotion; the flow promotes by itself. From now: the bar-line step compares its
+landings with the release before (every press sent 6 ms or more before the line landed) and fails on any that does not.
