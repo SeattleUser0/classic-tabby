@@ -623,10 +623,17 @@ static FM1_AUDIO_CODE void enter_frame(unsigned t, unsigned buf, unsigned at, un
     tbuf[t][buf ^ 1U].look_from = LOOK_NONE;
 }
 /* Take buffer `nb` (the plan's next buffer) for track t's new frame, or wait for it. */
+static uint32_t wait_from[SONG_TRACKS], tick_m0;   /* audio: master time where a track's frame began without its buffer; this block's start */
+static uint8_t wait_set;                           /* bit t: wait_from[t] is set */
 static FM1_AUDIO_CODE void adopt(unsigned t, unsigned nb, unsigned at, unsigned check_late)
 {
     struct track *k = &tr[t];
-    if (nb == SONG_NONE) { k->waiting = 1; return; }
+    if (nb == SONG_NONE) {
+        /* tabby-v1.5: where the frame began without its buffer: what it holds from there to the block in which the buffer
+         * is taken is played then (the late-adoption loop of tick) */
+        k->waiting = 1; wait_from[t] = tick_m0 + at; wait_set |= (uint8_t)(1U << t);
+        return;
+    }
     if (nb != k->cur) { tbuf[t][k->cur].ready = 0; barrier(); k->cur = (uint8_t)nb; }
     k->waiting = 0;
     enter_frame(t, nb, at, check_late);
@@ -895,6 +902,7 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
     else { acc += tempo * ADV_MUL; adv = acc / ADV_DIV; acc %= ADV_DIV; }
     uint32_t m0 = master, m1 = master + adv, bar = next_bar(m0), sbd;
     uint32_t cycle_now = cycle_units;
+    tick_m0 = m0;
     /* Goal 6: where this block starts in time and in the song, for the recorder's stamps */
     ++rec_block_seq; rec_block_master = m0; rec_block_ticks = ct_diag_ticks(); rec_block_adv = adv; ++rec_block_seq;
     unsigned snext = song_next(m0, &sbd);
@@ -929,11 +937,24 @@ static FM1_AUDIO_CODE void tick(unsigned tempo)
         /* tabby-v04.10: the clip's own length; in phase with where it would have started (the scene's entry for a
          * track that follows the scenes) */
         if (k->state == 0) k->start = song_start - repeat * song_len;
-        /* tabby-v1.4: what the frame held from its start to here was skipped: played now, when it is within one step */
-        { int32_t skipped = (int32_t)(m0 - k->start);
-          if (skipped > 0 && skipped <= UNITS && tbuf[t][nb].has_block) {
-              catch_up = 1; scan(t, nb, -HALF, 0, 0, 1, k->pass); scan(t, nb, 0, skipped, 0, 0, k->pass); catch_up = 0;
-          } }
+        /* tabby-v1.4: what the frame held from where it began to here was skipped: played now, when that is within one
+         * step. tabby-v1.5: counted from where the frame began WITHOUT ITS BUFFER (wait_from), not from the clip's start:
+         * a track sent back to the scenes (CHORD) joins its clip where the clip stands, and with the buffer a block
+         * late its note on the bar line was lost (rc1 of tabby-v1.5: the first note heard was on beat 3). */
+        if (wait_set & (1U << t)) {
+            wait_set &= (uint8_t)~(1U << t);
+            uint32_t since = m0 - wait_from[t], flen = (uint32_t)tbuf[t][nb].steps * UNITS;
+            if (since > 0 && since <= (uint32_t)UNITS && flen && tbuf[t][nb].has_block) {
+                uint32_t p_now = (uint32_t)(m0 - k->start) % flen;
+                if (p_now >= since) {
+                    int32_t from = (int32_t)(p_now - since);
+                    catch_up = 1;
+                    if (!from) scan(t, nb, -HALF, 0, 0, 1, k->pass);
+                    scan(t, nb, from, (int32_t)p_now, 0, 0, k->pass);
+                    catch_up = 0;
+                }
+            }
+        }
         frame_set(t);
         while (k->len && (int32_t)(m0 - k->start) >= (int32_t)k->len) k->start += k->len;
         chain_set(t);

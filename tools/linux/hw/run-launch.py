@@ -20,7 +20,7 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-launch.py --song N --out DIR
 
-Version: 0.8
+Version: 0.9
 
 Revision log
     v0.6  2026-11-17  The launched clip's first note is judged against where it is expected: one audio block (2.90 ms)
@@ -184,7 +184,10 @@ def main():
                 check(False, "launch %d: the clip's first note" % (i + 1), "no note 72 after the press"); continue
             err, k = on_cycle(notes[0]), cycle_of(notes[0])
             s = l.clips_state()
-            check(queued and abs(err - a.lead) <= a.launch_tolerance and (k == first or (k == first + 1 and first * CYCLE_MS - cmd_ms < 60.0)) and s["pads"][1]["code"] == (2 | 8) and s["pads"][1]["rgb"] == 0x103c10,
+            # v0.9 (tabby-v1.5): from the cycle itself to one audio block after it. A clip whose buffer is ready a block late plays
+            # what it skipped at once (tabby-v1.4): its first note then leaves without the look-ahead's block, up to 2.9 ms
+            # earlier than usual (rc1 of tabby-v1.5: +0.24 ms where the others had +2.8 to +3.6). Before tabby-v1.4 it was lost.
+            check(queued and -1.0 <= err <= a.lead + a.launch_tolerance and (k == first or (k == first + 1 and first * CYCLE_MS - cmd_ms < 60.0)) and s["pads"][1]["code"] == (2 | 8) and s["pads"][1]["rgb"] == 0x103c10,
                   "launch %d: queued at the press, the clip's first note on the next master cycle, pad bright green" % (i + 1),
                   "press %.0f ms, note %.1f ms, cycle %d (first after the press %d), error %+.2f ms, pad %d %06x" % (cmd_ms, (notes[0] - t0) / 1e6, k, first, err, s["pads"][1]["code"], s["pads"][1]["rgb"]))
             if i == 0:

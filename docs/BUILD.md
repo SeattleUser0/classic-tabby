@@ -7397,3 +7397,20 @@ under KNOB BANK made harder to hit by accident (my choice: the pad held 150 ms, 
 margin before the next feature (FLASH-BUDGET 55). No feature in this release. Simulator: SHIFT + pad 10 brushed for
 23 ms mutes nothing; pad 10 caught 60 ms before pad 2 selects track 2 and mutes nothing; held, it mutes
 (tests/workbench/clips-sim.mjs).
+
+### 70.1 tabby-v1.5-rc1: held back
+
+Commit f46ee7f, build `7c12d1c2a3ce15ed`, a short run after the 13:00 soak (15:16 to 16:29; every stage asked the
+guard). stop 10 of 10, barline PASS (with the new check of the old note's end), screen 46 of 46, timing in its limits.
+Failed: launch 38 of 40 and launch-again 39 of 40.
+
+- "ENV: track 1 follows the scenes again from the next cycle": the first note of track 1 after CHORD was on clock
+  byte 48 of 96 (beat 3), in both runs. The test's mute step now holds its pad (0.3 s twice), so CHORD came half a
+  second later in the cycle than in every run before; the track landed on the line, its buffer was ready a block
+  late, and the catch-up of tabby-v1.4 did not apply: it counted from the clip's start, and a track that goes back
+  to the scenes joins its clip where the clip stands. Old fault, new timing. The catch-up now counts from where the
+  frame began without its buffer (`wait_from`, set in `adopt`).
+- "launch 1: ... error +0.24 ms" where +0.9 to +4.9 was allowed (one audio block after the cycle, +/- 2 ms): the
+  clip's buffer was ready a block late and its first note was played at once by the catch-up, without the
+  look-ahead's block: 2.7 ms earlier than usual. Before tabby-v1.4 that note was lost. The test takes -1 ms to
+  +4.9 ms (run-launch v0.9).
