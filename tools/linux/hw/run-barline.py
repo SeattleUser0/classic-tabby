@@ -18,14 +18,23 @@ Purpose (the user's question of 2026-11-22)
     third case the figure that is judged is the moment the PAD is sent (the page key goes about 10 ms before it).
     LANDED: the new clip's pitch within -10..+60 ms of the line (after the old clip's note on the line, when the press
     came in the grace after it); its first note's distance from the line is reported.
-    With --limit N the run fails when a press N ms or more before the line waited a cycle.
+    With --limit (any value but 0) the run fails when a press sent at or before the line did not land with its first note,
+    when a clip landed without its first note at any lead, or when an old note rang on.
 
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-barline.py --out DIR [--leads 100,60,40,30,25,20,15,10,6,3] [--limit 30]
 
-Version: 0.4
+Version: 0.5
 
 Revision log
+    v0.5  2026-11-25  The grace window is judged (the user's rule): with --limit every press sent up to --window-in ms after the
+                      line must land on it with its first note, every press sent --window-out ms or more after it must
+                      wait and land on the next line with its first note, between the two either; any other outcome
+                      fails; each case needs 3 presses on each side. Until v0.3 only presses 12 ms and earlier were
+                      judged and "60 of 60 landed" was a printed figure, not a check: tabby-v1.5 passed with 36 of 60
+                      (docs/BUILD.md 71.2). Leads now reach 45 ms after the line. The lines are taken from the song's
+                      own grid (a recall in the grace doubles track 2's note and the old estimate sent presses 400 ms
+                      early).
     v0.4  2026-11-25  A clip that landed without its first note is not "waited a cycle": it is counted apart and fails the run.
     v0.3  2026-11-24  A landing in the grace: the old clip's note on the line ends with the new clip's first note (3 ms at most).
     v0.2  2026-11-23  A landing in the grace after the line is seen (the old clip's note sounds on the line first); the pad's own
@@ -47,7 +56,9 @@ def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--song", type=int, default=7)
     p.add_argument("--din", default="H4MIDI-WC Port 1")
-    p.add_argument("--leads", default="100,40,20,15,12,10,6,3,0,-5")
+    p.add_argument("--leads", default="100,40,20,12,8,6,5,3,0,-1,-2,-4,-30,-45")
+    p.add_argument("--window-in", type=float, default=3.0, help="ms after the line: a press sent up to here must land on that line")
+    p.add_argument("--window-out", type=float, default=24.0, help="ms after the line: a press sent from here on must wait for the next line")
     p.add_argument("--repeats", type=int, default=6)
     p.add_argument("--cases", default="clips,scenes,page+clip")
     p.add_argument("--limit", type=float, default=0.0, help="ms: a press this long or longer before the line must land (0: report only)")
@@ -58,7 +69,7 @@ def main():
     leads = [float(x) for x in a.leads.split(",")]
     din = T.Monitor(a.din); din.start()
     l = T.Link(); time.sleep(0.3)
-    rows = []
+    rows = []; t_play = [0]
 
     def idle(seconds):
         end = time.monotonic() + seconds
@@ -76,12 +87,19 @@ def main():
 
     def next_bar(margin_ms):
         """The time (this computer's raw clock, ns) of the next bar line at least margin_ms away, and the cycle (ns)."""
-        b = bars()[-6:]
-        cyc = (b[-1] - b[0]) / (len(b) - 1)
-        t = b[-1]
-        while t - T.now_ns() < margin_ms * 1e6:
-            t += cyc
-        return int(t), cyc
+        # v0.5: from the song's own grid: the first bar line after SEQ PLAY and the cycle, refined over every bar note that
+        # lies on the grid. Until v0.4 the cycle was the mean distance of the last six bar notes; a recall that lands in
+        # the grace plays track 2's note on the line a second time, six notes then span four cycles, and the next
+        # "line" was 400 or 800 ms early: half the presses of the scenes case in the tabby-v1.5 and v1.5.1-rc1 runs were
+        # sent that early (they landed, and tested nothing).
+        b = bars(t_play[0])
+        t0 = b[0]; cyc = 2.0e9; last_k = 0
+        for t in b[1:]:
+            k = round((t - t0) / cyc)
+            if k > last_k and abs(t - t0 - k * cyc) < 12_000_000:
+                cyc = (t - t0) / k; last_k = k
+        k = int((T.now_ns() + margin_ms * 1e6 - t0) // cyc) + 1
+        return int(t0 + k * cyc), cyc
 
     def wait_until(t_ns):
         while True:
@@ -105,6 +123,7 @@ def main():
         l.select_song(a.song - 1); l.show_page("clips"); idle(0.3)
         if l.clips_state()["track"] != 0:
             l.shift_pad(0); idle(0.3)
+        t_play[0] = T.now_ns()
         l.play_song(a.song - 1); idle(9.0)
         for case in a.cases.split(","):
             if case == "clips":
@@ -132,8 +151,8 @@ def main():
                     else:
                         l.key(3, pad, 100); t_pad = T.now_ns(); l.key(3, pad, 0)
                     idle((line - T.now_ns()) / 1e9 + cyc / 1e9 + 0.3)
-                    b = bars(line - 30_000_000)
-                    real = b[0] if b else line                      # the bar line as it really came
+                    b = [t for t in bars(line - 30_000_000) if t < line + 30_000_000]
+                    real = b[0] if b else line                      # the bar line as it really came (v0.5: only a bar note at the line itself)
                     at, after = pitch_at(real, cyc)
                     landed = any(pp == want for _, pp in at)
                     # v0.4: "waited a cycle" only when the new clip is silent for the whole cycle. A clip that landed WITHOUT its
@@ -182,20 +201,49 @@ def main():
         neither = sum(1 for r in got if not r["landed"] and not r["waited_a_cycle"])
         latest_ok = min(landed) if landed else None
         earliest_miss = max(missed) if missed else None
-        # v0.4: with a limit, a press sent 6 ms or more before the line that did not land is a failure too: tabby-v1.4 landed
-        # every one of them (60 of 60 in each case); tabby-v1.5 went to 36 of 60 and its check, which only looked at 12 ms
-        # and more, passed
-        over = [m for m in missed if a.limit and m >= min(a.limit, 6.0)]
+        # v0.5 (the user's rule of 2026-11-25): the grace window has its own pass / fail lines. By where the pad press was
+        # really SENT, in ms after the line (negative: before it):
+        #   INSIDE   up to --window-in after the line (and everything before it): must land on that line with its first note
+        #   AFTER    --window-out or more after the line: must wait and land on the NEXT line with its first note
+        #   THE EDGE between the two: either of those two outcomes
+        #   any other outcome anywhere (a clip without its first note, a clip that never came) fails
+        # and each case must have at least 3 presses sent after the line inside the window and 3 after the window: a
+        # window that was not tried is not a window that works.
+        # Where the limits come from: the grace is LAUNCH_GRACE = 7 audio blocks of 2.9 ms = 20.3 ms, counted where the
+        # launch reaches the audio thread; its first note then leaves in the next block (up to 24 ms after the line,
+        # measured). MEASURED on tabby-v1.5.1 (2026-11-25, 216 presses): from the press being sent to the first note
+        # 8 to 16 ms (the command, the key read, the clips decoded: eight of them for a scene), once more than 19 (a
+        # scene recall sent 5.0 ms after the line waited; two others sent 5.0 and 5.1 landed). So in terms of when a
+        # press is SENT: up to 3 ms after the line it is always inside (3 + 16 = 19 of 24), from 24 ms on it can never
+        # be, and between the two it depends on what the device is doing. Until v0.4 only presses 12 ms and earlier
+        # were judged.
+        after_ms = lambda r: -r["sent_before_line_ms"]
+        inside = [r for r in got if after_ms(r) <= a.window_in]
+        outside = [r for r in got if after_ms(r) >= a.window_out]
+        edge = [r for r in got if a.window_in < after_ms(r) < a.window_out]
+        in_bad = [r for r in inside if not r["landed"]]
+        out_bad = [r for r in outside if not r["waited_a_cycle"]]
+        in_late = [r for r in inside if after_ms(r) > 0.0]
+        few = bool(a.limit) and (len(in_late) < 3 or len(outside) < 3)
+        over = in_bad + out_bad
+        headless = sum(1 for r in got if r.get("landed_without_first_note"))
         laps = [r["old_note_ends_after_new_ms"] for r in got if r.get("old_note_ends_after_new_ms") is not None]
         ringing = [x for x in laps if x > 3.0]
-        bad += len(over) + neither + (len(ringing) if a.limit else 0)
+        bad += (len(over) + neither + len(ringing) + few) if a.limit else neither
         if laps:
             print("%s %s: %d landing(s) in the grace after the old clip's note on the line: that note ended %.2f to %.2f ms after the new clip's first note (it must not ring on: 3 ms at most)%s" % (
                 "FAIL" if ringing and a.limit else "ok  ", case, len(laps), min(laps), max(laps), "; %d rang on" % len(ringing) if ringing else ""))
-        print("%s %s: the latest press that landed %s ms before the line; the earliest that waited a cycle %s ms before it; %d of %d landed; neither %d%s" % (
-            "FAIL" if over or neither else "ok  ", case, "%.1f" % latest_ok if latest_ok is not None else "-", "%.1f" % earliest_miss if earliest_miss is not None else "-",
-            len(landed), len(got), neither, ("; LIMIT: %d press(es) sent 6 ms or more before the line waited a cycle" % len(over)) if a.limit else ""))
-    print("%s bar line: %s" % ("PASS" if not bad else "FAIL", "a press %.0f ms or more before the line always landed" % a.limit if a.limit and not bad else "see the lines above"))
+        where = lambda rs: ", ".join("%.1f" % after_ms(r) for r in rs)
+        print("%s %s, inside the window (sent up to %.0f ms after the line): %d of %d landed on that line with the first note; %d of them were sent after the line (%s ms after it)%s%s" % (
+            "FAIL" if a.limit and (in_bad or len(in_late) < 3) else "ok  ", case, a.window_in, len(inside) - len(in_bad), len(inside), len(in_late), where(in_late) or "-",
+            "; DID NOT LAND, sent %s ms after the line" % where(in_bad) if in_bad else "", "; FEWER THAN 3 SENT AFTER THE LINE: the window was not tried" if len(in_late) < 3 else ""))
+        print("%s %s, after the window (sent %.0f ms or more after the line): %d of %d waited and landed on the next line with the first note (sent %s ms after the line)%s%s" % (
+            "FAIL" if a.limit and (out_bad or len(outside) < 3) else "ok  ", case, a.window_out, len(outside) - len(out_bad), len(outside), where(outside) or "-",
+            "; NOT SO: sent %s ms after the line" % where(out_bad) if out_bad else "", "; FEWER THAN 3: not tried" if len(outside) < 3 else ""))
+        print("%s %s, the edge between: %d landed (sent %s ms after the line), %d waited (%s); in the whole case %d of %d landed, %d waited a cycle, any other outcome %d (%d of them a clip without its first note)" % (
+            "FAIL" if neither else "ok  ", case, sum(r["landed"] for r in edge), where([r for r in edge if r["landed"]]) or "-", sum(r["waited_a_cycle"] for r in edge), where([r for r in edge if r["waited_a_cycle"]]) or "-",
+            len(landed), len(got), len(missed), neither, headless))
+    print("%s bar line: %s" % ("PASS" if not bad else "FAIL", "inside the grace window every press landed on its line with the first note, after it every press waited for the next line; no other outcome" if a.limit and not bad else "see the lines above"))
     return 0 if not bad else 1
 
 

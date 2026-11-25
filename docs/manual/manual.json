@@ -1,8 +1,8 @@
 {
- "guide_sha256": "9f992a1f742ca82816839c541dc0e16f188be0ecbfc9aec48a8c9a7c933efeb8",
+ "guide_sha256": "87f7803f8d2336c3fd9dd3ca155a3d0ff7087529ea70c2898aedba7b1fd72e7f",
  "pictures_sha256": "ca95ada1cbf0342c550b163a8b39475ddb3eb747f35f68242b122c5baddf392f",
  "pictures": 33,
- "bytes": 1188463,
+ "bytes": 1189154,
  "pages": 63,
  "paper": "US Letter",
  "for": "tabby-v1.5.1",

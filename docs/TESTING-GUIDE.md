@@ -389,6 +389,8 @@ A clip holds 512 events. If it fills up, recording stops by itself and the scree
 
 Stopping the song (tabby-v04.16): if you pressed SEQ REC while the song played and the take had not started yet (REC WHEN THE CLIP LOOPS), stopping the song takes it off. The screen says SONG STOPPED - REC OFF and the SEQ REC lamp goes out. A take you arm while the song is stopped still waits for SEQ PLAY.
 
+SEQ REC and the bar line (tabby-v1.5.1): SEQ REC on a clip that is not looping launches it like a pad, with the same grace: pressed in the first moment after the bar line (about 20 ms), the clip lands on that line and the take starts there (RECORDING at once); pressed later, REC WHEN THE CLIP LOOPS and the take starts on the next line.
+
 - ARP: tap to switch the arpeggiator on or off for the track. Hold about 0.6 seconds for its settings.
 - FX: reverb and delay sends for the selected track.
 - BT: opens the CLIPS page (4.8). BT again goes back.

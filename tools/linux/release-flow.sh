@@ -20,7 +20,7 @@
 #   Only the release session runs this (SPEC 17.12): it sets TABBY_RELEASE_SESSION=1, without which
 #   tools/linux/publish-pages.py commits nothing.
 #
-# Version: 0.4
+# Version: 0.5 (2026-11-25: TABBY_PROMOTE_ONLY=1 first compares the tables with the last release, tools/linux/compare-runs.py, and refuses on a worse row)
 #
 # Revision log
 #   v0.4  2026-11-25  TABBY_PROMOTE_ONLY=1: promote a candidate that passed with TABBY_NO_PROMOTE=1, after its tables were read.
@@ -48,6 +48,10 @@ if git rev-parse -q --verify "refs/tags/$T" > /dev/null; then echo "release-flow
 # must hold for this very commit and candidate.
 if [ -n "$TABBY_PROMOTE_ONLY" ]; then
   python3 -I tools/linux/device-gate.py check --tag "$T" | tee /dev/stderr | grep -q "$T-rc$RC passed on the device" || { echo "release-flow: no device gate for $T-rc$RC on this commit: nothing promoted"; exit 1; }
+  # v0.5 (the user's rule of 2026-11-25): the candidate's tables against the last release's, row by row; a worse row holds it back
+  [ -n "$TABBY_COMPARE_WITH" ] || { echo "release-flow: TABBY_COMPARE_WITH=<path prefix of the last release's run> is needed (TABBY_COMPARE_BARLINE for the bar line, when that is another run): nothing promoted"; exit 1; }
+  oc_stage "the comparison with the last release"
+  python3 -I tools/linux/compare-runs.py --new "$O/$T-rc$RC" --old "$TABBY_COMPARE_WITH" ${TABBY_COMPARE_BARLINE:+--barline-old "$TABBY_COMPARE_BARLINE"} || { echo "release-flow: HELD BACK: $T-rc$RC has a row worse than the last release ($O/$T-rc$RC-compare.txt): nothing promoted"; exit 1; }
 else
 if git rev-parse -q --verify "refs/tags/$T-rc$RC" > /dev/null; then echo "release-flow: tag $T-rc$RC exists already: use the next candidate number"; exit 1; fi
 oc_stage "the suite"

@@ -26,9 +26,11 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.27
+Version: 0.28
 
 Revision log
+    v0.28 2026-11-25  The step `recline` (run-recline.py); the bar-line step fails on any press sent at or before the line that
+                      does not land with its first note (run-barline v0.5).
     v0.25 2026-11-23  The step `barline` (run-barline.py --limit 12).
     v0.24 2026-11-22  The timing songs' scenes are read after every test; the timing steps say the note counts.
     v0.23 2026-11-21  The step `stop` (run-stop.py): Stop latency, the clock around a save, no save without a change.
@@ -83,6 +85,20 @@ FIRST_NOTE_MS = 3.3      # v0.18: the first note at SEQ PLAY on DIN: Start and S
 PAGE_LIMIT_MS = 2.0      # v0.11: one line with any page on the screen: under 2 ms, or the step fails
 EIGHT_LIMIT_MS = 3.5     # v0.11: eight lines, the worst line (2.2 to 3.1 ms measured from tabby-v04.4 to tabby-v1.0)
 BAND_LIMIT_MS = 2.5      # one line: the goal is 2 ms; above this the run fails. The bands are reported either way.
+# v0.28 (the audit of docs/BUILD.md 71.4: figures that were printed and compared with nothing):
+LATE_LIMIT_MS = 10.0     # the device's own latest send while a song runs: one screen band (up to 6 ms, not interruptible) and one control pass
+RATIO_LIMITS = (0.9990, 1.0010)   # the device's tempo against this computer's raw clock (0.99958 in every run since tabby-v1.2: its audio clock)
+BLOCK_MS = 2.9           # one audio block: a render peak at or over it is an underrun in the making
+SCREEN_PICTURES = 46     # the tour of screen-tour.json v0.4; fewer compared pictures fails
+SCREEN_NOT_TAKEN = {"save-project", "clips-stop-to-save"}   # the two pictures the tour cannot take on the device (a save in progress)
+SOAK_DIN_SINGLE_MS = {0: 20.0, 2: 26.0}   # largest single DIN error: EVENT LEAD OFF: inside the band limit (20); 1/16: the first note at SEQ PLAY
+                                          # behind Start and Song Position (1.3 ms), a scene's 17 event messages (16.3) and the 7 other lines' notes (6.7)
+SOAK_USB_SINGLE_MS = 3.5                  # USB: nothing queues; inside the band limit of several lines
+
+
+def figures(pattern, text):
+    """Every match of a pattern with one group, as floats."""
+    return [float(x) for x in re.findall(pattern, text)]
 
 
 INTERRUPT_OUT = []     # OC-GUARD: the run's output directory, for the record of an interrupted run
@@ -297,7 +313,10 @@ def main():
         # v0.23 (the user's request of 2026-11-21): MIDI Stop latency on DIN and USB, the clock around a save, no save without a change
         test("stop", "run-stop.py", extra=("--tag", rc_tag))
         # v0.25 (tabby-v1.4; the user's question of 2026-11-22): a launch pressed 12 ms or more before the bar line lands on it, with its first note
-        test("barline", "run-barline.py", extra=("--tag", rc_tag, "--limit", "12"), timeout=1800, pattern=r"^(PASS|FAIL) bar line.*$")
+        test("barline", "run-barline.py", extra=("--tag", rc_tag, "--limit", "12"), timeout=2700, pattern=r"^(PASS|FAIL) bar line.*$")
+        # v0.28 (the user's decision of 2026-11-25, CONTROL-MAP 13.1): SEQ REC inside the grace after the bar line starts the take on
+        # that line; outside it the take is armed for the next line
+        test("recline", "run-recline.py", extra=("--tag", rc_tag), timeout=900)
         # v0.12 (tabby-v1.2): the device's own pixels. The Wrong Room song goes into slot 6 (index 5; only if that slot is
         # empty), run-screen.py runs the tour of screen-tour.json and reads the screen copy for every page, at rest and
         # while playing; screens.mjs --match runs the simulator through the same tour and compares every pixel.
@@ -314,7 +333,14 @@ def main():
             sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.remote(16, 2)\nexcept Exception:\n    pass\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
             fails = [l for l in (o2 + "\n" + o3).splitlines() if l.startswith("FAIL")]
             last = [l for l in (o3 or o2).splitlines() if l.startswith(("PASS", "FAIL"))]
-            step("screen", c2 == 0 and c3 == 0, (last[-1] if last else (o2 or o1)[-200:]) + ("; " + " | ".join(f[:110] for f in fails[:4]) if fails and (c2 or c3) else ""))
+            # v0.28: the number of pictures compared and the list of those not taken were printed and compared with nothing:
+            # a tour that lost pictures would have passed
+            sline = last[-1] if last else ""
+            m = re.search(r"(\d+) of (\d+) pictures", sline)
+            not_taken = set(x.strip() for x in (re.search(r"not taken on the device: (.*)$", sline) or ["", ""])[1].split(",") if x.strip())
+            tour_ok = bool(m) and int(m.group(1)) == int(m.group(2)) >= SCREEN_PICTURES and not_taken <= SCREEN_NOT_TAKEN
+            step("screen", c2 == 0 and c3 == 0 and tour_ok, (last[-1] if last else (o2 or o1)[-200:]) + ("; " + " | ".join(f[:110] for f in fails[:4]) if fails and (c2 or c3) else "")
+                 + ("" if tour_ok or c2 or c3 else "; FEWER THAN %d PICTURES COMPARED, OR OTHERS NOT TAKEN THAN %s" % (SCREEN_PICTURES, ", ".join(sorted(SCREEN_NOT_TAKEN)))))
         else:
             step("screen", False, "song slot 6 is not empty: the tour's song could not be written")
         state("screen")
@@ -327,7 +353,10 @@ def main():
             c2, o2 = sh([py, str(HW / "run-guard.py"), "--song", "6", "--seconds", "20", "--only", "as it is,internal sounds muted", "--out", str(out / ("guard-%s" % rc_tag))], 400, log) if c1 == 0 else (1, o1)
             sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
             last = [x for x in o2.splitlines() if x.startswith(("PASS", "FAIL"))]
-            step("guard", c2 == 0 and bool(last), last[-1] if last else o2[-200:])
+            # v0.28: the song as it is: its block must be rendered inside the block's time (printed until now, not judged)
+            m = re.search(r"as it is [\d.]+ adaptations a second, a block ([\d.]+) ms \(of ([\d.]+)\)", last[-1] if last else "")
+            in_time = bool(m) and float(m.group(1)) < float(m.group(2))
+            step("guard", c2 == 0 and bool(last) and in_time, (last[-1] if last else o2[-200:]) + ("" if in_time or not last else "; THE SONG'S BLOCK IS NOT RENDERED INSIDE ITS TIME"))
         else:
             step("guard", False, "song slot 6 is not empty: the song could not be written")
         state("guard")
@@ -336,7 +365,12 @@ def main():
         with awake():
             code, o = sh([py, str(HW / "run-clips.py"), "--song", "13", "--expected", a.expected, "--out", str(out), "--tag", rc_tag + "-s13"], 600, log)
         lines = [l for l in o.splitlines() if l.startswith(("PASS", "FAIL"))]
-        step("clips", code == 0 and lines and not any(l.startswith("FAIL") for l in lines), " | ".join(l[:120] for l in lines[-3:]) or o[-200:])
+        # v0.28: the render peak, the CPU guard and the tempo were printed and not judged: the timing song must render inside
+        # a block, never wake the guard, and run at the device's tempo
+        peak = figures(r"render peak ([\d.]+) ms", o); woke = figures(r"CPU GUARD \+(\d+)", o); tempo = figures(r"tempo x ([\d.]+)", o)
+        calm = bool(peak) and max(peak) < BLOCK_MS and bool(woke) and not any(woke) and len(tempo) >= 2 and all(RATIO_LIMITS[0] <= x <= RATIO_LIMITS[1] for x in tempo)
+        step("clips", code == 0 and lines and not any(l.startswith("FAIL") for l in lines) and calm, (" | ".join(l[:120] for l in lines[-3:]) or o[-200:])
+             + ("; render peak %s ms, CPU GUARD %s, tempo %s%s" % (peak, woke, tempo, "" if calm else ": NOT inside a block of %.1f ms / the guard woke / the tempo outside %s" % (BLOCK_MS, (RATIO_LIMITS,)))))
         bands = {}
         runs = []
         own = []    # v0.13: the device's own figure: the latest a timed event left after its due time
@@ -354,7 +388,9 @@ def main():
             runs.append(code)
         din, usb = bands.get("DIN", []), bands.get("USB", [])
         good = (len(din) == 3 and len(usb) == 3 and all(n == 960 for n, _, _ in din + usb) and all(b < PAGE_LIMIT_MS for _, b, _ in usb) and not any(runs)
-                and all(x is not None and x < PAGE_LIMIT_MS for x in own) and all(r is not None and r < PAGE_LIMIT_MS and f < FIRST_NOTE_MS for r, f in rests))
+                and all(x is not None and x < PAGE_LIMIT_MS for x in own) and all(r is not None and r < PAGE_LIMIT_MS and f < FIRST_NOTE_MS for r, f in rests)
+                # v0.28: the clock ratio was printed and not judged
+                and all(RATIO_LIMITS[0] <= float(r) <= RATIO_LIMITS[1] for _, _, r in din + usb))
         step("timing", good, ("" if all(n == 960 for n, _, _ in din + usb) else "NOTES %s, NOT 960: THE TIMING SONG IN SLOT 16 IS NOT AS STORED. " % sorted(set(n for n, _, _ in din + usb))) + "one line, 960 notes, three runs: DIN %s ms (the first note at SEQ PLAY %s behind Start; with it %s); USB %s ms; the device's own latest send %s ms; clock ratio %s" % (
             ", ".join("?" if r is None else "%.2f" % r for r, _ in rests), ", ".join("?" if f is None else "%+.2f" % f for _, f in rests), ", ".join("%.2f" % b for _, b, _ in din),
             ", ".join("%.2f" % b for _, b, _ in usb), ", ".join("?" if x is None else "%.2f" % x for x in own), ", ".join(sorted({r for _, _, r in din}))))
@@ -384,7 +420,9 @@ def main():
             # late, none of them a note of the line. It is reported there, not judged (v0.14).
             rest, first = din_without_first("%s-%dx-%s" % (rc_tag, lines_n, page))
             ok = (code == 0 and len(worst) == 2 and worst["USB"] < limit and rest is not None and rest < limit and first < FIRST_NOTE_MS + (0.0 if lines_n == 1 else 7 * 0.96)
-                  and latest is not None and (lines_n > 1 or page == "actions" or latest < PAGE_LIMIT_MS))
+                  # v0.28: on ACTIONS and with eight lines the device's own figure was "reported, not judged": it has the limit
+                  # of the lateness step there (10 ms: one screen band and one control pass); elsewhere one line's 2 ms
+                  and latest is not None and latest < (LATE_LIMIT_MS if lines_n > 1 or page == "actions" else PAGE_LIMIT_MS))
             bad += not ok
             got.append("%s %s %s/%s/%s" % ("1L" if lines_n == 1 else "8L", page, "?" if rest is None else "%.2f" % rest, "%.2f" % worst["USB"] if "USB" in worst else "?", "?" if latest is None else "%.2f" % latest))
         step("timing-pages", not bad, "worst line DIN (without each line's first note at SEQ PLAY) / USB / the device's own latest send, ms: " + "; ".join(got))
@@ -418,7 +456,12 @@ def main():
                          *extra, "--tag", tag, "--out", str(out)], int(minutes * 60 + 900), log)
             tail = [l for l in o2.splitlines() if l.startswith(tag + ":") or "lines," in l or l.startswith("BAD")]
             sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
-            step(name, c2 == 0, ("EVENT LEAD %s: " % ("1/16" if lead else "OFF")) + (" | ".join(tail[:4]) or o2[-300:]))
+            # v0.28: "largest single error" was printed and not judged (with EVENT LEAD the first note at SEQ PLAY is left
+            # out of the band, and nothing else looked at it)
+            single = re.search(r"DIN band [\d.]+ to [\d.]+ ms, largest single error ([\d.]+) ms; USB band [\d.]+ to [\d.]+ ms, largest single error ([\d.]+) ms", o2)
+            within = bool(single) and float(single.group(1)) <= SOAK_DIN_SINGLE_MS[lead] and float(single.group(2)) <= SOAK_USB_SINGLE_MS
+            step(name, c2 == 0 and within, ("EVENT LEAD %s: " % ("1/16" if lead else "OFF")) + (" | ".join(tail[:4]) or o2[-300:])
+                 + ("" if within or c2 else "; A SINGLE ERROR OVER ITS LIMIT (DIN %.0f ms, USB %.1f ms)" % (SOAK_DIN_SINGLE_MS[lead], SOAK_USB_SINGLE_MS)))
         else:
             step(name, False, "song slot 6 is not empty, or the Wrong Room song could not be written: %s" % (o0.strip()[-80:]))
         state(name)
@@ -444,7 +487,10 @@ def main():
                 c2, o2 = sh([py, str(HW / "run-songsoak.py"), "--song", "6", "--expected", str(exp), "--minutes", str(a.soak_song_minutes), "--tag", tag, "--out", str(out)], int(a.soak_song_minutes * 60 + 900), log)
                 sh([py, "-c", link + "l.stop_song(); time.sleep(0.5)\ntry:\n    l.select_song(6)\nexcept T.DeviceError:\n    pass\nl.song_delete(5); l.close()"], 120, log)
                 tail = [x for x in o2.splitlines() if x.startswith(("PASS " + tag + ":", "FAIL " + tag + ":"))]
-                step("soak-song", c2 == 0, "Meridian Fault: " + (tail[-1] if tail else o2[-300:]))
+                # v0.28: the device's own latest send in the song soak was printed and not judged
+                own_song = figures(r"the device's own latest send ([\d.]+) ms", tail[-1] if tail else "")
+                on_time = bool(own_song) and own_song[0] < LATE_LIMIT_MS
+                step("soak-song", c2 == 0 and on_time, "Meridian Fault: " + (tail[-1] if tail else o2[-300:]) + ("" if on_time or c2 else "; THE DEVICE'S OWN LATEST SEND IS NOT UNDER %.0f ms" % LATE_LIMIT_MS))
             else:
                 step("soak-song", False, "the song could not be written: %s" % o1.strip()[-200:])
         else:
@@ -474,7 +520,6 @@ def main():
     # step. The limit: a send waits at most for one screen band (up to 6 ms, not interruptible) and one control pass;
     # the ACTIONS page reads 3 to 4 ms in every version. A late send while stopped (the clock alone) or during a
     # transfer is reported with its circumstances and not judged: flash writes are refused while the transport runs.
-    LATE_LIMIT_MS = 10.0
     def worst_text(w):                               # as tabby_link.Link.worst_text (this script does not load the link)
         parts = []
         for name in ("running", "stopped"):

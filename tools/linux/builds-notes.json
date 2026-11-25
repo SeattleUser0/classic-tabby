@@ -2,7 +2,7 @@
   "comment": "The note line of a published build: shown in builds/index.json, builds/index.html and (when the page already has a note banner) at the top of builds/<tag>/. tools/linux/builds-index.py applies it on every index rewrite. Changing a note line is the only change allowed to a published builds/ page (SPEC 17.11).",
   "notes": {
     "tabby-v1.5": {
-      "text": "A clip launched in the last 10 ms before the bar line can land without its first note. Fixed in tabby-v1.5.1: install that one.",
+      "text": "Use tabby-v1.5.1: on this build a clip launched in the last 10 ms before the bar line can miss the bar line.",
       "link": "tabby-v1.5.1"
     },
     "tabby-v1.5.1-rc1": {

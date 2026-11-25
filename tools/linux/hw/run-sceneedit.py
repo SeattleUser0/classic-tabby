@@ -114,8 +114,9 @@ def main():
                 idle(0.02)
             # tabby-v1.4's grace: a launch that reaches the device within about 20 ms after a bar line lands on that line. This
             # press comes right after one (that is what the loop above waits for), and the clip REC launches then loops at
-            # once and the take RUNS (2) where the test wants it armed (1): tabby-v1.5.1-rc1, once in nine runs since the
-            # grace exists. 150 ms after the line the launch waits for the next line, as the test means it to.
+            # once and the take RUNS (2): that is the behavior the user decided on 2026-11-25 (CONTROL-MAP 13.1; run-recline.py tests
+            # both sides of the window). This check is about a stop taking an ARMED take off, so it presses 150 ms after
+            # the line, outside the window, where SEQ REC arms for the next line.
             idle(0.15)
             l.press("REC")
             seen = l.steps_state()["recording"]

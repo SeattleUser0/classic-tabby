@@ -1,10 +1,12 @@
-**Use tabby-v1.5.1, not this build: in tabby-v1.5 a clip launched in the last 10 ms before the bar line (or just after it) can land without its first note. tabby-v1.5.1 fixes it.** A mute under KNOB BANK needs its pad held, so reaching for a track pad no longer mutes by accident; a late launch cuts the old clip's notes.
+**Use tabby-v1.5.1, not this build: in tabby-v1.5 a clip launched in the last 10 ms before the bar line (or just after it) can miss the bar line. tabby-v1.5.1 fixes it.** A mute under KNOB BANK needs its pad held, so reaching for a track pad no longer mutes by accident; a late launch cuts the old clip's notes.
 
 # Classic Tabby tabby-v1.5: a mute under KNOB BANK needs its pad held
 
 > **Known fault, fixed in tabby-v1.5.1:** a clip launch pressed in the last 10 ms before the bar line, or just after
-> it, can land on the line without its first note (24 of 60 such presses in this build's own release run; tabby-v1.4
-> landed all of them). A press 12 ms or more before the line, and every scene recall, is not affected.
+> it, can miss the bar line: the new clip's note on that line is not heard (24 of 60 presses in this build's own
+> release run, 33 of 60 with a page change before the pad; tabby-v1.4 landed all 60). By the code the clip comes in
+> without its first note; the run's tool could not tell that from waiting a whole cycle. A press 12 ms or more
+> before the line, and every scene recall, is not affected.
 
 - Firmware package build ID: `1a9b1f5a63c8b84b` (first 16 hex digits). App image 494404 bytes (measured), margin 25053 bytes
   below the 519457-byte limit (docs/FLASH-BUDGET.md 55). From tabby-v1.4 (`46301b99eb3e5a67`): +480 bytes. At least
@@ -43,11 +45,13 @@ Candidate 3 (builds/tabby-v1.5-rc3/) on the device, unattended, 01:35 to 04:36 o
 the Orange Cat soak guard. Every step passed and it was promoted.
 
 **A fault found in this run's own figures after the release, fixed in tabby-v1.5.1:** a clip launched in the last
-10 ms before the bar line, or just after it, whose buffer was not ready, lands on the line WITHOUT ITS FIRST NOTE
-(24 of 60 such presses on CLIPS, 33 of 60 with a page change before the pad; a scene recall is not affected: 60 of
-60). tabby-v1.4 did not have this; it came in with this release's change to the catch-up, and the bar-line tool
-called those presses "waited a cycle" (they were all sent later than the 12 ms the check asks for). A press 12 ms
-or more before the line landed with its first note every time. Install tabby-v1.5.1.
+10 ms before the bar line, or just after it, MISSES THE LINE: its note on that line is not heard (24 of 60 presses
+on CLIPS, 33 of 60 with a page change before the pad; a scene recall is not affected: 60 of 60). tabby-v1.4 landed
+60 of 60 in each case. It came in with this release's change to the catch-up. How it got through the release run:
+the bar-line step ran, on this build, and passed: it only judged presses sent 12 ms or more before the line (all of
+those landed), "60 of 60" was a figure it printed and never compared, and the flow promoted by itself. From
+tabby-v1.5.1 the step fails on any press sent at or before the line that does not land with its first note, and a
+candidate's tables are compared with the last release's before anyone promotes it. Install tabby-v1.5.1.
 
 - Stop (ms, DIN): after SEQ PLAY 4.86 to 17.00; after a page change 7.43 to 19.28; a save sent after it 5.66 to
   8.30; the first stop after a save 5.44 to 13.84; the save by itself due 8.92, 6.50. The clock around a save: a

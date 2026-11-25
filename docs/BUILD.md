@@ -7483,3 +7483,110 @@ for it.
 
 release-flow.sh v0.4: TABBY_PROMOTE_ONLY=1 promotes a candidate that passed with TABBY_NO_PROMOTE=1: from now the
 full candidate runs without promotion, its tables are read against the release before, and only then is it promoted.
+
+### 71.2 How tabby-v1.5 passed the bar-line step (the user's question of 2026-11-25)
+
+Asked: did the check not run, run on another build, or fail and get passed anyway? None of the three. From the logs
+(../overnight/v15/tabby-v1.4-rc5-validate.log, ../overnight/v16/tabby-v1.5-rc3-validate.log):
+
+- It ran: `run-barline.py --song 7 --out ../overnight/v16 --tag tabby-v1.5-rc3 --limit 12`, 180 presses.
+- On the right build: the identity step before it reads `1a9b1f5a63c8b84b...` from the device, the build of the page.
+- It passed, and nobody overrode it: "PASS bar line: a press 12 ms or more before the line always landed".
+
+What let the fault through, three things:
+
+1. **There never was a 60-of-60 check.** Since v0.1 the step's only rule was `--limit 12`: a press SENT 12 ms or more
+   before the line must land. "60 of 60 landed" was a figure it printed; nothing compared it with anything. In the
+   tabby-v1.5 run every miss was sent less than 12 ms before the line (the earliest 8.3 ms), so: PASS, with 36 of 60
+   and 27 of 60 printed beside it.
+2. **The rows were not the rows of the release before.** For tabby-v1.5 I changed the leads (100, 60, 40, 30, 25,
+   20, 15, 10, 6, 3 became 100, 40, 20, 15, 12, 10, 6, 3, 0, -5), so the two tables could not be laid side by side
+   even by eye; and v0.3 called every miss "waited a cycle".
+3. **The flow promoted by itself** on the step's PASS; the table was read after the release.
+
+Whether the tabby-v1.5 launches came in without their first note or a whole cycle late was NOT measured: the v0.3
+table keeps only the notes at the two lines. The code says the first (71). Public texts now say "can miss the bar
+line".
+
+Fixed:
+
+- run-barline v0.5: with a limit, every press sent AT OR BEFORE the line must land with its first note (the grace
+  is 7 blocks, about 20 ms, so a press sent at the line has that much in hand; tabby-v1.4 landed presses sent up to
+  1.2, 2.4 and 7.3 ms AFTER it). A clip that lands without its first note fails at any lead.
+- tools/linux/compare-runs.py: a candidate's tables against the last release's: every step, and the bar line by
+  where the press was really sent (so a change of leads cannot hide a row): a press that did not land although the
+  old run landed one sent later is WORSE. Figures that grew by more than a quarter are marked to look at.
+- release-flow.sh v0.5: a full candidate runs with TABBY_NO_PROMOTE=1; TABBY_PROMOTE_ONLY=1 runs the comparison
+  (TABBY_COMPARE_WITH, TABBY_COMPARE_BARLINE) and refuses to promote on a worse row. The user's rule: a candidate
+  worse than the last release in any row is held back, with the row as the reason.
+
+### 71.3 SEQ REC at the bar line, decided (the user, 2026-11-25)
+
+"A REC press inside the grace window starts the take on that line, the same as a launch; a press after the window
+arms for the next line." That is what the firmware does since tabby-v1.4 (SEQ REC launches the clip through the
+same queue as a pad); no firmware change. Written into CONTROL-MAP 13.1, the guide (STEP page, SEQ REC) and
+TESTING-GUIDE. Tested by tools/linux/hw/run-recline.py (the release-run step `recline`): SEQ REC 3 ms after a line:
+pitch 72 on that line and the take running 0.25 s later; 40 ms after a line: the take armed, the clip silent in that
+cycle, then on the next line the clip and the running take. run-sceneedit's "a stop takes an armed take off" keeps
+its press 150 ms after the line, on purpose: it needs an armed take.
+
+### 71.4 The audit: every figure the release run prints (the user's order of 2026-11-25)
+
+The hole of 71.2 was a figure that is printed and compared with nothing. Every step of rc-validate.py, read for the
+same hole. "Limit": checked inside the step. "Compared": tools/linux/compare-runs.py v0.2 against the last release,
+before promotion (a time is WORSE when more than 25 % and more than 0.5 ms above the old one; a fault count when
+higher; a count of checks or of notes seen when lower). Under 25 % / 0.5 ms two runs of one firmware differ by
+themselves (one line: 1.59 to 1.96 ms across pages and runs; Stop: 4.9 to 19.3 ms inside one run).
+
+| Step | Figure that was printed only | Now |
+| --- | --- | --- |
+| page, backup-before, install, identity | the install's seconds | information: this computer and the browser, not the firmware |
+| song | blocks and rows of the test song | information: the test's own material |
+| program, chain, scenechain, sceneedit, takeedit, repeat, setup, record, steps, launch, launch-again | none inside (every line is a check); but the NUMBER of checks ("40 of 40") was compared with nothing: a check that stopped running would not be missed | compared: fewer checks than the last release is WORSE |
+| stop | the clock's pause around a save (87 to 137 ms, see below); the clock bytes left out; "the save taken after" | limit: the pause under 170 ms (run-stop v0.4; three sectors erased and written, see below). Not compared: it follows how full the sector is, not the build |
+| barline | landed of presses (71.2); the two sides of the grace window | limit: run-barline v0.5: a press sent up to 3 ms after the line lands on it with its first note, one sent 24 ms or more after it waits and lands on the next, between the two either, no other outcome, 3 presses on each side at least; compared by where the press was sent |
+| recline (new) | - | limit (71.3); compared |
+| screen | the number of pictures (46) and the list "not taken on the device" | limit: 46 pictures at least, and no picture missing but the two that cannot be taken (a save in progress) |
+| guard | the song as it is: a block's render time of its 2.9 ms; adaptations a second | limit: the block under its time. Adaptations with the song as it is: information (the Wrong Room song loads the engine on purpose); compared |
+| clips | render peak, CPU GUARD count, tempo ratio, std | limit: peak under one block, the guard never, tempo 0.9990 to 1.0010. std: compared |
+| timing | the clock ratio; DIN "with the first note" | limit: ratio 0.9990 to 1.0010. DIN with the first note: information, it is judged as its two parts (the band without it, and its own place) |
+| timing-pages | the device's own latest send on ACTIONS and with eight lines ("reported, not judged") | limit: under 10 ms there (the lateness limit: one screen band and one control pass); compared |
+| soak, soak-lead | "largest single error" on DIN and USB (with EVENT LEAD the first note is left out of the band and nothing looked at it); this computer's clock steering | limit: DIN 20 ms (lead off) / 26 ms (lead on: Start, Song Position, 17 event messages and 7 notes ahead on one cable), USB 3.5 ms. Clock steering: information, a property of this computer; the times are on its raw clock |
+| soak-song | the device's own latest send; its count at 4 ms or more | limit: under 10 ms. The count: compared |
+| backup, restore, verify, state | none | - |
+| lateness | "stopped" (17.5 ms and more); the count at 4 ms or more while running | "stopped": information, with the reason the step gives: the clock alone during a flash write, and writes are refused while a song runs. Running: limit 10 ms as before; compared |
+| kept beside the steps | unanswered remote commands; tests that left a page or track; page load errors | unanswered commands: compared (more is WORSE). Left page or track: information (the run puts it back). Page load errors: information (this computer's name service) |
+
+**Found by the audit, and then measured:** the clock's pause around a save while stopped, DIN, five saves per run:
+87 to 90 ms in every run from tabby-v1.3-rc4 to tabby-v1.4-rc1; 90 to 93 in tabby-v1.4-rc2, -rc4, -rc5 and
+tabby-v1.5-rc1, -rc2; 117 to 119 in tabby-v1.4-rc3; 105 to 108 in tabby-v1.5-rc3 (THE SAME BUILD as -rc2); 137
+(four times) and 101 in tabby-v1.5.1-rc1. Clock bytes left out: 3, 3, 5, 4, 6. So it is not a property of a build;
+no note is involved (the song is stopped; writes are refused while it runs). Measured 2026-11-25, ten saves one
+after the other with the device's flash counters read around each: every save is 3 erases and 3 writes; the largest
+write grew by about 50 bytes with each save (3720, 3768 ... 3968 bytes; 27.5 to 29.6 ms) and the pause with it (134
+to 140 ms); at the ninth save what is written began small again and the pause was 88 and 90 ms. So the pause follows
+how full the sector being written is: a saw tooth from 88 to about 140 ms, and a run reads wherever it happens to
+stand. Which record grows by 50 bytes a save was not looked up. The limit (run-stop v0.4): 3 x (an erase, 17.7 ms at
+most, and a full sector's write, 30.5 ms) and one clock period = 166 ms: under 170 ms.
+
+**Also found:** in the scenes case of the bar-line step about half the presses of the tabby-v1.5 and tabby-v1.5.1-rc1
+runs were sent 400 or 800 ms before the line instead of where the row says (they landed, and tested nothing). The
+tool took the cycle from the last six bar notes; a recall that lands in the grace plays track 2's note on the line
+twice. v0.5 takes the lines from the song's own grid; in two runs of 216 and 252 presses on the device every press
+went out where its row says.
+
+**The grace window, measured** (run-barline v0.5 on the tabby-v1.5.1 firmware, 2026-11-25). First run, "inside" set at
+5 ms after the line from an estimate: one scene recall sent 5.0 ms after the line waited a cycle (two others sent
+5.0 and 5.1 landed): FAIL. From the press being sent to the first note: 8 to 16 ms, a scene the longest (eight
+clips). The grace is counted at the audio thread (20.3 ms after the line; the first note leaves up to 24 ms after
+it), so by when a press is SENT the window is: up to 3 ms after the line always, from 24 ms never, between the two as
+the device has time. Second run with 3 ms: clips 60 of 60 inside (12 sent after the line), 12 of 12 after the
+window waited; scenes 59 of 59 (13) and 12 of 12; page + clip 45 of 45 (6) and 13 of 13; in the edge 47 landed
+(sent 3.1 to 14.9 ms after the line) and 4 waited (15.0 to 19.9); no other outcome: PASS.
+
+**The comparison tried on old runs** (compare-runs v0.2): tabby-v1.5-rc3 against tabby-v1.4-rc5: the bar line WORSE
+in four rows (it would have held tabby-v1.5 back), and four rows of the other tables: the longest control pass on
+ACTIONS 16.25 ms against 12.92 (tabby-v1.5-rc2, the same build: 12.95), and in the Wrong Room soak the device's own
+latest send 4.01 ms against 2.49 and the song section's longest 2.46 against 1.68. Whether those are tabby-v1.5 or
+one run's chance is not known: one full run of that build exists. The four full runs before it read 2.39 to 2.74 ms
+in that row; the runs before tabby-v1.3-rc4 3.2 to 4.8.

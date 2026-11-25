@@ -25,9 +25,10 @@ Purpose (the user's requests of 2026-11-21, after a Stop message that the device
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-stop.py --out DIR [--tag NAME] [--report-only]
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-25  The clock's pause around a save has a limit (--pause-limit 170 ms: three sectors erased and written).
     v0.3  2026-11-22  One limit, 30 ms, for every case: the screen's own drawing delays the key in any of them.
     v0.2  2026-11-22  'The Stop before the pause': within one clock period after the last clock byte before the write (v0.1
                       asked for it before that byte and failed a Stop that left 4 to 15 ms after the key).
@@ -63,6 +64,12 @@ def main():
                         "whole (after a page change, a message, a save) the key is read after that pass: up to 12 ms more measured "
                         "(16.67 ms after a save, 19.33 after a page change). 30 ms. A Stop behind a flash write is 85 ms or more.")
     p.add_argument("--repeats", type=int, default=5)
+    p.add_argument("--pause-limit", type=float, default=170.0,
+                   help="ms: the longest pause a save may make in the clock while stopped. A save erases and writes three sectors "
+                        "(measured 2026-11-25: +3 erases, +3 writes every time; an erase up to 17.7 ms, a write of 3968 bytes 29.6 ms, "
+                        "so a full sector of 4096 bytes 30.5 ms): 3 x (17.7 + 30.5) = 145 ms, and one clock period (21 ms) until the "
+                        "next byte: 166 ms. What is written grows by about 50 bytes with every save and begins again small "
+                        "(pause 88 ms) when the sector is full (137 ms): that is why runs of one build read 87 to 137 ms.")
     p.add_argument("--tag", default="stop")
     p.add_argument("--out", required=True)
     p.add_argument("--report-only", action="store_true", help="measure and print, judge nothing (for a firmware before the fix)")
@@ -219,6 +226,11 @@ def main():
                              "din_shortest_after_ms": [(r["din_clock"] or {}).get("shortest_after_ms") for r in rows],
                              "usb_shortest_after_ms": [(r["usb_clock"] or {}).get("shortest_after_ms") for r in rows],
                              "din_bytes_missing": [(r["din_clock"] or {}).get("bytes_missing") for r in rows]}
+            # v0.4 (the audit of docs/BUILD.md 71.4): the pause itself was printed in every run and compared with nothing
+            every = [v for v in pauses + data["clock"]["usb_pauses_ms"] if v is not None]
+            check((len(every) == 2 * len(rows) and max(every) < a.pause_limit) or a.report_only,
+                  "the clock's pause around a save while stopped: under %.0f ms (three sectors erased and written, and one clock period)" % a.pause_limit,
+                  "DIN %s ms, USB %s ms" % (pauses, data["clock"]["usb_pauses_ms"]))
             check(all(v == 0 for v in short) or a.report_only,
                   "the clock around a save while stopped (period %s ms): after the pause no interval shorter than half a period: no burst" % c0.get("period_ms"),
                   "pause DIN %s ms, USB %s ms; shortest interval after it DIN %s, USB %s ms; clock bytes left out %s; DIN intervals after the first pause: %s"

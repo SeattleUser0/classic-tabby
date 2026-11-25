@@ -1,7 +1,7 @@
 # The Orange Cat soak guard: every entry point and where it calls the guard
 
 Written by `python3 -I tests/linux/oc-guard-test.py --table` (make test-oc-guard checks that it is current). The rule:
-docs/DEV_CHECKS.md. 52 Makefile targets, 111 scripts.
+docs/DEV_CHECKS.md. 52 Makefile targets, 113 scripts.
 
 ## Makefile targets
 
@@ -124,6 +124,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/build-web.py` | tools/linux/build-web.py:68 |  |
 | `tools/linux/build.py` | tools/linux/build.py:125 |  |
 | `tools/linux/builds-index.py` | tools/linux/builds-index.py:56 |  |
+| `tools/linux/compare-runs.py` | tools/linux/compare-runs.py:53 |  |
 | `tools/linux/crosscheck-compare.sh` | tools/linux/crosscheck-compare.sh:19 |  |
 | `tools/linux/device-gate.py` | tools/linux/device-gate.py:31 |  |
 | `tools/linux/devices-from-sources.py` | tools/linux/devices-from-sources.py:43 |  |
@@ -133,12 +134,12 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/hw/clips-song.mjs` | tools/linux/hw/clips-song.mjs:19 |  |
 | `tools/linux/hw/expected-events.mjs` | tools/linux/hw/expected-events.mjs:20 |  |
 | `tools/linux/hw/panel-state.py` | tools/linux/hw/panel-state.py:30 |  |
-| `tools/linux/hw/rc-validate.py` | tools/linux/hw/rc-validate.py:74 | 96 |
+| `tools/linux/hw/rc-validate.py` | tools/linux/hw/rc-validate.py:76 | 112 |
 | `tools/linux/hw/rig-song.mjs` | tools/linux/hw/rig-song.mjs:19 |  |
 | `tools/linux/hw/run-11b.py` | tools/linux/hw/run-11b.py:49 |  |
 | `tools/linux/hw/run-12b.py` | tools/linux/hw/run-12b.py:33 |  |
 | `tools/linux/hw/run-15.py` | tools/linux/hw/run-15.py:103 |  |
-| `tools/linux/hw/run-barline.py` | tools/linux/hw/run-barline.py:35 |  |
+| `tools/linux/hw/run-barline.py` | tools/linux/hw/run-barline.py:44 |  |
 | `tools/linux/hw/run-chain.py` | tools/linux/hw/run-chain.py:28 |  |
 | `tools/linux/hw/run-clips.py` | tools/linux/hw/run-clips.py:37 |  |
 | `tools/linux/hw/run-follow.py` | tools/linux/hw/run-follow.py:44 |  |
@@ -146,6 +147,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/hw/run-launch.py` | tools/linux/hw/run-launch.py:42 |  |
 | `tools/linux/hw/run-phantom.py` | tools/linux/hw/run-phantom.py:27 |  |
 | `tools/linux/hw/run-program.py` | tools/linux/hw/run-program.py:24 |  |
+| `tools/linux/hw/run-recline.py` | tools/linux/hw/run-recline.py:32 |  |
 | `tools/linux/hw/run-record.py` | tools/linux/hw/run-record.py:39 |  |
 | `tools/linux/hw/run-remote.py` | tools/linux/hw/run-remote.py:26 |  |
 | `tools/linux/hw/run-repeat.py` | tools/linux/hw/run-repeat.py:37 |  |
@@ -157,7 +159,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/hw/run-soak.py` | tools/linux/hw/run-soak.py:40 | 74, 75 |
 | `tools/linux/hw/run-songsoak.py` | tools/linux/hw/run-songsoak.py:24 | 55 |
 | `tools/linux/hw/run-steps.py` | tools/linux/hw/run-steps.py:28 |  |
-| `tools/linux/hw/run-stop.py` | tools/linux/hw/run-stop.py:36 |  |
+| `tools/linux/hw/run-stop.py` | tools/linux/hw/run-stop.py:37 |  |
 | `tools/linux/hw/run-takeedit.py` | tools/linux/hw/run-takeedit.py:31 |  |
 | `tools/linux/hw/tabby_link.py` | tools/linux/hw/tabby_link.py:84 | 244, 294, 307, 308, 917 |
 | `tools/linux/hw/usb-readback.py` | tools/linux/hw/usb-readback.py:61 |  |
@@ -174,7 +176,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/pin-toolchain.py` | tools/linux/pin-toolchain.py:31 |  |
 | `tools/linux/publish-pages.py` | tools/linux/publish-pages.py:72 | 277 |
 | `tools/linux/recover-page.py` | tools/linux/recover-page.py:63 |  |
-| `tools/linux/release-flow.sh` | tools/linux/release-flow.sh:30 | 53, 58, 64, 73, 77 |
+| `tools/linux/release-flow.sh` | tools/linux/release-flow.sh:30 | 53, 57, 62, 68, 77, 81 |
 | `tools/linux/screens.mjs` | tools/linux/screens.mjs:39 |  |
 | `tools/linux/stickers.py` | tools/linux/stickers.py:44 | 467 |
 | `tools/linux/suite-gate.py` | tools/linux/suite-gate.py:26 |  |
