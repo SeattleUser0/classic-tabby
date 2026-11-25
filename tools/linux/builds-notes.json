@@ -6,7 +6,7 @@
       "link": "tabby-v1.5.1"
     },
     "tabby-v1.5.1-rc1": {
-      "text": "Not promoted: a short run; one check of its test run failed on the test's own timing. The firmware is the same build as tabby-v1.5.1.",
+      "text": "Not promoted: a short run; one check of its test run pressed SEQ REC right after a bar line, where the take starts at once. The same firmware code as tabby-v1.5.1; the guide inside has one paragraph less.",
       "link": "tabby-v1.5.1"
     },
     "tabby-v1.5-rc2": {
