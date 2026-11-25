@@ -174,7 +174,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/pin-toolchain.py` | tools/linux/pin-toolchain.py:31 |  |
 | `tools/linux/publish-pages.py` | tools/linux/publish-pages.py:72 | 277 |
 | `tools/linux/recover-page.py` | tools/linux/recover-page.py:63 |  |
-| `tools/linux/release-flow.sh` | tools/linux/release-flow.sh:29 | 45, 50, 56, 64, 68 |
+| `tools/linux/release-flow.sh` | tools/linux/release-flow.sh:30 | 53, 58, 64, 73, 77 |
 | `tools/linux/screens.mjs` | tools/linux/screens.mjs:39 |  |
 | `tools/linux/stickers.py` | tools/linux/stickers.py:44 | 467 |
 | `tools/linux/suite-gate.py` | tools/linux/suite-gate.py:26 |  |

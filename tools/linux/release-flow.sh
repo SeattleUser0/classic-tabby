@@ -20,9 +20,10 @@
 #   Only the release session runs this (SPEC 17.12): it sets TABBY_RELEASE_SESSION=1, without which
 #   tools/linux/publish-pages.py commits nothing.
 #
-# Version: 0.3
+# Version: 0.4
 #
 # Revision log
+#   v0.4  2026-11-25  TABBY_PROMOTE_ONLY=1: promote a candidate that passed with TABBY_NO_PROMOTE=1, after its tables were read.
 #   v0.3  2026-11-24  The Orange Cat soak rule: asked before every stage; an interrupted run ends with exit code 75, nothing promoted.
 #   v0.2  2026-11-19  TABBY_NO_PROMOTE=1 (tabby-v1.2: candidate 1 makes the device's screen pictures, candidate 2 carries them).
 #   v0.1  2026-11-17  First version (the user's release-flow rule).
@@ -41,6 +42,13 @@ oc_stage() { scripts/oc_guard.sh "release-flow.sh: $1"; local oc=$?; [ $oc -eq 0
 [ -z "$(git status --porcelain)" ] || { echo "release-flow: the tree is not clean"; exit 1; }
 [ -f "docs/releases/$T.md" ] || { echo "release-flow: write docs/releases/$T.md first"; exit 1; }
 if git rev-parse -q --verify "refs/tags/$T" > /dev/null; then echo "release-flow: tag $T exists already (tags are never moved)"; exit 1; fi
+# v0.4: TABBY_PROMOTE_ONLY=1: the candidate RC has passed on the device (run with TABBY_NO_PROMOTE=1) and its tables have
+# been READ against the release before; this only promotes it. tabby-v1.5 was promoted by the flow itself while its
+# own bar-line table showed a regression that the check's limit did not look at (docs/BUILD.md 71). The device gate
+# must hold for this very commit and candidate.
+if [ -n "$TABBY_PROMOTE_ONLY" ]; then
+  python3 -I tools/linux/device-gate.py check --tag "$T" | tee /dev/stderr | grep -q "$T-rc$RC passed on the device" || { echo "release-flow: no device gate for $T-rc$RC on this commit: nothing promoted"; exit 1; }
+else
 if git rev-parse -q --verify "refs/tags/$T-rc$RC" > /dev/null; then echo "release-flow: tag $T-rc$RC exists already: use the next candidate number"; exit 1; fi
 oc_stage "the suite"
 if ! python3 -I tools/linux/suite-gate.py check --display "$T" > /dev/null; then
@@ -61,6 +69,7 @@ python3 -I tools/linux/device-gate.py check --tag "$T" || exit 1
 # v0.2: TABBY_NO_PROMOTE=1 stops here: a candidate whose device run makes something the release itself needs (the
 # device's own screen pictures for the manual) is followed by the next candidate, which is the one promoted.
 [ -z "$TABBY_NO_PROMOTE" ] || { echo "release-flow: $T-rc$RC passed on the device; NOT promoted (TABBY_NO_PROMOTE)"; exit 0; }
+fi
 oc_stage "the promotion"
 git fetch -q origin gh-pages || exit 1
 git tag -a "$T" -m "$T" || exit 1

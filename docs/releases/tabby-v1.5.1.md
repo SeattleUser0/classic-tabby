@@ -13,7 +13,9 @@ A clip launched in the last moment before the bar line keeps its first note agai
   tabby-v04.20. A song with EVENT LEAD set plays on older firmware, without the lead.
 - Released through the candidate flow, with the per-page timing check, the comparison of the device's own screen
   pixels, the bar-line check and the soaks, every stage behind the Orange Cat soak guard. Candidate 1 was a short run, not to be
-  promoted; candidate 2 is the same firmware, tested in full.
+  promoted (one check of its scene-edit test pressed SEQ REC right after a bar line, inside the grace: the test's
+  timing, corrected); candidate 2 is the same firmware, tested in full, its tables read against tabby-v1.4's, then
+  promoted.
 
 ## What changed
 

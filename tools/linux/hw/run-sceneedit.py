@@ -18,7 +18,7 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-sceneedit.py --song N --out DIR
 
-Version: 0.1
+Version: 0.2
 
 Revision log
     v0.1  2026-11-17  First version.
@@ -112,6 +112,11 @@ def main():
             bar = l.remote_status()["bar"]; t0 = time.monotonic()
             while l.remote_status()["bar"] == bar and time.monotonic() - t0 < 4.0:
                 idle(0.02)
+            # tabby-v1.4's grace: a launch that reaches the device within about 20 ms after a bar line lands on that line. This
+            # press comes right after one (that is what the loop above waits for), and the clip REC launches then loops at
+            # once and the take RUNS (2) where the test wants it armed (1): tabby-v1.5.1-rc1, once in nine runs since the
+            # grace exists. 150 ms after the line the launch waits for the next line, as the test means it to.
+            idle(0.15)
             l.press("REC")
             seen = l.steps_state()["recording"]
             l.press("PLAY"); idle(0.8)

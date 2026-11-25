@@ -7461,3 +7461,25 @@ What went wrong in the work, beyond the line of code: a firmware change made on 
 and a release whose check passed on its limit while its own table had gone from 60 of 60 to 36 of 60. The table was
 there to be read before the promotion; the flow promotes by itself. From now: the bar-line step compares its
 landings with the release before (every press sent 6 ms or more before the line landed) and fails on any that does not.
+
+### 71.1 tabby-v1.5.1-rc1: the fix measured; held back by one test check
+
+Commit a656c0c, build `22db9afc4704af3e`, a short run, 04:42 to 05:51 (before the 07:00 soak).
+
+**The bar line** (run-barline v0.4): clips 60 of 60, scenes 60 of 60, page + clip 56 of 60; no launch without its
+first note; the four that waited a cycle were sent 13 to 20 ms AFTER the line. The latest press that landed: 6.4
+(clip), 3.3 (scene), 10.7 ms (page + clip) after the line. The old note ended 1 to 6 ms BEFORE the new clip's first
+note in 64 landings in the grace. As tabby-v1.4 (68.6), and tabby-v1.5's 36 and 27 of 60 are gone.
+(Some presses of the scenes case were sent 400 or 800 ms early: the tool's own waiting; they landed and count for
+nothing either way.)
+
+Failed: sceneedit 14 of 16: "REC while the song plays, on a clip the track does not play: the take is armed": it
+ran (2). The test waits for the bar to change and presses SEQ REC at once: right after a line. Since tabby-v1.4 a
+launch that reaches the device within about 20 ms after a line lands on it, the clip SEQ REC launches loops at once,
+and the take runs. Whether this press was inside the grace was NOT MEASURED in that run (the test does not log it);
+it is what the test's order of events makes likely, the check had passed in the eight runs since tabby-v1.4, and
+with the press 150 ms after the line it passed twice on the device (run-sceneedit v0.2). No firmware was changed
+for it.
+
+release-flow.sh v0.4: TABBY_PROMOTE_ONLY=1 promotes a candidate that passed with TABBY_NO_PROMOTE=1: from now the
+full candidate runs without promotion, its tables are read against the release before, and only then is it promoted.
