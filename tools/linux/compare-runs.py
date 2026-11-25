@@ -207,11 +207,15 @@ def run(a):
 
     # ---- 2. the bar line
     say(); say("2. THE BAR LINE (by where the pad press was really sent; ms after the line)")
-    nb = load(a.new + "-barline.json")["rows"]; ob = load((a.barline_old or a.old) + "-barline.json")["rows"]
+    nb = load(a.new + "-barline.json")["rows"]
+    if not os.path.exists((a.barline_old or a.old) + "-barline.json"):
+        ob = []; say("   the old run has no bar-line table (the step is newer than it): nothing to compare with")
+    else:
+        ob = load((a.barline_old or a.old) + "-barline.json")["rows"]
     say("   old table: %s" % ((a.barline_old or a.old) + "-barline.json"))
     zones = (("before the line", -1e9, 0.0, "land"), ("inside the window, 0 to %.0f after" % a.window_in, 0.0, a.window_in + 1e-9, "land"),
              ("the edge, %.0f to %.0f after" % (a.window_in, a.window_out), a.window_in + 1e-9, a.window_out, "either"), ("after the window, %.0f or more after" % a.window_out, a.window_out, 1e9, "wait"))
-    for case in sorted({r["case"] for r in ob} | {r["case"] for r in nb}):
+    for case in sorted({r["case"] for r in ob} | {r["case"] for r in nb}) if ob else []:
         o = [r for r in ob if r["case"] == case]; n = [r for r in nb if r["case"] == case]
         if o and not n:
             worse.append("bar line, %s: not measured in the new run" % case); say("WORSE %s: not measured in the new run" % case); continue
