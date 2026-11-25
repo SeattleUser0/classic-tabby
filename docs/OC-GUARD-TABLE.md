@@ -124,7 +124,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/build-web.py` | tools/linux/build-web.py:68 |  |
 | `tools/linux/build.py` | tools/linux/build.py:125 |  |
 | `tools/linux/builds-index.py` | tools/linux/builds-index.py:56 |  |
-| `tools/linux/compare-runs.py` | tools/linux/compare-runs.py:53 |  |
+| `tools/linux/compare-runs.py` | tools/linux/compare-runs.py:58 |  |
 | `tools/linux/crosscheck-compare.sh` | tools/linux/crosscheck-compare.sh:19 |  |
 | `tools/linux/device-gate.py` | tools/linux/device-gate.py:31 |  |
 | `tools/linux/devices-from-sources.py` | tools/linux/devices-from-sources.py:43 |  |

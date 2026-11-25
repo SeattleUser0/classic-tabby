@@ -43,9 +43,14 @@ Usage
     python3 -I tools/linux/compare-runs.py --new ../overnight/v17/tabby-v1.5.1-rc2 --old ../overnight/v16/tabby-v1.5-rc3 [--barline-old ../overnight/v15/tabby-v1.4-rc5]
     Exit 0: no row worse (the text is also written to <new>-compare.txt). Exit 1: a row is worse. Exit 2: a file is missing.
 
-Version: 0.2
+    5. With --before-last: every row again, against the release before the last one. A row worse than that is printed
+       as CARRIED even when it matches the last release: a regression the last release brought in would otherwise be
+       carried forward unseen. CARRIED rows do not change the exit code.
+
+Version: 0.3
 
 Revision log
+    v0.3  2026-11-25  --before-last (the user's rule): rows worse than the release before last are flagged.
     v0.2  2026-11-25  Every table of the run (the user's second order of the day): all JSON files leaf by leaf, the counts of
                       checks, the grace window's two sides.
     v0.1  2026-11-25  First version: steps and the bar line.
@@ -131,7 +136,34 @@ def main():
     p.add_argument("--floor", type=float, default=0.5, help="ms a time may be above the old one whatever the percent")
     p.add_argument("--window-in", type=float, default=3.0)
     p.add_argument("--window-out", type=float, default=24.0)
+    p.add_argument("--before-last", default="", help="v0.3: path prefix of the run of the release BEFORE the last one")
     a = p.parse_args()
+    text, worse, look = run(a)
+    # v0.3 (the user's rule of 2026-11-25): a regression that came in with the last release is carried forward by every
+    # comparison with that release alone. So every row is also laid against the release before last, and a row worse
+    # than THAT is flagged even when it matches the last release. It does not hold the candidate back (the candidate is
+    # no worse than what it replaces); it is a regression of the last release, to be recorded and found.
+    if a.before_last:
+        b = argparse.Namespace(**vars(a)); b.old = a.before_last; b.barline_old = ""
+        _, worse2, _ = run(b)
+        tag2 = load(a.before_last + "-results.json").get("tag")
+        text += "\n5. AGAINST THE RELEASE BEFORE LAST (%s)\n" % tag2
+        row = lambda x: re.sub(r"-?\d+(\.\d+)?", "#", x)         # the row without its figures
+        also = {row(x) for x in worse}
+        for x in worse2:
+            text += "CARRIED: worse than %s%s: %s\n" % (tag2, "" if row(x) in also else " (not worse than the last release: it came in with the last release, or between the two)", x)
+        text += "%d row(s) worse than the release before last (%s); they do not hold the candidate back, they are to be recorded and found\n" % (len(worse2), tag2)
+    text += "%s compare: %d row(s) worse than the last release, %d to look at\n" % ("PASS" if not worse else "FAIL", len(worse), len(look))
+    sys.stdout.write(text)
+    try:
+        open(a.new + "-compare.txt", "w", encoding="utf-8").write(text)
+    except OSError:
+        pass
+    return 0 if not worse else 1
+
+
+def run(a):
+    """One comparison: the run a.new against the run a.old. Returns (the text, the rows worse, the rows to look at)."""
     out = []; worse = []; look = []
 
     def say(s=""):
@@ -283,14 +315,7 @@ def main():
         say("LOOK: " + x)
     for x in worse:
         say("WORSE: " + x)
-    say("%s compare: %d row(s) worse than %s, %d to look at" % ("PASS" if not worse else "FAIL", len(worse), old.get("tag"), len(look)))
-    text = "\n".join(out) + "\n"
-    sys.stdout.write(text)
-    try:
-        open(a.new + "-compare.txt", "w", encoding="utf-8").write(text)
-    except OSError:
-        pass
-    return 0 if not worse else 1
+    return "\n".join(out) + "\n", worse, look
 
 
 if __name__ == "__main__":

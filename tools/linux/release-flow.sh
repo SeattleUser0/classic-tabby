@@ -51,7 +51,7 @@ if [ -n "$TABBY_PROMOTE_ONLY" ]; then
   # v0.5 (the user's rule of 2026-11-25): the candidate's tables against the last release's, row by row; a worse row holds it back
   [ -n "$TABBY_COMPARE_WITH" ] || { echo "release-flow: TABBY_COMPARE_WITH=<path prefix of the last release's run> is needed (TABBY_COMPARE_BARLINE for the bar line, when that is another run): nothing promoted"; exit 1; }
   oc_stage "the comparison with the last release"
-  python3 -I tools/linux/compare-runs.py --new "$O/$T-rc$RC" --old "$TABBY_COMPARE_WITH" ${TABBY_COMPARE_BARLINE:+--barline-old "$TABBY_COMPARE_BARLINE"} || { echo "release-flow: HELD BACK: $T-rc$RC has a row worse than the last release ($O/$T-rc$RC-compare.txt): nothing promoted"; exit 1; }
+  python3 -I tools/linux/compare-runs.py --new "$O/$T-rc$RC" --old "$TABBY_COMPARE_WITH" ${TABBY_COMPARE_BARLINE:+--barline-old "$TABBY_COMPARE_BARLINE"} ${TABBY_COMPARE_BEFORE:+--before-last "$TABBY_COMPARE_BEFORE"} || { echo "release-flow: HELD BACK: $T-rc$RC has a row worse than the last release ($O/$T-rc$RC-compare.txt): nothing promoted"; exit 1; }
 else
 if git rev-parse -q --verify "refs/tags/$T-rc$RC" > /dev/null; then echo "release-flow: tag $T-rc$RC exists already: use the next candidate number"; exit 1; fi
 oc_stage "the suite"

@@ -7590,3 +7590,13 @@ ACTIONS 16.25 ms against 12.92 (tabby-v1.5-rc2, the same build: 12.95), and in t
 latest send 4.01 ms against 2.49 and the song section's longest 2.46 against 1.68. Whether those are tabby-v1.5 or
 one run's chance is not known: one full run of that build exists. The four full runs before it read 2.39 to 2.74 ms
 in that row; the runs before tabby-v1.3-rc4 3.2 to 4.8.
+
+**The user's rule for these rows (2026-11-25):** tabby-v1.5.1 is promoted if it is no worse than tabby-v1.5 on every
+row and passes every limit (it replaces a build with broken launches). The three rows are also laid against
+tabby-v1.4; if they are worse than tabby-v1.4 again, that is recorded as a regression of tabby-v1.5, and finding it
+is the next job after the release, before any feature. In general (compare-runs v0.3, `--before-last`,
+TABBY_COMPARE_BEFORE in release-flow.sh): a row worse than the release before last is flagged CARRIED even when it
+matches the last release.
+
+**The figure a player gets** (the user, 2026-11-25): the guide, TESTING-GUIDE and CONTROL-MAP say "up to about 15 ms
+late still lands on the line; later goes to the next line"; "about 20 ms inside the device" stands in SPEC.md only.

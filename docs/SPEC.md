@@ -2417,6 +2417,14 @@ recall on the master cycle that is ready within `LAUNCH_GRACE` blocks (7: about 
 line: the boundary is this block, the frame starts at the line (`plan[t].origin`, `scene_since`) and what it holds
 up to now is played at once. Not in the song's very first block. The old tests queue on the line itself and switch
 the grace off (`song_test_launch_grace`).
+**For developers: two figures.** Inside the device the grace is 7 blocks, about 20 ms, counted where the launch
+reaches the audio thread; its first note leaves up to 24 ms after the line. A press needs 8 to 16 ms from being
+sent to that note (the command or key read, the clips decoded; a scene the longest), once more than 19 (measured
+2026-11-25, BUILD 71.4). So the figure a player gets, and the only one in the guide and CONTROL-MAP: up to about 15
+ms late still lands on the line. The release run judges: sent up to 3 ms after the line always lands; from 24 ms
+never; between the two either (47 of 51 landed, the latest 14.9 ms after the line; the earliest that waited 15.0).
+SEQ REC launches its clip through the same queue (`Q_LAUNCH`), so the take starts with the landing (the user's
+decision of 2026-11-25; tools/linux/hw/run-recline.py).
 
 **An edit heard at once**: `tick` takes a freshly decoded buffer of a launched clip in mid-loop when the clip's
 settings are unchanged (`same_settings`: the v3 header apart from the event count; a grid-shaped clip has none), not

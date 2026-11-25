@@ -2,7 +2,7 @@ A clip launched in the last moment before the bar line keeps its first note agai
 
 # Classic Tabby tabby-v1.5.1: the first note of a late launch
 
-- Firmware package build ID: `f0a7616b67187313` (first 16 hex digits). App image 494404 bytes (measured), margin 25053 bytes
+- Firmware package build ID: `9867cdab400d5af9` (first 16 hex digits). App image 494404 bytes (measured), margin 25053 bytes
   below the 519457-byte limit. From tabby-v1.5 (`1a9b1f5a63c8b84b`): +0 bytes (the build ID also covers the guide inside the package, which has a new paragraph). At least 15360 bytes stay free for
   fixes. Free RAM 137964 bytes.
 - Installing over tabby-v04.2 to tabby-v1.5 keeps storage as it is. Take a Full backup first anyway.
@@ -24,8 +24,8 @@ A clip launched in the last moment before the bar line keeps its first note agai
   tabby-v1.5 broke it with a change made on a wrong diagnosis. What a launch or a scene skipped is again played from
   the line itself.
 - **SEQ REC and the bar line, decided:** SEQ REC on a clip that is not looping launches it like a pad, with the same
-  grace. Pressed within about 20 ms after the bar line, the clip lands on that line and the take starts there;
-  pressed later, the take is armed and starts on the next line. The firmware did this since tabby-v1.4; it is now
+  rule as a launch or a recall: pressed up to about 15 ms late, the clip still lands on that line and the take
+  starts there; pressed later, the take is armed and starts on the next line. The firmware did this since tabby-v1.4; it is now
   written down (docs/CONTROL-MAP.md 13.1, the guide) and the release run tests both sides of the window.
 - **The release run:** the grace window after the bar line is judged on both sides: a press sent up to 3 ms after
   the line must land on it with its first note, a press sent 24 ms or more after it must wait and land on the next
