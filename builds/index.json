@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-25T12:46:46Z",
+  "updated": "2026-11-25T23:13:48Z",
   "builds": [
     {
       "tag": "tabby-v03.2",
@@ -950,7 +950,7 @@
       "page": "builds/tabby-v1.5/",
       "published": "2026-11-25",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.5.zip",
-      "note": ""
+      "note": "Use tabby-v1.5.1: on this build a clip launched in the last 10 ms before the bar line can miss the bar line."
     },
     {
       "tag": "tabby-v1.5-rc2",
@@ -980,7 +980,17 @@
       "page": "builds/tabby-v1.5.1-rc1/",
       "published": "2026-11-25",
       "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.5.1-rc1.zip",
-      "note": "Not promoted: a short run without soaks. The firmware is the same build as tabby-v1.5.1."
+      "note": "Not promoted: a short run; one check of its test run pressed SEQ REC right after a bar line, where the take starts at once. The same firmware code as tabby-v1.5.1; the guide inside has one paragraph less."
+    },
+    {
+      "tag": "tabby-v1.5.1-rc2",
+      "build": "9867cdab400d5af97daca3ecf16e57e0839c5c8713556e92d5d08dfbfdc4e635",
+      "loader": "ota-SMK379867cdab400d5af9",
+      "version": "tabby-v1.5.1",
+      "page": "builds/tabby-v1.5.1-rc2/",
+      "published": "2026-11-25",
+      "source": "https://github.com/SeattleUser0/classic-tabby/archive/refs/tags/tabby-v1.5.1-rc2.zip",
+      "note": "Release candidate of tabby-v1.5.1: not a release. Use the main page unless you were asked to test this build."
     }
   ]
 }
