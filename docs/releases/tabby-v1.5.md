@@ -1,6 +1,10 @@
-A mute under KNOB BANK needs its pad held, so reaching for a track pad no longer mutes by accident; a late launch cuts the old clip's notes. Reinstall to get it (Full backup first; storage does not move).
+**Use tabby-v1.5.1, not this build: in tabby-v1.5 a clip launched in the last 10 ms before the bar line (or just after it) can land without its first note. tabby-v1.5.1 fixes it.** A mute under KNOB BANK needs its pad held, so reaching for a track pad no longer mutes by accident; a late launch cuts the old clip's notes.
 
 # Classic Tabby tabby-v1.5: a mute under KNOB BANK needs its pad held
+
+> **Known fault, fixed in tabby-v1.5.1:** a clip launch pressed in the last 10 ms before the bar line, or just after
+> it, can land on the line without its first note (24 of 60 such presses in this build's own release run; tabby-v1.4
+> landed all of them). A press 12 ms or more before the line, and every scene recall, is not affected.
 
 - Firmware package build ID: `1a9b1f5a63c8b84b` (first 16 hex digits). App image 494404 bytes (measured), margin 25053 bytes
   below the 519457-byte limit (docs/FLASH-BUDGET.md 55). From tabby-v1.4 (`46301b99eb3e5a67`): +480 bytes. At least
