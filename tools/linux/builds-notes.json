@@ -2,11 +2,11 @@
   "comment": "The note line of a published build: shown in builds/index.json, builds/index.html and (when the page already has a note banner) at the top of builds/<tag>/. tools/linux/builds-index.py applies it on every index rewrite. Changing a note line is the only change allowed to a published builds/ page (SPEC 17.11).",
   "notes": {
     "tabby-v1.5-rc2": {
-      "text": "Not promoted: a short run without soaks. The firmware is the same build as tabby-v1.5.",
+      "text": "Not promoted: a short run; one check of its test run failed on the test's own counting. The firmware is the same build as tabby-v1.5.",
       "link": "tabby-v1.5"
     },
     "tabby-v1.5-rc1": {
-      "text": "Not promoted: a track sent back to the scenes could lose its note on the bar line. Fixed in the next candidate.",
+      "text": "Not promoted: a short run; one check of its test run failed on the test's own counting. An earlier build than tabby-v1.5.",
       "link": "tabby-v1.5"
     },
     "tabby-v1.4-rc4": {

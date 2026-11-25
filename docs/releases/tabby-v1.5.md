@@ -13,9 +13,8 @@ A mute under KNOB BANK needs its pad held, so reaching for a track pad no longer
   tabby-v04.20. A song with EVENT LEAD set plays on older firmware, without the lead.
 - Released through the candidate flow, with the per-page timing check, the comparison of the device's own screen
   pixels, the bar-line check and the soaks. Every build, test, browser, publish and device access of the flow now
-  asks the Orange Cat soak guard first and between its steps (docs/DEV_CHECKS.md). Candidate 1 (a short run) was held back: a track sent back to the scenes with CHORD could lose its
-  note on the bar line (fixed, below). Candidate 2 was a short run of the fixed firmware, not to be promoted;
-  candidate 3 is the same firmware, tested in full.
+  asks the Orange Cat soak guard first and between its steps (docs/DEV_CHECKS.md). Candidates 1 and 2 were short runs, not to be promoted; both failed one check of the clip launch test,
+  which was the test's own counting (docs/BUILD.md 70.1, 70.2). Candidate 3 is candidate 2's firmware, tested in full.
 
 ## What changed
 
@@ -27,10 +26,9 @@ A mute under KNOB BANK needs its pad held, so reaching for a track pad no longer
 - **A launch or recall that lands in the grace after the bar line cuts the old notes.** What the old clip or scene
   still sounds on those tracks ends where the new one begins: one short overlap (the grace, 7 to 25 ms), not two
   parts ringing together. The release run checks it.
-- **A track sent back to the scenes keeps its note on the bar line.** CHORD (back to the scenes) lands on the next
-  bar and the track joins its clip where the clip stands; when the clip's buffer was ready a block late, the note on
-  that line was lost (the release run found it: the first note heard was on beat 3). What a frame holds from where
-  it began without its buffer is now played when the buffer is taken, for every kind of landing.
+- **A frame that begins without its buffer** (the clip was not decoded in time) plays what it skipped when the buffer
+  comes, counted from where the frame began: now also for a track sent back to the scenes with CHORD, which joins
+  its clip where the clip stands. (Not seen to go wrong on the device; closed by reading.)
 - **A key held by remote lets go after 30 s** whatever else arrives (test tools only): a tool that died between its
   KNOB BANK down and up left KNOB BANK held.
 - No new feature. docs/FLASH-BUDGET.md 55 is the plan for the flash margin before the next one.

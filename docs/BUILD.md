@@ -7410,7 +7410,25 @@ Failed: launch 38 of 40 and launch-again 39 of 40.
   late, and the catch-up of tabby-v1.4 did not apply: it counted from the clip's start, and a track that goes back
   to the scenes joins its clip where the clip stands. Old fault, new timing. The catch-up now counts from where the
   frame began without its buffer (`wait_from`, set in `adopt`).
+  **This reading was WRONG: see 70.2.** The change stays (it is right for a late buffer), but it was not the cause.
 - "launch 1: ... error +0.24 ms" where +0.9 to +4.9 was allowed (one audio block after the cycle, +/- 2 ms): the
   clip's buffer was ready a block late and its first note was played at once by the catch-up, without the
   look-ahead's block: 2.7 ms earlier than usual. Before tabby-v1.4 that note was lost. The test takes -1 ms to
   +4.9 ms (run-launch v0.9).
+
+### 70.2 tabby-v1.5-rc2: the ENV check was the test's own counting
+
+Commit 83ca6d0, build `1a9b1f5a63c8b84b`, a short run, 16:39 to 17:52. Everything passed except launch 39 of 40: the
+same ENV check, in the first of the two runs again. My reading of 70.1 (a note lost at a late buffer) had not been
+proven, and the fix did not change the result. Then measured:
+
+- A probe on the device: CHORD pressed 50 to 1950 ms after a line, 15 times: every time the track came back on the
+  next line with its note on the line.
+- The test itself, three times, printing every note: CHORD was pressed 1917 to 1955 ms after a cycle (the test's mute
+  step now holds its pad for 0.3 s, twice, which moved the press to 45 to 80 ms before a line); the track landed on
+  THAT line, its note 42 to 84 ms after the press and -1.2 ms from the clock byte: right. The test began to count
+  0.15 s after the press and so missed that note; the next one is on beat 3.
+
+The device was right both times. run-launch v0.10 counts from the press and prints, on a failure, where in the cycle
+the press was and every note heard. Run again on the device: 40 of 40. Lesson (the third of its kind this month): a
+failing check is read from the notes on the cable before the firmware is changed.

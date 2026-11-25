@@ -20,7 +20,7 @@ Purpose
 Usage (browser closed)
     ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/run-launch.py --song N --out DIR
 
-Version: 0.9
+Version: 0.10
 
 Revision log
     v0.6  2026-11-17  The launched clip's first note is judged against where it is expected: one audio block (2.90 ms)
@@ -254,11 +254,20 @@ def main():
               % (len(muted), len(back), ", ".join(said(t, 48) for t, _ in back), own()))
         # ---- track 1 is still stopped: ENV brings it back ----
         l.shift_pad(0); idle(0.2)
+        before_env = [q["code"] for q in l.clips_state()["pads"][:3]]; t_env = T.now_ns()
         l.press("ENV"); idle(0.1)
-        tc = T.now_ns(); idle(CYCLE_MS / 1000.0 + 0.5)
+        # v0.10: counted from the press itself. Until v0.9 the count began 0.15 s after it, and a press 45 to 80 ms before a
+        # cycle (where the test's mute step, which now holds its pad, put it) landed on that cycle with its note, which
+        # the count then missed: "first note on clock byte 48" in rc1 and rc2 of tabby-v1.5. The device was right.
+        tc = t_env; idle(CYCLE_MS / 1000.0 + 0.5)
         got = ons(0, tc)
+        # on a failure, everything that can say why: the pads of track 1 before ENV, where in the cycle ENV was
+        # pressed, and every note of track 1 from the press on with its clock byte
+        phase_env = ((t_env - t0) / 1e6) % CYCLE_MS
+        heard = ["%.0f ms after ENV: %d at %s" % ((t - t_env) / 1e6, pitch, said(t, 96)) for t, pitch in ons(0, t_env)[:6]]
         check(bool(got) and on_beat(got[0][0], 96), "ENV: track 1 follows the scenes again from the next cycle",
-              "first note %s ms from the clock byte of its cycle%s" % (said(got[0][0], 96) if got else "none", own()))
+              "first note %s ms from the clock byte of its cycle%s; ENV pressed %.0f ms after a cycle; pads of track 1 before it %s; heard: %s" % (
+                  said(got[0][0], 96) if got else "none", own(), phase_env, before_env, "; ".join(heard)))
         # ---- SCENES ----
         l.press("SCL"); idle(0.3); s = l.clips_state()
         codes = [x["code"] for x in s["pads"]]
