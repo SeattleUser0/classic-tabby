@@ -1,0 +1,55 @@
+{
+  "build": "22db9afc4704af3e22e094fd1261d33224c0f9f6b9ec271fe51026433131def3",
+  "release": "V01",
+  "version": "tabby-v1.5.1",
+  "entryBytes": 391001,
+  "initialBytes": 1463096,
+  "standaloneBytes": 3241977,
+  "assets": [
+    {
+      "name": "assets/smk37/2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0.bin",
+      "bytes": 705252,
+      "sha256": "2d98ce72530e71d617384963423820536f094501299e2cfec0a8d3c3fb6bcfb0"
+    },
+    {
+      "name": "assets/smk37/a8f08eea5cb1e3c40c61c5037abd35e3d724aa4663d59ebe980035ace4ae93c8.bin",
+      "bytes": 533044,
+      "sha256": "a8f08eea5cb1e3c40c61c5037abd35e3d724aa4663d59ebe980035ace4ae93c8"
+    },
+    {
+      "name": "assets/smk37/83b3262ef4d2fc75e1abc1c5eb7ac6a2d8d0fdef0d0e4fdea9398eb2308e38a8.wasm",
+      "bytes": 386617,
+      "sha256": "83b3262ef4d2fc75e1abc1c5eb7ac6a2d8d0fdef0d0e4fdea9398eb2308e38a8"
+    },
+    {
+      "name": "assets/smk37/89f53f8da2d48dfeb52bb3b826ddbdfd9df9bb69a1ebffe121ce2350f78a925a.js",
+      "bytes": 613059,
+      "sha256": "89f53f8da2d48dfeb52bb3b826ddbdfd9df9bb69a1ebffe121ce2350f78a925a"
+    },
+    {
+      "name": "assets/smk37/4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b.js",
+      "bytes": 71912,
+      "sha256": "4b201b509416118850b2af0f38d11afd42e752fc20ab9112a7d18f41e735404b"
+    },
+    {
+      "name": "assets/smk37/1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232.js",
+      "bytes": 507,
+      "sha256": "1d0009bb79b44c546f54ecf694bcd766ea587a1a3256ba76bf9113a60091d232"
+    },
+    {
+      "name": "index.html",
+      "bytes": 391272,
+      "sha256": "fe2b617ade820b5a4461b8b566f0b22bd15cf693a1c9eaf4bcddc0e4fa40a211"
+    },
+    {
+      "name": "smk37-workbench.html",
+      "bytes": 391272,
+      "sha256": "fe2b617ade820b5a4461b8b566f0b22bd15cf693a1c9eaf4bcddc0e4fa40a211"
+    },
+    {
+      "name": "SMK37-Open-Source.html",
+      "bytes": 3241977,
+      "sha256": "df0ad38ea3e356a6a6bcae415e980aab78a44770cd67ef2ec4f2029772ac4812"
+    }
+  ]
+}
