@@ -36,4 +36,33 @@ A clip launched in the last moment before the bar line keeps its first note agai
 
 ## Validation
 
-VALIDATION
+Candidate 2 (builds/tabby-v1.5.1-rc2/) on the device, unattended, 15:09 to 18:21 on 2026-11-25, every stage behind
+the Orange Cat soak guard, promotion off. Every step passed, every limit held. Then its tables were compared with
+tabby-v1.5's release run (the bar line with tabby-v1.4's) and with tabby-v1.4's.
+
+**Rows worse than the tabby-v1.5 release run, accepted by the owner for this release (2026-11-25):**
+
+- Eight lines at once on DIN, the worst line: 2.60 ms (overview) and 2.85 ms (SCENES) against 1.97 to 2.10 ms; the
+  limit is 3.5 ms. Accepted because the figure has two states between runs of one build: of 18 runs since
+  tabby-v1.2.1, 15 read 2.35 to 2.96 ms and three 2.0 to 2.2; the tabby-v1.5 release run was one of the three,
+  and candidate 2 of the same tabby-v1.5 build read 2.81, 2.76 and 2.96. tabby-v1.4's release run: 2.69 to 2.95.
+- The MIXER page's longest screen pass: 2.05 ms against 1.48 (inside every limit; no line of notes is later for
+  it: one line on MIXER 1.73 ms).
+
+**Worse than tabby-v1.4, as in tabby-v1.5: recorded as a regression of tabby-v1.5, to be found next:** in the Wrong
+Room soak the device's own latest send 3.26 ms (tabby-v1.5: 4.01; tabby-v1.4: 2.49; limit 10) and the song
+section's longest pass 2.52 ms (2.46; 1.68).
+
+- The bar line, 252 presses: sent up to 3 ms after the line 161 of 161 landed on it with the first note (30 of them
+  sent after the line); sent 24 ms or more after it 36 of 36 waited and landed on the next line; between the two
+  53 landed (the latest sent 14.0 ms after the line) and 2 waited (13.7, 19.6); no other outcome. An old note ended
+  1 to 6 ms before the new clip's first note (142 landings in the grace).
+- SEQ REC 3 ms after the line: the take ran on that line, 5 of 5; 40 ms after it: armed, then on the next line, 5 of 5.
+- Stop (ms, DIN): after SEQ PLAY 5.36 to 8.48; after a page change 7.56 to 16.30; a save sent after it 5.60 to
+  13.07. The clock's pause at a save while stopped 102 to 105 ms (limit 170).
+- One line, 960 notes (DIN / USB / own, ms): overview 1.71, 1.60, 1.71 / 1.69, 1.66, 1.72 / 1.53, 1.51, 1.47; the
+  other pages 1.68 to 1.80 / 1.69 to 1.79 / 1.47 to 1.74. Eight lines: DIN 2.57 to 2.85, USB 2.02 to 2.15.
+- The latest send while a song ran 3.38 ms; stopped 17.15 ms.
+- Soaks: Wrong Room 40 + 40 minutes, none bad; Meridian Fault 9 passes, none bad (USB worst 1.76 ms).
+- Clip launch page 40 of 40 twice, scene edit 16 of 16, recording 30 of 30, setting page 41 of 41, pixels 46 of
+  46; backup, restore, verify PASS.

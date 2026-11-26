@@ -7600,3 +7600,29 @@ matches the last release.
 
 **The figure a player gets** (the user, 2026-11-25): the guide, TESTING-GUIDE and CONTROL-MAP say "up to about 15 ms
 late still lands on the line; later goes to the next line"; "about 20 ms inside the device" stands in SPEC.md only.
+
+### 71.5 tabby-v1.5.1 released: candidate 2, held back, then promoted on the owner's word (2026-11-25)
+
+Commit ca53932, build `9867cdab400d5af9`, 15:09 to 18:21, promotion off; every step passed. compare-runs: 8 rows
+worse than tabby-v1.5-rc3, in two figures: eight lines on DIN (overview 2.60, SCENES 2.85 ms against 1.97 to 2.10)
+and the MIXER page's longest screen pass (2.05 against 1.48 ms). HELD BACK at 18:35 by the rule (a worse row holds),
+with what I had found: the eight-line DIN figure has two states between runs of one build (15 of 18 runs since
+tabby-v1.2.1: 2.35 to 2.96; three: 2.0 to 2.2, the tabby-v1.5 release run among them; tabby-v1.5-rc2, the same
+build as that release: 2.81, 2.76, 2.96).
+
+**The owner's decision (2026-11-25): "Promote candidate 2 as tabby-v1.5.1. I accept these rows for this release":**
+the eight-line DIN figure, because it has two states and the tabby-v1.5 build shows the high one too; and the mixer
+screen pass, inside every limit. Promoted at 20:31, behind the guard. How: release-flow.sh's promote-only mode
+would have refused on those rows (the tool has no way to take an acceptance yet), and a change to the tool would
+have been a new commit without a device run. So the stages of the flow were run by hand on the tested commit, each
+behind scripts/oc_guard.sh: the comparison (its 8 worse rows checked to be exactly the accepted ones, and no
+other), the device gate and the suite gate (both ok for ca53932), the tag, `make promote` as the release session.
+Next: compare-runs takes acceptances from a file kept in the repository (who, when, which rows, why), so that this
+is not done by hand again.
+
+Carried from tabby-v1.5, worse than tabby-v1.4 again: the Wrong Room soak's own latest send (3.26 ms; 4.01; 2.49)
+and the song section's longest pass (2.52; 2.46; 1.68). The owner's order for what follows: (a) find that
+regression and what switches the eight-line figure (compare the map files of builds in each state: does the
+switching follow a function moving across a cache line or a flash page?); (b) then the reclaim-only release,
+compared against tabby-v1.5.1. And the comparison is to use every run of the last release's build, by their spread:
+a row is worse only outside the range those runs showed; the spread is shown.
