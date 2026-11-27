@@ -7652,8 +7652,17 @@ One build shows both states (tabby-v1.5: rc2 2.81, 2.76, 2.96; rc3 2.09, 2.08, 2
 3.5 ms; it reads 1.9 to 2.1), the DIN band as this computer times it stays a limit only (3.5 ms), and compare-runs
 does not compare it (v0.4; it compares the device's figure for the same play).
 
-Not done: what else ran on this computer during each of the 18 runs (Orange Cat soaks before the guard existed);
-and whether another way of keeping the computer awake avoids the late stamp.
+**What else ran on this computer during the runs** (the owner's question). The system's own record (sysstat, one
+line per 10 minutes, kept since 2026-11-19) around the eight-line plays of the 26 runs from tabby-v1.1-rc1 to
+tabby-v1.5.1-rc2: in 18 of them the processors show 75 to 98 % at low priority (the run's own spinners) and 1 to 5 %
+other work: nothing else of weight was running; in 6 (tabby-v1.2.1-rc2, tabby-v1.3-rc2, -rc3, -rc6, tabby-v1.4-rc1,
+-rc4) 9 to 15 % other work (another session's builds or a soak) at some point in the half hour; in 2 of 2026-11-19
+(tabby-v1.2-rc3, -rc4) the spinners were not running. The wide state does not follow that: with nothing else running it is wide (tabby-v1.4-rc5, tabby-v1.5-rc1,
+-rc2, tabby-v1.5.1-rc2: 2.6 to 2.94 ms) and narrow (tabby-v1.5-rc3, tabby-v1.5.1-rc1: 2.09, 2.16 ms). So it is not
+Orange Cat's load; it comes with this run's own spinners, in some plays and not in others. Orange Cat's own soak
+logs were not found on this computer (its flag file leaves no history); the record above is the system's.
+
+Not done: whether another way of keeping the computer awake avoids the late stamp.
 
 **compare-runs v0.4:** `--old` takes every run of the last release's build; a row is worse only above the largest
 those runs showed (plus the slack of 25 % and 0.5 ms: with two or three runs a new run exceeds their largest in one
