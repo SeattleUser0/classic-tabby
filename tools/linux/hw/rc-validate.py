@@ -26,9 +26,10 @@ Purpose
     Run from the repository root, with the Python of the hardware venv:
       ~/fm1-hw/hwvenv/bin/python3 tools/linux/hw/rc-validate.py --tag tabby-v04.14 --rc 1 --out ../overnight/g8
 
-Version: 0.28
+Version: 0.29
 
 Revision log
+    v0.29 2026-11-27  Eight lines: the device's own latest send is the gate (under 3.5 ms); the DIN band a limit only.
     v0.28 2026-11-25  The step `recline` (run-recline.py); the bar-line step fails on any press sent at or before the line that
                       does not land with its first note (run-barline v0.5).
     v0.25 2026-11-23  The step `barline` (run-barline.py --limit 12).
@@ -422,7 +423,10 @@ def main():
             ok = (code == 0 and len(worst) == 2 and worst["USB"] < limit and rest is not None and rest < limit and first < FIRST_NOTE_MS + (0.0 if lines_n == 1 else 7 * 0.96)
                   # v0.28: on ACTIONS and with eight lines the device's own figure was "reported, not judged": it has the limit
                   # of the lateness step there (10 ms: one screen band and one control pass); elsewhere one line's 2 ms
-                  and latest is not None and latest < (LATE_LIMIT_MS if lines_n > 1 or page == "actions" else PAGE_LIMIT_MS))
+                  # v0.29 (the owner's decision of 2026-11-27, docs/BUILD.md 72): with eight lines THE GATE is the device's own
+                  # figure, under the eight-line limit: the DIN band as this computer times it has two states that follow
+                  # this computer (2.0 to 2.3 or, with one late time stamp, 2.6 to 2.96 ms); it stays a limit check above
+                  and latest is not None and latest < (EIGHT_LIMIT_MS if lines_n > 1 else LATE_LIMIT_MS if page == "actions" else PAGE_LIMIT_MS))
             bad += not ok
             got.append("%s %s %s/%s/%s" % ("1L" if lines_n == 1 else "8L", page, "?" if rest is None else "%.2f" % rest, "%.2f" % worst["USB"] if "USB" in worst else "?", "?" if latest is None else "%.2f" % latest))
         step("timing-pages", not bad, "worst line DIN (without each line's first note at SEQ PLAY) / USB / the device's own latest send, ms: " + "; ".join(got))

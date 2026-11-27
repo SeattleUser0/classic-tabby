@@ -1,0 +1,19 @@
+{
+  "comment": "Rows of tools/linux/compare-runs.py that the owner accepted for one release. \"rows\" is a regular expression searched in the WORSE line. Only the owner accepts; an entry says who, when and why.",
+  "accepted": {
+    "tabby-v1.5.1": [
+      {
+        "rows": "^table 8x-(overview|scenes)-summary.json: din/",
+        "by": "the owner",
+        "date": "2026-11-25",
+        "reason": "the eight-line DIN figure has two states and the tabby-v1.5 build shows the high one too"
+      },
+      {
+        "rows": "^table 1x-mixer-summary.json: profile/sections/screen/max_ms",
+        "by": "the owner",
+        "date": "2026-11-25",
+        "reason": "2.05 against 1.48 ms, inside every limit"
+      }
+    ]
+  }
+}

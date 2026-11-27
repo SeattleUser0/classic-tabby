@@ -47,9 +47,12 @@ Usage
        as CARRIED even when it matches the last release: a regression the last release brought in would otherwise be
        carried forward unseen. CARRIED rows do not change the exit code.
 
-Version: 0.3
+Version: 0.4
 
 Revision log
+    v0.4  2026-11-27  --old takes every run of the last release's build (comma separated): a row is worse only above the
+                      largest those runs showed (and the slack), the spread is shown. Acceptances from
+                      tools/linux/compare-accept.json. Eight lines on DIN: not a row (it follows this computer).
     v0.3  2026-11-25  --before-last (the user's rule): rows worse than the release before last are flagged.
     v0.2  2026-11-25  Every table of the run (the user's second order of the day): all JSON files leaf by leaf, the counts of
                       checks, the grace window's two sides.
@@ -69,6 +72,7 @@ IGNORED = {
     "din_pauses_ms": "the clock's pause around a save follows how full the sector being written is (87 to 137 ms in runs of one build); judged in the step stop against 170 ms",
     "usb_pauses_ms": "as din_pauses_ms", "din_bytes_missing": "the clock bytes inside that pause: as din_pauses_ms", "longest_pause_ms": "as din_pauses_ms", "bytes_missing": "as din_pauses_ms",
     "save_taken_ms": "how long the save takes: as din_pauses_ms",
+    "eight lines, DIN as this computer times it": "two states that follow this computer (kept awake: one late time stamp in some plays), not the device; a limit in the step timing-pages; the device's own figure is compared instead",
     "at_min": "when in the run a segment was taken", "at_ms": "when since power-on the worst send was (a time stamp)",
     "clock_parted_ms": "this computer's clock steering", "clock_bend_ms": "this computer's clock steering", "t_ms": "a time stamp", "tolerance_ms": "a limit, not a result", "deadline_ms": "a constant",
     "band_limit_ms": "a limit", "band_limit_many_ms": "a limit", "period_ms": "the clock's period: the tempo (judged by the clock ratio in the step timing)",
@@ -139,6 +143,21 @@ def main():
     p.add_argument("--before-last", default="", help="v0.3: path prefix of the run of the release BEFORE the last one")
     a = p.parse_args()
     text, worse, look = run(a)
+    # v0.4: acceptances. A row the owner has accepted for one release is printed as ACCEPTED, with who, when and why,
+    # and does not hold that release back. They are kept in the repository (tools/linux/compare-accept.json); on
+    # tabby-v1.5.1 the same thing was done by hand (docs/BUILD.md 71.5).
+    accepted = []
+    try:
+        acc = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "compare-accept.json"), encoding="utf-8")).get("accepted", {})
+    except (OSError, ValueError):
+        acc = {}
+    tag_new = load(a.new + "-results.json").get("tag")
+    for x in list(worse):
+        for e in acc.get(tag_new, []):
+            if re.search(e["rows"], x):
+                accepted.append("ACCEPTED by %s on %s (%s): %s" % (e["by"], e["date"], e["reason"], x)); worse.remove(x); break
+    if accepted:
+        text += "\n" + "\n".join(accepted) + "\n%d row(s) worse than the last release are accepted for %s and do not hold it back\n" % (len(accepted), tag_new)
     # v0.3 (the user's rule of 2026-11-25): a regression that came in with the last release is carried forward by every
     # comparison with that release alone. So every row is also laid against the release before last, and a row worse
     # than THAT is flagged even when it matches the last release. It does not hold the candidate back (the candidate is
@@ -172,6 +191,12 @@ def run(a):
     def time_worse(new, old):
         return new > old * (1 + a.slack / 100.0) and new - old > a.floor
 
+    # v0.4 (the owner's rule of 2026-11-25): --old may name EVERY run of the last release's build, comma separated. The
+    # first is the one whose lines are printed; the others widen each row to the spread those runs showed.
+    olds = [x for x in a.old.split(",") if x]
+    a = argparse.Namespace(**vars(a)); a.old = olds[0]
+    extra_results = [load(x + "-results.json") for x in olds[1:]]
+    spread = lambda vals: ("%.2f" % vals[0]) if len(vals) == 1 else "%.2f to %.2f in %d runs" % (min(vals), max(vals), len(vals))
     new = load(a.new + "-results.json"); old = load(a.old + "-results.json")
     say("NEW %s-rc%s build %s   OLD %s-rc%s build %s" % (new.get("tag"), new.get("rc"), str(new.get("device_build") or new.get("build"))[:16], old.get("tag"), old.get("rc"), str(old.get("device_build") or old.get("build"))[:16]))
 
@@ -192,10 +217,15 @@ def run(a):
             if what == what2 and what != "landing" and int(nv) < int(ov):
                 mark = "WORSE"; worse.append("step %s: %s %s, before %s: checks or rows that no longer run" % (s["step"], nv, what, ov))
         of = [float(x) for x in re.findall(ms_re, s["summary"])]; nf = [float(x) for x in re.findall(ms_re, n["summary"])]
+        for xr in extra_results:      # the spread: each figure's largest over the runs of the build
+            xs = next((q for q in xr["steps"] if q["step"] == s["step"]), None)
+            xf = [float(x) for x in re.findall(ms_re, xs["summary"])] if xs else []
+            if len(xf) == len(of):
+                of = [max(p_, q_) for p_, q_ in zip(of, xf)]
         if s["step"] != "lateness" and of and len(of) == len(nf):
             grown = [(i, o_, n_) for i, (o_, n_) in enumerate(zip(of, nf)) if time_worse(n_, o_)]
             for i, o_, n_ in grown:
-                mark = "WORSE"; worse.append("step %s: figure %d of its line is %.2f ms, before %.2f" % (s["step"], i + 1, n_, o_))
+                mark = "WORSE"; worse.append("step %s: figure %d of its line is %.2f ms, before %.2f at most%s" % (s["step"], i + 1, n_, o_, " in %d runs" % len(olds) if len(olds) > 1 else ""))
         elif s["step"] != "lateness" and of and nf and time_worse(max(nf), max(of)):
             mark = "WORSE"; worse.append("step %s: its largest figure is %.2f ms, before %.2f (the lines differ in shape: largest against largest)" % (s["step"], max(nf), max(of)))
         say("%s %-13s old: %s" % (mark, s["step"], s["summary"][:400])); say("      %-13s new: %s" % ("", n["summary"][:400]))
@@ -271,12 +301,25 @@ def run(a):
         if not os.path.exists(fn):
             worse.append("table %s: written by the old run, not by the new one" % suffix); say("WORSE %s: not written by the new run" % suffix); continue
         fam = re.sub(r"-\d+(?=-)", "-NN", suffix).lstrip("-")
-        f_ = families.setdefault(fam, [{}, {}, 0])
-        flatten(load(fo), (), f_[0]); flatten(load(fn), (), f_[1]); f_[2] += 1
-    for fam, (fo_, fn_, files) in sorted(families.items()):
+        f_ = families.setdefault(fam, [[{} for _ in olds], {}, 0])
+        flatten(load(fo), (), f_[0][0]); flatten(load(fn), (), f_[1]); f_[2] += 1
+        for k, x in enumerate(olds[1:], 1):
+            xdir, xpre = os.path.split(x)
+            fx = os.path.join(xdir, "guard-" + xpre, "guard.json") if suffix == "guard.json" else os.path.join(xdir, xpre + suffix)
+            if os.path.exists(fx):
+                flatten(load(fx), (), f_[0][k])
+    for fam, (runs_, fn_, files) in sorted(families.items()):
         bad_here = []; n_here = 0
-        for path, ov in sorted(fo_.items()):
+        fo_ = runs_[0]
+        for path, ov0 in sorted(fo_.items()):
             what, name = kind(path)
+            # v0.4 (the owner's decision of 2026-11-27): eight lines on DIN as this computer times them has two states that
+            # follow this computer, not the device (docs/BUILD.md 72): a limit in the step, not a row here. The device's
+            # own figure for the same play (fg/late_max_ms) is the row that is compared.
+            if what == "time" and fam.startswith("8x-") and path[0] == "din":
+                what, name = "ignored", "eight lines, DIN as this computer times it"
+            per_max = [max(r_[path]) for r_ in runs_ if path in r_]; per_sum = [sum(r_[path]) for r_ in runs_ if path in r_]
+            ov = [max(per_max)]
             if what == "ignored":
                 left_out[name] = left_out.get(name, 0) + 1; continue
             if what == "other":
@@ -286,11 +329,11 @@ def run(a):
                 bad_here.append("%s: in the old table, not in the new one" % "/".join(path)); continue
             n_here += 1
             if what == "time" and time_worse(max(nv), max(ov)):
-                bad_here.append("%s: %.2f ms, before %.2f" % ("/".join(path), max(nv), max(ov)))
+                bad_here.append("%s: %.2f ms, before %s" % ("/".join(path), max(nv), spread(per_max)))
             elif what == "fault" and max(nv) > max(ov):
                 bad_here.append("%s: %s, before %s" % ("/".join(path), max(nv), max(ov)))
-            elif what == "seen" and sum(nv) < sum(ov):
-                bad_here.append("%s: %s in all, before %s" % ("/".join(path), sum(nv), sum(ov)))
+            elif what == "seen" and sum(nv) < min(per_sum):
+                bad_here.append("%s: %s in all, before %s" % ("/".join(path), sum(nv), min(per_sum)))
         rows += n_here
         say("%s %-34s %3d rows compared%s%s" % ("WORSE" if bad_here else "ok   ", fam, n_here, " (%d files, the largest of each row)" % files if files > 1 else "", "".join("\n        " + x for x in bad_here)))
         worse.extend("table %s: %s" % (fam, x) for x in bad_here)
@@ -303,7 +346,7 @@ def run(a):
         worse.append("unanswered remote commands: %d, before %d" % (nu, ou))
     say("info  tests that left another page or track selected (put back by the run): %d, before %d" % (len(new.get("left_by_tests") or []), len(old.get("left_by_tests") or [])))
     run_late = lambda r: max([o_["worst_boot"]["running"]["late_ms"] for o_ in (r.get("own_lateness_by_step") or []) if o_.get("worst_boot")] or [0.0])
-    ol, nl = run_late(old), run_late(new)
+    ol, nl = max([run_late(old)] + [run_late(x) for x in extra_results]), run_late(new)
     say("%s the device's own latest send while a song ran, the largest after any step: %.2f ms, before %.2f" % ("WORSE" if time_worse(nl, ol) else "ok   ", nl, ol))
     if time_worse(nl, ol):
         worse.append("the device's own latest send while a song ran: %.2f ms, before %.2f" % (nl, ol))

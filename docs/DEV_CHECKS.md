@@ -1,6 +1,6 @@
 # Development checks (Task 07; releasing: 2026-11-17)
 
-Version 0.7, 2026-11-24. The opt-in checks between builds, what each catches, how long it takes, and
+Version 0.8, 2026-11-27 (the rule "Never stop with work left and nothing queued"). v0.7, 2026-11-24. The opt-in checks between builds, what each catches, how long it takes, and
 the standing rules for every Classic Tabby session on this machine. The default build is unchanged:
 `make firmware`, `make package` and `make hosted` produce the same bytes as before Task 07 (the gate at
 the end). The measurement series that led here is docs/tasks/TASK-07-step1-assessment.md. The shape of
@@ -137,6 +137,30 @@ have passed on the exact commit, with the release's display version.
 
 The display version of a candidate is the release's (`tabby-v04.14`, not `-rc1`), so the firmware that is promoted
 is byte for byte the firmware that was tested. Candidates of one release differ in their build id.
+
+## Never stop with work left and nothing queued (the owner's rule, 2026-11-27)
+
+In the owner's words: "Never end a turn with work left and nothing queued to wake you. Before you stop, always
+leave a background command running that will finish and bring you back: the next queued run, a guard wait that
+exits when the flag clears, or, if nothing else, a timer of no more than 60 minutes. When it wakes you, carry on
+with the list. Only end a turn with nothing queued when the list is truly empty or you need a decision from me; in
+that case, say so at the top of MORNING-REPORT.txt."
+
+Why: on Wednesday 2026-11-25 at 20:44, after tabby-v1.5.1 was released, the session ended its turn with "I'll do
+the tool work during the soaks and the device work after 01:45" and queued nothing. Nothing woke it. Until the
+owner asked on Friday noon, a day and a half, nothing was done; no error, no guard wait, no question: only no
+wake-up.
+
+How:
+
+- A run that is queued is the wake-up: start it in the background behind the guard (`scripts/oc_guard.sh --waiting`
+  when the flag may be up) and let its end bring the session back.
+- While the soak flag exists the hook refuses every command of this repository, the guard's own wait too. The
+  wake-up is then a bare wait that starts nothing: `while [ -e /tmp/oc-soak-running ]; do sleep 30; done`.
+- With neither: a timer of at most 60 minutes (`sleep 3600` in the background), again and again until the list is
+  empty.
+- A turn that ends with nothing queued begins MORNING-REPORT.txt with the reason: "THE LIST IS EMPTY" or "WAITING
+  FOR YOUR DECISION: ...".
 
 ## The targets
 

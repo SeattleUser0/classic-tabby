@@ -124,7 +124,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/build-web.py` | tools/linux/build-web.py:68 |  |
 | `tools/linux/build.py` | tools/linux/build.py:125 |  |
 | `tools/linux/builds-index.py` | tools/linux/builds-index.py:56 |  |
-| `tools/linux/compare-runs.py` | tools/linux/compare-runs.py:58 |  |
+| `tools/linux/compare-runs.py` | tools/linux/compare-runs.py:61 |  |
 | `tools/linux/crosscheck-compare.sh` | tools/linux/crosscheck-compare.sh:19 |  |
 | `tools/linux/device-gate.py` | tools/linux/device-gate.py:31 |  |
 | `tools/linux/devices-from-sources.py` | tools/linux/devices-from-sources.py:43 |  |
@@ -134,7 +134,7 @@ Every target, present and future: `Makefile:174` asks the guard when make READS 
 | `tools/linux/hw/clips-song.mjs` | tools/linux/hw/clips-song.mjs:19 |  |
 | `tools/linux/hw/expected-events.mjs` | tools/linux/hw/expected-events.mjs:20 |  |
 | `tools/linux/hw/panel-state.py` | tools/linux/hw/panel-state.py:30 |  |
-| `tools/linux/hw/rc-validate.py` | tools/linux/hw/rc-validate.py:76 | 112 |
+| `tools/linux/hw/rc-validate.py` | tools/linux/hw/rc-validate.py:77 | 113 |
 | `tools/linux/hw/rig-song.mjs` | tools/linux/hw/rig-song.mjs:19 |  |
 | `tools/linux/hw/run-11b.py` | tools/linux/hw/run-11b.py:49 |  |
 | `tools/linux/hw/run-12b.py` | tools/linux/hw/run-12b.py:33 |  |

@@ -7626,3 +7626,38 @@ regression and what switches the eight-line figure (compare the map files of bui
 switching follow a function moving across a cache line or a flash page?); (b) then the reclaim-only release,
 compared against tabby-v1.5.1. And the comparison is to use every run of the last release's build, by their spread:
 a row is worse only outside the range those runs showed; the spread is shown.
+
+## 72. The eight-line figure follows this computer (2026-11-25 and 2026-11-27)
+
+The eight-line song (slot 15) on the overview, 125 s a play, tabby-v1.5.1 on the device, nothing else changed. "Kept
+awake": one low-priority spinner per core, as rc-validate.py does around every timing tool.
+
+| This computer | Plays | DIN band, ms | Plays with one wide line | USB band, ms | The device's own latest send, ms |
+| --- | --- | --- | --- | --- | --- |
+| idle (Wed 3, Fri 5) | 8 | 2.14 to 2.27 | 0 | 2.03 to 2.22 | 1.88 to 2.13 (Fri) |
+| kept awake (Wed 2, Fri 5) | 7 | 1.98 to 2.17, and 2.68, 2.74, 2.77 | 3 | 1.89 to 2.09 | 1.93 to 2.04 (Fri) |
+
+In a wide play ONE line is 2.7 to 2.8 ms and the seven others 1.9 to 2.1; which line it is changes (line 2, 5, 4 in
+the three). All DIN comes in on one port of the H4MIDI (Port 1), and the eight lines are eight channels on it: it is
+not one port or one channel. The device's own figure does not move. So: a band is largest minus smallest; with the
+spinners running, in about three plays of seven one time stamp of this computer comes about 0.7 ms late, and that
+one stamp is the "state". In the release runs (always kept awake, three pages each) 15 of 18 runs since
+tabby-v1.2.1 had it and three did not. Idle, the stamps are 0.1 to 0.3 ms looser all over (65.4: why the spinners
+exist) but never had the outlier in 8 plays.
+
+One build shows both states (tabby-v1.5: rc2 2.81, 2.76, 2.96; rc3 2.09, 2.08, 2.10), so a comparison of map files
+"of builds in each state" has nothing to compare; code placement is not the switch.
+
+**The owner's decision (2026-11-27):** eight lines are gated on the device's own figure (rc-validate v0.29: under
+3.5 ms; it reads 1.9 to 2.1), the DIN band as this computer times it stays a limit only (3.5 ms), and compare-runs
+does not compare it (v0.4; it compares the device's figure for the same play).
+
+Not done: what else ran on this computer during each of the 18 runs (Orange Cat soaks before the guard existed);
+and whether another way of keeping the computer awake avoids the late stamp.
+
+**compare-runs v0.4:** `--old` takes every run of the last release's build; a row is worse only above the largest
+those runs showed (plus the slack of 25 % and 0.5 ms: with two or three runs a new run exceeds their largest in one
+row of three by chance alone); the spread is printed. Acceptances come from tools/linux/compare-accept.json (who,
+when, which rows, why). Tried: tabby-v1.5.1-rc2 against tabby-v1.5-rc3 and -rc2: PASS, no row worse; four rows
+CARRIED against tabby-v1.4 (the soak's own latest send 3.26 against 2.49 ms and song pass 2.52 against 1.68; a
+screen pass on MIXER and a busy stretch on SCENES).
