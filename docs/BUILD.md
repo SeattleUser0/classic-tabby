@@ -7670,3 +7670,37 @@ row of three by chance alone); the spread is printed. Acceptances come from tool
 when, which rows, why). Tried: tabby-v1.5.1-rc2 against tabby-v1.5-rc3 and -rc2: PASS, no row worse; four rows
 CARRIED against tabby-v1.4 (the soak's own latest send 3.26 against 2.49 ms and song pass 2.52 against 1.68; a
 screen pass on MIXER and a busy stretch on SCENES).
+
+### 72.1 The "tabby-v1.5 regression" in the soak: measured, and it is not one (2026-11-27)
+
+The owner's order: find why the Wrong Room soak's own latest send and the song section's longest pass are worse than
+tabby-v1.4 in tabby-v1.5 and tabby-v1.5.1, and check code placement.
+
+1. **The song section's longest pass** (2.4 to 2.5 ms against 1.68). A probe on tabby-v1.5.1: the Wrong Room song for
+   30 minutes with the counters read and reset every second: in 209 of 225 seconds with a scene change the song pass
+   was 1.9 to 3.0 ms; in the others never over 1.0. It is the pass that prepares the next scene's clips. Counted
+   over BOTH soaks of every full run (38 segments): tabby-v1.3-rc5 2 segments over 2.0 ms (largest 2.59), -rc6 (the
+   same build) 0, tabby-v1.4-rc5 1 (2.44, in its second soak), tabby-v1.5-rc3 4 (2.51), tabby-v1.5.1-rc2 3 (2.52);
+   the runs before tabby-v1.3-rc4 6 to 10. The same pass, the same size, in every version; the comparison of 71.4
+   had laid one soak's largest of tabby-v1.4 (1.68) against it.
+2. **The own latest send, and the longest control pass on ACTIONS** (16.25 and 15.71 ms against 12.9). The one-line
+   song on ACTIONS, 125 s a play, A/B on the device the same afternoon (full backup, tabby-v1.4 installed from its
+   page, identity read; then tabby-v1.5.1 back from the main page, identity read):
+
+   | Firmware | Plays | Longest control pass, ms | over 15 ms | Own latest send, ms | 2.3 ms or more |
+   | --- | --- | --- | --- | --- | --- |
+   | tabby-v1.5.1 | 10 | 12.88 to 14.54, and 16.24 | 1 | 1.46 to 1.57, and 2.36 | 1 |
+   | tabby-v1.4 | 10 | 12.88 to 13.06, and 15.60, 16.63 | 2 | 1.42 to 1.49, and 1.80, 2.53 | 1 |
+   | tabby-v1.5.1 again | 10 | 12.88 to 14.53, and 15.94, 15.95 | 2 | 1.43 to 1.63, and 2.61 | 1 |
+
+   tabby-v1.4 has the long pass (a slow screen band and the SDK's 12.6 ms stretch in one pass) and the send of 2.5
+   ms as often as tabby-v1.5.1. Its release runs read 12.9 ms because one play was taken per run.
+3. **Placement:** tabby-v1.4 and tabby-v1.5 built again from their tags (the released build ids) and their maps
+   compared with tabby-v1.5.1's: from `song_tempo` on all code lies 200 bytes higher in tabby-v1.5 and 6 to 8 more
+   in tabby-v1.5.1; `song_tick` in the same two 4 KB pages in all three. With no difference between the versions
+   in 2. there is nothing for placement to explain.
+
+So: no regression of tabby-v1.5 here. These rows are the largest of rare events (one or two in ten plays), and a
+single run's largest says little. For the comparison: such rows need several plays on each side, or a figure that
+is not a single largest (the count of sends over a threshold, which the firmware keeps). Not changed yet.
+The device: tabby-v1.5.1 again (build 9867cdab400d5af9 read from it), panel as found.
