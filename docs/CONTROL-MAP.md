@@ -852,6 +852,29 @@ C4   100  +000 480
 One line of note names replaces the six-line table; the chosen note's velocity, start and length are in the knob
 line. A length of 10000 units or more shows in steps (`21S`).
 
+**PROPOSED, NOT BUILT (2026-11-27; waits for the owner's word): step input that moves on by itself** (MC707-PARITY:
+"step input that moves on by itself", RM p. 28; estimated 0.6 to 0.9 KB). No new line and nothing smaller on the
+screen: only the pad line's word changes.
+
+```
+PADS INPUT   C4                 scale 2: the third way, after SELECT and TOGGLE
+```
+
+| Action (PADS INPUT) | Result |
+| --- | --- |
+| SCALE | Goes round: PADS SELECT, PADS TOGGLE, PADS INPUT. The page opens as today (TOGGLE on a drum track, SELECT otherwise). |
+| A pad | Selects the step where the input goes on (blue frame, cyan pad), as in SELECT. |
+| Keys, with a step selected | Each key is entered on the step as today (the velocity you played, one step long); several keys held together make a chord. When the LAST key is let go, the next step is selected by itself. |
+| The selected step's pad | A rest: nothing is entered and the next step is selected. |
+| The last step of the clip | The input goes on at step 1 of bar 1 (the bar shown follows the step). Message: BACK TO STEP 1. |
+| KNOB BANK held while keys are played | The step does not move on (a chord built from several presses); it moves on when KNOB BANK is let go. |
+| While the song plays | As while stopped: the step that is entered is the selected one, not the one that plays; the clip plays the new notes from its next loop (the edit heard at once applies as for every edit). |
+
+Undo takes back one step's entry as today. A tie (one note over several steps) stays K4 (LEN) after the entry; a
+"tie" key is not proposed. To test on the device before it is called done: a scale of eight keys entered on eight
+steps without touching a pad; a chord; a rest; the wrap at the clip's end; the same while the song plays, with the
+one-line timing check beside it.
+
 ### 20.8 CLIP SETTING
 
 ```
