@@ -1526,3 +1526,27 @@ Estimates from what the releases so far cost (a setting with a line on a page 0.
 4. Items 5 and 6 only on the user's word; item 7 not at all unless the user says so.
 5. A release that would leave less than 18 KB (the reserve + 2.6 KB) stops and reports before it is built further.
 
+### 55.6 Correction (2026-11-27): two of the four items are not there to be taken
+
+Read before the first line of the reclaim-only release was written:
+
+- **Item 1 is void.** app/samples.c has been a stub of 44 lines since Task 03: the two entry points the SDK still
+  calls (`groove_samples_init`, `groove_samples_poll`) and a status that returns 0. The 1936 bytes the budget shows
+  under its name are `song_poll` and `song_storage_poll`, which the link-time optimiser places in that hook. There
+  is no sample upload left to remove.
+- **Item 3 is mostly void.** Every page of command 25 is read: `tabby_link.diag()` asks for pages 0 to 6 in every
+  timing run of the release run, their figures are in every `-summary.json`, and since compare-runs v0.2 the loop
+  profile and the budget page are rows that are compared before a promotion (they are what 72.1 was measured
+  with). Taking them out would take out what the release is judged by. What may remain of item 3 (the scan page,
+  the storage lines' cache) has not been measured apart: a few hundred bytes at most.
+- Item 2 (the strings of screen.c, 400 to 800 bytes) stands.
+- Item 4 (`pad_velocity`, about 1000 bytes) stands as to size, but the table lies in the RAM-resident scan section
+  (`.data.smk37_scan`) and is read by the pad scan in interrupt context: replacing it by a curve touches that code
+  and the pads' feel. Medium risk was right; it is not a change to make in passing.
+
+So without the owner's word the reclaim is **about 0.4 to 1.8 KB, not 4.8 to 6.2**. The estimates of 55.3 for items
+1 and 3 were made from the budget's per-file figures without opening the files: my error. The margin today is
+25053 bytes, 9693 above the reserve; the MC-707 items of 55.4 are estimated at 4.6 to 6.4 KB. Whether a release
+that only takes out is still worth making for this, or the margin is better won from items 5 and 6 (the stock
+sequencer's editing pages, the factory FM patches), is the owner's decision.
+

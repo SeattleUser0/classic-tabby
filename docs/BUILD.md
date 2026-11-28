@@ -7662,7 +7662,9 @@ other work: nothing else of weight was running; in 6 (tabby-v1.2.1-rc2, tabby-v1
 Orange Cat's load; it comes with this run's own spinners, in some plays and not in others. Orange Cat's own soak
 logs were not found on this computer (its flag file leaves no history); the record above is the system's.
 
-Not done: whether another way of keeping the computer awake avoids the late stamp.
+Another way of keeping the computer awake, tried 2026-11-27: the spinners on two of its four cores only (cores 0
+and 1 left free), ten plays: DIN 2.04 to 2.31 ms in eight, 2.40 and 2.60 in two (one line wide again). Fewer and
+smaller, not gone. The spinners stay as they are; the DIN band of eight lines is a limit only now.
 
 **compare-runs v0.4:** `--old` takes every run of the last release's build; a row is worse only above the largest
 those runs showed (plus the slack of 25 % and 0.5 ms: with two or three runs a new run exceeds their largest in one
